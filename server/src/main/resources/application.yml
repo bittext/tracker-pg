@@ -1,0 +1,91 @@
+# PostgreSQL Tracker — defaults match docker-compose in this project root.
+# Override secrets via env or application-local.yml (gitignored).
+spring:
+  application:
+    name: tracker-pg-server
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/tracker}
+    username: ${SPRING_DATASOURCE_USERNAME:tracker}
+    password: ${SPRING_DATASOURCE_PASSWORD:tracker}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  flyway:
+    enabled: true
+
+server:
+  port: ${SERVER_PORT:9091}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+# Finance JDBC targets the local Flyway table (unquoted identifiers fold to lowercase in PostgreSQL).
+tracker:
+  auth:
+    jwt-secret: ${TRACKER_AUTH_JWT_SECRET:dev-secret-change-me-dev-secret-change-me-dev-secret-change-me}
+    jwt-ttl-seconds: ${TRACKER_AUTH_JWT_TTL_SECONDS:43200}
+    password-pepper: ${TRACKER_AUTH_PASSWORD_PEPPER:tracker-dev-pepper}
+    bootstrap-admin-enabled: ${TRACKER_AUTH_BOOTSTRAP_ADMIN_ENABLED:true}
+    bootstrap-admin-username: ${TRACKER_AUTH_BOOTSTRAP_ADMIN_USERNAME:admin}
+    bootstrap-admin-password: ${TRACKER_AUTH_BOOTSTRAP_ADMIN_PASSWORD:admin123}
+    trusted-location-days: ${TRACKER_AUTH_TRUSTED_LOCATION_DAYS:90}
+    mfa-otp-ttl-seconds: ${TRACKER_AUTH_MFA_OTP_TTL_SECONDS:300}
+    mfa-max-attempts: ${TRACKER_AUTH_MFA_MAX_ATTEMPTS:5}
+    mfa-rate-limit-per-hour: ${TRACKER_AUTH_MFA_RATE_LIMIT_PER_HOUR:12}
+    sms:
+      enabled: ${TRACKER_AUTH_SMS_ENABLED:false}
+      provider: ${TRACKER_AUTH_SMS_PROVIDER:log}
+      twilio-account-sid: ${TRACKER_AUTH_SMS_TWILIO_ACCOUNT_SID:}
+      twilio-auth-token: ${TRACKER_AUTH_SMS_TWILIO_AUTH_TOKEN:}
+      twilio-from-number: ${TRACKER_AUTH_SMS_TWILIO_FROM_NUMBER:}
+  finance:
+    robinhood-table: robinhood_transactions
+    max-transaction-rows: 10000
+    transaction-date-column: activity_date
+    transaction-date-quoted: false
+    transaction-date-oracle-format-mask: ""
+    stock-symbol-column: instrument
+    stock-symbol-column-quoted: false
+    stock-symbol-column-oracle-expr: ""
+    max-symbol-list-rows: 5000
+    max-stocks-summary-rows: 200000
+    max-import-csv-bytes: 5000000
+    import-preview-rows: 25
+    max-import-errors: 25
+    import-deduplicate: true
+    robinhood-csv-import-directory: ""
+    robinhood-csv-uploaded-directory: ""
+    max-directory-import-files: 500
+    news-enabled: true
+    news-max-items: 10
+    news-timeout-ms: 8000
+  logging:
+    in-memory-max-lines: 800
+    web-display-max-age-minutes: 30
+    emit-level-samples-on-startup: true
+
+logging:
+  level:
+    root: INFO
+    com.svp.tracker: DEBUG
+    com.svp.tracker.diagnostics: INFO
+    com.svp.tracker.logging: DEBUG
+    com.svp.tracker.config.ApiHttpLoggingFilter: INFO
+    com.svp.tracker.admin: DEBUG
+    com.svp.tracker.admin.controller.ServerLogsController: INFO
+    com.svp.tracker.finance: DEBUG
+    com.svp.tracker.finance.controller: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
+    org.springframework.jdbc.core: DEBUG

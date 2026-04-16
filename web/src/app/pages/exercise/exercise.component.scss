@@ -1,0 +1,229 @@
+.block-tight {
+  margin: 0 0 0.5rem;
+}
+
+.page-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 400px) minmax(0, 1fr);
+  gap: 1.25rem 1.75rem;
+  align-items: start;
+  margin-top: 0.25rem;
+}
+
+.entries-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.history-panel {
+  position: sticky;
+  top: 0.75rem;
+  max-height: calc(100vh - 5rem);
+  overflow: auto;
+  padding: 0.35rem 0.35rem 1rem;
+  border-radius: var(--app-radius-sm, 10px);
+  background: var(--app-surface-muted, #f5f7fb);
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+}
+
+.window-caption {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.01em;
+}
+
+.history-section {
+  padding: 0 0.35rem;
+}
+
+.history-heading {
+  margin: 0 0 0.75rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.history-sub {
+  margin: 1rem 0 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--mat-sys-on-surface-variant, rgba(0, 0, 0, 0.55));
+
+  &.history-sub--first {
+    margin-top: 0.35rem;
+  }
+}
+
+.panel-divider {
+  margin: 1rem 0;
+}
+
+/** Frames all weight or all exercise detail tables in the history panel. */
+.table-wrap-group {
+  margin-top: 0.35rem;
+  padding: 0.85rem 0.75rem 0.95rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+  border-radius: var(--app-radius-sm, 10px);
+  background: var(--app-surface, #fff);
+  box-shadow: var(--app-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.05));
+}
+
+.table-wrap-group > .history-sub:first-of-type {
+  margin-top: 0;
+}
+
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.75rem;
+
+  &.col {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  mat-form-field {
+    min-width: 140px;
+  }
+
+  .grow {
+    flex: 1 1 200px;
+    min-width: 200px;
+  }
+
+  .notes-field {
+    width: 100%;
+  }
+}
+
+/** Tighter infix; textarea height set in .notes-input. */
+.notes-field--dense {
+  ::ng-deep .mat-mdc-form-field-infix {
+    padding-top: 6px;
+    padding-bottom: 6px;
+    min-height: 0;
+  }
+
+  ::ng-deep .mat-mdc-text-field-wrapper .mat-mdc-form-field-flex {
+    align-items: stretch;
+  }
+}
+
+.notes-input {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 6px 8px;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  /* Show 10 lines of text (line-height 1.4) plus vertical padding */
+  min-height: calc(10lh + 12px);
+  max-height: 28rem;
+  resize: vertical;
+}
+
+.notes-cell {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.duration-row {
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.duration-field {
+  width: 6.5rem;
+}
+
+.duration-hint {
+  flex: 1 1 12rem;
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+.section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 1rem 0 0.5rem;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 0.35rem;
+  border-radius: var(--app-radius-sm, 10px);
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+  background: var(--app-surface-muted, #f8fafc);
+
+  &.tight {
+    margin-top: 0.45rem;
+  }
+
+  &.tight.table-wrap--entry {
+    margin-top: 0;
+  }
+
+  .dense-table {
+    min-width: min(100%, 320px);
+  }
+
+  /** Forms on the left (weight / exercise entry cards). */
+  &.table-wrap--entry {
+    margin-top: 0;
+    padding: 0.55rem 0.55rem 0.65rem;
+
+    &:first-child {
+      margin-top: 0;
+    }
+
+    .section-title:first-of-type {
+      margin-top: 0.35rem;
+    }
+  }
+}
+
+.entries-panel .table-wrap-group {
+  margin-top: 0;
+}
+
+.dense-table {
+  font-size: 0.8125rem;
+
+  .mat-mdc-cell,
+  .mat-mdc-header-cell {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
+
+.full-width {
+  width: 100%;
+}
+
+.empty-hint {
+  margin: 0.35rem 0 0.75rem;
+  font-size: 0.85rem;
+}
+
+.card {
+  margin-bottom: 0;
+}
+
+.highlight {
+  border-left: 4px solid var(--app-accent, #2563eb);
+}
+
+@media (max-width: 960px) {
+  .page-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .history-panel {
+    position: static;
+    max-height: none;
+  }
+}

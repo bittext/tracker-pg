@@ -1,0 +1,280 @@
+<div class="page-head">
+  <h1 class="page-title">Management</h1>
+  <p class="muted">
+    Organize to-dos by <strong>balance area</strong> and <strong>urgency</strong>, then review them on the calendar. Define
+    categories and task types under <strong>Admin → Management</strong>.
+  </p>
+</div>
+
+<mat-card class="card mgmt-card">
+  <mat-tab-group animationDuration="220ms" class="mgmt-tab-group" [dynamicHeight]="true">
+    <mat-tab label="Tasks">
+      <div class="tab-panel mgmt-tasks-panel">
+        <div class="mgmt-intro-grid">
+          <section class="mgmt-intro-card" aria-labelledby="mgmt-balance-heading">
+            <h2 id="mgmt-balance-heading" class="mgmt-intro-title">Track your balance</h2>
+            <p class="muted mgmt-intro-text">
+              Assign each task a <strong>balance category</strong> (work, health, relationships, finance, etc.) so you can
+              see whether attention is spread across what matters-not just what is loudest.
+            </p>
+          </section>
+          <section class="mgmt-intro-card" aria-labelledby="mgmt-urgency-heading">
+            <h2 id="mgmt-urgency-heading" class="mgmt-intro-title">Urgency</h2>
+            <p class="muted mgmt-intro-text">
+              Use <span class="urgency-pill urgency-low">Low</span>, <span class="urgency-pill urgency-mid">Medium</span>,
+              and <span class="urgency-pill urgency-high">High</span> to separate noise from real deadlines. The calendar
+              highlights days with open work.
+            </p>
+          </section>
+          <section class="mgmt-intro-card" aria-labelledby="mgmt-cal-heading">
+            <h2 id="mgmt-cal-heading" class="mgmt-intro-title">Calendar integration</h2>
+            <p class="muted mgmt-intro-text">
+              Set a <strong>due date</strong> to place the to-do on the grid. Tasks without a date stay in
+              <strong>Unscheduled</strong> until you slot them.
+            </p>
+          </section>
+        </div>
+
+        <div class="mgmt-layout">
+          <section class="mgmt-column mgmt-column--cal" aria-label="Task calendar">
+            <mat-card appearance="outlined" class="mgmt-nested-card">
+              <mat-card-header>
+                <mat-card-title>Month</mat-card-title>
+                <mat-card-subtitle>To-dos by due date</mat-card-subtitle>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="cal-toolbar">
+                  <button mat-icon-button type="button" (click)="prevMonth()" aria-label="Previous month">
+                    <mat-icon>chevron_left</mat-icon>
+                  </button>
+                  <h2 class="cal-title">{{ calendarTitle }}</h2>
+                  <button mat-icon-button type="button" (click)="nextMonth()" aria-label="Next month">
+                    <mat-icon>chevron_right</mat-icon>
+                  </button>
+                </div>
+
+                <div class="calendar-shell">
+                  <div class="cal-weekdays" role="row">
+                    @for (wd of weekDays; track wd) {
+                      <span class="cal-weekday" role="columnheader">{{ wd }}</span>
+                    }
+                  </div>
+                  @for (row of calendarRows(); track $index) {
+                    <div class="cal-week" role="row">
+                      @for (cell of row; track cell.trackKey) {
+                        @if (cell.type === 'pad') {
+                          <div class="cal-slot cal-slot--pad" aria-hidden="true"></div>
+                        } @else {
+                          <button
+                            type="button"
+                            class="cal-slot cal-day"
+                            [class.cal-day--has-tasks]="(cell.taskCount ?? 0) > 0"
+                            [class.cal-day--selected]="isSelected(cell.iso)"
+                            [attr.aria-pressed]="isSelected(cell.iso)"
+                            [attr.aria-label]="
+                              'Day ' + cell.label + ', ' + (cell.iso || '') + ', ' + (cell.taskCount ?? 0) + ' tasks'
+                            "
+                            (click)="selectDay(cell)"
+                          >
+                            <span class="cal-day-num">{{ cell.label }}</span>
+                            @if ((cell.taskCount ?? 0) > 0) {
+                              <span class="cal-day-badge">{{ cell.taskCount }}</span>
+                            }
+                          </button>
+                        }
+                      }
+                    </div>
+                  }
+                </div>
+              </mat-card-content>
+            </mat-card>
+          </section>
+
+          <section class="mgmt-column mgmt-column--detail" aria-label="Selected day and new task">
+            <mat-card appearance="outlined" class="mgmt-nested-card">
+              <mat-card-header>
+                <mat-card-title>{{ selectedDayLabel() }}</mat-card-title>
+                <mat-card-subtitle>{{ tasksForSelectedDay().length }} due on this day</mat-card-subtitle>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="table-wrap table-wrap--nested">
+                  <table mat-table [dataSource]="tasksForSelectedDay()" class="full-width">
+                    <ng-container matColumnDef="title">
+                      <th mat-header-cell *matHeaderCellDef>Title</th>
+                      <td mat-cell *matCellDef="let row">{{ row.title }}</td>
+                    </ng-container>
+                    <ng-container matColumnDef="urgency">
+                      <th mat-header-cell *matHeaderCellDef>Urgency</th>
+                      <td mat-cell *matCellDef="let row">
+                        <span class="urgency-pill" [ngClass]="urgencyClass(row.urgency)">{{ row.urgency }}</span>
+                      </td>
+                    </ng-container>
+                    <ng-container matColumnDef="category">
+                      <th mat-header-cell *matHeaderCellDef>Balance</th>
+                      <td mat-cell *matCellDef="let row">{{ row.categoryName || '—' }}</td>
+                    </ng-container>
+                    <ng-container matColumnDef="type">
+                      <th mat-header-cell *matHeaderCellDef>Type</th>
+                      <td mat-cell *matCellDef="let row">{{ row.taskTypeName || '—' }}</td>
+                    </ng-container>
+                    <ng-container matColumnDef="done">
+                      <th mat-header-cell *matHeaderCellDef>Done</th>
+                      <td mat-cell *matCellDef="let row">
+                        <mat-checkbox
+                          [checked]="row.completed"
+                          (change)="toggleDone(row, $event.checked)"
+                          aria-label="Mark complete"
+                        />
+                      </td>
+                    </ng-container>
+                    <ng-container matColumnDef="actions">
+                      <th mat-header-cell *matHeaderCellDef></th>
+                      <td mat-cell *matCellDef="let row">
+                        <button mat-icon-button type="button" (click)="startEdit(row)" aria-label="Edit task">
+                          <mat-icon>edit</mat-icon>
+                        </button>
+                        <button
+                          mat-icon-button
+                          type="button"
+                          color="warn"
+                          (click)="deleteTask(row)"
+                          aria-label="Delete task"
+                        >
+                          <mat-icon>delete</mat-icon>
+                        </button>
+                      </td>
+                    </ng-container>
+                    <tr mat-header-row *matHeaderRowDef="dayTaskColumns"></tr>
+                    <tr mat-row *matRowDef="let row; columns: dayTaskColumns"></tr>
+                  </table>
+                  @if (!tasksForSelectedDay().length) {
+                    <p class="muted empty-hint">No tasks due on this day.</p>
+                  }
+                </div>
+
+                <h3 class="form-section-title">{{ editingId != null ? 'Edit task' : 'Add task' }}</h3>
+                <div class="form-row wrap">
+                  <mat-form-field appearance="outline" class="grow">
+                    <mat-label>Title</mat-label>
+                    <input matInput name="tTitle" [(ngModel)]="newTask.title" required placeholder="What needs doing?" />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="narrow">
+                    <mat-label>Urgency</mat-label>
+                    <mat-select name="tUrg" [(ngModel)]="newTask.urgency">
+                      @for (u of urgencies; track u) {
+                        <mat-option [value]="u">{{ u }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                </div>
+                <div class="form-row wrap">
+                  <mat-form-field appearance="outline" class="grow">
+                    <mat-label>Balance category</mat-label>
+                    <mat-select name="tCat" [(ngModel)]="newTask.categoryId">
+                      <mat-option [value]="null">None</mat-option>
+                      @for (c of categories; track c.id) {
+                        <mat-option [value]="c.id">{{ c.name }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="grow">
+                    <mat-label>Task type</mat-label>
+                    <mat-select name="tType" [(ngModel)]="newTask.taskTypeId">
+                      <mat-option [value]="null">None</mat-option>
+                      @for (t of taskTypes; track t.id) {
+                        <mat-option [value]="t.id">{{ t.name }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                </div>
+                <div class="form-row wrap">
+                  <mat-form-field appearance="outline" class="grow">
+                    <mat-label>Due date</mat-label>
+                    <input
+                      matInput
+                      [matDatepicker]="duePicker"
+                      [(ngModel)]="newTask.dueDate"
+                      name="tDue"
+                      placeholder="Optional - omit for Unscheduled"
+                    />
+                    <mat-datepicker-toggle matIconSuffix [for]="duePicker" />
+                    <mat-datepicker #duePicker />
+                  </mat-form-field>
+                  <button mat-stroked-button type="button" class="align-field" (click)="newTask.dueDate = null">
+                    Clear date
+                  </button>
+                  <mat-checkbox [(ngModel)]="newTask.completed" name="tDone">Completed</mat-checkbox>
+                </div>
+                <mat-form-field appearance="outline" class="full-width-field">
+                  <mat-label>Notes</mat-label>
+                  <textarea matInput name="tNotes" rows="2" [(ngModel)]="newTask.notes" placeholder="Optional"></textarea>
+                </mat-form-field>
+                <div class="form-actions">
+                  <button mat-flat-button color="primary" type="button" (click)="saveTask()">
+                    {{ editingId != null ? 'Save changes' : 'Add task' }}
+                  </button>
+                  @if (editingId != null) {
+                    <button mat-button type="button" (click)="resetForm()">Cancel edit</button>
+                  }
+                </div>
+              </mat-card-content>
+            </mat-card>
+          </section>
+        </div>
+
+        <section class="mgmt-unscheduled" aria-labelledby="unsched-heading">
+          <h2 id="unsched-heading" class="subsection-title">Unscheduled</h2>
+          <p class="muted">To-dos without a due date (still categorized by balance and type).</p>
+          <div class="table-wrap">
+            <table mat-table [dataSource]="unscheduled" class="full-width">
+              <ng-container matColumnDef="uTitle">
+                <th mat-header-cell *matHeaderCellDef>Title</th>
+                <td mat-cell *matCellDef="let row">{{ row.title }}</td>
+              </ng-container>
+              <ng-container matColumnDef="uUrgency">
+                <th mat-header-cell *matHeaderCellDef>Urgency</th>
+                <td mat-cell *matCellDef="let row">
+                  <span class="urgency-pill" [ngClass]="urgencyClass(row.urgency)">{{ row.urgency }}</span>
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="uCategory">
+                <th mat-header-cell *matHeaderCellDef>Balance</th>
+                <td mat-cell *matCellDef="let row">{{ row.categoryName || '—' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="uType">
+                <th mat-header-cell *matHeaderCellDef>Type</th>
+                <td mat-cell *matCellDef="let row">{{ row.taskTypeName || '—' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="uDone">
+                <th mat-header-cell *matHeaderCellDef>Done</th>
+                <td mat-cell *matCellDef="let row">
+                  <mat-checkbox
+                    [checked]="row.completed"
+                    (change)="toggleDone(row, $event.checked)"
+                    aria-label="Mark complete"
+                  />
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="uActions">
+                <th mat-header-cell *matHeaderCellDef></th>
+                <td mat-cell *matCellDef="let row">
+                  <button mat-icon-button type="button" (click)="startEdit(row)" aria-label="Edit task">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button mat-icon-button type="button" color="warn" (click)="deleteTask(row)" aria-label="Delete task">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="unscheduledColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: unscheduledColumns"></tr>
+            </table>
+            @if (!unscheduled.length) {
+              <p class="muted empty-hint">No unscheduled tasks.</p>
+            }
+          </div>
+        </section>
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+</mat-card>

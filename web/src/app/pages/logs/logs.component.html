@@ -1,0 +1,44 @@
+<div class="logs-page">
+  <div class="logs-head page-head">
+    <h1 class="page-title">Logs</h1>
+    <p class="muted">
+      Recent lines from the server <strong>in-memory</strong> buffer (this JVM only). Restart clears the buffer.
+      Log <strong>levels</strong> (TRACE … ERROR) are controlled by Spring <code>logging.level.*</code>; only levels
+      at or above the configured threshold are stored here.
+    </p>
+    <div class="logs-toolbar">
+      <button mat-flat-button color="primary" type="button" (click)="refresh()" [disabled]="loading">
+        <mat-icon>refresh</mat-icon>
+        Refresh
+      </button>
+      <mat-checkbox [(ngModel)]="autoRefresh" name="ar">Auto every {{ pollMs / 1000 }}s</mat-checkbox>
+      <mat-form-field appearance="outline" class="limit-field">
+        <mat-label>Lines</mat-label>
+        <input matInput type="number" [(ngModel)]="lineLimit" name="lim" min="50" max="2000" step="50" />
+      </mat-form-field>
+      <button mat-stroked-button type="button" (click)="refresh()" [disabled]="loading">Apply</button>
+    </div>
+    @if (meta) {
+      <p class="muted meta">
+        Showing <strong>{{ meta.returned }}</strong> of <strong>{{ meta.totalBuffered }}</strong> buffered (limit
+        {{ meta.requestedLimit }}); newest at top.
+      </p>
+    }
+    @if (loadError) {
+      <p class="load-error" role="alert">{{ loadError }}</p>
+    }
+  </div>
+
+  <div class="logs-viewport">
+    @if (loading && !lines.length) {
+      <div class="logs-spinner">
+        <mat-progress-spinner diameter="40" mode="indeterminate" />
+      </div>
+    }
+    @if (lines.length || loading || loadError) {
+      <pre class="logs-pre" role="log" aria-live="polite">{{ logText() }}</pre>
+    } @else {
+      <p class="muted empty-logs">No log lines yet. Trigger server activity or press Refresh.</p>
+    }
+  </div>
+</div>

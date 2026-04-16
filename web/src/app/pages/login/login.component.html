@@ -1,0 +1,29 @@
+<section class="login-page">
+  <mat-card class="login-card">
+    <h1>Sign in</h1>
+    <p class="hint">Use your Tracker credentials to continue.</p>
+
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <mat-form-field appearance="outline">
+        <mat-label>Username</mat-label>
+        <input matInput formControlName="username" autocomplete="username" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Password</mat-label>
+        <input matInput type="password" formControlName="password" autocomplete="current-password" />
+      </mat-form-field>
+
+      <p class="error" *ngIf="error">{{ error }}</p>
+
+      <button mat-raised-button color="primary" type="submit" [disabled]="submitting">
+        <mat-spinner *ngIf="submitting" diameter="18"></mat-spinner>
+        <span *ngIf="!submitting">Sign in</span>
+      </button>
+    </form>
+
+    <p class="dev-note">
+      Fresh local DB default login: <code>admin</code> / <code>admin123</code>
+    </p>
+  </mat-card>
+</section>

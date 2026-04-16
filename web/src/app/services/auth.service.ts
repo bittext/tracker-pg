@@ -1,0 +1,85 @@
+import { HttpClient } from '@angular/common/http';
+import { Injectable, inject } from '@angular/core';
+import { Router } from '@angular/router';
+import { BehaviorSubject, map, tap } from 'rxjs';
+import { environment } from '../../environments/environment';
+
+interface AuthTokenDto {
+  token: string;
+  expiresAt: string;
+  username: string;
+  role: string;
+}
+
+interface LoginResponseDto {
+  mfaRequired: boolean;
+  challengeId: string | null;
+  message: string;
+  token: AuthTokenDto | null;
+}
+
+const TOKEN_KEY = 'tracker.auth.token';
+const USER_KEY = 'tracker.auth.user';
+const ROLE_KEY = 'tracker.auth.role';
+
+@Injectable({ providedIn: 'root' })
+export class AuthService {
+  private readonly http = inject(HttpClient);
+  private readonly router = inject(Router);
+  private readonly apiBase = `${environment.apiBaseUrl}/api/auth`;
+  private readonly authState$ = new BehaviorSubject<boolean>(this.hasStoredToken());
+
+  readonly isAuthenticated$ = this.authState$.asObservable();
+
+  get token(): string | null {
+    return localStorage.getItem(TOKEN_KEY);
+  }
+
+  get username(): string | null {
+    return localStorage.getItem(USER_KEY);
+  }
+
+  get role(): string | null {
+    return localStorage.getItem(ROLE_KEY);
+  }
+
+  isAuthenticated(): boolean {
+    return this.authState$.value;
+  }
+
+  login(username: string, password: string) {
+    return this.http
+      .post<LoginResponseDto>(`${this.apiBase}/login`, { username, password })
+      .pipe(
+        map((res) => {
+          if (res.mfaRequired) {
+            throw new Error(res.message || 'MFA is required for this user.');
+          }
+          if (!res.token?.token) {
+            throw new Error('Login failed: token was not returned.');
+          }
+          return res.token;
+        }),
+        tap((token) => {
+          localStorage.setItem(TOKEN_KEY, token.token);
+          localStorage.setItem(USER_KEY, token.username);
+          localStorage.setItem(ROLE_KEY, token.role);
+          this.authState$.next(true);
+        }),
+      );
+  }
+
+  logout(redirectToLogin = true): void {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(USER_KEY);
+    localStorage.removeItem(ROLE_KEY);
+    this.authState$.next(false);
+    if (redirectToLogin) {
+      this.router.navigate(['/login']);
+    }
+  }
+
+  private hasStoredToken(): boolean {
+    return !!localStorage.getItem(TOKEN_KEY);
+  }
+}

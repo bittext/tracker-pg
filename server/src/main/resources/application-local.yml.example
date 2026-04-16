@@ -1,0 +1,16 @@
+# Copy to application-local.yml and fill in your values.
+# application-local.yml is gitignored.
+#
+# Run server with local profile:
+#   SPRING_PROFILES_ACTIVE=local mvn spring-boot:run
+
+spring:
+  datasource:
+    url: jdbc:oracle:thin:@//localhost:1521/YOUR_SERVICE
+    username: YOUR_DB_USER
+    password: YOUR_DB_PASSWORD
+
+tracker:
+  finance:
+    robinhood-csv-import-directory: "/absolute/path/to/robinhood/import"
+    robinhood-csv-uploaded-directory: "/absolute/path/to/robinhood/uploaded"

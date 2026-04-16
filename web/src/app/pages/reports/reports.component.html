@@ -1,0 +1,268 @@
+<div class="page-head">
+  <h1 class="page-title">Reports</h1>
+  <p class="muted">
+    <strong>Exercise</strong>: month trends on the left, selected-day snapshot on the right. Calendar tiles show only
+    available <strong>exercise time</strong> and <strong>weight (lb)</strong>.
+    <strong>Management</strong>: detailed listing of management to-dos (balance, urgency, due dates).
+  </p>
+</div>
+
+<mat-card class="card reports-card">
+  <mat-tab-group animationDuration="220ms" class="reports-tab-group" [dynamicHeight]="true">
+    <mat-tab label="Exercise">
+      <div class="tab-panel exercise-report">
+        @if (dayDetailError) {
+          <p class="load-error ex-report-error" role="alert">{{ dayDetailError }}</p>
+        }
+
+        <div class="ex-report-grid">
+          <section class="ex-report-column ex-report-column--month" aria-labelledby="ex-month-heading">
+            <mat-card appearance="outlined" class="ex-report-card">
+              <mat-card-header class="ex-report-card-header">
+                <mat-card-title id="ex-month-heading">Month overview</mat-card-title>
+                <mat-card-subtitle>Calendar + monthly totals by exercise</mat-card-subtitle>
+              </mat-card-header>
+              <mat-card-content class="ex-report-card-body">
+                <p class="ex-helper-note">
+                  Select any date to inspect details. Empty dates stay clean with no placeholder prompts.
+                </p>
+                <div class="cal-toolbar">
+                  <button mat-icon-button type="button" (click)="prevMonth()" aria-label="Previous month">
+                    <mat-icon>chevron_left</mat-icon>
+                  </button>
+                  <h2 class="cal-title">{{ calendarTitle }}</h2>
+                  <button mat-icon-button type="button" (click)="nextMonth()" aria-label="Next month">
+                    <mat-icon>chevron_right</mat-icon>
+                  </button>
+                </div>
+
+                <div class="calendar-shell">
+                  <div class="cal-weekdays" role="row">
+                    @for (wd of weekDays; track wd) {
+                      <span class="cal-weekday" role="columnheader">{{ wd }}</span>
+                    }
+                  </div>
+                  @for (row of calendarRows(); track $index) {
+                    <div class="cal-week" role="row">
+                      @for (cell of row; track cell.trackKey) {
+                        @if (cell.type === 'pad') {
+                          <div class="cal-slot cal-slot--pad" aria-hidden="true"></div>
+                        } @else {
+                          <button
+                            type="button"
+                            class="cal-slot cal-day"
+                            [class.cal-day--empty]="cell.kind === 'empty'"
+                            [class.cal-day--strength]="cell.kind === 'strength'"
+                            [class.cal-day--weight]="cell.kind === 'weight'"
+                            [class.cal-day--both]="cell.kind === 'both'"
+                            [class.cal-day--selected]="isSelected(cell.iso)"
+                            [attr.aria-pressed]="isSelected(cell.iso)"
+                            [attr.aria-label]="
+                              'Day ' +
+                              cell.label +
+                              ', ' +
+                              (cell.iso || '') +
+                              ', weight ' +
+                              (cell.weightKg != null ? formatCalendarWeightLb(cell.weightKg) : 'none') +
+                              ', exercise time ' +
+                              formatCalendarExerciseMinutes(cell.exerciseMinutes)
+                            "
+                            (click)="selectDay(cell)"
+                          >
+                            <div class="cal-day-main">
+                              <span class="cal-day-num">{{ cell.label }}</span>
+                              <span class="cal-day-summary">
+                                @if (cell.weightKg != null) {
+                                  <span class="cal-day-summary-line">{{ formatCalendarWeightLb(cell.weightKg) }}</span>
+                                }
+                                @if ((cell.exerciseMinutes ?? 0) > 0) {
+                                  <span class="cal-day-summary-line">{{ formatCalendarExerciseMinutes(cell.exerciseMinutes) }}</span>
+                                }
+                              </span>
+                            </div>
+                          </button>
+                        }
+                      }
+                    </div>
+                  }
+                </div>
+
+                @if (monthlyReport && monthCal) {
+                  <div class="ex-kpi-strip" role="group" aria-label="Month summary figures">
+                    <div class="ex-kpi">
+                      <span class="ex-kpi-label">Exercise days</span>
+                      <span class="ex-kpi-value">{{ monthlyReport.workoutDays }}</span>
+                    </div>
+                    <div class="ex-kpi">
+                      <span class="ex-kpi-label">Log lines</span>
+                      <span class="ex-kpi-value">{{ monthlyReport.totalLogs }}</span>
+                    </div>
+                    <div class="ex-kpi">
+                      <span class="ex-kpi-label">Active (exercise)</span>
+                      <span class="ex-kpi-value">{{
+                        monthlyReport.exerciseLogActiveDays ?? monthlyReport.workoutDays
+                      }}</span>
+                    </div>
+                    <div class="ex-kpi">
+                      <span class="ex-kpi-label">Exercise time</span>
+                      <span class="ex-kpi-value">{{ formatCalendarExerciseMinutes(monthExerciseMinutes()) }}</span>
+                    </div>
+                    <div class="ex-kpi">
+                      <span class="ex-kpi-label">Active (weight)</span>
+                      <span class="ex-kpi-value">{{ monthCal.daysWithWeightLogged.length }}</span>
+                    </div>
+                  </div>
+                }
+
+                @if (monthlyReport) {
+                  <div class="ex-subsection">
+                    <h3 class="ex-subsection-title">Month totals by exercise</h3>
+                    <div class="table-wrap table-wrap--nested">
+                      <table mat-table [dataSource]="monthlyReport.exercises" class="full-width">
+                        <ng-container matColumnDef="monthExName">
+                          <th mat-header-cell *matHeaderCellDef>Exercise</th>
+                          <td mat-cell *matCellDef="let row">{{ row.exerciseName }}</td>
+                        </ng-container>
+                        <ng-container matColumnDef="monthLogCount">
+                          <th mat-header-cell *matHeaderCellDef>Logs</th>
+                          <td mat-cell *matCellDef="let row">{{ row.logCount }}</td>
+                        </ng-container>
+                        <ng-container matColumnDef="monthDaysTrained">
+                          <th mat-header-cell *matHeaderCellDef>Days</th>
+                          <td mat-cell *matCellDef="let row">{{ row.daysTrained }}</td>
+                        </ng-container>
+                        <tr mat-header-row *matHeaderRowDef="monthlyExColumns"></tr>
+                        <tr mat-row *matRowDef="let row; columns: monthlyExColumns"></tr>
+                      </table>
+                      @if (!monthlyReport.exercises.length) {
+                        <p class="muted empty-hint">No exercise logs in this month.</p>
+                      }
+                    </div>
+                  </div>
+                }
+              </mat-card-content>
+            </mat-card>
+          </section>
+
+          <section class="ex-report-column ex-report-column--day" aria-labelledby="ex-day-heading">
+            <mat-card appearance="outlined" class="ex-report-card ex-report-card--day">
+              <mat-card-header class="ex-report-card-header">
+                <mat-card-title id="ex-day-heading">Selected day</mat-card-title>
+                <mat-card-subtitle>{{ selectedDayDisplayLabel() }}</mat-card-subtitle>
+              </mat-card-header>
+              <mat-card-content class="ex-report-card-body">
+                @if (dailyReport) {
+                  <p class="ex-api-date muted">Report date: {{ dailyReport.date }}</p>
+                  <div class="ex-kpi-strip ex-kpi-strip--day" role="group" aria-label="Day summary">
+                    <div class="ex-kpi">
+                      <span class="ex-kpi-label">Exercise time</span>
+                      <span class="ex-kpi-value">{{ formatCalendarExerciseMinutes(selectedDayExerciseMinutes()) }}</span>
+                    </div>
+                    <div class="ex-kpi">
+                      <span class="ex-kpi-label">Log lines</span>
+                      <span class="ex-kpi-value">{{ dailyReport.totalLogs }}</span>
+                    </div>
+                    <div class="ex-kpi">
+                      <span class="ex-kpi-label">Body weight</span>
+                      <span class="ex-kpi-value">
+                        @if (dailyReport.bodyWeightKg != null) {
+                          {{ kgToLb(dailyReport.bodyWeightKg) | number: '1.1-2' }} lb
+                        } @else {
+                          —
+                        }
+                      </span>
+                    </div>
+                  </div>
+
+                  <div class="ex-subsection">
+                    <h3 class="ex-subsection-title">Exercise entries</h3>
+                    <div class="table-wrap table-wrap--nested">
+                      <table
+                        mat-table
+                        [dataSource]="dailyReport.logLines"
+                        class="full-width daily-log-table"
+                      >
+                        <ng-container matColumnDef="dailyExName">
+                          <th mat-header-cell *matHeaderCellDef>Exercise</th>
+                          <td mat-cell *matCellDef="let row">{{ row.exerciseName }}</td>
+                        </ng-container>
+                        <ng-container matColumnDef="dailyDuration">
+                          <th mat-header-cell *matHeaderCellDef>Time</th>
+                          <td mat-cell *matCellDef="let row">{{ formatDurationMinutes(row.durationMinutes) }}</td>
+                        </ng-container>
+                        <ng-container matColumnDef="dailyNotes">
+                          <th mat-header-cell *matHeaderCellDef>Notes</th>
+                          <td mat-cell *matCellDef="let row" class="daily-log-notes">{{ row.notes }}</td>
+                        </ng-container>
+                        <tr mat-header-row *matHeaderRowDef="dailyLogColumns"></tr>
+                        <tr mat-row *matRowDef="let row; columns: dailyLogColumns"></tr>
+                      </table>
+                      @if (dailyReport.totalLogs === 0) {
+                        <p class="muted empty-hint">No exercise logs for this day.</p>
+                      }
+                    </div>
+                  </div>
+                } @else if (dayDetailError) {
+                  <p class="muted ex-day-placeholder" role="alert">Day detail could not be loaded. See the message above.</p>
+                } @else {
+                  <p class="muted ex-day-placeholder">Loading day detail…</p>
+                }
+              </mat-card-content>
+            </mat-card>
+          </section>
+        </div>
+      </div>
+    </mat-tab>
+
+    <mat-tab label="Management">
+      <div class="tab-panel mgmt-report-panel">
+        <section class="mgmt-report-section" aria-labelledby="mgmt-report-heading">
+          <h2 id="mgmt-report-heading" class="mgmt-report-title">Tasks</h2>
+          <p class="muted mgmt-report-lead">
+            Full listing of management to-dos: balance category, type, urgency, due date, and completion. Edit tasks on the
+            <a routerLink="/management">Management</a> page.
+          </p>
+          <div class="table-wrap table-wrap--mgmt">
+            <table mat-table [dataSource]="managementTasks" class="full-width">
+              <ng-container matColumnDef="mtTitle">
+                <th mat-header-cell *matHeaderCellDef>Title</th>
+                <td mat-cell *matCellDef="let row">{{ row.title }}</td>
+              </ng-container>
+              <ng-container matColumnDef="mtDue">
+                <th mat-header-cell *matHeaderCellDef>Due</th>
+                <td mat-cell *matCellDef="let row">{{ formatMgmtDate(row.dueDate) }}</td>
+              </ng-container>
+              <ng-container matColumnDef="mtUrgency">
+                <th mat-header-cell *matHeaderCellDef>Urgency</th>
+                <td mat-cell *matCellDef="let row">
+                  <span class="rep-urgency-pill" [ngClass]="urgencyClass(row.urgency)">{{ row.urgency }}</span>
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="mtCategory">
+                <th mat-header-cell *matHeaderCellDef>Balance category</th>
+                <td mat-cell *matCellDef="let row">{{ row.categoryName || '—' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="mtType">
+                <th mat-header-cell *matHeaderCellDef>Task type</th>
+                <td mat-cell *matCellDef="let row">{{ row.taskTypeName || '—' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="mtDone">
+                <th mat-header-cell *matHeaderCellDef>Done</th>
+                <td mat-cell *matCellDef="let row">{{ row.completed ? 'Yes' : 'No' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="mtCreated">
+                <th mat-header-cell *matHeaderCellDef>Created</th>
+                <td mat-cell *matCellDef="let row">{{ formatMgmtInstant(row.createdAt) }}</td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="managementTaskColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: managementTaskColumns"></tr>
+            </table>
+            @if (!managementTasks.length) {
+              <p class="muted empty-hint mgmt-report-empty">No management tasks yet. Add categories in Admin, then create tasks under Management.</p>
+            }
+          </div>
+        </section>
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+</mat-card>

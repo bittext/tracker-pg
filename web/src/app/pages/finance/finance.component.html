@@ -1,0 +1,587 @@
+<div class="page-head">
+  <h1 class="page-title">Finance</h1>
+  <p class="muted">
+    News, names at their 52-week high, transactions, by-instrument filters, and yearly summary are grouped under one
+    Finance page.
+  </p>
+</div>
+
+<mat-card class="card">
+  <mat-card-content class="finance-card-content">
+    <mat-tab-group
+      class="finance-inner-tabs"
+      animationDuration="180ms"
+      mat-stretch-tabs
+      [disablePagination]="true"
+      [(selectedIndex)]="financeSubTabIndex"
+      (selectedIndexChange)="onFinanceSubTabIndexChange($event)"
+    >
+      <mat-tab label="News">
+        <div class="finance-panel">
+          <p class="muted stocks-news-intro">
+            The query supports both a ticker/instrument and a company name. Pick from known instruments, then edit the
+            text if you need a custom value.
+          </p>
+
+          <div class="finance-toolbar">
+            <mat-form-field appearance="outline" class="fh-symbol">
+              <mat-label>Instrument (pick from list)</mat-label>
+              <mat-select
+                [(ngModel)]="selectedInstrument"
+                name="selectedInstrument"
+                (selectionChange)="onInstrumentSelectChange()"
+              >
+                <mat-option [value]="''">Choose instrument</mat-option>
+                @for (s of stockSymbols; track s) {
+                  <mat-option [value]="s" [attr.title]="s">{{ s }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="fh-symbol-edit">
+              <mat-label>Instrument (editable)</mat-label>
+              <input
+                matInput
+                [(ngModel)]="editableInstrument"
+                name="editableInstrument"
+                placeholder="e.g. NVDA or MSFT 2026-12-18 C 500"
+              />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="fh-company">
+              <mat-label>Company name (optional)</mat-label>
+              <input
+                matInput
+                [(ngModel)]="companyName"
+                name="companyName"
+                placeholder="e.g. Nvidia, Microsoft"
+              />
+            </mat-form-field>
+
+            <button mat-flat-button color="primary" type="button" (click)="loadStockNews()" [disabled]="rhStockNewsLoading">
+              <mat-icon>refresh</mat-icon>
+              Load / refresh
+            </button>
+          </div>
+
+          @if (stockSymbolsLoading) {
+            <p class="muted">Loading instruments…</p>
+          }
+
+          @if (rhStockNewsLoading) {
+            <p class="muted">Loading latest stock news…</p>
+          }
+
+          @if (rhStockNews && !rhStockNewsLoading) {
+            <p class="muted finance-meta">
+              @if (rhStockNews.requestedSymbol) {
+                Instrument <strong>{{ rhStockNews.requestedSymbol }}</strong>
+              } @else {
+                Instrument <strong>—</strong>
+              }
+              @if (rhStockNews.requestedCompanyName) {
+                · Company <strong>{{ rhStockNews.requestedCompanyName }}</strong>
+              }
+              · <strong>{{ rhStockNews.returned }}</strong> validated item(s) · {{ rhStockNews.feed }}
+            </p>
+            @if (rhStockNews.note) {
+              <p class="muted stocks-news-note">{{ rhStockNews.note }}</p>
+            }
+
+            <div class="news-intelligence-grid">
+              <article class="news-intelligence-card" [class]="sentimentClass()">
+                <p class="news-intelligence-label">Overall sentiment</p>
+                <p class="news-intelligence-value">
+                  {{ rhStockNews.analysis.overallSentiment }}
+                  <span class="news-intelligence-sub">({{ rhStockNews.analysis.sentimentScore | number: '1.2-2' }})</span>
+                </p>
+              </article>
+
+              <article class="news-intelligence-card" [class]="growthClass()">
+                <p class="news-intelligence-label">Projected growth outlook</p>
+                <p class="news-intelligence-value">
+                  {{ rhStockNews.analysis.projectedGrowthLabel }}
+                  <span class="news-intelligence-sub">({{ rhStockNews.analysis.projectedGrowthPercent }}%)</span>
+                </p>
+              </article>
+
+              <article class="news-intelligence-card" [class]="stressClass()">
+                <p class="news-intelligence-label">Regulatory/deal stress</p>
+                <p class="news-intelligence-value">{{ rhStockNews.analysis.stressSignals.emphasis }}</p>
+              </article>
+            </div>
+
+            <div class="news-signals-grid">
+              <div class="news-signal">
+                <span class="news-signal-name">Mergers</span>
+                <span class="news-signal-value">{{ rhStockNews.analysis.stressSignals.mergerMentions }}</span>
+              </div>
+              <div class="news-signal">
+                <span class="news-signal-name">Acquisitions</span>
+                <span class="news-signal-value">{{ rhStockNews.analysis.stressSignals.acquisitionMentions }}</span>
+              </div>
+              <div class="news-signal">
+                <span class="news-signal-name">Deals worked</span>
+                <span class="news-signal-value">{{ rhStockNews.analysis.stressSignals.dealMentions }}</span>
+              </div>
+              <div class="news-signal">
+                <span class="news-signal-name">Permits provided</span>
+                <span class="news-signal-value">{{ rhStockNews.analysis.stressSignals.permitMentions }}</span>
+              </div>
+              <div class="news-signal">
+                <span class="news-signal-name">Sanctions</span>
+                <span class="news-signal-value">{{ rhStockNews.analysis.stressSignals.sanctionMentions }}</span>
+              </div>
+            </div>
+
+            @if (rhStockNews.items.length === 0) {
+              <div class="finance-empty-report" role="status">
+                <p class="finance-empty-title">No recent trusted headlines</p>
+                <p class="muted finance-empty-detail">Try another instrument/company combination and refresh again.</p>
+              </div>
+            } @else {
+              <h3 class="news-list-title">Current validated news (latest 10)</h3>
+              <div class="stocks-news-list">
+                @for (item of rhStockNews.items; track stockNewsTrack($index, item)) {
+                  <article class="stocks-news-item">
+                    <h4 class="stocks-news-title">
+                      <a [href]="item.url" target="_blank" rel="noopener noreferrer">{{ item.title }}</a>
+                    </h4>
+                    <p class="muted stocks-news-meta">{{ item.source }} · {{ formatNewsPublished(item.publishedAt) }}</p>
+                    @if (item.summary) {
+                      <p class="stocks-news-summary">{{ item.summary }}</p>
+                    }
+                  </article>
+                }
+              </div>
+            }
+          }
+        </div>
+      </mat-tab>
+
+      <mat-tab label="52w High Risers">
+        <div class="finance-panel">
+          <p class="muted stocks-news-intro">
+            Scans several Yahoo Finance predefined lists (e.g. day gainers, most actives, small-cap gainers) and keeps
+            names whose regular price is at the 52-week high (within a small quote tolerance).
+          </p>
+
+          <div class="finance-toolbar">
+            <button mat-flat-button color="primary" type="button" (click)="loadRising52WeekHighs()" [disabled]="rhRising52wLoading">
+              <mat-icon>refresh</mat-icon>
+              Load / refresh
+            </button>
+          </div>
+
+          @if (rhRising52wLoading) {
+            <p class="muted">Loading names at 52-week high…</p>
+          }
+
+          @if (rhRising52w && !rhRising52wLoading) {
+            <p class="muted finance-meta">
+              <strong>{{ rhRising52w.returned }}</strong> stock(s) · {{ rhRising52w.source }} · {{ rhRising52w.fetchedAt }}
+            </p>
+            @if (rhRising52w.note) {
+              <p class="muted stocks-news-note">{{ rhRising52w.note }}</p>
+            }
+
+            @if (rhRising52w.rows.length === 0) {
+              <div class="finance-empty-report" role="status">
+                <p class="finance-empty-title">No qualifying names right now</p>
+                <p class="muted finance-empty-detail">
+                  None of the scanned screeners are printing at their 52-week high right now; try again later.
+                </p>
+              </div>
+            } @else {
+              <div class="table-wrap rh-txn-wrap">
+                <table class="rh-txn-data-table full-width rising-52w-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Symbol</th>
+                      <th scope="col">Name</th>
+                      <th scope="col">52w return</th>
+                      <th scope="col">Near-high year</th>
+                      <th scope="col">Near-high 6m</th>
+                      <th scope="col">Price</th>
+                      <th scope="col">% of 52w high</th>
+                      <th scope="col">Outlook</th>
+                      <th scope="col">Details</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (row of rhRising52w.rows; track rising52wTrack($index, row)) {
+                      <tr>
+                        <td><strong>{{ row.symbol }}</strong></td>
+                        <td class="rising-52w-name">{{ row.shortName }}</td>
+                        <td>{{ row.fiftyTwoWeekGainPercent | number: '1.1-1' }}%</td>
+                        <td>{{ row.pctPastYearNearRolling52WeekHigh | number: '1.1-1' }}%</td>
+                        <td>{{ row.pctSixMonthsNearRolling52WeekHigh | number: '1.1-1' }}%</td>
+                        <td>{{ formatFinanceCell('AMOUNT', row.regularMarketPrice) }}</td>
+                        <td>{{ row.percentOf52WeekHigh | number: '1.1-1' }}%</td>
+                        <td>{{ row.growthOutlookLabel }}</td>
+                        <td>
+                          <a [href]="row.externalDetailUrl" target="_blank" rel="noopener noreferrer">Open</a>
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          }
+        </div>
+      </mat-tab>
+
+      <mat-tab label="Transactions">
+        <div class="finance-panel">
+          <div class="finance-toolbar">
+            <mat-form-field appearance="outline" class="fh-period">
+              <mat-label>Period</mat-label>
+              <mat-select
+                [(ngModel)]="financePeriod"
+                name="finPeriodStock"
+                (selectionChange)="onFinanceFilterSelectionChange()"
+              >
+                <mat-option [value]="'all'">All (within cap)</mat-option>
+                <mat-option [value]="'year'">Calendar year</mat-option>
+                <mat-option [value]="'month'">Single month</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            @if (financePeriod !== 'all') {
+              <mat-form-field appearance="outline" class="fh-year">
+                <mat-label>Year</mat-label>
+                <mat-select
+                  [(ngModel)]="financeYear"
+                  name="finYearStock"
+                  (selectionChange)="onFinanceFilterSelectionChange()"
+                >
+                  @for (y of financeYearChoices(); track y) {
+                    <mat-option [value]="y">{{ y }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
+
+            @if (financePeriod === 'month') {
+              <mat-form-field appearance="outline" class="fh-month">
+                <mat-label>Month</mat-label>
+                <mat-select
+                  [(ngModel)]="financeMonth"
+                  name="finMonthStock"
+                  (selectionChange)="onFinanceFilterSelectionChange()"
+                >
+                  @for (m of monthChoices; track m.value) {
+                    <mat-option [value]="m.value">{{ m.label }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
+
+            <button
+              mat-flat-button
+              color="primary"
+              type="button"
+              (click)="loadRobinhoodFinanceData()"
+              [disabled]="rhLoading"
+            >
+              <mat-icon>refresh</mat-icon>
+              Load / refresh
+            </button>
+          </div>
+
+          @if (rhLoading) {
+            <p class="muted">Loading transactions…</p>
+          }
+
+          @if (rhTxns && !rhLoading) {
+            <p class="muted finance-meta">
+              <strong>{{ rhTxns.filterLabel }}</strong> ·
+              <strong>{{ rhDisplayedRows.length }}</strong> row(s)
+              · cap {{ rhTxns.maxRowsCap }} · {{ rhTxns.tableQueried }}
+            </p>
+
+            @if (rhDisplayedRows.length === 0) {
+              <div class="finance-empty-report" role="status">
+                <p class="finance-empty-title">No records for this period</p>
+                <p class="muted finance-empty-detail">
+                  The server returned no rows from <strong>{{ rhTxns.tableQueried }}</strong> for
+                  <strong>{{ rhTxns.filterLabel }}</strong> (row cap {{ rhTxns.maxRowsCap }}).
+                </p>
+              </div>
+            } @else {
+              <div class="table-wrap rh-txn-wrap">
+                <table class="rh-txn-data-table full-width">
+                  <thead>
+                    <tr>
+                      @for (col of rhTxnColumns; track col) {
+                        <th scope="col">{{ col }}</th>
+                      }
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (row of rhDisplayedRows; track $index) {
+                      <tr>
+                        @for (col of rhTxnColumns; track col) {
+                          <td>{{ formatFinanceCell(col, financeCell(row, col)) }}</td>
+                        }
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          }
+        </div>
+      </mat-tab>
+
+      <mat-tab label="By symbol">
+        <div class="finance-panel">
+          <div class="finance-toolbar">
+            <mat-form-field appearance="outline" class="fh-period">
+              <mat-label>Period</mat-label>
+              <mat-select
+                [(ngModel)]="financePeriod"
+                name="finPeriodIndv"
+                (selectionChange)="onFinanceFilterSelectionChange()"
+              >
+                <mat-option [value]="'all'">All (within cap)</mat-option>
+                <mat-option [value]="'year'">Calendar year</mat-option>
+                <mat-option [value]="'month'">Single month</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            @if (financePeriod !== 'all') {
+              <mat-form-field appearance="outline" class="fh-year">
+                <mat-label>Year</mat-label>
+                <mat-select
+                  [(ngModel)]="financeYear"
+                  name="finYearIndv"
+                  (selectionChange)="onFinanceFilterSelectionChange()"
+                >
+                  @for (y of financeYearChoices(); track y) {
+                    <mat-option [value]="y">{{ y }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
+
+            @if (financePeriod === 'month') {
+              <mat-form-field appearance="outline" class="fh-month">
+                <mat-label>Month</mat-label>
+                <mat-select
+                  [(ngModel)]="financeMonth"
+                  name="finMonthIndv"
+                  (selectionChange)="onFinanceFilterSelectionChange()"
+                >
+                  @for (m of monthChoices; track m.value) {
+                    <mat-option [value]="m.value">{{ m.label }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
+
+            <mat-form-field appearance="outline" class="fh-symbol">
+              <mat-label>Instrument</mat-label>
+              <mat-select
+                [(ngModel)]="financeSelectedSymbol"
+                name="finSymbol"
+                (selectionChange)="onFinanceFilterSelectionChange()"
+              >
+                <mat-option [value]="''">—</mat-option>
+                @for (s of stockSymbols; track s) {
+                  <mat-option [value]="s" [attr.title]="s">{{ s }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            <button
+              mat-flat-button
+              color="primary"
+              type="button"
+              (click)="loadIndividualStockFinanceData()"
+              [disabled]="rhIndvLoading"
+            >
+              <mat-icon>refresh</mat-icon>
+              Load / refresh
+            </button>
+          </div>
+
+          @if (stockSymbolsLoading) {
+            <p class="muted">Loading instruments…</p>
+          }
+
+          @if (rhIndvLoading) {
+            <p class="muted">Loading transactions…</p>
+          }
+
+          @if (rhIndvTxns && !rhIndvLoading) {
+            <p class="muted finance-meta">
+              <strong>{{ rhIndvTxns.filterLabel }}</strong> ·
+              <strong>{{ rhIndvDisplayedRows.length }}</strong> row(s)
+              · cap {{ rhIndvTxns.maxRowsCap }} · {{ rhIndvTxns.tableQueried }}
+            </p>
+
+            @if (rhIndvDisplayedRows.length === 0) {
+              <div class="finance-empty-report" role="status">
+                <p class="finance-empty-title">No records for this filter</p>
+                <p class="muted finance-empty-detail">
+                  No rows from <strong>{{ rhIndvTxns.tableQueried }}</strong> for
+                  <strong>{{ rhIndvTxns.filterLabel }}</strong> (row cap {{ rhIndvTxns.maxRowsCap }}).
+                </p>
+              </div>
+            } @else {
+              <div class="table-wrap rh-txn-wrap">
+                <table class="rh-txn-data-table full-width">
+                  <thead>
+                    <tr>
+                      @for (col of rhIndvTxnColumns; track col) {
+                        <th scope="col">{{ col }}</th>
+                      }
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (row of rhIndvDisplayedRows; track $index) {
+                      <tr>
+                        @for (col of rhIndvTxnColumns; track col) {
+                          <td>{{ formatFinanceCell(col, financeCell(row, col)) }}</td>
+                        }
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          }
+        </div>
+      </mat-tab>
+
+      <mat-tab label="Summary">
+        <div class="finance-panel">
+          <p class="muted stocks-summary-intro">
+            Summarizes <strong>buy</strong> legs (BTO, Buy) and <strong>sell</strong> legs (STC, Sell) by
+            <strong>instrument</strong> and <strong>contract</strong> (description line) for the selected
+            <strong>calendar year</strong> (used here as the financial year). Dates show when contracts were opened
+            (buys) and closed (sells) <em>in that year</em>. ACH and other non-trade rows are excluded.
+          </p>
+
+          <div class="finance-toolbar">
+            <mat-form-field appearance="outline" class="fh-year">
+              <mat-label>Financial year</mat-label>
+              <mat-select
+                [(ngModel)]="stocksSummaryYear"
+                name="stocksSumYear"
+                (selectionChange)="onStocksSummaryFilterChange()"
+              >
+                @for (y of financeYearChoices(); track y) {
+                  <mat-option [value]="y">{{ y }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="fh-symbol">
+              <mat-label>Instrument (optional)</mat-label>
+              <mat-select
+                [(ngModel)]="stocksSummaryInstrument"
+                name="stocksSumSym"
+                (selectionChange)="onStocksSummaryFilterChange()"
+              >
+                <mat-option [value]="''">All instruments</mat-option>
+                @for (s of stockSymbols; track s) {
+                  <mat-option [value]="s">{{ s }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+
+            <button
+              mat-flat-button
+              color="primary"
+              type="button"
+              (click)="loadStocksSummary()"
+              [disabled]="rhSummaryLoading"
+            >
+              <mat-icon>refresh</mat-icon>
+              Load / refresh
+            </button>
+          </div>
+
+          @if (stockSymbolsLoading && financeSubTabIndex === 4) {
+            <p class="muted">Loading instruments…</p>
+          }
+
+          @if (rhSummaryLoading) {
+            <p class="muted">Loading stocks summary…</p>
+          }
+
+          @if (rhSummary && !rhSummaryLoading) {
+            <p class="muted finance-meta">
+              <strong>Year {{ rhSummary.financialYear }}</strong>
+              @if (rhSummary.filterInstrument) {
+                · Instrument <strong>{{ rhSummary.filterInstrument }}</strong>
+              }
+              · <strong>{{ rhSummary.rows.length }}</strong> group(s) · cap {{ rhSummary.maxRowsCap }} ·
+              {{ rhSummary.tableQueried }}
+            </p>
+
+            @if (rhSummary.truncated && rhSummary.note) {
+              <p class="stocks-summary-truncated" role="status">{{ rhSummary.note }}</p>
+            }
+
+            @if (rhSummary.rows.length === 0) {
+              <div class="finance-empty-report" role="status">
+                <p class="finance-empty-title">No trade legs for this filter</p>
+                <p class="muted finance-empty-detail">
+                  No BTO/Buy or STC/Sell rows in <strong>{{ rhSummary.tableQueried }}</strong> for year
+                  <strong>{{ rhSummary.financialYear }}</strong>.
+                </p>
+              </div>
+            } @else {
+              <div class="table-wrap rh-txn-wrap">
+                <table class="rh-txn-data-table full-width stocks-summary-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Instrument</th>
+                      <th scope="col">Contract</th>
+                      <th scope="col">Year</th>
+                      <th scope="col">Buy qty</th>
+                      <th scope="col">Sell qty</th>
+                      <th scope="col">Buys $</th>
+                      <th scope="col">Sells $</th>
+                      <th scope="col">Net $</th>
+                      <th scope="col">First buy</th>
+                      <th scope="col">Last buy</th>
+                      <th scope="col">First sell</th>
+                      <th scope="col">Last sell</th>
+                      <th scope="col"># Buys</th>
+                      <th scope="col"># Sells</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (row of rhSummary.rows; track stocksSummaryRowTrack(row)) {
+                      <tr>
+                        <td>{{ row.instrument }}</td>
+                        <td class="stocks-summary-contract">{{ row.contract }}</td>
+                        <td>{{ row.financialYear }}</td>
+                        <td>{{ formatSummaryQty(row.totalBuyQuantity) }}</td>
+                        <td>{{ formatSummaryQty(row.totalSellQuantity) }}</td>
+                        <td>{{ formatFinanceCell('AMOUNT', row.totalBuyAmount) }}</td>
+                        <td>{{ formatFinanceCell('AMOUNT', row.totalSellAmount) }}</td>
+                        <td>{{ formatFinanceCell('AMOUNT', row.netAmount) }}</td>
+                        <td>{{ formatSummaryDate(row.firstBuyDate) }}</td>
+                        <td>{{ formatSummaryDate(row.lastBuyDate) }}</td>
+                        <td>{{ formatSummaryDate(row.firstSellDate) }}</td>
+                        <td>{{ formatSummaryDate(row.lastSellDate) }}</td>
+                        <td>{{ row.buyLegCount }}</td>
+                        <td>{{ row.sellLegCount }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          }
+        </div>
+      </mat-tab>
+    </mat-tab-group>
+  </mat-card-content>
+</mat-card>

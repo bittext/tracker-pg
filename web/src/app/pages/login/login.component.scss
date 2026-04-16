@@ -1,0 +1,48 @@
+.login-page {
+  display: grid;
+  place-items: center;
+  min-height: calc(100vh - 170px);
+  padding: 1rem;
+}
+
+.login-card {
+  width: min(420px, 100%);
+  padding: 1.25rem;
+}
+
+h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+}
+
+.hint {
+  margin: 0 0 1rem;
+  color: #64748b;
+}
+
+form {
+  display: grid;
+  gap: 0.85rem;
+}
+
+mat-form-field {
+  width: 100%;
+}
+
+button[type='submit'] {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.error {
+  margin: 0;
+  color: #b91c1c;
+}
+
+.dev-note {
+  margin: 1rem 0 0;
+  font-size: 0.82rem;
+  color: #64748b;
+}

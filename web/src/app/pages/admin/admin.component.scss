@@ -1,0 +1,111 @@
+.card {
+  margin-bottom: 1rem;
+}
+
+.admin-card ::ng-deep .mat-mdc-tab-body-wrapper {
+  overflow: visible;
+}
+
+.admin-tab-group {
+  --mat-tab-header-label-text-size: 0.95rem;
+}
+
+.tab-panel {
+  padding: 1rem 1rem 1.25rem;
+  box-sizing: border-box;
+}
+
+.admin-section {
+  margin-bottom: 1.25rem;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.section-title {
+  margin: 0 0 0.65rem;
+  font-size: 1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.section-count {
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+.table-wrap-group {
+  margin-top: 0.35rem;
+  padding: 0.85rem 0.75rem 0.95rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+  border-radius: var(--app-radius-sm, 10px);
+  background: var(--app-surface, #fff);
+  box-shadow: var(--app-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.05));
+}
+
+.admin-add-wrap.table-wrap-group {
+  margin-top: 0;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 0.35rem;
+  border-radius: var(--app-radius-sm, 10px);
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+  background: var(--app-surface-muted, #f8fafc);
+
+  &.tight {
+    margin-top: 0.45rem;
+  }
+
+  &.tight.table-wrap--entry {
+    margin-top: 0;
+  }
+
+  &.table-wrap--entry {
+    margin-top: 0;
+    padding: 0.55rem 0.55rem 0.65rem;
+  }
+}
+
+.form-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.75rem;
+
+  mat-form-field {
+    min-width: 140px;
+  }
+
+  .grow {
+    flex: 1 1 180px;
+    min-width: 160px;
+  }
+
+  .narrow {
+    flex: 0 1 140px;
+    min-width: 120px;
+  }
+}
+
+.full-width {
+  width: 100%;
+}
+
+.notes-cell {
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-width: 28rem;
+}
+
+.empty-hint {
+  margin: 0.75rem 0 0;
+  font-size: 0.9rem;
+}
