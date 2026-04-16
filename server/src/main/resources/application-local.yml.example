@@ -6,9 +6,9 @@
 
 spring:
   datasource:
-    url: jdbc:oracle:thin:@//localhost:1521/YOUR_SERVICE
-    username: YOUR_DB_USER
-    password: YOUR_DB_PASSWORD
+    url: jdbc:postgresql://localhost:5433/tracker
+    username: tracker
+    password: tracker
 
 tracker:
   finance:

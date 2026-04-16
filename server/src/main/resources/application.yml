@@ -1,12 +1,12 @@
-# PostgreSQL Tracker — defaults match docker-compose in this project root.
-# Override secrets via env or application-local.yml (gitignored).
+# PostgreSQL Tracker base config.
+# Put machine-specific datasource values and Robinhood file paths in application-local.yml.
 spring:
   application:
     name: tracker-pg-server
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/tracker}
-    username: ${SPRING_DATASOURCE_USERNAME:tracker}
-    password: ${SPRING_DATASOURCE_PASSWORD:tracker}
+    url: ${SPRING_DATASOURCE_URL:}
+    username: ${SPRING_DATASOURCE_USERNAME:}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
@@ -64,8 +64,8 @@ tracker:
     import-preview-rows: 25
     max-import-errors: 25
     import-deduplicate: true
-    robinhood-csv-import-directory: ""
-    robinhood-csv-uploaded-directory: ""
+    robinhood-csv-import-directory: ${TRACKER_FINANCE_ROBINHOOD_CSV_IMPORT_DIRECTORY:}
+    robinhood-csv-uploaded-directory: ${TRACKER_FINANCE_ROBINHOOD_CSV_UPLOADED_DIRECTORY:}
     max-directory-import-files: 500
     news-enabled: true
     news-max-items: 10
