@@ -1,0 +1,9 @@
+.git
+.gitignore
+.venv
+.DS_Store
+
+server/target
+web/node_modules
+web/.angular
+web/dist
