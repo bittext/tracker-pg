@@ -2,6 +2,18 @@
 
 Goal: copy **business tables** from the Oracle Tracker app into this project’s PostgreSQL schema, **without** replacing **`auth_users`** (and without relying on Oracle user ids for MFA / trusted locations).
 
+## Automated copy (JDBC)
+
+1. Copy **`scripts/oracle-to-pg/.env.migration.example`** → **`scripts/oracle-to-pg/.env.migration`** (gitignored) and set Oracle + Postgres JDBC variables (same values as sibling `tracker` `application-local.yml` and your Postgres `.env.stack` / compose).
+2. Ensure **Oracle** is reachable from this machine and **Postgres** is up (e.g. stack on `localhost:5433`).
+3. Run:
+
+```bash
+./scripts/oracle-to-pg/run-copy.sh
+```
+
+This runs `com.svp.tracker.migration.OracleToPostgresCopy` (Maven `exec:java` from `server/`): truncates non-auth tables (unless `MIGRATE_TRUNCATE_FIRST=false`), copies management/fitness/robinhood rows, then resets PostgreSQL id sequences.
+
 ## 1. Prerequisites
 
 - PostgreSQL `tracker` database reachable (e.g. DBeaver on `localhost:5433` or stack `POSTGRES_HOST_PORT`).
