@@ -24,6 +24,33 @@ Stop and remove containers (data volume is kept unless you remove it explicitly)
 docker compose down
 ```
 
+### Database lifecycle: one-time work vs every deploy
+
+**One-time (operations / first environment):**
+
+- Provision PostgreSQL (for example `docker compose up -d` or the stack file’s `postgres` service).
+- **Copy or migrate data from the Oracle `tracker` application** using your own process (export/import, ETL, `pg_dump` from a staging DB, etc.). This repo does **not** run Oracle migration on each deploy.
+- Set secrets (`application-local.yml`, `.env.stack`, or environment) and create non-bootstrap users as needed.
+
+**Every deploy of the API or web container:**
+
+- **Web:** ships static files only; it does **not** touch the database.
+- **API:** **Flyway** runs on startup but applies **only pending** migration scripts under `server/src/main/resources/db/migration/`. Versions already recorded in `flyway_schema_history` are **not** re-run (no full schema replay from scratch).
+- **Hibernate** uses `ddl-auto: validate`, so entities are checked against the schema; Hibernate does **not** auto-create or drop tables.
+
+**Keeping data across deploys:**
+
+- Postgres files live in a **named Docker volume** created by Compose (for example `tracker-pg_tracker_pg_data` or `tracker-pg_tracker_pg_stack_data`, depending on which file you use). Plain `docker compose down` **does not delete** that volume.
+- **Avoid** `docker compose down -v` in environments where you care about data; `-v` removes named volumes declared in that compose project.
+
+**Routine stack redeploy (API + web only, Postgres unchanged):**
+
+```bash
+./scripts/deploy-stack-app.sh
+```
+
+(`ENV_FILE=.env.stack` by default.) This rebuilds `api` and `web` and restarts them with `--no-deps` so the database container and its volume are not part of the recreate cycle.
+
 ## Local secrets (`application-local.yml`)
 
 Do not commit real passwords or JWT secrets. Copy the template and edit the copy (the copy is gitignored):
@@ -80,11 +107,13 @@ cp .env.stack.example .env.stack
 # edit .env.stack — passwords, JWT secret, bootstrap admin password, optional API_PORT / WEB_PORT / CORS_PATTERN
 ```
 
-2. Build and start:
+2. **First-time or full stack** (Postgres + API + web):
 
 ```bash
 docker compose -f docker-compose.stack.yml --env-file .env.stack up -d --build
 ```
+
+After the database exists and is populated, prefer **`./scripts/deploy-stack-app.sh`** for day-to-day API/web image updates so Postgres and its data volume stay put.
 
 3. Open the UI at **`http://localhost:${WEB_PORT:-9080}/`** (or `http://<your-LAN-ip>:9080/`). API-only checks: **`http://localhost:${API_PORT:-9091}/actuator/health`**.
 

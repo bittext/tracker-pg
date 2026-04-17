@@ -12,6 +12,7 @@ spring:
       maximum-pool-size: 10
   jpa:
     hibernate:
+      # Never auto-create or drop schema from entities — only Flyway migrations change the DDL.
       ddl-auto: validate
     open-in-view: false
     properties:
@@ -20,6 +21,7 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
   flyway:
     enabled: true
+    # On each startup Flyway applies only *pending* migrations (new files). Already-applied versions are skipped.
 
 server:
   port: ${SERVER_PORT:9091}
