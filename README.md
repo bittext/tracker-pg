@@ -51,6 +51,23 @@ docker compose down
 
 (`ENV_FILE=.env.stack` by default.) This rebuilds `api` and `web` and restarts them with `--no-deps` so the database container and its volume are not part of the recreate cycle.
 
+## Reset the `admin` password in PostgreSQL
+
+Passwords are **BCrypt** hashes of `password + "::" + salt + "::" + pepper`, matching `PasswordHashService` and **`TRACKER_AUTH_PASSWORD_PEPPER`** from your API environment (`.env.stack`, `application-local.yml`, or `application.yml`). You cannot set a plain-text password in SQL without that formula.
+
+1. From **`server/`**, generate an `UPDATE` (use the **same pepper** the running API uses, or pass it as the second argument):
+
+```bash
+cd server
+TRACKER_AUTH_PASSWORD_PEPPER='your-pepper-from-env' mvn -q compile exec:java \
+  -Dexec.mainClass=com.svp.tracker.auth.tool.PasswordHashCli \
+  "-Dexec.args=YourNewPassword"
+```
+
+2. Run the printed SQL in **DBeaver** or `psql` against the **`tracker`** database.
+
+To reset another user, edit the `WHERE` clause in the printed SQL (or change `admin` in the tool source if you prefer a one-off).
+
 ## Local secrets (`application-local.yml`)
 
 Do not commit real passwords or JWT secrets. Copy the template and edit the copy (the copy is gitignored):
