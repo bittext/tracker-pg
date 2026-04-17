@@ -98,13 +98,15 @@ The API is exposed on **9091**. Do not run this at the same time as `mvn spring-
 
 ## Public / LAN access (Docker stack)
 
-Use **`docker-compose.stack.yml`** for **Postgres + API + Angular** in Docker. Postgres has **no** host port; **API** and **web UI** are published via **`API_PORT`** and **`WEB_PORT`** in `.env.stack` (defaults **9091** and **9080**). Inside the stack the API always listens on **9091**; nginx in the **`web`** service proxies **`/api`** to `http://api:9091`, matching the production Angular build (`apiBaseUrl` is empty).
+Use **`docker-compose.stack.yml`** for **Postgres + API + Angular** in Docker. **Postgres** is published on **`POSTGRES_HOST_PORT`** (default **5433**) so tools like **DBeaver** can use `localhost`, that port, database `POSTGRES_DB`, and user `POSTGRES_USER` / `POSTGRES_PASSWORD` from `.env.stack`. **API** and **web** use **`API_PORT`** and **`WEB_PORT`**. Inside the stack the API listens on **9091**; nginx proxies **`/api`** to `http://api:9091`.
+
+If **`docker compose up`** (dev Postgres on **5433**) is already running, set **`POSTGRES_HOST_PORT=5434`** in `.env.stack` for the stack to avoid a port bind conflict.
 
 1. Copy the env template and set strong values (never commit `.env.stack`; it is gitignored):
 
 ```bash
 cp .env.stack.example .env.stack
-# edit .env.stack — passwords, JWT secret, bootstrap admin password, optional API_PORT / WEB_PORT / CORS_PATTERN
+# edit .env.stack — passwords, JWT secret, bootstrap admin password, POSTGRES_HOST_PORT / API_PORT / WEB_PORT / CORS_PATTERN
 ```
 
 2. **First-time or full stack** (Postgres + API + web):
@@ -117,9 +119,9 @@ After the database exists and is populated, prefer **`./scripts/deploy-stack-app
 
 3. Open the UI at **`http://localhost:${WEB_PORT:-9080}/`** (or `http://<your-LAN-ip>:9080/`). API-only checks: **`http://localhost:${API_PORT:-9091}/actuator/health`**.
 
-4. To reach services from the **public internet**, allow the chosen TCP ports through your **OS firewall** and usually **home router port forwarding**. Prefer **HTTPS** in front (Caddy, Traefik, or nginx) and tighten **`CORS_PATTERN`** when browsers hit the API from another origin instead of going through the bundled nginx UI.
+4. To reach services from the **public internet**, allow the chosen TCP ports through your **OS firewall** and usually **home router port forwarding**. Prefer **HTTPS** in front (Caddy, Traefik, or nginx) and tighten **`CORS_PATTERN`** when browsers hit the API from another origin instead of going through the bundled nginx UI. **Do not forward the Postgres port** to the internet unless you fully understand the risk; use VPN or SSH tunnel for remote DBeaver access.
 
-**Security:** exposing any service to WAN increases risk. Use long random `POSTGRES_PASSWORD`, `TRACKER_AUTH_JWT_SECRET`, and `TRACKER_AUTH_PASSWORD_PEPPER`, keep the DB internal to Docker as in this stack file, and plan for TLS and rate limits for anything beyond a personal lab.
+**Security:** exposing Postgres on the LAN binds to all interfaces by default. Use a strong `POSTGRES_PASSWORD`, avoid exposing **5433** on untrusted networks, and keep `TRACKER_AUTH_*` secrets long and random.
 
 ## Web UI (Angular)
 
