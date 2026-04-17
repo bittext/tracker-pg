@@ -2,7 +2,7 @@ target/
 .idea/
 *.iml
 .DS_Store
-server/application-local.yml
+server/src/main/resources/application-local.yml
 web/node_modules/
 web/dist/
 web/.angular/

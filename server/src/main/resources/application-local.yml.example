@@ -1,16 +1,29 @@
-# Copy to application-local.yml and fill in your values.
-# application-local.yml is gitignored.
+# Copy to application-local.yml (same directory) and replace placeholders.
+# application-local.yml is gitignored — never commit it.
 #
-# Run server with local profile:
-#   SPRING_PROFILES_ACTIVE=local mvn spring-boot:run
+# Run the server with the local profile so this file is loaded:
+#   SPRING_PROFILES_ACTIVE=local mvn -f server spring-boot:run
 
 spring:
   datasource:
-    url: jdbc:oracle:thin:@//localhost:1521/YOUR_SERVICE
-    username: YOUR_DB_USER
-    password: YOUR_DB_PASSWORD
+    # Default docker-compose in repo root uses port 5433, db tracker, user tracker.
+    url: jdbc:postgresql://localhost:5433/tracker
+    username: tracker
+    password: tracker
 
 tracker:
+  auth:
+    # Use long random values on your machine; do not reuse production secrets.
+    jwt-secret: "CHANGE_ME_LOCAL_JWT_SECRET_AT_LEAST_32_CHARS"
+    password-pepper: "CHANGE_ME_LOCAL_PEPPER"
+    bootstrap-admin-password: "CHANGE_ME_LOCAL_ADMIN_PASSWORD"
+    # Optional: Twilio (only if tracker.auth.sms.enabled=true in application.yml)
+    sms:
+      twilio-account-sid: ""
+      twilio-auth-token: ""
+      twilio-from-number: ""
+
   finance:
+    # Absolute paths for POST /import-csv-directory (leave empty if unused).
     robinhood-csv-import-directory: "/absolute/path/to/robinhood/import"
     robinhood-csv-uploaded-directory: "/absolute/path/to/robinhood/uploaded"
