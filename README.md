@@ -29,7 +29,7 @@ docker compose down
 **One-time (operations / first environment):**
 
 - Provision PostgreSQL (for example `docker compose up -d` or the stack file’s `postgres` service).
-- **Copy or migrate data from the Oracle `tracker` application** using your own process (export/import, ETL, `pg_dump` from a staging DB, etc.). This repo does **not** run Oracle migration on each deploy.
+- **Copy or migrate data from the Oracle `tracker` application** using your own process (export/import, ETL, `pg_dump` from a staging DB, etc.). This repo does **not** run Oracle migration on each deploy. Step-by-step (**leave `auth_users`**) is in **`scripts/oracle-to-pg/IMPORT.md`**, with **`scripts/oracle-to-pg/pg-truncate-non-auth.sql`** to clear non-auth tables before load.
 - Set secrets (`application-local.yml`, `.env.stack`, or environment) and create non-bootstrap users as needed.
 
 **Every deploy of the API or web container:**
