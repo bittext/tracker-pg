@@ -6,13 +6,11 @@ BEGIN;
 TRUNCATE TABLE auth_mfa_challenges;
 TRUNCATE TABLE auth_trusted_locations;
 
-TRUNCATE TABLE management_tasks RESTART IDENTITY;
-TRUNCATE TABLE fitness_exercise_day_logs RESTART IDENTITY;
+-- FKs link tasks → types/categories; truncate all three together.
+TRUNCATE TABLE management_tasks, management_task_types, management_task_categories RESTART IDENTITY CASCADE;
 
-TRUNCATE TABLE management_task_types RESTART IDENTITY;
-TRUNCATE TABLE management_task_categories RESTART IDENTITY;
+TRUNCATE TABLE fitness_exercise_day_logs, fitness_exercises RESTART IDENTITY CASCADE;
 
-TRUNCATE TABLE fitness_exercises RESTART IDENTITY;
 TRUNCATE TABLE fitness_body_weight RESTART IDENTITY;
 
 TRUNCATE TABLE robinhood_transactions;
