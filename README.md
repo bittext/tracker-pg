@@ -6,23 +6,51 @@ Full **Tracker** REST API (auth, fitness, management, finance, logs, OpenAPI) ba
 
 - Java 17+
 - Maven 3.9+
-- Docker (for local Postgres and for integration tests)
+- Docker (for local Postgres, optional API image, and integration tests)
 
-## Database
+## Database (Docker)
 
-From this directory:
+From the repo root, start **Postgres only** (recommended for day-to-day development):
 
 ```bash
 docker compose up -d
 ```
 
-Postgres listens on **localhost:5433** (avoids clashing with a local Postgres on 5432). Default credentials match `server/src/main/resources/application.yml`: user `tracker`, password `tracker`, database `tracker`.
+Postgres listens on **localhost:5433** (avoids clashing with a local Postgres on 5432). Default credentials: user `tracker`, password `tracker`, database `tracker`. These match the defaults in `server/src/main/resources/application.yml`.
 
-## API server
+Stop and remove containers (data volume is kept unless you remove it explicitly):
+
+```bash
+docker compose down
+```
+
+## Local secrets (`application-local.yml`)
+
+Do not commit real passwords or JWT secrets. Copy the template and edit the copy (the copy is gitignored):
+
+```bash
+cp server/src/main/resources/application-local.yml.example \
+   server/src/main/resources/application-local.yml
+```
+
+Replace the `CHANGE_ME_*` placeholders and set Robinhood CSV paths if you use directory import.
+
+Run the API with the **`local`** Spring profile so `application-local.yml` is loaded:
 
 ```bash
 cd server
-mvn spring-boot:run
+SPRING_PROFILES_ACTIVE=local mvn spring-boot:run
+```
+
+Without that profile, the server still starts using defaults from `application.yml` (fine for a quick try on an empty machine; not ideal for anything you treat as sensitive).
+
+## API server (Maven, on the host)
+
+With Postgres up (`docker compose up -d`):
+
+```bash
+cd server
+SPRING_PROFILES_ACTIVE=local mvn spring-boot:run
 ```
 
 - Base URL: `http://localhost:9091`
@@ -31,9 +59,19 @@ mvn spring-boot:run
 
 Finance reads/writes the `robinhood_transactions` table created by Flyway (`V1__tracker_schema.sql`). CSV import and JDBC queries use PostgreSQL-compatible SQL (`LIMIT`, `to_timestamp`, etc.) in this module’s copy of `RobinhoodFinanceService`.
 
+## API server (Docker, optional)
+
+If you want the JAR in a container instead of Maven on the host (still uses the same Compose Postgres service):
+
+```bash
+docker compose --profile api up -d --build
+```
+
+The API is exposed on **9091**. Do not run this at the same time as `mvn spring-boot:run` on the host unless you change one of the ports.
+
 ## Web UI (Angular)
 
-This repo includes a copy of the Tracker Angular app under **`web/`**. Dev server **`proxy.conf.json`** forwards `/api` to **`http://127.0.0.1:9091`** (the tracker-pg API).
+This repo includes a copy of the Tracker Angular app under **`web/`**. Dev server **`web/proxy.conf.json`** forwards `/api` to **`http://127.0.0.1:9091`** (the tracker-pg API).
 
 ```bash
 cd web
