@@ -1,0 +1,49 @@
+# Full stack for LAN / home network / port-forwarded access.
+# Postgres is NOT published to the host — only the API port is (default 9091).
+#
+#   cp .env.stack.example .env.stack
+#   docker compose -f docker-compose.stack.yml --env-file .env.stack up -d --build
+#
+# See README "Public / LAN access" for firewall, HTTPS, and security notes.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - tracker_pg_stack_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SERVER_PORT: ${API_PORT:-9091}
+      SERVER_ADDRESS: 0.0.0.0
+      TRACKER_AUTH_JWT_SECRET: ${TRACKER_AUTH_JWT_SECRET}
+      TRACKER_AUTH_PASSWORD_PEPPER: ${TRACKER_AUTH_PASSWORD_PEPPER}
+      TRACKER_AUTH_BOOTSTRAP_ADMIN_PASSWORD: ${TRACKER_AUTH_BOOTSTRAP_ADMIN_PASSWORD}
+      # Browser clients from other hosts / origins (override in .env.stack if needed)
+      TRACKER_WEB_CORS_ALLOWED_ORIGIN_PATTERNS_0: ${CORS_PATTERN:-*}
+    ports:
+      # Host port → container (omit host IP = bind all interfaces; reachable on LAN / port-forward).
+      - "${API_PORT:-9091}:${API_PORT:-9091}"
+
+volumes:
+  tracker_pg_stack_data:

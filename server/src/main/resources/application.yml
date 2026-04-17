@@ -23,6 +23,8 @@ spring:
 
 server:
   port: ${SERVER_PORT:9091}
+  # Listen on all interfaces inside Docker / LAN (default is already 0.0.0.0).
+  address: ${SERVER_ADDRESS:0.0.0.0}
 
 management:
   endpoints:
@@ -32,6 +34,11 @@ management:
 
 # Finance JDBC targets the local Flyway table (unquoted identifiers fold to lowercase in PostgreSQL).
 tracker:
+  web:
+    cors-allowed-origin-patterns:
+      - "http://localhost:*"
+      - "http://127.0.0.1:*"
+      - "http://[::1]:*"
   auth:
     jwt-secret: ${TRACKER_AUTH_JWT_SECRET:dev-secret-change-me-dev-secret-change-me-dev-secret-change-me}
     jwt-ttl-seconds: ${TRACKER_AUTH_JWT_TTL_SECONDS:43200}

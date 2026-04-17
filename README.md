@@ -69,6 +69,29 @@ docker compose --profile api up -d --build
 
 The API is exposed on **9091**. Do not run this at the same time as `mvn spring-boot:run` on the host unless you change one of the ports.
 
+## Public / LAN access (Docker stack)
+
+Use **`docker-compose.stack.yml`** when you want **Postgres and the API** in Docker, with **only the API port** published on your machine (Postgres stays on the internal Compose network, not exposed to your LAN or the internet).
+
+1. Copy the env template and set strong values (never commit `.env.stack`; it is gitignored):
+
+```bash
+cp .env.stack.example .env.stack
+# edit .env.stack — passwords, JWT secret, bootstrap admin password, optional API_PORT / CORS_PATTERN
+```
+
+2. Build and start:
+
+```bash
+docker compose -f docker-compose.stack.yml --env-file .env.stack up -d --build
+```
+
+3. Reach the API from another device on your network using your computer’s IP address and host port (default **9091**), for example `http://192.168.1.50:9091/actuator/health`.
+
+4. To reach it from the **public internet**, you must allow inbound TCP on that port (**OS firewall** and usually **home router port forwarding** to this machine). Prefer **HTTPS** in front of the API (reverse proxy such as Caddy, Traefik, or nginx) and tighten **`CORS_PATTERN`** in `.env.stack` to your real UI origin instead of `*` when browsers are involved.
+
+**Security:** exposing any service to WAN increases risk. Use long random `POSTGRES_PASSWORD`, `TRACKER_AUTH_JWT_SECRET`, and `TRACKER_AUTH_PASSWORD_PEPPER`, keep the DB internal to Docker as in this stack file, and plan for TLS and rate limits for anything beyond a personal lab.
+
 ## Web UI (Angular)
 
 This repo includes a copy of the Tracker Angular app under **`web/`**. Dev server **`web/proxy.conf.json`** forwards `/api` to **`http://127.0.0.1:9091`** (the tracker-pg API).
