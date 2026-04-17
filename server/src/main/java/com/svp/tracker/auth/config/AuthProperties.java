@@ -1,5 +1,6 @@
 package com.svp.tracker.auth.config;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -19,6 +20,11 @@ public record AuthProperties(
     public AuthProperties {
         if (jwtSecret == null || jwtSecret.isBlank()) {
             jwtSecret = "dev-secret-change-me-dev-secret-change-me-dev-secret-change-me";
+        }
+        if (jwtSecret.getBytes(StandardCharsets.UTF_8).length < 32) {
+            throw new IllegalStateException(
+                    "tracker.auth.jwt-secret must be at least 32 UTF-8 bytes (JJWT HS256 requirement); "
+                            + "fix application.yml or application-local.yml");
         }
         if (jwtTtlSeconds < 300) {
             jwtTtlSeconds = 43_200;
