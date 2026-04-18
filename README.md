@@ -29,7 +29,7 @@ docker compose down
 **One-time (operations / first environment):**
 
 - Provision PostgreSQL (for example `docker compose up -d` or the stack file’s `postgres` service).
-- **Copy or migrate data from the Oracle `tracker` application** using your own process (export/import, ETL, `pg_dump` from a staging DB, etc.). This repo does **not** run Oracle migration on each deploy. Step-by-step (**leave `auth_users`**) is in **`scripts/oracle-to-pg/IMPORT.md`**. Automated JDBC copy: **`./scripts/oracle-to-pg/run-copy.sh`** (after **`scripts/oracle-to-pg/.env.migration`** from the example). Manual truncate only: **`scripts/oracle-to-pg/pg-truncate-non-auth.sql`**.
+- **Copy or migrate data from the Oracle `tracker` application** using your own process (export/import, ETL, `pg_dump` from a staging DB, etc.). This repo does **not** run Oracle migration on each deploy. **Leave `auth_users` out** of any import (PostgreSQL app passwords use bcrypt + pepper + salt; Oracle hashes are incompatible).
 - Set secrets (`application-local.yml`, `.env.stack`, or environment) and create non-bootstrap users as needed.
 
 **Every deploy of the API or web container:**
@@ -46,10 +46,12 @@ docker compose down
 **Routine stack redeploy (API + web only, Postgres unchanged):**
 
 ```bash
-./scripts/deploy-stack-app.sh
+ENV_FILE="${ENV_FILE:-.env.stack}"
+docker compose -f docker-compose.stack.yml --env-file "$ENV_FILE" build api web
+docker compose -f docker-compose.stack.yml --env-file "$ENV_FILE" up -d --no-deps api web
 ```
 
-(`ENV_FILE=.env.stack` by default.) This rebuilds `api` and `web` and restarts them with `--no-deps` so the database container and its volume are not part of the recreate cycle.
+This rebuilds `api` and `web` and restarts them with `--no-deps` so the database container and its volume are not part of the recreate cycle.
 
 ## Reset the `admin` password in PostgreSQL
 
@@ -132,7 +134,7 @@ cp .env.stack.example .env.stack
 docker compose -f docker-compose.stack.yml --env-file .env.stack up -d --build
 ```
 
-After the database exists and is populated, prefer **`./scripts/deploy-stack-app.sh`** for day-to-day API/web image updates so Postgres and its data volume stay put.
+After the database exists and is populated, use the **Routine stack redeploy** commands above for day-to-day API/web image updates so Postgres and its data volume stay put.
 
 3. Open the UI at **`http://localhost:${WEB_PORT:-9080}/`** (or `http://<your-LAN-ip>:9080/`). API-only checks: **`http://localhost:${API_PORT:-9091}/actuator/health`**.
 

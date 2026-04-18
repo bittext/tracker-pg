@@ -1,5 +1,4 @@
 .env.stack
-scripts/oracle-to-pg/.env.migration
 target/
 .idea/
 *.iml
