@@ -1,0 +1,56 @@
+# Deploys the `develop` branch to an Ubuntu Lightsail instance over SSH.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   LIGHTSAIL_HOST     — public IP or DNS of the instance
+#   LIGHTSAIL_SSH_KEY  — full private key (PEM) for SSH (same key pair as in Lightsail / your .pem)
+#   LIGHTSAIL_USER     — optional; omit to default to ubuntu in the SSH step below
+#
+# Optional repository variable (Settings → Secrets and variables → Actions → Variables):
+#   LIGHTSAIL_REPO_DIR — absolute path to the clone on the server (default: /home/ubuntu/tracker-pg)
+#
+# One-time on the Lightsail host:
+#   - Install Docker Engine + Compose plugin; add ubuntu to the docker group if needed.
+#   - git clone <this-repo-url> && cd tracker-pg && git checkout develop
+#   - cp .env.stack.example .env.stack && edit (never commit .env.stack)
+#   - chmod +x scripts/lightsail-deploy.sh
+#   - ./scripts/lightsail-deploy.sh   # verify stack comes up
+#
+# Private GitHub repo: configure a read-only deploy key on the server (ssh-keygen, add public key
+# in repo Deploy keys) or use a PAT in the git remote URL so `git pull` works.
+
+name: Deploy develop to Lightsail
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-lightsail-develop
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH deploy
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USER || 'ubuntu' }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          script_stop: true
+          command_timeout: 90m
+          script: |
+            set -euo pipefail
+            REPO_DIR="${{ vars.LIGHTSAIL_REPO_DIR }}"
+            REPO_DIR="${REPO_DIR:-/home/ubuntu/tracker-pg}"
+            cd "$REPO_DIR"
+            git fetch origin develop
+            if git show-ref --verify --quiet refs/heads/develop; then
+              git checkout develop
+            else
+              git checkout -b develop origin/develop
+            fi
+            git reset --hard origin/develop
+            bash scripts/lightsail-deploy.sh

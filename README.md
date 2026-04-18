@@ -116,9 +116,27 @@ The API is exposed on **9091**. Do not run this at the same time as `mvn spring-
 
 ## Public / LAN access (Docker stack)
 
-Use **`docker-compose.stack.yml`** for **Postgres + API + Angular** in Docker. **Postgres** is published on **`POSTGRES_HOST_PORT`** (default **5433**) so tools like **DBeaver** can use `localhost`, that port, database `POSTGRES_DB`, and user `POSTGRES_USER` / `POSTGRES_PASSWORD` from `.env.stack`. **API** and **web** use **`API_PORT`** and **`WEB_PORT`**. Inside the stack the API listens on **9091**; nginx proxies **`/api`** to `http://api:9091`.
+Use **`docker-compose.stack.yml`** for **Postgres + API + Angular** in Docker. **Postgres** is mapped to **`127.0.0.1:${POSTGRES_HOST_PORT:-5433}`** on the host (not reachable from the internet on the instance’s public IP). **API** and **web** use **`API_PORT`** and **`WEB_PORT`**. Inside the stack the API listens on **9091**; nginx proxies **`/api`** to `http://api:9091`.
 
 If **`docker compose up`** (dev Postgres on **5433**) is already running, set **`POSTGRES_HOST_PORT=5434`** in `.env.stack` for the stack to avoid a port bind conflict.
+
+### Lightsail (Ubuntu), port 80, DBeaver from your laptop
+
+**Lightsail networking → IPv4 firewall** for the instance: allow inbound **TCP 22** (SSH) and **TCP 80** only. Do **not** add a rule for Postgres (**5433** by default) or the API (**9091**) unless you explicitly need direct API access from the internet; the UI uses nginx on port **80** and proxies **`/api`** to the API.
+
+In **`.env.stack`**, set **`WEB_PORT=80`**. Rebuild or recreate the stack so the web container is published on host port 80.
+
+**DBeaver** (database not public): keep Postgres off the Lightsail firewall. From your laptop, open an **SSH tunnel** to the VM, then connect DBeaver to **localhost** on the forwarded port.
+
+Terminal (replace host and key path):
+
+```bash
+ssh -N -L 5433:127.0.0.1:5433 ubuntu@YOUR_LIGHTSAIL_STATIC_IP -i ~/.ssh/your-lightsail-key.pem
+```
+
+Leave that session running. In DBeaver, new PostgreSQL connection: **Host** `127.0.0.1`, **Port** `5433`, **Database** / **User** / **Password** from `.env.stack` (`POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`). Alternatively, use the **SSH** tab: enable “Use SSH Tunnel”, set the Lightsail host, user `ubuntu`, and your private key; on the **Main** tab set **Host** `localhost` and **Port** `5433` (host/port as seen **on the server** after the SSH session is established).
+
+If you changed **`POSTGRES_HOST_PORT`** in `.env.stack`, use that value instead of **5433** in both the `ssh -L` command and DBeaver.
 
 1. Copy the env template and set strong values (never commit `.env.stack`; it is gitignored):
 
@@ -139,7 +157,7 @@ After the database exists and is populated, use the **Routine stack redeploy** c
 
 4. To reach services from the **public internet**, allow the chosen TCP ports through your **OS firewall** and usually **home router port forwarding**. Prefer **HTTPS** in front (Caddy, Traefik, or nginx) and tighten **`CORS_PATTERN`** when browsers hit the API from another origin instead of going through the bundled nginx UI. **Do not forward the Postgres port** to the internet unless you fully understand the risk; use VPN or SSH tunnel for remote DBeaver access.
 
-**Security:** exposing Postgres on the LAN binds to all interfaces by default. Use a strong `POSTGRES_PASSWORD`, avoid exposing **5433** on untrusted networks, and keep `TRACKER_AUTH_*` secrets long and random.
+**Security:** the stack binds Postgres to **127.0.0.1** on the VM only. Use a strong `POSTGRES_PASSWORD`, never add a public firewall rule for Postgres, and keep `TRACKER_AUTH_*` secrets long and random.
 
 ## Web UI (Angular)
 
