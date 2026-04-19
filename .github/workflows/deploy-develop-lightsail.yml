@@ -44,7 +44,7 @@ jobs:
           script: |
             set -euo pipefail
             REPO_DIR="${{ vars.LIGHTSAIL_REPO_DIR }}"
-            REPO_DIR="${REPO_DIR:-/home/ubuntu/tracker-pg}"
+            REPO_DIR="${REPO_DIR:-/home/ubuntu/apps/tracker-pg}"
             cd "$REPO_DIR"
             git fetch origin develop
             if git show-ref --verify --quiet refs/heads/develop; then
