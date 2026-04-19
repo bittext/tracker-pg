@@ -29,7 +29,9 @@ docker compose down
 **One-time (operations / first environment):**
 
 - Provision PostgreSQL (for example `docker compose up -d` or the stack file’s `postgres` service).
-- **Copy or migrate data from the Oracle `tracker` application** using your own process (export/import, ETL, `pg_dump` from a staging DB, etc.). This repo does **not** run Oracle migration on each deploy. When migrating, **leave `auth_users`** unless you intend to replace identity data.
+
+- **Copy or migrate data from the Oracle `tracker` application** using your own process (export/import, ETL, `pg_dump` from a staging DB, etc.). This repo does **not** run Oracle migration on each deploy. **Leave `auth_users` out** of any import (PostgreSQL app passwords use bcrypt + pepper + salt; Oracle hashes are incompatible).
+
 - Set secrets (`application-local.yml`, `.env.stack`, or environment) and create non-bootstrap users as needed.
 
 **Every deploy of the API or web container:**
@@ -46,11 +48,12 @@ docker compose down
 **Routine stack redeploy (API + web only, Postgres unchanged):**
 
 ```bash
-docker compose -f docker-compose.stack.yml --env-file .env.stack build api web
-docker compose -f docker-compose.stack.yml --env-file .env.stack up -d --no-deps api web
+ENV_FILE="${ENV_FILE:-.env.stack}"
+docker compose -f docker-compose.stack.yml --env-file "$ENV_FILE" build api web
+docker compose -f docker-compose.stack.yml --env-file "$ENV_FILE" up -d --no-deps api web
 ```
 
-This rebuilds `api` and `web` and restarts them with `--no-deps` so the database container and its volume are not part of the recreate cycle. Use a different env file with `--env-file` if needed.
+This rebuilds `api` and `web` and restarts them with `--no-deps` so the database container and its volume are not part of the recreate cycle.
 
 ## Reset the `admin` password in PostgreSQL
 
