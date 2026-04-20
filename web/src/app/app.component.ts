@@ -41,6 +41,10 @@ export class AppComponent {
     return this.auth.isAuthenticated();
   }
 
+  get isAdmin(): boolean {
+    return this.auth.isAdmin();
+  }
+
   logout(): void {
     this.auth.logout(true);
   }

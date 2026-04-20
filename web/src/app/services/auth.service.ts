@@ -47,6 +47,12 @@ export class AuthService {
     return this.authState$.value;
   }
 
+  /** True when login stored role is ADMIN (same value as server JWT / AuthTokenDto). */
+  isAdmin(): boolean {
+    const r = this.role;
+    return r != null && r.trim().toUpperCase() === 'ADMIN';
+  }
+
   login(username: string, password: string) {
     return this.http
       .post<LoginResponseDto>(`${this.apiBase}/login`, { username, password })

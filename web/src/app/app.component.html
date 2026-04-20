@@ -50,6 +50,7 @@
           Reports
         </a>
         <a
+          *ngIf="isAdmin"
           mat-tab-link
           routerLink="/admin"
           routerLinkActive
@@ -60,6 +61,7 @@
           Admin
         </a>
         <a
+          *ngIf="isAdmin"
           mat-tab-link
           routerLink="/logs"
           routerLinkActive

@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { adminGuard } from './guards/admin.guard';
 import { authGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
@@ -33,13 +34,13 @@ export const routes: Routes = [
   },
   {
     path: 'admin',
-    canActivate: [authGuard],
+    canActivate: [adminGuard],
     loadComponent: () =>
       import('./pages/admin/admin.component').then((m) => m.AdminComponent),
   },
   {
     path: 'logs',
-    canActivate: [authGuard],
+    canActivate: [adminGuard],
     loadComponent: () => import('./pages/logs/logs.component').then((m) => m.LogsComponent),
   },
   { path: '**', redirectTo: 'exercise' },
