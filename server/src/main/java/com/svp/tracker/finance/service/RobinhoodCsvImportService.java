@@ -1,5 +1,6 @@
 package com.svp.tracker.finance.service;
 
+import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.FinanceProperties;
 import com.svp.tracker.finance.dto.RobinhoodCsvDirectoryImportDto;
 import com.svp.tracker.finance.dto.RobinhoodCsvDirectoryImportFileDto;
@@ -56,10 +57,12 @@ public class RobinhoodCsvImportService {
                     "TRANS_CODE",
                     "QUANTITY",
                     "PRICE",
-                    "AMOUNT");
+                    "AMOUNT",
+                    "OWNER_USER_ID");
 
     private final JdbcTemplate jdbcTemplate;
     private final FinanceProperties props;
+    private final CurrentUserService currentUser;
 
     public RobinhoodCsvImportResultDto importCsv(MultipartFile file, boolean apply) {
         if (file == null || file.isEmpty()) {
@@ -451,6 +454,8 @@ public class RobinhoodCsvImportService {
         appendNullSafeMatch(sql, args, "QUANTITY", row.quantity);
         appendNullSafeMatch(sql, args, "PRICE", row.price);
         appendNullSafeMatch(sql, args, "AMOUNT", row.amount);
+        sql.append(" AND OWNER_USER_ID = ?");
+        args.add(currentUser.requireUserId());
 
         Integer n = jdbcTemplate.queryForObject(sql.toString(), Integer.class, args.toArray());
         return n != null && n > 0;
@@ -480,7 +485,7 @@ public class RobinhoodCsvImportService {
                         + table
                         + " ("
                         + String.join(", ", TARGET_COLUMNS)
-                        + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                        + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         jdbcTemplate.update(
                 sql,
                 ps -> {
@@ -493,6 +498,7 @@ public class RobinhoodCsvImportService {
                     bindDecimal(ps, 7, row.quantity);
                     bindDecimal(ps, 8, row.price);
                     bindDecimal(ps, 9, row.amount);
+                    ps.setLong(10, currentUser.requireUserId());
                 });
     }
 

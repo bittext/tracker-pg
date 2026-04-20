@@ -1,5 +1,6 @@
 package com.svp.tracker.finance.service;
 
+import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.FinanceProperties;
 import com.svp.tracker.finance.dto.RobinhoodStocksSummaryDto;
 import com.svp.tracker.finance.dto.RobinhoodStocksSummaryRow;
@@ -42,6 +43,7 @@ public class RobinhoodFinanceService {
 
     private final JdbcTemplate jdbcTemplate;
     private final FinanceProperties props;
+    private final CurrentUserService currentUser;
 
     /**
      * @param year optional; with {@code month} filters to that month, alone filters to calendar year
@@ -128,6 +130,9 @@ public class RobinhoodFinanceService {
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT ").append(T).append(".* FROM ").append(table).append(" ").append(T);
 
+        List<Object> prefixBinds = new ArrayList<>();
+        boolean hasWhere = appendUserOwnerClause(sql, prefixBinds);
+
         boolean hasDate = year != null;
         boolean hasSym = symbol != null;
         if (hasDate) {
@@ -143,7 +148,8 @@ public class RobinhoodFinanceService {
                             : props.transactionDateOracleFormatMask().trim();
             boolean isoDayPrefixBounds =
                     oracleStringBounds != null && maskTrim.equalsIgnoreCase("YYYY-MM-DD");
-            sql.append(" WHERE ");
+            sql.append(hasWhere ? " AND " : " WHERE ");
+            hasWhere = true;
             if (oracleStringBounds != null && !isoDayPrefixBounds) {
                 String quotedMask = maskTrim.replace("'", "''");
                 sql.append(dateExpr)
@@ -161,7 +167,9 @@ public class RobinhoodFinanceService {
                 sql.append(" AND ").append(symbolEqualityPredicate(qualSym));
             }
         } else if (hasSym) {
-            sql.append(" WHERE ").append(symbolEqualityPredicate(qualSym));
+            sql.append(hasWhere ? " AND " : " WHERE ");
+            hasWhere = true;
+            sql.append(symbolEqualityPredicate(qualSym));
         }
 
         if (dateExpr != null) {
@@ -176,6 +184,9 @@ public class RobinhoodFinanceService {
                 sql.toString(),
                 ps -> {
                     int i = 1;
+                    for (Object o : prefixBinds) {
+                        ps.setObject(i++, o);
+                    }
                     if (year != null) {
                         LocalDate start = filterStartInclusive(year, month);
                         LocalDate endExclusive = filterEndExclusive(year, month);
@@ -194,6 +205,16 @@ public class RobinhoodFinanceService {
                     ps.setInt(i, cap);
                 },
                 new ColumnMapRowMapper());
+    }
+
+    /** Non-admin users only see Robinhood rows they own ({@code owner_user_id}). */
+    private boolean appendUserOwnerClause(StringBuilder sql, List<Object> prefixBinds) {
+        if (currentUser.isAdmin()) {
+            return false;
+        }
+        sql.append(" WHERE ").append(T).append(".owner_user_id = ?");
+        prefixBinds.add(currentUser.requireUserId());
+        return true;
     }
 
     private List<RobinhoodStocksSummaryRow> buildStocksSummaryRows(List<Map<String, Object>> rows, int financialYear) {
@@ -428,24 +449,36 @@ public class RobinhoodFinanceService {
         String table = qualifiedTable();
         int cap = props.maxSymbolListRows();
         String trimExpr = stockColumnTrimExpression(qual);
-        String sql =
-                "SELECT DISTINCT "
-                        + trimExpr
-                        + " AS SYM FROM "
-                        + table
-                        + " "
-                        + T
-                        + " WHERE "
-                        + qual
-                        + " IS NOT NULL AND "
-                        + trimExpr
-                        + " IS NOT NULL ORDER BY 1 LIMIT ?";
-        log.debug("Robinhood symbols query: {}", sql.replaceFirst("\\?", Integer.toString(cap)));
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT DISTINCT ")
+                .append(trimExpr)
+                .append(" AS SYM FROM ")
+                .append(table)
+                .append(" ")
+                .append(T)
+                .append(" WHERE ")
+                .append(qual)
+                .append(" IS NOT NULL AND ")
+                .append(trimExpr)
+                .append(" IS NOT NULL");
+        List<Object> symBinds = new ArrayList<>();
+        if (!currentUser.isAdmin()) {
+            sql.append(" AND ").append(T).append(".owner_user_id = ?");
+            symBinds.add(currentUser.requireUserId());
+        }
+        sql.append(" ORDER BY 1 LIMIT ?");
+        log.debug("Robinhood symbols query: {}", sql.toString().replaceFirst("\\?", Integer.toString(cap)));
         try {
             List<Map<String, Object>> rows =
                     jdbcTemplate.query(
-                            sql,
-                            ps -> ps.setInt(1, cap),
+                            sql.toString(),
+                            ps -> {
+                                int i = 1;
+                                for (Object o : symBinds) {
+                                    ps.setObject(i++, o);
+                                }
+                                ps.setInt(i, cap);
+                            },
                             new ColumnMapRowMapper());
             List<String> out = materializeSymbolRows(rows);
             if (out.isEmpty() && !rows.isEmpty()) {
@@ -483,22 +516,34 @@ public class RobinhoodFinanceService {
      */
     private List<String> fetchDistinctStockSymbolsFallback(
             String qual, String table, String trimExpr, int cap) {
-        String sql =
-                "SELECT "
-                        + trimExpr
-                        + " AS SYM FROM "
-                        + table
-                        + " "
-                        + T
-                        + " WHERE "
-                        + qual
-                        + " IS NOT NULL LIMIT ?";
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT ")
+                .append(trimExpr)
+                .append(" AS SYM FROM ")
+                .append(table)
+                .append(" ")
+                .append(T)
+                .append(" WHERE ")
+                .append(qual)
+                .append(" IS NOT NULL");
+        List<Object> fbBinds = new ArrayList<>();
+        if (!currentUser.isAdmin()) {
+            sql.append(" AND ").append(T).append(".owner_user_id = ?");
+            fbBinds.add(currentUser.requireUserId());
+        }
+        sql.append(" LIMIT ?");
         log.info("Robinhood symbols: primary DISTINCT yielded no values; trying fallback scan (cap {})", cap);
         try {
             List<Map<String, Object>> rows =
                     jdbcTemplate.query(
-                            sql,
-                            ps -> ps.setInt(1, Math.min(cap * 20, 100_000)),
+                            sql.toString(),
+                            ps -> {
+                                int i = 1;
+                                for (Object o : fbBinds) {
+                                    ps.setObject(i++, o);
+                                }
+                                ps.setInt(i, Math.min(cap * 20, 100_000));
+                            },
                             new ColumnMapRowMapper());
             java.util.TreeSet<String> set = new java.util.TreeSet<>(String.CASE_INSENSITIVE_ORDER);
             for (Map<String, Object> row : rows) {

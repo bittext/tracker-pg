@@ -36,6 +36,10 @@ public class ManagementTaskCategory {
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
+    /** Owning application user; ADMIN may list or moderate all users' rows. */
+    @Column(name = "owner_user_id")
+    private Long ownerUserId;
+
     @PrePersist
     void onCreate() {
         if (createdAt == null) {

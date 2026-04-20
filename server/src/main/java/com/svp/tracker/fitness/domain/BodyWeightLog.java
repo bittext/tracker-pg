@@ -37,4 +37,7 @@ public class BodyWeightLog {
     private BigDecimal weightLb;
 
     private String notes;
+
+    @Column(name = "owner_user_id")
+    private Long ownerUserId;
 }

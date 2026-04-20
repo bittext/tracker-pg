@@ -16,6 +16,18 @@ public interface BodyWeightLogRepository extends JpaRepository<BodyWeightLog, Lo
 
     List<BodyWeightLog> findByLoggedOnBetweenOrderByLoggedOnAsc(LocalDate from, LocalDate to);
 
+    List<BodyWeightLog> findByOwnerUserIdOrderByLoggedOnDesc(Long ownerUserId);
+
+    Optional<BodyWeightLog> findFirstByOwnerUserIdAndLoggedOn(Long ownerUserId, LocalDate loggedOn);
+
+    List<BodyWeightLog> findByOwnerUserIdAndLoggedOnBetweenOrderByLoggedOnAsc(
+            Long ownerUserId, LocalDate from, LocalDate to);
+
     @Query("select distinct b.loggedOn from BodyWeightLog b where b.loggedOn between :from and :to order by b.loggedOn")
     List<LocalDate> findDistinctLoggedOnBetween(@Param("from") LocalDate from, @Param("to") LocalDate to);
+
+    @Query(
+            "select distinct b.loggedOn from BodyWeightLog b where b.ownerUserId = :ownerUserId and b.loggedOn between :from and :to order by b.loggedOn")
+    List<LocalDate> findDistinctLoggedOnBetweenForOwner(
+            @Param("ownerUserId") Long ownerUserId, @Param("from") LocalDate from, @Param("to") LocalDate to);
 }

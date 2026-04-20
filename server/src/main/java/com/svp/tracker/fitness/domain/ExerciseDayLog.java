@@ -42,4 +42,7 @@ public class ExerciseDayLog {
     /** Total duration in whole minutes (optional). */
     @Column(name = "duration_minutes")
     private Integer durationMinutes;
+
+    @Column(name = "owner_user_id")
+    private Long ownerUserId;
 }

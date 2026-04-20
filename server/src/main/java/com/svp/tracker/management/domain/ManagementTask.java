@@ -59,6 +59,9 @@ public class ManagementTask {
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
+    @Column(name = "owner_user_id")
+    private Long ownerUserId;
+
     @PrePersist
     void onCreate() {
         if (createdAt == null) {

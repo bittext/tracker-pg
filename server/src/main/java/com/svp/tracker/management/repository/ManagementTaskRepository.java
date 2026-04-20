@@ -16,6 +16,13 @@ public interface ManagementTaskRepository extends JpaRepository<ManagementTask, 
 
     List<ManagementTask> findAllByOrderByDueDateAscIdAsc();
 
+    List<ManagementTask> findByOwnerUserIdOrderByDueDateAscIdAsc(Long ownerUserId);
+
+    List<ManagementTask> findByOwnerUserIdAndDueDateBetweenOrderByDueDateAscIdAsc(
+            Long ownerUserId, LocalDate from, LocalDate to);
+
+    List<ManagementTask> findByOwnerUserIdAndDueDateIsNullOrderByCreatedAtDesc(Long ownerUserId);
+
     @Modifying
     @Query("update ManagementTask t set t.category = null where t.category.id = :categoryId")
     void clearCategoryByCategoryId(@Param("categoryId") Long categoryId);
