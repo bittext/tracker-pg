@@ -1,0 +1,16 @@
+# Optional merge for Robinhood directory import on Linux / Lightsail.
+# Paths below are inside the API container; host paths default to Ubuntu home layout.
+#
+#   mkdir -p /home/ubuntu/robinhood/reports/import /home/ubuntu/robinhood/reports/uploaded
+#   docker compose -f docker-compose.stack.yml -f docker-compose.robinhood.yml --env-file .env.stack up -d --build
+#
+# Override host dirs in .env.stack with ROBINHOOD_CSV_IMPORT_HOST_DIR / ROBINHOOD_CSV_UPLOADED_HOST_DIR if needed.
+
+services:
+  api:
+    volumes:
+      - ${ROBINHOOD_CSV_IMPORT_HOST_DIR:-/home/ubuntu/robinhood/reports/import}:/robinhood/import:rw
+      - ${ROBINHOOD_CSV_UPLOADED_HOST_DIR:-/home/ubuntu/robinhood/reports/uploaded}:/robinhood/uploaded:rw
+    environment:
+      TRACKER_FINANCE_ROBINHOOD_CSV_IMPORT_DIRECTORY: /robinhood/import
+      TRACKER_FINANCE_ROBINHOOD_CSV_UPLOADED_DIRECTORY: /robinhood/uploaded

@@ -53,4 +53,8 @@ jobs:
               git checkout -b develop origin/develop
             fi
             git reset --hard origin/develop
+            export TRACKER_ROBINHOOD_COMPOSE="${{ vars.LIGHTSAIL_USE_ROBINHOOD_COMPOSE }}"
+            if [[ "${TRACKER_ROBINHOOD_COMPOSE:-}" != "1" ]]; then
+              unset TRACKER_ROBINHOOD_COMPOSE
+            fi
             bash scripts/lightsail-deploy.sh

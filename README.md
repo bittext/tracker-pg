@@ -125,6 +125,8 @@ If **`docker compose up`** (dev Postgres on **5433**) is already running, set **
 
 ### Lightsail (Ubuntu), port 80, DBeaver from your laptop
 
+**If `docker compose build api` freezes or drops SSH:** the Maven step needs a lot of RAM. Prefer a plan with **at least 2GB RAM** for in-place Docker builds, or add **1–2GB swap** on Ubuntu (`sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile`). You can also set **`MAVEN_BUILD_HEAP=512m`** in **`.env.stack`** (see **`.env.stack.example`**) to cap the build JVM.
+
 **Lightsail networking → IPv4 firewall** for the instance: allow inbound **TCP 22** (SSH) and **TCP 80** only. Do **not** add a rule for Postgres (**5433** by default) or the API (**9091**) unless you explicitly need direct API access from the internet; the UI uses nginx on port **80** and proxies **`/api`** to the API.
 
 In **`.env.stack`**, set **`WEB_PORT=80`**. Rebuild or recreate the stack so the web container is published on host port 80.
@@ -140,6 +142,17 @@ ssh -N -L 5433:127.0.0.1:5433 ubuntu@YOUR_LIGHTSAIL_STATIC_IP -i ~/.ssh/your-lig
 Leave that session running. In DBeaver, new PostgreSQL connection: **Host** `127.0.0.1`, **Port** `5433`, **Database** / **User** / **Password** from `.env.stack` (`POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`). Alternatively, use the **SSH** tab: enable “Use SSH Tunnel”, set the Lightsail host, user `ubuntu`, and your private key; on the **Main** tab set **Host** `localhost` and **Port** `5433` (host/port as seen **on the server** after the SSH session is established).
 
 If you changed **`POSTGRES_HOST_PORT`** in `.env.stack`, use that value instead of **5433** in both the `ssh -L` command and DBeaver.
+
+**Robinhood CSV directory import on Lightsail:** the API only sees filesystem paths **inside** its container. Your laptop’s `/Users/...` paths do not exist there. On the Ubuntu instance create directories (for example under `/home/ubuntu/robinhood/reports/`), copy `*.csv` into the import folder, then run the stack with the optional merge file so those host folders are mounted at `/robinhood/import` and `/robinhood/uploaded`:
+
+```bash
+mkdir -p /home/ubuntu/robinhood/reports/import /home/ubuntu/robinhood/reports/uploaded
+docker compose -f docker-compose.stack.yml -f docker-compose.robinhood.yml --env-file .env.stack up -d --build
+```
+
+**Deploy script (`scripts/lightsail-deploy.sh`):** after `git pull`, run `bash scripts/lightsail-deploy.sh` to rebuild **api** and **web** only. To always merge **`docker-compose.robinhood.yml`** on that host, either run `export TRACKER_ROBINHOOD_COMPOSE=1` or once: `touch .use-lightsail-robinhood-compose` in the repo root (gitignored). For GitHub Actions deploys, set repository variable **`LIGHTSAIL_USE_ROBINHOOD_COMPOSE`** to **`1`** when you want the workflow to include the Robinhood compose file.
+
+For **`mvn spring-boot:run`** on your Mac, use the **`local`** profile and set `tracker.finance.robinhood-csv-import-directory` / `robinhood-csv-uploaded-directory` in gitignored **`application-local.yml`** (see `application-local.yml.example`).
 
 1. Copy the env template and set strong values (never commit `.env.stack`; it is gitignored):
 
