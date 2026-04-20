@@ -439,41 +439,30 @@ public class RobinhoodCsvImportService {
      * Null-safe match on all persisted columns (Oracle {@code =} does not treat two NULLs as equal).
      */
     private boolean rowExistsInTable(ParsedRow row) {
-        String sql =
-                "SELECT COUNT(*) FROM "
-                        + qualifiedTable()
-                        + " WHERE ((? IS NULL AND ACTIVITY_DATE IS NULL) OR (ACTIVITY_DATE = ?))"
-                        + " AND ((? IS NULL AND PROCESS_DATE IS NULL) OR (PROCESS_DATE = ?))"
-                        + " AND ((? IS NULL AND SETTLE_DATE IS NULL) OR (SETTLE_DATE = ?))"
-                        + " AND ((? IS NULL AND TRIM(INSTRUMENT) IS NULL) OR (TRIM(INSTRUMENT) = ?))"
-                        + " AND ((? IS NULL AND TRIM(DESCRIPTION) IS NULL) OR (TRIM(DESCRIPTION) = ?))"
-                        + " AND ((? IS NULL AND TRIM(TRANS_CODE) IS NULL) OR (TRIM(TRANS_CODE) = ?))"
-                        + " AND ((? IS NULL AND QUANTITY IS NULL) OR (QUANTITY = ?))"
-                        + " AND ((? IS NULL AND PRICE IS NULL) OR (PRICE = ?))"
-                        + " AND ((? IS NULL AND AMOUNT IS NULL) OR (AMOUNT = ?))";
-        Object[] args =
-                new Object[] {
-                    row.activityDate,
-                    row.activityDate,
-                    row.processDate,
-                    row.processDate,
-                    row.settleDate,
-                    row.settleDate,
-                    trimOrNull(row.instrument),
-                    trimOrNull(row.instrument),
-                    trimOrNull(row.description),
-                    trimOrNull(row.description),
-                    trimOrNull(row.transCode),
-                    trimOrNull(row.transCode),
-                    row.quantity,
-                    row.quantity,
-                    row.price,
-                    row.price,
-                    row.amount,
-                    row.amount
-                };
-        Integer n = jdbcTemplate.queryForObject(sql, Integer.class, args);
+        StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM ").append(qualifiedTable()).append(" WHERE 1=1");
+        List<Object> args = new ArrayList<>();
+
+        appendNullSafeMatch(sql, args, "ACTIVITY_DATE", row.activityDate);
+        appendNullSafeMatch(sql, args, "PROCESS_DATE", row.processDate);
+        appendNullSafeMatch(sql, args, "SETTLE_DATE", row.settleDate);
+        appendNullSafeMatch(sql, args, "TRIM(INSTRUMENT)", trimOrNull(row.instrument));
+        appendNullSafeMatch(sql, args, "TRIM(DESCRIPTION)", trimOrNull(row.description));
+        appendNullSafeMatch(sql, args, "TRIM(TRANS_CODE)", trimOrNull(row.transCode));
+        appendNullSafeMatch(sql, args, "QUANTITY", row.quantity);
+        appendNullSafeMatch(sql, args, "PRICE", row.price);
+        appendNullSafeMatch(sql, args, "AMOUNT", row.amount);
+
+        Integer n = jdbcTemplate.queryForObject(sql.toString(), Integer.class, args.toArray());
         return n != null && n > 0;
+    }
+
+    private static void appendNullSafeMatch(StringBuilder sql, List<Object> args, String expression, Object value) {
+        if (value == null) {
+            sql.append(" AND ").append(expression).append(" IS NULL");
+            return;
+        }
+        sql.append(" AND ").append(expression).append(" = ?");
+        args.add(value);
     }
 
     private static String trimOrNull(String s) {
