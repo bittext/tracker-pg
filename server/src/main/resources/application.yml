@@ -95,6 +95,7 @@ logging:
     com.svp.tracker.admin.controller.ServerLogsController: INFO
     com.svp.tracker.finance: DEBUG
     com.svp.tracker.finance.controller: DEBUG
-    org.hibernate.SQL: DEBUG
-    org.hibernate.orm.jdbc.bind: TRACE
+    org.hibernate: INFO
+    org.hibernate.SQL: INFO
+    org.hibernate.orm.jdbc.bind: INFO
     org.springframework.jdbc.core: DEBUG
