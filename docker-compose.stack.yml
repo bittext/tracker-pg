@@ -49,8 +49,8 @@ services:
       TRACKER_AUTH_BOOTSTRAP_ADMIN_PASSWORD: ${TRACKER_AUTH_BOOTSTRAP_ADMIN_PASSWORD}
       # Optional: directory-based Robinhood CSV import (paths as seen inside this container).
       # On Lightsail use host bind mounts (see docker-compose.robinhood.yml and .env.stack.example).
-      TRACKER_FINANCE_ROBINHOOD_CSV_IMPORT_DIRECTORY: ${TRACKER_FINANCE_ROBINHOOD_CSV_IMPORT_DIRECTORY:-}
-      TRACKER_FINANCE_ROBINHOOD_CSV_UPLOADED_DIRECTORY: ${TRACKER_FINANCE_ROBINHOOD_CSV_UPLOADED_DIRECTORY:-}
+      TRACKER_FINANCE_ROBINHOOD_CSV_IMPORT_DIRECTORY: ${TRACKER_FINANCE_ROBINHOOD_CSV_IMPORT_DIRECTORY:/robinhood/import}
+      TRACKER_FINANCE_ROBINHOOD_CSV_UPLOADED_DIRECTORY: ${TRACKER_FINANCE_ROBINHOOD_CSV_UPLOADED_DIRECTORY:/robinhood/uploaded}
       # Browser clients from other hosts / origins (override in .env.stack if needed)
       TRACKER_WEB_CORS_ALLOWED_ORIGIN_PATTERNS_0: ${CORS_PATTERN:-*}
     ports:
