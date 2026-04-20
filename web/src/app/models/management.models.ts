@@ -45,3 +45,17 @@ export interface ManagementTaskWriteBody {
   taskTypeId?: number | null;
   completed?: boolean;
 }
+
+/** Daily journal entry (Management → Day One, Reports → Management). */
+export interface ManagementDayOneLogDto {
+  id: number;
+  loggedOn: string;
+  entryText: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ManagementDayOneWriteBody {
+  loggedOn: string;
+  entryText: string;
+}

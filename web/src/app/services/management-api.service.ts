@@ -2,6 +2,8 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { environment } from '../../environments/environment';
 import {
+  ManagementDayOneLogDto,
+  ManagementDayOneWriteBody,
   ManagementTaskCategory,
   ManagementTaskDto,
   ManagementTaskType,
@@ -66,5 +68,26 @@ export class ManagementApiService {
 
   deleteTask(id: number) {
     return this.http.delete<void>(`${this.root}/tasks/${id}`);
+  }
+
+  listDayOneLogs(year: number, month: number) {
+    return this.http.get<ManagementDayOneLogDto[]>(`${this.root}/day-one`, {
+      params: { year: String(year), month: String(month) },
+    });
+  }
+
+  /** Same data as {@link listDayOneLogs}; path matches Reports → Management. */
+  listDayOneLogsReport(year: number, month: number) {
+    return this.http.get<ManagementDayOneLogDto[]>(`${this.root}/reports/day-one`, {
+      params: { year: String(year), month: String(month) },
+    });
+  }
+
+  upsertDayOne(body: ManagementDayOneWriteBody) {
+    return this.http.put<ManagementDayOneLogDto>(`${this.root}/day-one`, body);
+  }
+
+  deleteDayOne(id: number) {
+    return this.http.delete<void>(`${this.root}/day-one/${id}`);
   }
 }

@@ -268,3 +268,17 @@
   background: rgba(239, 68, 68, 0.15);
   color: #b91c1c;
 }
+
+.mgmt-dayone-intro {
+  grid-template-columns: 1fr;
+}
+
+.mgmt-dayone-layout {
+  display: grid;
+  gap: 1.25rem;
+  align-items: start;
+
+  @media (min-width: 960px) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
