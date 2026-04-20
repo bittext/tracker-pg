@@ -15,7 +15,7 @@ import {
   MonthActivityCalendarDto,
   MonthlyExerciseReportDto,
 } from '../../models/fitness.models';
-import { ManagementTaskDto } from '../../models/management.models';
+import { ManagementDayOneLogDto, ManagementTaskDto } from '../../models/management.models';
 import { FitnessApiService } from '../../services/fitness-api.service';
 import { ManagementApiService } from '../../services/management-api.service';
 import { formatHttpErrorDetail } from '../../util/http-error';
@@ -85,6 +85,10 @@ export class ReportsComponent implements OnInit {
     'mtDone',
     'mtCreated',
   ];
+
+  /** Management → Day One entries for {@link calendarYear}/{@link calendarMonth} (same month as Exercise calendar). */
+  managementDayOneLogs: ManagementDayOneLogDto[] = [];
+  managementDayOneColumns = ['d1Date', 'd1Preview', 'd1Updated'];
 
   ngOnInit(): void {
     const t = this.todayIso();
@@ -317,10 +321,12 @@ export class ReportsComponent implements OnInit {
     forkJoin({
       monthly: this.fitnessApi.monthlyReport(y, mo),
       cal: this.fitnessApi.monthActivityCalendar(y, mo),
+      dayOne: this.managementApi.listDayOneLogsReport(y, mo).pipe(catchError(() => of<ManagementDayOneLogDto[]>([]))),
     }).subscribe({
-      next: ({ monthly, cal }) => {
+      next: ({ monthly, cal, dayOne }) => {
         this.monthlyReport = monthly;
         this.monthCal = cal;
+        this.managementDayOneLogs = [...dayOne].sort((a, b) => b.loggedOn.localeCompare(a.loggedOn));
       },
       error: (e) => this.err('Could not load month report', e),
     });
@@ -434,5 +440,24 @@ export class ReportsComponent implements OnInit {
       return 'rep-urgency-low';
     }
     return 'rep-urgency-mid';
+  }
+
+  dayOneReportPreview(text: string | null | undefined): string {
+    const t = (text ?? '').replace(/\s+/g, ' ').trim();
+    if (!t) {
+      return '—';
+    }
+    return t.length > 200 ? `${t.slice(0, 200)}…` : t;
+  }
+
+  formatDayOneReportInstant(iso: string | null | undefined): string {
+    if (!iso) {
+      return '—';
+    }
+    const ms = Date.parse(iso);
+    if (Number.isNaN(ms)) {
+      return iso;
+    }
+    return new Date(ms).toLocaleString();
   }
 }

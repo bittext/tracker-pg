@@ -2,9 +2,12 @@ package com.svp.tracker.management.controller;
 
 import com.svp.tracker.management.domain.ManagementTaskCategory;
 import com.svp.tracker.management.domain.ManagementTaskType;
+import com.svp.tracker.management.dto.ManagementDayOneLogDto;
+import com.svp.tracker.management.dto.ManagementDayOneLogWriteRequest;
 import com.svp.tracker.management.dto.ManagementTaskDto;
 import com.svp.tracker.management.dto.ManagementTaskWriteRequest;
 import com.svp.tracker.management.dto.TaskMonthCalendarDto;
+import com.svp.tracker.management.service.ManagementDayOneService;
 import com.svp.tracker.management.service.ManagementService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -27,6 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ManagementController {
 
     private final ManagementService managementService;
+    private final ManagementDayOneService dayOneService;
 
     @GetMapping("/categories")
     public List<ManagementTaskCategory> listCategories() {
@@ -103,5 +107,27 @@ public class ManagementController {
     @GetMapping("/reports/tasks")
     public List<ManagementTaskDto> tasksReport() {
         return managementService.listTasksForReport();
+    }
+
+    @GetMapping("/day-one")
+    public List<ManagementDayOneLogDto> listDayOne(@RequestParam int year, @RequestParam int month) {
+        return dayOneService.listMonth(year, month);
+    }
+
+    @PutMapping("/day-one")
+    public ManagementDayOneLogDto upsertDayOne(@Valid @RequestBody ManagementDayOneLogWriteRequest body) {
+        return dayOneService.upsert(body);
+    }
+
+    @DeleteMapping("/day-one/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteDayOne(@PathVariable long id) {
+        dayOneService.delete(id);
+    }
+
+    /** Day One journal entries for Reports → Management (same rows as GET /day-one). */
+    @GetMapping("/reports/day-one")
+    public List<ManagementDayOneLogDto> reportsDayOne(@RequestParam int year, @RequestParam int month) {
+        return dayOneService.listMonth(year, month);
     }
 }

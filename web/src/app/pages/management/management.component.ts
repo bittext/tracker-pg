@@ -16,6 +16,7 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { forkJoin } from 'rxjs';
 import {
   BalanceUrgency,
+  ManagementDayOneLogDto,
   ManagementTaskCategory,
   ManagementTaskDto,
   ManagementTaskType,
@@ -85,11 +86,18 @@ export class ManagementComponent implements OnInit {
   dayTaskColumns = ['title', 'urgency', 'category', 'type', 'done', 'actions'];
   unscheduledColumns = ['uTitle', 'uUrgency', 'uCategory', 'uType', 'uDone', 'uActions'];
 
+  /** Journal (Day One) for the visible task-calendar month. */
+  dayOneLogs: ManagementDayOneLogDto[] = [];
+  dayOneDate: Date | null = null;
+  dayOneText = '';
+  dayOneColumns = ['d1Date', 'd1Preview', 'd1Updated', 'd1Actions'];
+
   ngOnInit(): void {
     const t = this.todayIso();
     this.selectedDateIso = t;
     this.calendarYear = Number(t.slice(0, 4));
     this.calendarMonth = Number(t.slice(5, 7));
+    this.dayOneDate = this.dateFromIso(this.selectedDateIso);
     this.resetForm();
     this.reloadRefsAndCalendar();
   }
@@ -286,6 +294,89 @@ export class ManagementComponent implements OnInit {
     });
   }
 
+  onMgmtTabChange(index: number): void {
+    if (index === 1) {
+      this.dayOneDate = this.dateFromIso(this.selectedDateIso);
+      this.syncDayOneFormFromLogs();
+    }
+  }
+
+  onDayOneDatePicked(): void {
+    this.syncDayOneFormFromLogs();
+  }
+
+  dayOnePreview(text: string | null | undefined): string {
+    const t = (text ?? '').replace(/\s+/g, ' ').trim();
+    if (!t) {
+      return '—';
+    }
+    return t.length > 160 ? `${t.slice(0, 160)}…` : t;
+  }
+
+  formatDayOneInstant(iso: string | null | undefined): string {
+    if (!iso) {
+      return '—';
+    }
+    const ms = Date.parse(iso);
+    if (Number.isNaN(ms)) {
+      return iso;
+    }
+    return new Date(ms).toLocaleString();
+  }
+
+  loadDayOneRowIntoEditor(row: ManagementDayOneLogDto): void {
+    if (!row.loggedOn || row.loggedOn.length < 10) {
+      return;
+    }
+    this.dayOneDate = this.dateFromIso(row.loggedOn);
+    this.dayOneText = row.entryText ?? '';
+  }
+
+  saveDayOne(): void {
+    const iso = this.dayOneDate ? this.toIsoDate(this.dayOneDate) : this.selectedDateIso;
+    if (!iso || iso.length < 10) {
+      return;
+    }
+    const entryText = (this.dayOneText || '').trim();
+    if (!entryText) {
+      this.snackBar.open('Write something before saving', undefined, { duration: 3500 });
+      return;
+    }
+    this.api.upsertDayOne({ loggedOn: iso, entryText }).subscribe({
+      next: (dto) => {
+        this.snackBar.open('Day One entry saved', undefined, { duration: 2500 });
+        const y = Number(dto.loggedOn.slice(0, 4));
+        const m = Number(dto.loggedOn.slice(5, 7));
+        if (Number.isFinite(y) && Number.isFinite(m) && (y !== this.calendarYear || m !== this.calendarMonth)) {
+          this.calendarYear = y;
+          this.calendarMonth = m;
+        }
+        this.selectedDateIso = dto.loggedOn.length >= 10 ? dto.loggedOn : iso;
+        this.clampSelectedToMonth();
+        this.dayOneDate = this.dateFromIso(this.selectedDateIso);
+        this.reloadRefsAndCalendar();
+      },
+      error: (e) => this.err('Could not save Day One entry', e),
+    });
+  }
+
+  deleteDayOneRow(row: ManagementDayOneLogDto): void {
+    this.api.deleteDayOne(row.id).subscribe({
+      next: () => {
+        this.snackBar.open('Entry removed', undefined, { duration: 2500 });
+        this.syncDayOneFormFromLogs();
+        this.reloadRefsAndCalendar();
+      },
+      error: (e) => this.err('Could not delete entry', e),
+    });
+  }
+
+  private syncDayOneFormFromLogs(): void {
+    const iso = this.dayOneDate ? this.toIsoDate(this.dayOneDate) : this.selectedDateIso;
+    const hit = this.dayOneLogs.find((l) => l.loggedOn === iso);
+    this.dayOneText = hit?.entryText ?? '';
+  }
+
   toggleDone(row: ManagementTaskDto, checked: boolean): void {
     this.api
       .updateTask(row.id, {
@@ -309,12 +400,15 @@ export class ManagementComponent implements OnInit {
       un: this.api.listUnscheduledTasks(),
       cat: this.api.listCategories(),
       tt: this.api.listTaskTypes(),
+      d1: this.api.listDayOneLogs(this.calendarYear, this.calendarMonth),
     }).subscribe({
-      next: ({ cal, un, cat, tt }) => {
+      next: ({ cal, un, cat, tt, d1 }) => {
         this.monthCal = cal;
         this.unscheduled = un;
         this.categories = cat;
         this.taskTypes = tt;
+        this.dayOneLogs = [...d1].sort((a, b) => b.loggedOn.localeCompare(a.loggedOn));
+        this.syncDayOneFormFromLogs();
       },
       error: (e) => this.err('Could not load management data', e),
     });
@@ -324,10 +418,13 @@ export class ManagementComponent implements OnInit {
     forkJoin({
       cal: this.api.taskCalendar(this.calendarYear, this.calendarMonth),
       un: this.api.listUnscheduledTasks(),
+      d1: this.api.listDayOneLogs(this.calendarYear, this.calendarMonth),
     }).subscribe({
-      next: ({ cal, un }) => {
+      next: ({ cal, un, d1 }) => {
         this.monthCal = cal;
         this.unscheduled = un;
+        this.dayOneLogs = [...d1].sort((a, b) => b.loggedOn.localeCompare(a.loggedOn));
+        this.syncDayOneFormFromLogs();
       },
       error: (e) => this.err('Could not load calendar', e),
     });
