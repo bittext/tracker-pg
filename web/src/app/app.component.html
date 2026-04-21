@@ -10,69 +10,75 @@
 <div class="shell">
   <section class="app-frame" aria-label="Main content" *ngIf="!onLoginRoute; else loginOnly">
     <header class="frame-tabs">
-      <nav class="tab-nav" role="tablist" aria-label="Primary sections">
+      <nav mat-tab-nav-bar class="tab-nav" [tabPanel]="tabPanel">
         <a
-          class="tab-link"
-          role="tab"
+          mat-tab-link
           routerLink="/exercise"
-          routerLinkActive="tab-link--active"
+          routerLinkActive
+          #exTab="routerLinkActive"
+          [active]="exTab.isActive"
           [routerLinkActiveOptions]="{ exact: true }"
         >
           Exercise
         </a>
         <a
-          class="tab-link"
-          role="tab"
+          mat-tab-link
           routerLink="/finance"
-          routerLinkActive="tab-link--active"
+          routerLinkActive
+          #finTab="routerLinkActive"
+          [active]="finTab.isActive"
           [routerLinkActiveOptions]="{ exact: true }"
         >
           Finance
         </a>
         <a
-          class="tab-link"
-          role="tab"
+          mat-tab-link
           routerLink="/management"
-          routerLinkActive="tab-link--active"
+          routerLinkActive
+          #mgmtTab="routerLinkActive"
+          [active]="mgmtTab.isActive"
           [routerLinkActiveOptions]="{ exact: true }"
         >
           Management
         </a>
         <a
-          class="tab-link"
-          role="tab"
+          mat-tab-link
           routerLink="/reports"
-          routerLinkActive="tab-link--active"
+          routerLinkActive
+          #repTab="routerLinkActive"
+          [active]="repTab.isActive"
           [routerLinkActiveOptions]="{ exact: true }"
         >
           Reports
         </a>
         <a
-          class="tab-link"
-          role="tab"
+          mat-tab-link
           routerLink="/admin"
-          routerLinkActive="tab-link--active"
+          routerLinkActive
+          #adminTab="routerLinkActive"
+          [active]="adminTab.isActive"
           [routerLinkActiveOptions]="{ exact: true }"
         >
           Admin
         </a>
         <a
           *ngIf="isAdmin"
-          class="tab-link"
-          role="tab"
+          mat-tab-link
           routerLink="/logs"
-          routerLinkActive="tab-link--active"
+          routerLinkActive
+          #logsTab="routerLinkActive"
+          [active]="logsTab.isActive"
           [routerLinkActiveOptions]="{ exact: true }"
         >
           Logs
         </a>
       </nav>
     </header>
-    <div class="tab-panel">
+    <mat-tab-nav-panel #tabPanel class="tab-panel">
       <main class="main">
         <router-outlet />
       </main>
-    </div>
+    </mat-tab-nav-panel>
   </section>
   <ng-template #loginOnly>
     <main class="main login-main">

@@ -1,4 +1,4 @@
-# Deploys the `develop` branch to an Ubuntu Lightsail instance over SSH.
+# Deploys pushed branches to an Ubuntu Lightsail instance over SSH.
 #
 # Required repository secrets (Settings → Secrets and variables → Actions):
 #   LIGHTSAIL_HOST     — public IP or DNS of the instance
@@ -18,15 +18,16 @@
 # Private GitHub repo: configure a read-only deploy key on the server (ssh-keygen, add public key
 # in repo Deploy keys) or use a PAT in the git remote URL so `git pull` works.
 
-name: Deploy develop to Lightsail
+name: Deploy pushed branch to Lightsail
 
 on:
   push:
-    branches: [develop]
+    branches:
+      - "**"
   workflow_dispatch:
 
 concurrency:
-  group: deploy-lightsail-develop
+  group: deploy-lightsail-${{ github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -43,16 +44,17 @@ jobs:
           command_timeout: 90m
           script: |
             set -euo pipefail
+            BRANCH="${{ github.ref_name }}"
             REPO_DIR="${{ vars.LIGHTSAIL_REPO_DIR }}"
             REPO_DIR="${REPO_DIR:-/home/ubuntu/apps/tracker-pg}"
             cd "$REPO_DIR"
-            git fetch origin develop
-            if git show-ref --verify --quiet refs/heads/develop; then
-              git checkout develop
+            git fetch origin "$BRANCH"
+            if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
+              git checkout "$BRANCH"
             else
-              git checkout -b develop origin/develop
+              git checkout -b "$BRANCH" "origin/$BRANCH"
             fi
-            git reset --hard origin/develop
+            git reset --hard "origin/$BRANCH"
             export TRACKER_ROBINHOOD_COMPOSE="${{ vars.LIGHTSAIL_USE_ROBINHOOD_COMPOSE }}"
             if [[ "${TRACKER_ROBINHOOD_COMPOSE:-}" != "1" ]]; then
               unset TRACKER_ROBINHOOD_COMPOSE

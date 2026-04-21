@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, inject } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
+import { MatTabsModule } from '@angular/material/tabs';
 import { MatButtonModule } from '@angular/material/button';
 import { catchError, filter, of } from 'rxjs';
 import { environment } from '../environments/environment';
@@ -26,6 +27,7 @@ interface ApiVersionPayload {
     RouterLink,
     RouterLinkActive,
     MatToolbarModule,
+    MatTabsModule,
     MatButtonModule,
   ],
   templateUrl: './app.component.html',
