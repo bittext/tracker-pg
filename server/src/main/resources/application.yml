@@ -40,9 +40,6 @@ management:
 
 # Finance JDBC targets the local Flyway table (unquoted identifiers fold to lowercase in PostgreSQL).
 tracker:
-  management:
-    day-one-storage-directory: ${TRACKER_MANAGEMENT_DAY_ONE_STORAGE_DIR:}
-    day-one-max-attachment-bytes: 8388608
   web:
     cors-allowed-origin-patterns:
       - "http://localhost:*"

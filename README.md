@@ -193,8 +193,7 @@ The top navigation includes dedicated sections for:
 
 - Exercise
 - Finance
-- Management (tasks/calendar only)
-- Day One (journal now has its own page, no longer nested inside Management)
+- Management (tasks/calendar)
 - Reports
 - Admin
 - Logs (admin only)

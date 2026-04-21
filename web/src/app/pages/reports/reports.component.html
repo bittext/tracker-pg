@@ -3,7 +3,7 @@
   <p class="muted">
     <strong>Exercise</strong>: month trends on the left, selected-day snapshot on the right. Calendar tiles show only
     available <strong>exercise time</strong> and <strong>weight (lb)</strong>.
-    <strong>Management</strong>: task listing. <strong>Day One</strong>: separate tab.
+    <strong>Management</strong>: task listing.
   </p>
 </div>
 
@@ -261,23 +261,6 @@
               <p class="muted empty-hint mgmt-report-empty">No management tasks yet. Add categories in Admin, then create tasks under Management.</p>
             }
           </div>
-        </section>
-      </div>
-    </mat-tab>
-
-    <mat-tab label="Day One">
-      <div class="tab-panel mgmt-report-panel">
-        <p class="muted mgmt-report-month-hint">
-          <strong>Day One</strong> entries below use the same month as the <strong>Exercise</strong> tab calendar:
-          {{ calendarTitle }} (switch months with the arrows on Exercise).
-        </p>
-        <section class="mgmt-report-section mgmt-report-section--dayone" aria-labelledby="mgmt-dayone-heading">
-          <h2 id="mgmt-dayone-heading" class="mgmt-report-title">Day One</h2>
-          <p class="muted mgmt-report-lead">
-            Day One reporting has its own tab now. This build does not include the Day One report API yet, so the panel is
-            reserved until that endpoint is enabled.
-          </p>
-          <p class="muted empty-hint mgmt-report-empty">Day One report data will appear here once the API is wired.</p>
         </section>
       </div>
     </mat-tab>

@@ -2,7 +2,6 @@ import { Routes } from '@angular/router';
 import { adminGuard } from './guards/admin.guard';
 import { authGuard } from './guards/auth.guard';
 import { AdminComponent } from './pages/admin/admin.component';
-import { DayOneComponent } from './pages/day-one/day-one.component';
 import { ExerciseComponent } from './pages/exercise/exercise.component';
 import { FinanceComponent } from './pages/finance/finance.component';
 import { ManagementComponent } from './pages/management/management.component';
@@ -28,11 +27,6 @@ export const routes: Routes = [
     path: 'management',
     canActivate: [authGuard],
     component: ManagementComponent,
-  },
-  {
-    path: 'day-one',
-    canActivate: [authGuard],
-    component: DayOneComponent,
   },
   {
     path: 'reports',
