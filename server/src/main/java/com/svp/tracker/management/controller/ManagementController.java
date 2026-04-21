@@ -2,8 +2,8 @@ package com.svp.tracker.management.controller;
 
 import com.svp.tracker.management.domain.ManagementTaskCategory;
 import com.svp.tracker.management.domain.ManagementTaskType;
+import com.svp.tracker.management.dto.ManagementDayOneEntryWriteRequest;
 import com.svp.tracker.management.dto.ManagementDayOneLogDto;
-import com.svp.tracker.management.dto.ManagementDayOneLogWriteRequest;
 import com.svp.tracker.management.dto.ManagementTaskDto;
 import com.svp.tracker.management.dto.ManagementTaskWriteRequest;
 import com.svp.tracker.management.dto.TaskMonthCalendarDto;
@@ -109,25 +109,27 @@ public class ManagementController {
         return managementService.listTasksForReport();
     }
 
+    /** Legacy path: month slice of Day One entries (see {@code /api/management/day-one/entries}). */
+    @GetMapping("/reports/day-one")
+    public List<ManagementDayOneLogDto> reportsDayOne(@RequestParam int year, @RequestParam int month) {
+        return dayOneService.listMonth(year, month);
+    }
+
+    /** Legacy path: month slice (same as {@link #reportsDayOne}). */
     @GetMapping("/day-one")
     public List<ManagementDayOneLogDto> listDayOne(@RequestParam int year, @RequestParam int month) {
         return dayOneService.listMonth(year, month);
     }
 
+    /** Legacy path: upsert newest line for that calendar day (see POST/PUT {@code /api/management/day-one/entries}). */
     @PutMapping("/day-one")
-    public ManagementDayOneLogDto upsertDayOne(@Valid @RequestBody ManagementDayOneLogWriteRequest body) {
-        return dayOneService.upsert(body);
+    public ManagementDayOneLogDto upsertDayOne(@Valid @RequestBody ManagementDayOneEntryWriteRequest body) {
+        return dayOneService.legacyUpsertSingleLinePerDay(body);
     }
 
     @DeleteMapping("/day-one/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteDayOne(@PathVariable long id) {
         dayOneService.delete(id);
-    }
-
-    /** Day One journal entries for Reports → Management (same rows as GET /day-one). */
-    @GetMapping("/reports/day-one")
-    public List<ManagementDayOneLogDto> reportsDayOne(@RequestParam int year, @RequestParam int month) {
-        return dayOneService.listMonth(year, month);
     }
 }

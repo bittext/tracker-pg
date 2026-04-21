@@ -373,7 +373,9 @@ export class ManagementComponent implements OnInit {
 
   private syncDayOneFormFromLogs(): void {
     const iso = this.dayOneDate ? this.toIsoDate(this.dayOneDate) : this.selectedDateIso;
-    const hit = this.dayOneLogs.find((l) => l.loggedOn === iso);
+    const sameDay = this.dayOneLogs.filter((l) => l.loggedOn === iso);
+    const hit =
+      sameDay.length === 0 ? undefined : sameDay.reduce((a, b) => (a.id > b.id ? a : b));
     this.dayOneText = hit?.entryText ?? '';
   }
 
