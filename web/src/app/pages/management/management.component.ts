@@ -128,7 +128,7 @@ export class ManagementComponent implements OnInit {
       return;
     }
     this.dayOneLoaded = true;
-    setTimeout(() => this.loadDayOneLocal(), 0);
+    this.loadDayOneLocal();
   }
 
   get calendarTitle(): string {
