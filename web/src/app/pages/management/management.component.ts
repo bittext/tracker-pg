@@ -111,6 +111,7 @@ export class ManagementComponent implements OnInit {
   dayOneVisibleRows: DayOneEntry[] = [];
   dayOneTagOptions: string[] = [];
   dayOneLoaded = false;
+  dayOneLoading = false;
   mgmtSelectedTabIndex = 0;
 
   ngOnInit(): void {
@@ -130,7 +131,12 @@ export class ManagementComponent implements OnInit {
       return;
     }
     this.dayOneLoaded = true;
-    this.loadDayOneLocal();
+    this.dayOneLoading = true;
+    // Defer localStorage parse/filter to next task so tab activation paints first.
+    setTimeout(() => {
+      this.loadDayOneLocal();
+      this.dayOneLoading = false;
+    }, 0);
   }
 
   get calendarTitle(): string {
