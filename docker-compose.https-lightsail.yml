@@ -1,0 +1,29 @@
+# Optional: Caddy terminates TLS and proxies to the nginx "web" service.
+# Use with docker-compose.stack.yml and a working DNS A record to this host, plus .env.stack:
+#   CADDY_DOMAIN=tracker.example.com
+#   WEB_PORT_BIND=127.0.0.1:9080:80
+# (Bind nginx only on localhost so host 80/443 are free for Caddy.)
+#
+#   docker compose -f docker-compose.stack.yml -f docker-compose.https-lightsail.yml --env-file .env.stack up -d
+#
+# scripts/lightsail-deploy.sh with TRACKER_CADDY=1 or .use-caddy-lightsail merges this file and runs `caddy` after api/web.
+
+services:
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      CADDY_DOMAIN: ${CADDY_DOMAIN:?Set CADDY_DOMAIN in .env.stack (public FQDN; DNS A → this host before first start)}
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+
+volumes:
+  caddy_data:
+  caddy_config:

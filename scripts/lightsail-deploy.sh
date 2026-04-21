@@ -8,6 +8,9 @@
 #   export TRACKER_ROBINHOOD_COMPOSE=1
 # or create a marker file (gitignored):  touch .use-lightsail-robinhood-compose
 # then this script also merges docker-compose.robinhood.yml.
+#
+# Caddy (HTTPS) on public 80/443: set TRACKER_CADDY=1 or touch .use-caddy-lightsail (see README).
+# Requires CADDY_DOMAIN and usually WEB_PORT_BIND=127.0.0.1:9080:80 in .env.stack.
 set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
@@ -26,6 +29,19 @@ if [[ "${TRACKER_ROBINHOOD_COMPOSE:-0}" == "1" ]] || [[ -f "${repo_root}/.use-li
     echo "WARN: Robinhood compose requested but docker-compose.robinhood.yml not found; using stack only." >&2
   fi
 fi
+if [[ "${TRACKER_CADDY:-0}" == "1" ]] || [[ -f "${repo_root}/.use-caddy-lightsail" ]]; then
+  if [[ -f "${repo_root}/docker-compose.https-lightsail.yml" ]]; then
+    compose_files+=( -f docker-compose.https-lightsail.yml )
+    echo "Including docker-compose.https-lightsail.yml (Caddy TLS on 80/443 → web)."
+  else
+    echo "WARN: Caddy requested but docker-compose.https-lightsail.yml not found; using stack only." >&2
+  fi
+fi
 
 docker compose "${compose_files[@]}" --env-file "$env_file" build api web
 docker compose "${compose_files[@]}" --env-file "$env_file" up -d --no-deps api web
+if [[ "${TRACKER_CADDY:-0}" == "1" ]] || [[ -f "${repo_root}/.use-caddy-lightsail" ]]; then
+  if [[ -f "${repo_root}/docker-compose.https-lightsail.yml" ]]; then
+    docker compose "${compose_files[@]}" --env-file "$env_file" up -d caddy
+  fi
+fi

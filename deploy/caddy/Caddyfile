@@ -1,0 +1,8 @@
+# Caddy: TLS to host; proxy HTTP to the nginx "web" container. Env from docker-compose.https-lightsail.yml
+# — set CADDY_DOMAIN (e.g. tracker.example.com), DNS A record → your Lightsail static IP, and open TCP 80 + 443.
+
+{$CADDY_DOMAIN} {
+	encode zstd gzip
+	# Caddy sets X-Forwarded-* to the HTTP upstream; nginx+Spring trust them (see web/nginx-docker.conf, application.yml).
+	reverse_proxy web:80
+}

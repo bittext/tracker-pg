@@ -5,8 +5,10 @@
 #   LIGHTSAIL_SSH_KEY  — full private key (PEM) for SSH (same key pair as in Lightsail / your .pem)
 #   LIGHTSAIL_USER     — optional; omit to default to ubuntu in the SSH step below
 #
-# Optional repository variable (Settings → Secrets and variables → Actions → Variables):
-#   LIGHTSAIL_REPO_DIR — absolute path to the clone on the server (default: /home/ubuntu/tracker-pg)
+# Optional repository variables (Settings → Secrets and variables → Actions → Variables):
+#   LIGHTSAIL_REPO_DIR              — absolute path to the clone on the server
+#   LIGHTSAIL_USE_ROBINHOOD_COMPOSE — set to 1 to merge docker-compose.robinhood.yml
+#   LIGHTSAIL_USE_CADDY             — set to 1 to merge docker-compose.https-lightsail.yml (Caddy on 80/443)
 #
 # One-time on the Lightsail host:
 #   - Install Docker Engine + Compose plugin; add ubuntu to the docker group if needed.
@@ -58,5 +60,9 @@ jobs:
             export TRACKER_ROBINHOOD_COMPOSE="${{ vars.LIGHTSAIL_USE_ROBINHOOD_COMPOSE }}"
             if [[ "${TRACKER_ROBINHOOD_COMPOSE:-}" != "1" ]]; then
               unset TRACKER_ROBINHOOD_COMPOSE
+            fi
+            export TRACKER_CADDY="${{ vars.LIGHTSAIL_USE_CADDY }}"
+            if [[ "${TRACKER_CADDY:-}" != "1" ]]; then
+              unset TRACKER_CADDY
             fi
             bash scripts/lightsail-deploy.sh

@@ -10,3 +10,4 @@ web/.angular/
 .venv/
 dumps/
 .use-lightsail-robinhood-compose
+.use-caddy-lightsail

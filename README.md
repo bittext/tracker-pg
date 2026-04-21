@@ -49,11 +49,12 @@ docker compose down
 
 ```bash
 ENV_FILE="${ENV_FILE:-.env.stack}"
+# Add -f docker-compose.https-lightsail.yml and `up -d caddy` when using Caddy (or run scripts/lightsail-deploy.sh).
 docker compose -f docker-compose.stack.yml --env-file "$ENV_FILE" build api web
 docker compose -f docker-compose.stack.yml --env-file "$ENV_FILE" up -d --no-deps api web
 ```
 
-This rebuilds `api` and `web` and restarts them with `--no-deps` so the database container and its volume are not part of the recreate cycle.
+This rebuilds `api` and `web` and restarts them with `--no-deps` so the database container and its volume are not part of the recreate cycle. If you use **HTTPS (Caddy)**, prefer **`bash scripts/lightsail-deploy.sh`** on the host so the correct merge files and **`caddy`** are applied.
 
 ## Reset the `admin` password in PostgreSQL
 
@@ -119,7 +120,7 @@ The API is exposed on **9091**. Do not run this at the same time as `mvn spring-
 
 ## Public / LAN access (Docker stack)
 
-Use **`docker-compose.stack.yml`** for **Postgres + API + Angular** in Docker. **Postgres** is mapped to **`127.0.0.1:${POSTGRES_HOST_PORT:-5433}`** on the host (not reachable from the internet on the instance’s public IP). **API** and **web** use **`API_PORT`** and **`WEB_PORT`**. Inside the stack the API listens on **9091**; nginx proxies **`/api`** to `http://api:9091`.
+Use **`docker-compose.stack.yml`** for **Postgres + API + Angular** in Docker. **Postgres** is mapped to **`127.0.0.1:${POSTGRES_HOST_PORT:-5433}`** on the host (not reachable from the internet on the instance’s public IP). **API** and **web** use **`API_PORT`** and **`WEB_PORT_BIND`** (a Docker port spec such as `9080:80` or `127.0.0.1:9080:80`). Inside the stack the API listens on **9091**; nginx proxies **`/api`** to `http://api:9091`.
 
 If **`docker compose up`** (dev Postgres on **5433**) is already running, set **`POSTGRES_HOST_PORT=5434`** in `.env.stack` for the stack to avoid a port bind conflict.
 
@@ -127,9 +128,29 @@ If **`docker compose up`** (dev Postgres on **5433**) is already running, set **
 
 **If `docker compose build api` freezes or drops SSH:** the Maven step needs a lot of RAM. Prefer a plan with **at least 2GB RAM** for in-place Docker builds, or add **1–2GB swap** on Ubuntu (`sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile`). You can also set **`MAVEN_BUILD_HEAP=512m`** in **`.env.stack`** (see **`.env.stack.example`**) to cap the build JVM.
 
-**Lightsail networking → IPv4 firewall** for the instance: allow inbound **TCP 22** (SSH) and **TCP 80** only. Do **not** add a rule for Postgres (**5433** by default) or the API (**9091**) unless you explicitly need direct API access from the internet; the UI uses nginx on port **80** and proxies **`/api`** to the API.
+**Lightsail networking → IPv4 firewall** for the instance: allow **TCP 22** (SSH) and, for plain HTTP, **TCP 80** (and **443** if you use HTTPS in front; see the next section). Do **not** add a rule for Postgres (**5433** by default) or the API (**9091**) unless you explicitly need direct API access from the internet; the public UI is normally nginx (and, with Caddy, TLS on 443) proxying **`/api`** to the API.
 
-In **`.env.stack`**, set **`WEB_PORT=80`**. Rebuild or recreate the stack so the web container is published on host port 80.
+In **`.env.stack`**, set **`WEB_PORT_BIND=80:80`** for **HTTP** on the host (URL `http://<instance-ip>/` with no port in the path). Rebuild or recreate the stack so the `web` container is published on host port 80.
+
+### Lightsail HTTPS (Caddy, Let’s Encrypt)
+
+To serve the app at **`https://your-domain`**, add a **public DNS A record** for your domain pointing at the **Lightsail static IP**, and open **TCP 80** and **443** in the Lightsail firewall (80 is used for the ACME HTTP-01 challenge).
+
+1. In **`.env.stack`**, set **`CADDY_DOMAIN=your.fqdn.example.com`**, and bind the nginx `web` service only to localhost so Caddy can own **80** and **443** on the host:
+
+   - **`WEB_PORT_BIND=127.0.0.1:9080:80`**
+
+2. Set **`CORS_PATTERN`** to your site origin, e.g. **`https://your.fqdn.example.com`**, so the browser and API agree on HTTPS.
+
+3. Start (or first-time) the stack with both compose files, or use the deploy script with Caddy enabled:
+
+   ```bash
+   docker compose -f docker-compose.stack.yml -f docker-compose.https-lightsail.yml --env-file .env.stack up -d --build
+   ```
+
+4. Ongoing **GitHub Actions** deploys: set variable **`LIGHTSAIL_USE_CADDY`** to **`1`**, or on the host run **`export TRACKER_CADDY=1`**, or **`touch .use-caddy-lightsail`** in the repo root. **`scripts/lightsail-deploy.sh`** will merge **`docker-compose.https-lightsail.yml`** and run **`caddy`** after **api** / **web**.
+
+Caddy is configured in **`deploy/caddy/Caddyfile`**; certificates are stored in the **`caddy_data`** Compose volume. The Spring API and nginx are written to trust **`X-Forwarded-Proto`** from the edge so links and CORS see **HTTPS** correctly.
 
 **DBeaver** (database not public): keep Postgres off the Lightsail firewall. From your laptop, open an **SSH tunnel** to the VM, then connect DBeaver to **localhost** on the forwarded port.
 
@@ -150,7 +171,7 @@ mkdir -p /home/ubuntu/robinhood/reports/import /home/ubuntu/robinhood/reports/up
 docker compose -f docker-compose.stack.yml -f docker-compose.robinhood.yml --env-file .env.stack up -d --build
 ```
 
-**Deploy script (`scripts/lightsail-deploy.sh`):** after `git pull`, run `bash scripts/lightsail-deploy.sh` to rebuild **api** and **web** only. To always merge **`docker-compose.robinhood.yml`** on that host, either run `export TRACKER_ROBINHOOD_COMPOSE=1` or once: `touch .use-lightsail-robinhood-compose` in the repo root (gitignored). For GitHub Actions deploys, set repository variable **`LIGHTSAIL_USE_ROBINHOOD_COMPOSE`** to **`1`** when you want the workflow to include the Robinhood compose file.
+**Deploy script (`scripts/lightsail-deploy.sh`):** after `git pull`, run `bash scripts/lightsail-deploy.sh` to rebuild **api** and **web** (and start **caddy** when Caddy is enabled) without recreating **postgres**. To always merge **`docker-compose.robinhood.yml`** on that host, either run `export TRACKER_ROBINHOOD_COMPOSE=1` or once: `touch .use-lightsail-robinhood-compose` in the repo root (gitignored). For **Caddy/HTTPS**, use **`TRACKER_CADDY=1`** or **`touch .use-caddy-lightsail`**. In GitHub Actions, set **`LIGHTSAIL_USE_ROBINHOOD_COMPOSE`** and/or **`LIGHTSAIL_USE_CADDY`** to **`1`** as needed.
 
 For **`mvn spring-boot:run`** on your Mac, use the **`local`** profile and set `tracker.finance.robinhood-csv-import-directory` / `robinhood-csv-uploaded-directory` in gitignored **`application-local.yml`** (see `application-local.yml.example`).
 
@@ -158,7 +179,7 @@ For **`mvn spring-boot:run`** on your Mac, use the **`local`** profile and set `
 
 ```bash
 cp .env.stack.example .env.stack
-# edit .env.stack — passwords, JWT secret, bootstrap admin password, POSTGRES_HOST_PORT / API_PORT / WEB_PORT / CORS_PATTERN
+# edit .env.stack — passwords, JWT secret, bootstrap admin password, POSTGRES_HOST_PORT / API_PORT / WEB_PORT_BIND / CORS_PATTERN (and CADDY_DOMAIN when using HTTPS)
 ```
 
 2. **First-time or full stack** (Postgres + API + web):
@@ -169,7 +190,7 @@ docker compose -f docker-compose.stack.yml --env-file .env.stack up -d --build
 
 After the database exists and is populated, use the **Routine stack redeploy** commands above for day-to-day API/web image updates so Postgres and its data volume stay put.
 
-3. Open the UI at **`http://localhost:${WEB_PORT:-9080}/`** (or `http://<your-LAN-ip>:9080/`). API-only checks: **`http://localhost:${API_PORT:-9091}/actuator/health`**.
+3. Open the UI at **`http://localhost:9080/`** when **`WEB_PORT_BIND=9080:80`** (or use the host port you chose in the left side of the mapping, e.g. `http://localhost:80/` for `WEB_PORT_BIND=80:80`). API-only checks: **`http://localhost:${API_PORT:-9091}/actuator/health`**.
 
 4. To reach services from the **public internet**, allow the chosen TCP ports through your **OS firewall** and usually **home router port forwarding**. Prefer **HTTPS** in front (Caddy, Traefik, or nginx) and tighten **`CORS_PATTERN`** when browsers hit the API from another origin instead of going through the bundled nginx UI. **Do not forward the Postgres port** to the internet unless you fully understand the risk; use VPN or SSH tunnel for remote DBeaver access.
 
