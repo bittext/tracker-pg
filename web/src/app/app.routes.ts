@@ -1,7 +1,11 @@
 import { Routes } from '@angular/router';
 import { adminGuard } from './guards/admin.guard';
 import { authGuard } from './guards/auth.guard';
+import { AdminComponent } from './pages/admin/admin.component';
+import { ExerciseComponent } from './pages/exercise/exercise.component';
+import { FinanceComponent } from './pages/finance/finance.component';
 import { ManagementComponent } from './pages/management/management.component';
+import { ReportsComponent } from './pages/reports/reports.component';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'exercise' },
@@ -12,32 +16,27 @@ export const routes: Routes = [
   {
     path: 'exercise',
     canActivate: [authGuard],
-    loadComponent: () =>
-      import('./pages/exercise/exercise.component').then((m) => m.ExerciseComponent),
+    component: ExerciseComponent,
   },
   {
     path: 'finance',
     canActivate: [authGuard],
-    loadComponent: () =>
-      import('./pages/finance/finance.component').then((m) => m.FinanceComponent),
+    component: FinanceComponent,
   },
   {
     path: 'management',
     canActivate: [authGuard],
-    // Eager: avoids a separate lazy chunk that breaks after deploys when browsers cache stale hashes.
     component: ManagementComponent,
   },
   {
     path: 'reports',
     canActivate: [authGuard],
-    loadComponent: () =>
-      import('./pages/reports/reports.component').then((m) => m.ReportsComponent),
+    component: ReportsComponent,
   },
   {
     path: 'admin',
     canActivate: [authGuard],
-    loadComponent: () =>
-      import('./pages/admin/admin.component').then((m) => m.AdminComponent),
+    component: AdminComponent,
   },
   {
     path: 'logs',
