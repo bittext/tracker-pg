@@ -11,7 +11,8 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatTabsModule } from '@angular/material/tabs';
 import { Exercise } from '../../models/fitness.models';
-import { ManagementTaskCategory, ManagementTaskType } from '../../models/management.models';
+import { ManagementDayOneTagDefDto, ManagementTaskCategory, ManagementTaskType } from '../../models/management.models';
+import { AdminApiService } from '../../services/admin-api.service';
 import { FitnessApiService } from '../../services/fitness-api.service';
 import { ManagementApiService } from '../../services/management-api.service';
 import { formatHttpErrorDetail } from '../../util/http-error';
@@ -38,6 +39,7 @@ import { formatHttpErrorDetail } from '../../util/http-error';
 export class AdminComponent implements OnInit {
   private readonly fitnessApi = inject(FitnessApiService);
   private readonly managementApi = inject(ManagementApiService);
+  private readonly adminApi = inject(AdminApiService);
   private readonly snackBar = inject(MatSnackBar);
 
   exercises: Exercise[] = [];
@@ -52,9 +54,14 @@ export class AdminComponent implements OnInit {
   taskTypeColumns = ['ttName', 'ttNotes', 'ttActions'];
   newTaskType: Partial<ManagementTaskType> = { name: '', notes: '' };
 
+  dayOneTags: ManagementDayOneTagDefDto[] = [];
+  dayOneTagColumns = ['d1tName', 'd1tActions'];
+  newDayOneTagName = '';
+
   ngOnInit(): void {
     this.reload();
     this.reloadManagement();
+    this.reloadDayOneTags();
   }
 
   private err(msg: string, e: unknown): void {
@@ -188,6 +195,42 @@ export class AdminComponent implements OnInit {
         this.snackBar.open(`Removed task type “${row.name}”`, undefined, { duration: 2500 });
       },
       error: (e) => this.err('Could not delete task type', e),
+    });
+  }
+
+  reloadDayOneTags(): void {
+    this.managementApi.listDayOneTagDefinitions().subscribe({
+      next: (rows) => {
+        this.dayOneTags = [...rows].sort((a, b) =>
+          (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }),
+        );
+      },
+      error: (e) => this.err('Could not load Day One tags', e),
+    });
+  }
+
+  addDayOneTag(): void {
+    const name = (this.newDayOneTagName || '').trim();
+    if (!name) {
+      return;
+    }
+    this.adminApi.createDayOneTag(name).subscribe({
+      next: () => {
+        this.newDayOneTagName = '';
+        this.reloadDayOneTags();
+        this.snackBar.open('Day One tag added', undefined, { duration: 2500 });
+      },
+      error: (e) => this.err('Could not add Day One tag', e),
+    });
+  }
+
+  deleteDayOneTag(row: ManagementDayOneTagDefDto): void {
+    this.adminApi.deleteDayOneTag(row.id).subscribe({
+      next: () => {
+        this.reloadDayOneTags();
+        this.snackBar.open(`Removed tag “${row.name}”`, undefined, { duration: 2500 });
+      },
+      error: (e) => this.err('Could not delete Day One tag', e),
     });
   }
 }

@@ -83,21 +83,6 @@ public class ManagementDayOneService {
         return searchEntries(ym.atDay(1), ym.atEndOfMonth(), null, null, null);
     }
 
-    /**
-     * Legacy single-slot behaviour for PUT /api/management/day-one: updates the newest line for that
-     * calendar day, or creates one if none exist.
-     */
-    @Transactional
-    public ManagementDayOneLogDto legacyUpsertSingleLinePerDay(ManagementDayOneEntryWriteRequest req) {
-        Long owner = currentUser.requireUserId();
-        LocalDate day = req.getLoggedOn();
-        List<ManagementDayOneLog> rows = logRepo.findByOwnerUserIdAndLoggedOnOrderByIdDesc(owner, day);
-        if (!rows.isEmpty()) {
-            return update(rows.get(0).getId(), req);
-        }
-        return create(req);
-    }
-
     @Transactional(readOnly = true)
     public List<DayOneCalendarDayDto> calendar(int year, int month, Long ownerUserIdParam) {
         YearMonth ym = YearMonth.of(year, month);

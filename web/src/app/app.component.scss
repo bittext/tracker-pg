@@ -3,6 +3,26 @@
   min-height: 100vh;
 }
 
+/* Whisper-quiet release tag — reads as part of the chrome, not a banner */
+.app-release-hint {
+  flex: 0 0 auto;
+  align-self: center;
+  margin-right: 0.65rem;
+  font-size: 0.625rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: rgba(148, 163, 184, 0.42);
+  line-height: 1;
+  white-space: nowrap;
+  user-select: none;
+  cursor: default;
+}
+
+.app-top-bar:hover .app-release-hint {
+  color: rgba(100, 116, 139, 0.55);
+}
+
 /* Light header — not primary blue bar */
 .app-top-bar {
   position: sticky;

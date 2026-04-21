@@ -46,7 +46,6 @@ export interface ManagementTaskWriteBody {
   completed?: boolean;
 }
 
-/** Daily journal entry (Management → Day One, Reports → Management). */
 export interface ManagementDayOneTagDefDto {
   id: number;
   name: string;
@@ -61,10 +60,10 @@ export interface ManagementDayOneAttachmentDto {
   downloadPath: string;
 }
 
-/** Daily journal entry (Management → Day One, Reports → Management). */
 export interface ManagementDayOneLogDto {
   id: number;
   ownerUserId?: number;
+  /** ISO date string yyyy-MM-dd */
   loggedOn: string;
   entryText: string;
   locationText?: string | null;
@@ -81,4 +80,21 @@ export interface ManagementDayOneWriteBody {
   locationText?: string | null;
   weatherText?: string | null;
   tagIds?: number[] | null;
+}
+
+/** GET /api/management/day-one/calendar */
+export interface DayOneCalendarDayDto {
+  date: string;
+  entryCount: number;
+  level: number;
+}
+
+/** GET /api/management/day-one/counts */
+export interface DayOneCountsDto {
+  year: number;
+  month: number | null;
+  day: number | null;
+  entriesInYear: number;
+  entriesInMonth: number;
+  entriesOnSelectedDay: number;
 }

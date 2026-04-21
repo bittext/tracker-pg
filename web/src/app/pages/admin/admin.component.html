@@ -3,6 +3,7 @@
   <p class="muted">
     Use <strong>Exercise</strong> to manage the workout catalog (names appear in the Exercise tab dropdown). Use
     <strong>Management</strong> for balance categories and task types used on the Management page. Use
+    <strong>Day One tags</strong> for journal tag labels (Management → Day One and Reports). Use
     <strong>Finance</strong> for money-related admin when it is available.
   </p>
 </div>
@@ -72,6 +73,56 @@
             </table>
             @if (!exercises.length) {
               <p class="muted empty-hint">No exercises yet. Add one above.</p>
+            }
+          </div>
+        </section>
+      </div>
+    </mat-tab>
+
+    <mat-tab label="Day One tags">
+      <div class="tab-panel">
+        <section class="admin-section">
+          <h2 class="section-title">Journal tags</h2>
+          <p class="muted">
+            Tags appear in dropdowns on <strong>Management → Day One</strong>. Removing a tag unlinks it from entries but
+            does not delete journal text.
+          </p>
+          <div class="table-wrap-group admin-add-wrap">
+            <div class="table-wrap tight table-wrap--entry">
+              <div class="form-row wrap">
+                <mat-form-field appearance="outline" class="grow">
+                  <mat-label>Tag name</mat-label>
+                  <input matInput [(ngModel)]="newDayOneTagName" name="d1tName" required placeholder="e.g. Gratitude" />
+                </mat-form-field>
+                <button mat-flat-button color="primary" type="button" (click)="addDayOneTag()">Add tag</button>
+              </div>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table mat-table [dataSource]="dayOneTags" class="mat-elevation-z1 full-width">
+              <ng-container matColumnDef="d1tName">
+                <th mat-header-cell *matHeaderCellDef>Name</th>
+                <td mat-cell *matCellDef="let row">{{ row.name }}</td>
+              </ng-container>
+              <ng-container matColumnDef="d1tActions">
+                <th mat-header-cell *matHeaderCellDef></th>
+                <td mat-cell *matCellDef="let row">
+                  <button
+                    mat-icon-button
+                    type="button"
+                    color="warn"
+                    (click)="deleteDayOneTag(row)"
+                    aria-label="Delete Day One tag"
+                  >
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="dayOneTagColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: dayOneTagColumns"></tr>
+            </table>
+            @if (!dayOneTags.length) {
+              <p class="muted empty-hint">No tags yet. Add one above.</p>
             }
           </div>
         </section>

@@ -13,8 +13,6 @@ import org.springframework.data.repository.query.Param;
 public interface ManagementDayOneLogRepository
         extends JpaRepository<ManagementDayOneLog, Long>, JpaSpecificationExecutor<ManagementDayOneLog> {
 
-    List<ManagementDayOneLog> findByOwnerUserIdAndLoggedOnOrderByIdDesc(Long ownerUserId, LocalDate loggedOn);
-
     @EntityGraph(attributePaths = {"tags", "attachments"})
     @Override
     @org.springframework.lang.NonNull
