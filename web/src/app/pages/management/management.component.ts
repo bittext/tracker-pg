@@ -110,6 +110,7 @@ export class ManagementComponent implements OnInit {
   dayOneEntries: DayOneEntry[] = [];
   dayOneVisibleRows: DayOneEntry[] = [];
   dayOneTagOptions: string[] = [];
+  dayOneLoaded = false;
 
   ngOnInit(): void {
     const t = this.todayIso();
@@ -118,8 +119,16 @@ export class ManagementComponent implements OnInit {
     this.calendarYear = Number(t.slice(0, 4));
     this.calendarMonth = Number(t.slice(5, 7));
     this.resetForm();
-    this.loadDayOneLocal();
     this.reloadRefsAndCalendar();
+  }
+
+  onMgmtTabChange(index: number): void {
+    // Load Day One lazily to keep initial Management tab responsive.
+    if (index !== 1 || this.dayOneLoaded) {
+      return;
+    }
+    this.dayOneLoaded = true;
+    setTimeout(() => this.loadDayOneLocal(), 0);
   }
 
   get calendarTitle(): string {
