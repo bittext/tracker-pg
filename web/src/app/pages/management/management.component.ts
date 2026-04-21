@@ -81,6 +81,7 @@ export class ManagementComponent implements OnInit {
   unscheduled: ManagementTaskDto[] = [];
   categories: ManagementTaskCategory[] = [];
   taskTypes: ManagementTaskType[] = [];
+  selectedDayTasks: ManagementTaskDto[] = [];
 
   newTask = {
     title: '',
@@ -146,7 +147,10 @@ export class ManagementComponent implements OnInit {
     return this.dateFromIso(this.journalSelectedIso || this.todayIso());
   }
 
-  set journalSelectedDate(v: Date) {
+  set journalSelectedDate(v: Date | null) {
+    if (!v) {
+      return;
+    }
     this.journalSelectedIso = this.toIsoDate(v);
     this.refreshDayOneVisibleEntries();
   }
@@ -319,6 +323,7 @@ export class ManagementComponent implements OnInit {
       return;
     }
     this.selectedDateIso = cell.iso;
+    this.refreshSelectedDayTasks();
   }
 
   prevMonth(): void {
@@ -348,13 +353,7 @@ export class ManagementComponent implements OnInit {
   }
 
   tasksForSelectedDay(): ManagementTaskDto[] {
-    const iso = this.selectedDateIso;
-    if (!iso || !this.monthCal?.tasksByDay) {
-      return [];
-    }
-    return [...(this.monthCal.tasksByDay[iso] ?? [])].sort((a, b) =>
-      b.urgency.localeCompare(a.urgency),
-    );
+    return this.selectedDayTasks;
   }
 
   urgencyClass(u: BalanceUrgency): string {
@@ -472,6 +471,7 @@ export class ManagementComponent implements OnInit {
         this.unscheduled = un;
         this.categories = cat;
         this.taskTypes = tt;
+        this.refreshSelectedDayTasks();
       },
       error: () => {},
     });
@@ -487,6 +487,7 @@ export class ManagementComponent implements OnInit {
       next: ({ cal, un }) => {
         this.monthCal = cal;
         this.unscheduled = un;
+        this.refreshSelectedDayTasks();
       },
       error: () => {},
     });
@@ -509,6 +510,7 @@ export class ManagementComponent implements OnInit {
     const d = Number(this.selectedDateIso.slice(8, 10));
     const day = Math.min(Math.max(1, d), last);
     this.selectedDateIso = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    this.refreshSelectedDayTasks();
   }
 
   private defaultDayInMonth(y: number, m: number): string {
@@ -556,6 +558,17 @@ export class ManagementComponent implements OnInit {
 
   private refreshDayOneVisibleEntries(): void {
     this.dayOneVisibleRows = this.computeDayOneVisibleEntries();
+  }
+
+  private refreshSelectedDayTasks(): void {
+    const iso = this.selectedDateIso;
+    if (!iso || !this.monthCal?.tasksByDay) {
+      this.selectedDayTasks = [];
+      return;
+    }
+    this.selectedDayTasks = [...(this.monthCal.tasksByDay[iso] ?? [])].sort((a, b) =>
+      b.urgency.localeCompare(a.urgency),
+    );
   }
 
   private dateFromIso(iso: string): Date {
