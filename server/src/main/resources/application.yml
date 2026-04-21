@@ -3,6 +3,10 @@
 spring:
   application:
     name: tracker-pg-server
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 12MB
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/tracker}
     username: ${SPRING_DATASOURCE_USERNAME:tracker}
@@ -36,6 +40,9 @@ management:
 
 # Finance JDBC targets the local Flyway table (unquoted identifiers fold to lowercase in PostgreSQL).
 tracker:
+  management:
+    day-one-storage-directory: ${TRACKER_MANAGEMENT_DAY_ONE_STORAGE_DIR:}
+    day-one-max-attachment-bytes: 8388608
   web:
     cors-allowed-origin-patterns:
       - "http://localhost:*"

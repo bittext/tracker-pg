@@ -47,10 +47,30 @@ export interface ManagementTaskWriteBody {
 }
 
 /** Daily journal entry (Management → Day One, Reports → Management). */
+export interface ManagementDayOneTagDefDto {
+  id: number;
+  name: string;
+  createdAt?: string;
+}
+
+export interface ManagementDayOneAttachmentDto {
+  id: number;
+  originalFilename: string;
+  contentType?: string | null;
+  sizeBytes?: number | null;
+  downloadPath: string;
+}
+
+/** Daily journal entry (Management → Day One, Reports → Management). */
 export interface ManagementDayOneLogDto {
   id: number;
+  ownerUserId?: number;
   loggedOn: string;
   entryText: string;
+  locationText?: string | null;
+  weatherText?: string | null;
+  tags?: ManagementDayOneTagDefDto[];
+  attachments?: ManagementDayOneAttachmentDto[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -58,4 +78,7 @@ export interface ManagementDayOneLogDto {
 export interface ManagementDayOneWriteBody {
   loggedOn: string;
   entryText: string;
+  locationText?: string | null;
+  weatherText?: string | null;
+  tagIds?: number[] | null;
 }
