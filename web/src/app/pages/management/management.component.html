@@ -284,6 +284,12 @@
 
     <mat-tab label="Day One">
       <div class="tab-panel dayone-panel">
+        @if (!dayOneLoaded && mgmtSelectedTabIndex !== 1) {
+          <section class="dayone-head">
+            <h2 class="dayone-title">Journal</h2>
+            <p class="muted dayone-sub">Open this tab to load journal content.</p>
+          </section>
+        } @else {
         <section class="dayone-head">
           <h2 class="dayone-title">Journal</h2>
           <p class="muted dayone-sub">
@@ -442,6 +448,7 @@
             </div>
           </section>
         </div>
+        }
       </div>
     </mat-tab>
   </mat-tab-group>

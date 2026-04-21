@@ -111,6 +111,7 @@ export class ManagementComponent implements OnInit {
   dayOneVisibleRows: DayOneEntry[] = [];
   dayOneTagOptions: string[] = [];
   dayOneLoaded = false;
+  mgmtSelectedTabIndex = 0;
 
   ngOnInit(): void {
     const t = this.todayIso();
@@ -123,6 +124,7 @@ export class ManagementComponent implements OnInit {
   }
 
   onMgmtTabChange(index: number): void {
+    this.mgmtSelectedTabIndex = index;
     // Load Day One lazily to keep initial Management tab responsive.
     if (index !== 1 || this.dayOneLoaded) {
       return;
