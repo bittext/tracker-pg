@@ -40,7 +40,7 @@ jobs:
           host: ${{ secrets.LIGHTSAIL_HOST }}
           username: ${{ secrets.LIGHTSAIL_USER || 'ubuntu' }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-          script_stop: true
+          timeout: 2m
           command_timeout: 90m
           script: |
             set -euo pipefail

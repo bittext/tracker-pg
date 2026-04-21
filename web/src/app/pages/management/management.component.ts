@@ -13,7 +13,6 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
-import { MatTabsModule } from '@angular/material/tabs';
 import { catchError, forkJoin, of } from 'rxjs';
 import {
   BalanceUrgency,
@@ -50,7 +49,6 @@ type JournalScope = 'day' | 'month' | 'year' | 'years' | 'all';
     CommonModule,
     FormsModule,
     MatCardModule,
-    MatTabsModule,
     MatTableModule,
     MatButtonModule,
     MatFormFieldModule,
