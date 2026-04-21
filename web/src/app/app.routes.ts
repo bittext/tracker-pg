@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { adminGuard } from './guards/admin.guard';
 import { authGuard } from './guards/auth.guard';
+import { ManagementComponent } from './pages/management/management.component';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'exercise' },
@@ -23,8 +24,8 @@ export const routes: Routes = [
   {
     path: 'management',
     canActivate: [authGuard],
-    loadComponent: () =>
-      import('./pages/management/management.component').then((m) => m.ManagementComponent),
+    // Eager: avoids a separate lazy chunk that breaks after deploys when browsers cache stale hashes.
+    component: ManagementComponent,
   },
   {
     path: 'reports',
