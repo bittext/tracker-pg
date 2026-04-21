@@ -3,8 +3,7 @@
   <p class="muted">
     <strong>Exercise</strong>: month trends on the left, selected-day snapshot on the right. Calendar tiles show only
     available <strong>exercise time</strong> and <strong>weight (lb)</strong>.
-    <strong>Management</strong>: task listing plus <strong>Day One</strong> journal entries for the same month as the Exercise
-    calendar.
+    <strong>Management</strong>: task listing. <strong>Day One</strong>: separate tab.
   </p>
 </div>
 
@@ -217,10 +216,6 @@
 
     <mat-tab label="Management">
       <div class="tab-panel mgmt-report-panel">
-        <p class="muted mgmt-report-month-hint">
-          <strong>Day One</strong> entries below use the same month as the <strong>Exercise</strong> tab calendar:
-          {{ calendarTitle }} (switch months with the arrows on Exercise).
-        </p>
         <section class="mgmt-report-section" aria-labelledby="mgmt-report-heading">
           <h2 id="mgmt-report-heading" class="mgmt-report-title">Tasks</h2>
           <p class="muted mgmt-report-lead">
@@ -264,56 +259,6 @@
             </table>
             @if (!managementTasks.length) {
               <p class="muted empty-hint mgmt-report-empty">No management tasks yet. Add categories in Admin, then create tasks under Management.</p>
-            }
-          </div>
-        </section>
-
-        <section class="mgmt-report-section mgmt-report-section--dayone" aria-labelledby="mgmt-dayone-heading">
-          <h2 id="mgmt-dayone-heading" class="mgmt-report-title">Day One</h2>
-          <p class="muted mgmt-report-lead">
-            Journal entries from <a routerLink="/management">Management → Day One</a>. Multiple notes per day, tags, and
-            attachments are included for this calendar month (same month as the exercise grid above).
-          </p>
-          <div class="table-wrap table-wrap--mgmt">
-            <table mat-table [dataSource]="managementDayOneLogs" class="full-width">
-              <ng-container matColumnDef="d1Date">
-                <th mat-header-cell *matHeaderCellDef>Date</th>
-                <td mat-cell *matCellDef="let row">{{ formatDayOneReportDate(row) }}</td>
-              </ng-container>
-              <ng-container matColumnDef="d1Tags">
-                <th mat-header-cell *matHeaderCellDef>Tags</th>
-                <td mat-cell *matCellDef="let row" class="mgmt-dayone-tags-cell">{{ dayOneTagsSummary(row) }}</td>
-              </ng-container>
-              <ng-container matColumnDef="d1Ctx">
-                <th mat-header-cell *matHeaderCellDef>Place / weather</th>
-                <td mat-cell *matCellDef="let row" class="mgmt-dayone-ctx-cell">{{ dayOneContextSummary(row) }}</td>
-              </ng-container>
-              <ng-container matColumnDef="d1Preview">
-                <th mat-header-cell *matHeaderCellDef>Entry</th>
-                <td mat-cell *matCellDef="let row" class="mgmt-dayone-preview-cell">{{ dayOneReportPreview(row.entryText) }}</td>
-              </ng-container>
-              <ng-container matColumnDef="d1Files">
-                <th mat-header-cell *matHeaderCellDef>Files</th>
-                <td mat-cell *matCellDef="let row">
-                  @if (dayOneAttachmentCount(row) > 0) {
-                    <button mat-button type="button" (click)="openReportDayOneAttachments(row)">
-                      <mat-icon>attach_file</mat-icon>
-                      {{ dayOneAttachmentCount(row) }}
-                    </button>
-                  } @else {
-                    —
-                  }
-                </td>
-              </ng-container>
-              <ng-container matColumnDef="d1Updated">
-                <th mat-header-cell *matHeaderCellDef>Updated</th>
-                <td mat-cell *matCellDef="let row">{{ formatDayOneReportInstant(row.updatedAt) }}</td>
-              </ng-container>
-              <tr mat-header-row *matHeaderRowDef="managementDayOneColumns"></tr>
-              <tr mat-row *matRowDef="let row; columns: managementDayOneColumns"></tr>
-            </table>
-            @if (!managementDayOneLogs.length) {
-              <p class="muted empty-hint mgmt-report-empty">No Day One entries for this month.</p>
             }
           </div>
         </section>
