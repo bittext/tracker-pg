@@ -187,6 +187,43 @@ npm start
 
 Then open `http://localhost:4200/`. You can still use the Oracle app’s `tracker/web` against port **9090** in parallel; this UI is scoped to the PostgreSQL stack.
 
+### Main tabs
+
+The top navigation includes dedicated sections for:
+
+- Exercise
+- Finance
+- Management (tasks/calendar only)
+- Day One (journal now has its own page, no longer nested inside Management)
+- Reports
+- Admin
+- Logs (admin only)
+
+## GitHub Actions deploy to Lightsail
+
+Workflow: `.github/workflows/deploy-develop-lightsail.yml` (name: **Deploy pushed branch to Lightsail**)
+
+Trigger behavior:
+
+- Runs on **push to any branch** (`"**"`).
+- SSHes into the Lightsail host and checks out/resets to the same pushed branch.
+- Runs `bash scripts/lightsail-deploy.sh` on the VM.
+
+### Secrets/variables used by the workflow
+
+Set these in **GitHub → Repo → Settings → Secrets and variables → Actions**:
+
+- **Required secrets**
+  - `LIGHTSAIL_HOST` (public IP or DNS)
+  - `LIGHTSAIL_SSH_KEY` (private PEM key content)
+  - `LIGHTSAIL_USER` (optional; defaults to `ubuntu` if omitted)
+
+- **Optional repo variable**
+  - `LIGHTSAIL_REPO_DIR` (absolute repo path on Lightsail VM)
+  - Default used by workflow when unset: `/home/ubuntu/apps/tracker-pg`
+
+If your repo is cloned elsewhere on the instance (example `/home/ubuntu/tracker-pg`), set `LIGHTSAIL_REPO_DIR` to that exact path.
+
 ## Tests
 
 ```bash
