@@ -122,6 +122,7 @@ public class JournalService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public List<JournalEntryDto> search(
             LocalDate from,
             LocalDate to,
@@ -135,7 +136,7 @@ public class JournalService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid date range");
         }
         long owner = effectiveOwnerId(filterOwnerId);
-        List<JournalEntry> base = entryRepository.findRangeWithTags(owner, from, to);
+        List<JournalEntry> base = entryRepository.findRangeForOwner(owner, from, to);
         List<String> tokens = tokenize(q);
         List<Long> tids = tagIds == null ? List.of() : tagIds.stream().filter(Objects::nonNull).distinct().toList();
         return base.stream()
@@ -145,6 +146,7 @@ public class JournalService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public JournalSummaryDto summarize(
             LocalDate from,
             LocalDate to,

@@ -17,15 +17,17 @@ public interface JournalEntryRepository extends JpaRepository<JournalEntry, Long
 
     List<JournalEntry> findByOwnerUserIdAndLoggedOnOrderByCreatedAtDesc(long ownerUserId, LocalDate loggedOn);
 
+    /**
+     * No fetch-join: DISTINCT + fetch + ORDER BY breaks on PostgreSQL/Hibernate. Tags load lazy inside
+     * {@code @Transactional} on the service.
+     */
     @Query(
-            "SELECT DISTINCT e FROM JournalEntry e LEFT JOIN FETCH e.tags WHERE e.ownerUserId = :owner"
+            "SELECT e FROM JournalEntry e WHERE e.ownerUserId = :owner"
                     + " AND e.loggedOn >= :from AND e.loggedOn <= :to ORDER BY e.loggedOn DESC, e.createdAt DESC")
-    List<JournalEntry> findRangeWithTags(
+    List<JournalEntry> findRangeForOwner(
             @Param("owner") long ownerUserId, @Param("from") LocalDate from, @Param("to") LocalDate to);
 
-    @Query(
-            "SELECT DISTINCT e FROM JournalEntry e LEFT JOIN FETCH e.tags"
-                    + " WHERE e.ownerUserId = :o AND e.loggedOn = :d ORDER BY e.createdAt DESC")
+    @Query("SELECT e FROM JournalEntry e WHERE e.ownerUserId = :o AND e.loggedOn = :d ORDER BY e.createdAt DESC")
     List<JournalEntry> findDayForOwner(@Param("o") long ownerUserId, @Param("d") LocalDate day);
 
     @Query("SELECT e FROM JournalEntry e LEFT JOIN FETCH e.tags WHERE e.id = :id")
