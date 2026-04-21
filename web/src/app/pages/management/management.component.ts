@@ -111,8 +111,6 @@ export class ManagementComponent implements OnInit {
   dayOneVisibleRows: DayOneEntry[] = [];
   dayOneTagOptions: string[] = [];
   dayOneLoaded = false;
-  dayOneLoading = false;
-  mgmtSelectedTabIndex = 0;
 
   ngOnInit(): void {
     const t = this.todayIso();
@@ -125,18 +123,12 @@ export class ManagementComponent implements OnInit {
   }
 
   onMgmtTabChange(index: number): void {
-    this.mgmtSelectedTabIndex = index;
-    // Load Day One lazily to keep initial Management tab responsive.
+    // Load Day One once when the tab is first opened (localStorage is sync and small).
     if (index !== 1 || this.dayOneLoaded) {
       return;
     }
     this.dayOneLoaded = true;
-    this.dayOneLoading = true;
-    // Defer localStorage parse/filter to next task so tab activation paints first.
-    setTimeout(() => {
-      this.loadDayOneLocal();
-      this.dayOneLoading = false;
-    }, 0);
+    this.loadDayOneLocal();
   }
 
   get calendarTitle(): string {
@@ -551,6 +543,7 @@ export class ManagementComponent implements OnInit {
       const raw = localStorage.getItem(ManagementComponent.DAY_ONE_STORAGE_KEY);
       if (!raw) {
         this.dayOneEntries = [];
+        this.refreshDayOneDerived();
         return;
       }
       const parsed = JSON.parse(raw) as DayOneEntry[];
