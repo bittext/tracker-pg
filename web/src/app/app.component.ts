@@ -1,11 +1,23 @@
 import { CommonModule } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Component, OnInit, inject } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatButtonModule } from '@angular/material/button';
-import { filter } from 'rxjs';
+import { catchError, filter, of } from 'rxjs';
+import { environment } from '../environments/environment';
+import { WEB_RELEASE_VERSION } from './release-version';
 import { AuthService } from './services/auth.service';
+
+/** Response from GET /api/version (Spring Boot build-info when packaged). */
+interface ApiVersionPayload {
+  name: string;
+  group: string;
+  artifact: string;
+  version: string;
+  buildTime: string | null;
+}
 
 @Component({
   selector: 'app-root',
@@ -21,16 +33,41 @@ import { AuthService } from './services/auth.service';
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
+  private readonly http = inject(HttpClient);
   readonly title = 'Tracker · PostgreSQL';
+  readonly webReleaseVersion = WEB_RELEASE_VERSION;
+  /** Populated from API after startup (null if unreachable). */
+  apiRelease: ApiVersionPayload | null = null;
   onLoginRoute = this.router.url.startsWith('/login');
 
   constructor() {
     this.router.events.pipe(filter((e) => e instanceof NavigationEnd)).subscribe(() => {
       this.onLoginRoute = this.router.url.startsWith('/login');
     });
+  }
+
+  ngOnInit(): void {
+    const base = environment.apiBaseUrl || '';
+    this.http
+      .get<ApiVersionPayload>(`${base}/api/version`)
+      .pipe(catchError(() => of(null as ApiVersionPayload | null)))
+      .subscribe((v) => {
+        this.apiRelease = v;
+      });
+  }
+
+  /** Native tooltip: full web + API build info (hint in toolbar stays minimal). */
+  get releaseHintTooltip(): string {
+    const web = `Web ${this.webReleaseVersion}`;
+    if (this.apiRelease?.version) {
+      const api = `API ${this.apiRelease.version}`;
+      const time = this.apiRelease.buildTime ? ` · ${this.apiRelease.buildTime}` : '';
+      return `${web} · ${api}${time}`;
+    }
+    return `${web} (API not loaded)`;
   }
 
   get username(): string {

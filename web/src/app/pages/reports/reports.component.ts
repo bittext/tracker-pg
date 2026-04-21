@@ -3,6 +3,8 @@ import { Component, OnInit, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
@@ -19,6 +21,10 @@ import { ManagementDayOneLogDto, ManagementTaskDto } from '../../models/manageme
 import { FitnessApiService } from '../../services/fitness-api.service';
 import { ManagementApiService } from '../../services/management-api.service';
 import { formatHttpErrorDetail } from '../../util/http-error';
+import {
+  DayOneAttachmentsDialogComponent,
+  DayOneAttachmentsDialogData,
+} from '../management/day-one-attachments-dialog.component';
 
 /** Padding slot or a real day in the month grid. */
 interface CalendarCell {
@@ -44,6 +50,8 @@ interface CalendarCell {
     MatSnackBarModule,
     MatButtonModule,
     MatIconModule,
+    MatDialogModule,
+    MatChipsModule,
   ],
   templateUrl: './reports.component.html',
   styleUrl: './reports.component.scss',
@@ -52,6 +60,7 @@ export class ReportsComponent implements OnInit {
   private readonly fitnessApi = inject(FitnessApiService);
   private readonly managementApi = inject(ManagementApiService);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
 
   private static readonly LB_PER_KG = 2.2046226218;
 
@@ -88,7 +97,7 @@ export class ReportsComponent implements OnInit {
 
   /** Management → Day One entries for {@link calendarYear}/{@link calendarMonth} (same month as Exercise calendar). */
   managementDayOneLogs: ManagementDayOneLogDto[] = [];
-  managementDayOneColumns = ['d1Date', 'd1Preview', 'd1Updated'];
+  managementDayOneColumns = ['d1Date', 'd1Tags', 'd1Ctx', 'd1Preview', 'd1Files', 'd1Updated'];
 
   ngOnInit(): void {
     const t = this.todayIso();
@@ -321,12 +330,18 @@ export class ReportsComponent implements OnInit {
     forkJoin({
       monthly: this.fitnessApi.monthlyReport(y, mo),
       cal: this.fitnessApi.monthActivityCalendar(y, mo),
-      dayOne: this.managementApi.listDayOneLogsReport(y, mo).pipe(catchError(() => of<ManagementDayOneLogDto[]>([]))),
+      dayOne: this.managementApi.dayOneEntriesForMonth(y, mo).pipe(catchError(() => of<ManagementDayOneLogDto[]>([]))),
     }).subscribe({
       next: ({ monthly, cal, dayOne }) => {
         this.monthlyReport = monthly;
         this.monthCal = cal;
-        this.managementDayOneLogs = [...dayOne].sort((a, b) => b.loggedOn.localeCompare(a.loggedOn));
+        this.managementDayOneLogs = [...dayOne].sort((a, b) => {
+          const da = this.normalizeDayOneDate(a.loggedOn).localeCompare(this.normalizeDayOneDate(b.loggedOn));
+          if (da !== 0) {
+            return da > 0 ? -1 : 1;
+          }
+          return (b.id ?? 0) - (a.id ?? 0);
+        });
       },
       error: (e) => this.err('Could not load month report', e),
     });
@@ -459,5 +474,63 @@ export class ReportsComponent implements OnInit {
       return iso;
     }
     return new Date(ms).toLocaleString();
+  }
+
+  normalizeDayOneDate(d: string | unknown): string {
+    if (d == null) {
+      return '';
+    }
+    if (typeof d === 'string') {
+      return d.length >= 10 ? d.slice(0, 10) : d;
+    }
+    if (Array.isArray(d) && d.length >= 3) {
+      const y = Number(d[0]);
+      const mo = Number(d[1]);
+      const day = Number(d[2]);
+      return `${y}-${String(mo).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+    return String(d).slice(0, 10);
+  }
+
+  formatDayOneReportDate(row: ManagementDayOneLogDto): string {
+    const iso = this.normalizeDayOneDate(row.loggedOn);
+    if (!iso || iso.length < 10) {
+      return '—';
+    }
+    const y = Number(iso.slice(0, 4));
+    const m = Number(iso.slice(5, 7));
+    const day = Number(iso.slice(8, 10));
+    return new Date(y, m - 1, day).toLocaleDateString();
+  }
+
+  dayOneTagsSummary(row: ManagementDayOneLogDto): string {
+    const names = (row.tags ?? []).map((t) => t.name).filter(Boolean);
+    return names.length ? names.join(', ') : '—';
+  }
+
+  dayOneContextSummary(row: ManagementDayOneLogDto): string {
+    const parts: string[] = [];
+    if (row.locationText?.trim()) {
+      parts.push(row.locationText.trim());
+    }
+    if (row.weatherText?.trim()) {
+      parts.push(row.weatherText.trim());
+    }
+    return parts.length ? parts.join(' · ') : '—';
+  }
+
+  dayOneAttachmentCount(row: ManagementDayOneLogDto): number {
+    return row.attachments?.length ?? 0;
+  }
+
+  openReportDayOneAttachments(row: ManagementDayOneLogDto): void {
+    const atts = row.attachments ?? [];
+    if (!atts.length) {
+      return;
+    }
+    this.dialog.open<DayOneAttachmentsDialogComponent, DayOneAttachmentsDialogData>(DayOneAttachmentsDialogComponent, {
+      width: 'min(96vw, 520px)',
+      data: { attachments: atts },
+    });
   }
 }

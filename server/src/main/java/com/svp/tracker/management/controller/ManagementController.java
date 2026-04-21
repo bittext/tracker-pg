@@ -2,12 +2,9 @@ package com.svp.tracker.management.controller;
 
 import com.svp.tracker.management.domain.ManagementTaskCategory;
 import com.svp.tracker.management.domain.ManagementTaskType;
-import com.svp.tracker.management.dto.ManagementDayOneEntryWriteRequest;
-import com.svp.tracker.management.dto.ManagementDayOneLogDto;
 import com.svp.tracker.management.dto.ManagementTaskDto;
 import com.svp.tracker.management.dto.ManagementTaskWriteRequest;
 import com.svp.tracker.management.dto.TaskMonthCalendarDto;
-import com.svp.tracker.management.service.ManagementDayOneService;
 import com.svp.tracker.management.service.ManagementService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -20,7 +17,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -30,7 +26,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class ManagementController {
 
     private final ManagementService managementService;
-    private final ManagementDayOneService dayOneService;
 
     @GetMapping("/categories")
     public List<ManagementTaskCategory> listCategories() {
@@ -109,27 +104,4 @@ public class ManagementController {
         return managementService.listTasksForReport();
     }
 
-    /** Legacy path: month slice of Day One entries (see {@code /api/management/day-one/entries}). */
-    @GetMapping("/reports/day-one")
-    public List<ManagementDayOneLogDto> reportsDayOne(@RequestParam int year, @RequestParam int month) {
-        return dayOneService.listMonth(year, month);
-    }
-
-    /** Legacy path: month slice (same as {@link #reportsDayOne}). */
-    @GetMapping("/day-one")
-    public List<ManagementDayOneLogDto> listDayOne(@RequestParam int year, @RequestParam int month) {
-        return dayOneService.listMonth(year, month);
-    }
-
-    /** Legacy path: upsert newest line for that calendar day (see POST/PUT {@code /api/management/day-one/entries}). */
-    @PutMapping("/day-one")
-    public ManagementDayOneLogDto upsertDayOne(@Valid @RequestBody ManagementDayOneEntryWriteRequest body) {
-        return dayOneService.legacyUpsertSingleLinePerDay(body);
-    }
-
-    @DeleteMapping("/day-one/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteDayOne(@PathVariable long id) {
-        dayOneService.delete(id);
-    }
 }
