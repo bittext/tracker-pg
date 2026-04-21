@@ -107,6 +107,8 @@ export class ManagementComponent implements OnInit {
   journalComposeText = '';
   journalComposeTags = '';
   dayOneEntries: DayOneEntry[] = [];
+  dayOneVisibleRows: DayOneEntry[] = [];
+  dayOneTagOptions: string[] = [];
 
   ngOnInit(): void {
     const t = this.todayIso();
@@ -146,6 +148,7 @@ export class ManagementComponent implements OnInit {
 
   set journalSelectedDate(v: Date) {
     this.journalSelectedIso = this.toIsoDate(v);
+    this.refreshDayOneVisibleEntries();
   }
 
   get journalMonthLabel(): string {
@@ -153,7 +156,7 @@ export class ManagementComponent implements OnInit {
     return d.toLocaleString(undefined, { month: 'long', year: 'numeric' });
   }
 
-  dayOneVisibleEntries(): DayOneEntry[] {
+  private computeDayOneVisibleEntries(): DayOneEntry[] {
     const scope = this.journalScope;
     const sel = this.journalSelectedIso || this.todayIso();
     const words = (this.journalSearchWords || '').trim().toLowerCase();
@@ -193,7 +196,7 @@ export class ManagementComponent implements OnInit {
       .sort((a, b) => b.dateIso.localeCompare(a.dateIso) || b.id - a.id);
   }
 
-  dayOneAllTags(): string[] {
+  private computeDayOneAllTags(): string[] {
     const s = new Set<string>();
     for (const e of this.dayOneEntries) {
       for (const t of e.tags) {
@@ -210,12 +213,14 @@ export class ManagementComponent implements OnInit {
     const d = this.dateFromIso(this.journalSelectedIso || this.todayIso());
     d.setDate(d.getDate() - 1);
     this.journalSelectedIso = this.toIsoDate(d);
+    this.refreshDayOneVisibleEntries();
   }
 
   nextJournalDay(): void {
     const d = this.dateFromIso(this.journalSelectedIso || this.todayIso());
     d.setDate(d.getDate() + 1);
     this.journalSelectedIso = this.toIsoDate(d);
+    this.refreshDayOneVisibleEntries();
   }
 
   saveDayOneEntry(): void {
@@ -238,16 +243,23 @@ export class ManagementComponent implements OnInit {
     this.journalComposeText = '';
     this.journalComposeTags = '';
     this.persistDayOneLocal();
+    this.refreshDayOneDerived();
     this.snackBar.open('Day One entry saved', undefined, { duration: 2200 });
   }
 
   deleteDayOneEntry(row: DayOneEntry): void {
     this.dayOneEntries = this.dayOneEntries.filter((e) => e.id !== row.id);
     this.persistDayOneLocal();
+    this.refreshDayOneDerived();
   }
 
   selectDayOneTag(tag: string): void {
     this.journalSearchTag = tag;
+    this.refreshDayOneVisibleEntries();
+  }
+
+  onDayOneFiltersChanged(): void {
+    this.refreshDayOneVisibleEntries();
   }
 
   formatDayOneCreated(iso: string): string {
@@ -526,13 +538,24 @@ export class ManagementComponent implements OnInit {
       this.dayOneEntries = Array.isArray(parsed)
         ? parsed.filter((e) => !!e && !!e.dateIso && !!e.text && Array.isArray(e.tags))
         : [];
+      this.refreshDayOneDerived();
     } catch {
       this.dayOneEntries = [];
+      this.refreshDayOneDerived();
     }
   }
 
   private persistDayOneLocal(): void {
     localStorage.setItem(ManagementComponent.DAY_ONE_STORAGE_KEY, JSON.stringify(this.dayOneEntries));
+  }
+
+  private refreshDayOneDerived(): void {
+    this.dayOneTagOptions = this.computeDayOneAllTags();
+    this.refreshDayOneVisibleEntries();
+  }
+
+  private refreshDayOneVisibleEntries(): void {
+    this.dayOneVisibleRows = this.computeDayOneVisibleEntries();
   }
 
   private dateFromIso(iso: string): Date {
