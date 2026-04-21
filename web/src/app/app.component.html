@@ -43,6 +43,16 @@
         </a>
         <a
           mat-tab-link
+          routerLink="/journal"
+          routerLinkActive
+          #journalTab="routerLinkActive"
+          [active]="journalTab.isActive"
+          [routerLinkActiveOptions]="{ exact: true }"
+        >
+          Journal
+        </a>
+        <a
+          mat-tab-link
           routerLink="/reports"
           routerLinkActive
           #repTab="routerLinkActive"

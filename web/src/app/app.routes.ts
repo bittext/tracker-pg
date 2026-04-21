@@ -4,6 +4,7 @@ import { authGuard } from './guards/auth.guard';
 import { AdminComponent } from './pages/admin/admin.component';
 import { ExerciseComponent } from './pages/exercise/exercise.component';
 import { FinanceComponent } from './pages/finance/finance.component';
+import { JournalComponent } from './pages/journal/journal.component';
 import { ManagementComponent } from './pages/management/management.component';
 import { ReportsComponent } from './pages/reports/reports.component';
 
@@ -27,6 +28,11 @@ export const routes: Routes = [
     path: 'management',
     canActivate: [authGuard],
     component: ManagementComponent,
+  },
+  {
+    path: 'journal',
+    canActivate: [authGuard],
+    component: JournalComponent,
   },
   {
     path: 'reports',

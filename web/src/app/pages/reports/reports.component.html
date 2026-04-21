@@ -3,7 +3,7 @@
   <p class="muted">
     <strong>Exercise</strong>: month trends on the left, selected-day snapshot on the right. Calendar tiles show only
     available <strong>exercise time</strong> and <strong>weight (lb)</strong>.
-    <strong>Management</strong>: task listing.
+    <strong>Management</strong>: task listing. <strong>Journal</strong>: search entries by date, tags, and keywords.
   </p>
 </div>
 
@@ -211,6 +211,77 @@
             </mat-card>
           </section>
         </div>
+      </div>
+    </mat-tab>
+
+    <mat-tab label="Journal">
+      <div class="tab-panel journal-report-panel">
+        <section class="journal-report-section" aria-labelledby="journal-report-heading">
+          <h2 id="journal-report-heading" class="mgmt-report-title">Journal search</h2>
+          <p class="muted mgmt-report-lead">
+            Filter your Markdown journal by <strong>date range</strong>, <strong>tags</strong> (all selected must apply), and
+            <strong>keywords</strong> (space-separated, all must appear in the entry). Open the
+            <a routerLink="/journal">Journal</a> tab to write entries.
+          </p>
+          <div class="journal-report-filters">
+            <mat-form-field appearance="outline" class="jr-field">
+              <mat-label>From</mat-label>
+              <input matInput type="date" [(ngModel)]="journalFrom" name="jrFrom" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="jr-field">
+              <mat-label>To</mat-label>
+              <input matInput type="date" [(ngModel)]="journalTo" name="jrTo" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="jr-grow">
+              <mat-label>Keywords</mat-label>
+              <input matInput [(ngModel)]="journalQ" name="jrQ" placeholder="e.g. project review" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="jr-grow">
+              <mat-label>Tags (match all)</mat-label>
+              <mat-select multiple [(ngModel)]="journalTagIds" name="jrTags">
+                @for (t of journalTagDefs; track t.id) {
+                  <mat-option [value]="t.id">{{ t.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <div class="jr-actions">
+              <button mat-flat-button color="primary" type="button" (click)="runJournalSearch()">Search</button>
+            </div>
+          </div>
+          @if (journalSummary) {
+            <p class="journal-summary">
+              <strong>{{ journalSummary.totalCount }}</strong> matching
+              @if (journalSummary.byMonth.length) {
+                <span class="muted"
+                  >— by month: @for (m of journalSummary.byMonth; track m.yearMonth) {
+                    <span class="sum-chip">{{ m.yearMonth }}: {{ m.count }}</span>
+                  }</span
+                >
+              }
+            </p>
+          }
+          <div class="table-wrap table-wrap--mgmt">
+            <table mat-table [dataSource]="journalReportRows" class="full-width">
+              <ng-container matColumnDef="jDate">
+                <th mat-header-cell *matHeaderCellDef>Date</th>
+                <td mat-cell *matCellDef="let row">{{ row.loggedOn }}</td>
+              </ng-container>
+              <ng-container matColumnDef="jTags">
+                <th mat-header-cell *matHeaderCellDef>Tags</th>
+                <td mat-cell *matCellDef="let row">{{ formatJournalTagNames(row) }}</td>
+              </ng-container>
+              <ng-container matColumnDef="jExcerpt">
+                <th mat-header-cell *matHeaderCellDef>Excerpt</th>
+                <td mat-cell *matCellDef="let row" class="jr-excerpt">{{ journalExcerpt(row.bodyMarkdown) }}</td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="journalReportColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: journalReportColumns"></tr>
+            </table>
+            @if (journalSearched && !journalReportRows.length) {
+              <p class="muted empty-hint mgmt-report-empty">No journal entries match these filters.</p>
+            }
+          </div>
+        </section>
       </div>
     </mat-tab>
 

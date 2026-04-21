@@ -1,9 +1,13 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatTabsModule } from '@angular/material/tabs';
@@ -15,8 +19,10 @@ import {
   MonthActivityCalendarDto,
   MonthlyExerciseReportDto,
 } from '../../models/fitness.models';
+import { JournalEntryDto, JournalSummaryDto, JournalTagDefDto } from '../../models/journal.models';
 import { ManagementTaskDto } from '../../models/management.models';
 import { FitnessApiService } from '../../services/fitness-api.service';
+import { JournalApiService } from '../../services/journal-api.service';
 import { ManagementApiService } from '../../services/management-api.service';
 import { formatHttpErrorDetail } from '../../util/http-error';
 
@@ -37,12 +43,16 @@ interface CalendarCell {
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     RouterLink,
     MatCardModule,
     MatTabsModule,
     MatTableModule,
     MatSnackBarModule,
     MatButtonModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
     MatIconModule,
   ],
   templateUrl: './reports.component.html',
@@ -51,6 +61,7 @@ interface CalendarCell {
 export class ReportsComponent implements OnInit {
   private readonly fitnessApi = inject(FitnessApiService);
   private readonly managementApi = inject(ManagementApiService);
+  private readonly journalApi = inject(JournalApiService);
   private readonly snackBar = inject(MatSnackBar);
 
   private static readonly LB_PER_KG = 2.2046226218;
@@ -85,11 +96,32 @@ export class ReportsComponent implements OnInit {
     'mtDone',
     'mtCreated',
   ];
+
+  journalFrom = '';
+  journalTo = '';
+  journalQ = '';
+  journalTagIds: number[] = [];
+  journalTagDefs: JournalTagDefDto[] = [];
+  journalReportRows: JournalEntryDto[] = [];
+  journalReportColumns = ['jDate', 'jTags', 'jExcerpt'];
+  journalSummary: JournalSummaryDto | null = null;
+  journalSearched = false;
+
   ngOnInit(): void {
     const t = this.todayIso();
     this.selectedDateIso = t;
     this.calendarYear = Number(t.slice(0, 4));
     this.calendarMonth = Number(t.slice(5, 7));
+    this.journalTo = t;
+    this.journalFrom = `${t.slice(0, 7)}-01`;
+    this.journalApi.listTagDefinitions().subscribe({
+      next: (rows) => {
+        this.journalTagDefs = [...rows].sort((a, b) =>
+          (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }),
+        );
+      },
+      error: (e) => this.err('Could not load journal tags', e),
+    });
     this.loadExerciseMonth();
     this.loadSelectedDay();
     this.loadManagementTasksReport();
@@ -433,5 +465,56 @@ export class ReportsComponent implements OnInit {
       return 'rep-urgency-low';
     }
     return 'rep-urgency-mid';
+  }
+
+  runJournalSearch(): void {
+    if (!this.journalFrom || !this.journalTo) {
+      return;
+    }
+    forkJoin({
+      rows: this.journalApi.search(
+        this.journalFrom,
+        this.journalTo,
+        this.journalQ.trim() || null,
+        this.journalTagIds.length ? this.journalTagIds : null,
+        null,
+      ),
+      sum: this.journalApi.summary(
+        this.journalFrom,
+        this.journalTo,
+        this.journalQ.trim() || null,
+        this.journalTagIds.length ? this.journalTagIds : null,
+        null,
+      ),
+    }).subscribe({
+      next: ({ rows, sum }) => {
+        this.journalSearched = true;
+        this.journalReportRows = [...rows].sort((a, b) => {
+          const d = b.loggedOn.localeCompare(a.loggedOn);
+          return d !== 0 ? d : (b.id ?? 0) - (a.id ?? 0);
+        });
+        this.journalSummary = sum;
+      },
+      error: (e) => this.err('Journal search failed', e),
+    });
+  }
+
+  journalExcerpt(md: string | null | undefined): string {
+    const s = (md ?? '').replace(/\s+/g, ' ').trim();
+    if (s.length <= 180) {
+      return s;
+    }
+    return `${s.slice(0, 180)}…`;
+  }
+
+  formatJournalTagNames(row: JournalEntryDto): string {
+    const tags = row.tags ?? [];
+    if (!tags.length) {
+      return '—';
+    }
+    return tags
+      .map((t) => t.name)
+      .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+      .join(', ');
   }
 }

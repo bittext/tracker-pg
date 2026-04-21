@@ -1,0 +1,174 @@
+<div class="page-head">
+  <h1 class="page-title">Journal</h1>
+  <p class="muted">
+    Write entries in <strong>Markdown</strong>. The calendar shows how many entries you have per day; click a day to list
+    and edit entries on the right. Manage tag labels under <strong>Admin → Journal</strong>.
+  </p>
+</div>
+
+<mat-card class="card journal-card">
+  @if (isAdmin) {
+    <div class="admin-filter">
+      <mat-form-field appearance="outline" class="owner-field">
+        <mat-label>User ID (admin view)</mat-label>
+        <input
+          matInput
+          type="number"
+          [(ngModel)]="filterOwnerId"
+          (ngModelChange)="onAdminFilterChange()"
+          name="ownerFilter"
+          placeholder="Leave empty for your own data"
+        />
+      </mat-form-field>
+    </div>
+  }
+
+  <div class="journal-layout">
+    <section class="journal-cal" aria-label="Calendar">
+      <mat-card appearance="outlined" class="journal-nested">
+        <mat-card-header>
+          <mat-card-title>Month</mat-card-title>
+          <mat-card-subtitle>Entry counts per day (darker = more)</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="cal-toolbar">
+            <button mat-icon-button type="button" (click)="prevMonth()" aria-label="Previous month">
+              <mat-icon>chevron_left</mat-icon>
+            </button>
+            <h2 class="cal-title">{{ calendarTitle }}</h2>
+            <button mat-icon-button type="button" (click)="nextMonth()" aria-label="Next month">
+              <mat-icon>chevron_right</mat-icon>
+            </button>
+          </div>
+          <div class="calendar-shell">
+            <div class="cal-weekdays" role="row">
+              @for (wd of weekDays; track wd) {
+                <span class="cal-weekday" role="columnheader">{{ wd }}</span>
+              }
+            </div>
+            @for (row of calendarRows(); track $index) {
+              <div class="cal-week" role="row">
+                @for (cell of row; track cell.trackKey) {
+                  @if (cell.type === 'pad') {
+                    <div class="cal-slot cal-slot--pad" aria-hidden="true"></div>
+                  } @else {
+                    <button
+                      type="button"
+                      class="cal-slot cal-day"
+                      [class.cal-day--today]="isToday(cell.dateIso)"
+                      [class.cal-day--selected]="isSelected(cell.dateIso)"
+                      [class.j-heat-0]="(cell.level ?? 0) === 0"
+                      [class.j-heat-1]="cell.level === 1"
+                      [class.j-heat-2]="cell.level === 2"
+                      [class.j-heat-3]="cell.level === 3"
+                      [class.j-heat-4]="cell.level === 4"
+                      [matTooltip]="dayTooltip(cell)"
+                      matTooltipShowDelay="200"
+                      (click)="selectDay(cell)"
+                      [attr.aria-label]="dayTooltip(cell)"
+                    >
+                      <span class="cal-day-num">{{ cell.label }}</span>
+                      @if ((cell.count ?? 0) > 0) {
+                        <span class="cal-day-badge">{{ cell.count }}</span>
+                      }
+                    </button>
+                  }
+                }
+              </div>
+            }
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </section>
+
+    <section class="journal-detail" aria-label="Entries and editor">
+      <mat-card appearance="outlined" class="journal-nested">
+        <mat-card-header>
+          <mat-card-title>{{ selectedDayLabel() }}</mat-card-title>
+          <mat-card-subtitle>{{ dayEntries.length }} entr{{ dayEntries.length === 1 ? 'y' : 'ies' }}</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="editor-block">
+            <h3 class="subsection-title">{{ editingId != null ? 'Edit entry' : 'New entry' }}</h3>
+            <div class="form-row wrap">
+              <mat-form-field appearance="outline" class="grow">
+                <mat-label>Date</mat-label>
+                <input matInput type="date" [(ngModel)]="form.loggedOn" name="jeDate" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="grow tags-field">
+                <mat-label>Tags</mat-label>
+                <mat-select multiple [(ngModel)]="form.tagIds" name="jeTags">
+                  @for (t of tagDefs; track t.id) {
+                    <mat-option [value]="t.id">{{ t.name }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            </div>
+            <mat-form-field appearance="outline" class="full-width-field">
+              <mat-label>Markdown</mat-label>
+              <textarea
+                matInput
+                name="jeBody"
+                rows="8"
+                [(ngModel)]="form.bodyMarkdown"
+                placeholder="## Heading&#10;&#10;Write here…"
+              ></textarea>
+            </mat-form-field>
+            <div class="form-actions">
+              <button mat-flat-button color="primary" type="button" (click)="save()">
+                {{ editingId != null ? 'Save' : 'Add entry' }}
+              </button>
+              @if (editingId != null) {
+                <button mat-button type="button" (click)="resetForm()">Cancel edit</button>
+              }
+            </div>
+          </div>
+
+          <h3 class="subsection-title">Entries</h3>
+          @for (e of dayEntries; track e.id) {
+            <article class="entry-card">
+              <header class="entry-head">
+                <span class="muted small">{{ e.createdAt | date: 'short' }}</span>
+                <span class="entry-actions">
+                  <button mat-button type="button" (click)="startEdit(e)">Edit</button>
+                  <button mat-button color="warn" type="button" (click)="deleteEntry(e)">Delete</button>
+                </span>
+              </header>
+              @if (e.tags && e.tags.length) {
+                <div class="tag-row">
+                  @for (t of e.tags; track t.id) {
+                    <span class="tag-pill">{{ t.name }}</span>
+                  }
+                </div>
+              }
+              <div class="markdown-body" [innerHTML]="e.bodyMarkdown | safeMarkdown"></div>
+              <div class="attach-row">
+                <label class="file-link">
+                  <input type="file" (change)="onFileSelected($event, e.id)" hidden />
+                  <span class="muted">+ Add attachment</span>
+                </label>
+                @for (a of e.attachments; track a.id) {
+                  <button mat-button type="button" class="att-link" (click)="openAttachment(a)">
+                    {{ a.originalFilename }}
+                  </button>
+                  <button
+                    mat-icon-button
+                    type="button"
+                    color="warn"
+                    aria-label="Remove attachment"
+                    (click)="removeAttachment(a.id, $event)"
+                  >
+                    <mat-icon>close</mat-icon>
+                  </button>
+                }
+              </div>
+            </article>
+          }
+          @if (!dayEntries.length) {
+            <p class="muted empty-hint">No entries for this day yet.</p>
+          }
+        </mat-card-content>
+      </mat-card>
+    </section>
+  </div>
+</mat-card>

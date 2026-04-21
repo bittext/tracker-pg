@@ -194,6 +194,7 @@ The top navigation includes dedicated sections for:
 - Exercise
 - Finance
 - Management (tasks/calendar)
+- Journal (Markdown entries, calendar heatmap, tags, attachments)
 - Reports
 - Admin
 - Logs (admin only)
