@@ -7,12 +7,7 @@
 </div>
 
 <mat-card class="card mgmt-card">
-  <mat-tab-group
-    animationDuration="220ms"
-    class="mgmt-tab-group"
-    [dynamicHeight]="true"
-    (selectedIndexChange)="onMgmtTabChange($event)"
-  >
+  <mat-tab-group animationDuration="220ms" class="mgmt-tab-group" [dynamicHeight]="true">
     <mat-tab label="Tasks">
       <div class="tab-panel mgmt-tasks-panel">
         <div class="mgmt-intro-grid">
@@ -283,198 +278,131 @@
     </mat-tab>
 
     <mat-tab label="Day One">
-      <div class="tab-panel journal-shell">
-        <header class="journal-hero">
-          <div class="journal-hero__text">
-            <h2 class="journal-hero__title">Day One</h2>
-            <p class="journal-hero__lead">
-              A calm space for multiple notes per day—tags, place, weather, and files. Define tags under
-              <strong>Admin → Day One tags</strong>. Summaries appear under <strong>Reports → Management</strong>.
-            </p>
-          </div>
-        </header>
+      <div class="tab-panel dayone-panel">
+        <section class="dayone-head">
+          <h2 class="dayone-title">Journal</h2>
+          <p class="muted dayone-sub">
+            Search by words/tags and pivot by day, month, year, year range, or all years. Use previous/next day to scroll
+            your timeline quickly.
+          </p>
+        </section>
 
-        <div class="journal-grid">
-          <aside class="journal-aside">
-            <div class="journal-toolbar">
-              <button mat-icon-button type="button" (click)="journalPrevMonth()" aria-label="Previous month">
-                <mat-icon>chevron_left</mat-icon>
-              </button>
-              <h3 class="journal-toolbar__title">{{ journalTitle }}</h3>
-              <button mat-icon-button type="button" (click)="journalNextMonth()" aria-label="Next month">
-                <mat-icon>chevron_right</mat-icon>
-              </button>
-            </div>
-
-            <div class="journal-cal" aria-label="Journal intensity by day">
-              <div class="journal-cal__weekdays">
-                @for (wd of weekDays; track wd) {
-                  <span>{{ wd }}</span>
-                }
-              </div>
-              @for (row of journalCalendarRows(); track $index) {
-                <div class="journal-cal__week">
-                  @for (cell of row; track cell.trackKey) {
-                    @if (cell.type === 'pad') {
-                      <div class="journal-cal__pad"></div>
-                    } @else {
-                      <button
-                        type="button"
-                        class="journal-cal__day"
-                        [ngClass]="journalLevelClass(cell.level)"
-                        [class.journal-cal__day--selected]="isJournalSelected(cell.iso)"
-                        (click)="selectJournalDay(cell)"
-                      >
-                        <span class="journal-cal__num">{{ cell.label }}</span>
-                        @if ((cell.entryCount ?? 0) > 0) {
-                          <span class="journal-cal__badge">{{ cell.entryCount }}</span>
-                        }
-                      </button>
-                    }
-                  }
-                </div>
-              }
-            </div>
-
-            @if (journalCounts) {
-              <div class="journal-kpis" role="group" aria-label="Entry counts">
-                <div class="journal-kpi">
-                  <span class="journal-kpi__label">Year</span>
-                  <span class="journal-kpi__val">{{ journalCounts.entriesInYear }}</span>
-                </div>
-                <div class="journal-kpi">
-                  <span class="journal-kpi__label">Month</span>
-                  <span class="journal-kpi__val">{{ journalCounts.entriesInMonth }}</span>
-                </div>
-                <div class="journal-kpi">
-                  <span class="journal-kpi__label">Selected day</span>
-                  <span class="journal-kpi__val">{{ journalCounts.entriesOnSelectedDay }}</span>
-                </div>
-              </div>
-            }
-
-            <mat-divider class="journal-divider" />
-
-            <div class="journal-filters">
-              <mat-form-field appearance="outline" class="journal-filters__field">
-                <mat-label>Search words</mat-label>
-                <input matInput [(ngModel)]="journalPendingFilterQ" name="jQ" (keyup.enter)="applyJournalFilters()" />
-              </mat-form-field>
-              <mat-form-field appearance="outline" class="journal-filters__field">
-                <mat-label>Tags</mat-label>
-                <mat-select multiple [(ngModel)]="journalPendingFilterTagIds" name="jTags">
-                  @for (t of journalTagDefs; track t.id) {
-                    <mat-option [value]="t.id">{{ t.name }}</mat-option>
-                  }
-                </mat-select>
-              </mat-form-field>
-              <div class="journal-filters__actions">
-                <button mat-flat-button color="primary" type="button" (click)="applyJournalFilters()">Apply</button>
-                <button mat-button type="button" (click)="clearJournalFilters()">Clear</button>
-              </div>
-              <mat-slide-toggle [(ngModel)]="journalShowDayOnly" name="jDayOnly">Selected day only</mat-slide-toggle>
-            </div>
-          </aside>
-
-          <section class="journal-main">
-            <mat-card class="journal-card journal-editor">
-              <mat-card-header>
-                <mat-card-title>{{ journalEditingId != null ? 'Edit entry' : 'New entry' }}</mat-card-title>
-                <mat-card-subtitle>{{ journalSelectedLabel() }}</mat-card-subtitle>
-              </mat-card-header>
+        <div class="dayone-layout">
+          <section class="dayone-controls">
+            <mat-card appearance="outlined" class="mgmt-nested-card">
               <mat-card-content>
-                <div class="journal-form__row">
-                  <mat-form-field appearance="outline" class="journal-form__grow">
-                    <mat-label>Date</mat-label>
-                    <input
-                      matInput
-                      [matDatepicker]="jPicker"
-                      [ngModel]="journalPickerDate"
-                      (ngModelChange)="onJournalPickerDateChange($event)"
-                      name="jIso"
-                    />
-                    <mat-datepicker-toggle matIconSuffix [for]="jPicker" />
-                    <mat-datepicker #jPicker />
+                <div class="dayone-nav-row">
+                  <button mat-icon-button type="button" (click)="prevJournalDay()" aria-label="Previous day">
+                    <mat-icon>chevron_left</mat-icon>
+                  </button>
+                  <mat-form-field appearance="outline" class="dayone-date-field">
+                    <mat-label>Selected day</mat-label>
+                    <input matInput [matDatepicker]="dayOneDatePicker" [(ngModel)]="journalSelectedDate" name="d1SelDate" />
+                    <mat-datepicker-toggle matIconSuffix [for]="dayOneDatePicker" />
+                    <mat-datepicker #dayOneDatePicker />
+                  </mat-form-field>
+                  <button mat-icon-button type="button" (click)="nextJournalDay()" aria-label="Next day">
+                    <mat-icon>chevron_right</mat-icon>
+                  </button>
+                </div>
+
+                <div class="form-row wrap">
+                  <mat-form-field appearance="outline" class="grow">
+                    <mat-label>View</mat-label>
+                    <mat-select [(ngModel)]="journalScope" name="d1Scope">
+                      <mat-option value="day">Day</mat-option>
+                      <mat-option value="month">Month</mat-option>
+                      <mat-option value="year">Year</mat-option>
+                      <mat-option value="years">Years</mat-option>
+                      <mat-option value="all">All years</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                  @if (journalScope === 'month') {
+                    <p class="muted dayone-month-label">{{ journalMonthLabel }}</p>
+                  }
+                </div>
+
+                @if (journalScope === 'years') {
+                  <div class="form-row wrap">
+                    <mat-form-field appearance="outline" class="narrow">
+                      <mat-label>From year</mat-label>
+                      <input matInput type="number" [(ngModel)]="journalYearFrom" name="d1YFrom" />
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="narrow">
+                      <mat-label>To year</mat-label>
+                      <input matInput type="number" [(ngModel)]="journalYearTo" name="d1YTo" />
+                    </mat-form-field>
+                  </div>
+                }
+
+                <div class="form-row wrap">
+                  <mat-form-field appearance="outline" class="grow">
+                    <mat-label>Search words</mat-label>
+                    <input matInput [(ngModel)]="journalSearchWords" name="d1Words" placeholder="thoughts, wins, project..." />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="grow">
+                    <mat-label>Tag filter</mat-label>
+                    <input matInput [(ngModel)]="journalSearchTag" name="d1Tag" placeholder="gratitude, work..." />
                   </mat-form-field>
                 </div>
-                <mat-form-field appearance="outline" class="journal-form__full">
-                  <mat-label>Journal</mat-label>
-                  <textarea
-                    matInput
-                    rows="7"
-                    name="jBody"
-                    [(ngModel)]="journalBody"
-                    placeholder="Thoughts, wins, worries, gratitude…"
-                  ></textarea>
-                </mat-form-field>
-                <div class="journal-form__row">
-                  <mat-form-field appearance="outline" class="journal-form__grow">
-                    <mat-label>Location</mat-label>
-                    <input matInput [(ngModel)]="journalLocation" name="jLoc" placeholder="Optional" />
-                  </mat-form-field>
-                  <mat-form-field appearance="outline" class="journal-form__grow">
-                    <mat-label>Weather</mat-label>
-                    <input matInput [(ngModel)]="journalWeather" name="jWx" placeholder="Optional" />
-                  </mat-form-field>
-                </div>
-                <mat-form-field appearance="outline" class="journal-form__full">
-                  <mat-label>Tags</mat-label>
-                  <mat-select multiple [(ngModel)]="journalFormTagIds" name="jFormTags">
-                    @for (t of journalTagDefs; track t.id) {
-                      <mat-option [value]="t.id">{{ t.name }}</mat-option>
+
+                @if (dayOneAllTags().length) {
+                  <mat-chip-set>
+                    @for (tag of dayOneAllTags(); track tag) {
+                      <mat-chip (click)="selectDayOneTag(tag)">{{ tag }}</mat-chip>
                     }
-                  </mat-select>
-                </mat-form-field>
-                <div class="journal-form__actions">
-                  <button mat-flat-button color="primary" type="button" (click)="saveJournalEntry()">Save</button>
-                  <button mat-stroked-button type="button" (click)="newJournalEntry()">New blank entry</button>
-                </div>
+                  </mat-chip-set>
+                }
               </mat-card-content>
             </mat-card>
 
-            <div class="journal-stream">
-              @for (row of journalStreamEntries(); track row.id) {
-                <article class="journal-card journal-entry" [class.journal-entry--active]="isJournalEntryActive(row)">
-                  <div class="journal-entry__meta">
-                    <span class="journal-entry__date">{{ normalizeJournalDate(row.loggedOn) }}</span>
-                    <span class="journal-entry__time">{{ formatJournalInstant(row.updatedAt) }}</span>
-                  </div>
-                  @if (row.tags?.length) {
-                    <mat-chip-set class="journal-entry__chips">
-                      @for (tg of row.tags; track tg.id) {
-                        <mat-chip disabled class="journal-chip">{{ tg.name }}</mat-chip>
-                      }
-                    </mat-chip-set>
+            <mat-card appearance="outlined" class="mgmt-nested-card">
+              <mat-card-header>
+                <mat-card-title>New entry</mat-card-title>
+              </mat-card-header>
+              <mat-card-content>
+                <mat-form-field appearance="outline" class="full-width-field">
+                  <mat-label>Entry text</mat-label>
+                  <textarea
+                    matInput
+                    rows="6"
+                    [(ngModel)]="journalComposeText"
+                    name="d1Text"
+                    placeholder="What happened today?"
+                  ></textarea>
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="full-width-field">
+                  <mat-label>Tags (comma separated)</mat-label>
+                  <input matInput [(ngModel)]="journalComposeTags" name="d1ComposeTags" placeholder="gratitude, coding" />
+                </mat-form-field>
+                <button mat-flat-button color="primary" type="button" (click)="saveDayOneEntry()">Save entry</button>
+              </mat-card-content>
+            </mat-card>
+          </section>
+
+          <section class="dayone-stream-wrap">
+            <div class="dayone-stream-head">
+              <h3 class="subsection-title">Entries</h3>
+              <p class="muted">{{ dayOneVisibleEntries().length }} result(s)</p>
+            </div>
+            <div class="dayone-stream">
+              @for (row of dayOneVisibleEntries(); track row.id) {
+                <article class="dayone-entry">
+                  <header class="dayone-entry-head">
+                    <strong>{{ row.dateIso }}</strong>
+                    <span class="muted">{{ formatDayOneCreated(row.createdAtIso) }}</span>
+                  </header>
+                  @if (row.tags.length) {
+                    <p class="dayone-tags">{{ row.tags.join(' · ') }}</p>
                   }
-                  <p class="journal-entry__body">{{ journalPreview(row.entryText) }}</p>
-                  @if (row.locationText || row.weatherText) {
-                    <p class="journal-entry__ctx">
-                      @if (row.locationText) {
-                        <span><mat-icon class="journal-ctx-icon">place</mat-icon> {{ row.locationText }}</span>
-                      }
-                      @if (row.weatherText) {
-                        <span><mat-icon class="journal-ctx-icon">wb_sunny</mat-icon> {{ row.weatherText }}</span>
-                      }
-                    </p>
-                  }
-                  <div class="journal-entry__actions">
-                    <button mat-button type="button" (click)="editJournalEntry(row)">Edit</button>
-                    <button mat-button type="button" color="warn" (click)="deleteJournalEntry(row)">Delete</button>
-                    @if ((row.attachments?.length ?? 0) > 0) {
-                      <button mat-button type="button" (click)="openJournalAttachments(row)">
-                        <mat-icon>attach_file</mat-icon>
-                        {{ row.attachments!.length }} file(s)
-                      </button>
-                    }
-                    <label class="journal-upload">
-                      <input type="file" class="journal-upload__input" (change)="onJournalFileSelected($event, row)" />
-                      <span class="mat-mdc-button mat-mdc-button-base">Attach</span>
-                    </label>
+                  <p class="dayone-text">{{ row.text }}</p>
+                  <div class="dayone-actions">
+                    <button mat-button color="warn" type="button" (click)="deleteDayOneEntry(row)">Delete</button>
                   </div>
                 </article>
               }
-              @if (!journalStreamEntries().length) {
-                <p class="journal-empty">No entries match this view. Try another month or clear filters.</p>
+              @if (!dayOneVisibleEntries().length) {
+                <p class="muted empty-hint">No entries for this filter set.</p>
               }
             </div>
           </section>
