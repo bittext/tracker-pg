@@ -25,6 +25,9 @@ public class JournalStorageConfiguration {
         }
         S3Client client = S3Client.builder()
                 .region(Region.of(region))
+                // If TRACKER_JOURNAL_S3_REGION does not match the actual bucket region, follow redirects
+                // to the correct regional S3 endpoint instead of failing on HTTP 307.
+                .crossRegionAccessEnabled(true)
                 .build();
         return new S3JournalBlobStore(bucket.trim(), client);
     }
