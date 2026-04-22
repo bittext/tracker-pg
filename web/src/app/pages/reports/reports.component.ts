@@ -9,6 +9,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog } from '@angular/material/dialog';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatTableModule } from '@angular/material/table';
 import { MatTabsModule } from '@angular/material/tabs';
 import { catchError, forkJoin, of } from 'rxjs';
@@ -25,6 +27,11 @@ import { FitnessApiService } from '../../services/fitness-api.service';
 import { JournalApiService } from '../../services/journal-api.service';
 import { ManagementApiService } from '../../services/management-api.service';
 import { formatHttpErrorDetail } from '../../util/http-error';
+import {
+  ReportJournalAttachmentsDialogComponent,
+  ReportJournalAttachmentsDialogData,
+} from './report-journal-attachments-dialog.component';
+import { ReportJournalBodyDialogComponent, ReportJournalBodyDialogData } from './report-journal-body-dialog.component';
 
 /** Padding slot or a real day in the month grid. */
 interface CalendarCell {
@@ -54,6 +61,7 @@ interface CalendarCell {
     MatInputModule,
     MatSelectModule,
     MatIconModule,
+    MatMenuModule,
   ],
   templateUrl: './reports.component.html',
   styleUrl: './reports.component.scss',
@@ -62,6 +70,7 @@ export class ReportsComponent implements OnInit {
   private readonly fitnessApi = inject(FitnessApiService);
   private readonly managementApi = inject(ManagementApiService);
   private readonly journalApi = inject(JournalApiService);
+  private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
 
   private static readonly LB_PER_KG = 2.2046226218;
@@ -103,7 +112,7 @@ export class ReportsComponent implements OnInit {
   journalTagIds: number[] = [];
   journalTagDefs: JournalTagDefDto[] = [];
   journalReportRows: JournalEntryDto[] = [];
-  journalReportColumns = ['jDate', 'jTags', 'jExcerpt'];
+  journalReportColumns = ['jDate', 'jTags', 'jAtt', 'jExcerpt', 'jMenu'];
   journalSummary: JournalSummaryDto | null = null;
   journalSearched = false;
 
@@ -516,5 +525,47 @@ export class ReportsComponent implements OnInit {
       .map((t) => t.name)
       .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
       .join(', ');
+  }
+
+  journalAttachmentCount(row: JournalEntryDto): number {
+    const n = row.attachmentCount;
+    if (n != null && Number.isFinite(Number(n))) {
+      return Math.max(0, Math.floor(Number(n)));
+    }
+    return row.attachments?.length ?? 0;
+  }
+
+  openJournalBodyDialog(row: JournalEntryDto): void {
+    const data: ReportJournalBodyDialogData = {
+      title: `Journal — ${row.loggedOn}`,
+      bodyMarkdown: row.bodyMarkdown ?? '',
+      tagsLine: this.formatJournalTagNames(row),
+    };
+    this.dialog.open(ReportJournalBodyDialogComponent, {
+      width: 'min(92vw, 44rem)',
+      maxHeight: '90vh',
+      data,
+    });
+  }
+
+  openJournalAttachmentsDialog(row: JournalEntryDto): void {
+    const n = this.journalAttachmentCount(row);
+    if (n < 1) {
+      return;
+    }
+    this.journalApi.getEntry(row.id).subscribe({
+      next: (e) => {
+        const atts = e.attachments ?? [];
+        const d: ReportJournalAttachmentsDialogData = {
+          title: `Attachments — ${e.loggedOn}`,
+          attachments: atts,
+        };
+        this.dialog.open(ReportJournalAttachmentsDialogComponent, {
+          width: 'min(92vw, 30rem)',
+          data: d,
+        });
+      },
+      error: (err) => this.err('Could not load journal entry', err),
+    });
   }
 }

@@ -14,6 +14,8 @@ public class JournalEntryDto {
     LocalDate loggedOn;
     String bodyMarkdown;
     List<JournalTagDefDto> tags;
+    @Builder.Default
+    int attachmentCount = 0;
     List<JournalAttachmentDto> attachments;
     Instant createdAt;
     Instant updatedAt;

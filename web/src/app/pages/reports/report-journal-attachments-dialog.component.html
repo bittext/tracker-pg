@@ -1,0 +1,22 @@
+<h2 mat-dialog-title>{{ data.title }}</h2>
+<mat-dialog-content class="jr-att-dialog">
+  @if (!data.attachments.length) {
+    <p class="muted">No attachments for this entry.</p>
+  } @else {
+    <ul class="jr-att-list">
+      @for (a of data.attachments; track a.id) {
+        <li class="jr-att-item">
+          <a [href]="fileUrl(a.id)" target="_blank" rel="noopener noreferrer" class="jr-att-name">{{
+            a.originalFilename
+          }}</a>
+          @if (a.sizeBytes != null) {
+            <span class="muted">{{ formatSize(a.sizeBytes) }}</span>
+          }
+        </li>
+      }
+    </ul>
+  }
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-button type="button" (click)="close()">Close</button>
+</mat-dialog-actions>

@@ -18,6 +18,8 @@ export interface JournalEntryDto {
   loggedOn: string;
   bodyMarkdown: string;
   tags: JournalTagDefDto[];
+  /** Populated in search; use with attachments for full detail. */
+  attachmentCount?: number;
   attachments: JournalAttachmentDto[];
   createdAt?: string;
   updatedAt?: string;

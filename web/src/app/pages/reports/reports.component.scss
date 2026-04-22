@@ -363,3 +363,17 @@
   color: #334155;
 }
 
+.jr-att-header,
+.jr-att-cell {
+  width: 3.25rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.jr-menu-header,
+.jr-menu-cell {
+  width: 2.5rem;
+  text-align: right;
+  padding-right: 0.25rem !important;
+}
+

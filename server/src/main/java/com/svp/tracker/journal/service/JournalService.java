@@ -17,7 +17,6 @@ import com.svp.tracker.journal.repository.JournalEntryRepository;
 import com.svp.tracker.journal.repository.JournalTagDefRepository;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -46,7 +45,7 @@ public class JournalService {
     private final JournalEntryRepository entryRepository;
     private final JournalTagDefRepository tagDefRepository;
     private final JournalAttachmentRepository attachmentRepository;
-    private final JournalAttachmentStorage attachmentStorage;
+    private final JournalBlobStore blobStore;
     private final JournalProperties journalProperties;
     private final CurrentUserService currentUser;
 
@@ -139,10 +138,14 @@ public class JournalService {
         List<JournalEntry> base = entryRepository.findRangeForOwner(owner, from, to);
         List<String> tokens = tokenize(q);
         List<Long> tids = tagIds == null ? List.of() : tagIds.stream().filter(Objects::nonNull).distinct().toList();
-        return base.stream()
+        List<JournalEntry> matched = base.stream()
                 .filter(e -> matchesTokens(e, tokens))
                 .filter(e -> hasAllTagIds(e, tids))
-                .map(this::toDto)
+                .toList();
+        Set<Long> ids = matched.stream().map(JournalEntry::getId).collect(Collectors.toSet());
+        Map<Long, Long> attCounts = countAttachmentsByEntryIds(ids);
+        return matched.stream()
+                .map(e -> toSearchResultDto(e, toIntCount(attCounts, e.getId())))
                 .toList();
     }
 
@@ -226,7 +229,11 @@ public class JournalService {
                 .orElseThrow(() -> new NotFoundException("Entry not found: " + id));
         assertRowAccess(e.getOwnerUserId());
         for (JournalAttachment a : new ArrayList<>(e.getAttachments())) {
-            attachmentStorage.deleteFile(a.getStorageKey());
+            try {
+                blobStore.delete(a.getStorageKey());
+            } catch (IOException e1) {
+                throw new UncheckedIOException(e1);
+            }
         }
         entryRepository.deleteById(id);
     }
@@ -247,9 +254,9 @@ public class JournalService {
         assertRowAccess(entry.getOwnerUserId());
         String key;
         try (var in = file.getInputStream()) {
-            key = attachmentStorage.store(in);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+            key = blobStore.put(entry.getOwnerUserId(), entry.getId(), in, file.getSize());
+        } catch (IOException ex) {
+            throw new UncheckedIOException(ex);
         }
         JournalAttachment a = new JournalAttachment();
         a.setEntry(entry);
@@ -268,7 +275,11 @@ public class JournalService {
                 .findById(attachmentId)
                 .orElseThrow(() -> new NotFoundException("Attachment not found: " + attachmentId));
         assertRowAccess(a.getEntry().getOwnerUserId());
-        attachmentStorage.deleteFile(a.getStorageKey());
+        try {
+            blobStore.delete(a.getStorageKey());
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
         attachmentRepository.deleteById(attachmentId);
     }
 
@@ -280,7 +291,7 @@ public class JournalService {
                 .orElseThrow(() -> new NotFoundException("Attachment not found: " + attachmentId));
         assertRowAccess(a.getEntry().getOwnerUserId());
         try {
-            byte[] body = Files.readAllBytes(attachmentStorage.pathForKey(a.getStorageKey()));
+            byte[] body = blobStore.readAllBytes(a.getStorageKey());
             return new AttachmentFile(
                     a.getContentType() != null ? a.getContentType() : "application/octet-stream",
                     a.getOriginalFilename(),
@@ -350,6 +361,41 @@ public class JournalService {
         return have.containsAll(required);
     }
 
+    private static int toIntCount(Map<Long, Long> byEntry, long entryId) {
+        long c = byEntry.getOrDefault(entryId, 0L);
+        return c > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) c;
+    }
+
+    private Map<Long, Long> countAttachmentsByEntryIds(Set<Long> entryIds) {
+        if (entryIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Object[]> rows = attachmentRepository.countByEntryIdIn(entryIds);
+        Map<Long, Long> m = new HashMap<>();
+        for (Object[] r : rows) {
+            m.put((Long) r[0], (Long) r[1]);
+        }
+        return m;
+    }
+
+    private JournalEntryDto toSearchResultDto(JournalEntry e, int attachmentCount) {
+        List<JournalTagDefDto> tagDtos = e.getTags().stream()
+                .sorted(Comparator.comparing(JournalTagDef::getName))
+                .map(this::toTagDefDto)
+                .toList();
+        return JournalEntryDto.builder()
+                .id(e.getId())
+                .ownerUserId(e.getOwnerUserId())
+                .loggedOn(e.getLoggedOn())
+                .bodyMarkdown(e.getBodyMarkdown())
+                .tags(tagDtos)
+                .attachmentCount(attachmentCount)
+                .attachments(List.of())
+                .createdAt(e.getCreatedAt())
+                .updatedAt(e.getUpdatedAt())
+                .build();
+    }
+
     private void applyTags(JournalEntry e, List<Long> tagIds) {
         if (tagIds == null || tagIds.isEmpty()) {
             return;
@@ -405,6 +451,7 @@ public class JournalService {
                 .loggedOn(e.getLoggedOn())
                 .bodyMarkdown(e.getBodyMarkdown())
                 .tags(tagDtos)
+                .attachmentCount(atts.size())
                 .attachments(atts)
                 .createdAt(e.getCreatedAt())
                 .updatedAt(e.getUpdatedAt())

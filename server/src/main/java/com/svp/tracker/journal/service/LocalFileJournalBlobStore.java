@@ -9,11 +9,13 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 
-@Component
+/**
+ * File-based storage when no S3 bucket is configured. Keys are plain UUID filenames under the
+ * storage root (legacy on-disk layout).
+ */
 @RequiredArgsConstructor
-public class JournalAttachmentStorage {
+public class LocalFileJournalBlobStore implements JournalBlobStore {
 
     private final JournalProperties journalProperties;
 
@@ -29,7 +31,8 @@ public class JournalAttachmentStorage {
         return rootDir().resolve(storageKey);
     }
 
-    public String store(InputStream in) throws IOException {
+    @Override
+    public String put(long ownerUserId, long entryId, InputStream in, long sizeBytes) throws IOException {
         Files.createDirectories(rootDir());
         String key = UUID.randomUUID().toString();
         Path target = pathForKey(key);
@@ -37,11 +40,17 @@ public class JournalAttachmentStorage {
         return key;
     }
 
-    public void deleteFile(String storageKey) {
+    @Override
+    public void delete(String storageKey) {
         try {
             Files.deleteIfExists(pathForKey(storageKey));
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    @Override
+    public byte[] readAllBytes(String storageKey) throws IOException {
+        return Files.readAllBytes(pathForKey(storageKey));
     }
 }

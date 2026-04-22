@@ -54,6 +54,9 @@ services:
       TRACKER_FINANCE_ROBINHOOD_CSV_UPLOADED_DIRECTORY: ${TRACKER_FINANCE_ROBINHOOD_CSV_UPLOADED_DIRECTORY:-}
       # Browser clients from other hosts / origins (override in .env.stack if needed)
       TRACKER_WEB_CORS_ALLOWED_ORIGIN_PATTERNS_0: ${CORS_PATTERN:-*}
+      # Journal attachments: leave empty for local disk (TRACKER_JOURNAL_STORAGE_DIR); set bucket for S3.
+      TRACKER_JOURNAL_S3_BUCKET: ${TRACKER_JOURNAL_S3_BUCKET:-}
+      TRACKER_JOURNAL_S3_REGION: ${TRACKER_JOURNAL_S3_REGION:-us-east-1}
     ports:
       # Host:container — API always listens on 9091 inside the container.
       - "${API_PORT:-9091}:9091"

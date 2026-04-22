@@ -271,6 +271,14 @@ export class JournalComponent implements OnInit {
     });
   }
 
+  attachmentCountSuffix(e: JournalEntryDto): string {
+    const n = e.attachmentCount ?? e.attachments?.length ?? 0;
+    if (n < 1) {
+      return '';
+    }
+    return ` · ${n} ${n === 1 ? 'attachment' : 'attachments'}`;
+  }
+
   resetForm(): void {
     this.editingId = null;
     this.form = {

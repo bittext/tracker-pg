@@ -270,9 +270,28 @@
                 <th mat-header-cell *matHeaderCellDef>Tags</th>
                 <td mat-cell *matCellDef="let row">{{ formatJournalTagNames(row) }}</td>
               </ng-container>
+              <ng-container matColumnDef="jAtt">
+                <th mat-header-cell *matHeaderCellDef class="jr-att-header">Files</th>
+                <td mat-cell *matCellDef="let row" class="jr-att-cell">{{ journalAttachmentCount(row) }}</td>
+              </ng-container>
               <ng-container matColumnDef="jExcerpt">
                 <th mat-header-cell *matHeaderCellDef>Excerpt</th>
                 <td mat-cell *matCellDef="let row" class="jr-excerpt">{{ journalExcerpt(row.bodyMarkdown) }}</td>
+              </ng-container>
+              <ng-container matColumnDef="jMenu">
+                <th mat-header-cell *matHeaderCellDef class="jr-menu-header" aria-label="Entry actions"></th>
+                <td mat-cell *matCellDef="let row" class="jr-menu-cell">
+                  <button
+                    mat-icon-button
+                    type="button"
+                    [matMenuTriggerFor]="journalRowMenu"
+                    [matMenuTriggerData]="{ row: row }"
+                    (click)="$event.stopPropagation()"
+                    aria-label="Open journal entry actions"
+                  >
+                    <mat-icon>menu</mat-icon>
+                  </button>
+                </td>
               </ng-container>
               <tr mat-header-row *matHeaderRowDef="journalReportColumns"></tr>
               <tr mat-row *matRowDef="let row; columns: journalReportColumns"></tr>
@@ -281,6 +300,19 @@
               <p class="muted empty-hint mgmt-report-empty">No journal entries match these filters.</p>
             }
           </div>
+          <mat-menu #journalRowMenu="matMenu">
+            <ng-template matMenuContent let-row="row">
+              <button mat-menu-item type="button" (click)="openJournalBodyDialog(row)">View full entry</button>
+              <button
+                mat-menu-item
+                type="button"
+                (click)="openJournalAttachmentsDialog(row)"
+                [disabled]="journalAttachmentCount(row) < 1"
+              >
+                View attachments
+              </button>
+            </ng-template>
+          </mat-menu>
         </section>
       </div>
     </mat-tab>
