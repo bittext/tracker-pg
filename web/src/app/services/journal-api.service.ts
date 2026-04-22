@@ -47,16 +47,16 @@ export class JournalApiService {
     from: string,
     to: string,
     q?: string | null,
-    tagIds?: number[] | null,
+    tagIds?: (number | string)[] | null,
     ownerUserId?: number | null,
   ) {
-    let p = new HttpParams().set('from', from).set('to', to);
+    let p = this.appendTagIdParams(
+      new HttpParams().set('from', from).set('to', to),
+      tagIds,
+    );
     if (q) {
       p = p.set('q', q);
     }
-    (tagIds ?? []).forEach((id) => {
-      p = p.append('tagIds', String(id));
-    });
     if (ownerUserId != null) {
       p = p.set('ownerUserId', String(ownerUserId));
     }
@@ -67,20 +67,39 @@ export class JournalApiService {
     from: string,
     to: string,
     q?: string | null,
-    tagIds?: number[] | null,
+    tagIds?: (number | string)[] | null,
     ownerUserId?: number | null,
   ) {
-    let p = new HttpParams().set('from', from).set('to', to);
+    let p = this.appendTagIdParams(
+      new HttpParams().set('from', from).set('to', to),
+      tagIds,
+    );
     if (q) {
       p = p.set('q', q);
     }
-    (tagIds ?? []).forEach((id) => {
-      p = p.append('tagIds', String(id));
-    });
     if (ownerUserId != null) {
       p = p.set('ownerUserId', String(ownerUserId));
     }
     return this.http.get<JournalSummaryDto>(`${this.root}/summary`, { params: p });
+  }
+
+  /** Mat-select may yield string ids; Spring expects one query param per tag: tagIds=1&tagIds=2 */
+  private appendTagIdParams(params: HttpParams, tagIds?: (number | string)[] | null): HttpParams {
+    let p = params;
+    for (const id of this.normalizeTagIds(tagIds)) {
+      p = p.append('tagIds', String(id));
+    }
+    return p;
+  }
+
+  private normalizeTagIds(tagIds?: (number | string)[] | null): number[] {
+    if (!tagIds?.length) {
+      return [];
+    }
+    const nums = tagIds
+      .map((id) => (typeof id === 'string' ? Number(id) : Number(id)))
+      .filter((n) => Number.isFinite(n) && n > 0);
+    return [...new Set(nums)];
   }
 
   getEntry(id: number) {
@@ -109,7 +128,21 @@ export class JournalApiService {
     return this.http.delete<void>(`${this.root}/attachments/${attachmentId}`);
   }
 
-  /** URL path for download/preview; prefix with origin or api base in components. */
+  /**
+   * Download attachment with JWT (use this from the app). Plain {@code <a href>} to the file URL
+   * does not send the Bearer token and will get 401/403 from the API.
+   */
+  getAttachmentBlob(attachmentId: number, disposition: 'inline' | 'attachment' = 'inline') {
+    const params = new HttpParams().set('disposition', disposition);
+    return this.http.get(`${this.root}/attachments/${attachmentId}/file`, {
+      responseType: 'blob',
+      params,
+    });
+  }
+
+  /**
+   * Raw file URL (no auth). Do not use for user-facing {@code <a href>} — use {@link getAttachmentBlob} instead.
+   */
   attachmentFilePath(attachmentId: number) {
     return `${environment.apiBaseUrl}/api/journal/attachments/${attachmentId}/file`;
   }

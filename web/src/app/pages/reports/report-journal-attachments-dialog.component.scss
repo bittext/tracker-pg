@@ -15,3 +15,19 @@
   font-weight: 500;
   margin-right: 0.35rem;
 }
+
+.jr-att-open {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  color: var(--mat-sys-primary, #2563eb);
+  text-decoration: underline;
+  font: inherit;
+}
+
+.jr-att-open:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}

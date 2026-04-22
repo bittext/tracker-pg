@@ -12,7 +12,9 @@ import jakarta.validation.Valid;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -76,9 +78,9 @@ public class JournalController {
             @RequestParam LocalDate from,
             @RequestParam LocalDate to,
             @RequestParam(required = false) @Nullable String q,
-            @RequestParam(required = false) @Nullable List<Long> tagIds,
+            @RequestParam(name = "tagIds", required = false) @Nullable Long[] tagIds,
             @RequestParam(required = false) @Nullable Long ownerUserId) {
-        return journalService.search(from, to, q, tagIds, ownerUserId);
+        return journalService.search(from, to, q, toTagIdList(tagIds), ownerUserId);
     }
 
     @GetMapping("/summary")
@@ -86,9 +88,20 @@ public class JournalController {
             @RequestParam LocalDate from,
             @RequestParam LocalDate to,
             @RequestParam(required = false) @Nullable String q,
-            @RequestParam(required = false) @Nullable List<Long> tagIds,
+            @RequestParam(name = "tagIds", required = false) @Nullable Long[] tagIds,
             @RequestParam(required = false) @Nullable Long ownerUserId) {
-        return journalService.summarize(from, to, q, tagIds, ownerUserId);
+        return journalService.summarize(from, to, q, toTagIdList(tagIds), ownerUserId);
+    }
+
+    /** Binds each {@code &tagIds=} query parameter; more reliable for multi-value GET than {@link List} on some servers. */
+    private static List<Long> toTagIdList(Long[] tagIds) {
+        if (tagIds == null || tagIds.length == 0) {
+            return null;
+        }
+        return Arrays.stream(tagIds)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
     }
 
     @GetMapping("/entries/{id}")

@@ -1,4 +1,3 @@
-import { HttpClient } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import {
@@ -7,7 +6,7 @@ import {
   MatDialogRef,
 } from '@angular/material/dialog';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { environment } from '../../../environments/environment';
+import { JournalApiService } from '../../services/journal-api.service';
 
 export interface JournalAttachmentPreviewData {
   attachmentId: number;
@@ -64,7 +63,7 @@ export interface JournalAttachmentPreviewData {
   `,
 })
 export class JournalAttachmentPreviewComponent implements OnInit, OnDestroy {
-  private readonly http = inject(HttpClient);
+  private readonly journalApi = inject(JournalApiService);
   private readonly dialog = inject(MatDialogRef<JournalAttachmentPreviewComponent>);
   private readonly dom = inject(DomSanitizer);
   readonly data = inject<JournalAttachmentPreviewData>(MAT_DIALOG_DATA);
@@ -85,8 +84,7 @@ export class JournalAttachmentPreviewComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    const path = `${environment.apiBaseUrl}/api/journal/attachments/${this.data.attachmentId}/file?disposition=inline`;
-    this.http.get(path, { responseType: 'blob' }).subscribe({
+    this.journalApi.getAttachmentBlob(this.data.attachmentId, 'inline').subscribe({
       next: (blob) => {
         this.loading = false;
         this.blobUrl = URL.createObjectURL(blob);

@@ -6,9 +6,14 @@
     <ul class="jr-att-list">
       @for (a of data.attachments; track a.id) {
         <li class="jr-att-item">
-          <a [href]="fileUrl(a.id)" target="_blank" rel="noopener noreferrer" class="jr-att-name">{{
-            a.originalFilename
-          }}</a>
+          <button
+            type="button"
+            class="jr-att-name jr-att-open"
+            [disabled]="openingId === a.id"
+            (click)="openAttachment(a)"
+          >
+            {{ a.originalFilename }}
+          </button>
           @if (a.sizeBytes != null) {
             <span class="muted">{{ formatSize(a.sizeBytes) }}</span>
           }

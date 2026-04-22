@@ -135,13 +135,18 @@ public class JournalService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid date range");
         }
         long owner = effectiveOwnerId(filterOwnerId);
-        List<JournalEntry> base = entryRepository.findRangeForOwner(owner, from, to);
         List<String> tokens = tokenize(q);
         List<Long> tids = tagIds == null ? List.of() : tagIds.stream().filter(Objects::nonNull).distinct().toList();
-        List<JournalEntry> matched = base.stream()
-                .filter(e -> matchesTokens(e, tokens))
-                .filter(e -> hasAllTagIds(e, tids))
-                .toList();
+        // Use SQL to enforce "all selected tags" so filtering does not depend on lazy-loaded tag collections
+        // (and avoids N+1 / session edge cases). Keyword filter stays in memory.
+        List<JournalEntry> base;
+        if (tids.isEmpty()) {
+            base = entryRepository.findRangeForOwner(owner, from, to);
+        } else {
+            base = entryRepository.findRangeForOwnerHavingAllSelectedTags(
+                    owner, from, to, new HashSet<>(tids), tids.size());
+        }
+        List<JournalEntry> matched = base.stream().filter(e -> matchesTokens(e, tokens)).toList();
         Set<Long> ids = matched.stream().map(JournalEntry::getId).collect(Collectors.toSet());
         Map<Long, Long> attCounts = countAttachmentsByEntryIds(ids);
         return matched.stream()
@@ -285,6 +290,7 @@ public class JournalService {
 
     public record AttachmentFile(String contentType, String filename, byte[] body) {}
 
+    @Transactional(readOnly = true)
     public AttachmentFile readAttachment(long attachmentId) {
         JournalAttachment a = attachmentRepository
                 .findById(attachmentId)
@@ -350,15 +356,6 @@ public class JournalService {
             }
         }
         return true;
-    }
-
-    private boolean hasAllTagIds(JournalEntry e, List<Long> required) {
-        if (required.isEmpty()) {
-            return true;
-        }
-        Set<Long> have =
-                e.getTags().stream().map(JournalTagDef::getId).collect(Collectors.toSet());
-        return have.containsAll(required);
     }
 
     private static int toIntCount(Map<Long, Long> byEntry, long entryId) {

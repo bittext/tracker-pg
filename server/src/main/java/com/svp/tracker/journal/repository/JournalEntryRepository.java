@@ -27,6 +27,22 @@ public interface JournalEntryRepository extends JpaRepository<JournalEntry, Long
     List<JournalEntry> findRangeForOwner(
             @Param("owner") long ownerUserId, @Param("from") LocalDate from, @Param("to") LocalDate to);
 
+    /**
+     * Entries in the date range that are linked to <strong>all</strong> of the given tags (AND semantics). The
+     * subquery count matches the number of distinct required tags so the entry must have every tag, not a subset.
+     */
+    @Query(
+            "SELECT e FROM JournalEntry e WHERE e.ownerUserId = :owner"
+                    + " AND e.loggedOn >= :from AND e.loggedOn <= :to"
+                    + " AND (SELECT COUNT(t.id) FROM e.tags t WHERE t.id IN :tagIds) = :expected"
+                    + " ORDER BY e.loggedOn DESC, e.createdAt DESC")
+    List<JournalEntry> findRangeForOwnerHavingAllSelectedTags(
+            @Param("owner") long ownerUserId,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to,
+            @Param("tagIds") java.util.Set<Long> tagIds,
+            @Param("expected") long expectedTagCount);
+
     @Query("SELECT e FROM JournalEntry e WHERE e.ownerUserId = :o AND e.loggedOn = :d ORDER BY e.createdAt DESC")
     List<JournalEntry> findDayForOwner(@Param("o") long ownerUserId, @Param("d") LocalDate day);
 
