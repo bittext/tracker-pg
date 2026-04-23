@@ -285,7 +285,7 @@
             Choose <strong>All types</strong> or one calendar (birthday, work, personal, trades, banking, payments,
             opinion & strategies). In <strong>Year</strong> view, click a month to filter the list to that month
             (click again to clear). In <strong>Month</strong> view, click a day to filter to that date (click again to
-            clear). Use the arrows to change period.
+            clear). Use <strong>Narrow by title</strong> to filter the table by entry title. Use the arrows to change period.
           </p>
           <div class="rep-cal-grid">
             <section class="rep-cal-col rep-cal-col--nav" aria-label="Calendar navigator">
@@ -388,13 +388,34 @@
             <section class="rep-cal-col rep-cal-col--list" aria-labelledby="mgmt-cal-entries">
               <h3 id="mgmt-cal-entries" class="form-section-title">{{ repCalEntriesHeading }}</h3>
               <div class="form-actions rep-cal-add-wrap">
-                @if (repCalFocusedDayIso || repCalFocusedMonthKey) {
-                  <button mat-button type="button" (click)="clearRepCalListFilters()">Clear list filter</button>
+                @if (repCalHasTableNarrowing) {
+                  <button mat-button type="button" (click)="clearRepCalTableFilters()">Clear list filters</button>
                 }
                 <button mat-stroked-button color="primary" type="button" (click)="openRepCalAddDialog()">
                   Add entry
                 </button>
               </div>
+              <mat-form-field appearance="outline" class="rep-cal-title-filter full-width" subscriptSizing="dynamic">
+                <mat-label>Narrow by title</mat-label>
+                <input
+                  matInput
+                  [(ngModel)]="repCalTitleFilter"
+                  name="repCalTitleFilter"
+                  autocomplete="off"
+                  placeholder="Contains text…"
+                />
+                @if (repCalTitleFilter.trim()) {
+                  <button
+                    matSuffix
+                    mat-icon-button
+                    type="button"
+                    (click)="repCalTitleFilter = ''"
+                    aria-label="Clear title filter"
+                  >
+                    <mat-icon>close</mat-icon>
+                  </button>
+                }
+              </mat-form-field>
               <div class="table-wrap rep-cal-table-wrap">
                 <table mat-table [dataSource]="repCalDisplayedEntries" class="full-width">
                   <ng-container matColumnDef="cDate">

@@ -120,6 +120,8 @@ export class ManagementComponent implements OnInit {
   repCalFocusedMonthKey: string | null = null;
   /** yyyy-MM-dd when month view: list filtered to that day (toggle same day to clear). */
   repCalFocusedDayIso: string | null = null;
+  /** Narrows the entries table to titles containing this text (case-insensitive). */
+  repCalTitleFilter = '';
   readonly repCalFilterOptions = REPORT_CALENDAR_FILTER_OPTIONS;
   readonly yearMonthIndex = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
   readonly reportCalendarTypeLabel = reportCalendarTypeLabel;
@@ -464,6 +466,16 @@ export class ManagementComponent implements OnInit {
     this.repCalFocusedMonthKey = null;
   }
 
+  /** Clears day/month list filters and the title text filter (toolbar “Clear” action). */
+  clearRepCalTableFilters(): void {
+    this.clearRepCalListFilters();
+    this.repCalTitleFilter = '';
+  }
+
+  get repCalHasTableNarrowing(): boolean {
+    return !!(this.repCalFocusedDayIso || this.repCalFocusedMonthKey || this.repCalTitleFilter.trim());
+  }
+
   repCalStep(delta: number): void {
     this.clearRepCalListFilters();
     const a = this.repCalAnchorIso;
@@ -528,10 +540,13 @@ export class ManagementComponent implements OnInit {
   get repCalDisplayedEntries(): ReportCalendarEntryDto[] {
     let rows = this.repCalEntries;
     if (this.repCalFocusedDayIso) {
-      return rows.filter((e) => e.entryDate === this.repCalFocusedDayIso);
+      rows = rows.filter((e) => e.entryDate === this.repCalFocusedDayIso);
+    } else if (this.repCalView === 'year' && this.repCalFocusedMonthKey) {
+      rows = rows.filter((e) => e.entryDate.slice(0, 7) === this.repCalFocusedMonthKey);
     }
-    if (this.repCalView === 'year' && this.repCalFocusedMonthKey) {
-      return rows.filter((e) => e.entryDate.slice(0, 7) === this.repCalFocusedMonthKey);
+    const q = this.repCalTitleFilter.trim().toLowerCase();
+    if (q) {
+      rows = rows.filter((e) => (e.title ?? '').toLowerCase().includes(q));
     }
     return rows;
   }
