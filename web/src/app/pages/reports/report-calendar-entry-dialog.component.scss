@@ -1,0 +1,21 @@
+.rc-err {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  color: var(--mat-sys-error, #b3261e);
+}
+
+.rc-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: min(100%, 20rem);
+}
+
+.rc-field {
+  width: 100%;
+}
+
+.rc-stretch {
+  width: 100%;
+}

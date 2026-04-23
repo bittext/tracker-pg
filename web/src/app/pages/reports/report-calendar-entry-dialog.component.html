@@ -1,0 +1,32 @@
+<h2 mat-dialog-title>{{ title }}</h2>
+<mat-dialog-content>
+  @if (err) {
+    <p class="rc-err" role="alert">{{ err }}</p>
+  }
+  <form [formGroup]="entryForm" (ngSubmit)="save()" class="rc-form">
+    <mat-form-field appearance="outline" class="rc-field">
+      <mat-label>Date</mat-label>
+      <input matInput type="date" formControlName="entryDate" name="rcDate" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="rc-field">
+      <mat-label>Calendar</mat-label>
+      <mat-select formControlName="calendarType">
+        @for (t of typeOptions; track t) {
+          <mat-option [value]="t">{{ t | titlecase }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="rc-field rc-stretch">
+      <mat-label>Title</mat-label>
+      <input matInput formControlName="title" name="rcTitle" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="rc-field rc-stretch">
+      <mat-label>Information</mat-label>
+      <textarea matInput formControlName="body" name="rcBody" rows="5" placeholder="Notes, plans, or details for this date"></textarea>
+    </mat-form-field>
+  </form>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-button type="button" (click)="cancel()">Cancel</button>
+  <button mat-flat-button color="primary" type="button" (click)="save()" [disabled]="saving">Save</button>
+</mat-dialog-actions>
