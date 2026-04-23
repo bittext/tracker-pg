@@ -290,25 +290,27 @@
           <div class="rep-cal-grid">
             <section class="rep-cal-col rep-cal-col--nav" aria-label="Calendar navigator">
               <div class="rep-cal-toolbar">
-                <mat-form-field appearance="outline" class="rep-cal-field">
-                  <mat-label>Type</mat-label>
-                  <mat-select [(ngModel)]="repCalTypeFilter" (ngModelChange)="onRepCalTypeOrViewChange()" name="repCalTypeFilter">
-                    @for (o of repCalFilterOptions; track o.value) {
-                      <mat-option [value]="o.value">{{ o.label }}</mat-option>
-                    }
-                  </mat-select>
-                </mat-form-field>
-                <mat-button-toggle-group
-                  class="rep-cal-toggles"
-                  [(ngModel)]="repCalView"
-                  (ngModelChange)="onRepCalTypeOrViewChange()"
-                  name="repCalView"
-                  aria-label="Calendar view"
-                >
-                  <mat-button-toggle value="day">Day</mat-button-toggle>
-                  <mat-button-toggle value="month">Month</mat-button-toggle>
-                  <mat-button-toggle value="year">Year</mat-button-toggle>
-                </mat-button-toggle-group>
+                <div class="rep-cal-toolbar-pair">
+                  <mat-form-field appearance="outline" class="rep-cal-field">
+                    <mat-label>Type</mat-label>
+                    <mat-select [(ngModel)]="repCalTypeFilter" (ngModelChange)="onRepCalTypeOrViewChange()" name="repCalTypeFilter">
+                      @for (o of repCalFilterOptions; track o.value) {
+                        <mat-option [value]="o.value">{{ o.label }}</mat-option>
+                      }
+                    </mat-select>
+                  </mat-form-field>
+                  <mat-button-toggle-group
+                    class="rep-cal-toggles"
+                    [(ngModel)]="repCalView"
+                    (ngModelChange)="onRepCalTypeOrViewChange()"
+                    name="repCalView"
+                    aria-label="Calendar view"
+                  >
+                    <mat-button-toggle value="day">Day</mat-button-toggle>
+                    <mat-button-toggle value="month">Month</mat-button-toggle>
+                    <mat-button-toggle value="year">Year</mat-button-toggle>
+                  </mat-button-toggle-group>
+                </div>
               </div>
 
               <div class="cal-toolbar rep-cal-nav">
