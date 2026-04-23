@@ -296,25 +296,41 @@
 
 .rep-cal-toolbar {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: row;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: center;
   column-gap: 1rem;
-  row-gap: 0.5rem;
   width: 100%;
-  max-width: 22.5rem;
+  max-width: min(100%, 28rem);
   margin: 0 auto 0.65rem;
+  box-sizing: border-box;
 }
 
-.rep-cal-field {
-  min-width: 11rem;
-  flex: 0 1 auto;
+/* mat-form-field defaults to full width of its flex row; fix width so Day/Month/Year stays on the same line. */
+.rep-cal-toolbar > .rep-cal-field {
+  flex: 0 0 14rem;
+  width: 14rem;
+  max-width: min(14rem, 100%);
   align-self: center;
 }
 
-.rep-cal-toggles {
-  flex: 0 1 auto;
+.rep-cal-toolbar > .rep-cal-toggles {
+  flex: 0 0 auto;
   align-self: center;
+}
+
+@media (max-width: 520px) {
+  .rep-cal-toolbar {
+    flex-wrap: wrap;
+    row-gap: 0.65rem;
+  }
+
+  .rep-cal-toolbar > .rep-cal-field {
+    flex: 1 1 12rem;
+    width: 100%;
+    max-width: 20rem;
+  }
 }
 
 /* Period strip: override shared .cal-toolbar (space-between + title flex:1) so arrows sit near the title. */
