@@ -282,17 +282,18 @@
         <section class="mgmt-calendar-section" aria-labelledby="mgmt-calendar-heading">
           <h2 id="mgmt-calendar-heading" class="subsection-title">Calendar</h2>
           <p class="muted">
-            Keep dated entries by type (<strong>Birthday</strong>, <strong>Work</strong>, or
-            <strong>Personal</strong>). Use the slider to move day/month/year, and the table shows all entries in
-            the selected period.
+            Choose <strong>All types</strong> or one calendar (birthday, work, personal, trades, banking, payments,
+            opinion & strategies). In <strong>Year</strong> view, click a month to filter the list to that month
+            (click again to clear). In <strong>Month</strong> view, click a day to filter to that date (click again to
+            clear). Use the arrows to change period.
           </p>
           <div class="rep-cal-grid">
             <section class="rep-cal-col rep-cal-col--nav" aria-label="Calendar navigator">
               <div class="rep-cal-toolbar">
                 <mat-form-field appearance="outline" class="rep-cal-field">
                   <mat-label>Type</mat-label>
-                  <mat-select [(ngModel)]="repCalType" (ngModelChange)="onRepCalTypeOrViewChange()" name="repCalType">
-                    @for (o of repCalTypeOptions; track o.value) {
+                  <mat-select [(ngModel)]="repCalTypeFilter" (ngModelChange)="onRepCalTypeOrViewChange()" name="repCalTypeFilter">
+                    @for (o of repCalFilterOptions; track o.value) {
                       <mat-option [value]="o.value">{{ o.label }}</mat-option>
                     }
                   </mat-select>
@@ -340,15 +341,20 @@
                         @if (cell.type === 'pad') {
                           <div class="cal-slot cal-slot--pad" aria-hidden="true"></div>
                         } @else {
-                          <div
-                            class="cal-slot cal-day rep-cal-slot"
+                          <button
+                            type="button"
+                            class="cal-slot cal-day rep-cal-slot rep-cal-day-btn"
                             [class.rep-cal-slot--on]="cell.hasEntry"
                             [class.rep-cal-slot--empty]="!cell.hasEntry"
+                            [class.rep-cal-slot--selected]="repCalFocusedDayIso === cell.iso"
+                            (click)="onRepCalMonthDayClicked(cell.iso || '')"
+                            [attr.aria-pressed]="repCalFocusedDayIso === cell.iso"
+                            [attr.aria-label]="'Day ' + cell.label + ', filter list'"
                           >
                             <div class="rep-cal-day-inner">
                               <span class="cal-day-num">{{ cell.label }}</span>
                             </div>
-                          </div>
+                          </button>
                         }
                       }
                     </div>
@@ -357,29 +363,45 @@
               }
 
               @if (repCalView === 'year') {
-                <div class="rep-cal-year-grid" role="group" aria-label="Months with entries">
+                <div class="rep-cal-year-grid" role="group" aria-label="Months in this year">
                   @for (m of yearMonthIndex; track m) {
-                    <div class="rep-cal-year-month" [class.rep-cal-year-month--on]="repCalYearHasMonth(m)">
+                    <button
+                      type="button"
+                      class="rep-cal-year-month rep-cal-year-month-btn"
+                      [class.rep-cal-year-month--on]="repCalYearHasMonth(m)"
+                      [class.rep-cal-year-month--selected]="repCalYearMonthSelected(m)"
+                      (click)="onRepCalYearMonthClicked(m)"
+                      [attr.aria-pressed]="repCalYearMonthSelected(m)"
+                    >
                       <span class="rep-cal-year-month-label">{{ repCalShortMonthName(m) }}</span>
-                    </div>
+                    </button>
                   }
                 </div>
-                <p class="muted rep-cal-year-legend">Highlighted months have entries for this type.</p>
+                <p class="muted rep-cal-year-legend">
+                  Shading shows months with entries. Click a month to filter the table; click again to show the full year.
+                </p>
               }
             </section>
 
             <section class="rep-cal-col rep-cal-col--list" aria-labelledby="mgmt-cal-entries">
-              <h3 id="mgmt-cal-entries" class="form-section-title">Entries in this period</h3>
+              <h3 id="mgmt-cal-entries" class="form-section-title">{{ repCalEntriesHeading }}</h3>
               <div class="form-actions rep-cal-add-wrap">
+                @if (repCalFocusedDayIso || repCalFocusedMonthKey) {
+                  <button mat-button type="button" (click)="clearRepCalListFilters()">Clear list filter</button>
+                }
                 <button mat-stroked-button color="primary" type="button" (click)="openRepCalAddDialog()">
                   Add entry
                 </button>
               </div>
               <div class="table-wrap rep-cal-table-wrap">
-                <table mat-table [dataSource]="repCalEntries" class="full-width">
+                <table mat-table [dataSource]="repCalDisplayedEntries" class="full-width">
                   <ng-container matColumnDef="cDate">
                     <th mat-header-cell *matHeaderCellDef>Date</th>
                     <td mat-cell *matCellDef="let row">{{ formatRepCalRowDate(row.entryDate) }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="cType">
+                    <th mat-header-cell *matHeaderCellDef>Type</th>
+                    <td mat-cell *matCellDef="let row">{{ reportCalendarTypeLabel(row.calendarType) }}</td>
                   </ng-container>
                   <ng-container matColumnDef="cTitle">
                     <th mat-header-cell *matHeaderCellDef>Title</th>
@@ -400,11 +422,11 @@
                       </button>
                     </td>
                   </ng-container>
-                  <tr mat-header-row *matHeaderRowDef="repCalTableColumns"></tr>
-                  <tr mat-row *matRowDef="let row; columns: repCalTableColumns"></tr>
+                  <tr mat-header-row *matHeaderRowDef="repCalTableColumnsForList"></tr>
+                  <tr mat-row *matRowDef="let row; columns: repCalTableColumnsForList"></tr>
                 </table>
-                @if (!repCalEntries.length) {
-                  <p class="muted empty-hint">No entries in this period.</p>
+                @if (!repCalDisplayedEntries.length) {
+                  <p class="muted empty-hint">No entries match the current filters.</p>
                 }
               </div>
             </section>

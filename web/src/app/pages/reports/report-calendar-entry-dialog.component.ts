@@ -11,6 +11,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import {
+  REPORT_CALENDAR_TYPE_OPTIONS,
   ReportCalendarEntryDto,
   ReportCalendarType,
 } from '../../models/report-calendar.models';
@@ -22,8 +23,6 @@ export interface ReportCalendarEntryDialogData {
   defaultDate: string;
   defaultType: ReportCalendarType;
 }
-
-const TYPES: ReportCalendarType[] = ['BIRTHDAY', 'WORK', 'PERSONAL'];
 
 @Component({
   selector: 'app-report-calendar-entry-dialog',
@@ -46,7 +45,7 @@ export class ReportCalendarEntryDialogComponent implements OnInit {
   private readonly api = inject(ReportCalendarApiService);
   private readonly fb = inject(FormBuilder);
 
-  readonly typeOptions = TYPES;
+  readonly typeOptions = REPORT_CALENDAR_TYPE_OPTIONS;
   saving = false;
   err: string | null = null;
 

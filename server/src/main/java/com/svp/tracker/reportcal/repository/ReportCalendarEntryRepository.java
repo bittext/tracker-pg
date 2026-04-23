@@ -10,4 +10,7 @@ public interface ReportCalendarEntryRepository extends JpaRepository<ReportCalen
 
     List<ReportCalendarEntry> findByOwnerUserIdAndCalendarTypeAndEntryDateBetweenOrderByEntryDateAscIdAsc(
             long ownerUserId, ReportCalendarType type, LocalDate from, LocalDate to);
+
+    List<ReportCalendarEntry> findByOwnerUserIdAndEntryDateBetweenOrderByEntryDateAscCalendarTypeAscIdAsc(
+            long ownerUserId, LocalDate from, LocalDate to);
 }

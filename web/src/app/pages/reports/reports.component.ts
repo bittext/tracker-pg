@@ -3,7 +3,6 @@ import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -24,21 +23,15 @@ import {
 } from '../../models/fitness.models';
 import { JournalEntryDto, JournalSummaryDto, JournalTagDefDto } from '../../models/journal.models';
 import { ManagementTaskDto } from '../../models/management.models';
-import { ReportCalendarEntryDto, ReportCalendarType } from '../../models/report-calendar.models';
 import { FitnessApiService } from '../../services/fitness-api.service';
 import { JournalApiService } from '../../services/journal-api.service';
 import { ManagementApiService } from '../../services/management-api.service';
-import { ReportCalendarApiService } from '../../services/report-calendar-api.service';
 import { formatHttpErrorDetail } from '../../util/http-error';
 import {
   ReportJournalAttachmentsDialogComponent,
   ReportJournalAttachmentsDialogData,
 } from './report-journal-attachments-dialog.component';
 import { ReportJournalBodyDialogComponent, ReportJournalBodyDialogData } from './report-journal-body-dialog.component';
-import {
-  ReportCalendarEntryDialogComponent,
-  ReportCalendarEntryDialogData,
-} from './report-calendar-entry-dialog.component';
 
 /** Padding slot or a real day in the month grid. */
 interface CalendarCell {
@@ -49,15 +42,6 @@ interface CalendarCell {
   exerciseMinutes?: number;
   weightKg?: number | null;
   /** Stable id for @for track (outer row index not visible in nested track). */
-  trackKey: string;
-}
-
-/** Report calendar (typed notes) month grid. */
-interface ReportCalCell {
-  type: 'pad' | 'day';
-  iso?: string;
-  label?: string;
-  hasEntry?: boolean;
   trackKey: string;
 }
 
@@ -78,7 +62,6 @@ interface ReportCalCell {
     MatSelectModule,
     MatIconModule,
     MatMenuModule,
-    MatButtonToggleModule,
   ],
   templateUrl: './reports.component.html',
   styleUrl: './reports.component.scss',
@@ -87,7 +70,6 @@ export class ReportsComponent implements OnInit {
   private readonly fitnessApi = inject(FitnessApiService);
   private readonly managementApi = inject(ManagementApiService);
   private readonly journalApi = inject(JournalApiService);
-  private readonly reportCalApi = inject(ReportCalendarApiService);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
 
@@ -134,19 +116,6 @@ export class ReportsComponent implements OnInit {
   journalSummary: JournalSummaryDto | null = null;
   journalSearched = false;
 
-  /** Reports → Calendar: one calendar type and view at a time. */
-  repCalType: ReportCalendarType = 'PERSONAL';
-  repCalView: 'day' | 'month' | 'year' = 'month';
-  repCalAnchorIso = '';
-  repCalEntries: ReportCalendarEntryDto[] = [];
-  repCalTableColumns = ['cDate', 'cTitle', 'cInfo', 'cAct'];
-  readonly repCalTypeOptions: { value: ReportCalendarType; label: string }[] = [
-    { value: 'BIRTHDAY', label: 'Birthday' },
-    { value: 'WORK', label: 'Work' },
-    { value: 'PERSONAL', label: 'Personal' },
-  ];
-  readonly yearMonthIndex = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
-
   ngOnInit(): void {
     const t = this.todayIso();
     this.selectedDateIso = t;
@@ -154,7 +123,6 @@ export class ReportsComponent implements OnInit {
     this.calendarMonth = Number(t.slice(5, 7));
     this.journalTo = t;
     this.journalFrom = `${t.slice(0, 7)}-01`;
-    this.repCalAnchorIso = t;
     this.journalApi.listTagDefinitions().subscribe({
       next: (rows) => {
         this.journalTagDefs = [...rows].sort((a, b) =>
@@ -166,7 +134,6 @@ export class ReportsComponent implements OnInit {
     this.loadExerciseMonth();
     this.loadSelectedDay();
     this.loadManagementTasksReport();
-    this.loadReportCalendar();
   }
 
   get calendarTitle(): string {
@@ -600,215 +567,5 @@ export class ReportsComponent implements OnInit {
       },
       error: (err) => this.err('Could not load journal entry', err),
     });
-  }
-
-  get repCalViewTitle(): string {
-    const a = this.repCalAnchorIso;
-    if (!a || a.length < 10) {
-      return '';
-    }
-    const y = Number(a.slice(0, 4));
-    const m = Number(a.slice(5, 7));
-    const d = Number(a.slice(8, 10));
-    const dt = new Date(y, m - 1, d);
-    if (this.repCalView === 'year') {
-      return String(y);
-    }
-    if (this.repCalView === 'month') {
-      return dt.toLocaleString(undefined, { month: 'long', year: 'numeric' });
-    }
-    return dt.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-  }
-
-  onRepCalTypeOrViewChange(): void {
-    this.loadReportCalendar();
-  }
-
-  repCalStep(delta: number): void {
-    const a = this.repCalAnchorIso;
-    if (!a || a.length < 10) {
-      return;
-    }
-    const y = Number(a.slice(0, 4));
-    const m = Number(a.slice(5, 7));
-    const d = Number(a.slice(8, 10));
-    const dt = new Date(y, m - 1, d);
-    if (this.repCalView === 'day') {
-      dt.setDate(dt.getDate() + delta);
-    } else if (this.repCalView === 'month') {
-      dt.setMonth(dt.getMonth() + delta);
-    } else {
-      dt.setFullYear(dt.getFullYear() + delta);
-    }
-    this.repCalAnchorIso = this.toIsoFromDate(dt);
-    this.loadReportCalendar();
-  }
-
-  private toIsoFromDate(d: Date): string {
-    const y = d.getFullYear();
-    const mo = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${mo}-${day}`;
-  }
-
-  private repCalQueryRange(): { from: string; to: string } {
-    const a = this.repCalAnchorIso;
-    if (!a || a.length < 10) {
-      const t = this.todayIso();
-      return { from: t, to: t };
-    }
-    const y = Number(a.slice(0, 4));
-    const m = Number(a.slice(5, 7));
-    if (this.repCalView === 'day') {
-      return { from: a, to: a };
-    }
-    if (this.repCalView === 'month') {
-      const fromD = new Date(y, m - 1, 1);
-      const toD = new Date(y, m, 0);
-      return { from: this.toIsoFromDate(fromD), to: this.toIsoFromDate(toD) };
-    }
-    return { from: `${y}-01-01`, to: `${y}-12-31` };
-  }
-
-  loadReportCalendar(): void {
-    const { from, to } = this.repCalQueryRange();
-    this.reportCalApi.list(from, to, this.repCalType).subscribe({
-      next: (rows) => {
-        this.repCalEntries = [...rows].sort((a, b) => {
-          const c = a.entryDate.localeCompare(b.entryDate);
-          if (c !== 0) {
-            return c;
-          }
-          return a.id - b.id;
-        });
-      },
-      error: (e) => this.err('Could not load report calendar', e),
-    });
-  }
-
-  private repCalDateSet(): Set<string> {
-    return new Set(this.repCalEntries.map((e) => e.entryDate));
-  }
-
-  reportCalRows(): ReportCalCell[][] {
-    if (this.repCalView !== 'month') {
-      return [];
-    }
-    const a = this.repCalAnchorIso;
-    if (!a || a.length < 10) {
-      return [];
-    }
-    const y = Number(a.slice(0, 4));
-    const m = Number(a.slice(5, 7));
-    const withEntry = this.repCalDateSet();
-    const last = new Date(y, m, 0).getDate();
-    const firstDow = new Date(y, m - 1, 1).getDay();
-
-    const flat: ReportCalCell[] = [];
-    let padSeq = 0;
-    for (let i = 0; i < firstDow; i++) {
-      padSeq += 1;
-      flat.push({ type: 'pad', trackKey: `rc-pad-h-${padSeq}` });
-    }
-    for (let d = 1; d <= last; d++) {
-      const mo = String(m).padStart(2, '0');
-      const day = String(d).padStart(2, '0');
-      const iso = `${y}-${mo}-${day}`;
-      const hasEntry = withEntry.has(iso);
-      flat.push({ type: 'day', iso, label: String(d), hasEntry, trackKey: `rc-${iso}` });
-    }
-    let tail = 0;
-    while (flat.length % 7 !== 0) {
-      tail += 1;
-      flat.push({ type: 'pad', trackKey: `rc-pad-t-${tail}` });
-    }
-
-    const rows: ReportCalCell[][] = [];
-    for (let i = 0; i < flat.length; i += 7) {
-      rows.push(flat.slice(i, i + 7));
-    }
-    return rows;
-  }
-
-  repCalYearHasMonth(m: number): boolean {
-    const a = this.repCalAnchorIso;
-    if (!a || a.length < 4) {
-      return false;
-    }
-    const y = a.slice(0, 4);
-    const ym = `${y}-${String(m).padStart(2, '0')}`;
-    return this.repCalEntries.some((e) => e.entryDate.slice(0, 7) === ym);
-  }
-
-  repCalShortMonthName(m: number): string {
-    return new Date(2000, m - 1, 1).toLocaleString(undefined, { month: 'short' });
-  }
-
-  openRepCalAddDialog(): void {
-    const d: ReportCalendarEntryDialogData = {
-      entry: null,
-      defaultDate: this.repCalAnchorIso,
-      defaultType: this.repCalType,
-    };
-    this.dialog
-      .open(ReportCalendarEntryDialogComponent, {
-        width: 'min(92vw, 32rem)',
-        data: d,
-      })
-      .afterClosed()
-      .subscribe((saved) => {
-        if (saved) {
-          this.loadReportCalendar();
-        }
-      });
-  }
-
-  openRepCalEditDialog(row: ReportCalendarEntryDto): void {
-    const d: ReportCalendarEntryDialogData = {
-      entry: row,
-      defaultDate: row.entryDate,
-      defaultType: row.calendarType,
-    };
-    this.dialog
-      .open(ReportCalendarEntryDialogComponent, {
-        width: 'min(92vw, 32rem)',
-        data: d,
-      })
-      .afterClosed()
-      .subscribe((saved) => {
-        if (saved) {
-          this.loadReportCalendar();
-        }
-      });
-  }
-
-  deleteRepCalEntry(row: ReportCalendarEntryDto): void {
-    if (typeof window !== 'undefined' && !window.confirm('Delete this calendar entry?')) {
-      return;
-    }
-    this.reportCalApi.delete(row.id).subscribe({
-      next: () => {
-        this.loadReportCalendar();
-      },
-      error: (e) => this.err('Could not delete', e),
-    });
-  }
-
-  repCalInfoPreview(body: string | null | undefined): string {
-    const s = (body ?? '').replace(/\s+/g, ' ').trim();
-    if (s.length <= 160) {
-      return s;
-    }
-    return `${s.slice(0, 160)}…`;
-  }
-
-  formatRepCalRowDate(iso: string | null | undefined): string {
-    if (!iso || iso.length < 10) {
-      return '—';
-    }
-    const y = Number(iso.slice(0, 4));
-    const m = Number(iso.slice(5, 7));
-    const d = Number(iso.slice(8, 10));
-    return new Date(y, m - 1, d).toLocaleDateString();
   }
 }

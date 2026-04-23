@@ -10,6 +10,7 @@ import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -22,16 +23,18 @@ public class ReportCalendarService {
     private final CurrentUserService currentUser;
 
     @Transactional(readOnly = true)
-    public List<ReportCalendarEntryDto> listInRange(LocalDate from, LocalDate to, ReportCalendarType type) {
+    public List<ReportCalendarEntryDto> listInRange(LocalDate from, LocalDate to, @Nullable ReportCalendarType type) {
         long uid = currentUser.requireUserId();
         if (to.isBefore(from)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "to before from");
         }
-        return repository
-                .findByOwnerUserIdAndCalendarTypeAndEntryDateBetweenOrderByEntryDateAscIdAsc(uid, type, from, to)
-                .stream()
-                .map(this::toDto)
-                .toList();
+        List<ReportCalendarEntry> rows =
+                type == null
+                        ? repository.findByOwnerUserIdAndEntryDateBetweenOrderByEntryDateAscCalendarTypeAscIdAsc(
+                                uid, from, to)
+                        : repository.findByOwnerUserIdAndCalendarTypeAndEntryDateBetweenOrderByEntryDateAscIdAsc(
+                                uid, type, from, to);
+        return rows.stream().map(this::toDto).toList();
     }
 
     @Transactional

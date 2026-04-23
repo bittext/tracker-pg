@@ -11,8 +11,8 @@
     <mat-form-field appearance="outline" class="rc-field">
       <mat-label>Calendar</mat-label>
       <mat-select formControlName="calendarType">
-        @for (t of typeOptions; track t) {
-          <mat-option [value]="t">{{ t | titlecase }}</mat-option>
+        @for (o of typeOptions; track o.value) {
+          <mat-option [value]="o.value">{{ o.label }}</mat-option>
         }
       </mat-select>
     </mat-form-field>

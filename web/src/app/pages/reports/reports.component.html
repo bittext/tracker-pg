@@ -3,8 +3,9 @@
   <p class="muted">
     <strong>Exercise</strong>: month trends on the left, selected-day snapshot on the right. Calendar tiles show only
     available <strong>exercise time</strong> and <strong>weight (lb)</strong>.
-    <strong>Tasks</strong>: full task list. <strong>Calendar</strong>: dated notes by type (one type at a time) with
-    day, month, or year navigation. <strong>Journal</strong>: search entries by date, tags, and keywords.
+    <strong>Tasks</strong>: full task list. <strong>Journal</strong>: search entries by date, tags, and keywords. For
+    dated notes (trades, banking, payments, opinion & strategies, and more), use
+    <a routerLink="/management">Management</a> → <strong>Calendar</strong>.
   </p>
 </div>
 
@@ -263,145 +264,6 @@
             }
           </div>
         </section>
-      </div>
-    </mat-tab>
-
-    <mat-tab label="Calendar">
-      <div class="tab-panel rep-cal-panel">
-        <div class="rep-cal-grid">
-          <section class="rep-cal-col rep-cal-col--nav" aria-labelledby="rep-cal-heading">
-            <h2 id="rep-cal-heading" class="mgmt-report-title">Calendar</h2>
-            <p class="muted mgmt-report-lead">
-              Pick a <strong>calendar type</strong> (only one is shown at a time), move <strong>day, month, or
-              year</strong> with the arrows, and add or edit information for specific dates. Days with entries are
-              highlighted. The table lists <strong>every entry in the current period</strong> (day, month, or year).
-            </p>
-            <div class="rep-cal-toolbar">
-              <mat-form-field appearance="outline" class="rep-cal-field">
-                <mat-label>Type</mat-label>
-                <mat-select
-                  [(ngModel)]="repCalType"
-                  (ngModelChange)="onRepCalTypeOrViewChange()"
-                  name="repCalType"
-                >
-                  @for (o of repCalTypeOptions; track o.value) {
-                    <mat-option [value]="o.value">{{ o.label }}</mat-option>
-                  }
-                </mat-select>
-              </mat-form-field>
-              <mat-button-toggle-group
-                class="rep-cal-toggles"
-                [(ngModel)]="repCalView"
-                (ngModelChange)="onRepCalTypeOrViewChange()"
-                name="repCalView"
-                aria-label="Calendar view"
-              >
-                <mat-button-toggle value="day">Day</mat-button-toggle>
-                <mat-button-toggle value="month">Month</mat-button-toggle>
-                <mat-button-toggle value="year">Year</mat-button-toggle>
-              </mat-button-toggle-group>
-            </div>
-            <div class="cal-toolbar rep-cal-nav">
-              <button mat-icon-button type="button" (click)="repCalStep(-1)" aria-label="Previous period">
-                <mat-icon>chevron_left</mat-icon>
-              </button>
-              <h3 class="cal-title rep-cal-title">{{ repCalViewTitle }}</h3>
-              <button mat-icon-button type="button" (click)="repCalStep(1)" aria-label="Next period">
-                <mat-icon>chevron_right</mat-icon>
-              </button>
-            </div>
-
-            @if (repCalView === 'day') {
-              <div class="rep-cal-day-hero" aria-live="polite">
-                <p class="rep-cal-day-line">{{ repCalViewTitle }}</p>
-                <p class="muted rep-cal-day-hint">Use the arrows to move one day. Entries for this day appear in the table.</p>
-              </div>
-            }
-
-            @if (repCalView === 'month') {
-              <div class="calendar-shell rep-cal-cal">
-                <div class="cal-weekdays" role="row">
-                  @for (wd of weekDays; track wd) {
-                    <span class="cal-weekday" role="columnheader">{{ wd }}</span>
-                  }
-                </div>
-                @for (row of reportCalRows(); track $index) {
-                  <div class="cal-week" role="row">
-                    @for (cell of row; track cell.trackKey) {
-                      @if (cell.type === 'pad') {
-                        <div class="cal-slot cal-slot--pad" aria-hidden="true"></div>
-                      } @else {
-                        <div
-                          class="cal-slot cal-day rep-cal-slot"
-                          [class.rep-cal-slot--on]="cell.hasEntry"
-                          [class.rep-cal-slot--empty]="!cell.hasEntry"
-                        >
-                          <div class="cal-day-main rep-cal-day-inner">
-                            <span class="cal-day-num">{{ cell.label }}</span>
-                          </div>
-                        </div>
-                      }
-                    }
-                  </div>
-                }
-              </div>
-            }
-
-            @if (repCalView === 'year') {
-              <div class="rep-cal-year-grid" role="group" aria-label="Months in this year with entries">
-                @for (m of yearMonthIndex; track m) {
-                  <div
-                    class="rep-cal-year-month"
-                    [class.rep-cal-year-month--on]="repCalYearHasMonth(m)"
-                    [attr.title]="repCalShortMonthName(m) + (repCalYearHasMonth(m) ? ' — has entry' : '')"
-                  >
-                    <span class="rep-cal-year-month-label">{{ repCalShortMonthName(m) }}</span>
-                  </div>
-                }
-              </div>
-              <p class="muted rep-cal-year-legend">Months with a highlight contain at least one entry for this type.</p>
-            }
-          </section>
-
-          <section class="rep-cal-col rep-cal-col--list" aria-labelledby="rep-cal-entries-heading">
-            <h3 id="rep-cal-entries-heading" class="rep-cal-entries-title">Entries in this period</h3>
-            <div class="rep-cal-add-wrap">
-              <button mat-stroked-button color="primary" type="button" (click)="openRepCalAddDialog()">Add entry</button>
-            </div>
-            <div class="table-wrap table-wrap--mgmt rep-cal-table-wrap">
-              <table mat-table [dataSource]="repCalEntries" class="full-width">
-                <ng-container matColumnDef="cDate">
-                  <th mat-header-cell *matHeaderCellDef>Date</th>
-                  <td mat-cell *matCellDef="let row">{{ formatRepCalRowDate(row.entryDate) }}</td>
-                </ng-container>
-                <ng-container matColumnDef="cTitle">
-                  <th mat-header-cell *matHeaderCellDef>Title</th>
-                  <td mat-cell *matCellDef="let row">{{ row.title || '—' }}</td>
-                </ng-container>
-                <ng-container matColumnDef="cInfo">
-                  <th mat-header-cell *matHeaderCellDef>Information</th>
-                  <td mat-cell *matCellDef="let row" class="rep-cal-info-cell">{{ repCalInfoPreview(row.body) || '—' }}</td>
-                </ng-container>
-                <ng-container matColumnDef="cAct">
-                  <th mat-header-cell *matHeaderCellDef class="rep-cal-actions-header" aria-label="Actions"></th>
-                  <td mat-cell *matCellDef="let row" class="rep-cal-actions-cell">
-                    <button mat-icon-button type="button" (click)="openRepCalEditDialog(row)" aria-label="Edit">
-                      <mat-icon>edit</mat-icon>
-                    </button>
-                    <button mat-icon-button type="button" (click)="deleteRepCalEntry(row)" aria-label="Delete">
-                      <mat-icon>delete</mat-icon>
-                    </button>
-                  </td>
-                </ng-container>
-                <tr mat-header-row *matHeaderRowDef="repCalTableColumns"></tr>
-                <tr mat-row *matRowDef="let row; columns: repCalTableColumns"></tr>
-              </table>
-              @if (!repCalEntries.length) {
-                <p class="muted empty-hint mgmt-report-empty">No entries in this period for the selected type.</p>
-              }
-            </div>
-          </section>
-        </div>
       </div>
     </mat-tab>
 

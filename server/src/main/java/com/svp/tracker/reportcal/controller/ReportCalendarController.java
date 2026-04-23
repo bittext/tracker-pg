@@ -32,7 +32,7 @@ public class ReportCalendarController {
     public List<ReportCalendarEntryDto> list(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-            @RequestParam ReportCalendarType calendarType) {
+            @RequestParam(required = false) ReportCalendarType calendarType) {
         return service.listInRange(from, to, calendarType);
     }
 

@@ -23,7 +23,13 @@ import {
   ManagementTaskType,
   TaskMonthCalendarDto,
 } from '../../models/management.models';
-import { ReportCalendarEntryDto, ReportCalendarType } from '../../models/report-calendar.models';
+import {
+  REPORT_CALENDAR_FILTER_OPTIONS,
+  ReportCalendarEntryDto,
+  ReportCalendarType,
+  ReportCalendarTypeFilter,
+  reportCalendarTypeLabel,
+} from '../../models/report-calendar.models';
 import { ManagementApiService } from '../../services/management-api.service';
 import { ReportCalendarApiService } from '../../services/report-calendar-api.service';
 import { formatHttpErrorDetail } from '../../util/http-error';
@@ -106,17 +112,17 @@ export class ManagementComponent implements OnInit {
   unscheduledColumns = ['uTitle', 'uUrgency', 'uCategory', 'uType', 'uDone', 'uActions'];
 
   /** Management -> Calendar tab state. */
-  repCalType: ReportCalendarType = 'PERSONAL';
+  repCalTypeFilter: ReportCalendarTypeFilter = 'ALL';
   repCalView: 'day' | 'month' | 'year' = 'month';
   repCalAnchorIso = '';
   repCalEntries: ReportCalendarEntryDto[] = [];
-  repCalTableColumns = ['cDate', 'cTitle', 'cInfo', 'cAct'];
-  readonly repCalTypeOptions: { value: ReportCalendarType; label: string }[] = [
-    { value: 'BIRTHDAY', label: 'Birthday' },
-    { value: 'WORK', label: 'Work' },
-    { value: 'PERSONAL', label: 'Personal' },
-  ];
+  /** yyyy-MM when year view: list filtered to that month (toggle same month to clear). */
+  repCalFocusedMonthKey: string | null = null;
+  /** yyyy-MM-dd when month view: list filtered to that day (toggle same day to clear). */
+  repCalFocusedDayIso: string | null = null;
+  readonly repCalFilterOptions = REPORT_CALENDAR_FILTER_OPTIONS;
   readonly yearMonthIndex = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
+  readonly reportCalendarTypeLabel = reportCalendarTypeLabel;
 
   ngOnInit(): void {
     const t = this.todayIso();
@@ -449,10 +455,17 @@ export class ManagementComponent implements OnInit {
   }
 
   onRepCalTypeOrViewChange(): void {
+    this.clearRepCalListFilters();
     this.loadReportCalendar();
   }
 
+  clearRepCalListFilters(): void {
+    this.repCalFocusedDayIso = null;
+    this.repCalFocusedMonthKey = null;
+  }
+
   repCalStep(delta: number): void {
+    this.clearRepCalListFilters();
     const a = this.repCalAnchorIso;
     if (!a || a.length < 10) {
       return;
@@ -493,18 +506,88 @@ export class ManagementComponent implements OnInit {
 
   loadReportCalendar(): void {
     const { from, to } = this.repCalQueryRange();
-    this.reportCalApi.list(from, to, this.repCalType).subscribe({
+    const typeParam = this.repCalTypeFilter === 'ALL' ? null : this.repCalTypeFilter;
+    this.reportCalApi.list(from, to, typeParam).subscribe({
       next: (rows) => {
         this.repCalEntries = [...rows].sort((a, b) => {
           const c = a.entryDate.localeCompare(b.entryDate);
           if (c !== 0) {
             return c;
           }
+          const ct = a.calendarType.localeCompare(b.calendarType);
+          if (ct !== 0) {
+            return ct;
+          }
           return a.id - b.id;
         });
       },
       error: (e) => this.err('Could not load calendar', e),
     });
+  }
+
+  get repCalDisplayedEntries(): ReportCalendarEntryDto[] {
+    let rows = this.repCalEntries;
+    if (this.repCalFocusedDayIso) {
+      return rows.filter((e) => e.entryDate === this.repCalFocusedDayIso);
+    }
+    if (this.repCalView === 'year' && this.repCalFocusedMonthKey) {
+      return rows.filter((e) => e.entryDate.slice(0, 7) === this.repCalFocusedMonthKey);
+    }
+    return rows;
+  }
+
+  get repCalEntriesHeading(): string {
+    if (this.repCalFocusedDayIso) {
+      return `Entries for ${this.formatRepCalRowDate(this.repCalFocusedDayIso)}`;
+    }
+    if (this.repCalView === 'year' && this.repCalFocusedMonthKey) {
+      return `Entries in ${this.repCalFocusedMonthKey}`;
+    }
+    return 'Entries in this period';
+  }
+
+  get repCalTableColumnsForList(): string[] {
+    if (this.repCalTypeFilter === 'ALL') {
+      return ['cDate', 'cType', 'cTitle', 'cInfo', 'cAct'];
+    }
+    return ['cDate', 'cTitle', 'cInfo', 'cAct'];
+  }
+
+  onRepCalYearMonthClicked(m: number): void {
+    const a = this.repCalAnchorIso;
+    if (!a || a.length < 4 || this.repCalView !== 'year') {
+      return;
+    }
+    const y = a.slice(0, 4);
+    const ym = `${y}-${String(m).padStart(2, '0')}`;
+    if (this.repCalFocusedMonthKey === ym) {
+      this.repCalFocusedMonthKey = null;
+    } else {
+      this.repCalFocusedMonthKey = ym;
+    }
+    this.repCalFocusedDayIso = null;
+  }
+
+  onRepCalMonthDayClicked(iso: string): void {
+    if (this.repCalView !== 'month' || !iso) {
+      return;
+    }
+    if (this.repCalFocusedDayIso === iso) {
+      this.repCalFocusedDayIso = null;
+    } else {
+      this.repCalFocusedDayIso = iso;
+    }
+    this.repCalFocusedMonthKey = null;
+  }
+
+  repCalYearMonthSelected(m: number): boolean {
+    const a = this.repCalAnchorIso;
+    if (!a || a.length < 4 || !this.repCalFocusedMonthKey) {
+      return false;
+    }
+    const y = a.slice(0, 4);
+    const ym = `${y}-${String(m).padStart(2, '0')}`;
+    return this.repCalFocusedMonthKey === ym;
   }
 
   private repCalDateSet(): Set<string> {
@@ -573,8 +656,8 @@ export class ManagementComponent implements OnInit {
   openRepCalAddDialog(): void {
     const d: ReportCalendarEntryDialogData = {
       entry: null,
-      defaultDate: this.repCalAnchorIso,
-      defaultType: this.repCalType,
+      defaultDate: this.repCalFocusedDayIso ?? this.repCalAnchorIso,
+      defaultType: this.repCalTypeFilter === 'ALL' ? 'PERSONAL' : this.repCalTypeFilter,
     };
     this.dialog
       .open(ReportCalendarEntryDialogComponent, {
