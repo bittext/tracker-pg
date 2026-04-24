@@ -84,6 +84,42 @@ export interface Surge52WeekHighsDto {
   rows: Surge52WeekRowDto[];
 }
 
+/** GET /api/finance/robinhood/crawl-snapshot */
+export interface FinanceCrawlSnapshotDto {
+  fetchedAt: string;
+  sourceNote: string;
+  crawlHeadlineLimit: number;
+  generalNews: StockNewsDto;
+  financialNews: StockNewsDto;
+  majorIndexes: IndexSnapshotDto[];
+  watchlist: CrawlerWatchItemDto[];
+}
+
+export interface IndexSnapshotDto {
+  symbol: string;
+  shortName: string;
+  price: number | null;
+  changePercent: number | null;
+}
+
+export interface YahooSimpleQuoteDto {
+  symbol: string;
+  shortName: string;
+  regularMarketPrice: number | null;
+  regularMarketChangePercent: number | null;
+}
+
+export interface CrawlerWatchItemDto {
+  symbol: string;
+  companyLabel: string;
+  searchNote: string;
+  news: StockNewsDto;
+  quote: YahooSimpleQuoteDto | null;
+  vsMarketSummary: string;
+  analysisSummary: string;
+  dataWarnings: string[];
+}
+
 export interface Surge52WeekRowDto {
   symbol: string;
   shortName: string;

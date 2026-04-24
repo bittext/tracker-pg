@@ -1,8 +1,8 @@
 <div class="page-head">
   <h1 class="page-title">Finance</h1>
   <p class="muted">
-    News, names at their 52-week high, transactions, by-instrument filters, and yearly summary are grouped under one
-    Finance page.
+    News, the <strong>Crawler</strong> (broad headlines + a fixed watchlist), 52-week high screeners, transactions,
+    by-instrument filters, and yearly summary are grouped under one Finance page.
   </p>
 </div>
 
@@ -154,6 +154,212 @@
                 }
               </div>
             }
+          }
+        </div>
+      </mat-tab>
+
+      <mat-tab label="Crawler">
+        <div class="finance-panel finance-crawl-panel">
+          <p class="muted stocks-news-intro">
+            Server-side crawl: <strong>general</strong> and <strong>financial</strong> topic headlines (Google News RSS,
+            trusted sources), a <strong>deeper</strong> symbol pass for
+            <strong>HOOD</strong> (Robinhood), <strong>CRWV</strong> (CoreWeave), and <strong>NBIS</strong> (Nebius), plus
+            <strong>SPY / QQQ / DIA / IWM</strong> session marks for context. Not investment advice; quotes can be
+            delayed.
+          </p>
+
+          <div class="finance-toolbar">
+            <button mat-flat-button color="primary" type="button" (click)="loadCrawlSnapshot()" [disabled]="crawlLoading">
+              <mat-icon>refresh</mat-icon>
+              Load / refresh
+            </button>
+          </div>
+
+          @if (crawlLoading) {
+            <p class="muted">Loading crawler snapshot…</p>
+          }
+
+          @if (crawlSnapshot && !crawlLoading) {
+            <p class="muted finance-meta">
+              Fetched <strong>{{ crawlSnapshot.fetchedAt | slice: 0:19 }}</strong> · up to
+              <strong>{{ crawlSnapshot.crawlHeadlineLimit }}</strong> headlines per block
+            </p>
+            <p class="muted crawl-source-note">{{ crawlSnapshot.sourceNote }}</p>
+
+            @if (crawlSnapshot.majorIndexes.length) {
+              <div class="crawl-index-wrap">
+                <h3 class="crawl-section-title">Major indexes (session)</h3>
+                <div class="crawl-index-chips" role="list">
+                  @for (ix of crawlSnapshot.majorIndexes; track ix.symbol) {
+                    <span class="crawl-index-chip" role="listitem">
+                      <strong>{{ ix.symbol }}</strong>
+                      <span class="crawl-index-name">{{ ix.shortName || '—' }}</span>
+                      <span class="crawl-index-px">{{
+                        ix.price != null ? (ix.price | number: '1.2-2') : '—'
+                      }}</span>
+                      <span
+                        class="crawl-index-chg"
+                        [class.crawl-chg-pos]="ix.changePercent != null && ix.changePercent > 0"
+                        [class.crawl-chg-neg]="ix.changePercent != null && ix.changePercent < 0"
+                        >{{ formatPct(ix.changePercent) }}</span
+                      >
+                    </span>
+                  }
+                </div>
+              </div>
+            }
+
+            <section class="crawl-section" aria-labelledby="crawl-gen">
+              <h3 id="crawl-gen" class="crawl-section-title">General purpose news</h3>
+              <p class="muted crawl-block-meta">{{ crawlSnapshot.generalNews.note }}</p>
+              @if (crawlSnapshot.generalNews.items.length) {
+                <div class="news-intelligence-grid">
+                  <article class="news-intelligence-card" [class]="newsSentimentClass(crawlSnapshot.generalNews)">
+                    <p class="news-intelligence-label">Overall sentiment</p>
+                    <p class="news-intelligence-value">
+                      {{ crawlSnapshot.generalNews.analysis.overallSentiment }}
+                      <span class="news-intelligence-sub"
+                        >({{ crawlSnapshot.generalNews.analysis.sentimentScore | number: '1.2-2' }})</span
+                      >
+                    </p>
+                  </article>
+                  <article class="news-intelligence-card" [class]="newsGrowthClass(crawlSnapshot.generalNews)">
+                    <p class="news-intelligence-label">Outlook (heuristic)</p>
+                    <p class="news-intelligence-value">
+                      {{ crawlSnapshot.generalNews.analysis.projectedGrowthLabel }}
+                      <span class="news-intelligence-sub"
+                        >({{ crawlSnapshot.generalNews.analysis.projectedGrowthPercent }}%)</span
+                      >
+                    </p>
+                  </article>
+                  <article class="news-intelligence-card" [class]="newsStressClass(crawlSnapshot.generalNews)">
+                    <p class="news-intelligence-label">Regulatory/deal stress</p>
+                    <p class="news-intelligence-value">{{ crawlSnapshot.generalNews.analysis.stressSignals.emphasis }}</p>
+                  </article>
+                </div>
+                <div class="stocks-news-list">
+                  @for (item of crawlSnapshot.generalNews.items; track stockNewsTrack($index, item)) {
+                    <article class="stocks-news-item">
+                      <h4 class="stocks-news-title">
+                        <a [href]="item.url" target="_blank" rel="noopener noreferrer">{{ item.title }}</a>
+                      </h4>
+                      <p class="muted stocks-news-meta">{{ item.source }} · {{ formatNewsPublished(item.publishedAt) }}</p>
+                      @if (item.summary) {
+                        <p class="stocks-news-summary">{{ item.summary }}</p>
+                      }
+                    </article>
+                  }
+                </div>
+              } @else {
+                <p class="muted">No general headlines (or block failed to load). Check that finance news is enabled on the server.</p>
+              }
+            </section>
+
+            <section class="crawl-section" aria-labelledby="crawl-fin">
+              <h3 id="crawl-fin" class="crawl-section-title">Financial news</h3>
+              <p class="muted crawl-block-meta">{{ crawlSnapshot.financialNews.note }}</p>
+              @if (crawlSnapshot.financialNews.items.length) {
+                <div class="news-intelligence-grid">
+                  <article class="news-intelligence-card" [class]="newsSentimentClass(crawlSnapshot.financialNews)">
+                    <p class="news-intelligence-label">Overall sentiment</p>
+                    <p class="news-intelligence-value">
+                      {{ crawlSnapshot.financialNews.analysis.overallSentiment }}
+                      <span class="news-intelligence-sub"
+                        >({{ crawlSnapshot.financialNews.analysis.sentimentScore | number: '1.2-2' }})</span
+                      >
+                    </p>
+                  </article>
+                  <article class="news-intelligence-card" [class]="newsGrowthClass(crawlSnapshot.financialNews)">
+                    <p class="news-intelligence-label">Outlook (heuristic)</p>
+                    <p class="news-intelligence-value">
+                      {{ crawlSnapshot.financialNews.analysis.projectedGrowthLabel }}
+                      <span class="news-intelligence-sub"
+                        >({{ crawlSnapshot.financialNews.analysis.projectedGrowthPercent }}%)</span
+                      >
+                    </p>
+                  </article>
+                  <article class="news-intelligence-card" [class]="newsStressClass(crawlSnapshot.financialNews)">
+                    <p class="news-intelligence-label">Regulatory/deal stress</p>
+                    <p class="news-intelligence-value">{{ crawlSnapshot.financialNews.analysis.stressSignals.emphasis }}</p>
+                  </article>
+                </div>
+                <div class="stocks-news-list">
+                  @for (item of crawlSnapshot.financialNews.items; track stockNewsTrack($index, item)) {
+                    <article class="stocks-news-item">
+                      <h4 class="stocks-news-title">
+                        <a [href]="item.url" target="_blank" rel="noopener noreferrer">{{ item.title }}</a>
+                      </h4>
+                      <p class="muted stocks-news-meta">{{ item.source }} · {{ formatNewsPublished(item.publishedAt) }}</p>
+                      @if (item.summary) {
+                        <p class="stocks-news-summary">{{ item.summary }}</p>
+                      }
+                    </article>
+                  }
+                </div>
+              } @else {
+                <p class="muted">No financial headlines in this run.</p>
+              }
+            </section>
+
+            <section class="crawl-section" aria-labelledby="crawl-stocks">
+              <h3 id="crawl-stocks" class="crawl-section-title">Stock news: Robinhood, CoreWeave, Nebius</h3>
+              <p class="muted">Deeper headline pull (same trusted-source filter), with Yahoo price vs major indexes.</p>
+              <div class="crawl-watch-grid">
+                @for (w of crawlSnapshot.watchlist; track w.symbol) {
+                  <article class="crawl-watch-card">
+                    <div class="crawl-watch-head">
+                      <h4 class="crawl-watch-symbol">
+                        {{ w.symbol }}
+                        <span class="crawl-watch-co">{{ w.companyLabel }}</span>
+                      </h4>
+                      <p class="muted crawl-search-note">Query: {{ w.searchNote }}</p>
+                    </div>
+                    @if (w.dataWarnings.length) {
+                      <ul class="crawl-warn">
+                        @for (warn of w.dataWarnings; track warn) {
+                          <li>{{ warn }}</li>
+                        }
+                      </ul>
+                    }
+                    @if (w.quote) {
+                      <p class="crawl-quote-line">
+                        <span class="crawl-quote-px">{{
+                          w.quote.regularMarketPrice != null ? (w.quote.regularMarketPrice | number: '1.2-2') : '—'
+                        }}</span>
+                        <span
+                          class="crawl-quote-chg"
+                          [class.crawl-chg-pos]="w.quote.regularMarketChangePercent != null && w.quote.regularMarketChangePercent > 0"
+                          [class.crawl-chg-neg]="w.quote.regularMarketChangePercent != null && w.quote.regularMarketChangePercent < 0"
+                        >
+                          {{ formatPct(w.quote.regularMarketChangePercent) }} session
+                        </span>
+                        <span class="crawl-quote-name">{{ w.quote.shortName || '' }}</span>
+                      </p>
+                    }
+                    <p class="crawl-summary-line"><strong>Vs market:</strong> {{ w.vsMarketSummary }}</p>
+                    <p class="crawl-summary-line"><strong>Heuristic summary:</strong> {{ w.analysisSummary }}</p>
+                    @if (w.news.items.length) {
+                      <h5 class="crawl-subhead">Headlines (informative, trusted sources)</h5>
+                      <div class="stocks-news-list crawl-watch-news">
+                        @for (item of w.news.items; track stockNewsTrack($index, item)) {
+                          <div class="stocks-news-item">
+                            <h4 class="stocks-news-title">
+                              <a [href]="item.url" target="_blank" rel="noopener noreferrer">{{ item.title }}</a>
+                            </h4>
+                            <p class="muted stocks-news-meta">{{ item.source }} · {{ formatNewsPublished(item.publishedAt) }}</p>
+                            @if (item.summary) {
+                              <p class="stocks-news-summary">{{ item.summary }}</p>
+                            }
+                          </div>
+                        }
+                      </div>
+                    } @else {
+                      <p class="muted">No watchlist headlines in this run.</p>
+                    }
+                  </article>
+                }
+              </div>
+            </section>
           }
         </div>
       </mat-tab>
@@ -504,7 +710,7 @@
             </button>
           </div>
 
-          @if (stockSymbolsLoading && financeSubTabIndex === 4) {
+          @if (stockSymbolsLoading && financeSubTabIndex === 5) {
             <p class="muted">Loading instruments…</p>
           }
 

@@ -2,6 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { environment } from '../../environments/environment';
 import {
+  FinanceCrawlSnapshotDto,
   RobinhoodStocksSummaryDto,
   RobinhoodTransactionsDto,
   StockNewsDto,
@@ -64,6 +65,11 @@ export class FinanceApiService {
       params = params.set('limit', String(Math.floor(limit)));
     }
     return this.http.get<StockNewsDto>(`${this.root}/news`, { params });
+  }
+
+  /** Finance “Crawler” tab: topic news + watchlist + index marks. */
+  financeCrawlSnapshot() {
+    return this.http.get<FinanceCrawlSnapshotDto>(`${this.root}/crawl-snapshot`);
   }
 
   /** Recent 52w-high names that have climbed through the year. */

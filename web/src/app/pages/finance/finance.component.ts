@@ -11,6 +11,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatTabsModule } from '@angular/material/tabs';
 import {
+  FinanceCrawlSnapshotDto,
   RobinhoodStocksSummaryDto,
   RobinhoodTransactionsDto,
   StockNewsDto,
@@ -48,7 +49,7 @@ export class FinanceComponent implements OnInit {
   private readonly financeApi = inject(FinanceApiService);
   private readonly snackBar = inject(MatSnackBar);
 
-  /** Finance tabs: 0=news, 1=52w high risers, 2=transactions, 3=by instrument, 4=summary. */
+  /** Finance tabs: 0=news, 1=crawler, 2=52w high risers, 3=transactions, 4=by instrument, 5=summary. */
   financeSubTabIndex = 0;
 
   stockSymbols: string[] = [];
@@ -80,6 +81,8 @@ export class FinanceComponent implements OnInit {
 
   rhStockNews: StockNewsDto | null = null;
   rhStockNewsLoading = false;
+  crawlSnapshot: FinanceCrawlSnapshotDto | null = null;
+  crawlLoading = false;
   rhRising52w: Surge52WeekHighsDto | null = null;
   rhRising52wLoading = false;
 
@@ -112,25 +115,27 @@ export class FinanceComponent implements OnInit {
 
   onFinanceSubTabIndexChange(index: number): void {
     if (index === 1) {
-      this.loadRising52WeekHighs();
+      this.loadCrawlSnapshot();
     } else if (index === 2) {
-      this.loadRobinhoodFinanceData();
+      this.loadRising52WeekHighs();
     } else if (index === 3) {
+      this.loadRobinhoodFinanceData();
+    } else if (index === 4) {
       this.ensureStockSymbolsLoaded(() => {
         if (this.financeSelectedSymbol.trim()) {
           this.loadIndividualStockFinanceData();
         }
       }, true);
-    } else if (index === 4) {
+    } else if (index === 5) {
       this.ensureStockSymbolsLoaded(undefined, this.stockSymbols.length === 0);
       this.loadStocksSummary();
     }
   }
 
   onFinanceFilterSelectionChange(): void {
-    if (this.financeSubTabIndex === 2) {
+    if (this.financeSubTabIndex === 3) {
       this.loadRobinhoodFinanceData();
-    } else if (this.financeSubTabIndex === 3) {
+    } else if (this.financeSubTabIndex === 4) {
       if (this.financeSelectedSymbol.trim()) {
         this.loadIndividualStockFinanceData();
       }
@@ -138,7 +143,7 @@ export class FinanceComponent implements OnInit {
   }
 
   onStocksSummaryFilterChange(): void {
-    if (this.financeSubTabIndex === 4) {
+    if (this.financeSubTabIndex === 5) {
       this.loadStocksSummary();
     }
   }
@@ -168,6 +173,21 @@ export class FinanceComponent implements OnInit {
 
   stockNewsTrack(idx: number, item: StockNewsItemDto): string {
     return `${idx}\u0001${item.source}\u0001${item.publishedAt}\u0001${item.url}`;
+  }
+
+  loadCrawlSnapshot(): void {
+    this.crawlLoading = true;
+    this.financeApi.financeCrawlSnapshot().subscribe({
+      next: (r) => {
+        this.crawlSnapshot = r;
+        this.crawlLoading = false;
+      },
+      error: (e) => {
+        this.crawlLoading = false;
+        this.crawlSnapshot = null;
+        this.err('Could not load crawler snapshot', e);
+      },
+    });
   }
 
   loadRising52WeekHighs(): void {
@@ -393,7 +413,19 @@ export class FinanceComponent implements OnInit {
   }
 
   sentimentClass(): string {
-    const label = this.rhStockNews?.analysis?.overallSentiment?.toLowerCase();
+    return this.newsSentimentClass(this.rhStockNews);
+  }
+
+  growthClass(): string {
+    return this.newsGrowthClass(this.rhStockNews);
+  }
+
+  stressClass(): string {
+    return this.newsStressClass(this.rhStockNews);
+  }
+
+  newsSentimentClass(n: StockNewsDto | null | undefined): string {
+    const label = n?.analysis?.overallSentiment?.toLowerCase();
     if (label === 'positive') {
       return 'sentiment-positive';
     }
@@ -403,8 +435,8 @@ export class FinanceComponent implements OnInit {
     return 'sentiment-neutral';
   }
 
-  growthClass(): string {
-    const label = this.rhStockNews?.analysis?.projectedGrowthLabel?.toLowerCase();
+  newsGrowthClass(n: StockNewsDto | null | undefined): string {
+    const label = n?.analysis?.projectedGrowthLabel?.toLowerCase();
     if (label === 'bullish') {
       return 'growth-bullish';
     }
@@ -414,8 +446,8 @@ export class FinanceComponent implements OnInit {
     return 'growth-sideways';
   }
 
-  stressClass(): string {
-    const label = this.rhStockNews?.analysis?.stressSignals?.emphasis?.toLowerCase();
+  newsStressClass(n: StockNewsDto | null | undefined): string {
+    const label = n?.analysis?.stressSignals?.emphasis?.toLowerCase();
     if (label === 'high') {
       return 'stress-high';
     }
@@ -423,6 +455,13 @@ export class FinanceComponent implements OnInit {
       return 'stress-moderate';
     }
     return 'stress-low';
+  }
+
+  formatPct(n: number | null | undefined): string {
+    if (n == null || Number.isNaN(Number(n))) {
+      return '—';
+    }
+    return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2, signDisplay: 'always' }).format(Number(n)) + '%';
   }
 
   private parseFlexibleDate(v: unknown): Date | null {

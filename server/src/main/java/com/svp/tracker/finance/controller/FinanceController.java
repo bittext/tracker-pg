@@ -1,12 +1,14 @@
 package com.svp.tracker.finance.controller;
 
 import com.svp.tracker.config.FinanceProperties;
+import com.svp.tracker.finance.dto.FinanceCrawlSnapshotDto;
 import com.svp.tracker.finance.dto.RobinhoodCsvDirectoryImportDto;
 import com.svp.tracker.finance.dto.RobinhoodCsvImportResultDto;
 import com.svp.tracker.finance.dto.RobinhoodStocksSummaryDto;
 import com.svp.tracker.finance.dto.RobinhoodTransactionsDto;
 import com.svp.tracker.finance.dto.StockNewsDto;
 import com.svp.tracker.finance.dto.Surge52WeekHighsDto;
+import com.svp.tracker.finance.service.FinanceCrawlService;
 import com.svp.tracker.finance.service.RobinhoodCsvImportService;
 import com.svp.tracker.finance.service.RobinhoodFinanceService;
 import com.svp.tracker.finance.service.StockNewsService;
@@ -33,6 +35,7 @@ public class FinanceController {
     private final RobinhoodCsvImportService robinhoodCsvImportService;
     private final StockNewsService stockNewsService;
     private final Surge52WeekHighsService surge52WeekHighsService;
+    private final FinanceCrawlService financeCrawlService;
     private final FinanceProperties financeProperties;
 
     /**
@@ -142,6 +145,20 @@ public class FinanceController {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, e.getMessage(), e);
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Single payload for the Finance “Crawler” tab: two topic headline blocks, a deeper symbol crawl for a fixed
+     * watchlist, and major-index marks (SPY, QQQ, DIA, IWM) for session context.
+     */
+    @GetMapping("/crawl-snapshot")
+    public FinanceCrawlSnapshotDto crawlSnapshot() {
+        log.info("GET /api/finance/robinhood/crawl-snapshot");
+        try {
+            return financeCrawlService.buildSnapshot();
+        } catch (IllegalStateException e) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, e.getMessage(), e);
         }
     }
 

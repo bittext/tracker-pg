@@ -124,6 +124,51 @@ public class StockNewsService {
                 items);
     }
 
+    /**
+     * General / topic RSS crawl (no ticker required): pass a full Google News query string, e.g. {@code
+     * "(world news OR breaking) when:1d"}.
+     */
+    public StockNewsDto fetchTopicHeadlines(String topicLabel, String googleQuery, Integer limitRaw) {
+        if (!props.newsEnabled()) {
+            throw new IllegalStateException("Stock news endpoint is disabled (tracker.finance.news-enabled=false)");
+        }
+        if (topicLabel == null || topicLabel.isBlank()) {
+            throw new IllegalArgumentException("topicLabel is required");
+        }
+        String q = sanitizeTopicQuery(googleQuery);
+        int limit = sanitizeLimit(limitRaw);
+        String rss = fetchFeed(q);
+        List<StockNewsItemDto> items = parseAndFilter(rss, limit);
+        StockNewsAnalysisDto analysis = analyze(items);
+        return new StockNewsDto(
+                "TOPIC",
+                topicLabel,
+                limit,
+                items.size(),
+                FEED_NAME,
+                Instant.now().toString(),
+                "Google News search: " + q,
+                analysis,
+                items);
+    }
+
+    private String sanitizeTopicQuery(String raw) {
+        if (raw == null) {
+            throw new IllegalArgumentException("query is required");
+        }
+        String s = raw.replaceAll("\\s+", " ").trim();
+        if (s.isEmpty()) {
+            throw new IllegalArgumentException("query is empty");
+        }
+        if (CONTROL_CHARS.matcher(s).find()) {
+            throw new IllegalArgumentException("query has unsupported control characters");
+        }
+        if (s.length() > 480) {
+            throw new IllegalArgumentException("query is too long");
+        }
+        return s;
+    }
+
     private static String newsQuery(String symbol, String companyName) {
         StringBuilder q = new StringBuilder();
         if (symbol != null) {
