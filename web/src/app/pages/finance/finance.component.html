@@ -161,11 +161,11 @@
       <mat-tab label="Crawler">
         <div class="finance-panel finance-crawl-panel">
           <p class="muted stocks-news-intro">
-            Server-side crawl: <strong>general</strong> and <strong>financial</strong> topic headlines (Google News RSS,
-            trusted sources), a <strong>deeper</strong> symbol pass for
+            Server-side crawl: <strong>latest world happenings</strong> (not “top stories”) and <strong>financial</strong>
+            topic headlines, <strong>Swing stocks</strong> (Yahoo day gainers/losers, KPIs, sector context, news), a
+            <strong>deeper</strong> symbol pass for
             <strong>HOOD</strong> (Robinhood), <strong>CRWV</strong> (CoreWeave), and <strong>NBIS</strong> (Nebius), plus
-            <strong>SPY / QQQ / DIA / IWM</strong> session marks for context. Not investment advice; quotes can be
-            delayed.
+            <strong>SPY / QQQ / DIA / IWM</strong> session marks. Not investment advice; quotes can be delayed.
           </p>
 
           <div class="finance-toolbar">
@@ -210,7 +210,7 @@
             }
 
             <section class="crawl-section" aria-labelledby="crawl-gen">
-              <h3 id="crawl-gen" class="crawl-section-title">General purpose news</h3>
+              <h3 id="crawl-gen" class="crawl-section-title">Latest world news &amp; happenings</h3>
               <p class="muted crawl-block-meta">{{ crawlSnapshot.generalNews.note }}</p>
               @if (crawlSnapshot.generalNews.items.length) {
                 <div class="news-intelligence-grid">
@@ -300,6 +300,100 @@
                 <p class="muted">No financial headlines in this run.</p>
               }
             </section>
+
+            @if (crawlSnapshot.swingStocks) {
+              <section class="crawl-section" aria-labelledby="crawl-swing">
+                <h3 id="crawl-swing" class="crawl-section-title">Swing stocks</h3>
+                <p class="muted crawl-swing-intro">
+                  Largest <strong>session % moves</strong> from Yahoo day gainers / losers (and actives), with KPIs, same‑sector
+                  screener context, and headline heuristics. Not financial advice; data can be delayed.
+                </p>
+                <p class="muted crawl-block-meta">
+                  <strong>{{ crawlSnapshot.swingStocks.source }}</strong> · {{ crawlSnapshot.swingStocks.fetchedAt | slice: 0:19 }} ·
+                  {{ crawlSnapshot.swingStocks.swingRowsRequested }} name(s) ·
+                </p>
+                <p class="crawl-swing-disclaimer">{{ crawlSnapshot.swingStocks.note }}</p>
+                @if (crawlSnapshot.swingStocks.rows.length) {
+                  <div class="crawl-swing-grid">
+                    @for (sw of crawlSnapshot.swingStocks.rows; track sw.quote.symbol) {
+                      <article class="crawl-swing-card">
+                        <div class="crawl-swing-head">
+                          <h4 class="crawl-swing-symbol">
+                            {{ sw.quote.symbol }}
+                            <span class="crawl-swing-name">{{ sw.quote.longName || sw.quote.shortName || '—' }}</span>
+                          </h4>
+                          <p class="crawl-swing-badges">
+                            @if (sw.quote.sector) {
+                              <span class="crawl-swing-badge">Sector: {{ sw.quote.sector }}</span>
+                            }
+                            @if (sw.quote.industry) {
+                              <span class="crawl-swing-badge">Industry: {{ sw.quote.industry }}</span>
+                            }
+                            <span
+                              class="crawl-swing-chg"
+                              [class.crawl-chg-pos]="sw.quote.regularMarketChangePercent != null && sw.quote.regularMarketChangePercent > 0"
+                              [class.crawl-chg-neg]="sw.quote.regularMarketChangePercent != null && sw.quote.regularMarketChangePercent < 0"
+                            >
+                              {{ formatPct(sw.quote.regularMarketChangePercent) }} · ${{
+                                sw.quote.regularMarketPrice != null ? (sw.quote.regularMarketPrice | number: '1.2-2') : '—'
+                              }}
+                            </span>
+                          </p>
+                        </div>
+                        @if (sw.warnings.length) {
+                          <ul class="crawl-warn">
+                            @for (w of sw.warnings; track w) {
+                              <li>{{ w }}</li>
+                            }
+                          </ul>
+                        }
+                        <div class="crawl-swing-body">
+                          <h5 class="crawl-swing-sub">Key performance (Yahoo feed)</h5>
+                          <p class="crawl-swing-para">{{ sw.kpiNarrative }}</p>
+                          <h5 class="crawl-swing-sub">Performance &amp; drivers (heuristic — news + volume)</h5>
+                          <p class="crawl-swing-para crawl-swing-report">{{ sw.performanceReport }}</p>
+                          @if (sw.sectorPeers.length) {
+                            <h5 class="crawl-swing-sub">Other sector movers in screener (today)</h5>
+                            <ul class="crawl-swing-peers">
+                              @for (p of sw.sectorPeers; track p.symbol) {
+                                <li>
+                                  <strong>{{ p.symbol }}</strong> {{ p.shortName || '—' }} — {{ formatPct(p.regularMarketChangePercent) }}
+                                </li>
+                              }
+                            </ul>
+                          }
+                        </div>
+                        @if (sw.news.items.length) {
+                          <h5 class="crawl-swing-sub">Headlines (trusted-source crawl)</h5>
+                          <div class="stocks-news-list crawl-swing-news">
+                            @for (item of sw.news.items; track stockNewsTrack($index, item)) {
+                              <div class="stocks-news-item">
+                                <h4 class="stocks-news-title">
+                                  <a [href]="item.url" target="_blank" rel="noopener noreferrer">{{ item.title }}</a>
+                                </h4>
+                                <p class="muted stocks-news-meta">{{ item.source }} · {{ formatNewsPublished(item.publishedAt) }}</p>
+                                @if (item.summary) {
+                                  <p class="stocks-news-summary">{{ item.summary }}</p>
+                                }
+                              </div>
+                            }
+                          </div>
+                        }
+                        <div class="crawl-swing-signals">
+                          <p class="muted small-signals">
+                            Heuristic scan: <strong>{{ sw.news.analysis.overallSentiment }}</strong> · outlook
+                            <strong>{{ sw.news.analysis.projectedGrowthLabel }}</strong> · stress
+                            <strong>{{ sw.news.analysis.stressSignals.emphasis }}</strong>
+                          </p>
+                        </div>
+                      </article>
+                    }
+                  </div>
+                } @else {
+                  <p class="muted">No swing rows in this run (screeners or quotes may be empty).</p>
+                }
+              </section>
+            }
 
             <section class="crawl-section" aria-labelledby="crawl-stocks">
               <h3 id="crawl-stocks" class="crawl-section-title">Stock news: Robinhood, CoreWeave, Nebius</h3>

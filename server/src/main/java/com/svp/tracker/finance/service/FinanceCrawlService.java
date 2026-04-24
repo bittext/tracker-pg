@@ -8,6 +8,7 @@ import com.svp.tracker.finance.dto.StockNewsAnalysisDto;
 import com.svp.tracker.finance.dto.StockNewsDto;
 import com.svp.tracker.finance.dto.StockNewsItemDto;
 import com.svp.tracker.finance.dto.StockNewsStressSignalsDto;
+import com.svp.tracker.finance.dto.SwingStocksSectionDto;
 import com.svp.tracker.finance.dto.YahooSimpleQuoteDto;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -15,7 +16,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,7 +28,9 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 @Slf4j
 public class FinanceCrawlService {
-    private static final String Q_GENERAL = "(top stories OR world news OR breaking news) when:2d";
+    /** Recency-first world feed: avoid “top stories” phrasing so results skew to latest happenings, not ranked “top” articles. */
+    private static final String Q_GENERAL =
+            "(latest OR breaking OR today) (world OR international OR global) (news OR events OR developments) when:1d";
     private static final String Q_FINANCIAL =
             "(stock market OR Wall Street OR Federal Reserve OR S&P 500 OR economy) when:3d";
     private static final List<Watch> WATCH = List.of(
@@ -40,6 +42,7 @@ public class FinanceCrawlService {
     private final FinanceProperties props;
     private final StockNewsService stockNewsService;
     private final YahooBatchQuoteService yahooBatchQuoteService;
+    private final SwingStocksCrawlService swingStocksCrawlService;
 
     public FinanceCrawlSnapshotDto buildSnapshot() {
         if (!props.newsEnabled()) {
@@ -52,7 +55,7 @@ public class FinanceCrawlService {
                         + " per block. Quotes: Yahoo Finance (regular session, delayed on some symbols). Not investment"
                         + " advice.";
 
-        StockNewsDto general = safeTopic("General purpose", Q_GENERAL, limit);
+        StockNewsDto general = safeTopic("Latest world happenings", Q_GENERAL, limit);
         StockNewsDto financial = safeTopic("Financial markets", Q_FINANCIAL, limit);
 
         List<String> allSyms = new ArrayList<>();
@@ -76,8 +79,10 @@ public class FinanceCrawlService {
             watch.add(buildWatch(w, limit, quotes));
         }
 
+        SwingStocksSectionDto swingStocks = swingStocksCrawlService.buildSection(limit);
+
         return new FinanceCrawlSnapshotDto(
-                Instant.now().toString(), note, limit, general, financial, indexRows, watch);
+                Instant.now().toString(), note, limit, general, financial, indexRows, watch, swingStocks);
     }
 
     private int deepLimit() {

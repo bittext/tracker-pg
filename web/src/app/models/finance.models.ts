@@ -93,6 +93,49 @@ export interface FinanceCrawlSnapshotDto {
   financialNews: StockNewsDto;
   majorIndexes: IndexSnapshotDto[];
   watchlist: CrawlerWatchItemDto[];
+  /** Present when API includes swing screeners (newer server). */
+  swingStocks?: SwingStocksSectionDto;
+}
+
+export interface SwingStocksSectionDto {
+  source: string;
+  note: string;
+  fetchedAt: string;
+  swingRowsRequested: number;
+  rows: SwingStockDetailDto[];
+}
+
+export interface YahooExtendedQuoteDto {
+  symbol: string;
+  shortName: string;
+  longName: string;
+  regularMarketPrice: number | null;
+  regularMarketChangePercent: number | null;
+  regularMarketVolume: number | null;
+  averageDailyVolume3Month: number | null;
+  marketCap: number | null;
+  fiftyTwoWeekHigh: number | null;
+  fiftyTwoWeekLow: number | null;
+  trailingPE: number | null;
+  sector: string;
+  industry: string;
+}
+
+export interface SectorPeerMoveDto {
+  symbol: string;
+  shortName: string;
+  regularMarketChangePercent: number | null;
+  regularMarketPrice: number | null;
+  sector: string;
+}
+
+export interface SwingStockDetailDto {
+  quote: YahooExtendedQuoteDto;
+  news: StockNewsDto;
+  performanceReport: string;
+  kpiNarrative: string;
+  sectorPeers: SectorPeerMoveDto[];
+  warnings: string[];
 }
 
 export interface IndexSnapshotDto {
