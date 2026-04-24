@@ -92,7 +92,52 @@ public class StockNewsService {
                     "Yahoo Finance",
                     "Barron's",
                     "Investing.com",
-                    "The Motley Fool");
+                    "The Motley Fool",
+                    "Associated Press",
+                    "AP News",
+                    "BBC",
+                    "NPR",
+                    "The New York Times",
+                    "The Washington Post",
+                    "The Guardian",
+                    "NBC News",
+                    "ABC News",
+                    "CBS News",
+                    "Politico",
+                    "Axios",
+                    "Al Jazeera");
+    /**
+     * If the article link resolves to one of these hosts (or subdomains), treat as trusted in strict mode when the
+     * RSS {@code <source>} tag is missing or non-matching.
+     */
+    private static final List<String> TRUSTED_HOST_MARKERS =
+            List.of(
+                    "reuters.com",
+                    "bloomberg.com",
+                    "ft.com",
+                    "wsj.com",
+                    "nytimes.com",
+                    "washingtonpost.com",
+                    "apnews.com",
+                    "ap.org",
+                    "bbc.com",
+                    "bbc.co.uk",
+                    "cnbc.com",
+                    "marketwatch.com",
+                    "finance.yahoo.com",
+                    "yahoo.com", // yahoo.com/finance paths
+                    "investing.com",
+                    "barrons.com",
+                    "fool.com",
+                    "theguardian.com",
+                    "npr.org",
+                    "axios.com",
+                    "politico.com",
+                    "aljazeera.com",
+                    "nbcnews.com",
+                    "cbsnews.com",
+                    "abcnews"
+            );
     private static final String FEED_NAME = "Google News RSS";
     private static final String FEED_URL = "https://news.google.com/rss/search";
 
@@ -110,7 +155,7 @@ public class StockNewsService {
         int limit = sanitizeLimit(limitRaw);
         String query = newsQuery(symbol, companyName);
         String rss = fetchFeed(query);
-        List<StockNewsItemDto> items = parseAndFilter(rss, limit);
+        List<StockNewsItemDto> items = parseAndFilter(rss, limit, true);
         StockNewsAnalysisDto analysis = analyze(items);
         return new StockNewsDto(
                 symbol,
@@ -138,7 +183,9 @@ public class StockNewsService {
         String q = sanitizeTopicQuery(googleQuery);
         int limit = sanitizeLimit(limitRaw);
         String rss = fetchFeed(q);
-        List<StockNewsItemDto> items = parseAndFilter(rss, limit);
+        // Topic / broad queries: do not require the small allowlist (many outlets fail exact match; Google may omit
+        // &lt;source&gt; or use non-matching names). Stock-specific queries use strict mode above.
+        List<StockNewsItemDto> items = parseAndFilter(rss, limit, false);
         StockNewsAnalysisDto analysis = analyze(items);
         return new StockNewsDto(
                 "TOPIC",
@@ -147,7 +194,7 @@ public class StockNewsService {
                 items.size(),
                 FEED_NAME,
                 Instant.now().toString(),
-                "Google News search: " + q,
+                "Google News search: " + q + " (all RSS items with title+link, deduplicated; source label from feed or URL).",
                 analysis,
                 items);
     }
@@ -344,13 +391,19 @@ public class StockNewsService {
         }
     }
 
-    private List<StockNewsItemDto> parseAndFilter(String xml, int limit) {
+    /**
+     * @param strictTrustedOnly when true, keep the legacy “trusted outlet” filter (improved with host hints). When
+     *     false, accept any item with a title and link (topic crawls / broad Google queries).
+     */
+    private List<StockNewsItemDto> parseAndFilter(String xml, int limit, boolean strictTrustedOnly) {
         try {
             DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
             dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
             dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
             dbf.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
             dbf.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+            // Allow resolving namespaced children (e.g. source) inside items.
+            dbf.setNamespaceAware(true);
             Document doc = dbf.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
             NodeList itemNodes = doc.getElementsByTagName("item");
 
@@ -362,14 +415,18 @@ public class StockNewsService {
                     continue;
                 }
                 String title = textOf(e, "title");
-                String link = textOf(e, "link");
+                String link = itemLink(e);
                 String pub = normalizePubDate(textOf(e, "pubDate"));
-                String source = textOf(e, "source");
+                String publisherFromFeed = firstNonBlank(textOf(e, "source"), sourceFromAnyNamespace(e));
+                String source = firstNonBlank(publisherFromFeed, inferSourceLabelFromUrl(link));
                 String description = sanitizeSummary(textOf(e, "description"));
-                if (title.isBlank() || link.isBlank() || source.isBlank()) {
+                if (title.isBlank() || link.isBlank()) {
                     continue;
                 }
-                if (!isTrustedSource(source)) {
+                if (source.isBlank()) {
+                    source = "News";
+                }
+                if (strictTrustedOnly && !isStrictTrusted(publisherFromFeed, link)) {
                     continue;
                 }
                 String key = (title + "\u0000" + link).toLowerCase(Locale.ROOT);
@@ -391,6 +448,142 @@ public class StockNewsService {
         }
     }
 
+    private static String itemLink(Element e) {
+        String link = textOf(e, "link");
+        if (!link.isBlank()) {
+            return link;
+        }
+        String guid = textOf(e, "guid");
+        if (guid == null) {
+            return "";
+        }
+        String g = guid.trim();
+        if (g.startsWith("http://") || g.startsWith("https://")) {
+            return g;
+        }
+        return "";
+    }
+
+    private static String sourceFromAnyNamespace(Element e) {
+        try {
+            NodeList ns = e.getElementsByTagNameNS("*", "source");
+            if (ns.getLength() == 0 || ns.item(0) == null) {
+                return "";
+            }
+            String t = ns.item(0).getTextContent();
+            return t == null ? "" : t.trim();
+        } catch (RuntimeException ex) {
+            return "";
+        }
+    }
+
+    private static String firstNonBlank(String a, String b) {
+        if (a != null && !a.isBlank()) {
+            return a;
+        }
+        return b == null || b.isBlank() ? "" : b;
+    }
+
+    private static String inferSourceLabelFromUrl(String link) {
+        if (link == null || link.isBlank()) {
+            return "";
+        }
+        try {
+            URI u = URI.create(link);
+            String host = u.getHost();
+            if (host == null || host.isBlank()) {
+                return "";
+            }
+            if (host.equalsIgnoreCase("news.google.com") || host.endsWith(".google.com") && host.contains("news")) {
+                return "Google News";
+            }
+            String h = host.toLowerCase(Locale.ROOT);
+            if (h.startsWith("www.")) {
+                h = h.substring(4);
+            }
+            return h;
+        } catch (IllegalArgumentException ex) {
+            return "";
+        }
+    }
+
+    /**
+     * Single-stock and symbol queries: require a known outlet name in the feed, a trusted target host (direct article
+     * link), or skip Google redirect-only items we cannot attribute.
+     */
+    private static boolean isStrictTrusted(String publisherFromFeed, String link) {
+        if (isTrustedSourceExactOrContains(publisherFromFeed)) {
+            return true;
+        }
+        if (isNewsGoogleRedirectLink(link)) {
+            return false;
+        }
+        return isTrustedHost(link);
+    }
+
+    private static boolean isNewsGoogleRedirectLink(String link) {
+        if (link == null || link.isBlank()) {
+            return false;
+        }
+        try {
+            String h = URI.create(link).getHost();
+            if (h == null) {
+                return false;
+            }
+            h = h.toLowerCase(Locale.ROOT);
+            return h.equals("news.google.com");
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    private static boolean isTrustedHost(String link) {
+        if (link == null || link.isBlank()) {
+            return false;
+        }
+        String host;
+        try {
+            host = URI.create(link).getHost();
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+        if (host == null || host.isBlank()) {
+            return false;
+        }
+        String h = host.toLowerCase(Locale.ROOT);
+        for (String m : TRUSTED_HOST_MARKERS) {
+            if (h.contains(m)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isTrustedSourceExactOrContains(String source) {
+        if (source == null) {
+            return false;
+        }
+        String s = source.trim();
+        if (s.isEmpty()) {
+            return false;
+        }
+        for (String trusted : TRUSTED_SOURCES) {
+            if (s.equalsIgnoreCase(trusted)) {
+                return true;
+            }
+        }
+        String lower = s.toLowerCase(Locale.ROOT);
+        for (String trusted : TRUSTED_SOURCES) {
+            if (trusted.length() < 4) {
+                continue;
+            }
+            if (lower.contains(trusted.toLowerCase(Locale.ROOT))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static String normalizePubDate(String raw) {
         if (raw == null || raw.isBlank()) {
             return "";
@@ -409,22 +602,6 @@ public class StockNewsService {
         }
         String txt = list.item(0).getTextContent();
         return txt == null ? "" : txt.trim();
-    }
-
-    private static boolean isTrustedSource(String source) {
-        if (source == null) {
-            return false;
-        }
-        String s = source.trim();
-        if (s.isEmpty()) {
-            return false;
-        }
-        for (String trusted : TRUSTED_SOURCES) {
-            if (s.equalsIgnoreCase(trusted)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private static String sanitizeSummary(String raw) {
