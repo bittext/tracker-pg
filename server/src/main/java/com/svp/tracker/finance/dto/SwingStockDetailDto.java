@@ -11,4 +11,8 @@ public record SwingStockDetailDto(
         String performanceReport,
         String kpiNarrative,
         List<SectorPeerMoveDto> sectorPeers,
-        List<String> warnings) {}
+        List<String> warnings,
+        /** Short label for UI chips — heuristic only, not analyst consensus. */
+        String nearTermOutlookTilt,
+        /** Why the tilt was chosen; cites common empirical patterns without claiming a prediction. */
+        String nearTermOutlookNarrative) {}

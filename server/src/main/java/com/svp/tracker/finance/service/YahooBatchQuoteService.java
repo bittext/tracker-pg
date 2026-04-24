@@ -181,6 +181,16 @@ public class YahooBatchQuoteService {
         if (v.isNumber()) {
             return Math.round(v.asDouble());
         }
+        if (v.isTextual()) {
+            String s = v.asText();
+            if (s != null && !s.isBlank()) {
+                try {
+                    return Math.round(Double.parseDouble(s.trim().replace(",", "")));
+                } catch (NumberFormatException ignored) {
+                    return null;
+                }
+            }
+        }
         return null;
     }
 
@@ -195,11 +205,28 @@ public class YahooBatchQuoteService {
         return v.toString();
     }
 
+    /** Yahoo often returns {@code {"raw":n,"fmt":"..."}} or text numbers; match screener-style parsing. */
     private static Double dbl(JsonNode n, String field) {
-        JsonNode v = n.get(field);
-        if (v == null || v.isNull() || !v.isNumber()) {
+        if (n == null || !n.has(field) || n.get(field).isNull()) {
             return null;
         }
-        return v.asDouble();
+        JsonNode v = n.get(field);
+        if (v.isObject() && v.has("raw") && !v.get("raw").isNull()) {
+            v = v.get("raw");
+        }
+        if (v.isNumber()) {
+            return v.asDouble();
+        }
+        if (v.isTextual()) {
+            String s = v.asText();
+            if (s != null && !s.isEmpty()) {
+                try {
+                    return Double.parseDouble(s.trim().replace(",", ""));
+                } catch (NumberFormatException ignored) {
+                    return null;
+                }
+            }
+        }
+        return null;
     }
 }

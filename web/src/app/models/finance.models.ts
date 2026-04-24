@@ -136,6 +136,10 @@ export interface SwingStockDetailDto {
   kpiNarrative: string;
   sectorPeers: SectorPeerMoveDto[];
   warnings: string[];
+  /** Heuristic chip — not analyst consensus (newer API). */
+  nearTermOutlookTilt?: string;
+  /** Explains the rule blend and empirical caveats (newer API). */
+  nearTermOutlookNarrative?: string;
 }
 
 export interface IndexSnapshotDto {

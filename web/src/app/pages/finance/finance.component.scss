@@ -508,6 +508,19 @@
     font-size: 0.86rem;
   }
 
+  .crawl-swing-outlook-tilt {
+    margin: 0.2rem 0 0.35rem;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--app-fg, #0f172a);
+  }
+
+  .crawl-swing-outlook-narrative {
+    font-size: 0.82rem;
+    line-height: 1.5;
+    color: var(--app-muted-strong, #475569);
+  }
+
   .crawl-swing-peers {
     margin: 0.25rem 0 0;
     padding-left: 1.1rem;

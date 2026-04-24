@@ -306,7 +306,8 @@
                 <h3 id="crawl-swing" class="crawl-section-title">Swing stocks</h3>
                 <p class="muted crawl-swing-intro">
                   Largest <strong>session % moves</strong> from Yahoo day gainers / losers (and actives), with KPIs, same‑sector
-                  screener context, and headline heuristics. Not financial advice; data can be delayed.
+                  screener context, headline heuristics, and a <strong>next few sessions</strong> rule-based tilt (not Wall
+                  Street consensus). Not financial advice; data can be delayed.
                 </p>
                 <p class="muted crawl-block-meta">
                   <strong>{{ crawlSnapshot.swingStocks.source }}</strong> · {{ crawlSnapshot.swingStocks.fetchedAt | slice: 0:19 }} ·
@@ -352,6 +353,15 @@
                           <p class="crawl-swing-para">{{ sw.kpiNarrative }}</p>
                           <h5 class="crawl-swing-sub">Performance &amp; drivers (heuristic — news + volume)</h5>
                           <p class="crawl-swing-para crawl-swing-report">{{ sw.performanceReport }}</p>
+                          @if (sw.nearTermOutlookTilt || sw.nearTermOutlookNarrative) {
+                            <h5 class="crawl-swing-sub">Next few sessions (heuristic — not analyst consensus)</h5>
+                            @if (sw.nearTermOutlookTilt) {
+                              <p class="crawl-swing-outlook-tilt">{{ sw.nearTermOutlookTilt }}</p>
+                            }
+                            @if (sw.nearTermOutlookNarrative) {
+                              <p class="crawl-swing-para crawl-swing-outlook-narrative">{{ sw.nearTermOutlookNarrative }}</p>
+                            }
+                          }
                           @if (sw.sectorPeers.length) {
                             <h5 class="crawl-swing-sub">Other sector movers in screener (today)</h5>
                             <ul class="crawl-swing-peers">

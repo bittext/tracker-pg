@@ -65,8 +65,9 @@ public class SwingStocksCrawlService {
         String note =
                 "Sources: Yahoo Finance screeners (day gainers, losers, most actives) for session movers; v7 batch quote"
                         + " KPIs; Google News RSS (trusted sources) for headlines. Peer rows are other names in the"
-                        + " screener mix with the same Yahoo sector when available. Automated, incomplete — not"
-                        + " investment advice.";
+                        + " screener mix with the same Yahoo sector when available. “Next few sessions” lines are"
+                        + " rule-based heuristics from those inputs — not sell-side consensus or a forecast. Automated,"
+                        + " incomplete — not investment advice.";
         String fetched = Instant.now().toString();
         try {
             JsonNode gainers = fetchScreenerJson("day_gainers", SCREENER_PAGE);
@@ -111,11 +112,20 @@ public class SwingStocksCrawlService {
             List<SwingStockDetailDto> rows = new ArrayList<>();
             for (String sym : topSyms) {
                 YahooExtendedQuoteDto qe = ext.get(sym);
+                boolean batchHadRow = qe != null;
+                if (qe == null) {
+                    qe = extendedFromScreener(sym, bySymbol.get(sym));
+                }
                 if (qe == null) {
                     rows.add(missingRow(sym, "No extended quote row"));
                     continue;
                 }
                 List<String> warns = new ArrayList<>();
+                if (!batchHadRow) {
+                    warns.add(
+                            "Yahoo v7 quote batch omitted this symbol or returned no row; KPIs use the screener quote"
+                                    + " where available.");
+                }
                 StockNewsDto news;
                 String company = pickCompanyName(qe);
                 try {
@@ -129,7 +139,9 @@ public class SwingStocksCrawlService {
                         sym, pickSectorPeers(sym, sectorBySymbol, chgBySymbol, bySymbol.keySet()), bySymbol, ext, sectorBySymbol);
                 String kpi = buildKpiNarrative(qe);
                 String perf = buildPerformanceReport(qe, news, peers);
-                rows.add(new SwingStockDetailDto(qe, news, perf, kpi, peers, List.copyOf(warns)));
+                NearTermOutlook near = buildNearTermOutlook(qe, news, peers);
+                rows.add(new SwingStockDetailDto(
+                        qe, news, perf, kpi, peers, List.copyOf(warns), near.tilt(), near.narrative()));
             }
             return new SwingStocksSectionDto("Yahoo + Google News RSS", note, fetched, topSyms.size(), rows);
         } catch (Exception e) {
@@ -153,6 +165,62 @@ public class SwingStocksCrawlService {
         return q.symbol();
     }
 
+    /**
+     * When v7/quote drops a symbol, reuse the same screener JSON we ranked on so price, %, name, and sector still
+     * render.
+     */
+    private static YahooExtendedQuoteDto extendedFromScreener(String sym, JsonNode q) {
+        if (q == null || q.isNull()) {
+            return null;
+        }
+        String shortNm = screenerText(q, "shortName");
+        Long vol3m = longFromScreener(q, "averageDailyVolume3Month");
+        if (vol3m == null) {
+            vol3m = longFromScreener(q, "averageDailyVolume10Day");
+        }
+        return new YahooExtendedQuoteDto(
+                sym,
+                shortNm != null && !shortNm.isBlank() ? shortNm : sym,
+                screenerText(q, "longName"),
+                dbl(q, "regularMarketPrice"),
+                dbl(q, "regularMarketChangePercent"),
+                longFromScreener(q, "regularMarketVolume"),
+                vol3m,
+                dbl(q, "marketCap"),
+                dbl(q, "fiftyTwoWeekHigh"),
+                dbl(q, "fiftyTwoWeekLow"),
+                dbl(q, "trailingPE"),
+                screenerText(q, "sector"),
+                screenerText(q, "industry"));
+    }
+
+    private static Long longFromScreener(JsonNode n, String field) {
+        if (n == null || !n.has(field) || n.get(field).isNull()) {
+            return null;
+        }
+        JsonNode v = n.get(field);
+        if (v.isObject() && v.has("raw") && !v.get("raw").isNull()) {
+            v = v.get("raw");
+        }
+        if (v.isIntegralNumber()) {
+            return v.asLong();
+        }
+        if (v.isNumber()) {
+            return Math.round(v.asDouble());
+        }
+        if (v.isTextual()) {
+            String s = v.asText();
+            if (s != null && !s.isBlank()) {
+                try {
+                    return Math.round(Double.parseDouble(s.trim().replace(",", "")));
+                } catch (NumberFormatException ignored) {
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
+
     private static SwingStockDetailDto missingRow(String sym, String msg) {
         YahooExtendedQuoteDto qe =
                 new YahooExtendedQuoteDto(
@@ -163,7 +231,9 @@ public class SwingStocksCrawlService {
                 msg,
                 "—",
                 List.of(),
-                List.of(msg));
+                List.of(msg),
+                "Unavailable",
+                "Near-term persistence read needs price and session context from Yahoo; none was available for this row.");
     }
 
     private static StockNewsDto emptyNews(String sym, String co, int limit) {
@@ -344,6 +414,128 @@ public class SwingStocksCrawlService {
         sb.append("Double‑check filings, firm guidance, and the tape.");
         return sb.toString();
     }
+
+    /**
+     * Rule-based tilt about whether the session impulse is more likely to extend, fade, or chop over the next few
+     * trading days — explicitly not analyst consensus or a model forecast.
+     */
+    private static NearTermOutlook buildNearTermOutlook(
+            YahooExtendedQuoteDto q, StockNewsDto news, List<SectorPeerMoveDto> peers) {
+        Double chg = q.regularMarketChangePercent();
+        double absChg = chg == null ? 0.0 : Math.abs(chg);
+        double score = 0.0;
+
+        if (absChg >= 15) {
+            score -= 3.0;
+        } else if (absChg >= 10) {
+            score -= 2.2;
+        } else if (absChg >= 6) {
+            score -= 1.4;
+        } else if (absChg >= 3) {
+            score -= 0.5;
+        } else if (absChg > 0 && absChg < 1.0) {
+            score += 0.2;
+        }
+
+        if (q.regularMarketVolume() != null
+                && q.averageDailyVolume3Month() != null
+                && q.averageDailyVolume3Month() > 0) {
+            double r = (double) q.regularMarketVolume() / (double) q.averageDailyVolume3Month();
+            if (r >= 2.2) {
+                score += 2.0;
+            } else if (r >= 1.5) {
+                score += 1.1;
+            } else if (r >= 1.15) {
+                score += 0.4;
+            } else if (r <= 0.5) {
+                score -= 0.6;
+            }
+        }
+
+        String sent =
+                news != null && news.analysis() != null && news.analysis().overallSentiment() != null
+                        ? news.analysis().overallSentiment().trim()
+                        : "Neutral";
+        boolean posSent = sent.equalsIgnoreCase("Positive");
+        boolean negSent = sent.equalsIgnoreCase("Negative");
+        if (chg != null) {
+            if (chg > 0.35) {
+                if (posSent) {
+                    score += 1.0;
+                } else if (negSent) {
+                    score -= 1.3;
+                }
+            } else if (chg < -0.35) {
+                if (negSent) {
+                    score += 0.9;
+                } else if (posSent) {
+                    score -= 0.9;
+                }
+            }
+        }
+
+        if (q.regularMarketPrice() != null
+                && q.fiftyTwoWeekHigh() != null
+                && q.fiftyTwoWeekLow() != null) {
+            double hi = q.fiftyTwoWeekHigh();
+            double lo = q.fiftyTwoWeekLow();
+            if (hi > lo) {
+                double posPct = 100.0 * (q.regularMarketPrice() - lo) / (hi - lo);
+                if (posPct >= 93) {
+                    score -= 1.1;
+                } else if (posPct >= 88) {
+                    score -= 0.5;
+                } else if (posPct <= 12 && chg != null && chg > 0) {
+                    score += 0.4;
+                }
+            }
+        }
+
+        if (chg != null && peers != null && !peers.isEmpty()) {
+            int n = 0;
+            int same = 0;
+            for (SectorPeerMoveDto p : peers) {
+                Double pc = p.regularMarketChangePercent();
+                if (pc == null) {
+                    continue;
+                }
+                n++;
+                if (Math.signum(pc) == Math.signum(chg)) {
+                    same++;
+                }
+            }
+            if (n >= 2) {
+                double frac = (double) same / (double) n;
+                if (frac >= 0.66) {
+                    score += 0.9;
+                } else if (frac <= 0.34) {
+                    score -= 0.5;
+                }
+            }
+        }
+
+        String tilt;
+        if (score >= 1.75) {
+            tilt = "Momentum-friendly next sessions (heuristic)";
+        } else if (score <= -1.75) {
+            tilt = "Fade or chop risk next sessions (heuristic)";
+        } else {
+            tilt = "Mixed — weak persistence signal (heuristic)";
+        }
+
+        String narrative =
+                "Not sell-side or survey consensus, and not a forecast. This tilt blends rules from today's |%| move "
+                        + "(very large one-day moves often show partial giveback or sideways digestion in many empirical "
+                        + "samples), volume versus a rough average, headline tone versus session direction, where price "
+                        + "sits in the 52-week band, and whether same-sector screener peers lean the same way. "
+                        + "Heuristic label: "
+                        + tilt
+                        + ". Outcomes vary by catalyst and regime; use filings, guidance, and the live tape. Automated "
+                        + "context only — not investment advice.";
+        return new NearTermOutlook(tilt, narrative);
+    }
+
+    private record NearTermOutlook(String tilt, String narrative) {}
 
     private static double nvl(Double a, double d) {
         return a == null ? d : a;
