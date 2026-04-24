@@ -541,6 +541,145 @@
         </div>
       </mat-tab>
 
+      <mat-tab label="Alerts">
+        <div class="finance-panel finance-alerts-panel">
+          <p class="muted stocks-news-intro">
+            Create Yahoo quote alerts for a stock reaching a target price or a daily/session rise percentage. Alerts use
+            the notification channels configured in <strong>Admin → Finance</strong>; quotes can be delayed.
+          </p>
+
+          <div class="finance-alert-form">
+            <mat-form-field appearance="outline" class="fh-symbol">
+              <mat-label>Symbol</mat-label>
+              <input matInput [(ngModel)]="financeAlertForm.symbol" name="alertSymbol" placeholder="e.g. NVDA" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="fh-symbol-edit">
+              <mat-label>Trigger</mat-label>
+              <mat-select [(ngModel)]="financeAlertForm.triggerType" name="alertTrigger">
+                <mat-option [value]="'PRICE_AT_OR_ABOVE'">Price at/above</mat-option>
+                <mat-option [value]="'SESSION_CHANGE_PERCENT_AT_OR_ABOVE'">Session rise % at/above</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="fh-year">
+              <mat-label>Threshold</mat-label>
+              <input matInput type="number" step="0.01" [(ngModel)]="financeAlertForm.thresholdValue" name="alertThreshold" />
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="fh-symbol-edit">
+              <mat-label>Frequency</mat-label>
+              <mat-select [(ngModel)]="financeAlertForm.repeatMode" name="alertRepeat">
+                <mat-option [value]="'ONCE'">Once</mat-option>
+                <mat-option [value]="'REPEAT'">Repeat with cooldown</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="fh-year">
+              <mat-label>Cooldown min</mat-label>
+              <input matInput type="number" min="0" step="1" [(ngModel)]="financeAlertForm.cooldownMinutes" name="alertCooldown" />
+            </mat-form-field>
+
+            <label class="finance-alert-check">
+              <input type="checkbox" [(ngModel)]="financeAlertForm.enabled" name="alertEnabled" />
+              Enabled
+            </label>
+
+            <button mat-flat-button color="primary" type="button" (click)="saveFinanceAlert()" [disabled]="financeAlertSaving">
+              <mat-icon>{{ editingFinanceAlertId == null ? 'add_alert' : 'save' }}</mat-icon>
+              {{ editingFinanceAlertId == null ? 'Add alert' : 'Save alert' }}
+            </button>
+            @if (editingFinanceAlertId != null) {
+              <button mat-button type="button" (click)="cancelFinanceAlertEdit()">Cancel</button>
+            }
+          </div>
+
+          <div class="finance-toolbar finance-alert-toolbar">
+            <button mat-stroked-button type="button" (click)="loadFinanceAlerts()" [disabled]="financeAlertsLoading">
+              <mat-icon>refresh</mat-icon>
+              Refresh alerts
+            </button>
+            <button mat-stroked-button type="button" (click)="evaluateFinanceAlerts()" [disabled]="financeAlertEvaluating">
+              <mat-icon>notifications_active</mat-icon>
+              Evaluate now
+            </button>
+          </div>
+
+          @if (financeAlertsLoading) {
+            <p class="muted">Loading alerts…</p>
+          }
+
+          @if (!financeAlertsLoading && financeAlerts.length === 0) {
+            <div class="finance-empty-report" role="status">
+              <p class="finance-empty-title">No finance alerts yet</p>
+              <p class="muted finance-empty-detail">Add a symbol and threshold above to start monitoring.</p>
+            </div>
+          }
+
+          @if (financeAlerts.length) {
+            <div class="table-wrap rh-txn-wrap">
+              <table class="rh-txn-data-table full-width finance-alert-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Symbol</th>
+                    <th scope="col">Trigger</th>
+                    <th scope="col">Threshold</th>
+                    <th scope="col">Frequency</th>
+                    <th scope="col">Last quote</th>
+                    <th scope="col">Last fired</th>
+                    <th scope="col">Count</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (a of financeAlerts; track financeAlertTrack($index, a)) {
+                    <tr>
+                      <td><strong>{{ a.symbol }}</strong></td>
+                      <td>{{ triggerLabel(a.triggerType) }}</td>
+                      <td>
+                        @if (a.triggerType === 'PRICE_AT_OR_ABOVE') {
+                          {{ formatFinanceCell('AMOUNT', a.thresholdValue) }}
+                        } @else {
+                          {{ formatPct(a.thresholdValue) }}
+                        }
+                      </td>
+                      <td>{{ repeatLabel(a.repeatMode) }} · {{ a.cooldownMinutes }}m</td>
+                      <td>
+                        {{ formatFinanceCell('AMOUNT', a.lastRegularMarketPrice) }}
+                        <span class="muted">({{ formatPct(a.lastRegularMarketChangePercent) }})</span>
+                      </td>
+                      <td>{{ formatNewsPublished(a.lastTriggeredAt) }}</td>
+                      <td>{{ a.fireCount }}</td>
+                      <td>{{ a.enabled ? 'Enabled' : 'Disabled' }}</td>
+                      <td class="finance-alert-actions">
+                        <button mat-button type="button" (click)="editFinanceAlert(a)">Edit</button>
+                        <button mat-button color="warn" type="button" (click)="deleteFinanceAlert(a)">Delete</button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+
+          <h3 class="crawl-section-title finance-alert-history-title">Recent alert history</h3>
+          @if (financeAlertEvents.length === 0) {
+            <p class="muted">No alert delivery events yet.</p>
+          } @else {
+            <div class="finance-alert-event-list">
+              @for (ev of financeAlertEvents; track financeAlertEventTrack($index, ev)) {
+                <article class="finance-alert-event">
+                  <strong>{{ ev.symbol || 'TEST' }}</strong>
+                  <span>{{ ev.channel }} · {{ ev.status }} · {{ formatNewsPublished(ev.createdAt) }}</span>
+                  <p>{{ ev.message || '—' }}</p>
+                </article>
+              }
+            </div>
+          }
+        </div>
+      </mat-tab>
+
       <mat-tab label="Transactions">
         <div class="finance-panel">
           <div class="finance-toolbar">
@@ -814,7 +953,7 @@
             </button>
           </div>
 
-          @if (stockSymbolsLoading && financeSubTabIndex === 5) {
+          @if (stockSymbolsLoading && financeSubTabIndex === 6) {
             <p class="muted">Loading instruments…</p>
           }
 

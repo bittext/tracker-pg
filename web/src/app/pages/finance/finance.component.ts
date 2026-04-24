@@ -11,7 +11,12 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatTabsModule } from '@angular/material/tabs';
 import {
+  FinanceAlertEventDto,
   FinanceCrawlSnapshotDto,
+  FinanceStockAlertDto,
+  FinanceStockAlertRepeatMode,
+  FinanceStockAlertRequestDto,
+  FinanceStockAlertTriggerType,
   RobinhoodStocksSummaryDto,
   RobinhoodTransactionsDto,
   StockNewsDto,
@@ -49,7 +54,7 @@ export class FinanceComponent implements OnInit {
   private readonly financeApi = inject(FinanceApiService);
   private readonly snackBar = inject(MatSnackBar);
 
-  /** Finance tabs: 0=news, 1=crawler, 2=52w high risers, 3=transactions, 4=by instrument, 5=summary. */
+  /** Finance tabs: 0=news, 1=crawler, 2=52w high risers, 3=alerts, 4=transactions, 5=by instrument, 6=summary. */
   financeSubTabIndex = 0;
 
   stockSymbols: string[] = [];
@@ -85,6 +90,13 @@ export class FinanceComponent implements OnInit {
   crawlLoading = false;
   rhRising52w: Surge52WeekHighsDto | null = null;
   rhRising52wLoading = false;
+  financeAlerts: FinanceStockAlertDto[] = [];
+  financeAlertEvents: FinanceAlertEventDto[] = [];
+  financeAlertsLoading = false;
+  financeAlertSaving = false;
+  financeAlertEvaluating = false;
+  editingFinanceAlertId: number | null = null;
+  financeAlertForm: FinanceStockAlertRequestDto = this.blankFinanceAlertForm();
 
   financePeriod: FinancePeriod = 'month';
   financeYear = new Date().getFullYear();
@@ -119,23 +131,26 @@ export class FinanceComponent implements OnInit {
     } else if (index === 2) {
       this.loadRising52WeekHighs();
     } else if (index === 3) {
-      this.loadRobinhoodFinanceData();
+      this.loadFinanceAlerts();
+      this.loadFinanceAlertEvents();
     } else if (index === 4) {
+      this.loadRobinhoodFinanceData();
+    } else if (index === 5) {
       this.ensureStockSymbolsLoaded(() => {
         if (this.financeSelectedSymbol.trim()) {
           this.loadIndividualStockFinanceData();
         }
       }, true);
-    } else if (index === 5) {
+    } else if (index === 6) {
       this.ensureStockSymbolsLoaded(undefined, this.stockSymbols.length === 0);
       this.loadStocksSummary();
     }
   }
 
   onFinanceFilterSelectionChange(): void {
-    if (this.financeSubTabIndex === 3) {
+    if (this.financeSubTabIndex === 4) {
       this.loadRobinhoodFinanceData();
-    } else if (this.financeSubTabIndex === 4) {
+    } else if (this.financeSubTabIndex === 5) {
       if (this.financeSelectedSymbol.trim()) {
         this.loadIndividualStockFinanceData();
       }
@@ -143,7 +158,7 @@ export class FinanceComponent implements OnInit {
   }
 
   onStocksSummaryFilterChange(): void {
-    if (this.financeSubTabIndex === 5) {
+    if (this.financeSubTabIndex === 6) {
       this.loadStocksSummary();
     }
   }
@@ -207,6 +222,117 @@ export class FinanceComponent implements OnInit {
 
   rising52wTrack(_idx: number, row: Surge52WeekRowDto): string {
     return row.symbol;
+  }
+
+  loadFinanceAlerts(): void {
+    this.financeAlertsLoading = true;
+    this.financeApi.financeAlerts().subscribe({
+      next: (rows) => {
+        this.financeAlerts = rows;
+        this.financeAlertsLoading = false;
+      },
+      error: (e) => {
+        this.financeAlertsLoading = false;
+        this.err('Could not load finance alerts', e);
+      },
+    });
+  }
+
+  loadFinanceAlertEvents(): void {
+    this.financeApi.financeAlertEvents(50).subscribe({
+      next: (rows) => {
+        this.financeAlertEvents = rows;
+      },
+      error: (e) => this.err('Could not load alert history', e),
+    });
+  }
+
+  saveFinanceAlert(): void {
+    const req = this.normalizedFinanceAlertRequest();
+    if (req == null) {
+      return;
+    }
+    this.financeAlertSaving = true;
+    const call =
+      this.editingFinanceAlertId == null
+        ? this.financeApi.createFinanceAlert(req)
+        : this.financeApi.updateFinanceAlert(this.editingFinanceAlertId, req);
+    call.subscribe({
+      next: () => {
+        this.financeAlertSaving = false;
+        this.cancelFinanceAlertEdit();
+        this.loadFinanceAlerts();
+        this.snackBar.open('Finance alert saved', undefined, { duration: 2500 });
+      },
+      error: (e) => {
+        this.financeAlertSaving = false;
+        this.err('Could not save finance alert', e);
+      },
+    });
+  }
+
+  editFinanceAlert(row: FinanceStockAlertDto): void {
+    this.editingFinanceAlertId = row.id;
+    this.financeAlertForm = {
+      symbol: row.symbol,
+      triggerType: row.triggerType,
+      thresholdValue: Number(row.thresholdValue),
+      repeatMode: row.repeatMode,
+      cooldownMinutes: row.cooldownMinutes,
+      enabled: row.enabled,
+    };
+  }
+
+  cancelFinanceAlertEdit(): void {
+    this.editingFinanceAlertId = null;
+    this.financeAlertForm = this.blankFinanceAlertForm();
+  }
+
+  deleteFinanceAlert(row: FinanceStockAlertDto): void {
+    this.financeApi.deleteFinanceAlert(row.id).subscribe({
+      next: () => {
+        this.loadFinanceAlerts();
+        this.loadFinanceAlertEvents();
+        this.snackBar.open(`Deleted alert for ${row.symbol}`, undefined, { duration: 2500 });
+      },
+      error: (e) => this.err('Could not delete finance alert', e),
+    });
+  }
+
+  evaluateFinanceAlerts(): void {
+    this.financeAlertEvaluating = true;
+    this.financeApi.evaluateFinanceAlerts().subscribe({
+      next: (r) => {
+        this.financeAlertEvaluating = false;
+        this.loadFinanceAlerts();
+        this.loadFinanceAlertEvents();
+        this.snackBar.open(
+          `Checked ${r.checkedAlerts} alert(s); triggered ${r.triggeredAlerts}`,
+          undefined,
+          { duration: 3500 },
+        );
+      },
+      error: (e) => {
+        this.financeAlertEvaluating = false;
+        this.err('Could not evaluate finance alerts', e);
+      },
+    });
+  }
+
+  financeAlertTrack(_idx: number, row: FinanceStockAlertDto): number {
+    return row.id;
+  }
+
+  financeAlertEventTrack(_idx: number, row: FinanceAlertEventDto): number {
+    return row.id;
+  }
+
+  triggerLabel(t: FinanceStockAlertTriggerType | null | undefined): string {
+    return t === 'SESSION_CHANGE_PERCENT_AT_OR_ABOVE' ? 'Session rise % at/above' : 'Price at/above';
+  }
+
+  repeatLabel(r: FinanceStockAlertRepeatMode | null | undefined): string {
+    return r === 'REPEAT' ? 'Repeat with cooldown' : 'Once';
   }
 
   loadRobinhoodFinanceData(): void {
@@ -279,6 +405,43 @@ export class FinanceComponent implements OnInit {
       return p;
     }
     return 'month';
+  }
+
+  private blankFinanceAlertForm(): FinanceStockAlertRequestDto {
+    return {
+      symbol: '',
+      triggerType: 'PRICE_AT_OR_ABOVE',
+      thresholdValue: 0,
+      repeatMode: 'ONCE',
+      cooldownMinutes: 1440,
+      enabled: true,
+    };
+  }
+
+  private normalizedFinanceAlertRequest(): FinanceStockAlertRequestDto | null {
+    const symbol = this.financeAlertForm.symbol.trim().toUpperCase();
+    const threshold = Number(this.financeAlertForm.thresholdValue);
+    const cooldown = Number(this.financeAlertForm.cooldownMinutes);
+    if (!symbol) {
+      this.snackBar.open('Provide a stock symbol', 'Dismiss', { duration: 5000 });
+      return null;
+    }
+    if (!Number.isFinite(threshold)) {
+      this.snackBar.open('Provide a valid threshold', 'Dismiss', { duration: 5000 });
+      return null;
+    }
+    if (!Number.isFinite(cooldown) || cooldown < 0) {
+      this.snackBar.open('Cooldown must be zero or greater', 'Dismiss', { duration: 5000 });
+      return null;
+    }
+    return {
+      symbol,
+      triggerType: this.financeAlertForm.triggerType,
+      thresholdValue: threshold,
+      repeatMode: this.financeAlertForm.repeatMode,
+      cooldownMinutes: Math.floor(cooldown),
+      enabled: !!this.financeAlertForm.enabled,
+    };
   }
 
   private ensureStockSymbolsLoaded(done?: () => void, force = false): void {

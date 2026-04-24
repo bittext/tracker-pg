@@ -91,6 +91,17 @@ tracker:
     news-enabled: true
     news-max-items: 10
     news-timeout-ms: 8000
+    alerts:
+      evaluation-enabled: ${TRACKER_FINANCE_ALERTS_EVALUATION_ENABLED:true}
+      poll-fixed-delay-ms: ${TRACKER_FINANCE_ALERTS_POLL_FIXED_DELAY_MS:300000}
+      default-cooldown-minutes: ${TRACKER_FINANCE_ALERTS_DEFAULT_COOLDOWN_MINUTES:1440}
+      max-events-returned: ${TRACKER_FINANCE_ALERTS_MAX_EVENTS_RETURNED:50}
+      email-enabled: ${TRACKER_FINANCE_ALERTS_EMAIL_ENABLED:false}
+      email-from: ${TRACKER_FINANCE_ALERTS_EMAIL_FROM:}
+      sms-enabled: ${TRACKER_FINANCE_ALERTS_SMS_ENABLED:false}
+      twilio-account-sid: ${TRACKER_FINANCE_ALERTS_TWILIO_ACCOUNT_SID:}
+      twilio-auth-token: ${TRACKER_FINANCE_ALERTS_TWILIO_AUTH_TOKEN:}
+      twilio-from-number: ${TRACKER_FINANCE_ALERTS_TWILIO_FROM_NUMBER:}
   logging:
     in-memory-max-lines: 800
     web-display-max-age-minutes: 30

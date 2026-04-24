@@ -175,6 +175,12 @@ docker compose -f docker-compose.stack.yml -f docker-compose.robinhood.yml --env
 
 For **`mvn spring-boot:run`** on your Mac, use the **`local`** profile and set `tracker.finance.robinhood-csv-import-directory` / `robinhood-csv-uploaded-directory` in gitignored **`application-local.yml`** (see `application-local.yml.example`).
 
+**Finance stock alerts:** users create alert rules in **Finance → Alerts** (target price or session % rise, one-time or repeat with cooldown). Recipient provisioning lives in **Admin → Finance**. Outbound provider secrets stay in environment / `.env.stack`, not in the UI:
+
+- Email: set **`TRACKER_FINANCE_ALERTS_EMAIL_ENABLED=true`**, **`TRACKER_FINANCE_ALERTS_EMAIL_FROM`**, plus Spring Mail settings such as **`SPRING_MAIL_HOST`**, **`SPRING_MAIL_PORT`**, **`SPRING_MAIL_USERNAME`**, **`SPRING_MAIL_PASSWORD`**, **`SPRING_MAIL_SMTP_AUTH`**, and **`SPRING_MAIL_SMTP_STARTTLS_ENABLE`**.
+- SMS: set **`TRACKER_FINANCE_ALERTS_SMS_ENABLED=true`**, **`TRACKER_FINANCE_ALERTS_TWILIO_ACCOUNT_SID`**, **`TRACKER_FINANCE_ALERTS_TWILIO_AUTH_TOKEN`**, and **`TRACKER_FINANCE_ALERTS_TWILIO_FROM_NUMBER`**.
+- Polling is controlled by **`TRACKER_FINANCE_ALERTS_EVALUATION_ENABLED`** and **`TRACKER_FINANCE_ALERTS_POLL_FIXED_DELAY_MS`**. Quotes are Yahoo best-effort and may be delayed.
+
 1. Copy the env template and set strong values (never commit `.env.stack`; it is gitignored):
 
 ```bash

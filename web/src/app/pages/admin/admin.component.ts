@@ -11,9 +11,11 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatTabsModule } from '@angular/material/tabs';
 import { Exercise } from '../../models/fitness.models';
+import { FinanceNotificationSettingsDto, FinanceNotificationSettingsRequestDto } from '../../models/finance.models';
 import { JournalTagDefDto } from '../../models/journal.models';
 import { ManagementTaskCategory, ManagementTaskType } from '../../models/management.models';
 import { FitnessApiService } from '../../services/fitness-api.service';
+import { FinanceApiService } from '../../services/finance-api.service';
 import { JournalApiService } from '../../services/journal-api.service';
 import { ManagementApiService } from '../../services/management-api.service';
 import { formatHttpErrorDetail } from '../../util/http-error';
@@ -39,6 +41,7 @@ import { formatHttpErrorDetail } from '../../util/http-error';
 })
 export class AdminComponent implements OnInit {
   private readonly fitnessApi = inject(FitnessApiService);
+  private readonly financeApi = inject(FinanceApiService);
   private readonly managementApi = inject(ManagementApiService);
   private readonly journalApi = inject(JournalApiService);
   private readonly snackBar = inject(MatSnackBar);
@@ -58,11 +61,21 @@ export class AdminComponent implements OnInit {
   journalTags: JournalTagDefDto[] = [];
   journalTagColumns = ['jName', 'jActions'];
   newJournalTagName = '';
+  financeNotificationSettings: FinanceNotificationSettingsDto | null = null;
+  financeNotificationSaving = false;
+  financeNotificationTesting = false;
+  financeNotificationForm: FinanceNotificationSettingsRequestDto = {
+    emailAddress: '',
+    mobileE164: '',
+    emailEnabled: false,
+    smsEnabled: false,
+  };
 
   ngOnInit(): void {
     this.reload();
     this.reloadManagement();
     this.reloadJournalTags();
+    this.loadFinanceNotificationSettings();
   }
 
   private err(msg: string, e: unknown): void {
@@ -232,6 +245,55 @@ export class AdminComponent implements OnInit {
         this.snackBar.open(`Removed tag “${row.name}”`, undefined, { duration: 2500 });
       },
       error: (e) => this.err('Could not delete journal tag', e),
+    });
+  }
+
+  loadFinanceNotificationSettings(): void {
+    this.financeApi.financeNotificationSettings().subscribe({
+      next: (settings) => {
+        this.financeNotificationSettings = settings;
+        this.financeNotificationForm = {
+          emailAddress: settings.emailAddress || '',
+          mobileE164: settings.mobileE164 || '',
+          emailEnabled: settings.emailEnabled,
+          smsEnabled: settings.smsEnabled,
+        };
+      },
+      error: (e) => this.err('Could not load finance notification settings', e),
+    });
+  }
+
+  saveFinanceNotificationSettings(): void {
+    this.financeNotificationSaving = true;
+    this.financeApi.saveFinanceNotificationSettings(this.financeNotificationForm).subscribe({
+      next: (settings) => {
+        this.financeNotificationSaving = false;
+        this.financeNotificationSettings = settings;
+        this.snackBar.open('Finance notification settings saved', undefined, { duration: 2500 });
+      },
+      error: (e) => {
+        this.financeNotificationSaving = false;
+        this.err('Could not save finance notification settings', e);
+      },
+    });
+  }
+
+  testFinanceNotificationSettings(email: boolean, sms: boolean): void {
+    this.financeNotificationTesting = true;
+    this.financeApi.testFinanceNotificationSettings(email, sms).subscribe({
+      next: (r) => {
+        this.financeNotificationTesting = false;
+        const failures = r.events.filter((e) => e.status === 'FAILED').length;
+        this.snackBar.open(
+          failures ? `Test completed with ${failures} failure(s)` : 'Finance notification test sent',
+          undefined,
+          { duration: 3500 },
+        );
+      },
+      error: (e) => {
+        this.financeNotificationTesting = false;
+        this.err('Could not test finance notifications', e);
+      },
     });
   }
 }

@@ -2,7 +2,14 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { environment } from '../../environments/environment';
 import {
+  FinanceAlertEvaluationDto,
+  FinanceAlertEventDto,
   FinanceCrawlSnapshotDto,
+  FinanceNotificationSettingsDto,
+  FinanceNotificationSettingsRequestDto,
+  FinanceNotificationTestResultDto,
+  FinanceStockAlertDto,
+  FinanceStockAlertRequestDto,
   RobinhoodStocksSummaryDto,
   RobinhoodTransactionsDto,
   StockNewsDto,
@@ -15,6 +22,7 @@ export type FinancePeriod = 'all' | 'year' | 'month';
 export class FinanceApiService {
   private readonly http = inject(HttpClient);
   private readonly root = `${environment.apiBaseUrl}/api/finance/robinhood`;
+  private readonly adminNotificationsRoot = `${environment.apiBaseUrl}/api/admin/finance/notifications`;
 
   /**
    * Rows from configured Robinhood table with optional period filter (year / year+month query params).
@@ -79,5 +87,42 @@ export class FinanceApiService {
       params = params.set('limit', String(Math.floor(limit)));
     }
     return this.http.get<Surge52WeekHighsDto>(`${this.root}/rising-52w-highs`, { params });
+  }
+
+  financeAlerts() {
+    return this.http.get<FinanceStockAlertDto[]>(`${this.root}/alerts`);
+  }
+
+  createFinanceAlert(body: FinanceStockAlertRequestDto) {
+    return this.http.post<FinanceStockAlertDto>(`${this.root}/alerts`, body);
+  }
+
+  updateFinanceAlert(id: number, body: FinanceStockAlertRequestDto) {
+    return this.http.put<FinanceStockAlertDto>(`${this.root}/alerts/${id}`, body);
+  }
+
+  deleteFinanceAlert(id: number) {
+    return this.http.delete<void>(`${this.root}/alerts/${id}`);
+  }
+
+  evaluateFinanceAlerts() {
+    return this.http.post<FinanceAlertEvaluationDto>(`${this.root}/alerts/evaluate`, {});
+  }
+
+  financeAlertEvents(limit = 50) {
+    const params = new HttpParams().set('limit', String(Math.floor(limit)));
+    return this.http.get<FinanceAlertEventDto[]>(`${this.root}/alerts/events`, { params });
+  }
+
+  financeNotificationSettings() {
+    return this.http.get<FinanceNotificationSettingsDto>(this.adminNotificationsRoot);
+  }
+
+  saveFinanceNotificationSettings(body: FinanceNotificationSettingsRequestDto) {
+    return this.http.put<FinanceNotificationSettingsDto>(this.adminNotificationsRoot, body);
+  }
+
+  testFinanceNotificationSettings(email: boolean, sms: boolean) {
+    return this.http.post<FinanceNotificationTestResultDto>(`${this.adminNotificationsRoot}/test`, { email, sms });
   }
 }

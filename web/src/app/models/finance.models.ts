@@ -142,6 +142,81 @@ export interface SwingStockDetailDto {
   nearTermOutlookNarrative?: string;
 }
 
+export type FinanceStockAlertTriggerType = 'PRICE_AT_OR_ABOVE' | 'SESSION_CHANGE_PERCENT_AT_OR_ABOVE';
+export type FinanceStockAlertRepeatMode = 'ONCE' | 'REPEAT';
+export type FinanceAlertDeliveryChannel = 'EMAIL' | 'SMS' | 'SYSTEM';
+export type FinanceAlertDeliveryStatus = 'SENT' | 'SKIPPED' | 'FAILED';
+
+export interface FinanceStockAlertDto {
+  id: number;
+  symbol: string;
+  triggerType: FinanceStockAlertTriggerType;
+  thresholdValue: number;
+  repeatMode: FinanceStockAlertRepeatMode;
+  cooldownMinutes: number;
+  enabled: boolean;
+  lastCheckedAt: string | null;
+  lastTriggeredAt: string | null;
+  lastRegularMarketPrice: number | null;
+  lastRegularMarketChangePercent: number | null;
+  fireCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FinanceStockAlertRequestDto {
+  symbol: string;
+  triggerType: FinanceStockAlertTriggerType;
+  thresholdValue: number;
+  repeatMode: FinanceStockAlertRepeatMode;
+  cooldownMinutes: number;
+  enabled: boolean;
+}
+
+export interface FinanceAlertEventDto {
+  id: number;
+  alertId: number | null;
+  symbol: string | null;
+  triggerType: FinanceStockAlertTriggerType | null;
+  thresholdValue: number | null;
+  observedPrice: number | null;
+  observedChangePercent: number | null;
+  channel: FinanceAlertDeliveryChannel;
+  status: FinanceAlertDeliveryStatus;
+  message: string | null;
+  providerResponse: string | null;
+  createdAt: string;
+}
+
+export interface FinanceAlertEvaluationDto {
+  evaluatedAt: string;
+  checkedAlerts: number;
+  triggeredAlerts: number;
+  events: FinanceAlertEventDto[];
+}
+
+export interface FinanceNotificationSettingsDto {
+  id: number | null;
+  emailAddress: string;
+  mobileE164: string;
+  emailEnabled: boolean;
+  smsEnabled: boolean;
+  emailProviderConfigured: boolean;
+  smsProviderConfigured: boolean;
+  updatedAt: string | null;
+}
+
+export interface FinanceNotificationSettingsRequestDto {
+  emailAddress: string;
+  mobileE164: string;
+  emailEnabled: boolean;
+  smsEnabled: boolean;
+}
+
+export interface FinanceNotificationTestResultDto {
+  events: FinanceAlertEventDto[];
+}
+
 export interface IndexSnapshotDto {
   symbol: string;
   shortName: string;

@@ -27,3 +27,11 @@ tracker:
     # Absolute paths for POST /import-csv-directory (leave empty if unused).
     robinhood-csv-import-directory: "/absolute/path/to/robinhood/import"
     robinhood-csv-uploaded-directory: "/absolute/path/to/robinhood/uploaded"
+    alerts:
+      # Set true only after SMTP/Twilio details are configured for local tests.
+      email-enabled: false
+      email-from: ""
+      sms-enabled: false
+      twilio-account-sid: ""
+      twilio-auth-token: ""
+      twilio-from-number: ""
