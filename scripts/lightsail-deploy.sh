@@ -38,10 +38,12 @@ if [[ "${TRACKER_CADDY:-0}" == "1" ]] || [[ -f "${repo_root}/.use-caddy-lightsai
   fi
 fi
 
+# --remove-orphans: dropping Caddy or Robinhood overlays no longer leaves old containers (e.g. tracker-pg-caddy-1).
+# --force-recreate: avoids "container name already in use" when a prior run left a stale api/web container.
 docker compose "${compose_files[@]}" --env-file "$env_file" build api web
-docker compose "${compose_files[@]}" --env-file "$env_file" up -d --no-deps api web
+docker compose "${compose_files[@]}" --env-file "$env_file" up -d --no-deps --force-recreate --remove-orphans api web
 if [[ "${TRACKER_CADDY:-0}" == "1" ]] || [[ -f "${repo_root}/.use-caddy-lightsail" ]]; then
   if [[ -f "${repo_root}/docker-compose.https-lightsail.yml" ]]; then
-    docker compose "${compose_files[@]}" --env-file "$env_file" up -d caddy
+    docker compose "${compose_files[@]}" --env-file "$env_file" up -d --remove-orphans caddy
   fi
 fi

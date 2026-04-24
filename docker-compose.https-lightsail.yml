@@ -8,6 +8,8 @@
 #
 # scripts/lightsail-deploy.sh with TRACKER_CADDY=1 or .use-caddy-lightsail merges this file and runs `caddy` after api/web.
 
+name: tracker-pg
+
 services:
   caddy:
     image: caddy:2.8-alpine

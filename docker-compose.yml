@@ -1,5 +1,9 @@
 # Default: Postgres only (port 5433). Use for local `mvn spring-boot:run` against localhost.
 # API in Docker (optional): docker compose --profile api up -d --build
+#
+# Pinned project name so the stack is always "tracker-pg-*" even when compose is run from a parent directory
+# (avoids duplicate api/web containers and name conflicts on the same Docker host).
+name: tracker-pg
 
 services:
   postgres:

@@ -6,6 +6,8 @@
 #
 # Override host dirs in .env.stack with ROBINHOOD_CSV_IMPORT_HOST_DIR / ROBINHOOD_CSV_UPLOADED_HOST_DIR if needed.
 
+name: tracker-pg
+
 services:
   api:
     volumes:

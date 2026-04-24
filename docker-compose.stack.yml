@@ -3,10 +3,13 @@
 # web: host mapping WEB_PORT_BIND (default 9080:80). With Caddy HTTPS, use e.g. 127.0.0.1:9080:80 and open 80/443 for Caddy.
 #
 #   cp .env.stack.example .env.stack
-#   docker compose -f docker-compose.stack.yml --env-file .env.stack up -d --build
+#   docker compose -f docker-compose.stack.yml --env-file .env.stack up -d --build --remove-orphans
 #
 # Open http://localhost:9080/ when WEB_PORT_BIND=9080:80 — nginx proxies /api to the API container.
 # See README "Public / LAN access" for firewall, HTTPS, and security notes.
+#
+# Pinned project name: same as base compose so merges (Caddy, Robinhood) and deploy scripts always target one project.
+name: tracker-pg
 
 services:
   postgres:

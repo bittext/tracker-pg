@@ -42,19 +42,19 @@ docker compose down
 
 **Keeping data across deploys:**
 
-- Postgres files live in a **named Docker volume** created by Compose (for example `tracker-pg_tracker_pg_data` or `tracker-pg_tracker_pg_stack_data`, depending on which file you use). Plain `docker compose down` **does not delete** that volume.
+- Postgres files live in a **named Docker volume** created by Compose (for example `tracker-pg_tracker_pg_data` or `tracker-pg_tracker_pg_stack_data`, depending on which file you use). The Compose **`name: tracker-pg`** in the YAML files pins the project name so merges and deploy scripts always target the same stack, even when `docker compose` is run from a parent directory. Plain `docker compose down` **does not delete** that volume.
 - **Avoid** `docker compose down -v` in environments where you care about data; `-v` removes named volumes declared in that compose project.
 
 **Routine stack redeploy (API + web only, Postgres unchanged):**
 
 ```bash
 ENV_FILE="${ENV_FILE:-.env.stack}"
-# Add -f docker-compose.https-lightsail.yml and `up -d caddy` when using Caddy (or run scripts/lightsail-deploy.sh).
+# Add -f docker-compose.https-lightsail.yml and `up -d --remove-orphans caddy` when using Caddy (or run scripts/lightsail-deploy.sh).
 docker compose -f docker-compose.stack.yml --env-file "$ENV_FILE" build api web
-docker compose -f docker-compose.stack.yml --env-file "$ENV_FILE" up -d --no-deps api web
+docker compose -f docker-compose.stack.yml --env-file "$ENV_FILE" up -d --no-deps --force-recreate --remove-orphans api web
 ```
 
-This rebuilds `api` and `web` and restarts them with `--no-deps` so the database container and its volume are not part of the recreate cycle. If you use **HTTPS (Caddy)**, prefer **`bash scripts/lightsail-deploy.sh`** on the host so the correct merge files and **`caddy`** are applied.
+This rebuilds `api` and `web` and restarts them with `--no-deps` so the database container and its volume are not part of the recreate cycle. **`--remove-orphans`** drops services you removed from the compose merge (for example **Caddy** after turning HTTPS off). **`--force-recreate`** avoids stale **`tracker-pg-api-1`** name conflicts when a previous container was left behind. If you use **HTTPS (Caddy)**, prefer **`bash scripts/lightsail-deploy.sh`** on the host so the correct merge files and **`caddy`** are applied.
 
 ## Reset the `admin` password in PostgreSQL
 
@@ -145,7 +145,7 @@ To serve the app at **`https://your-domain`**, add a **public DNS A record** for
 3. Start (or first-time) the stack with both compose files, or use the deploy script with Caddy enabled:
 
    ```bash
-   docker compose -f docker-compose.stack.yml -f docker-compose.https-lightsail.yml --env-file .env.stack up -d --build
+   docker compose -f docker-compose.stack.yml -f docker-compose.https-lightsail.yml --env-file .env.stack up -d --build --remove-orphans
    ```
 
 4. Ongoing **GitHub Actions** deploys: set variable **`LIGHTSAIL_USE_CADDY`** to **`1`**, or on the host run **`export TRACKER_CADDY=1`**, or **`touch .use-caddy-lightsail`** in the repo root. **`scripts/lightsail-deploy.sh`** will merge **`docker-compose.https-lightsail.yml`** and run **`caddy`** after **api** / **web**.
@@ -168,7 +168,7 @@ If you changed **`POSTGRES_HOST_PORT`** in `.env.stack`, use that value instead 
 
 ```bash
 mkdir -p /home/ubuntu/robinhood/reports/import /home/ubuntu/robinhood/reports/uploaded
-docker compose -f docker-compose.stack.yml -f docker-compose.robinhood.yml --env-file .env.stack up -d --build
+docker compose -f docker-compose.stack.yml -f docker-compose.robinhood.yml --env-file .env.stack up -d --build --remove-orphans
 ```
 
 **Deploy script (`scripts/lightsail-deploy.sh`):** after `git pull`, run `bash scripts/lightsail-deploy.sh` to rebuild **api** and **web** (and start **caddy** when Caddy is enabled) without recreating **postgres**. To always merge **`docker-compose.robinhood.yml`** on that host, either run `export TRACKER_ROBINHOOD_COMPOSE=1` or once: `touch .use-lightsail-robinhood-compose` in the repo root (gitignored). For **Caddy/HTTPS**, use **`TRACKER_CADDY=1`** or **`touch .use-caddy-lightsail`**. In GitHub Actions, set **`LIGHTSAIL_USE_ROBINHOOD_COMPOSE`** and/or **`LIGHTSAIL_USE_CADDY`** to **`1`** as needed.
@@ -185,7 +185,7 @@ cp .env.stack.example .env.stack
 2. **First-time or full stack** (Postgres + API + web):
 
 ```bash
-docker compose -f docker-compose.stack.yml --env-file .env.stack up -d --build
+docker compose -f docker-compose.stack.yml --env-file .env.stack up -d --build --remove-orphans
 ```
 
 After the database exists and is populated, use the **Routine stack redeploy** commands above for day-to-day API/web image updates so Postgres and its data volume stay put.
