@@ -54,7 +54,9 @@ export class FinanceComponent implements OnInit {
   private readonly financeApi = inject(FinanceApiService);
   private readonly snackBar = inject(MatSnackBar);
 
-  /** Finance tabs: 0=news, 1=crawler, 2=52w high risers, 3=alerts, 4=transactions, 5=by instrument, 6=summary. */
+  /** Finance category tabs: 0=banking, 1=investments, 2=loans, 3=market, 4=money, 5=credit, 6=trading, 7=insurance, 8=taxes. */
+  financeCategoryTabIndex = 0;
+  /** Trading tabs: 0=news, 1=crawler, 2=52w high risers, 3=alerts, 4=transactions, 5=by instrument, 6=summary. */
   financeSubTabIndex = 0;
 
   stockSymbols: string[] = [];
@@ -125,6 +127,12 @@ export class FinanceComponent implements OnInit {
     this.editableInstrument = this.selectedInstrument ?? '';
   }
 
+  onFinanceCategoryTabIndexChange(index: number): void {
+    if (index === 6) {
+      this.onFinanceSubTabIndexChange(this.financeSubTabIndex);
+    }
+  }
+
   onFinanceSubTabIndexChange(index: number): void {
     if (index === 1) {
       this.loadCrawlSnapshot();
@@ -148,6 +156,9 @@ export class FinanceComponent implements OnInit {
   }
 
   onFinanceFilterSelectionChange(): void {
+    if (this.financeCategoryTabIndex !== 6) {
+      return;
+    }
     if (this.financeSubTabIndex === 4) {
       this.loadRobinhoodFinanceData();
     } else if (this.financeSubTabIndex === 5) {
@@ -158,7 +169,7 @@ export class FinanceComponent implements OnInit {
   }
 
   onStocksSummaryFilterChange(): void {
-    if (this.financeSubTabIndex === 6) {
+    if (this.financeCategoryTabIndex === 6 && this.financeSubTabIndex === 6) {
       this.loadStocksSummary();
     }
   }

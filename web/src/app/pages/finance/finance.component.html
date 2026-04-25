@@ -1,20 +1,71 @@
 <div class="page-head">
   <h1 class="page-title">Finance</h1>
   <p class="muted">
-    News, the <strong>Crawler</strong> (broad headlines + a fixed watchlist), 52-week high screeners, transactions,
-    by-instrument filters, and yearly summary are grouped under one Finance page.
+    Banking, investments, loans, market, money, credit, trading, insurance, and taxes are grouped under one Finance page.
+    Trading includes the existing news, alerts, transactions, and summary tools.
   </p>
 </div>
 
 <mat-card class="card">
   <mat-card-content class="finance-card-content">
     <mat-tab-group
-      class="finance-inner-tabs"
+      class="finance-category-tabs"
       animationDuration="180ms"
       mat-stretch-tabs
-      [(selectedIndex)]="financeSubTabIndex"
-      (selectedIndexChange)="onFinanceSubTabIndexChange($event)"
+      [(selectedIndex)]="financeCategoryTabIndex"
+      (selectedIndexChange)="onFinanceCategoryTabIndexChange($event)"
     >
+      <mat-tab label="Banking">
+        <div class="finance-panel finance-category-placeholder">
+          <h2>Banking</h2>
+          <p class="muted">Track bank accounts, cash movement, and banking reminders here.</p>
+        </div>
+      </mat-tab>
+
+      <mat-tab label="Investments">
+        <div class="finance-panel finance-category-placeholder">
+          <h2>Investments</h2>
+          <p class="muted">Group investment portfolio views, holdings, and long-term allocation tools here.</p>
+        </div>
+      </mat-tab>
+
+      <mat-tab label="Loans">
+        <div class="finance-panel finance-category-placeholder">
+          <h2>Loans</h2>
+          <p class="muted">Track loan balances, payments, payoff plans, and lender notes here.</p>
+        </div>
+      </mat-tab>
+
+      <mat-tab label="Market">
+        <div class="finance-panel finance-category-placeholder">
+          <h2>Market</h2>
+          <p class="muted">Group broad market dashboards, indexes, and market watchlists here.</p>
+        </div>
+      </mat-tab>
+
+      <mat-tab label="Money">
+        <div class="finance-panel finance-category-placeholder">
+          <h2>Money</h2>
+          <p class="muted">Organize budgeting, income, spending, and cash-flow views here.</p>
+        </div>
+      </mat-tab>
+
+      <mat-tab label="Credit">
+        <div class="finance-panel finance-category-placeholder">
+          <h2>Credit</h2>
+          <p class="muted">Track credit cards, utilization, statements, and credit health here.</p>
+        </div>
+      </mat-tab>
+
+      <mat-tab label="Trading">
+        <div class="finance-panel">
+          <mat-tab-group
+            class="finance-inner-tabs"
+            animationDuration="180ms"
+            mat-stretch-tabs
+            [(selectedIndex)]="financeSubTabIndex"
+            (selectedIndexChange)="onFinanceSubTabIndexChange($event)"
+          >
       <mat-tab label="News">
         <div class="finance-panel">
           <p class="muted stocks-news-intro">
@@ -1028,6 +1079,24 @@
               </div>
             }
           }
+        </div>
+      </mat-tab>
+
+          </mat-tab-group>
+        </div>
+      </mat-tab>
+
+      <mat-tab label="Insurance">
+        <div class="finance-panel finance-category-placeholder">
+          <h2>Insurance</h2>
+          <p class="muted">Track insurance policies, premiums, coverage dates, and renewal reminders here.</p>
+        </div>
+      </mat-tab>
+
+      <mat-tab label="Taxes">
+        <div class="finance-panel finance-category-placeholder">
+          <h2>Taxes</h2>
+          <p class="muted">Organize tax documents, estimated payments, deductions, and filing notes here.</p>
         </div>
       </mat-tab>
     </mat-tab-group>
