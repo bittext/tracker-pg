@@ -11,8 +11,12 @@
 }
 
 .finance-inner-tabs {
-  margin-top: 0.35rem;
+  margin-top: 0.25rem;
   width: 100%;
+
+  .mat-mdc-tab {
+    min-width: 0;
+  }
 }
 
 .finance-category-tabs {
