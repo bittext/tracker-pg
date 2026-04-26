@@ -15,6 +15,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/login/login.component').then((m) => m.LoginComponent),
   },
   {
+    path: 'privacy',
+    loadComponent: () => import('./pages/privacy-policy/privacy-policy.component').then((m) => m.PrivacyPolicyComponent),
+  },
+  { path: 'privacy-policy', redirectTo: 'privacy', pathMatch: 'full' },
+  {
     path: 'exercise',
     canActivate: [authGuard],
     component: ExerciseComponent,

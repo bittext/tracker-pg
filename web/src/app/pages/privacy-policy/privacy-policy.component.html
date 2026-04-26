@@ -1,0 +1,42 @@
+<article class="privacy-page" aria-labelledby="privacy-title">
+  <div class="page-head">
+    <h1 id="privacy-title" class="page-title">Privacy policy</h1>
+    <p class="muted">
+      Privacy policy and terms for email and SMS use. This application treats contact data as confidential and does not
+      share it with third parties for marketing.
+    </p>
+  </div>
+
+  <mat-card class="privacy-card">
+    <mat-card-content>
+      <h2 class="policy-section-title">Privacy policy or terms and conditions</h2>
+
+      <h3 class="policy-subtitle">Email and SMS communications</h3>
+      <p>
+        The application may use email and SMS functionality to communicate with users. Any personal data collected for
+        this purpose, including email addresses and phone numbers, is processed solely for application-related
+        communications.
+      </p>
+      <p>
+        Such data is treated as confidential and is not sold, rented, or shared with third parties, except where
+        required by law or necessary to provide the service in compliance with applicable regulations, including the
+        General Data Protection Regulation (GDPR) and the California Consumer Privacy Act (CCPA).
+      </p>
+      <p>
+        Users may exercise their right to withdraw consent at any time by logging into their account, navigating to the
+        Admin section, and removing the stored email or SMS credentials. Upon removal, the application will cease all
+        related communications.
+      </p>
+      <p>
+        The application does not charge users for its services. Any charges incurred for SMS messages or emails are
+        determined by the user’s telecommunications or service provider. The application bears no responsibility or
+        liability for such charges.
+      </p>
+
+      <p class="privacy-back">
+        <a *ngIf="!authenticated" mat-stroked-button color="primary" routerLink="/login">Back to sign in</a>
+        <a *ngIf="authenticated" mat-stroked-button color="primary" routerLink="/exercise">Back to the app</a>
+      </p>
+    </mat-card-content>
+  </mat-card>
+</article>

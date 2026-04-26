@@ -41,3 +41,19 @@ button[type='submit'] {
   color: #b91c1c;
 }
 
+.login-privacy {
+  margin: 1.25rem 0 0;
+  text-align: center;
+  font-size: 0.875rem;
+}
+
+.login-privacy-link {
+  color: var(--app-text-muted, #64748b);
+  text-decoration: none;
+}
+
+.login-privacy-link:hover {
+  color: var(--app-accent, #2563eb);
+  text-decoration: underline;
+}
+

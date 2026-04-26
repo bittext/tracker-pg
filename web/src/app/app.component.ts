@@ -41,12 +41,18 @@ export class AppComponent implements OnInit {
   readonly webReleaseVersion = WEB_RELEASE_VERSION;
   /** Populated from API after startup (null if unreachable). */
   apiRelease: ApiVersionPayload | null = null;
-  onLoginRoute = this.router.url.startsWith('/login');
+  /** True for routes that use the minimal shell (no main tab bar), e.g. login and privacy. */
+  onLoginRoute = this.isPublicStandaloneRoute(this.router.url);
 
   constructor() {
     this.router.events.pipe(filter((e) => e instanceof NavigationEnd)).subscribe(() => {
-      this.onLoginRoute = this.router.url.startsWith('/login');
+      this.onLoginRoute = this.isPublicStandaloneRoute(this.router.url);
     });
+  }
+
+  private isPublicStandaloneRoute(url: string): boolean {
+    const path = url.split('?')[0].split('#')[0];
+    return path === '/login' || path === '/privacy';
   }
 
   ngOnInit(): void {

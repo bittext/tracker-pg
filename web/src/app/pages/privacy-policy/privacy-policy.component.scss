@@ -1,0 +1,39 @@
+.privacy-page {
+  max-width: 40rem;
+  margin: 0 auto;
+}
+
+.privacy-card {
+  margin-top: 0.5rem;
+}
+
+.policy-section-title {
+  margin: 0 0 1rem;
+  font-family: var(--app-font-display, 'Plus Jakarta Sans', sans-serif);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--app-text);
+  line-height: 1.35;
+}
+
+.policy-subtitle {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.02em;
+  color: var(--app-text);
+}
+
+.privacy-card mat-card-content p {
+  margin: 0 0 0.9rem;
+  line-height: 1.6;
+  color: var(--app-text);
+  font-size: 0.9375rem;
+}
+
+.privacy-back {
+  margin: 1.5rem 0 0;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--app-border);
+}
