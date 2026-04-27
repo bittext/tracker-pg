@@ -268,3 +268,32 @@ export interface Surge52WeekRowDto {
   growthProspectsSummary: string;
   externalDetailUrl: string;
 }
+
+/** Parsed summary from Form 1040 PDF text (best effort). */
+export interface Form1040ParsedSummary {
+  likelyForm1040: boolean;
+  parseNote?: string | null;
+  wagesSalariesTips?: number | null;
+  taxableInterest?: number | null;
+  ordinaryDividends?: number | null;
+  adjustedGrossIncome?: number | null;
+  taxableIncome?: number | null;
+  totalTax?: number | null;
+  federalIncomeTaxWithheld?: number | null;
+  estimatedTaxPayments?: number | null;
+  refund?: number | null;
+  amountOwed?: number | null;
+}
+
+export interface FinanceTax1040ReturnDto {
+  id: number;
+  taxYear: number;
+  originalFilename: string;
+  sizeBytes: number;
+  downloadPath: string;
+  summary: Form1040ParsedSummary;
+  extractedTextPreview: string | null;
+  extractedTextFull: string | null;
+  createdAt: string;
+  updatedAt: string;
+}

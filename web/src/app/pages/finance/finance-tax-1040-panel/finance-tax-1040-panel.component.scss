@@ -1,0 +1,115 @@
+.t1040-wrap {
+  max-width: 56rem;
+  padding: 0.25rem 0 1.5rem;
+}
+
+.intro {
+  line-height: 1.45;
+  margin: 0 0 1rem;
+  max-width: 48rem;
+}
+
+.upload-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.year-field {
+  width: 8.5rem;
+}
+
+.hidden-file {
+  display: none;
+}
+
+.section-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+}
+
+.subhead {
+  margin: 1rem 0 0.35rem;
+  font-size: 0.95rem;
+}
+
+.table-scroll {
+  overflow: auto;
+  margin-bottom: 1rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+  border-radius: var(--app-radius-sm, 10px);
+  background: #fff;
+}
+
+.t1040-table {
+  width: 100%;
+  min-width: 36rem;
+}
+
+.fname {
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detail-panel {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+  border-radius: var(--app-radius-sm, 10px);
+  background: var(--app-surface-muted, #f8fafc);
+}
+
+.detail-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.parse-note {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+}
+
+.warn {
+  color: #b45309;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1.1fr) minmax(6rem, 0.9fr);
+  gap: 0.35rem 0.75rem;
+  font-size: 0.92rem;
+}
+
+.sum-label {
+  color: var(--app-fg-muted, #64748b);
+}
+
+.sum-val {
+  font-variant-numeric: tabular-nums;
+}
+
+.extract-block {
+  margin: 0;
+  max-height: 22rem;
+  overflow: auto;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.72rem;
+  line-height: 1.25;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #fff;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+  border-radius: 8px;
+}
+
+.muted {
+  color: var(--app-fg-muted, #64748b);
+}

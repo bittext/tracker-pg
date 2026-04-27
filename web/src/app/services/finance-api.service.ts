@@ -10,6 +10,7 @@ import {
   FinanceNotificationTestResultDto,
   FinanceStockAlertDto,
   FinanceStockAlertRequestDto,
+  FinanceTax1040ReturnDto,
   RobinhoodStocksSummaryDto,
   RobinhoodTransactionsDto,
   StockNewsDto,
@@ -22,6 +23,7 @@ export type FinancePeriod = 'all' | 'year' | 'month';
 export class FinanceApiService {
   private readonly http = inject(HttpClient);
   private readonly root = `${environment.apiBaseUrl}/api/finance/robinhood`;
+  private readonly tax1040Root = `${environment.apiBaseUrl}/api/finance/tax/1040`;
   private readonly adminNotificationsRoot = `${environment.apiBaseUrl}/api/admin/finance/notifications`;
 
   /**
@@ -124,5 +126,32 @@ export class FinanceApiService {
 
   testFinanceNotificationSettings(email: boolean, sms: boolean) {
     return this.http.post<FinanceNotificationTestResultDto>(`${this.adminNotificationsRoot}/test`, { email, sms });
+  }
+
+  /** Form 1040 PDFs per tax year; list omits full extract unless fullText=true. */
+  listTax1040Returns(fullText = false) {
+    const params = new HttpParams().set('fullText', fullText ? 'true' : 'false');
+    return this.http.get<FinanceTax1040ReturnDto[]>(`${this.tax1040Root}/returns`, { params });
+  }
+
+  getTax1040Return(id: number, fullText = true) {
+    const params = new HttpParams().set('fullText', fullText ? 'true' : 'false');
+    return this.http.get<FinanceTax1040ReturnDto>(`${this.tax1040Root}/returns/${id}`, { params });
+  }
+
+  uploadTax1040Return(taxYear: number, file: File) {
+    const form = new FormData();
+    form.append('taxYear', String(Math.floor(taxYear)));
+    form.append('file', file, file.name);
+    return this.http.post<FinanceTax1040ReturnDto>(`${this.tax1040Root}/returns`, form);
+  }
+
+  deleteTax1040Return(id: number) {
+    return this.http.delete<void>(`${this.tax1040Root}/returns/${id}`);
+  }
+
+  downloadTax1040Blob(downloadPath: string) {
+    const u = downloadPath.startsWith('http') ? downloadPath : `${environment.apiBaseUrl}${downloadPath}`;
+    return this.http.get(u, { responseType: 'blob' });
   }
 }

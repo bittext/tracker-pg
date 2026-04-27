@@ -26,6 +26,7 @@ import {
 } from '../../models/finance.models';
 import { FinanceApiService, FinancePeriod } from '../../services/finance-api.service';
 import { formatHttpErrorDetail } from '../../util/http-error';
+import { FinanceTax1040PanelComponent } from './finance-tax-1040-panel/finance-tax-1040-panel.component';
 
 @Component({
   selector: 'app-finance',
@@ -42,6 +43,7 @@ import { formatHttpErrorDetail } from '../../util/http-error';
     MatIconModule,
     MatSnackBarModule,
     MatTableModule,
+    FinanceTax1040PanelComponent,
   ],
   templateUrl: './finance.component.html',
   styleUrl: './finance.component.scss',

@@ -1,0 +1,95 @@
+<div class="t1040-wrap">
+  <p class="muted intro">
+    Upload a <strong>PDF</strong> of your U.S. <strong>Form 1040</strong> for each tax year. The app reads text from the
+    PDF and tries to pull common dollar lines (wages, AGI, taxable income, tax, withholding, refund, amount owed).
+    Results depend on how the PDF was generated; always verify against your official return.
+  </p>
+
+  <div class="upload-bar">
+    <mat-form-field appearance="outline" class="year-field">
+      <mat-label>Tax year</mat-label>
+      <input matInput type="number" min="1990" max="2100" step="1" name="uploadYear" [(ngModel)]="uploadYear" />
+    </mat-form-field>
+    <input #fileIn type="file" accept="application/pdf,.pdf" class="hidden-file" (change)="onFileSelected($event)" />
+    <button mat-flat-button color="primary" type="button" (click)="fileIn.click()" [disabled]="uploadBusy || loading">
+      <mat-icon>upload_file</mat-icon>
+      Upload Form 1040 PDF
+    </button>
+    @if (uploadBusy) {
+      <span class="muted">Uploading…</span>
+    }
+  </div>
+
+  <h3 class="section-title">Your returns</h3>
+  @if (loading && returns.length === 0) {
+    <p class="muted">Loading…</p>
+  } @else if (returns.length === 0) {
+    <p class="muted">No Form 1040 PDFs saved yet.</p>
+  } @else {
+    <div class="table-scroll">
+      <table mat-table [dataSource]="returns" class="t1040-table">
+        <ng-container matColumnDef="taxYear">
+          <th mat-header-cell *matHeaderCellDef>Year</th>
+          <td mat-cell *matCellDef="let r">{{ r.taxYear }}</td>
+        </ng-container>
+        <ng-container matColumnDef="filename">
+          <th mat-header-cell *matHeaderCellDef>File</th>
+          <td mat-cell *matCellDef="let r" class="fname">{{ r.originalFilename }}</td>
+        </ng-container>
+        <ng-container matColumnDef="agi">
+          <th mat-header-cell *matHeaderCellDef>AGI (parsed)</th>
+          <td mat-cell *matCellDef="let r">{{ money(r.summary.adjustedGrossIncome) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="tax">
+          <th mat-header-cell *matHeaderCellDef>Total tax</th>
+          <td mat-cell *matCellDef="let r">{{ money(r.summary.totalTax) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="refund">
+          <th mat-header-cell *matHeaderCellDef>Refund</th>
+          <td mat-cell *matCellDef="let r">{{ money(r.summary.refund) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="owed">
+          <th mat-header-cell *matHeaderCellDef>Owed</th>
+          <td mat-cell *matCellDef="let r">{{ money(r.summary.amountOwed) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef></th>
+          <td mat-cell *matCellDef="let r">
+            <button mat-button type="button" (click)="openDetail(r)">Details</button>
+            <button mat-button type="button" (click)="download(r)">PDF</button>
+            <button mat-button type="button" color="warn" (click)="deleteRow(r)">Delete</button>
+          </td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns; trackBy: trackById"></tr>
+      </table>
+    </div>
+  }
+
+  @if (selected) {
+    <div class="detail-panel">
+      <div class="detail-head">
+        <h3 class="section-title">Tax year {{ selected.taxYear }}</h3>
+        <button mat-stroked-button type="button" (click)="closeDetail()">Close</button>
+      </div>
+      @if (detailLoading) {
+        <p class="muted">Loading full extract…</p>
+      } @else {
+        <p class="muted parse-note">
+          {{ selected.summary.parseNote }}
+          @if (!selected.summary.likelyForm1040) {
+            <span class="warn"> — File may not be a standard Form 1040.</span>
+          }
+        </p>
+        <div class="summary-grid">
+          @for (row of summaryCols(selected.summary); track row.label) {
+            <div class="sum-label">{{ row.label }}</div>
+            <div class="sum-val">{{ row.value }}</div>
+          }
+        </div>
+        <h4 class="subhead">Extracted text (from PDF)</h4>
+        <pre class="extract-block">{{ selected.extractedTextFull || selected.extractedTextPreview || '—' }}</pre>
+      }
+    </div>
+  }
+</div>
