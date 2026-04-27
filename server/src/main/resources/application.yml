@@ -110,6 +110,8 @@ tracker:
 logging:
   level:
     root: INFO
+    # Flyway errors (checksum mismatch, SQL) often appear here before the generic entityManagerFactory failure.
+    org.flywaydb: DEBUG
     com.svp.tracker: DEBUG
     com.svp.tracker.diagnostics: INFO
     com.svp.tracker.logging: DEBUG
