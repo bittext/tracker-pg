@@ -9,6 +9,7 @@ import com.svp.tracker.finance.dto.FinanceTax1040ReturnDto;
 import com.svp.tracker.finance.repository.FinanceTax1040ReturnRepository;
 import com.svp.tracker.finance.tax.Form1040ParsedSummary;
 import com.svp.tracker.finance.tax.Form1040TextParser;
+import com.svp.tracker.finance.tax.Form1040TextParser;
 import com.svp.tracker.fitness.exception.NotFoundException;
 import com.svp.tracker.journal.service.JournalBlobStore;
 import java.io.ByteArrayInputStream;
@@ -182,11 +183,26 @@ public class FinanceTax1040Service {
                 r.getOriginalFilename(),
                 r.getSizeBytes(),
                 "/api/finance/tax/1040/returns/" + r.getId() + "/download",
-                readSummary(r.getSummaryJson()),
+                effectiveSummary(r),
                 preview,
                 includeFullExtract ? full : null,
                 r.getCreatedAt(),
                 r.getUpdatedAt());
+    }
+
+    /**
+     * Re-parses stored PDF text whenever possible so display stays current with parser logic without re-uploading.
+     * Falls back to persisted JSON only when extract is missing or is the PDF read error stub.
+     */
+    private Form1040ParsedSummary effectiveSummary(FinanceTax1040Return r) {
+        String t = r.getExtractedText();
+        if (t != null
+                && !t.isBlank()
+                && t.length() > 40
+                && !t.startsWith("(Could not read PDF text:")) {
+            return Form1040TextParser.parse(t);
+        }
+        return readSummary(r.getSummaryJson());
     }
 
     private Form1040ParsedSummary readSummary(String json) {

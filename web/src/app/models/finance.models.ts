@@ -269,18 +269,28 @@ export interface Surge52WeekRowDto {
   externalDetailUrl: string;
 }
 
-/** Parsed summary from Form 1040 PDF text (best effort). */
+/** Parsed summary from Form 1040 PDF text (best effort; server may re-parse on each read). */
 export interface Form1040ParsedSummary {
   likelyForm1040: boolean;
   parseNote?: string | null;
+  taxYearOnForm?: string | null;
+  filingStatus?: string | null;
   wagesSalariesTips?: number | null;
   taxableInterest?: number | null;
   ordinaryDividends?: number | null;
+  iraDistributionsTaxable?: number | null;
+  pensionsTaxable?: number | null;
+  socialSecurityTaxable?: number | null;
+  totalIncome?: number | null;
   adjustedGrossIncome?: number | null;
+  standardOrItemizedDeduction?: number | null;
   taxableIncome?: number | null;
   totalTax?: number | null;
+  childAndOtherDependentsCredit?: number | null;
+  totalTaxAfterCredits?: number | null;
   federalIncomeTaxWithheld?: number | null;
   estimatedTaxPayments?: number | null;
+  totalPayments?: number | null;
   refund?: number | null;
   amountOwed?: number | null;
 }
