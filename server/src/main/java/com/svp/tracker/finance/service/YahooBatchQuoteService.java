@@ -47,7 +47,7 @@ public class YahooBatchQuoteService {
     private volatile Instant lastRefreshAt = Instant.EPOCH;
 
     /**
-     * Single Alpha bulk call every hour with all tracked symbols (alerts + fixed finance watch/index set).
+     * Single hourly refresh cycle for all tracked symbols (alerts + fixed finance watch/index set).
      * Reads can still trigger a one-shot refresh if a requested symbol is missing from cache.
      */
     @Scheduled(
@@ -163,7 +163,11 @@ public class YahooBatchQuoteService {
             }
             cache = Map.copyOf(merged);
             lastRefreshAt = now;
-            log.info("Alpha Vantage one-shot refresh reason={} requested={} received={}", reason, normalized.size(), fresh.size());
+            log.info(
+                    "Alpha Vantage refresh reason={} requested={} received={}",
+                    reason,
+                    normalized.size(),
+                    fresh.size());
         }
     }
 
@@ -173,58 +177,51 @@ public class YahooBatchQuoteService {
             log.warn("Alpha Vantage API key is not configured; set TRACKER_FINANCE_ALPHA_VANTAGE_API_KEY");
             return Map.of();
         }
-        String url = props.alphaVantageBaseUrl()
-                + "?function=BATCH_STOCK_QUOTES&symbols="
-                + URLEncoder.encode(String.join(",", symbols), StandardCharsets.UTF_8)
-                + "&apikey="
-                + URLEncoder.encode(key, StandardCharsets.UTF_8);
-        try {
-            HttpRequest request = HttpRequest.newBuilder(URI.create(url))
-                    .GET()
-                    .timeout(Duration.ofMillis(props.newsTimeoutMs()))
-                    .header("Accept", "application/json")
-                    .header("User-Agent", "tracker-server/1.0")
-                    .build();
-            HttpResponse<String> resp =
-                    httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
-                log.warn("Alpha Vantage bulk quote HTTP {}", resp.statusCode());
-                return Map.of();
-            }
-            JsonNode root = objectMapper.readTree(resp.body());
-            if (root.has("Note")) {
-                log.warn("Alpha Vantage throttled bulk quote requests: {}", root.path("Note").asText(""));
-                return Map.of();
-            }
-            if (root.has("Error Message")) {
-                log.warn("Alpha Vantage bulk quote error: {}", root.path("Error Message").asText(""));
-                return Map.of();
-            }
-            JsonNode rows = root.path("Stock Quotes");
-            if (!rows.isArray() || rows.isEmpty()) {
-                return Map.of();
-            }
-            Map<String, AlphaQuote> out = new HashMap<>();
-            for (JsonNode row : rows) {
-                if (row == null || row.isNull()) {
+        Map<String, AlphaQuote> out = new HashMap<>();
+        for (String symbol : symbols) {
+            String url = props.alphaVantageBaseUrl()
+                    + "?function=GLOBAL_QUOTE&symbol="
+                    + URLEncoder.encode(symbol, StandardCharsets.UTF_8)
+                    + "&apikey="
+                    + URLEncoder.encode(key, StandardCharsets.UTF_8);
+            try {
+                HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+                        .GET()
+                        .timeout(Duration.ofMillis(props.newsTimeoutMs()))
+                        .header("Accept", "application/json")
+                        .header("User-Agent", "tracker-server/1.0")
+                        .build();
+                HttpResponse<String> resp =
+                        httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
+                    log.warn("Alpha Vantage quote HTTP {} for {}", resp.statusCode(), symbol);
                     continue;
                 }
-                String sym = text(row.path("1. symbol").asText(null));
-                if (sym.isEmpty()) {
+                JsonNode root = objectMapper.readTree(resp.body());
+                if (root.has("Note")) {
+                    log.warn("Alpha Vantage throttled quote requests: {}", root.path("Note").asText(""));
+                    break;
+                }
+                if (root.has("Error Message")) {
+                    log.warn("Alpha Vantage quote error for {}: {}", symbol, root.path("Error Message").asText(""));
                     continue;
                 }
-                Double price = toDouble(row.path("2. price").asText(null));
-                Long volume = toLong(row.path("3. volume").asText(null));
-                if (price == null && volume == null) {
+                JsonNode q = root.path("Global Quote");
+                if (!q.isObject() || q.isEmpty()) {
                     continue;
                 }
-                out.put(sym, new AlphaQuote(price, null, volume));
+                Double price = toDouble(q.path("05. price").asText(null));
+                Double pct = toPercentDouble(q.path("10. change percent").asText(null));
+                Long volume = toLong(q.path("06. volume").asText(null));
+                if (price == null && pct == null && volume == null) {
+                    continue;
+                }
+                out.put(symbol, new AlphaQuote(price, pct, volume));
+            } catch (Exception e) {
+                log.warn("Alpha Vantage quote failed for {}", symbol, e);
             }
-            return out;
-        } catch (Exception e) {
-            log.warn("Alpha Vantage bulk quote failed", e);
-            return Map.of();
         }
+        return out;
     }
 
     private static List<String> normalizeSymbols(List<String> symbols) {
@@ -243,6 +240,14 @@ public class YahooBatchQuoteService {
 
     private static String text(String s) {
         return s == null ? "" : s.trim();
+    }
+
+    private static Double toPercentDouble(String s) {
+        if (s == null || s.isBlank()) {
+            return null;
+        }
+        String cleaned = s.replace("%", "").trim();
+        return toDouble(cleaned);
     }
 
     private static Double toDouble(String s) {
