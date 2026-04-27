@@ -7,7 +7,12 @@
 </div>
 
 <mat-card class="card mgmt-card">
-  <mat-tab-group animationDuration="220ms" class="mgmt-tab-group" [dynamicHeight]="true">
+  <mat-tab-group
+    animationDuration="220ms"
+    class="mgmt-tab-group"
+    [dynamicHeight]="true"
+    (selectedIndexChange)="onManagementTabIndexChange($event)"
+  >
     <mat-tab label="Tasks">
       <div class="tab-panel mgmt-tasks-panel">
         <div class="mgmt-intro-grid">
@@ -588,6 +593,153 @@
                           }
                           <p><strong>Notes:</strong></p>
                           <p class="utilities-notes">{{ entry.notes || '—' }}</p>
+                        </article>
+                      }
+                    </div>
+                  }
+                </mat-card-content>
+              </mat-card>
+            </section>
+          </div>
+        </section>
+      </div>
+    </mat-tab>
+
+    <mat-tab label="Notes">
+      <div class="tab-panel mgmt-notes-panel">
+        <section aria-labelledby="mgmt-notes-heading">
+          <h2 id="mgmt-notes-heading" class="subsection-title">Month notes</h2>
+          <p class="muted">
+            Notes are stored at <strong>month</strong> resolution (no day). Pick a year, then a month or the whole year to
+            filter. Add a subject, body, and attach files to each note.
+          </p>
+
+          <div class="notes-year-bar">
+            <button mat-icon-button type="button" (click)="prevNoteYear()" aria-label="Previous year">
+              <mat-icon>chevron_left</mat-icon>
+            </button>
+            <button type="button" class="notes-year-chip" (click)="selectNotesYearOnly()">{{ noteYear }}</button>
+            <button mat-icon-button type="button" (click)="nextNoteYear()" aria-label="Next year">
+              <mat-icon>chevron_right</mat-icon>
+            </button>
+            @if (noteFilterMonth != null) {
+              <span class="notes-filter-hint">· {{ monthName(noteFilterMonth) }} {{ noteYear }}</span>
+              <button mat-button type="button" (click)="selectNotesYearOnly()">Show full year</button>
+            } @else {
+              <span class="notes-filter-hint">· All months</span>
+            }
+          </div>
+
+          <div class="notes-month-grid" role="group" aria-label="Notes by month">
+            @for (cell of noteMonthCells; track cell.month) {
+              <button
+                type="button"
+                class="notes-month-cell"
+                [class.notes-month-cell--active]="noteFilterMonth === cell.month"
+                [class.notes-month-cell--has]="cell.noteCount > 0"
+                (click)="selectNoteMonth(cell.month)"
+              >
+                <span class="notes-month-label">{{ shortMonthName(cell.month) }}</span>
+                <span class="notes-month-count">{{ cell.noteCount }}</span>
+              </button>
+            }
+          </div>
+
+          <div class="mgmt-layout notes-layout">
+            <section class="mgmt-column" aria-label="Add or edit month note">
+              <mat-card appearance="outlined" class="mgmt-nested-card notes-form-card">
+                <mat-card-header>
+                  <mat-card-title>{{ noteEditingId != null ? 'Edit note' : 'Add note' }}</mat-card-title>
+                  <mat-card-subtitle>Subject, notes, and year / month</mat-card-subtitle>
+                </mat-card-header>
+                <mat-card-content>
+                  <div class="form-row wrap">
+                    <mat-form-field appearance="outline" class="narrow">
+                      <mat-label>Year</mat-label>
+                      <input matInput type="number" name="nnYear" [(ngModel)]="noteDraft.year" min="1970" max="9999" />
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="narrow">
+                      <mat-label>Month</mat-label>
+                      <mat-select name="nnMonth" [(ngModel)]="noteDraft.month">
+                        @for (m of noteMonthOptions; track m) {
+                          <mat-option [value]="m">{{ monthName(m) }}</mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
+                  </div>
+                  <mat-form-field appearance="outline" class="full-width-field">
+                    <mat-label>Subject</mat-label>
+                    <input matInput name="nnSubject" [(ngModel)]="noteDraft.subject" required placeholder="Short title" />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="full-width-field">
+                    <mat-label>Notes</mat-label>
+                    <textarea matInput name="nnBody" rows="6" [(ngModel)]="noteDraft.body" placeholder="Details for this month"></textarea>
+                  </mat-form-field>
+                  <div class="form-actions">
+                    <button mat-flat-button color="primary" type="button" (click)="saveMonthNote()">
+                      {{ noteEditingId != null ? 'Save changes' : 'Save note' }}
+                    </button>
+                    <button mat-button type="button" (click)="resetMonthNoteForm()">Clear</button>
+                  </div>
+                </mat-card-content>
+              </mat-card>
+            </section>
+
+            <section class="mgmt-column" aria-label="Notes for selected period">
+              <mat-card appearance="outlined" class="mgmt-nested-card notes-list-card">
+                <mat-card-header>
+                  <mat-card-title>Your notes</mat-card-title>
+                  <mat-card-subtitle>
+                    @if (noteFilterMonth == null) {
+                      {{ noteYear }} (all months) · {{ monthNotes.length }} note(s)
+                    } @else {
+                      {{ monthName(noteFilterMonth) }} {{ noteYear }} · {{ monthNotes.length }} note(s)
+                    }
+                  </mat-card-subtitle>
+                </mat-card-header>
+                <mat-card-content>
+                  @if (!monthNotes.length) {
+                    <p class="muted empty-hint">No notes for this selection yet.</p>
+                  } @else {
+                    <div class="notes-entry-list">
+                      @for (n of monthNotes; track n.id) {
+                        <article class="notes-entry" [class.notes-entry--editing]="noteEditingId === n.id">
+                          <h3 class="notes-entry-subject">{{ n.subject }}</h3>
+                          <p class="notes-entry-meta">
+                            {{ monthName(n.month) }} {{ n.year }} · updated {{ n.updatedAt | date: 'medium' }}
+                          </p>
+                          <div class="notes-entry-body">{{ n.body || '—' }}</div>
+                          <div class="notes-entry-actions">
+                            <button mat-stroked-button type="button" color="primary" (click)="startEditMonthNote(n)">Edit</button>
+                            <button mat-button type="button" color="warn" (click)="deleteMonthNote(n)">Delete</button>
+                          </div>
+                          <div class="notes-attach-row">
+                            <label class="notes-file-label">
+                              <input
+                                type="file"
+                                multiple
+                                [attr.data-note-id]="n.id"
+                                (change)="onMonthNoteFilesSelected($event, n.id)"
+                                [disabled]="noteUploading"
+                              />
+                              <span class="notes-file-label-text">Add attachment(s)</span>
+                            </label>
+                          </div>
+                          @if (n.attachments.length) {
+                            <ul class="notes-attachment-list">
+                              @for (a of n.attachments; track a.id) {
+                                <li>
+                                  <button type="button" class="notes-att-link" (click)="openMonthNoteAttachment(a.id, a.originalFilename)">
+                                    {{ a.originalFilename }}
+                                  </button>
+                                  <span class="muted">({{ (a.sizeBytes / 1024) | number: '1.0-0' }} KB)</span>
+                                  <button mat-icon-button type="button" (click)="removeMonthNoteAttachment(n.id, a.id)" aria-label="Remove attachment">
+                                    <mat-icon>close</mat-icon>
+                                  </button>
+                                </li>
+                              }
+                            </ul>
+                          }
                         </article>
                       }
                     </div>

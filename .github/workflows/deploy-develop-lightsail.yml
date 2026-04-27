@@ -8,7 +8,8 @@
 # Optional repository variables (Settings → Secrets and variables → Actions → Variables):
 #   LIGHTSAIL_REPO_DIR              — absolute path to the clone on the server
 #   LIGHTSAIL_USE_ROBINHOOD_COMPOSE — set to 1 to merge docker-compose.robinhood.yml
-#   LIGHTSAIL_USE_CADDY             — set to 1 to merge docker-compose.https-lightsail.yml (Caddy on 80/443)
+#   LIGHTSAIL_USE_CADDY             — optional; set to 1 to force Caddy merge. If unset, deploy still merges Caddy
+#                                     when CADDY_DOMAIN is set in the server’s .env.stack (see scripts/lightsail-deploy.sh).
 #
 # One-time on the Lightsail host:
 #   - Install Docker Engine + Compose plugin; add ubuntu to the docker group if needed.

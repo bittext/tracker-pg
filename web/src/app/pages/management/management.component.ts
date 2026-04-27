@@ -18,6 +18,8 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { catchError, forkJoin, of } from 'rxjs';
 import {
   BalanceUrgency,
+  ManagementMonthNoteCalendarDto,
+  ManagementMonthNoteDto,
   ManagementTaskCategory,
   ManagementTaskDto,
   ManagementTaskType,
@@ -150,6 +152,24 @@ export class ManagementComponent implements OnInit {
     notes: '',
   };
   utilityEntries: UtilityEntry[] = [];
+
+  /** 0 Tasks, 1 Calendar, 2 Utilities, 3 Notes */
+  private readonly MGMT_TAB_NOTES = 3;
+
+  noteYear = new Date().getFullYear();
+  /** When set, list is limited to that month; when null, all months in the year. */
+  noteFilterMonth: number | null = null;
+  noteCalendar: ManagementMonthNoteCalendarDto | null = null;
+  monthNotes: ManagementMonthNoteDto[] = [];
+  noteEditingId: number | null = null;
+  noteDraft = {
+    year: new Date().getFullYear(),
+    month: new Date().getMonth() + 1,
+    subject: '',
+    body: '',
+  };
+  noteUploading = false;
+  readonly noteMonthOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
 
   ngOnInit(): void {
     const t = this.todayIso();
@@ -817,6 +837,203 @@ export class ManagementComponent implements OnInit {
     const m = Number(iso.slice(5, 7));
     const d = Number(iso.slice(8, 10));
     return new Date(y, m - 1, d).toLocaleDateString();
+  }
+
+  onManagementTabIndexChange(index: number): void {
+    if (index === this.MGMT_TAB_NOTES) {
+      this.noteDraft.year = this.noteYear;
+      if (this.noteFilterMonth != null) {
+        this.noteDraft.month = this.noteFilterMonth;
+      }
+      this.reloadMonthNotesData();
+    }
+  }
+
+  get noteMonthCells(): { month: number; noteCount: number }[] {
+    return this.noteCalendar?.months ?? this.emptyNoteCalendarMonths();
+  }
+
+  private emptyNoteCalendarMonths(): { month: number; noteCount: number }[] {
+    return Array.from({ length: 12 }, (_, i) => ({ month: i + 1, noteCount: 0 }));
+  }
+
+  reloadMonthNotesData(): void {
+    this.api.notesCalendar(this.noteYear).subscribe({
+      next: (c) => (this.noteCalendar = c),
+      error: (e) => this.err('Could not load notes calendar', e),
+    });
+    this.api.listMonthNotes(this.noteYear, this.noteFilterMonth).subscribe({
+      next: (rows) => (this.monthNotes = rows),
+      error: (e) => this.err('Could not load notes', e),
+    });
+  }
+
+  private reloadMonthNotesListOnly(): void {
+    this.api.listMonthNotes(this.noteYear, this.noteFilterMonth).subscribe({
+      next: (rows) => (this.monthNotes = rows),
+      error: (e) => this.err('Could not load notes', e),
+    });
+  }
+
+  selectNotesYearOnly(): void {
+    this.noteFilterMonth = null;
+    this.reloadMonthNotesListOnly();
+  }
+
+  selectNoteMonth(m: number): void {
+    if (this.noteFilterMonth === m) {
+      this.noteFilterMonth = null;
+    } else {
+      this.noteFilterMonth = m;
+      this.noteDraft.month = m;
+    }
+    this.reloadMonthNotesListOnly();
+  }
+
+  prevNoteYear(): void {
+    this.noteYear -= 1;
+    this.noteDraft.year = this.noteYear;
+    this.reloadMonthNotesData();
+  }
+
+  nextNoteYear(): void {
+    this.noteYear += 1;
+    this.noteDraft.year = this.noteYear;
+    this.reloadMonthNotesData();
+  }
+
+  monthName(m: number): string {
+    return new Date(2000, m - 1, 1).toLocaleString(undefined, { month: 'long' });
+  }
+
+  shortMonthName(m: number): string {
+    return new Date(2000, m - 1, 1).toLocaleString(undefined, { month: 'short' });
+  }
+
+  saveMonthNote(): void {
+    const subject = (this.noteDraft.subject || '').trim();
+    if (!subject) {
+      this.snackBar.open('Subject is required', undefined, { duration: 2500 });
+      return;
+    }
+    const body = {
+      year: this.noteDraft.year,
+      month: this.noteDraft.month,
+      subject,
+      body: (this.noteDraft.body || '').trim(),
+    };
+    if (this.noteEditingId != null) {
+      this.api.updateMonthNote(this.noteEditingId, body).subscribe({
+        next: () => {
+          this.snackBar.open('Note updated', undefined, { duration: 2000 });
+          this.resetMonthNoteForm();
+          this.reloadMonthNotesData();
+        },
+        error: (e) => this.err('Could not update note', e),
+      });
+    } else {
+      this.api.createMonthNote(body).subscribe({
+        next: () => {
+          this.snackBar.open('Note saved', undefined, { duration: 2000 });
+          this.resetMonthNoteForm();
+          this.reloadMonthNotesData();
+        },
+        error: (e) => this.err('Could not save note', e),
+      });
+    }
+  }
+
+  resetMonthNoteForm(): void {
+    this.noteEditingId = null;
+    this.noteDraft = {
+      year: this.noteYear,
+      month: this.noteFilterMonth != null ? this.noteFilterMonth : this.noteDraft.month,
+      subject: '',
+      body: '',
+    };
+  }
+
+  startEditMonthNote(n: ManagementMonthNoteDto): void {
+    this.noteEditingId = n.id;
+    this.noteDraft = {
+      year: n.year,
+      month: n.month,
+      subject: n.subject,
+      body: n.body ?? '',
+    };
+  }
+
+  deleteMonthNote(n: ManagementMonthNoteDto): void {
+    if (typeof window !== 'undefined' && !window.confirm('Delete this note?')) {
+      return;
+    }
+    this.api.deleteMonthNote(n.id).subscribe({
+      next: () => {
+        this.snackBar.open('Note removed', undefined, { duration: 2000 });
+        if (this.noteEditingId === n.id) {
+          this.resetMonthNoteForm();
+        }
+        this.reloadMonthNotesData();
+      },
+      error: (e) => this.err('Could not delete note', e),
+    });
+  }
+
+  onMonthNoteFilesSelected(event: Event, noteId: number): void {
+    const input = event.target as HTMLInputElement;
+    const files = input.files;
+    if (!files?.length) {
+      return;
+    }
+    this.noteUploading = true;
+    const list = Array.from(files);
+    let i = 0;
+    const step = (): void => {
+      if (i >= list.length) {
+        this.noteUploading = false;
+        input.value = '';
+        this.reloadMonthNotesData();
+        this.snackBar.open('Attachment(s) uploaded', undefined, { duration: 2000 });
+        return;
+      }
+      this.api.uploadMonthNoteAttachment(noteId, list[i]).subscribe({
+        next: () => {
+          i += 1;
+          step();
+        },
+        error: (e) => {
+          this.noteUploading = false;
+          input.value = '';
+          this.err('Upload failed', e);
+        },
+      });
+    };
+    step();
+  }
+
+  openMonthNoteAttachment(attachmentId: number, _filename: string): void {
+    this.api.getMonthNoteAttachmentBlob(attachmentId, 'inline').subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const w = window.open(url, '_blank', 'noopener');
+        if (!w) {
+          URL.revokeObjectURL(url);
+        } else {
+          w.addEventListener('beforeunload', () => URL.revokeObjectURL(url));
+        }
+      },
+      error: (e) => this.err('Could not open attachment', e),
+    });
+  }
+
+  removeMonthNoteAttachment(_noteId: number, attachmentId: number): void {
+    this.api.deleteMonthNoteAttachment(attachmentId).subscribe({
+      next: () => {
+        this.snackBar.open('Attachment removed', undefined, { duration: 2000 });
+        this.reloadMonthNotesData();
+      },
+      error: (e) => this.err('Could not remove attachment', e),
+    });
   }
 
   private err(msg: string, e: unknown): void {

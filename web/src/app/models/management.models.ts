@@ -45,3 +45,35 @@ export interface ManagementTaskWriteBody {
   taskTypeId?: number | null;
   completed?: boolean;
 }
+
+export interface ManagementMonthNoteCalendarDto {
+  year: number;
+  months: { month: number; noteCount: number }[];
+}
+
+export interface ManagementMonthNoteAttachmentDto {
+  id: number;
+  originalFilename: string;
+  contentType: string | null;
+  sizeBytes: number;
+  downloadPath: string;
+}
+
+export interface ManagementMonthNoteDto {
+  id: number;
+  ownerUserId: number;
+  year: number;
+  month: number;
+  subject: string;
+  body: string;
+  attachments: ManagementMonthNoteAttachmentDto[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ManagementMonthNoteWriteBody {
+  year: number;
+  month: number;
+  subject: string;
+  body: string;
+}

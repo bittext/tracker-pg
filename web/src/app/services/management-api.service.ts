@@ -2,10 +2,14 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { environment } from '../../environments/environment';
 import {
+  ManagementMonthNoteCalendarDto,
+  ManagementMonthNoteDto,
   ManagementTaskCategory,
   ManagementTaskDto,
   ManagementTaskType,
   ManagementTaskWriteBody,
+  ManagementMonthNoteWriteBody,
+  ManagementMonthNoteAttachmentDto,
   TaskMonthCalendarDto,
 } from '../models/management.models';
 
@@ -66,5 +70,52 @@ export class ManagementApiService {
 
   deleteTask(id: number) {
     return this.http.delete<void>(`${this.root}/tasks/${id}`);
+  }
+
+  notesCalendar(year: number) {
+    return this.http.get<ManagementMonthNoteCalendarDto>(`${this.root}/notes/calendar`, {
+      params: { year: String(year) },
+    });
+  }
+
+  listMonthNotes(year: number, month?: number | null) {
+    const p: Record<string, string> = { year: String(year) };
+    if (month != null) {
+      p['month'] = String(month);
+    }
+    return this.http.get<ManagementMonthNoteDto[]>(`${this.root}/notes`, { params: p });
+  }
+
+  getMonthNote(id: number) {
+    return this.http.get<ManagementMonthNoteDto>(`${this.root}/notes/${id}`);
+  }
+
+  createMonthNote(body: ManagementMonthNoteWriteBody) {
+    return this.http.post<ManagementMonthNoteDto>(`${this.root}/notes`, body);
+  }
+
+  updateMonthNote(id: number, body: ManagementMonthNoteWriteBody) {
+    return this.http.put<ManagementMonthNoteDto>(`${this.root}/notes/${id}`, body);
+  }
+
+  deleteMonthNote(id: number) {
+    return this.http.delete<void>(`${this.root}/notes/${id}`);
+  }
+
+  uploadMonthNoteAttachment(noteId: number, file: File) {
+    const fd = new FormData();
+    fd.append('file', file, file.name);
+    return this.http.post<ManagementMonthNoteAttachmentDto>(`${this.root}/notes/${noteId}/attachments`, fd);
+  }
+
+  deleteMonthNoteAttachment(attachmentId: number) {
+    return this.http.delete<void>(`${this.root}/notes/attachments/${attachmentId}`);
+  }
+
+  getMonthNoteAttachmentBlob(attachmentId: number, disposition: 'inline' | 'attachment' = 'inline') {
+    return this.http.get(`${this.root}/notes/attachments/${attachmentId}/file`, {
+      responseType: 'blob',
+      params: { disposition },
+    });
   }
 }
