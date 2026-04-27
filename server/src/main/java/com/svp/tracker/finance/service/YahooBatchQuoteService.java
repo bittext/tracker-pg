@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.svp.tracker.config.FinanceProperties;
 import com.svp.tracker.finance.dto.YahooExtendedQuoteDto;
 import com.svp.tracker.finance.dto.YahooSimpleQuoteDto;
+import com.svp.tracker.finance.repository.FinanceStockAlertRepository;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.net.http.HttpClient;
@@ -12,221 +13,259 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 /**
- * Fetches regular session quote fields for several tickers in one request (Yahoo v7). Not investment advice; for UI
- * context only.
+ * Fetches quote fields from Alpha Vantage. This class keeps its original name to avoid broad wiring changes.
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class YahooBatchQuoteService {
-    private static final String QUOTE = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=";
+
+    private static final Duration CACHE_TTL = Duration.ofHours(1);
+    private static final List<String> ALWAYS_TRACKED =
+            List.of("SPY", "QQQ", "DIA", "IWM", "HOOD", "CRWV", "NBIS");
 
     private final FinanceProperties props;
+    private final FinanceStockAlertRepository alertRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final HttpClient httpClient = HttpClient.newHttpClient();
+    private final Object refreshLock = new Object();
+
+    private volatile Map<String, AlphaQuote> cache = Map.of();
+    private volatile Instant lastRefreshAt = Instant.EPOCH;
+
+    /**
+     * Single Alpha bulk call every hour with all tracked symbols (alerts + fixed finance watch/index set).
+     * Reads can still trigger a one-shot refresh if a requested symbol is missing from cache.
+     */
+    @Scheduled(
+            fixedDelayString = "${tracker.finance.alpha-vantage-refresh-ms:3600000}",
+            initialDelayString = "${tracker.finance.alpha-vantage-initial-delay-ms:45000}")
+    public void refreshTrackedSymbolsHourly() {
+        refreshAllSymbolsInOneShot(collectTrackedSymbols(), "hourly");
+    }
 
     public Map<String, YahooSimpleQuoteDto> fetchBySymbols(List<String> symbols) {
-        if (symbols == null || symbols.isEmpty()) {
+        List<String> req = normalizeSymbols(symbols);
+        if (req.isEmpty()) {
             return Map.of();
         }
-        String joined =
-                String.join(
-                        ",",
-                        symbols.stream()
-                                .map(s -> s == null ? "" : s.trim().toUpperCase(Locale.ROOT))
-                                .filter(s -> !s.isEmpty())
-                                .toList());
-        if (joined.isEmpty()) {
-            return Map.of();
+        ensureFresh(req);
+        Map<String, YahooSimpleQuoteDto> out = new HashMap<>();
+        Map<String, AlphaQuote> snap = cache;
+        for (String s : req) {
+            AlphaQuote q = snap.get(s);
+            if (q == null) {
+                continue;
+            }
+            out.put(s, new YahooSimpleQuoteDto(s, s, q.price(), q.changePercent()));
         }
-        String enc = URLEncoder.encode(joined, StandardCharsets.UTF_8);
-        String url = QUOTE + enc;
-        try {
-            HttpClient client =
-                    HttpClient.newBuilder().connectTimeout(Duration.ofMillis(props.newsTimeoutMs())).build();
-            HttpRequest request =
-                    HttpRequest.newBuilder(URI.create(url))
-                            .GET()
-                            .timeout(Duration.ofMillis(props.newsTimeoutMs()))
-                            .header("Accept", "application/json")
-                            .header("User-Agent", "tracker-server/1.0")
-                            .build();
-            HttpResponse<String> resp = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
-                log.warn("Yahoo quote batch HTTP {}", resp.statusCode());
-                return Map.of();
-            }
-            JsonNode root = objectMapper.readTree(resp.body());
-            JsonNode result = root.path("quoteResponse").path("result");
-            if (!result.isArray() || result.isEmpty()) {
-                return Map.of();
-            }
-            Map<String, YahooSimpleQuoteDto> out = new HashMap<>();
-            for (JsonNode n : result) {
-                if (n == null || n.isNull()) {
-                    continue;
-                }
-                String sym = text(n, "symbol");
-                if (sym.isEmpty()) {
-                    continue;
-                }
-                Double px = dbl(n, "regularMarketPrice");
-                Double chg = dbl(n, "regularMarketChangePercent");
-                out.put(
-                        sym,
-                        new YahooSimpleQuoteDto(sym, text(n, "shortName"), px, chg));
-            }
-            return out;
-        } catch (Exception e) {
-            log.warn("Yahoo batch quote failed", e);
-            return Map.of();
-        }
+        return out;
     }
 
     /**
      * Same v7 batch endpoint, parsed for KPI / sector fields used in swing narratives. Missing fields stay null.
      */
     public Map<String, YahooExtendedQuoteDto> fetchExtendedBySymbols(List<String> symbols) {
-        if (symbols == null || symbols.isEmpty()) {
+        List<String> req = normalizeSymbols(symbols);
+        if (req.isEmpty()) {
             return Map.of();
         }
-        String joined =
-                String.join(
-                        ",",
-                        symbols.stream()
-                                .map(s -> s == null ? "" : s.trim().toUpperCase(Locale.ROOT))
-                                .filter(s -> !s.isEmpty())
-                                .toList());
-        if (joined.isEmpty()) {
-            return Map.of();
+        ensureFresh(req);
+        Map<String, YahooExtendedQuoteDto> out = new HashMap<>();
+        Map<String, AlphaQuote> snap = cache;
+        for (String s : req) {
+            AlphaQuote q = snap.get(s);
+            if (q == null) {
+                continue;
+            }
+            out.put(
+                    s,
+                    new YahooExtendedQuoteDto(
+                            s,
+                            s,
+                            s,
+                            q.price(),
+                            q.changePercent(),
+                            q.volume(),
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            "",
+                            ""));
         }
-        String enc = URLEncoder.encode(joined, StandardCharsets.UTF_8);
-        String url = QUOTE + enc;
+        return out;
+    }
+
+    private void ensureFresh(List<String> requested) {
+        Instant now = Instant.now();
+        boolean stale = Duration.between(lastRefreshAt, now).compareTo(CACHE_TTL) >= 0;
+        boolean missing = requested.stream().anyMatch(s -> !cache.containsKey(s));
+        if (!stale && !missing) {
+            return;
+        }
+        Set<String> union = new LinkedHashSet<>(collectTrackedSymbols());
+        union.addAll(requested);
+        refreshAllSymbolsInOneShot(union, stale ? "stale-cache" : "missing-symbols");
+    }
+
+    private Set<String> collectTrackedSymbols() {
+        Set<String> out = new LinkedHashSet<>();
+        out.addAll(ALWAYS_TRACKED);
         try {
-            HttpClient client =
-                    HttpClient.newBuilder().connectTimeout(Duration.ofMillis(props.newsTimeoutMs())).build();
-            HttpRequest request =
-                    HttpRequest.newBuilder(URI.create(url))
-                            .GET()
-                            .timeout(Duration.ofMillis(props.newsTimeoutMs()))
-                            .header("Accept", "application/json")
-                            .header("User-Agent", "tracker-server/1.0")
-                            .build();
-            HttpResponse<String> resp = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            out.addAll(normalizeSymbols(alertRepository.findDistinctEnabledSymbols()));
+        } catch (Exception e) {
+            log.warn("Could not load enabled alert symbols for hourly Alpha refresh", e);
+        }
+        return out;
+    }
+
+    private void refreshAllSymbolsInOneShot(Set<String> symbols, String reason) {
+        List<String> normalized = normalizeSymbols(symbols.stream().toList());
+        if (normalized.isEmpty()) {
+            return;
+        }
+        synchronized (refreshLock) {
+            Instant now = Instant.now();
+            // If another thread refreshed while we waited, keep fast-path cheap.
+            boolean stillStale = Duration.between(lastRefreshAt, now).compareTo(CACHE_TTL) >= 0;
+            boolean anyMissing = normalized.stream().anyMatch(s -> !cache.containsKey(s));
+            if (!stillStale && !anyMissing && !"hourly".equals(reason)) {
+                return;
+            }
+            Map<String, AlphaQuote> fresh = fetchAlphaBulkOneShot(normalized);
+            if (fresh.isEmpty()) {
+                return;
+            }
+            Map<String, AlphaQuote> merged = new HashMap<>(cache);
+            for (Map.Entry<String, AlphaQuote> e : fresh.entrySet()) {
+                AlphaQuote prev = merged.get(e.getKey());
+                AlphaQuote next = e.getValue();
+                if (prev != null && prev.price() != null && next.price() != null && prev.price() > 0) {
+                    double pct = ((next.price() - prev.price()) / prev.price()) * 100.0;
+                    next = new AlphaQuote(next.price(), pct, next.volume());
+                }
+                merged.put(e.getKey(), next);
+            }
+            cache = Map.copyOf(merged);
+            lastRefreshAt = now;
+            log.info("Alpha Vantage one-shot refresh reason={} requested={} received={}", reason, normalized.size(), fresh.size());
+        }
+    }
+
+    private Map<String, AlphaQuote> fetchAlphaBulkOneShot(List<String> symbols) {
+        String key = props.alphaVantageApiKey();
+        if (key == null || key.isBlank()) {
+            log.warn("Alpha Vantage API key is not configured; set TRACKER_FINANCE_ALPHA_VANTAGE_API_KEY");
+            return Map.of();
+        }
+        String url = props.alphaVantageBaseUrl()
+                + "?function=BATCH_STOCK_QUOTES&symbols="
+                + URLEncoder.encode(String.join(",", symbols), StandardCharsets.UTF_8)
+                + "&apikey="
+                + URLEncoder.encode(key, StandardCharsets.UTF_8);
+        try {
+            HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+                    .GET()
+                    .timeout(Duration.ofMillis(props.newsTimeoutMs()))
+                    .header("Accept", "application/json")
+                    .header("User-Agent", "tracker-server/1.0")
+                    .build();
+            HttpResponse<String> resp =
+                    httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
-                log.warn("Yahoo extended quote batch HTTP {}", resp.statusCode());
+                log.warn("Alpha Vantage bulk quote HTTP {}", resp.statusCode());
                 return Map.of();
             }
             JsonNode root = objectMapper.readTree(resp.body());
-            JsonNode result = root.path("quoteResponse").path("result");
-            if (!result.isArray() || result.isEmpty()) {
+            if (root.has("Note")) {
+                log.warn("Alpha Vantage throttled bulk quote requests: {}", root.path("Note").asText(""));
                 return Map.of();
             }
-            Map<String, YahooExtendedQuoteDto> out = new HashMap<>();
-            for (JsonNode n : result) {
-                if (n == null || n.isNull()) {
+            if (root.has("Error Message")) {
+                log.warn("Alpha Vantage bulk quote error: {}", root.path("Error Message").asText(""));
+                return Map.of();
+            }
+            JsonNode rows = root.path("Stock Quotes");
+            if (!rows.isArray() || rows.isEmpty()) {
+                return Map.of();
+            }
+            Map<String, AlphaQuote> out = new HashMap<>();
+            for (JsonNode row : rows) {
+                if (row == null || row.isNull()) {
                     continue;
                 }
-                String sym = text(n, "symbol");
+                String sym = text(row.path("1. symbol").asText(null));
                 if (sym.isEmpty()) {
                     continue;
                 }
-                Long vol3m = longNode(n, "averageDailyVolume3Month");
-                if (vol3m == null) {
-                    vol3m = longNode(n, "averageDailyVolume10Day");
+                Double price = toDouble(row.path("2. price").asText(null));
+                Long volume = toLong(row.path("3. volume").asText(null));
+                if (price == null && volume == null) {
+                    continue;
                 }
-                out.put(
-                        sym,
-                        new YahooExtendedQuoteDto(
-                                sym,
-                                text(n, "shortName"),
-                                text(n, "longName"),
-                                dbl(n, "regularMarketPrice"),
-                                dbl(n, "regularMarketChangePercent"),
-                                longNode(n, "regularMarketVolume"),
-                                vol3m,
-                                dbl(n, "marketCap"),
-                                dbl(n, "fiftyTwoWeekHigh"),
-                                dbl(n, "fiftyTwoWeekLow"),
-                                dbl(n, "trailingPE"),
-                                text(n, "sector"),
-                                text(n, "industry")));
+                out.put(sym, new AlphaQuote(price, null, volume));
             }
             return out;
         } catch (Exception e) {
-            log.warn("Yahoo extended batch quote failed", e);
+            log.warn("Alpha Vantage bulk quote failed", e);
             return Map.of();
         }
     }
 
-    private static Long longNode(JsonNode n, String field) {
-        if (n == null || !n.has(field) || n.get(field).isNull()) {
-            return null;
+    private static List<String> normalizeSymbols(List<String> symbols) {
+        if (symbols == null || symbols.isEmpty()) {
+            return List.of();
         }
-        JsonNode v = n.get(field);
-        if (v.isObject() && v.has("raw") && !v.get("raw").isNull()) {
-            v = v.get("raw");
-        }
-        if (v.isIntegralNumber()) {
-            return v.asLong();
-        }
-        if (v.isNumber()) {
-            return Math.round(v.asDouble());
-        }
-        if (v.isTextual()) {
-            String s = v.asText();
-            if (s != null && !s.isBlank()) {
-                try {
-                    return Math.round(Double.parseDouble(s.trim().replace(",", "")));
-                } catch (NumberFormatException ignored) {
-                    return null;
-                }
+        Set<String> out = new LinkedHashSet<>();
+        for (String s : symbols) {
+            String sym = text(s).toUpperCase(Locale.ROOT);
+            if (!sym.isEmpty()) {
+                out.add(sym);
             }
         }
-        return null;
+        return out.stream().toList();
     }
 
-    private static String text(JsonNode n, String field) {
-        JsonNode v = n.get(field);
-        if (v == null || v.isNull()) {
-            return "";
-        }
-        if (v.isTextual()) {
-            return v.asText("").trim();
-        }
-        return v.toString();
+    private static String text(String s) {
+        return s == null ? "" : s.trim();
     }
 
-    /** Yahoo often returns {@code {"raw":n,"fmt":"..."}} or text numbers; match screener-style parsing. */
-    private static Double dbl(JsonNode n, String field) {
-        if (n == null || !n.has(field) || n.get(field).isNull()) {
+    private static Double toDouble(String s) {
+        if (s == null || s.isBlank()) {
             return null;
         }
-        JsonNode v = n.get(field);
-        if (v.isObject() && v.has("raw") && !v.get("raw").isNull()) {
-            v = v.get("raw");
+        try {
+            return Double.parseDouble(s.trim().replace(",", ""));
+        } catch (NumberFormatException e) {
+            return null;
         }
-        if (v.isNumber()) {
-            return v.asDouble();
-        }
-        if (v.isTextual()) {
-            String s = v.asText();
-            if (s != null && !s.isEmpty()) {
-                try {
-                    return Double.parseDouble(s.trim().replace(",", ""));
-                } catch (NumberFormatException ignored) {
-                    return null;
-                }
-            }
-        }
-        return null;
     }
+
+    private static Long toLong(String s) {
+        if (s == null || s.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(s.trim().replace(",", ""));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private record AlphaQuote(Double price, Double changePercent, Long volume) {}
 }

@@ -77,7 +77,11 @@ public record FinanceProperties(
         /** Max items returned by stock news endpoint. */
         int newsMaxItems,
         /** HTTP timeout for stock news fetch. */
-        int newsTimeoutMs) {
+        int newsTimeoutMs,
+        /** Alpha Vantage API key used for quote retrieval in alerts/crawler/swing sections. */
+        String alphaVantageApiKey,
+        /** Alpha Vantage query endpoint. */
+        String alphaVantageBaseUrl) {
 
     private static final Pattern SAFE_ORACLE_DATE_FORMAT =
             Pattern.compile("^[A-Za-z0-9\\-:/. ,]+$");
@@ -183,6 +187,16 @@ public record FinanceProperties(
         }
         if (newsTimeoutMs > 60_000) {
             newsTimeoutMs = 60_000;
+        }
+        if (alphaVantageApiKey == null) {
+            alphaVantageApiKey = "";
+        } else {
+            alphaVantageApiKey = alphaVantageApiKey.trim();
+        }
+        if (alphaVantageBaseUrl == null || alphaVantageBaseUrl.isBlank()) {
+            alphaVantageBaseUrl = "https://www.alphavantage.co/query";
+        } else {
+            alphaVantageBaseUrl = alphaVantageBaseUrl.trim();
         }
     }
 }

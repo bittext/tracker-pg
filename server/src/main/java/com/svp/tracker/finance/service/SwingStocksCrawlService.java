@@ -63,7 +63,7 @@ public class SwingStocksCrawlService {
         }
         int newsLimit = Math.max(10, Math.min(30, newsHeadlineLimit));
         String note =
-                "Sources: Yahoo Finance screeners (day gainers, losers, most actives) for session movers; v7 batch quote"
+                "Sources: Yahoo Finance screeners (day gainers, losers, most actives) for session movers; Alpha Vantage bulk quote"
                         + " KPIs; Google News RSS (trusted sources) for headlines. Peer rows are other names in the"
                         + " screener mix with the same Yahoo sector when available. “Next few sessions” lines are"
                         + " rule-based heuristics from those inputs — not sell-side consensus or a forecast. Automated,"
@@ -123,7 +123,7 @@ public class SwingStocksCrawlService {
                 List<String> warns = new ArrayList<>();
                 if (!batchHadRow) {
                     warns.add(
-                            "Yahoo v7 quote batch omitted this symbol or returned no row; KPIs use the screener quote"
+                            "Alpha bulk quote omitted this symbol or returned no row; KPIs use the screener quote"
                                     + " where available.");
                 }
                 StockNewsDto news;

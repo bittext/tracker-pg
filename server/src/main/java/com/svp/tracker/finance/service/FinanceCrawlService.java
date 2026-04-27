@@ -52,7 +52,7 @@ public class FinanceCrawlService {
         String note =
                 "Headlines: Google News RSS, trusted sources only, "
                         + limit
-                        + " per block. Quotes: Yahoo Finance (regular session, delayed on some symbols). Not investment"
+                        + " per block. Quotes: Alpha Vantage bulk snapshots (hourly refresh + on-demand misses). Not investment"
                         + " advice.";
 
         StockNewsDto general = safeTopic("Latest world happenings", Q_GENERAL, limit);
@@ -111,7 +111,7 @@ public class FinanceCrawlService {
         }
         YahooSimpleQuoteDto q = quotes.get(w.symbol);
         if (q == null) {
-            warn.add("No Yahoo quote row for " + w.symbol);
+            warn.add("No quote row for " + w.symbol);
         }
         String vs = summarizeVsIndexes(w.symbol, q, quotes);
         String analysis = summarizeAnalysis(news);

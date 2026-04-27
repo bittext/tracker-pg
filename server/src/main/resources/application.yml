@@ -91,9 +91,11 @@ tracker:
     news-enabled: true
     news-max-items: 10
     news-timeout-ms: 8000
+    alpha-vantage-api-key: ${TRACKER_FINANCE_ALPHA_VANTAGE_API_KEY:}
+    alpha-vantage-base-url: ${TRACKER_FINANCE_ALPHA_VANTAGE_BASE_URL:https://www.alphavantage.co/query}
     alerts:
       evaluation-enabled: ${TRACKER_FINANCE_ALERTS_EVALUATION_ENABLED:true}
-      poll-fixed-delay-ms: ${TRACKER_FINANCE_ALERTS_POLL_FIXED_DELAY_MS:300000}
+      poll-fixed-delay-ms: ${TRACKER_FINANCE_ALERTS_POLL_FIXED_DELAY_MS:3600000}
       default-cooldown-minutes: ${TRACKER_FINANCE_ALERTS_DEFAULT_COOLDOWN_MINUTES:1440}
       max-events-returned: ${TRACKER_FINANCE_ALERTS_MAX_EVENTS_RETURNED:50}
       email-enabled: ${TRACKER_FINANCE_ALERTS_EMAIL_ENABLED:false}
