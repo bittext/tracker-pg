@@ -3,6 +3,7 @@ package com.svp.tracker.finance.tax;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
@@ -14,8 +15,9 @@ import java.util.regex.Pattern;
  */
 public final class Form1040TextParser {
 
+    private static final String PARSER_VERSION = "1040-parser-v2";
     private static final Pattern MONEY =
-            Pattern.compile("(?:\\(\\s*)?\\$?\\s*([\\d,]+\\.\\d{2})\\s*\\)?");
+            Pattern.compile("(?:\\(\\s*)?\\$?\\s*((?:\\d{1,3}(?:,\\d{3})+|\\d+)(?:\\.\\d{1,2})?)\\.?\\s*\\)?");
     private static final Pattern YEAR_WORD = Pattern.compile("\\b(20\\d{2})\\b");
 
     private Form1040TextParser() {}
@@ -24,76 +26,89 @@ public final class Form1040TextParser {
         if (raw == null || raw.isBlank()) {
             return Form1040ParsedSummary.builder()
                     .likelyForm1040(false)
+                    .parserVersion(PARSER_VERSION)
+                    .confidenceLabel("LOW")
+                    .parsedAmountFieldCount(0)
                     .parseNote("No extractable text in PDF.")
                     .build();
         }
         String text = raw.replace('\r', '\n');
         String upper = text.toUpperCase(Locale.ROOT);
+        String[] lines = text.split("\\n");
         boolean likely = upper.contains("FORM 1040")
                 || upper.contains("U.S. INDIVIDUAL INCOME TAX RETURN")
                 || (upper.contains("1040") && upper.contains("DEPARTMENT OF THE TREASURY"));
 
-        BigDecimal agi = firstMoneyNear(text, "ADJUSTED GROSS INCOME", "LINE 11", "11 ");
-        if (agi == null) {
-            agi = firstMoneyNear(text, "ADJUSTED GROSS");
-        }
-
-        BigDecimal refund = firstMoneyNear(text, "REFUND", "LINE 35", "35a", "OVERPAYMENT", "34 ");
-        if (refund == null) {
-            refund = firstMoneyNear(text, "DIRECT DEPOSIT", "ROUTING NUMBER");
-        }
-        BigDecimal owed = firstMoneyNear(text, "AMOUNT YOU OWE", "LINE 37", "37 ", "AMOUNT OWED", "BALANCE DUE");
-
         Form1040ParsedSummary s = Form1040ParsedSummary.builder()
                 .likelyForm1040(likely)
+                .parserVersion(PARSER_VERSION)
                 .taxYearOnForm(detectTaxYearOnForm(text))
                 .filingStatus(detectFilingStatus(upper))
-                .wagesSalariesTips(firstMoneyNear(text, "1a", "TOTAL AMOUNT FROM FORM", "W-2", "BOX 1", "WAGES, SALARIES"))
-                .taxableInterest(firstMoneyNear(text, "2b", "TAXABLE INTEREST"))
-                .ordinaryDividends(firstMoneyNear(text, "3b", "ORDINARY DIVIDENDS"))
-                .iraDistributionsTaxable(firstMoneyNear(text, "4b", "IRA DISTRIBUTIONS", "IRA DISTRIBUTION"))
-                .pensionsTaxable(firstMoneyNear(text, "5b", "PENSIONS AND ANNUITIES", "PENSION AND ANNUITY"))
-                .socialSecurityTaxable(firstMoneyNear(text, "6b", "SOCIAL SECURITY BENEFITS", "TAXABLE AMOUNT"))
-                .totalIncome(firstMoneyNear(text, "TOTAL INCOME", "9 ", "LINE 9"))
-                .adjustedGrossIncome(agi)
-                .standardOrItemizedDeduction(firstMoneyNear(
-                        text, "STANDARD DEDUCTION", "ITEMIZED DEDUCTIONS", "12 ", "LINE 12", "DEDUCTION FROM"))
-                .taxableIncome(firstMoneyNear(text, "TAXABLE INCOME", "15 ", "LINE 15"))
-                .totalTax(firstMoneyNear(text, "TOTAL TAX", "16 ", "LINE 16"))
-                .childAndOtherDependentsCredit(firstMoneyNear(
-                        text,
-                        "CHILD TAX CREDIT",
-                        "CREDIT FOR OTHER DEPENDENTS",
-                        "19 ",
-                        "LINE 19",
-                        "8812"))
-                .totalTaxAfterCredits(firstMoneyNear(
-                        text,
-                        "TOTAL TAX AFTER CREDITS",
-                        "AFTER CREDITS",
-                        "22 ",
-                        "24 ",
-                        "LINE 22",
-                        "LINE 24"))
-                .federalIncomeTaxWithheld(firstMoneyNear(
-                        text,
-                        "FEDERAL INCOME TAX WITHHELD",
-                        "25d",
-                        "FROM FORM(S) W-2",
-                        "WITHHOLDING",
-                        "FEDERAL INCOME TAX WITHHELD"))
-                .estimatedTaxPayments(firstMoneyNear(text, "ESTIMATED TAX PAYMENTS", "26 ", "LINE 26"))
-                .totalPayments(firstMoneyNear(text, "TOTAL PAYMENTS", "33 ", "LINE 33", "TOTAL PAYMENT"))
-                .refund(refund)
-                .amountOwed(owed)
+                .wagesSalariesTips(bestAmount(lines, text, "1a", "wages", "salaries", "tips"))
+                .taxableInterest(bestAmount(lines, text, "2b", "taxable interest"))
+                .ordinaryDividends(bestAmount(lines, text, "3b", "ordinary dividends"))
+                .iraDistributionsTaxable(bestAmount(lines, text, "4b", "ira distributions"))
+                .pensionsTaxable(bestAmount(lines, text, "5b", "pensions and annuities"))
+                .socialSecurityTaxable(bestAmount(lines, text, "6b", "social security benefits"))
+                .totalIncome(bestAmount(lines, text, "line 9", "total income"))
+                .adjustedGrossIncome(bestAmount(lines, text, "line 11", "adjusted gross income"))
+                .standardOrItemizedDeduction(bestAmount(lines, text, "line 12", "standard deduction", "itemized deduction"))
+                .taxableIncome(bestAmount(lines, text, "line 15", "taxable income"))
+                .totalTax(bestAmount(lines, text, "line 16", "total tax"))
+                .childAndOtherDependentsCredit(bestAmount(lines, text, "line 19", "child tax credit", "credit for other dependents"))
+                .totalTaxAfterCredits(bestAmount(lines, text, "line 22", "line 24", "after credits"))
+                .federalIncomeTaxWithheld(bestAmount(lines, text, "25d", "federal income tax withheld"))
+                .estimatedTaxPayments(bestAmount(lines, text, "line 26", "estimated tax payments"))
+                .totalPayments(bestAmount(lines, text, "line 33", "total payments"))
+                .refund(bestAmount(lines, text, "line 35", "35a", "refund", "overpayment"))
+                .amountOwed(bestAmount(lines, text, "line 37", "amount you owe", "balance due"))
                 .build();
 
         int hits = countNonNullMoney(s);
+        List<String> warnings = buildWarnings(s, likely, hits);
+        String confidence = confidenceLabel(likely, hits);
         String note = likely
-                ? "Parsed " + hits + " important field(s) from PDF text (best effort; verify on your official return)."
+                ? "Parsed " + hits
+                        + " important field(s) from the uploaded return using line-aware matching. Verify against the PDF."
                 : "This file may not be a Form 1040; values are best-effort only.";
+        s.setConfidenceLabel(confidence);
+        s.setParsedAmountFieldCount(hits);
+        s.setParseWarnings(warnings.isEmpty() ? null : warnings);
         s.setParseNote(note);
         return s;
+    }
+
+    private static List<String> buildWarnings(Form1040ParsedSummary s, boolean likely, int hits) {
+        List<String> warnings = new ArrayList<>();
+        if (!likely) {
+            warnings.add("Document markers do not strongly match Form 1040.");
+        }
+        if (hits < 5) {
+            warnings.add("Only a few amount fields were detected. PDF may be scanned image or unusual layout.");
+        }
+        if (s.getTaxYearOnForm() == null) {
+            warnings.add("Could not confidently detect the tax year printed on the form.");
+        }
+        if (s.getFilingStatus() == null) {
+            warnings.add("Could not confidently detect filing status.");
+        }
+        if (s.getRefund() == null && s.getAmountOwed() == null) {
+            warnings.add("Could not identify refund or amount owed line.");
+        }
+        return warnings;
+    }
+
+    private static String confidenceLabel(boolean likely, int hits) {
+        if (!likely) {
+            return "LOW";
+        }
+        if (hits >= 10) {
+            return "HIGH";
+        }
+        if (hits >= 6) {
+            return "MEDIUM";
+        }
+        return "LOW";
     }
 
     private static String detectTaxYearOnForm(String text) {
@@ -173,6 +188,68 @@ public final class Form1040TextParser {
             }
         }
         return null;
+    }
+
+    private static BigDecimal bestAmount(String[] lines, String fullText, String... keywords) {
+        BigDecimal fromLines = amountNearLine(lines, keywords);
+        if (fromLines != null) {
+            return fromLines;
+        }
+        return firstMoneyNear(fullText, keywords);
+    }
+
+    private static BigDecimal amountNearLine(String[] lines, String... keywords) {
+        if (lines == null || lines.length == 0) {
+            return null;
+        }
+        int bestIdx = -1;
+        int bestScore = 0;
+        for (int i = 0; i < lines.length; i++) {
+            String up = lines[i] == null ? "" : lines[i].toUpperCase(Locale.ROOT);
+            int score = 0;
+            for (String kw : keywords) {
+                if (kw != null && !kw.isBlank() && up.contains(kw.toUpperCase(Locale.ROOT))) {
+                    score++;
+                }
+            }
+            if (score > bestScore) {
+                bestScore = score;
+                bestIdx = i;
+            }
+        }
+        if (bestIdx < 0 || bestScore == 0) {
+            return null;
+        }
+        List<BigDecimal> candidates = new ArrayList<>();
+        for (int i = bestIdx; i <= Math.min(lines.length - 1, bestIdx + 3); i++) {
+            candidates.addAll(moneyTokens(lines[i]));
+        }
+        if (candidates.isEmpty()) {
+            return null;
+        }
+        return candidates.get(candidates.size() - 1).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private static List<BigDecimal> moneyTokens(String line) {
+        if (line == null || line.isBlank()) {
+            return List.of();
+        }
+        List<BigDecimal> out = new ArrayList<>();
+        Matcher m = MONEY.matcher(line);
+        while (m.find()) {
+            String g = m.group(1);
+            boolean parens = m.group(0).trim().startsWith("(");
+            BigDecimal amt = parseMoney(g);
+            if (amt == null) {
+                continue;
+            }
+            if (parens) {
+                amt = amt.negate();
+            }
+            out.add(amt);
+        }
+        out.sort(Comparator.comparing(BigDecimal::abs));
+        return out;
     }
 
     private static int indexOfIgnoreCase(String text, String needle) {

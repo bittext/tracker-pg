@@ -3,8 +3,8 @@
     Upload a <strong>PDF</strong> of your U.S. <strong>Form 1040</strong> for each tax year. The server extracts text from
     the PDF and derives <strong>important return lines</strong> (income, AGI, deduction, tax, credits, withholding,
     refund, and balance due) using best-effort pattern matching. The same logic is <strong>re-applied when you open the
-    list or details</strong>, so you do not need to re-upload after we improve parsing—refresh the page. Always verify
-    numbers against your official return.
+    list or details</strong>, so you do not need to re-upload after parser improvements. Always verify numbers against
+    your official return.
   </p>
 
   <div class="upload-bar">
@@ -34,41 +34,27 @@
           <th mat-header-cell *matHeaderCellDef>Year</th>
           <td mat-cell *matCellDef="let r">{{ r.taxYear }}</td>
         </ng-container>
-        <ng-container matColumnDef="formYear">
-          <th mat-header-cell *matHeaderCellDef>On form</th>
-          <td mat-cell *matCellDef="let r">{{ r.summary.taxYearOnForm || '—' }}</td>
-        </ng-container>
         <ng-container matColumnDef="filing">
           <th mat-header-cell *matHeaderCellDef>Filing</th>
           <td mat-cell *matCellDef="let r" [attr.title]="r.summary.filingStatus || ''">{{ filingShort(r.summary) }}</td>
         </ng-container>
-        <ng-container matColumnDef="wages">
-          <th mat-header-cell *matHeaderCellDef>Wages (1a)</th>
-          <td mat-cell *matCellDef="let r">{{ money(r.summary.wagesSalariesTips) }}</td>
-        </ng-container>
-        <ng-container matColumnDef="totalIncome">
-          <th mat-header-cell *matHeaderCellDef>Tot. income</th>
-          <td mat-cell *matCellDef="let r">{{ money(r.summary.totalIncome) }}</td>
-        </ng-container>
-        <ng-container matColumnDef="agi">
-          <th mat-header-cell *matHeaderCellDef>AGI</th>
-          <td mat-cell *matCellDef="let r">{{ money(r.summary.adjustedGrossIncome) }}</td>
-        </ng-container>
-        <ng-container matColumnDef="taxable">
-          <th mat-header-cell *matHeaderCellDef>Taxable</th>
-          <td mat-cell *matCellDef="let r">{{ money(r.summary.taxableIncome) }}</td>
+        <ng-container matColumnDef="income">
+          <th mat-header-cell *matHeaderCellDef>Income snapshot</th>
+          <td mat-cell *matCellDef="let r">{{ incomeSnapshot(r.summary) }}</td>
         </ng-container>
         <ng-container matColumnDef="tax">
-          <th mat-header-cell *matHeaderCellDef>Total tax</th>
-          <td mat-cell *matCellDef="let r">{{ money(r.summary.totalTax) }}</td>
+          <th mat-header-cell *matHeaderCellDef>Tax snapshot</th>
+          <td mat-cell *matCellDef="let r">{{ taxSnapshot(r.summary) }}</td>
         </ng-container>
-        <ng-container matColumnDef="refund">
-          <th mat-header-cell *matHeaderCellDef>Refund</th>
-          <td mat-cell *matCellDef="let r">{{ money(r.summary.refund) }}</td>
+        <ng-container matColumnDef="result">
+          <th mat-header-cell *matHeaderCellDef>Result</th>
+          <td mat-cell *matCellDef="let r">{{ finalResult(r.summary) }}</td>
         </ng-container>
-        <ng-container matColumnDef="owed">
-          <th mat-header-cell *matHeaderCellDef>Owed</th>
-          <td mat-cell *matCellDef="let r">{{ money(r.summary.amountOwed) }}</td>
+        <ng-container matColumnDef="quality">
+          <th mat-header-cell *matHeaderCellDef>Parse quality</th>
+          <td mat-cell *matCellDef="let r">
+            <span [class]="parseQualityClass(r.summary)">{{ parseQuality(r.summary) }}</span>
+          </td>
         </ng-container>
         <ng-container matColumnDef="actions">
           <th mat-header-cell *matHeaderCellDef></th>
@@ -101,15 +87,30 @@
           </mat-chip-set>
         }
         <p class="muted parse-note">
-          {{ selected.summary.parseNote }}
+          {{ selected.summary.parseNote }} ({{ parseQuality(selected.summary) }})
           @if (!selected.summary.likelyForm1040) {
             <span class="warn"> — File may not be a standard Form 1040.</span>
           }
         </p>
+        <h4 class="subhead">At a glance</h4>
+        <div class="summary-grid">
+          @for (row of keyOutcome(selected.summary); track row.label) {
+            <div class="sum-label">{{ row.label }}</div>
+            <div class="sum-val strong">{{ row.value }}</div>
+          }
+        </div>
+        @if (selected.summary.parseWarnings?.length) {
+          <h4 class="subhead">Parser notes</h4>
+          <ul class="warning-list">
+            @for (w of selected.summary.parseWarnings; track w) {
+              <li>{{ w }}</li>
+            }
+          </ul>
+        }
         @for (sec of summarySections(selected.summary); track sec.title) {
           <h4 class="subhead">{{ sec.title }}</h4>
           <div class="summary-grid">
-            @for (row of sec.rows; track row.label) {
+            @for (row of visibleRows(sec.rows); track row.label) {
               <div class="sum-label">{{ row.label }}</div>
               <div class="sum-val">{{ row.value }}</div>
             }

@@ -2,6 +2,7 @@ package com.svp.tracker.finance.tax;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.math.BigDecimal;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -21,6 +22,14 @@ public class Form1040ParsedSummary {
     private boolean likelyForm1040;
     /** Short note, e.g. how many amounts were found. */
     private String parseNote;
+    /** Parser revision used for this summary shape. */
+    private String parserVersion;
+    /** Human-readable confidence band based on markers + extracted fields. */
+    private String confidenceLabel;
+    /** Number of monetary fields populated by parser. */
+    private Integer parsedAmountFieldCount;
+    /** Optional caveats to help users review uncertain values. */
+    private List<String> parseWarnings;
 
     /** Year printed on the return (from PDF text), if detected. */
     private String taxYearOnForm;

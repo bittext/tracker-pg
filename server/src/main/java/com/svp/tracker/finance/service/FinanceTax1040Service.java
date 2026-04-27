@@ -9,7 +9,6 @@ import com.svp.tracker.finance.dto.FinanceTax1040ReturnDto;
 import com.svp.tracker.finance.repository.FinanceTax1040ReturnRepository;
 import com.svp.tracker.finance.tax.Form1040ParsedSummary;
 import com.svp.tracker.finance.tax.Form1040TextParser;
-import com.svp.tracker.finance.tax.Form1040TextParser;
 import com.svp.tracker.fitness.exception.NotFoundException;
 import com.svp.tracker.journal.service.JournalBlobStore;
 import java.io.ByteArrayInputStream;
@@ -196,13 +195,29 @@ public class FinanceTax1040Service {
      */
     private Form1040ParsedSummary effectiveSummary(FinanceTax1040Return r) {
         String t = r.getExtractedText();
+        Form1040ParsedSummary persisted = readSummary(r.getSummaryJson());
         if (t != null
                 && !t.isBlank()
                 && t.length() > 40
                 && !t.startsWith("(Could not read PDF text:")) {
-            return Form1040TextParser.parse(t);
+            Form1040ParsedSummary reparsed = Form1040TextParser.parse(t);
+            return preferMoreComplete(reparsed, persisted);
         }
-        return readSummary(r.getSummaryJson());
+        return persisted;
+    }
+
+    /**
+     * If re-parse yields less information than previously persisted summary (older parser or manual correction),
+     * keep the richer summary so users still see the best available details.
+     */
+    private static Form1040ParsedSummary preferMoreComplete(
+            Form1040ParsedSummary reparsed, Form1040ParsedSummary persisted) {
+        int r = reparsed != null && reparsed.getParsedAmountFieldCount() != null ? reparsed.getParsedAmountFieldCount() : 0;
+        int p = persisted != null && persisted.getParsedAmountFieldCount() != null ? persisted.getParsedAmountFieldCount() : 0;
+        if (p > r + 1) {
+            return persisted;
+        }
+        return reparsed != null ? reparsed : persisted;
     }
 
     private Form1040ParsedSummary readSummary(String json) {

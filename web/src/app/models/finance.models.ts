@@ -273,6 +273,10 @@ export interface Surge52WeekRowDto {
 export interface Form1040ParsedSummary {
   likelyForm1040: boolean;
   parseNote?: string | null;
+  parserVersion?: string | null;
+  confidenceLabel?: 'HIGH' | 'MEDIUM' | 'LOW' | string | null;
+  parsedAmountFieldCount?: number | null;
+  parseWarnings?: string[] | null;
   taxYearOnForm?: string | null;
   filingStatus?: string | null;
   wagesSalariesTips?: number | null;

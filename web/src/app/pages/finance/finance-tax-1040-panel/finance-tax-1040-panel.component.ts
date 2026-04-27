@@ -45,19 +45,7 @@ export class FinanceTax1040PanelComponent implements OnInit {
   selected: FinanceTax1040ReturnDto | null = null;
   detailLoading = false;
 
-  displayedColumns = [
-    'taxYear',
-    'formYear',
-    'filing',
-    'wages',
-    'totalIncome',
-    'agi',
-    'taxable',
-    'tax',
-    'refund',
-    'owed',
-    'actions',
-  ] as const;
+  displayedColumns = ['taxYear', 'filing', 'income', 'tax', 'result', 'quality', 'actions'] as const;
   trackById = (_: number, r: FinanceTax1040ReturnDto) => r.id;
 
   ngOnInit() {
@@ -176,6 +164,56 @@ export class FinanceTax1040PanelComponent implements OnInit {
     return f.length > 22 ? f.slice(0, 20) + '…' : f;
   }
 
+  parseQuality(s: Form1040ParsedSummary): string {
+    const q = (s.confidenceLabel ?? 'LOW').toUpperCase();
+    const hits = s.parsedAmountFieldCount ?? 0;
+    return `${q} (${hits} fields)`;
+  }
+
+  parseQualityClass(s: Form1040ParsedSummary): string {
+    const q = (s.confidenceLabel ?? 'LOW').toUpperCase();
+    if (q === 'HIGH') {
+      return 'quality-high';
+    }
+    if (q === 'MEDIUM') {
+      return 'quality-medium';
+    }
+    return 'quality-low';
+  }
+
+  incomeSnapshot(s: Form1040ParsedSummary): string {
+    if (s.totalIncome != null) {
+      return this.money(s.totalIncome);
+    }
+    if (s.wagesSalariesTips != null) {
+      return this.money(s.wagesSalariesTips);
+    }
+    return '—';
+  }
+
+  taxSnapshot(s: Form1040ParsedSummary): string {
+    if (s.totalTaxAfterCredits != null) {
+      return this.money(s.totalTaxAfterCredits);
+    }
+    if (s.totalTax != null) {
+      return this.money(s.totalTax);
+    }
+    return '—';
+  }
+
+  finalResult(s: Form1040ParsedSummary): string {
+    if (s.refund != null && s.amountOwed != null) {
+      return `${this.money(s.refund)} refund / ${this.money(s.amountOwed)} owed`;
+    }
+    if (s.refund != null) {
+      return `${this.money(s.refund)} refund`;
+    }
+    if (s.amountOwed != null) {
+      return `${this.money(s.amountOwed)} owed`;
+    }
+    return '—';
+  }
+
   importantChips(s: Form1040ParsedSummary | null | undefined): string[] {
     if (!s) {
       return [];
@@ -229,5 +267,24 @@ export class FinanceTax1040PanelComponent implements OnInit {
         ],
       },
     ];
+  }
+
+  keyOutcome(s: Form1040ParsedSummary | null | undefined): { label: string; value: string }[] {
+    if (!s) {
+      return [];
+    }
+    return [
+      { label: 'Total income', value: this.incomeSnapshot(s) },
+      { label: 'Adjusted gross income (AGI)', value: this.money(s.adjustedGrossIncome) },
+      { label: 'Taxable income', value: this.money(s.taxableIncome) },
+      { label: 'Tax after credits', value: this.taxSnapshot(s) },
+      { label: 'Total payments', value: this.money(s.totalPayments) },
+      { label: 'Final result', value: this.finalResult(s) },
+    ];
+  }
+
+  visibleRows(rows: { label: string; value: string }[]): { label: string; value: string }[] {
+    const present = rows.filter((r) => r.value !== '—');
+    return present.length ? present : rows;
   }
 }

@@ -45,7 +45,7 @@
 
 .t1040-table {
   width: 100%;
-  min-width: 52rem;
+  min-width: 44rem;
 }
 
 .chip-row {
@@ -98,6 +98,32 @@
 
 .sum-val {
   font-variant-numeric: tabular-nums;
+}
+
+.sum-val.strong {
+  font-weight: 600;
+}
+
+.warning-list {
+  margin: 0 0 0.75rem;
+  padding-left: 1.1rem;
+  color: var(--app-fg-muted, #64748b);
+  font-size: 0.9rem;
+}
+
+.quality-high {
+  color: #0f766e;
+  font-weight: 600;
+}
+
+.quality-medium {
+  color: #92400e;
+  font-weight: 600;
+}
+
+.quality-low {
+  color: #b91c1c;
+  font-weight: 600;
 }
 
 .extract-block {
