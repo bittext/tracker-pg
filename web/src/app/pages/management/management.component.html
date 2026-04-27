@@ -457,5 +457,147 @@
         </section>
       </div>
     </mat-tab>
+
+    <mat-tab label="Utilities">
+      <div class="tab-panel mgmt-utilities-panel">
+        <section aria-labelledby="utilities-heading">
+          <h2 id="utilities-heading" class="subsection-title">Utilities</h2>
+          <p class="muted">
+            Capture utility item details, credentials, autofill websites, and notes. Saved entries are shown below.
+          </p>
+
+          <div class="mgmt-layout utilities-layout">
+            <section class="mgmt-column" aria-label="Utilities entry form">
+              <mat-card appearance="outlined" class="mgmt-nested-card">
+                <mat-card-header>
+                  <mat-card-title>Add utility information</mat-card-title>
+                  <mat-card-subtitle>Item details, credentials, autofill options, and notes</mat-card-subtitle>
+                </mat-card-header>
+                <mat-card-content>
+                  <h3 class="form-section-title">Item details</h3>
+                  <div class="form-row wrap">
+                    <mat-form-field appearance="outline" class="grow">
+                      <mat-label>Item name</mat-label>
+                      <input
+                        matInput
+                        name="uItemName"
+                        [(ngModel)]="utilityEntryDraft.itemName"
+                        required
+                        placeholder="e.g. Work email vault"
+                      />
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="grow">
+                      <mat-label>Folder</mat-label>
+                      <input matInput name="uFolder" [(ngModel)]="utilityEntryDraft.folder" placeholder="e.g. Personal / Work" />
+                    </mat-form-field>
+                  </div>
+
+                  <h3 class="form-section-title">Login credentials</h3>
+                  <div class="form-row wrap">
+                    <mat-form-field appearance="outline" class="grow">
+                      <mat-label>Username</mat-label>
+                      <input matInput name="uUsername" [(ngModel)]="utilityEntryDraft.username" />
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="grow">
+                      <mat-label>Password</mat-label>
+                      <input matInput type="password" name="uPassword" [(ngModel)]="utilityEntryDraft.password" />
+                    </mat-form-field>
+                  </div>
+                  <mat-form-field appearance="outline" class="full-width-field">
+                    <mat-label>Authenticator key</mat-label>
+                    <input matInput name="uAuthKey" [(ngModel)]="utilityEntryDraft.authenticatorKey" />
+                  </mat-form-field>
+
+                  <h3 class="form-section-title">Autofill options</h3>
+                  <div class="form-row wrap">
+                    <mat-form-field appearance="outline" class="grow">
+                      <mat-label>Website (URI)</mat-label>
+                      <input
+                        matInput
+                        name="uWebsiteInput"
+                        [(ngModel)]="utilityEntryDraft.websiteInput"
+                        placeholder="https://example.com/login"
+                      />
+                    </mat-form-field>
+                    <button mat-stroked-button type="button" class="align-field" (click)="addUtilityWebsite()">Add website</button>
+                  </div>
+                  @if (utilityEntryDraft.websites.length) {
+                    <div class="utilities-chip-list">
+                      @for (site of utilityEntryDraft.websites; track site) {
+                        <button type="button" class="utilities-chip" (click)="removeUtilityWebsite(site)" title="Remove website">
+                          <span>{{ site }}</span>
+                          <mat-icon>close</mat-icon>
+                        </button>
+                      }
+                    </div>
+                  }
+
+                  <h3 class="form-section-title">Notes</h3>
+                  <mat-form-field appearance="outline" class="full-width-field">
+                    <mat-label>Notes</mat-label>
+                    <textarea
+                      matInput
+                      rows="4"
+                      name="uNotes"
+                      [(ngModel)]="utilityEntryDraft.notes"
+                      placeholder="Add any notes for this utility item"
+                    ></textarea>
+                  </mat-form-field>
+
+                  <div class="form-actions">
+                    <button mat-flat-button color="primary" type="button" (click)="saveUtilityEntry()">Save utility item</button>
+                    <button mat-button type="button" (click)="resetUtilityForm()">Clear</button>
+                  </div>
+                </mat-card-content>
+              </mat-card>
+            </section>
+
+            <section class="mgmt-column" aria-label="Saved utility information">
+              <mat-card appearance="outlined" class="mgmt-nested-card">
+                <mat-card-header>
+                  <mat-card-title>Saved utilities</mat-card-title>
+                  <mat-card-subtitle>{{ utilityEntries.length }} saved</mat-card-subtitle>
+                </mat-card-header>
+                <mat-card-content>
+                  @if (!utilityEntries.length) {
+                    <p class="muted empty-hint">No utility information captured yet.</p>
+                  } @else {
+                    <div class="utilities-entry-list">
+                      @for (entry of utilityEntries; track entry.id) {
+                        <article class="utilities-entry">
+                          <div class="utilities-entry-head">
+                            <h3>{{ entry.itemName }}</h3>
+                            <button mat-icon-button type="button" color="warn" (click)="deleteUtilityEntry(entry.id)" aria-label="Delete utility entry">
+                              <mat-icon>delete</mat-icon>
+                            </button>
+                          </div>
+                          <p class="utilities-meta">Folder: {{ entry.folder || '—' }}</p>
+
+                          <p><strong>Username:</strong> {{ entry.username || '—' }}</p>
+                          <p><strong>Password:</strong> {{ entry.password || '—' }}</p>
+                          <p><strong>Authenticator key:</strong> {{ entry.authenticatorKey || '—' }}</p>
+                          <p><strong>Websites:</strong></p>
+                          @if (!entry.websites.length) {
+                            <p class="muted">—</p>
+                          } @else {
+                            <ul class="utilities-websites">
+                              @for (site of entry.websites; track site) {
+                                <li>{{ site }}</li>
+                              }
+                            </ul>
+                          }
+                          <p><strong>Notes:</strong></p>
+                          <p class="utilities-notes">{{ entry.notes || '—' }}</p>
+                        </article>
+                      }
+                    </div>
+                  }
+                </mat-card-content>
+              </mat-card>
+            </section>
+          </div>
+        </section>
+      </div>
+    </mat-tab>
   </mat-tab-group>
 </mat-card>

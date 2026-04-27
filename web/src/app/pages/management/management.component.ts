@@ -54,6 +54,18 @@ interface ReportCalCell {
   trackKey: string;
 }
 
+interface UtilityEntry {
+  id: number;
+  itemName: string;
+  folder: string;
+  username: string;
+  password: string;
+  authenticatorKey: string;
+  websites: string[];
+  notes: string;
+  createdAt: string;
+}
+
 @Component({
   selector: 'app-management',
   standalone: true,
@@ -78,6 +90,7 @@ interface ReportCalCell {
   styleUrl: './management.component.scss',
 })
 export class ManagementComponent implements OnInit {
+  private static readonly UTILITIES_STORAGE_KEY = 'management.utilities.entries.v1';
   private readonly api = inject(ManagementApiService);
   private readonly reportCalApi = inject(ReportCalendarApiService);
   private readonly snackBar = inject(MatSnackBar);
@@ -126,6 +139,18 @@ export class ManagementComponent implements OnInit {
   readonly yearMonthIndex = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
   readonly reportCalendarTypeLabel = reportCalendarTypeLabel;
 
+  utilityEntryDraft = {
+    itemName: '',
+    folder: '',
+    username: '',
+    password: '',
+    authenticatorKey: '',
+    websiteInput: '',
+    websites: [] as string[],
+    notes: '',
+  };
+  utilityEntries: UtilityEntry[] = [];
+
   ngOnInit(): void {
     const t = this.todayIso();
     this.selectedDateIso = t;
@@ -135,6 +160,66 @@ export class ManagementComponent implements OnInit {
     this.resetForm();
     this.reloadRefsAndCalendar();
     this.loadReportCalendar();
+    this.loadUtilitiesFromStorage();
+  }
+
+  addUtilityWebsite(): void {
+    const raw = this.utilityEntryDraft.websiteInput.trim();
+    if (!raw) {
+      return;
+    }
+    if (this.utilityEntryDraft.websites.includes(raw)) {
+      this.utilityEntryDraft.websiteInput = '';
+      return;
+    }
+    this.utilityEntryDraft.websites = [...this.utilityEntryDraft.websites, raw];
+    this.utilityEntryDraft.websiteInput = '';
+  }
+
+  removeUtilityWebsite(site: string): void {
+    this.utilityEntryDraft.websites = this.utilityEntryDraft.websites.filter((s) => s !== site);
+  }
+
+  saveUtilityEntry(): void {
+    const itemName = this.utilityEntryDraft.itemName.trim();
+    if (!itemName) {
+      this.snackBar.open('Item name is required', undefined, { duration: 2500 });
+      return;
+    }
+    const entry: UtilityEntry = {
+      id: Date.now(),
+      itemName,
+      folder: this.utilityEntryDraft.folder.trim(),
+      username: this.utilityEntryDraft.username.trim(),
+      password: this.utilityEntryDraft.password.trim(),
+      authenticatorKey: this.utilityEntryDraft.authenticatorKey.trim(),
+      websites: [...this.utilityEntryDraft.websites],
+      notes: this.utilityEntryDraft.notes.trim(),
+      createdAt: new Date().toISOString(),
+    };
+    this.utilityEntries = [entry, ...this.utilityEntries];
+    this.persistUtilitiesToStorage();
+    this.resetUtilityForm();
+    this.snackBar.open('Utility item saved', undefined, { duration: 2500 });
+  }
+
+  deleteUtilityEntry(id: number): void {
+    this.utilityEntries = this.utilityEntries.filter((e) => e.id !== id);
+    this.persistUtilitiesToStorage();
+    this.snackBar.open('Utility item removed', undefined, { duration: 2500 });
+  }
+
+  resetUtilityForm(): void {
+    this.utilityEntryDraft = {
+      itemName: '',
+      folder: '',
+      username: '',
+      password: '',
+      authenticatorKey: '',
+      websiteInput: '',
+      websites: [],
+      notes: '',
+    };
   }
 
   get calendarTitle(): string {
@@ -736,5 +821,43 @@ export class ManagementComponent implements OnInit {
 
   private err(msg: string, e: unknown): void {
     this.snackBar.open(`${msg}: ${formatHttpErrorDetail(e)}`, 'Dismiss', { duration: 8000 });
+  }
+
+  private loadUtilitiesFromStorage(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(ManagementComponent.UTILITIES_STORAGE_KEY);
+      if (!raw) {
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        return;
+      }
+      this.utilityEntries = parsed.filter((v) => v && typeof v === 'object').map((v) => ({
+        id: Number((v as UtilityEntry).id) || Date.now(),
+        itemName: String((v as UtilityEntry).itemName ?? ''),
+        folder: String((v as UtilityEntry).folder ?? ''),
+        username: String((v as UtilityEntry).username ?? ''),
+        password: String((v as UtilityEntry).password ?? ''),
+        authenticatorKey: String((v as UtilityEntry).authenticatorKey ?? ''),
+        websites: Array.isArray((v as UtilityEntry).websites)
+          ? (v as UtilityEntry).websites.map((s) => String(s))
+          : [],
+        notes: String((v as UtilityEntry).notes ?? ''),
+        createdAt: String((v as UtilityEntry).createdAt ?? ''),
+      }));
+    } catch {
+      this.utilityEntries = [];
+    }
+  }
+
+  private persistUtilitiesToStorage(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    window.localStorage.setItem(ManagementComponent.UTILITIES_STORAGE_KEY, JSON.stringify(this.utilityEntries));
   }
 }
