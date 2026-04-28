@@ -2,7 +2,6 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatChipsModule } from '@angular/material/chips';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -11,11 +10,6 @@ import { MatTableModule } from '@angular/material/table';
 import { FinanceTax1040ReturnDto, Form1040ParsedSummary } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
-
-export interface Form1040SummarySection {
-  title: string;
-  rows: { label: string; value: string }[];
-}
 
 @Component({
   selector: 'app-finance-tax-1040-panel',
@@ -29,7 +23,6 @@ export interface Form1040SummarySection {
     MatIconModule,
     MatSnackBarModule,
     MatTableModule,
-    MatChipsModule,
   ],
   templateUrl: './finance-tax-1040-panel.component.html',
   styleUrl: './finance-tax-1040-panel.component.scss',
@@ -45,7 +38,7 @@ export class FinanceTax1040PanelComponent implements OnInit {
   selected: FinanceTax1040ReturnDto | null = null;
   detailLoading = false;
 
-  displayedColumns = ['taxYear', 'filing', 'income', 'tax', 'result', 'quality', 'actions'] as const;
+  displayedColumns = ['taxYear', 'file', 'line1a', 'line24', 'refundOrOwed', 'quality', 'actions'] as const;
   trackById = (_: number, r: FinanceTax1040ReturnDto) => r.id;
 
   ngOnInit() {
@@ -156,18 +149,10 @@ export class FinanceTax1040PanelComponent implements OnInit {
     return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(v);
   }
 
-  filingShort(s: Form1040ParsedSummary): string {
-    const f = s.filingStatus?.trim();
-    if (!f) {
-      return '—';
-    }
-    return f.length > 22 ? f.slice(0, 20) + '…' : f;
-  }
-
   parseQuality(s: Form1040ParsedSummary): string {
     const q = (s.confidenceLabel ?? 'LOW').toUpperCase();
     const hits = s.parsedAmountFieldCount ?? 0;
-    return `${q} (${hits} fields)`;
+    return `${q} (${hits})`;
   }
 
   parseQualityClass(s: Form1040ParsedSummary): string {
@@ -181,110 +166,36 @@ export class FinanceTax1040PanelComponent implements OnInit {
     return 'quality-low';
   }
 
-  incomeSnapshot(s: Form1040ParsedSummary): string {
-    if (s.totalIncome != null) {
-      return this.money(s.totalIncome);
+  line24Tax(s: Form1040ParsedSummary): string {
+    return this.money(s.totalTaxAfterCredits ?? s.totalTax);
+  }
+
+  refundOrOwed(s: Form1040ParsedSummary): string {
+    const refund = s.refund;
+    const owed = s.amountOwed;
+    if (refund != null && owed != null) {
+      return `Refund ${this.money(refund)} / Owed ${this.money(owed)}`;
     }
-    if (s.wagesSalariesTips != null) {
-      return this.money(s.wagesSalariesTips);
+    if (refund != null) {
+      return `Refund ${this.money(refund)}`;
+    }
+    if (owed != null) {
+      return `Owed ${this.money(owed)}`;
     }
     return '—';
   }
 
-  taxSnapshot(s: Form1040ParsedSummary): string {
-    if (s.totalTaxAfterCredits != null) {
-      return this.money(s.totalTaxAfterCredits);
-    }
-    if (s.totalTax != null) {
-      return this.money(s.totalTax);
-    }
-    return '—';
-  }
-
-  finalResult(s: Form1040ParsedSummary): string {
-    if (s.refund != null && s.amountOwed != null) {
-      return `${this.money(s.refund)} refund / ${this.money(s.amountOwed)} owed`;
-    }
-    if (s.refund != null) {
-      return `${this.money(s.refund)} refund`;
-    }
-    if (s.amountOwed != null) {
-      return `${this.money(s.amountOwed)} owed`;
-    }
-    return '—';
-  }
-
-  importantChips(s: Form1040ParsedSummary | null | undefined): string[] {
-    if (!s) {
-      return [];
-    }
-    const chips: string[] = [];
-    if (s.taxYearOnForm) {
-      chips.push(`Year on return: ${s.taxYearOnForm}`);
-    }
-    if (s.filingStatus) {
-      chips.push(s.filingStatus);
-    }
-    return chips;
-  }
-
-  summarySections(s: Form1040ParsedSummary | null | undefined): Form1040SummarySection[] {
+  detailRows(s: Form1040ParsedSummary | null | undefined): { label: string; value: string }[] {
     if (!s) {
       return [];
     }
     return [
-      {
-        title: 'Income (from return text)',
-        rows: [
-          { label: 'Wages, salaries, tips (1a)', value: this.money(s.wagesSalariesTips) },
-          { label: 'Taxable interest (2b)', value: this.money(s.taxableInterest) },
-          { label: 'Ordinary dividends (3b)', value: this.money(s.ordinaryDividends) },
-          { label: 'IRA distributions, taxable (4b)', value: this.money(s.iraDistributionsTaxable) },
-          { label: 'Pensions & annuities, taxable (5b)', value: this.money(s.pensionsTaxable) },
-          { label: 'Social Security benefits, taxable (6b)', value: this.money(s.socialSecurityTaxable) },
-          { label: 'Total income (9)', value: this.money(s.totalIncome) },
-        ],
-      },
-      {
-        title: 'AGI, deduction, and taxable income',
-        rows: [
-          { label: 'Adjusted gross income (11)', value: this.money(s.adjustedGrossIncome) },
-          { label: 'Standard or itemized deduction (12)', value: this.money(s.standardOrItemizedDeduction) },
-          { label: 'Taxable income (15)', value: this.money(s.taxableIncome) },
-        ],
-      },
-      {
-        title: 'Tax, credits, withholding, and result',
-        rows: [
-          { label: 'Total tax (16)', value: this.money(s.totalTax) },
-          { label: 'Child / other dependents credit (19)', value: this.money(s.childAndOtherDependentsCredit) },
-          { label: 'Total tax after credits (22 / 24)', value: this.money(s.totalTaxAfterCredits) },
-          { label: 'Federal income tax withheld (25d)', value: this.money(s.federalIncomeTaxWithheld) },
-          { label: 'Estimated tax payments (26)', value: this.money(s.estimatedTaxPayments) },
-          { label: 'Total payments (33)', value: this.money(s.totalPayments) },
-          { label: 'Refund', value: this.money(s.refund) },
-          { label: 'Amount you owe', value: this.money(s.amountOwed) },
-        ],
-      },
+      { label: 'Line 1a — Wages, salaries, tips', value: this.money(s.wagesSalariesTips) },
+      { label: 'Line 24 — Total tax', value: this.line24Tax(s) },
+      { label: 'Line 37 — Amount you owe', value: this.money(s.amountOwed) },
+      { label: 'Refund', value: this.money(s.refund) },
+      { label: 'Filing status', value: s.filingStatus || '—' },
+      { label: 'Tax year on form', value: s.taxYearOnForm || '—' },
     ];
-  }
-
-  keyOutcome(s: Form1040ParsedSummary | null | undefined): { label: string; value: string }[] {
-    if (!s) {
-      return [];
-    }
-    return [
-      { label: 'Total income', value: this.incomeSnapshot(s) },
-      { label: 'Adjusted gross income (AGI)', value: this.money(s.adjustedGrossIncome) },
-      { label: 'Taxable income', value: this.money(s.taxableIncome) },
-      { label: 'Tax after credits', value: this.taxSnapshot(s) },
-      { label: 'Total payments', value: this.money(s.totalPayments) },
-      { label: 'Final result', value: this.finalResult(s) },
-    ];
-  }
-
-  visibleRows(rows: { label: string; value: string }[]): { label: string; value: string }[] {
-    const present = rows.filter((r) => r.value !== '—');
-    return present.length ? present : rows;
   }
 }

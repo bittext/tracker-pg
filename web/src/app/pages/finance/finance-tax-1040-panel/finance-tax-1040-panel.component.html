@@ -1,10 +1,7 @@
 <div class="t1040-wrap">
   <p class="muted intro">
-    Upload a <strong>PDF</strong> of your U.S. <strong>Form 1040</strong> for each tax year. The server extracts text from
-    the PDF and derives <strong>important return lines</strong> (income, AGI, deduction, tax, credits, withholding,
-    refund, and balance due) using best-effort pattern matching. The same logic is <strong>re-applied when you open the
-    list or details</strong>, so you do not need to re-upload after parser improvements. Always verify numbers against
-    your official return.
+    Upload your Form 1040 PDF by tax year. The summary below reads key values directly from the form lines:
+    <strong>Line 1a (income)</strong>, <strong>Line 24 (total tax)</strong>, and <strong>Line 37 (amount owed)</strong>.
   </p>
 
   <div class="upload-bar">
@@ -29,36 +26,42 @@
     <p class="muted">No Form 1040 PDFs saved yet.</p>
   } @else {
     <div class="table-scroll">
-      <table mat-table [dataSource]="returns" class="t1040-table">
+      <table mat-table [dataSource]="returns" class="t1040-table compact-one-line">
         <ng-container matColumnDef="taxYear">
           <th mat-header-cell *matHeaderCellDef>Year</th>
           <td mat-cell *matCellDef="let r">{{ r.taxYear }}</td>
         </ng-container>
-        <ng-container matColumnDef="filing">
-          <th mat-header-cell *matHeaderCellDef>Filing</th>
-          <td mat-cell *matCellDef="let r" [attr.title]="r.summary.filingStatus || ''">{{ filingShort(r.summary) }}</td>
+
+        <ng-container matColumnDef="file">
+          <th mat-header-cell *matHeaderCellDef>File</th>
+          <td mat-cell *matCellDef="let r" class="file-name" [attr.title]="r.originalFilename">{{ r.originalFilename }}</td>
         </ng-container>
-        <ng-container matColumnDef="income">
-          <th mat-header-cell *matHeaderCellDef>Income snapshot</th>
-          <td mat-cell *matCellDef="let r">{{ incomeSnapshot(r.summary) }}</td>
+
+        <ng-container matColumnDef="line1a">
+          <th mat-header-cell *matHeaderCellDef>Line 1a</th>
+          <td mat-cell *matCellDef="let r">{{ money(r.summary.wagesSalariesTips) }}</td>
         </ng-container>
-        <ng-container matColumnDef="tax">
-          <th mat-header-cell *matHeaderCellDef>Tax snapshot</th>
-          <td mat-cell *matCellDef="let r">{{ taxSnapshot(r.summary) }}</td>
+
+        <ng-container matColumnDef="line24">
+          <th mat-header-cell *matHeaderCellDef>Line 24</th>
+          <td mat-cell *matCellDef="let r">{{ line24Tax(r.summary) }}</td>
         </ng-container>
-        <ng-container matColumnDef="result">
-          <th mat-header-cell *matHeaderCellDef>Result</th>
-          <td mat-cell *matCellDef="let r">{{ finalResult(r.summary) }}</td>
+
+        <ng-container matColumnDef="refundOrOwed">
+          <th mat-header-cell *matHeaderCellDef>Refund / Owed</th>
+          <td mat-cell *matCellDef="let r">{{ refundOrOwed(r.summary) }}</td>
         </ng-container>
+
         <ng-container matColumnDef="quality">
-          <th mat-header-cell *matHeaderCellDef>Parse quality</th>
+          <th mat-header-cell *matHeaderCellDef>Quality</th>
           <td mat-cell *matCellDef="let r">
             <span [class]="parseQualityClass(r.summary)">{{ parseQuality(r.summary) }}</span>
           </td>
         </ng-container>
+
         <ng-container matColumnDef="actions">
-          <th mat-header-cell *matHeaderCellDef></th>
-          <td mat-cell *matCellDef="let r">
+          <th mat-header-cell *matHeaderCellDef>Actions</th>
+          <td mat-cell *matCellDef="let r" class="actions-cell">
             <button mat-button type="button" (click)="openDetail(r)">Details</button>
             <button mat-button type="button" (click)="download(r)">PDF</button>
             <button mat-button type="button" color="warn" (click)="deleteRow(r)">Delete</button>
@@ -79,44 +82,19 @@
       @if (detailLoading) {
         <p class="muted">Loading full extract…</p>
       } @else {
-        @if (importantChips(selected.summary).length) {
-          <mat-chip-set class="chip-row" aria-label="Key facts from return">
-            @for (c of importantChips(selected.summary); track c) {
-              <mat-chip>{{ c }}</mat-chip>
-            }
-          </mat-chip-set>
-        }
         <p class="muted parse-note">
           {{ selected.summary.parseNote }} ({{ parseQuality(selected.summary) }})
-          @if (!selected.summary.likelyForm1040) {
-            <span class="warn"> — File may not be a standard Form 1040.</span>
-          }
         </p>
-        <h4 class="subhead">At a glance</h4>
+
+        <h4 class="subhead">Summary from form lines</h4>
         <div class="summary-grid">
-          @for (row of keyOutcome(selected.summary); track row.label) {
+          @for (row of detailRows(selected.summary); track row.label) {
             <div class="sum-label">{{ row.label }}</div>
-            <div class="sum-val strong">{{ row.value }}</div>
+            <div class="sum-val">{{ row.value }}</div>
           }
         </div>
-        @if (selected.summary.parseWarnings?.length) {
-          <h4 class="subhead">Parser notes</h4>
-          <ul class="warning-list">
-            @for (w of selected.summary.parseWarnings; track w) {
-              <li>{{ w }}</li>
-            }
-          </ul>
-        }
-        @for (sec of summarySections(selected.summary); track sec.title) {
-          <h4 class="subhead">{{ sec.title }}</h4>
-          <div class="summary-grid">
-            @for (row of visibleRows(sec.rows); track row.label) {
-              <div class="sum-label">{{ row.label }}</div>
-              <div class="sum-val">{{ row.value }}</div>
-            }
-          </div>
-        }
-        <h4 class="subhead">Extracted text (from PDF)</h4>
+
+        <h4 class="subhead">Extracted text</h4>
         <pre class="extract-block">{{ selected.extractedTextFull || selected.extractedTextPreview || '—' }}</pre>
       }
     </div>

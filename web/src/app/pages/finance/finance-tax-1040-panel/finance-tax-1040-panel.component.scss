@@ -1,12 +1,13 @@
 .t1040-wrap {
-  max-width: 56rem;
+  width: 100%;
+  max-width: 100%;
   padding: 0.25rem 0 1.5rem;
 }
 
 .intro {
   line-height: 1.45;
   margin: 0 0 1rem;
-  max-width: 48rem;
+  max-width: 72rem;
 }
 
 .upload-bar {
@@ -36,7 +37,8 @@
 }
 
 .table-scroll {
-  overflow: auto;
+  width: 100%;
+  overflow-x: auto;
   margin-bottom: 1rem;
   border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
   border-radius: var(--app-radius-sm, 10px);
@@ -45,17 +47,24 @@
 
 .t1040-table {
   width: 100%;
-  min-width: 44rem;
+  min-width: 94rem;
 }
 
-.chip-row {
-  margin-bottom: 0.65rem;
+.compact-one-line {
+  th,
+  td {
+    white-space: nowrap;
+    vertical-align: middle;
+  }
 }
 
-.fname {
-  max-width: 14rem;
+.file-name {
+  max-width: 20rem;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.actions-cell {
   white-space: nowrap;
 }
 
@@ -81,13 +90,9 @@
   font-size: 0.9rem;
 }
 
-.warn {
-  color: #b45309;
-}
-
 .summary-grid {
   display: grid;
-  grid-template-columns: minmax(10rem, 1.1fr) minmax(6rem, 0.9fr);
+  grid-template-columns: minmax(14rem, 1.2fr) minmax(8rem, 0.8fr);
   gap: 0.35rem 0.75rem;
   font-size: 0.92rem;
 }
@@ -98,17 +103,7 @@
 
 .sum-val {
   font-variant-numeric: tabular-nums;
-}
-
-.sum-val.strong {
   font-weight: 600;
-}
-
-.warning-list {
-  margin: 0 0 0.75rem;
-  padding-left: 1.1rem;
-  color: var(--app-fg-muted, #64748b);
-  font-size: 0.9rem;
 }
 
 .quality-high {
