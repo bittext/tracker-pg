@@ -23,6 +23,7 @@ public final class Form1040TextParser {
     private static final Pattern LINE_24_TOKEN = Pattern.compile("(?<!\\d)24(?![A-Z0-9])");
     private static final Pattern LINE_37_TOKEN = Pattern.compile("(?<!\\d)37(?![A-Z0-9])");
     private static final Pattern GENERIC_LINE_LABEL = Pattern.compile("^\\s*LINE\\s*([0-9]{1,2}[A-Z]?)\\b");
+    private static final Pattern NUMERIC_LINE_LABEL = Pattern.compile("^\\s*([0-9]{1,2}[A-Z]?)\\s+[A-Z]");
 
     private Form1040TextParser() {}
 
@@ -132,11 +133,11 @@ public final class Form1040TextParser {
         if (exact != null) {
             return new FieldResult(exact, "exact", strictKeywords);
         }
-        BigDecimal neighbor = amountNearLine(lines, strictKeywords);
+        BigDecimal neighbor = amountForLineNeighbor(lines, lineToken, strictKeywords);
         if (neighbor != null) {
             return new FieldResult(neighbor, "neighbor", strictKeywords);
         }
-        BigDecimal fallback = firstMoneyNear(fullText, fallbackKeywords);
+        BigDecimal fallback = firstMoneyNear(fullText, fallbackKeywords, lineToken);
         return new FieldResult(fallback, "fallback", fallbackKeywords);
     }
 
@@ -176,6 +177,43 @@ public final class Form1040TextParser {
                 if (!next.isEmpty()) {
                     return next.get(next.size() - 1).setScale(2, RoundingMode.HALF_UP);
                 }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Neighbor-context pass for cases where line token, label, and amount are split across nearby lines.
+     */
+    private static BigDecimal amountForLineNeighbor(String[] lines, String lineToken, List<String> keywords) {
+        if (lines == null || lines.length == 0) {
+            return null;
+        }
+        BigDecimal lineTokenNumber = numericLineToken(lineToken);
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i] == null ? "" : lines[i];
+            String upper = line.toUpperCase(Locale.ROOT);
+            if (!containsLineToken(upper, lineToken)) {
+                continue;
+            }
+            boolean hasKeyword = containsAny(upper, keywords);
+            BigDecimal best = null;
+            for (int j = i; j <= Math.min(lines.length - 1, i + 3); j++) {
+                String neighbor = lines[j] == null ? "" : lines[j];
+                String neighborUpper = neighbor.toUpperCase(Locale.ROOT);
+                if (j > i && isDifferentLineLabel(neighborUpper, lineToken)) {
+                    break;
+                }
+                if (containsAny(neighborUpper, keywords)) {
+                    hasKeyword = true;
+                }
+                List<BigDecimal> amounts = stripLineNumberAmount(moneyTokens(neighbor), lineTokenNumber);
+                if (!amounts.isEmpty()) {
+                    best = amounts.get(amounts.size() - 1).setScale(2, RoundingMode.HALF_UP);
+                }
+            }
+            if (hasKeyword && best != null) {
+                return best;
             }
         }
         return null;
@@ -246,26 +284,36 @@ public final class Form1040TextParser {
     }
 
     private static boolean isDifferentLineLabel(String upperLine, String expectedToken) {
-        Matcher m = GENERIC_LINE_LABEL.matcher(upperLine == null ? "" : upperLine);
-        if (!m.find()) {
+        String normalized = upperLine == null ? "" : upperLine;
+        Matcher generic = GENERIC_LINE_LABEL.matcher(normalized);
+        Matcher numeric = NUMERIC_LINE_LABEL.matcher(normalized);
+        boolean hasGeneric = generic.find();
+        boolean hasNumeric = numeric.find();
+        if (!hasGeneric && !hasNumeric) {
             return false;
         }
         if (expectedToken == null || expectedToken.isBlank()) {
             return true;
         }
         String expected = expectedToken.toUpperCase(Locale.ROOT).replaceAll("\\s+", "");
-        String found = m.group(1).toUpperCase(Locale.ROOT).replaceAll("\\s+", "");
+        String found = (hasGeneric ? generic.group(1) : numeric.group(1))
+                .toUpperCase(Locale.ROOT)
+                .replaceAll("\\s+", "");
         return !found.equals(expected);
     }
 
     private static BigDecimal firstMoneyNear(String text, List<String> keywords) {
+        return firstMoneyNear(text, keywords, null);
+    }
+
+    private static BigDecimal firstMoneyNear(String text, List<String> keywords, String lineToken) {
         for (String kw : keywords) {
             int idx = indexOfIgnoreCase(text, kw);
             if (idx < 0) {
                 continue;
             }
             int end = Math.min(text.length(), idx + 900);
-            BigDecimal found = lastMoneyInWindow(text, idx, end);
+            BigDecimal found = lastMoneyInWindow(text, idx, end, lineToken);
             if (found != null) {
                 return found;
             }
@@ -403,8 +451,9 @@ public final class Form1040TextParser {
         return text.toUpperCase(Locale.ROOT).indexOf(needle.toUpperCase(Locale.ROOT));
     }
 
-    private static BigDecimal lastMoneyInWindow(String text, int start, int end) {
+    private static BigDecimal lastMoneyInWindow(String text, int start, int end, String lineToken) {
         String slice = text.substring(start, end);
+        BigDecimal tokenNumber = numericLineToken(lineToken);
         List<BigDecimal> amounts = new ArrayList<>();
         Matcher m = MONEY.matcher(slice);
         while (m.find()) {
@@ -416,6 +465,13 @@ public final class Form1040TextParser {
             }
             if (parens) {
                 amt = amt.negate();
+            }
+            if (tokenNumber != null && amt.compareTo(tokenNumber) == 0) {
+                continue;
+            }
+            // Ignore likely tax-year tokens in fallback windows (for example "2025").
+            if (amt.compareTo(new BigDecimal("1900.00")) >= 0 && amt.compareTo(new BigDecimal("2100.00")) <= 0) {
+                continue;
             }
             amounts.add(amt);
         }

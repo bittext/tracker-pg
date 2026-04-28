@@ -1,0 +1,10 @@
+Form 1040 U.S. Individual Income Tax Return 2025
+Line 1a
+Wages, salaries, tips
+88,240
+Line 24
+Total tax
+19,430
+Line 37
+Amount you owe
+0

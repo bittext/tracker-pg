@@ -18,7 +18,8 @@ class Form1040TextParserTest {
         List<Case> cases = List.of(
                 new Case("tax-corpus/fill-form-2024.txt", bd("78500"), bd("11220"), bd("1230")),
                 new Case("tax-corpus/software-breaks.txt", bd("95040"), bd("14830"), bd("2100")),
-                new Case("tax-corpus/ocr-noise-guards.txt", bd("61400"), bd("8410"), bd("0")));
+                new Case("tax-corpus/ocr-noise-guards.txt", bd("61400"), bd("8410"), bd("0")),
+                new Case("tax-corpus/line-number-traps.txt", bd("88240"), bd("19430"), bd("0")));
 
         int successfulExactOrNeighbor = 0;
         int totalKeyLineExtractions = 0;

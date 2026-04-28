@@ -8,7 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
-import { FinanceTax1040ReturnDto, Form1040ParsedSummary } from '../../../models/finance.models';
+import { FinanceTax1040ReturnDto } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
 
@@ -40,7 +40,7 @@ export class FinanceTax1040PanelComponent implements OnInit {
   selected: FinanceTax1040ReturnDto | null = null;
   detailLoading = false;
 
-  displayedColumns = ['taxYear', 'line1a', 'line24', 'result', 'actions'] as const;
+  displayedColumns = ['taxYear', 'fileName', 'line1a', 'line24', 'refund', 'owed', 'actions'] as const;
   trackById = (_: number, r: FinanceTax1040ReturnDto) => r.id;
 
   ngOnInit() {
@@ -151,31 +151,4 @@ export class FinanceTax1040PanelComponent implements OnInit {
     return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(v);
   }
 
-  resultCell(s: Form1040ParsedSummary): string {
-    if (s.refund != null && s.amountOwed != null) {
-      return `${this.money(s.refund)} refund / ${this.money(s.amountOwed)} owed`;
-    }
-    if (s.refund != null) {
-      return `${this.money(s.refund)} refund`;
-    }
-    if (s.amountOwed != null) {
-      return `${this.money(s.amountOwed)} owed`;
-    }
-    return '—';
-  }
-
-  sourcePass(s: Form1040ParsedSummary | null | undefined, field: string): string {
-    const p = s?.fieldProvenance?.[field]?.sourcePass;
-    return p ? p.toUpperCase() : '—';
-  }
-
-  fieldConfidence(s: Form1040ParsedSummary | null | undefined, field: string): string {
-    const c = s?.fieldProvenance?.[field]?.confidence;
-    return c ? c.toUpperCase() : '—';
-  }
-
-  tokenPreview(s: Form1040ParsedSummary | null | undefined, field: string): string {
-    const t = s?.fieldProvenance?.[field]?.matchedTokens;
-    return t && t.length ? t.join(', ') : '—';
-  }
 }

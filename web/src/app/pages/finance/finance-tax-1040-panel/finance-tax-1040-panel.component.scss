@@ -45,7 +45,14 @@
 
 .t1040-table {
   width: 100%;
-  min-width: 38rem;
+  min-width: 58rem;
+}
+
+.fname {
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .detail-panel {
@@ -72,7 +79,7 @@
 
 .summary-grid {
   display: grid;
-  grid-template-columns: minmax(10rem, 1.1fr) minmax(6rem, 0.9fr) minmax(6rem, 0.9fr);
+  grid-template-columns: minmax(10rem, 1.1fr) minmax(8rem, 0.9fr);
   gap: 0.35rem 0.75rem;
   font-size: 0.92rem;
 }
@@ -90,32 +97,11 @@
   font-weight: 600;
 }
 
-.sum-meta {
-  color: var(--app-fg-muted, #64748b);
-  font-size: 0.82rem;
-  text-transform: uppercase;
-}
-
 .warning-list {
   margin: 0 0 0.75rem;
   padding-left: 1.1rem;
   color: var(--app-fg-muted, #64748b);
   font-size: 0.9rem;
-}
-
-.quality-high {
-  color: #0f766e;
-  font-weight: 600;
-}
-
-.quality-medium {
-  color: #92400e;
-  font-weight: 600;
-}
-
-.quality-low {
-  color: #b91c1c;
-  font-weight: 600;
 }
 
 .extract-details {

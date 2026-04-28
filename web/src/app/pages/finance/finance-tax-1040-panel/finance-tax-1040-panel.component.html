@@ -31,6 +31,10 @@
           <th mat-header-cell *matHeaderCellDef>Year</th>
           <td mat-cell *matCellDef="let r">{{ r.taxYear }}</td>
         </ng-container>
+        <ng-container matColumnDef="fileName">
+          <th mat-header-cell *matHeaderCellDef>File name</th>
+          <td mat-cell *matCellDef="let r" class="fname" [attr.title]="r.originalFilename">{{ r.originalFilename }}</td>
+        </ng-container>
         <ng-container matColumnDef="line1a">
           <th mat-header-cell *matHeaderCellDef>Line 1a</th>
           <td mat-cell *matCellDef="let r">{{ money(r.summary.wagesSalariesTips) }}</td>
@@ -39,9 +43,13 @@
           <th mat-header-cell *matHeaderCellDef>Line 24</th>
           <td mat-cell *matCellDef="let r">{{ money(r.summary.totalTaxAfterCredits ?? r.summary.totalTax) }}</td>
         </ng-container>
-        <ng-container matColumnDef="result">
-          <th mat-header-cell *matHeaderCellDef>Refund/Owed</th>
-          <td mat-cell *matCellDef="let r">{{ resultCell(r.summary) }}</td>
+        <ng-container matColumnDef="refund">
+          <th mat-header-cell *matHeaderCellDef>Refund</th>
+          <td mat-cell *matCellDef="let r">{{ money(r.summary.refund) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="owed">
+          <th mat-header-cell *matHeaderCellDef>Owed</th>
+          <td mat-cell *matCellDef="let r">{{ money(r.summary.amountOwed) }}</td>
         </ng-container>
         <ng-container matColumnDef="actions">
           <th mat-header-cell *matHeaderCellDef></th>
@@ -73,19 +81,15 @@
         <div class="summary-grid key-lines-grid">
           <div class="sum-label">Line 1a - Wages</div>
           <div class="sum-val">{{ money(selected.summary.wagesSalariesTips) }}</div>
-          <div class="sum-meta">{{ sourcePass(selected.summary, 'wagesSalariesTips') }} / {{ fieldConfidence(selected.summary, 'wagesSalariesTips') }}</div>
 
           <div class="sum-label">Line 24 - Total tax</div>
           <div class="sum-val">{{ money(selected.summary.totalTaxAfterCredits ?? selected.summary.totalTax) }}</div>
-          <div class="sum-meta">{{ sourcePass(selected.summary, 'totalTaxAfterCredits') }} / {{ fieldConfidence(selected.summary, 'totalTaxAfterCredits') }}</div>
 
           <div class="sum-label">Line 37 - Amount owed</div>
           <div class="sum-val">{{ money(selected.summary.amountOwed) }}</div>
-          <div class="sum-meta">{{ sourcePass(selected.summary, 'amountOwed') }} / {{ fieldConfidence(selected.summary, 'amountOwed') }}</div>
 
           <div class="sum-label">Refund</div>
           <div class="sum-val">{{ money(selected.summary.refund) }}</div>
-          <div class="sum-meta">—</div>
         </div>
 
         @if (selected.summary.parseWarnings?.length) {
