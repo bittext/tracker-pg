@@ -73,9 +73,9 @@ TRACKER_AUTH_PASSWORD_PEPPER='your-pepper-from-env' mvn -q compile exec:java \
 
 To reset another user, edit the `WHERE` clause in the printed SQL (or change `admin` in the tool source if you prefer a one-off).
 
-## Create a demo user script
+## Create or update a user script
 
-Use the helper script to create or update a demo login in PostgreSQL.
+Use the helper script to create or update a login in PostgreSQL.
 
 ```bash
 bash scripts/create-demo-user.sh
@@ -94,7 +94,7 @@ You can override values:
 bash scripts/create-demo-user.sh demo DemoPass123 USER false true
 ```
 
-The script reads `.env.stack` when present for DB connection and `TRACKER_AUTH_PASSWORD_PEPPER`, then applies an upsert into `auth_users`.
+The script reads `.env.stack` when present for DB connection and `TRACKER_AUTH_PASSWORD_PEPPER`, then applies an upsert into `auth_users` keyed by username.
 
 ## Local secrets (`application-local.yml`)
 
