@@ -11,6 +11,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
@@ -39,6 +40,7 @@ import {
   ReportCalendarEntryDialogComponent,
   ReportCalendarEntryDialogData,
 } from '../reports/report-calendar-entry-dialog.component';
+import { UtilitySitePreviewDialogComponent } from './utility-site-preview-dialog.component';
 
 interface CalendarCell {
   type: 'pad' | 'day';
@@ -88,12 +90,14 @@ interface UtilityEntry {
     MatDatepickerModule,
     MatNativeDateModule,
     MatCheckboxModule,
+    MatMenuModule,
   ],
   templateUrl: './management.component.html',
   styleUrl: './management.component.scss',
 })
 export class ManagementComponent implements OnInit {
   private static readonly UTILITIES_STORAGE_KEY = 'management.utilities.entries.v1';
+  private static readonly UTILITIES_LINK_PREF_KEY = 'management.utilities.linkOpenPreference.v1';
   private readonly api = inject(ManagementApiService);
   private readonly reportCalApi = inject(ReportCalendarApiService);
   private readonly snackBar = inject(MatSnackBar);
@@ -166,6 +170,13 @@ export class ManagementComponent implements OnInit {
 
   readonly utilityTableColumns: string[] = ['folder', 'itemName', 'username', 'actions'];
 
+  /**
+   * Default when clicking a website URL: in-app iframe preview vs system browser (new tab — use Zen or any default browser).
+   */
+  utilityLinkOpenPreference: 'inApp' | 'external' = 'external';
+  /** Current URL for the shared mat-menu on website link overflow. */
+  utilityMenuContext: string | null = null;
+
   /** 0 Tasks, 1 Calendar, 2 Utilities, 3 Notes */
   private readonly MGMT_TAB_NOTES = 3;
 
@@ -194,6 +205,7 @@ export class ManagementComponent implements OnInit {
     this.reloadRefsAndCalendar();
     this.loadReportCalendar();
     this.loadUtilitiesFromStorage();
+    this.loadUtilityLinkPreference();
   }
 
   addUtilityWebsite(): void {
@@ -343,6 +355,133 @@ export class ManagementComponent implements OnInit {
 
   cancelUtilityEdit(): void {
     this.resetUtilityForm();
+  }
+
+  loadUtilityLinkPreference(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    try {
+      const v = window.localStorage.getItem(ManagementComponent.UTILITIES_LINK_PREF_KEY);
+      if (v === 'inApp' || v === 'external') {
+        this.utilityLinkOpenPreference = v;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  persistUtilityLinkPreference(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    try {
+      window.localStorage.setItem(
+        ManagementComponent.UTILITIES_LINK_PREF_KEY,
+        this.utilityLinkOpenPreference,
+      );
+    } catch {
+      // ignore
+    }
+  }
+
+  /** Normalize to http(s) URL or return null if invalid. */
+  normalizeUtilityUrl(raw: string): string | null {
+    const t = raw.trim();
+    if (!t) {
+      return null;
+    }
+    let href = t;
+    if (!/^https?:\/\//i.test(href)) {
+      href = 'https://' + href.replace(/^\/+/, '');
+    }
+    try {
+      const u = new URL(href);
+      if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+        return null;
+      }
+      return u.href;
+    } catch {
+      return null;
+    }
+  }
+
+  onUtilitySitePrimaryClick(raw: string, ev: Event): void {
+    ev.preventDefault();
+    ev.stopPropagation();
+    const url = this.normalizeUtilityUrl(raw);
+    if (!url) {
+      this.snackBar.open('Invalid or unsupported URL', undefined, { duration: 2500 });
+      return;
+    }
+    if (this.utilityLinkOpenPreference === 'inApp') {
+      this.openUtilitySiteInApp(url);
+    } else {
+      this.openUtilitySiteInExternalBrowser(url);
+    }
+  }
+
+  openUtilitySiteInApp(url: string): void {
+    this.dialog.open(UtilitySitePreviewDialogComponent, {
+      data: { url },
+      width: 'min(960px, 98vw)',
+      maxHeight: '95vh',
+      autoFocus: 'dialog',
+    });
+  }
+
+  openUtilitySiteInExternalBrowser(url: string): void {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
+  openUtilityMenuContextInApp(): void {
+    const raw = this.utilityMenuContext;
+    if (!raw) {
+      return;
+    }
+    const url = this.normalizeUtilityUrl(raw);
+    if (!url) {
+      this.snackBar.open('Invalid or unsupported URL', undefined, { duration: 2500 });
+      return;
+    }
+    this.openUtilitySiteInApp(url);
+  }
+
+  openUtilityMenuContextInBrowser(): void {
+    const raw = this.utilityMenuContext;
+    if (!raw) {
+      return;
+    }
+    const url = this.normalizeUtilityUrl(raw);
+    if (!url) {
+      this.snackBar.open('Invalid or unsupported URL', undefined, { duration: 2500 });
+      return;
+    }
+    this.openUtilitySiteInExternalBrowser(url);
+  }
+
+  copyUtilityMenuContext(): void {
+    const raw = this.utilityMenuContext;
+    if (!raw) {
+      return;
+    }
+    this.copyUtilityUrlToClipboard(raw);
+  }
+
+  copyUtilityUrlToClipboard(raw: string): void {
+    const normalized = this.normalizeUtilityUrl(raw);
+    const text = normalized ?? raw.trim();
+    if (!text) {
+      return;
+    }
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+      this.snackBar.open('Clipboard not available', undefined, { duration: 2500 });
+      return;
+    }
+    navigator.clipboard.writeText(text).then(
+      () => this.snackBar.open('Link copied', undefined, { duration: 2000 }),
+      () => this.snackBar.open('Could not copy', undefined, { duration: 2500 }),
+    );
   }
 
   get calendarTitle(): string {

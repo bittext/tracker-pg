@@ -469,7 +469,9 @@
           <h2 id="utilities-heading" class="subsection-title">Utilities</h2>
           <p class="muted">
             Store utility logins in this browser (local storage). Passwords stay hidden until you choose to show them. Search
-            by folder, item name, or username; click a row for full details, or use edit / delete in the list.
+            by folder, item name, or username; click a row for full details, or use edit / delete in the list. Website URLs
+            can open in an in-app preview window or in your system browser (new tab) — set Zen or another browser as the OS
+            default, or always pick from the <strong>⋮</strong> menu.
           </p>
 
           <div class="mgmt-layout utilities-layout">
@@ -551,12 +553,30 @@
                     <button mat-stroked-button type="button" class="align-field" (click)="addUtilityWebsite()">Add website</button>
                   </div>
                   @if (utilityEntryDraft.websites.length) {
-                    <div class="utilities-chip-list">
+                    <div class="utilities-site-list" role="list">
                       @for (site of utilityEntryDraft.websites; track site) {
-                        <button type="button" class="utilities-chip" (click)="removeUtilityWebsite(site)" title="Remove website">
-                          <span>{{ site }}</span>
-                          <mat-icon>close</mat-icon>
-                        </button>
+                        <div class="utilities-site-row" role="listitem" (click)="$event.stopPropagation()">
+                          <button type="button" class="utilities-site-link" (click)="onUtilitySitePrimaryClick(site, $event)">
+                            {{ site }}
+                          </button>
+                          <button
+                            mat-icon-button
+                            type="button"
+                            [matMenuTriggerFor]="utilityLinkMenu"
+                            (click)="utilityMenuContext = site"
+                            aria-label="Link options for this URL"
+                          >
+                            <mat-icon>more_vert</mat-icon>
+                          </button>
+                          <button
+                            mat-icon-button
+                            type="button"
+                            (click)="removeUtilityWebsite(site)"
+                            aria-label="Remove website from list"
+                          >
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        </div>
                       }
                     </div>
                   }
@@ -599,6 +619,24 @@
                   </mat-card-subtitle>
                 </mat-card-header>
                 <mat-card-content>
+                  <div class="utilities-link-pref">
+                    <div class="utilities-link-pref-label">When you click a website link</div>
+                    <mat-button-toggle-group
+                      name="utilityLinkOpenPref"
+                      [(ngModel)]="utilityLinkOpenPreference"
+                      (ngModelChange)="persistUtilityLinkPreference()"
+                      aria-label="Default action for website links"
+                      class="utilities-link-toggle"
+                    >
+                      <mat-button-toggle value="inApp">In-app preview</mat-button-toggle>
+                      <mat-button-toggle value="external">New tab (browser)</mat-button-toggle>
+                    </mat-button-toggle-group>
+                    <p class="muted utilities-link-pref-hint">
+                      <strong>In-app</strong> opens a window inside this app (some sites block this).
+                      <strong>New tab</strong> uses your default browser — for Zen Browser, set it as the system default or use
+                      ⋮ on a link to choose. Use ⋮ to copy the URL.
+                    </p>
+                  </div>
                   <mat-form-field appearance="outline" class="full-width-field utilities-search-field">
                     <mat-label>Search</mat-label>
                     <input
@@ -707,9 +745,24 @@
                           @if (!selectedUtilityEntry.websites.length) {
                             <span class="muted">—</span>
                           } @else {
-                            <ul class="utilities-websites">
+                            <ul class="utilities-websites utilities-websites--links">
                               @for (site of selectedUtilityEntry.websites; track site) {
-                                <li>{{ site }}</li>
+                                <li (click)="$event.stopPropagation()">
+                                  <div class="utilities-site-row">
+                                    <button type="button" class="utilities-site-link" (click)="onUtilitySitePrimaryClick(site, $event)">
+                                      {{ site }}
+                                    </button>
+                                    <button
+                                      mat-icon-button
+                                      type="button"
+                                      [matMenuTriggerFor]="utilityLinkMenu"
+                                      (click)="utilityMenuContext = site"
+                                      aria-label="Link options for this URL"
+                                    >
+                                      <mat-icon>more_vert</mat-icon>
+                                    </button>
+                                  </div>
+                                </li>
                               }
                             </ul>
                           }
@@ -737,6 +790,12 @@
               </mat-card>
             </section>
           </div>
+
+          <mat-menu #utilityLinkMenu="matMenu">
+            <button mat-menu-item type="button" (click)="openUtilityMenuContextInApp()">Open in app (preview window)</button>
+            <button mat-menu-item type="button" (click)="openUtilityMenuContextInBrowser()">Open in browser (new tab)</button>
+            <button mat-menu-item type="button" (click)="copyUtilityMenuContext()">Copy URL</button>
+          </mat-menu>
         </section>
       </div>
     </mat-tab>
