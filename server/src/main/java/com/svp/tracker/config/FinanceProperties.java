@@ -78,6 +78,11 @@ public record FinanceProperties(
         int newsMaxItems,
         /** HTTP timeout for stock news fetch. */
         int newsTimeoutMs,
+        /**
+         * When true, the server calls Alpha Vantage for stock quotes (scheduled refresh and on-demand cache fill).
+         * When false, no outbound Alpha Vantage HTTP requests are made.
+         */
+        boolean alphaVantageEnabled,
         /** Alpha Vantage API key used for quote retrieval in alerts/crawler/swing sections. */
         String alphaVantageApiKey,
         /** Alpha Vantage query endpoint. */

@@ -54,6 +54,9 @@ public class YahooBatchQuoteService {
             fixedDelayString = "${tracker.finance.alpha-vantage-refresh-ms:3600000}",
             initialDelayString = "${tracker.finance.alpha-vantage-initial-delay-ms:45000}")
     public void refreshTrackedSymbolsHourly() {
+        if (!props.alphaVantageEnabled()) {
+            return;
+        }
         refreshAllSymbolsInOneShot(collectTrackedSymbols(), "hourly");
     }
 
@@ -112,6 +115,9 @@ public class YahooBatchQuoteService {
     }
 
     private void ensureFresh(List<String> requested) {
+        if (!props.alphaVantageEnabled()) {
+            return;
+        }
         Instant now = Instant.now();
         boolean stale = Duration.between(lastRefreshAt, now).compareTo(CACHE_TTL) >= 0;
         boolean missing = requested.stream().anyMatch(s -> !cache.containsKey(s));
@@ -172,6 +178,9 @@ public class YahooBatchQuoteService {
     }
 
     private Map<String, AlphaQuote> fetchAlphaBulkOneShot(List<String> symbols) {
+        if (!props.alphaVantageEnabled()) {
+            return Map.of();
+        }
         String key = props.alphaVantageApiKey();
         if (key == null || key.isBlank()) {
             log.warn("Alpha Vantage API key is not configured; set TRACKER_FINANCE_ALPHA_VANTAGE_API_KEY");

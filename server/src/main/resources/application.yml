@@ -91,6 +91,8 @@ tracker:
     news-enabled: true
     news-max-items: 10
     news-timeout-ms: 8000
+    # When false, no HTTP calls are made to Alpha Vantage (quotes stay empty / stale cache).
+    alpha-vantage-enabled: ${TRACKER_FINANCE_ALPHA_VANTAGE_ENABLED:false}
     alpha-vantage-api-key: ${TRACKER_FINANCE_ALPHA_VANTAGE_API_KEY:}
     alpha-vantage-base-url: ${TRACKER_FINANCE_ALPHA_VANTAGE_BASE_URL:https://www.alphavantage.co/query}
     alerts:

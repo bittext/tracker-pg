@@ -55,6 +55,8 @@ services:
       # On Lightsail use host bind mounts (see docker-compose.robinhood.yml and .env.stack.example).
       TRACKER_FINANCE_ROBINHOOD_CSV_IMPORT_DIRECTORY: ${TRACKER_FINANCE_ROBINHOOD_CSV_IMPORT_DIRECTORY:-}
       TRACKER_FINANCE_ROBINHOOD_CSV_UPLOADED_DIRECTORY: ${TRACKER_FINANCE_ROBINHOOD_CSV_UPLOADED_DIRECTORY:-}
+      # Set to true to resume outbound Alpha Vantage quote calls.
+      TRACKER_FINANCE_ALPHA_VANTAGE_ENABLED: ${TRACKER_FINANCE_ALPHA_VANTAGE_ENABLED:-false}
       TRACKER_FINANCE_ALPHA_VANTAGE_API_KEY: ${TRACKER_FINANCE_ALPHA_VANTAGE_API_KEY:-}
       TRACKER_FINANCE_ALPHA_VANTAGE_BASE_URL: ${TRACKER_FINANCE_ALPHA_VANTAGE_BASE_URL:-https://www.alphavantage.co/query}
       # Finance stock alerts (SMTP + Twilio-style SMS). Leave disabled until providers are configured.
