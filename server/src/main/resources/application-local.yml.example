@@ -17,21 +17,22 @@ tracker:
     jwt-secret: "CHANGE_ME_LOCAL_JWT_SECRET_AT_LEAST_32_CHARS"
     password-pepper: "CHANGE_ME_LOCAL_PEPPER"
     bootstrap-admin-password: "CHANGE_ME_LOCAL_ADMIN_PASSWORD"
-    # Optional: Twilio (only if tracker.auth.sms.enabled=true in application.yml)
+    # Optional: Amazon SNS for MFA SMS (only if tracker.auth.sms.enabled=true, provider=sns, aws-region set)
     sms:
-      twilio-account-sid: ""
-      twilio-auth-token: ""
-      twilio-from-number: ""
+      provider: log
+      aws-region: ""
+      sms-sms-type: TRANSACTIONAL
+      sms-sender-id: ""
 
   finance:
     # Absolute paths for POST /import-csv-directory (leave empty if unused).
     robinhood-csv-import-directory: "/absolute/path/to/robinhood/import"
     robinhood-csv-uploaded-directory: "/absolute/path/to/robinhood/uploaded"
     alerts:
-      # Set true only after SMTP/Twilio details are configured for local tests.
+      # Set true only after SES/SNS + aws-region + AWS credentials are configured for local tests.
       email-enabled: false
       email-from: ""
       sms-enabled: false
-      twilio-account-sid: ""
-      twilio-auth-token: ""
-      twilio-from-number: ""
+      aws-region: ""
+      sms-sms-type: TRANSACTIONAL
+      sms-sender-id: ""

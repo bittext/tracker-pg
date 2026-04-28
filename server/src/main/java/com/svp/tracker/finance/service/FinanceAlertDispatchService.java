@@ -7,21 +7,26 @@ import com.svp.tracker.finance.domain.FinanceAlertEvent;
 import com.svp.tracker.finance.domain.FinanceNotificationSettings;
 import com.svp.tracker.finance.domain.FinanceStockAlert;
 import com.svp.tracker.finance.repository.FinanceAlertEventRepository;
-import java.nio.charset.StandardCharsets;
+import jakarta.annotation.PreDestroy;
 import java.util.ArrayList;
-import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
-import org.springframework.util.LinkedMultiValueMap;
-import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.RestClient;
+import software.amazon.awssdk.awscore.exception.AwsServiceException;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.sns.SnsClient;
+import software.amazon.awssdk.services.sns.model.MessageAttributeValue;
+import software.amazon.awssdk.services.sns.model.PublishRequest;
+import software.amazon.awssdk.services.sesv2.SesV2Client;
+import software.amazon.awssdk.services.sesv2.model.Body;
+import software.amazon.awssdk.services.sesv2.model.Content;
+import software.amazon.awssdk.services.sesv2.model.Destination;
+import software.amazon.awssdk.services.sesv2.model.EmailContent;
+import software.amazon.awssdk.services.sesv2.model.Message;
+import software.amazon.awssdk.services.sesv2.model.SendEmailRequest;
 
 @Service
 @RequiredArgsConstructor
@@ -29,9 +34,11 @@ import org.springframework.web.client.RestClient;
 public class FinanceAlertDispatchService {
 
     private final FinanceAlertProperties props;
-    private final ObjectProvider<JavaMailSender> mailSenderProvider;
     private final FinanceAlertEventRepository eventRepository;
-    private final RestClient restClient = RestClient.create();
+
+    private final Object clientLock = new Object();
+    private volatile SnsClient snsClient;
+    private volatile SesV2Client sesClient;
 
     public List<FinanceAlertEvent> dispatchTriggeredAlert(
             FinanceStockAlert alert,
@@ -75,22 +82,54 @@ public class FinanceAlertDispatchService {
             return save(systemEvent(alert, FinanceAlertDeliveryChannel.EMAIL, FinanceAlertDeliveryStatus.SKIPPED, "Email address is blank", ""));
         }
         if (!props.emailProviderConfigured()) {
-            return save(systemEvent(alert, FinanceAlertDeliveryChannel.EMAIL, FinanceAlertDeliveryStatus.FAILED, "Email provider is not configured", ""));
+            return save(systemEvent(
+                    alert,
+                    FinanceAlertDeliveryChannel.EMAIL,
+                    FinanceAlertDeliveryStatus.FAILED,
+                    "AWS SES is not configured (enable finance emails, set email-from, aws-region, and IAM/credentials)",
+                    ""));
         }
-        JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
-        if (mailSender == null) {
-            return save(systemEvent(alert, FinanceAlertDeliveryChannel.EMAIL, FinanceAlertDeliveryStatus.FAILED, "JavaMailSender is not available", ""));
+        SesV2Client client = sesClient();
+        if (client == null) {
+            return save(systemEvent(alert, FinanceAlertDeliveryChannel.EMAIL, FinanceAlertDeliveryStatus.FAILED, "SES client is not available", ""));
         }
         try {
-            SimpleMailMessage msg = new SimpleMailMessage();
-            msg.setFrom(props.emailFrom());
-            msg.setTo(to.trim());
-            msg.setSubject(subject);
-            msg.setText(body);
-            mailSender.send(msg);
-            return save(systemEvent(alert, FinanceAlertDeliveryChannel.EMAIL, FinanceAlertDeliveryStatus.SENT, "Email sent to " + to.trim(), ""));
+            SendEmailRequest req = SendEmailRequest.builder()
+                    .fromEmailAddress(props.emailFrom())
+                    .destination(Destination.builder().toAddresses(to.trim()).build())
+                    .content(EmailContent.builder()
+                            .simple(Message.builder()
+                                    .subject(Content.builder()
+                                            .data(subject)
+                                            .charset("UTF-8")
+                                            .build())
+                                    .body(Body.builder()
+                                            .text(Content.builder()
+                                                    .data(body)
+                                                    .charset("UTF-8")
+                                                    .build())
+                                            .build())
+                                    .build())
+                            .build())
+                    .build();
+            var resp = client.sendEmail(req);
+            String mid = resp.messageId() != null ? resp.messageId() : "";
+            return save(systemEvent(
+                    alert,
+                    FinanceAlertDeliveryChannel.EMAIL,
+                    FinanceAlertDeliveryStatus.SENT,
+                    "Email sent to " + to.trim() + " via SES",
+                    mid));
+        } catch (AwsServiceException e) {
+            log.warn("Finance alert SES email failed", e);
+            return save(systemEvent(
+                    alert,
+                    FinanceAlertDeliveryChannel.EMAIL,
+                    FinanceAlertDeliveryStatus.FAILED,
+                    "SES email failed: " + clean(e.awsErrorDetails() != null ? e.awsErrorDetails().errorMessage() : e.getMessage()),
+                    ""));
         } catch (Exception e) {
-            log.warn("Finance alert email failed", e);
+            log.warn("Finance alert SES email failed", e);
             return save(systemEvent(alert, FinanceAlertDeliveryChannel.EMAIL, FinanceAlertDeliveryStatus.FAILED, "Email failed: " + clean(e.getMessage()), ""));
         }
     }
@@ -100,28 +139,101 @@ public class FinanceAlertDispatchService {
             return save(systemEvent(alert, FinanceAlertDeliveryChannel.SMS, FinanceAlertDeliveryStatus.SKIPPED, "Mobile number is blank", ""));
         }
         if (!props.smsProviderConfigured()) {
-            return save(systemEvent(alert, FinanceAlertDeliveryChannel.SMS, FinanceAlertDeliveryStatus.FAILED, "Twilio SMS provider is not configured", ""));
+            return save(systemEvent(
+                    alert,
+                    FinanceAlertDeliveryChannel.SMS,
+                    FinanceAlertDeliveryStatus.FAILED,
+                    "AWS SNS SMS is not configured (enable finance SMS, set aws-region, and IAM/credentials)",
+                    ""));
+        }
+        SnsClient client = snsClient();
+        if (client == null) {
+            return save(systemEvent(alert, FinanceAlertDeliveryChannel.SMS, FinanceAlertDeliveryStatus.FAILED, "SNS client is not available", ""));
         }
         try {
-            String auth = Base64.getEncoder()
-                    .encodeToString((props.twilioAccountSid() + ":" + props.twilioAuthToken())
-                            .getBytes(StandardCharsets.UTF_8));
-            MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
-            form.add("To", to.trim());
-            form.add("From", props.twilioFromNumber());
-            form.add("Body", body);
-            restClient
-                    .post()
-                    .uri("https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json", props.twilioAccountSid())
-                    .header(HttpHeaders.AUTHORIZATION, "Basic " + auth)
-                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                    .body(form)
-                    .retrieve()
-                    .toBodilessEntity();
-            return save(systemEvent(alert, FinanceAlertDeliveryChannel.SMS, FinanceAlertDeliveryStatus.SENT, "SMS sent to " + to.trim(), ""));
+            Map<String, MessageAttributeValue> attrs = new HashMap<>();
+            attrs.put(
+                    "AWS.SNS.SMS.SMSType",
+                    MessageAttributeValue.builder()
+                            .dataType("String")
+                            .stringValue(props.snsSmsTypeAttributeValue())
+                            .build());
+            if (!props.smsSenderId().isBlank()) {
+                attrs.put(
+                        "AWS.SNS.SMS.SenderID",
+                        MessageAttributeValue.builder()
+                                .dataType("String")
+                                .stringValue(props.smsSenderId())
+                                .build());
+            }
+            PublishRequest req = PublishRequest.builder()
+                    .phoneNumber(to.trim())
+                    .message(body)
+                    .messageAttributes(attrs)
+                    .build();
+            var resp = client.publish(req);
+            String mid = resp.messageId() != null ? resp.messageId() : "";
+            return save(systemEvent(
+                    alert,
+                    FinanceAlertDeliveryChannel.SMS,
+                    FinanceAlertDeliveryStatus.SENT,
+                    "SMS sent to " + to.trim() + " via SNS",
+                    mid));
+        } catch (AwsServiceException e) {
+            log.warn("Finance alert SNS SMS failed", e);
+            return save(systemEvent(
+                    alert,
+                    FinanceAlertDeliveryChannel.SMS,
+                    FinanceAlertDeliveryStatus.FAILED,
+                    "SNS SMS failed: " + clean(e.awsErrorDetails() != null ? e.awsErrorDetails().errorMessage() : e.getMessage()),
+                    ""));
         } catch (Exception e) {
-            log.warn("Finance alert SMS failed", e);
+            log.warn("Finance alert SNS SMS failed", e);
             return save(systemEvent(alert, FinanceAlertDeliveryChannel.SMS, FinanceAlertDeliveryStatus.FAILED, "SMS failed: " + clean(e.getMessage()), ""));
+        }
+    }
+
+    private SesV2Client sesClient() {
+        if (!props.emailProviderConfigured()) {
+            return null;
+        }
+        if (sesClient != null) {
+            return sesClient;
+        }
+        synchronized (clientLock) {
+            if (sesClient == null) {
+                sesClient = SesV2Client.builder().region(Region.of(props.awsRegion())).build();
+            }
+            return sesClient;
+        }
+    }
+
+    private SnsClient snsClient() {
+        if (!props.smsProviderConfigured()) {
+            return null;
+        }
+        if (snsClient != null) {
+            return snsClient;
+        }
+        synchronized (clientLock) {
+            if (snsClient == null) {
+                snsClient = SnsClient.builder().region(Region.of(props.awsRegion())).build();
+            }
+            return snsClient;
+        }
+    }
+
+    @PreDestroy
+    public void closeAwsClients() {
+        synchronized (clientLock) {
+            if (snsClient != null) {
+                snsClient.close();
+                snsClient = null;
+            }
+            if (sesClient != null) {
+                sesClient.close();
+                sesClient = null;
+            }
         }
     }
 

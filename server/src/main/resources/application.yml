@@ -66,10 +66,11 @@ tracker:
     mfa-rate-limit-per-hour: ${TRACKER_AUTH_MFA_RATE_LIMIT_PER_HOUR:12}
     sms:
       enabled: ${TRACKER_AUTH_SMS_ENABLED:false}
+      # log: OTP only in server logs. sns: Amazon SNS direct SMS (E.164).
       provider: ${TRACKER_AUTH_SMS_PROVIDER:log}
-      twilio-account-sid: ${TRACKER_AUTH_SMS_TWILIO_ACCOUNT_SID:}
-      twilio-auth-token: ${TRACKER_AUTH_SMS_TWILIO_AUTH_TOKEN:}
-      twilio-from-number: ${TRACKER_AUTH_SMS_TWILIO_FROM_NUMBER:}
+      aws-region: ${TRACKER_AUTH_SMS_AWS_REGION:}
+      sms-sms-type: ${TRACKER_AUTH_SMS_SMS_TYPE:TRANSACTIONAL}
+      sms-sender-id: ${TRACKER_AUTH_SMS_SMS_SENDER_ID:}
   finance:
     robinhood-table: robinhood_transactions
     max-transaction-rows: 10000
@@ -103,9 +104,10 @@ tracker:
       email-enabled: ${TRACKER_FINANCE_ALERTS_EMAIL_ENABLED:false}
       email-from: ${TRACKER_FINANCE_ALERTS_EMAIL_FROM:}
       sms-enabled: ${TRACKER_FINANCE_ALERTS_SMS_ENABLED:false}
-      twilio-account-sid: ${TRACKER_FINANCE_ALERTS_TWILIO_ACCOUNT_SID:}
-      twilio-auth-token: ${TRACKER_FINANCE_ALERTS_TWILIO_AUTH_TOKEN:}
-      twilio-from-number: ${TRACKER_FINANCE_ALERTS_TWILIO_FROM_NUMBER:}
+      # Amazon SES + SNS (default AWS credential chain; verify SES identity for email-from).
+      aws-region: ${TRACKER_FINANCE_ALERTS_AWS_REGION:}
+      sms-sms-type: ${TRACKER_FINANCE_ALERTS_SMS_SMS_TYPE:TRANSACTIONAL}
+      sms-sender-id: ${TRACKER_FINANCE_ALERTS_SMS_SENDER_ID:}
   logging:
     in-memory-max-lines: 800
     web-display-max-age-minutes: 30

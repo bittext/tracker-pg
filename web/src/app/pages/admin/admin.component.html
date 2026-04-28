@@ -140,8 +140,9 @@
         <section class="admin-section">
           <h2 class="section-title">Finance alert notifications</h2>
           <p class="muted">
-            Provision the recipient channels used by Finance → Alerts. SMTP and Twilio credentials stay in server
-            environment variables; this screen only stores the destination email/mobile and channel toggles.
+            Provision the recipient channels used by Finance → Alerts. Outbound email uses Amazon SES and SMS uses
+            Amazon SNS; configure region, verified sender, and AWS credentials on the server. This screen only stores the
+            destination email/mobile and channel toggles.
           </p>
           <div class="table-wrap-group admin-add-wrap">
             <div class="table-wrap tight table-wrap--entry">

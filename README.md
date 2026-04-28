@@ -107,6 +107,8 @@ cp server/src/main/resources/application-local.yml.example \
 
 Replace the `CHANGE_ME_*` placeholders and set Robinhood CSV paths if you use directory import.
 
+**Auth MFA SMS:** by default `tracker.auth.sms.provider` is **`log`** (the OTP is written to the API log only). For real SMS, set **`provider=sns`**, **`tracker.auth.sms.enabled=true`**, and **`tracker.auth.sms.aws-region`**, and use the default AWS credential chain with IAM permission **`sns:Publish`**. Finance alert SMS uses a separate config under `tracker.finance.alerts`.
+
 Run the API with the **`local`** Spring profile so `application-local.yml` is loaded:
 
 ```bash
@@ -200,8 +202,8 @@ For **`mvn spring-boot:run`** on your Mac, use the **`local`** profile and set `
 
 **Finance stock alerts:** users create alert rules in **Finance → Alerts** (target price or session % rise, one-time or repeat with cooldown). Recipient provisioning lives in **Admin → Finance**. Outbound provider secrets stay in environment / `.env.stack`, not in the UI:
 
-- Email: set **`TRACKER_FINANCE_ALERTS_EMAIL_ENABLED=true`**, **`TRACKER_FINANCE_ALERTS_EMAIL_FROM`**, plus Spring Mail settings such as **`SPRING_MAIL_HOST`**, **`SPRING_MAIL_PORT`**, **`SPRING_MAIL_USERNAME`**, **`SPRING_MAIL_PASSWORD`**, **`SPRING_MAIL_SMTP_AUTH`**, and **`SPRING_MAIL_SMTP_STARTTLS_ENABLE`**.
-- SMS: set **`TRACKER_FINANCE_ALERTS_SMS_ENABLED=true`**, **`TRACKER_FINANCE_ALERTS_TWILIO_ACCOUNT_SID`**, **`TRACKER_FINANCE_ALERTS_TWILIO_AUTH_TOKEN`**, and **`TRACKER_FINANCE_ALERTS_TWILIO_FROM_NUMBER`**.
+- Email (Amazon SES): set **`TRACKER_FINANCE_ALERTS_EMAIL_ENABLED=true`**, **`TRACKER_FINANCE_ALERTS_EMAIL_FROM`** (verified identity in SES), and **`TRACKER_FINANCE_ALERTS_AWS_REGION`** (for example `us-east-1`). The API uses the default AWS credential chain (instance role, environment keys, or profile).
+- SMS (Amazon SNS): set **`TRACKER_FINANCE_ALERTS_SMS_ENABLED=true`** and the same **`TRACKER_FINANCE_ALERTS_AWS_REGION`**. Ensure SNS SMS is allowed for your account and destination countries; optional **`TRACKER_FINANCE_ALERTS_SMS_SMS_TYPE`** (`TRANSACTIONAL` or `PROMOTIONAL`) and **`TRACKER_FINANCE_ALERTS_SMS_SENDER_ID`** where supported.
 - Polling is controlled by **`TRACKER_FINANCE_ALERTS_EVALUATION_ENABLED`** and **`TRACKER_FINANCE_ALERTS_POLL_FIXED_DELAY_MS`**. Quotes are Yahoo best-effort and may be delayed.
 
 1. Copy the env template and set strong values (never commit `.env.stack`; it is gitignored):
