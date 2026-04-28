@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatChipsModule } from '@angular/material/chips';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -23,6 +24,7 @@ import { formatHttpErrorDetail } from '../../../util/http-error';
     MatIconModule,
     MatSnackBarModule,
     MatTableModule,
+    MatChipsModule,
   ],
   templateUrl: './finance-tax-1040-panel.component.html',
   styleUrl: './finance-tax-1040-panel.component.scss',
@@ -38,7 +40,7 @@ export class FinanceTax1040PanelComponent implements OnInit {
   selected: FinanceTax1040ReturnDto | null = null;
   detailLoading = false;
 
-  displayedColumns = ['taxYear', 'file', 'line1a', 'line24', 'refundOrOwed', 'quality', 'actions'] as const;
+  displayedColumns = ['taxYear', 'line1a', 'line24', 'result', 'actions'] as const;
   trackById = (_: number, r: FinanceTax1040ReturnDto) => r.id;
 
   ngOnInit() {
@@ -80,20 +82,6 @@ export class FinanceTax1040PanelComponent implements OnInit {
 
   closeDetail() {
     this.selected = null;
-  }
-
-  deleteSelected() {
-    if (!this.selected) {
-      return;
-    }
-    this.deleteRow(this.selected);
-  }
-
-  downloadSelected() {
-    if (!this.selected) {
-      return;
-    }
-    this.download(this.selected);
   }
 
   onFileSelected(ev: Event) {
@@ -163,53 +151,31 @@ export class FinanceTax1040PanelComponent implements OnInit {
     return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(v);
   }
 
-  parseQuality(s: Form1040ParsedSummary): string {
-    const q = (s.confidenceLabel ?? 'LOW').toUpperCase();
-    const hits = s.parsedAmountFieldCount ?? 0;
-    return `${q} (${hits})`;
-  }
-
-  parseQualityClass(s: Form1040ParsedSummary): string {
-    const q = (s.confidenceLabel ?? 'LOW').toUpperCase();
-    if (q === 'HIGH') {
-      return 'quality-high';
+  resultCell(s: Form1040ParsedSummary): string {
+    if (s.refund != null && s.amountOwed != null) {
+      return `${this.money(s.refund)} refund / ${this.money(s.amountOwed)} owed`;
     }
-    if (q === 'MEDIUM') {
-      return 'quality-medium';
+    if (s.refund != null) {
+      return `${this.money(s.refund)} refund`;
     }
-    return 'quality-low';
-  }
-
-  line24Tax(s: Form1040ParsedSummary): string {
-    return this.money(s.totalTaxAfterCredits ?? s.totalTax);
-  }
-
-  refundOrOwed(s: Form1040ParsedSummary): string {
-    const refund = s.refund;
-    const owed = s.amountOwed;
-    if (refund != null && owed != null) {
-      return `Refund ${this.money(refund)} / Owed ${this.money(owed)}`;
-    }
-    if (refund != null) {
-      return `Refund ${this.money(refund)}`;
-    }
-    if (owed != null) {
-      return `Owed ${this.money(owed)}`;
+    if (s.amountOwed != null) {
+      return `${this.money(s.amountOwed)} owed`;
     }
     return '—';
   }
 
-  detailRows(s: Form1040ParsedSummary | null | undefined): { label: string; value: string }[] {
-    if (!s) {
-      return [];
-    }
-    return [
-      { label: 'Line 1a — Wages, salaries, tips', value: this.money(s.wagesSalariesTips) },
-      { label: 'Line 24 — Total tax', value: this.line24Tax(s) },
-      { label: 'Line 37 — Amount you owe', value: this.money(s.amountOwed) },
-      { label: 'Refund', value: this.money(s.refund) },
-      { label: 'Filing status', value: s.filingStatus || '—' },
-      { label: 'Tax year on form', value: s.taxYearOnForm || '—' },
-    ];
+  sourcePass(s: Form1040ParsedSummary | null | undefined, field: string): string {
+    const p = s?.fieldProvenance?.[field]?.sourcePass;
+    return p ? p.toUpperCase() : '—';
+  }
+
+  fieldConfidence(s: Form1040ParsedSummary | null | undefined, field: string): string {
+    const c = s?.fieldProvenance?.[field]?.confidence;
+    return c ? c.toUpperCase() : '—';
+  }
+
+  tokenPreview(s: Form1040ParsedSummary | null | undefined, field: string): string {
+    const t = s?.fieldProvenance?.[field]?.matchedTokens;
+    return t && t.length ? t.join(', ') : '—';
   }
 }

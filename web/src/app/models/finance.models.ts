@@ -277,6 +277,7 @@ export interface Form1040ParsedSummary {
   confidenceLabel?: 'HIGH' | 'MEDIUM' | 'LOW' | string | null;
   parsedAmountFieldCount?: number | null;
   parseWarnings?: string[] | null;
+  fieldProvenance?: Record<string, Form1040FieldProvenance> | null;
   taxYearOnForm?: string | null;
   filingStatus?: string | null;
   wagesSalariesTips?: number | null;
@@ -297,6 +298,13 @@ export interface Form1040ParsedSummary {
   totalPayments?: number | null;
   refund?: number | null;
   amountOwed?: number | null;
+}
+
+export interface Form1040FieldProvenance {
+  sourcePass?: 'exact' | 'neighbor' | 'fallback' | string | null;
+  matchedTokens?: string[] | null;
+  confidence?: 'HIGH' | 'MEDIUM' | 'LOW' | string | null;
+  note?: string | null;
 }
 
 export interface FinanceTax1040ReturnDto {

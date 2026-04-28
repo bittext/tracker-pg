@@ -1,0 +1,6 @@
+Form 1040 U.S. Individual Income Tax Return 2024
+Filing Status Single
+1a Wages, salaries, tips, etc. Attach Form(s) W-2 .................. 78,500
+24 Total tax ........................................................ 11,220
+35a Amount overpaid ................................................. 0
+37 Amount you owe ................................................... 1,230

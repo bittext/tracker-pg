@@ -1,0 +1,6 @@
+FORM 1040 Department of the Treasury 2022
+Line 14 Other taxes 9,999
+Line 2A Tax-exempt interest 7,500
+1a Wages, salaries, tips 61,400
+24 Total tax 8,410
+37 Amount you owe 0

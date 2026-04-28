@@ -1,0 +1,10 @@
+U.S. Individual Income Tax Return
+FORM 1040 2023
+Line 1a  Wages, salaries,
+tips, etc.
+95,040
+Line 24
+Total tax
+14,830
+Line 37 Amount you owe
+2,100

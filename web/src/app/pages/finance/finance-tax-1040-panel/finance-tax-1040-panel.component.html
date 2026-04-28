@@ -1,7 +1,7 @@
 <div class="t1040-wrap">
   <p class="muted intro">
-    Upload your Form 1040 PDF by tax year. The summary below reads key values directly from the form lines:
-    <strong>Line 1a (income)</strong>, <strong>Line 24 (total tax)</strong>, and <strong>Line 37 (amount owed)</strong>.
+    Upload a <strong>PDF</strong> of your <strong>Form 1040</strong>. The parser focuses on high-reliability key lines:
+    <strong>1a</strong> (wages), <strong>24</strong> (total tax), and <strong>37</strong> (amount owed).
   </p>
 
   <div class="upload-bar">
@@ -26,42 +26,26 @@
     <p class="muted">No Form 1040 PDFs saved yet.</p>
   } @else {
     <div class="table-scroll">
-      <table mat-table [dataSource]="returns" class="t1040-table compact-one-line">
+      <table mat-table [dataSource]="returns" class="t1040-table">
         <ng-container matColumnDef="taxYear">
           <th mat-header-cell *matHeaderCellDef>Year</th>
           <td mat-cell *matCellDef="let r">{{ r.taxYear }}</td>
         </ng-container>
-
-        <ng-container matColumnDef="file">
-          <th mat-header-cell *matHeaderCellDef>File</th>
-          <td mat-cell *matCellDef="let r" class="file-name" [attr.title]="r.originalFilename">{{ r.originalFilename }}</td>
-        </ng-container>
-
         <ng-container matColumnDef="line1a">
           <th mat-header-cell *matHeaderCellDef>Line 1a</th>
           <td mat-cell *matCellDef="let r">{{ money(r.summary.wagesSalariesTips) }}</td>
         </ng-container>
-
         <ng-container matColumnDef="line24">
           <th mat-header-cell *matHeaderCellDef>Line 24</th>
-          <td mat-cell *matCellDef="let r">{{ line24Tax(r.summary) }}</td>
+          <td mat-cell *matCellDef="let r">{{ money(r.summary.totalTaxAfterCredits ?? r.summary.totalTax) }}</td>
         </ng-container>
-
-        <ng-container matColumnDef="refundOrOwed">
-          <th mat-header-cell *matHeaderCellDef>Refund / Owed</th>
-          <td mat-cell *matCellDef="let r">{{ refundOrOwed(r.summary) }}</td>
+        <ng-container matColumnDef="result">
+          <th mat-header-cell *matHeaderCellDef>Refund/Owed</th>
+          <td mat-cell *matCellDef="let r">{{ resultCell(r.summary) }}</td>
         </ng-container>
-
-        <ng-container matColumnDef="quality">
-          <th mat-header-cell *matHeaderCellDef>Quality</th>
-          <td mat-cell *matCellDef="let r">
-            <span [class]="parseQualityClass(r.summary)">{{ parseQuality(r.summary) }}</span>
-          </td>
-        </ng-container>
-
         <ng-container matColumnDef="actions">
-          <th mat-header-cell *matHeaderCellDef>Actions</th>
-          <td mat-cell *matCellDef="let r" class="actions-cell">
+          <th mat-header-cell *matHeaderCellDef></th>
+          <td mat-cell *matCellDef="let r">
             <button mat-button type="button" (click)="openDetail(r)">Details</button>
             <button mat-button type="button" (click)="download(r)">PDF</button>
             <button mat-button type="button" color="warn" (click)="deleteRow(r)">Delete</button>
@@ -77,29 +61,46 @@
     <div class="detail-panel">
       <div class="detail-head">
         <h3 class="section-title">Tax year {{ selected.taxYear }}</h3>
-        <div class="actions-cell">
-          <button mat-stroked-button type="button" (click)="downloadSelected()">Download PDF</button>
-          <button mat-stroked-button color="warn" type="button" (click)="deleteSelected()">Delete uploaded file</button>
-          <button mat-stroked-button type="button" (click)="closeDetail()">Close</button>
-        </div>
+        <button mat-stroked-button type="button" (click)="closeDetail()">Close</button>
       </div>
+
       @if (detailLoading) {
         <p class="muted">Loading full extract…</p>
       } @else {
-        <p class="muted parse-note">
-          {{ selected.summary.parseNote }} ({{ parseQuality(selected.summary) }})
-        </p>
+        <p class="muted parse-note">{{ selected.summary.parseNote }}</p>
 
-        <h4 class="subhead">Summary from form lines</h4>
-        <div class="summary-grid">
-          @for (row of detailRows(selected.summary); track row.label) {
-            <div class="sum-label">{{ row.label }}</div>
-            <div class="sum-val">{{ row.value }}</div>
-          }
+        <h4 class="subhead">Key lines</h4>
+        <div class="summary-grid key-lines-grid">
+          <div class="sum-label">Line 1a - Wages</div>
+          <div class="sum-val">{{ money(selected.summary.wagesSalariesTips) }}</div>
+          <div class="sum-meta">{{ sourcePass(selected.summary, 'wagesSalariesTips') }} / {{ fieldConfidence(selected.summary, 'wagesSalariesTips') }}</div>
+
+          <div class="sum-label">Line 24 - Total tax</div>
+          <div class="sum-val">{{ money(selected.summary.totalTaxAfterCredits ?? selected.summary.totalTax) }}</div>
+          <div class="sum-meta">{{ sourcePass(selected.summary, 'totalTaxAfterCredits') }} / {{ fieldConfidence(selected.summary, 'totalTaxAfterCredits') }}</div>
+
+          <div class="sum-label">Line 37 - Amount owed</div>
+          <div class="sum-val">{{ money(selected.summary.amountOwed) }}</div>
+          <div class="sum-meta">{{ sourcePass(selected.summary, 'amountOwed') }} / {{ fieldConfidence(selected.summary, 'amountOwed') }}</div>
+
+          <div class="sum-label">Refund</div>
+          <div class="sum-val">{{ money(selected.summary.refund) }}</div>
+          <div class="sum-meta">—</div>
         </div>
 
-        <h4 class="subhead">Extracted text</h4>
-        <pre class="extract-block">{{ selected.extractedTextFull || selected.extractedTextPreview || '—' }}</pre>
+        @if (selected.summary.parseWarnings?.length) {
+          <h4 class="subhead">Parser notes</h4>
+          <ul class="warning-list">
+            @for (w of selected.summary.parseWarnings; track w) {
+              <li>{{ w }}</li>
+            }
+          </ul>
+        }
+
+        <details class="extract-details">
+          <summary>Extracted text (raw)</summary>
+          <pre class="extract-block">{{ selected.extractedTextFull || selected.extractedTextPreview || '—' }}</pre>
+        </details>
       }
     </div>
   }

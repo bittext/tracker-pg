@@ -7,6 +7,7 @@ import com.svp.tracker.config.JournalProperties;
 import com.svp.tracker.finance.domain.FinanceTax1040Return;
 import com.svp.tracker.finance.dto.FinanceTax1040ReturnDto;
 import com.svp.tracker.finance.repository.FinanceTax1040ReturnRepository;
+import com.svp.tracker.finance.tax.Form1040FieldProvenance;
 import com.svp.tracker.finance.tax.Form1040ParsedSummary;
 import com.svp.tracker.finance.tax.Form1040TextParser;
 import com.svp.tracker.fitness.exception.NotFoundException;
@@ -16,7 +17,9 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Instant;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -212,12 +215,76 @@ public class FinanceTax1040Service {
      */
     private static Form1040ParsedSummary preferMoreComplete(
             Form1040ParsedSummary reparsed, Form1040ParsedSummary persisted) {
+        if (reparsed == null) {
+            return persisted;
+        }
+        if (persisted == null) {
+            return reparsed;
+        }
+
+        mergeKeyLineIfPersistedStronger(reparsed, persisted, "wagesSalariesTips");
+        mergeKeyLineIfPersistedStronger(reparsed, persisted, "totalTaxAfterCredits");
+        mergeKeyLineIfPersistedStronger(reparsed, persisted, "amountOwed");
+
         int r = reparsed != null && reparsed.getParsedAmountFieldCount() != null ? reparsed.getParsedAmountFieldCount() : 0;
         int p = persisted != null && persisted.getParsedAmountFieldCount() != null ? persisted.getParsedAmountFieldCount() : 0;
         if (p > r + 1) {
             return persisted;
         }
-        return reparsed != null ? reparsed : persisted;
+        return reparsed;
+    }
+
+    private static void mergeKeyLineIfPersistedStronger(
+            Form1040ParsedSummary reparsed, Form1040ParsedSummary persisted, String fieldName) {
+        Form1040FieldProvenance reparsedProv = getProv(reparsed, fieldName);
+        Form1040FieldProvenance persistedProv = getProv(persisted, fieldName);
+
+        int reparsedRank = passRank(reparsedProv);
+        int persistedRank = passRank(persistedProv);
+        if (persistedRank <= reparsedRank) {
+            return;
+        }
+
+        switch (fieldName) {
+            case "wagesSalariesTips" -> reparsed.setWagesSalariesTips(persisted.getWagesSalariesTips());
+            case "totalTaxAfterCredits" -> {
+                reparsed.setTotalTaxAfterCredits(persisted.getTotalTaxAfterCredits());
+                if (reparsed.getTotalTax() == null) {
+                    reparsed.setTotalTax(persisted.getTotalTax());
+                }
+            }
+            case "amountOwed" -> reparsed.setAmountOwed(persisted.getAmountOwed());
+            default -> {
+                return;
+            }
+        }
+
+        Map<String, Form1040FieldProvenance> map = reparsed.getFieldProvenance() != null
+                ? new LinkedHashMap<>(reparsed.getFieldProvenance())
+                : new LinkedHashMap<>();
+        if (persistedProv != null) {
+            map.put(fieldName, persistedProv);
+            reparsed.setFieldProvenance(map);
+        }
+    }
+
+    private static Form1040FieldProvenance getProv(Form1040ParsedSummary s, String fieldName) {
+        if (s == null || s.getFieldProvenance() == null) {
+            return null;
+        }
+        return s.getFieldProvenance().get(fieldName);
+    }
+
+    private static int passRank(Form1040FieldProvenance p) {
+        if (p == null || p.sourcePass() == null) {
+            return 0;
+        }
+        return switch (p.sourcePass().toLowerCase(Locale.ROOT)) {
+            case "exact" -> 3;
+            case "neighbor" -> 2;
+            case "fallback" -> 1;
+            default -> 0;
+        };
     }
 
     private Form1040ParsedSummary readSummary(String json) {

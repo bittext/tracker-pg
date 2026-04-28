@@ -3,6 +3,7 @@ package com.svp.tracker.finance.tax;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -30,6 +31,8 @@ public class Form1040ParsedSummary {
     private Integer parsedAmountFieldCount;
     /** Optional caveats to help users review uncertain values. */
     private List<String> parseWarnings;
+    /** Per-field extraction metadata for key lines (1a, 24, 37, etc.). */
+    private Map<String, Form1040FieldProvenance> fieldProvenance;
 
     /** Year printed on the return (from PDF text), if detected. */
     private String taxYearOnForm;
