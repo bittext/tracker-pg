@@ -760,7 +760,9 @@
           <h2 id="mgmt-notes-heading" class="subsection-title">Month notes</h2>
           <p class="muted">
             Notes are stored at <strong>month</strong> resolution (no day). Pick a year, then a month or the whole year to
-            filter. Add a subject, body, and attach files to each note.
+            filter. The note body supports
+            <a href="https://www.markdownguide.org/basic-syntax/" target="_blank" rel="noopener noreferrer">basic Markdown</a>
+            (headings, lists, links, code, blockquotes, and more). Add a subject, body, and attach files to each note.
           </p>
 
           <div class="notes-year-bar">
@@ -799,7 +801,7 @@
               <mat-card appearance="outlined" class="mgmt-nested-card notes-form-card">
                 <mat-card-header>
                   <mat-card-title>{{ noteEditingId != null ? 'Edit note' : 'Add note' }}</mat-card-title>
-                  <mat-card-subtitle>Subject, notes, and year / month</mat-card-subtitle>
+                  <mat-card-subtitle>Subject, Markdown body, and year / month</mat-card-subtitle>
                 </mat-card-header>
                 <mat-card-content>
                   <div class="form-row wrap">
@@ -820,9 +822,15 @@
                     <mat-label>Subject</mat-label>
                     <input matInput name="nnSubject" [(ngModel)]="noteDraft.subject" required placeholder="Short title" />
                   </mat-form-field>
-                  <mat-form-field appearance="outline" class="full-width-field">
-                    <mat-label>Notes</mat-label>
-                    <textarea matInput name="nnBody" rows="6" [(ngModel)]="noteDraft.body" placeholder="Details for this month"></textarea>
+                  <mat-form-field appearance="outline" class="full-width-field notes-body-field">
+                    <mat-label>Note body (Markdown)</mat-label>
+                    <textarea
+                      matInput
+                      name="nnBody"
+                      rows="12"
+                      [(ngModel)]="noteDraft.body"
+                      placeholder="Markdown: # Heading, **bold**, - lists, [links](https://example.com), `inline code`"
+                    ></textarea>
                   </mat-form-field>
                   <div class="form-actions">
                     <button mat-flat-button color="primary" type="button" (click)="saveMonthNote()">
@@ -857,7 +865,14 @@
                           <p class="notes-entry-meta">
                             {{ monthName(n.month) }} {{ n.year }} · updated {{ n.updatedAt | date: 'medium' }}
                           </p>
-                          <div class="notes-entry-body">{{ n.body || '—' }}</div>
+                          @if (!(n.body || '').trim()) {
+                            <div class="notes-entry-body notes-entry-body--empty muted">—</div>
+                          } @else {
+                            <div
+                              class="markdown-body notes-entry-body"
+                              [innerHTML]="n.body | safeMarkdown"
+                            ></div>
+                          }
                           <div class="notes-entry-actions">
                             <button mat-stroked-button type="button" color="primary" (click)="startEditMonthNote(n)">Edit</button>
                             <button mat-button type="button" color="warn" (click)="deleteMonthNote(n)">Delete</button>

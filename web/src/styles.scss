@@ -235,7 +235,7 @@ app-management .notes-list-card {
 }
 @media (min-width: 960px) {
   app-management .notes-layout {
-    grid-template-columns: minmax(17rem, 26rem) minmax(0, 1fr);
+    grid-template-columns: minmax(22rem, min(42vw, 40rem)) minmax(0, 1fr);
   }
 }
 app-management .notes-entry-list {
@@ -267,12 +267,101 @@ app-management .notes-entry-meta {
   font-size: 0.8rem;
   color: var(--app-text-muted, #64748b);
 }
+app-management .notes-body-field textarea.mat-mdc-input-element {
+  min-height: 16rem;
+  resize: vertical;
+  line-height: 1.45;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 0.88rem;
+}
 app-management .notes-entry-body {
   margin: 0 0 0.65rem;
-  white-space: pre-wrap;
   line-height: 1.5;
   font-size: 0.92rem;
   color: var(--app-text, #0f172a);
+}
+app-management .notes-entry-body--empty {
+  margin: 0 0 0.65rem;
+}
+app-management .markdown-body.notes-entry-body h1,
+app-management .markdown-body.notes-entry-body h2,
+app-management .markdown-body.notes-entry-body h3,
+app-management .markdown-body.notes-entry-body h4,
+app-management .markdown-body.notes-entry-body h5,
+app-management .markdown-body.notes-entry-body h6 {
+  margin: 0.5rem 0 0.25rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--app-text, #0f172a);
+}
+app-management .markdown-body.notes-entry-body h1 {
+  font-size: 1.25rem;
+}
+app-management .markdown-body.notes-entry-body h2 {
+  font-size: 1.1rem;
+}
+app-management .markdown-body.notes-entry-body p {
+  margin: 0.4rem 0;
+}
+app-management .markdown-body.notes-entry-body a {
+  color: var(--app-accent, #2563eb);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+app-management .markdown-body.notes-entry-body pre {
+  margin: 0.45rem 0;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  background: #f1f5f9;
+  overflow: auto;
+  font-size: 0.82rem;
+}
+app-management .markdown-body.notes-entry-body code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 0.85em;
+  background: #f1f5f9;
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+}
+app-management .markdown-body.notes-entry-body pre code {
+  background: none;
+  padding: 0;
+}
+app-management .markdown-body.notes-entry-body ul,
+app-management .markdown-body.notes-entry-body ol {
+  margin: 0.35rem 0 0.35rem 1.2rem;
+  padding: 0;
+}
+app-management .markdown-body.notes-entry-body blockquote {
+  margin: 0.4rem 0;
+  padding: 0.25rem 0 0.25rem 0.75rem;
+  border-left: 3px solid rgba(37, 99, 235, 0.35);
+  color: var(--app-text-muted, #475569);
+}
+app-management .markdown-body.notes-entry-body hr {
+  margin: 0.75rem 0;
+  border: 0;
+  border-top: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
+}
+app-management .markdown-body.notes-entry-body table {
+  border-collapse: collapse;
+  width: 100%;
+  max-width: 100%;
+  margin: 0.5rem 0;
+  font-size: 0.88rem;
+}
+app-management .markdown-body.notes-entry-body th,
+app-management .markdown-body.notes-entry-body td {
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
+  padding: 0.35rem 0.5rem;
+}
+app-management .markdown-body.notes-entry-body th {
+  background: #f8fafc;
+  font-weight: 600;
+}
+app-management .markdown-body.notes-entry-body img {
+  max-width: 100%;
+  height: auto;
 }
 app-management .notes-entry-actions {
   display: flex;

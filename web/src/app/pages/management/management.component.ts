@@ -34,6 +34,7 @@ import {
 } from '../../models/report-calendar.models';
 import { ManagementApiService } from '../../services/management-api.service';
 import { ReportCalendarApiService } from '../../services/report-calendar-api.service';
+import { SafeMarkdownPipe } from '../../pipes/safe-markdown.pipe';
 import { formatHttpErrorDetail } from '../../util/http-error';
 import {
   ReportCalendarEntryDialogComponent,
@@ -76,6 +77,7 @@ interface UtilityEntry {
   imports: [
     CommonModule,
     FormsModule,
+    SafeMarkdownPipe,
     MatCardModule,
     MatTabsModule,
     MatTableModule,
