@@ -468,15 +468,16 @@
         <section aria-labelledby="utilities-heading">
           <h2 id="utilities-heading" class="subsection-title">Utilities</h2>
           <p class="muted">
-            Capture utility item details, credentials, autofill websites, and notes. Saved entries are shown below.
+            Store utility logins in this browser (local storage). Passwords stay hidden until you choose to show them. Search
+            by folder, item name, or username; click a row for full details, or use edit / delete in the list.
           </p>
 
           <div class="mgmt-layout utilities-layout">
             <section class="mgmt-column" aria-label="Utilities entry form">
               <mat-card appearance="outlined" class="mgmt-nested-card">
                 <mat-card-header>
-                  <mat-card-title>Add utility information</mat-card-title>
-                  <mat-card-subtitle>Item details, credentials, autofill options, and notes</mat-card-subtitle>
+                  <mat-card-title>{{ utilityEditingId != null ? 'Edit utility' : 'Add utility' }}</mat-card-title>
+                  <mat-card-subtitle>Item details, credentials, websites, and notes</mat-card-subtitle>
                 </mat-card-header>
                 <mat-card-content>
                   <h3 class="form-section-title">Item details</h3>
@@ -489,11 +490,18 @@
                         [(ngModel)]="utilityEntryDraft.itemName"
                         required
                         placeholder="e.g. Work email vault"
+                        autocomplete="off"
                       />
                     </mat-form-field>
                     <mat-form-field appearance="outline" class="grow">
                       <mat-label>Folder</mat-label>
-                      <input matInput name="uFolder" [(ngModel)]="utilityEntryDraft.folder" placeholder="e.g. Personal / Work" />
+                      <input
+                        matInput
+                        name="uFolder"
+                        [(ngModel)]="utilityEntryDraft.folder"
+                        placeholder="e.g. Personal / Work"
+                        autocomplete="off"
+                      />
                     </mat-form-field>
                   </div>
 
@@ -501,16 +509,31 @@
                   <div class="form-row wrap">
                     <mat-form-field appearance="outline" class="grow">
                       <mat-label>Username</mat-label>
-                      <input matInput name="uUsername" [(ngModel)]="utilityEntryDraft.username" />
+                      <input matInput name="uUsername" [(ngModel)]="utilityEntryDraft.username" autocomplete="username" />
                     </mat-form-field>
-                    <mat-form-field appearance="outline" class="grow">
+                    <mat-form-field appearance="outline" class="grow utilities-password-field">
                       <mat-label>Password</mat-label>
-                      <input matInput type="password" name="uPassword" [(ngModel)]="utilityEntryDraft.password" />
+                      <input
+                        matInput
+                        [type]="utilityFormPasswordVisible ? 'text' : 'password'"
+                        name="uPassword"
+                        [(ngModel)]="utilityEntryDraft.password"
+                        autocomplete="new-password"
+                      />
+                      <button
+                        mat-icon-button
+                        matSuffix
+                        type="button"
+                        (click)="utilityFormPasswordVisible = !utilityFormPasswordVisible"
+                        [attr.aria-label]="utilityFormPasswordVisible ? 'Hide password' : 'Show password'"
+                      >
+                        <mat-icon>{{ utilityFormPasswordVisible ? 'visibility_off' : 'visibility' }}</mat-icon>
+                      </button>
                     </mat-form-field>
                   </div>
                   <mat-form-field appearance="outline" class="full-width-field">
                     <mat-label>Authenticator key</mat-label>
-                    <input matInput name="uAuthKey" [(ngModel)]="utilityEntryDraft.authenticatorKey" />
+                    <input matInput name="uAuthKey" [(ngModel)]="utilityEntryDraft.authenticatorKey" autocomplete="off" />
                   </mat-form-field>
 
                   <h3 class="form-section-title">Autofill options</h3>
@@ -522,6 +545,7 @@
                         name="uWebsiteInput"
                         [(ngModel)]="utilityEntryDraft.websiteInput"
                         placeholder="https://example.com/login"
+                        autocomplete="off"
                       />
                     </mat-form-field>
                     <button mat-stroked-button type="button" class="align-field" (click)="addUtilityWebsite()">Add website</button>
@@ -550,52 +574,164 @@
                   </mat-form-field>
 
                   <div class="form-actions">
-                    <button mat-flat-button color="primary" type="button" (click)="saveUtilityEntry()">Save utility item</button>
-                    <button mat-button type="button" (click)="resetUtilityForm()">Clear</button>
+                    <button mat-flat-button color="primary" type="button" (click)="saveUtilityEntry()">
+                      {{ utilityEditingId != null ? 'Save changes' : 'Save utility item' }}
+                    </button>
+                    @if (utilityEditingId != null) {
+                      <button mat-button type="button" (click)="cancelUtilityEdit()">Cancel edit</button>
+                    } @else {
+                      <button mat-button type="button" (click)="resetUtilityForm()">Clear</button>
+                    }
                   </div>
                 </mat-card-content>
               </mat-card>
             </section>
 
-            <section class="mgmt-column" aria-label="Saved utility information">
-              <mat-card appearance="outlined" class="mgmt-nested-card">
+            <section class="mgmt-column utilities-list-column" aria-label="Saved utilities list and details">
+              <mat-card appearance="outlined" class="mgmt-nested-card utilities-list-card">
                 <mat-card-header>
                   <mat-card-title>Saved utilities</mat-card-title>
-                  <mat-card-subtitle>{{ utilityEntries.length }} saved</mat-card-subtitle>
+                  <mat-card-subtitle
+                    >{{ utilityEntries.length }} total
+                    @if (utilitySearchQuery.trim() && filteredUtilityEntries.length !== utilityEntries.length) {
+                      · {{ filteredUtilityEntries.length }} match
+                    }
+                  </mat-card-subtitle>
                 </mat-card-header>
                 <mat-card-content>
+                  <mat-form-field appearance="outline" class="full-width-field utilities-search-field">
+                    <mat-label>Search</mat-label>
+                    <input
+                      matInput
+                      name="uSearch"
+                      [(ngModel)]="utilitySearchQuery"
+                      placeholder="Folder, item name, or username"
+                      autocomplete="off"
+                    />
+                    <mat-icon matPrefix>search</mat-icon>
+                  </mat-form-field>
+
                   @if (!utilityEntries.length) {
                     <p class="muted empty-hint">No utility information captured yet.</p>
+                  } @else if (!filteredUtilityEntries.length) {
+                    <p class="muted empty-hint">No entries match your search.</p>
                   } @else {
-                    <div class="utilities-entry-list">
-                      @for (entry of utilityEntries; track entry.id) {
-                        <article class="utilities-entry">
-                          <div class="utilities-entry-head">
-                            <h3>{{ entry.itemName }}</h3>
-                            <button mat-icon-button type="button" color="warn" (click)="deleteUtilityEntry(entry.id)" aria-label="Delete utility entry">
+                    <div class="utilities-table-wrap">
+                      <table mat-table [dataSource]="filteredUtilityEntries" class="utilities-table">
+                        <ng-container matColumnDef="folder">
+                          <th mat-header-cell *matHeaderCellDef>Folder</th>
+                          <td mat-cell *matCellDef="let entry">{{ entry.folder || '—' }}</td>
+                        </ng-container>
+                        <ng-container matColumnDef="itemName">
+                          <th mat-header-cell *matHeaderCellDef>Item name</th>
+                          <td mat-cell *matCellDef="let entry">{{ entry.itemName }}</td>
+                        </ng-container>
+                        <ng-container matColumnDef="username">
+                          <th mat-header-cell *matHeaderCellDef>Username</th>
+                          <td mat-cell *matCellDef="let entry" class="utilities-username-cell">{{ entry.username || '—' }}</td>
+                        </ng-container>
+                        <ng-container matColumnDef="actions">
+                          <th mat-header-cell *matHeaderCellDef class="utilities-actions-header"></th>
+                          <td mat-cell *matCellDef="let entry" (click)="$event.stopPropagation()" class="utilities-actions-cell">
+                            <button
+                              mat-icon-button
+                              type="button"
+                              (click)="startEditUtilityEntry(entry, $event)"
+                              aria-label="Edit entry"
+                            >
+                              <mat-icon>edit</mat-icon>
+                            </button>
+                            <button
+                              mat-icon-button
+                              type="button"
+                              color="warn"
+                              (click)="deleteUtilityEntry(entry.id, $event)"
+                              aria-label="Delete entry"
+                            >
                               <mat-icon>delete</mat-icon>
                             </button>
-                          </div>
-                          <p class="utilities-meta">Folder: {{ entry.folder || '—' }}</p>
+                          </td>
+                        </ng-container>
+                        <tr mat-header-row *matHeaderRowDef="utilityTableColumns"></tr>
+                        <tr
+                          mat-row
+                          *matRowDef="let entry; columns: utilityTableColumns; trackBy: trackByUtilityId"
+                          class="utilities-table-row"
+                          [class.utilities-table-row--selected]="isUtilityRowSelected(entry)"
+                          (click)="selectUtilityEntry(entry)"
+                        ></tr>
+                      </table>
+                    </div>
+                  }
 
-                          <p><strong>Username:</strong> {{ entry.username || '—' }}</p>
-                          <p><strong>Password:</strong> {{ entry.password || '—' }}</p>
-                          <p><strong>Authenticator key:</strong> {{ entry.authenticatorKey || '—' }}</p>
-                          <p><strong>Websites:</strong></p>
-                          @if (!entry.websites.length) {
-                            <p class="muted">—</p>
+                  @if (selectedUtilityEntry) {
+                    <div class="utilities-detail" aria-live="polite">
+                      <h3 class="utilities-detail-title">Details</h3>
+                      <dl class="utilities-detail-dl">
+                        <dt>Item name</dt>
+                        <dd>{{ selectedUtilityEntry.itemName }}</dd>
+                        <dt>Folder</dt>
+                        <dd>{{ selectedUtilityEntry.folder || '—' }}</dd>
+                        <dt>Username</dt>
+                        <dd>{{ selectedUtilityEntry.username || '—' }}</dd>
+                        <dt>Password</dt>
+                        <dd class="utilities-detail-password">
+                          @if (!selectedUtilityEntry.password) {
+                            <span class="muted">—</span>
+                          } @else if (utilityDetailPasswordVisible) {
+                            <span class="utilities-secret">{{ selectedUtilityEntry.password }}</span>
+                            <button
+                              mat-stroked-button
+                              type="button"
+                              class="utilities-reveal-btn"
+                              (click)="utilityDetailPasswordVisible = false"
+                            >
+                              Hide
+                            </button>
+                          } @else {
+                            <span class="utilities-mask" aria-hidden="true">••••••••</span>
+                            <button
+                              mat-stroked-button
+                              type="button"
+                              class="utilities-reveal-btn"
+                              (click)="utilityDetailPasswordVisible = true"
+                            >
+                              Show
+                            </button>
+                          }
+                        </dd>
+                        <dt>Authenticator key</dt>
+                        <dd class="utilities-secret-wrap">{{ selectedUtilityEntry.authenticatorKey || '—' }}</dd>
+                        <dt>Websites</dt>
+                        <dd>
+                          @if (!selectedUtilityEntry.websites.length) {
+                            <span class="muted">—</span>
                           } @else {
                             <ul class="utilities-websites">
-                              @for (site of entry.websites; track site) {
+                              @for (site of selectedUtilityEntry.websites; track site) {
                                 <li>{{ site }}</li>
                               }
                             </ul>
                           }
-                          <p><strong>Notes:</strong></p>
-                          <p class="utilities-notes">{{ entry.notes || '—' }}</p>
-                        </article>
-                      }
+                        </dd>
+                        <dt>Notes</dt>
+                        <dd class="utilities-notes">{{ selectedUtilityEntry.notes || '—' }}</dd>
+                        <dt>Created</dt>
+                        <dd class="utilities-meta">{{ selectedUtilityEntry.createdAt || '—' }}</dd>
+                        @if (selectedUtilityEntry.updatedAt) {
+                          <dt>Updated</dt>
+                          <dd class="utilities-meta">{{ selectedUtilityEntry.updatedAt }}</dd>
+                        }
+                      </dl>
+                      <div class="utilities-detail-actions">
+                        <button mat-stroked-button type="button" (click)="startEditUtilityEntry(selectedUtilityEntry)">Edit</button>
+                        <button mat-button type="button" color="warn" (click)="deleteUtilityEntry(selectedUtilityEntry.id)">
+                          Delete
+                        </button>
+                      </div>
                     </div>
+                  } @else if (utilityEntries.length) {
+                    <p class="muted utilities-select-hint">Select a row to view full details.</p>
                   }
                 </mat-card-content>
               </mat-card>

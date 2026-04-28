@@ -66,6 +66,7 @@ interface UtilityEntry {
   websites: string[];
   notes: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 @Component({
@@ -151,7 +152,19 @@ export class ManagementComponent implements OnInit {
     websites: [] as string[],
     notes: '',
   };
+  /** When set, the form is editing an existing record. */
+  utilityEditingId: number | null = null;
+  /** Selected row for the details panel. */
+  selectedUtilityEntryId: number | null = null;
+  /** Single search string across folder, item name, and username. */
+  utilitySearchQuery = '';
+  /** Password field in add/edit form: hidden until toggled. */
+  utilityFormPasswordVisible = false;
+  /** Reveal password in the details panel. */
+  utilityDetailPasswordVisible = false;
   utilityEntries: UtilityEntry[] = [];
+
+  readonly utilityTableColumns: string[] = ['folder', 'itemName', 'username', 'actions'];
 
   /** 0 Tasks, 1 Calendar, 2 Utilities, 3 Notes */
   private readonly MGMT_TAB_NOTES = 3;
@@ -200,14 +213,61 @@ export class ManagementComponent implements OnInit {
     this.utilityEntryDraft.websites = this.utilityEntryDraft.websites.filter((s) => s !== site);
   }
 
+  get filteredUtilityEntries(): UtilityEntry[] {
+    const q = this.utilitySearchQuery.trim().toLowerCase();
+    if (!q) {
+      return this.utilityEntries;
+    }
+    return this.utilityEntries.filter((e) => {
+      const folder = (e.folder || '').toLowerCase();
+      const name = (e.itemName || '').toLowerCase();
+      const user = (e.username || '').toLowerCase();
+      return folder.includes(q) || name.includes(q) || user.includes(q);
+    });
+  }
+
+  get selectedUtilityEntry(): UtilityEntry | null {
+    if (this.selectedUtilityEntryId == null) {
+      return null;
+    }
+    return this.utilityEntries.find((e) => e.id === this.selectedUtilityEntryId) ?? null;
+  }
+
+  selectUtilityEntry(entry: UtilityEntry): void {
+    this.selectedUtilityEntryId = entry.id;
+    this.utilityDetailPasswordVisible = false;
+  }
+
+  trackByUtilityId = (_: number, e: UtilityEntry) => e.id;
+
+  isUtilityRowSelected(entry: UtilityEntry): boolean {
+    return this.selectedUtilityEntryId === entry.id;
+  }
+
+  startEditUtilityEntry(entry: UtilityEntry, ev?: Event): void {
+    ev?.stopPropagation();
+    this.utilityEditingId = entry.id;
+    this.utilityFormPasswordVisible = false;
+    this.utilityEntryDraft = {
+      itemName: entry.itemName,
+      folder: entry.folder,
+      username: entry.username,
+      password: entry.password,
+      authenticatorKey: entry.authenticatorKey,
+      websiteInput: '',
+      websites: [...entry.websites],
+      notes: entry.notes,
+    };
+  }
+
   saveUtilityEntry(): void {
     const itemName = this.utilityEntryDraft.itemName.trim();
     if (!itemName) {
       this.snackBar.open('Item name is required', undefined, { duration: 2500 });
       return;
     }
-    const entry: UtilityEntry = {
-      id: Date.now(),
+    const now = new Date().toISOString();
+    const base = {
       itemName,
       folder: this.utilityEntryDraft.folder.trim(),
       username: this.utilityEntryDraft.username.trim(),
@@ -215,21 +275,60 @@ export class ManagementComponent implements OnInit {
       authenticatorKey: this.utilityEntryDraft.authenticatorKey.trim(),
       websites: [...this.utilityEntryDraft.websites],
       notes: this.utilityEntryDraft.notes.trim(),
-      createdAt: new Date().toISOString(),
+    };
+
+    if (this.utilityEditingId != null) {
+      const id = this.utilityEditingId;
+      const prev = this.utilityEntries.find((e) => e.id === id);
+      if (!prev) {
+        this.snackBar.open('Entry no longer exists', undefined, { duration: 2500 });
+        this.resetUtilityForm();
+        return;
+      }
+      const updated: UtilityEntry = {
+        ...base,
+        id: prev.id,
+        createdAt: prev.createdAt,
+        updatedAt: now,
+      };
+      this.utilityEntries = this.utilityEntries.map((e) => (e.id === id ? updated : e));
+      this.persistUtilitiesToStorage();
+      this.resetUtilityForm();
+      this.snackBar.open('Utility item updated', undefined, { duration: 2500 });
+      return;
+    }
+
+    const entry: UtilityEntry = {
+      ...base,
+      id: Date.now(),
+      createdAt: now,
     };
     this.utilityEntries = [entry, ...this.utilityEntries];
     this.persistUtilitiesToStorage();
     this.resetUtilityForm();
+    this.selectedUtilityEntryId = entry.id;
     this.snackBar.open('Utility item saved', undefined, { duration: 2500 });
   }
 
-  deleteUtilityEntry(id: number): void {
+  deleteUtilityEntry(id: number, ev?: Event): void {
+    ev?.stopPropagation();
+    if (!window.confirm('Delete this utility entry? This cannot be undone.')) {
+      return;
+    }
     this.utilityEntries = this.utilityEntries.filter((e) => e.id !== id);
+    if (this.selectedUtilityEntryId === id) {
+      this.selectedUtilityEntryId = null;
+    }
+    if (this.utilityEditingId === id) {
+      this.resetUtilityForm();
+    }
     this.persistUtilitiesToStorage();
     this.snackBar.open('Utility item removed', undefined, { duration: 2500 });
   }
 
   resetUtilityForm(): void {
+    this.utilityEditingId = null;
+    this.utilityFormPasswordVisible = false;
     this.utilityEntryDraft = {
       itemName: '',
       folder: '',
@@ -240,6 +339,10 @@ export class ManagementComponent implements OnInit {
       websites: [],
       notes: '',
     };
+  }
+
+  cancelUtilityEdit(): void {
+    this.resetUtilityForm();
   }
 
   get calendarTitle(): string {
@@ -1065,6 +1168,10 @@ export class ManagementComponent implements OnInit {
           : [],
         notes: String((v as UtilityEntry).notes ?? ''),
         createdAt: String((v as UtilityEntry).createdAt ?? ''),
+        updatedAt:
+          (v as UtilityEntry).updatedAt != null && String((v as UtilityEntry).updatedAt).trim() !== ''
+            ? String((v as UtilityEntry).updatedAt)
+            : undefined,
       }));
     } catch {
       this.utilityEntries = [];
