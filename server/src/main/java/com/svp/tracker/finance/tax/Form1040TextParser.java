@@ -3,7 +3,6 @@ package com.svp.tracker.finance.tax;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
@@ -39,12 +38,16 @@ public final class Form1040TextParser {
                 || upper.contains("U.S. INDIVIDUAL INCOME TAX RETURN")
                 || (upper.contains("1040") && upper.contains("DEPARTMENT OF THE TREASURY"));
 
+        BigDecimal line1a = amountForLine(lines, "1A", "WAGES", "SALARIES", "TIPS");
+        BigDecimal line24 = amountForLine(lines, "24", "TOTAL TAX");
+        BigDecimal line37 = amountForLine(lines, "37", "AMOUNT YOU OWE", "AMOUNT OWED", "BALANCE DUE");
+
         Form1040ParsedSummary s = Form1040ParsedSummary.builder()
                 .likelyForm1040(likely)
                 .parserVersion(PARSER_VERSION)
                 .taxYearOnForm(detectTaxYearOnForm(text))
                 .filingStatus(detectFilingStatus(upper))
-                .wagesSalariesTips(bestAmount(lines, text, "1a", "wages", "salaries", "tips"))
+                .wagesSalariesTips(line1a != null ? line1a : bestAmount(lines, text, "1a", "wages", "salaries", "tips"))
                 .taxableInterest(bestAmount(lines, text, "2b", "taxable interest"))
                 .ordinaryDividends(bestAmount(lines, text, "3b", "ordinary dividends"))
                 .iraDistributionsTaxable(bestAmount(lines, text, "4b", "ira distributions"))
@@ -53,15 +56,15 @@ public final class Form1040TextParser {
                 .totalIncome(bestAmount(lines, text, "line 9", "total income"))
                 .adjustedGrossIncome(bestAmount(lines, text, "line 11", "adjusted gross income"))
                 .standardOrItemizedDeduction(bestAmount(lines, text, "line 12", "standard deduction", "itemized deduction"))
-                .taxableIncome(bestAmount(lines, text, "line 15", "taxable income"))
-                .totalTax(bestAmount(lines, text, "line 16", "total tax"))
+                .taxableIncome(bestAmount(lines, text, "line 15", "taxable income", "15"))
+                .totalTax(line24 != null ? line24 : bestAmount(lines, text, "line 16", "total tax", "16"))
                 .childAndOtherDependentsCredit(bestAmount(lines, text, "line 19", "child tax credit", "credit for other dependents"))
-                .totalTaxAfterCredits(bestAmount(lines, text, "line 22", "line 24", "after credits"))
+                .totalTaxAfterCredits(line24 != null ? line24 : bestAmount(lines, text, "line 24", "24", "line 22", "after credits"))
                 .federalIncomeTaxWithheld(bestAmount(lines, text, "25d", "federal income tax withheld"))
                 .estimatedTaxPayments(bestAmount(lines, text, "line 26", "estimated tax payments"))
                 .totalPayments(bestAmount(lines, text, "line 33", "total payments"))
                 .refund(bestAmount(lines, text, "line 35", "35a", "refund", "overpayment"))
-                .amountOwed(bestAmount(lines, text, "line 37", "amount you owe", "balance due"))
+                .amountOwed(line37 != null ? line37 : bestAmount(lines, text, "line 37", "37", "amount you owe", "amount owed", "balance due"))
                 .build();
 
         int hits = countNonNullMoney(s);
@@ -198,6 +201,64 @@ public final class Form1040TextParser {
         return firstMoneyNear(fullText, keywords);
     }
 
+    /**
+     * Targeted line parser for Form 1040 lines (e.g., 1a, 24, 37).
+     * Prefers right-most amount on the matching line, then nearby continuation lines.
+     */
+    private static BigDecimal amountForLine(String[] lines, String lineToken, String... keywords) {
+        if (lines == null || lines.length == 0) {
+            return null;
+        }
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i] == null ? "" : lines[i];
+            String up = line.toUpperCase(Locale.ROOT);
+            if (!containsLineToken(up, lineToken)) {
+                continue;
+            }
+            if (!containsAny(up, keywords)) {
+                continue;
+            }
+            List<BigDecimal> same = moneyTokens(line);
+            if (!same.isEmpty()) {
+                return same.get(same.size() - 1).setScale(2, RoundingMode.HALF_UP);
+            }
+            for (int j = i + 1; j <= Math.min(lines.length - 1, i + 2); j++) {
+                List<BigDecimal> next = moneyTokens(lines[j]);
+                if (!next.isEmpty()) {
+                    return next.get(next.size() - 1).setScale(2, RoundingMode.HALF_UP);
+                }
+            }
+        }
+        return null;
+    }
+
+    private static boolean containsAny(String upper, String... keywords) {
+        if (keywords == null || keywords.length == 0) {
+            return true;
+        }
+        for (String kw : keywords) {
+            if (kw != null && !kw.isBlank() && upper.contains(kw.toUpperCase(Locale.ROOT))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean containsLineToken(String upper, String token) {
+        if (token == null || token.isBlank()) {
+            return false;
+        }
+        String t = token.toUpperCase(Locale.ROOT).replaceAll("\\s+", "");
+        String compact = upper.replaceAll("\\s+", "");
+        if (compact.contains("LINE" + t)) {
+            return true;
+        }
+        if ("1A".equals(t) && (compact.contains("1A") || compact.contains("1.A"))) {
+            return true;
+        }
+        return compact.contains(t);
+    }
+
     private static BigDecimal amountNearLine(String[] lines, String... keywords) {
         if (lines == null || lines.length == 0) {
             return null;
@@ -248,7 +309,6 @@ public final class Form1040TextParser {
             }
             out.add(amt);
         }
-        out.sort(Comparator.comparing(BigDecimal::abs));
         return out;
     }
 
