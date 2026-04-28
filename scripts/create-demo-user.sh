@@ -25,6 +25,7 @@ Defaults:
 Notes:
   - This script upserts by username (creates new users or updates existing users).
   - Reads .env.stack (when present) for DB settings and TRACKER_AUTH_PASSWORD_PEPPER.
+  - Uses local psql when available, otherwise falls back to `docker compose exec postgres psql`.
 EOF
 }
 
@@ -88,13 +89,29 @@ echo "Generating user upsert SQL for '${username}'..."
 ) > "${tmp_sql}"
 
 echo "Applying SQL to PostgreSQL ${postgres_host}:${postgres_port}/${postgres_db}..."
-PGPASSWORD="${postgres_password}" psql \
-  -h "${postgres_host}" \
-  -p "${postgres_port}" \
-  -U "${postgres_user}" \
-  -d "${postgres_db}" \
-  -v ON_ERROR_STOP=1 \
-  -f "${tmp_sql}"
+if command -v psql >/dev/null 2>&1; then
+  PGPASSWORD="${postgres_password}" psql \
+    -h "${postgres_host}" \
+    -p "${postgres_port}" \
+    -U "${postgres_user}" \
+    -d "${postgres_db}" \
+    -v ON_ERROR_STOP=1 \
+    -f "${tmp_sql}"
+elif command -v docker >/dev/null 2>&1; then
+  echo "Local psql not found; using docker compose postgres service..."
+  docker compose -f "${repo_root}/docker-compose.stack.yml" exec -T \
+    -e PGPASSWORD="${postgres_password}" \
+    postgres \
+    psql \
+    -U "${postgres_user}" \
+    -d "${postgres_db}" \
+    -v ON_ERROR_STOP=1 \
+    -f - < "${tmp_sql}"
+else
+  echo "Error: neither 'psql' nor 'docker' is available on PATH." >&2
+  echo "Install postgresql-client or run this from a host with docker compose access." >&2
+  exit 1
+fi
 
 echo "Done."
 echo "User upsert complete:"
