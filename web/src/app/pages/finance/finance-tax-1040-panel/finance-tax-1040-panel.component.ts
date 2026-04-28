@@ -82,6 +82,20 @@ export class FinanceTax1040PanelComponent implements OnInit {
     this.selected = null;
   }
 
+  deleteSelected() {
+    if (!this.selected) {
+      return;
+    }
+    this.deleteRow(this.selected);
+  }
+
+  downloadSelected() {
+    if (!this.selected) {
+      return;
+    }
+    this.download(this.selected);
+  }
+
   onFileSelected(ev: Event) {
     const input = ev.target as HTMLInputElement;
     const file = input.files?.[0];

@@ -77,7 +77,11 @@
     <div class="detail-panel">
       <div class="detail-head">
         <h3 class="section-title">Tax year {{ selected.taxYear }}</h3>
-        <button mat-stroked-button type="button" (click)="closeDetail()">Close</button>
+        <div class="actions-cell">
+          <button mat-stroked-button type="button" (click)="downloadSelected()">Download PDF</button>
+          <button mat-stroked-button color="warn" type="button" (click)="deleteSelected()">Delete uploaded file</button>
+          <button mat-stroked-button type="button" (click)="closeDetail()">Close</button>
+        </div>
       </div>
       @if (detailLoading) {
         <p class="muted">Loading full extract…</p>
