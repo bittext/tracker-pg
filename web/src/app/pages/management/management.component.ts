@@ -11,7 +11,6 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
-import { MatMenuModule } from '@angular/material/menu';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
@@ -40,7 +39,6 @@ import {
   ReportCalendarEntryDialogComponent,
   ReportCalendarEntryDialogData,
 } from '../reports/report-calendar-entry-dialog.component';
-import { UtilitySitePreviewDialogComponent } from './utility-site-preview-dialog.component';
 
 interface CalendarCell {
   type: 'pad' | 'day';
@@ -65,7 +63,8 @@ interface UtilityEntry {
   username: string;
   password: string;
   authenticatorKey: string;
-  websites: string[];
+  /** Single website URL (https recommended). */
+  website: string;
   notes: string;
   createdAt: string;
   updatedAt?: string;
@@ -90,14 +89,12 @@ interface UtilityEntry {
     MatDatepickerModule,
     MatNativeDateModule,
     MatCheckboxModule,
-    MatMenuModule,
   ],
   templateUrl: './management.component.html',
   styleUrl: './management.component.scss',
 })
 export class ManagementComponent implements OnInit {
   private static readonly UTILITIES_STORAGE_KEY = 'management.utilities.entries.v1';
-  private static readonly UTILITIES_LINK_PREF_KEY = 'management.utilities.linkOpenPreference.v1';
   private readonly api = inject(ManagementApiService);
   private readonly reportCalApi = inject(ReportCalendarApiService);
   private readonly snackBar = inject(MatSnackBar);
@@ -152,15 +149,14 @@ export class ManagementComponent implements OnInit {
     username: '',
     password: '',
     authenticatorKey: '',
-    websiteInput: '',
-    websites: [] as string[],
+    website: '',
     notes: '',
   };
   /** When set, the form is editing an existing record. */
   utilityEditingId: number | null = null;
   /** Selected row for the details panel. */
   selectedUtilityEntryId: number | null = null;
-  /** Single search string across folder, item name, and username. */
+  /** Single search string across folder, item name, username, and website. */
   utilitySearchQuery = '';
   /** Password field in add/edit form: hidden until toggled. */
   utilityFormPasswordVisible = false;
@@ -169,13 +165,6 @@ export class ManagementComponent implements OnInit {
   utilityEntries: UtilityEntry[] = [];
 
   readonly utilityTableColumns: string[] = ['folder', 'itemName', 'username', 'actions'];
-
-  /**
-   * Default when clicking a website URL: in-app iframe preview vs system browser (new tab — use Zen or any default browser).
-   */
-  utilityLinkOpenPreference: 'inApp' | 'external' = 'external';
-  /** Current URL for the shared mat-menu on website link overflow. */
-  utilityMenuContext: string | null = null;
 
   /** 0 Tasks, 1 Calendar, 2 Utilities, 3 Notes */
   private readonly MGMT_TAB_NOTES = 3;
@@ -205,24 +194,6 @@ export class ManagementComponent implements OnInit {
     this.reloadRefsAndCalendar();
     this.loadReportCalendar();
     this.loadUtilitiesFromStorage();
-    this.loadUtilityLinkPreference();
-  }
-
-  addUtilityWebsite(): void {
-    const raw = this.utilityEntryDraft.websiteInput.trim();
-    if (!raw) {
-      return;
-    }
-    if (this.utilityEntryDraft.websites.includes(raw)) {
-      this.utilityEntryDraft.websiteInput = '';
-      return;
-    }
-    this.utilityEntryDraft.websites = [...this.utilityEntryDraft.websites, raw];
-    this.utilityEntryDraft.websiteInput = '';
-  }
-
-  removeUtilityWebsite(site: string): void {
-    this.utilityEntryDraft.websites = this.utilityEntryDraft.websites.filter((s) => s !== site);
   }
 
   get filteredUtilityEntries(): UtilityEntry[] {
@@ -234,7 +205,8 @@ export class ManagementComponent implements OnInit {
       const folder = (e.folder || '').toLowerCase();
       const name = (e.itemName || '').toLowerCase();
       const user = (e.username || '').toLowerCase();
-      return folder.includes(q) || name.includes(q) || user.includes(q);
+      const site = (e.website || '').toLowerCase();
+      return folder.includes(q) || name.includes(q) || user.includes(q) || site.includes(q);
     });
   }
 
@@ -266,8 +238,7 @@ export class ManagementComponent implements OnInit {
       username: entry.username,
       password: entry.password,
       authenticatorKey: entry.authenticatorKey,
-      websiteInput: '',
-      websites: [...entry.websites],
+      website: entry.website,
       notes: entry.notes,
     };
   }
@@ -285,7 +256,7 @@ export class ManagementComponent implements OnInit {
       username: this.utilityEntryDraft.username.trim(),
       password: this.utilityEntryDraft.password.trim(),
       authenticatorKey: this.utilityEntryDraft.authenticatorKey.trim(),
-      websites: [...this.utilityEntryDraft.websites],
+      website: this.utilityEntryDraft.website.trim(),
       notes: this.utilityEntryDraft.notes.trim(),
     };
 
@@ -347,42 +318,13 @@ export class ManagementComponent implements OnInit {
       username: '',
       password: '',
       authenticatorKey: '',
-      websiteInput: '',
-      websites: [],
+      website: '',
       notes: '',
     };
   }
 
   cancelUtilityEdit(): void {
     this.resetUtilityForm();
-  }
-
-  loadUtilityLinkPreference(): void {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    try {
-      const v = window.localStorage.getItem(ManagementComponent.UTILITIES_LINK_PREF_KEY);
-      if (v === 'inApp' || v === 'external') {
-        this.utilityLinkOpenPreference = v;
-      }
-    } catch {
-      // ignore
-    }
-  }
-
-  persistUtilityLinkPreference(): void {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    try {
-      window.localStorage.setItem(
-        ManagementComponent.UTILITIES_LINK_PREF_KEY,
-        this.utilityLinkOpenPreference,
-      );
-    } catch {
-      // ignore
-    }
   }
 
   /** Normalize to http(s) URL or return null if invalid. */
@@ -406,66 +348,16 @@ export class ManagementComponent implements OnInit {
     }
   }
 
-  onUtilitySitePrimaryClick(raw: string, ev: Event): void {
-    ev.preventDefault();
-    ev.stopPropagation();
+  /** Open saved website in a new browser tab. */
+  openUtilityWebsiteInNewTab(raw: string, ev?: Event): void {
+    ev?.preventDefault();
+    ev?.stopPropagation();
     const url = this.normalizeUtilityUrl(raw);
     if (!url) {
-      this.snackBar.open('Invalid or unsupported URL', undefined, { duration: 2500 });
+      this.snackBar.open('Invalid or empty URL', undefined, { duration: 2500 });
       return;
     }
-    if (this.utilityLinkOpenPreference === 'inApp') {
-      this.openUtilitySiteInApp(url);
-    } else {
-      this.openUtilitySiteInExternalBrowser(url);
-    }
-  }
-
-  openUtilitySiteInApp(url: string): void {
-    this.dialog.open(UtilitySitePreviewDialogComponent, {
-      data: { url },
-      width: 'min(960px, 98vw)',
-      maxHeight: '95vh',
-      autoFocus: 'dialog',
-    });
-  }
-
-  openUtilitySiteInExternalBrowser(url: string): void {
     window.open(url, '_blank', 'noopener,noreferrer');
-  }
-
-  openUtilityMenuContextInApp(): void {
-    const raw = this.utilityMenuContext;
-    if (!raw) {
-      return;
-    }
-    const url = this.normalizeUtilityUrl(raw);
-    if (!url) {
-      this.snackBar.open('Invalid or unsupported URL', undefined, { duration: 2500 });
-      return;
-    }
-    this.openUtilitySiteInApp(url);
-  }
-
-  openUtilityMenuContextInBrowser(): void {
-    const raw = this.utilityMenuContext;
-    if (!raw) {
-      return;
-    }
-    const url = this.normalizeUtilityUrl(raw);
-    if (!url) {
-      this.snackBar.open('Invalid or unsupported URL', undefined, { duration: 2500 });
-      return;
-    }
-    this.openUtilitySiteInExternalBrowser(url);
-  }
-
-  copyUtilityMenuContext(): void {
-    const raw = this.utilityMenuContext;
-    if (!raw) {
-      return;
-    }
-    this.copyUtilityUrlToClipboard(raw);
   }
 
   copyUtilityUrlToClipboard(raw: string): void {
@@ -480,6 +372,21 @@ export class ManagementComponent implements OnInit {
     }
     navigator.clipboard.writeText(text).then(
       () => this.snackBar.open('Link copied', undefined, { duration: 2000 }),
+      () => this.snackBar.open('Could not copy', undefined, { duration: 2500 }),
+    );
+  }
+
+  copyUtilityPasswordToClipboard(raw: string): void {
+    const text = raw.trim();
+    if (!text) {
+      return;
+    }
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+      this.snackBar.open('Clipboard not available', undefined, { duration: 2500 });
+      return;
+    }
+    navigator.clipboard.writeText(text).then(
+      () => this.snackBar.open('Password copied', undefined, { duration: 2000 }),
       () => this.snackBar.open('Could not copy', undefined, { duration: 2500 }),
     );
   }
@@ -1295,23 +1202,26 @@ export class ManagementComponent implements OnInit {
       if (!Array.isArray(parsed)) {
         return;
       }
-      this.utilityEntries = parsed.filter((v) => v && typeof v === 'object').map((v) => ({
-        id: Number((v as UtilityEntry).id) || Date.now(),
-        itemName: String((v as UtilityEntry).itemName ?? ''),
-        folder: String((v as UtilityEntry).folder ?? ''),
-        username: String((v as UtilityEntry).username ?? ''),
-        password: String((v as UtilityEntry).password ?? ''),
-        authenticatorKey: String((v as UtilityEntry).authenticatorKey ?? ''),
-        websites: Array.isArray((v as UtilityEntry).websites)
-          ? (v as UtilityEntry).websites.map((s) => String(s))
-          : [],
-        notes: String((v as UtilityEntry).notes ?? ''),
-        createdAt: String((v as UtilityEntry).createdAt ?? ''),
-        updatedAt:
-          (v as UtilityEntry).updatedAt != null && String((v as UtilityEntry).updatedAt).trim() !== ''
-            ? String((v as UtilityEntry).updatedAt)
-            : undefined,
-      }));
+      this.utilityEntries = parsed.filter((v) => v && typeof v === 'object').map((v) => {
+        const o = v as Record<string, unknown> & Partial<UtilityEntry> & { websites?: unknown[] };
+        let website = String(o.website ?? '');
+        if (!website && Array.isArray(o.websites) && o.websites.length > 0) {
+          website = String(o.websites[0]);
+        }
+        return {
+          id: Number(o.id) || Date.now(),
+          itemName: String(o.itemName ?? ''),
+          folder: String(o.folder ?? ''),
+          username: String(o.username ?? ''),
+          password: String(o.password ?? ''),
+          authenticatorKey: String(o.authenticatorKey ?? ''),
+          website,
+          notes: String(o.notes ?? ''),
+          createdAt: String(o.createdAt ?? ''),
+          updatedAt:
+            o.updatedAt != null && String(o.updatedAt).trim() !== '' ? String(o.updatedAt) : undefined,
+        };
+      });
     } catch {
       this.utilityEntries = [];
     }

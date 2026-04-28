@@ -468,10 +468,10 @@
         <section aria-labelledby="utilities-heading">
           <h2 id="utilities-heading" class="subsection-title">Utilities</h2>
           <p class="muted">
-            Store utility logins in this browser (local storage). Passwords stay hidden until you choose to show them. Search
-            by folder, item name, or username; click a row for full details, or use edit / delete in the list. Website URLs
-            can open in an in-app preview window or in your system browser (new tab) — set Zen or another browser as the OS
-            default, or always pick from the <strong>⋮</strong> menu.
+            Store utility logins in this browser (local storage). Passwords stay hidden until you show them; you can copy a
+            password without revealing it. Each
+            entry has one optional website — click it in details to open in a new browser tab. Search by folder, item name,
+            username, or website.
           </p>
 
           <div class="mgmt-layout utilities-layout">
@@ -479,7 +479,7 @@
               <mat-card appearance="outlined" class="mgmt-nested-card">
                 <mat-card-header>
                   <mat-card-title>{{ utilityEditingId != null ? 'Edit utility' : 'Add utility' }}</mat-card-title>
-                  <mat-card-subtitle>Item details, credentials, websites, and notes</mat-card-subtitle>
+                  <mat-card-subtitle>Item details, credentials, website, and notes</mat-card-subtitle>
                 </mat-card-header>
                 <mat-card-content>
                   <h3 class="form-section-title">Item details</h3>
@@ -538,48 +538,17 @@
                     <input matInput name="uAuthKey" [(ngModel)]="utilityEntryDraft.authenticatorKey" autocomplete="off" />
                   </mat-form-field>
 
-                  <h3 class="form-section-title">Autofill options</h3>
-                  <div class="form-row wrap">
-                    <mat-form-field appearance="outline" class="grow">
-                      <mat-label>Website (URI)</mat-label>
-                      <input
-                        matInput
-                        name="uWebsiteInput"
-                        [(ngModel)]="utilityEntryDraft.websiteInput"
-                        placeholder="https://example.com/login"
-                        autocomplete="off"
-                      />
-                    </mat-form-field>
-                    <button mat-stroked-button type="button" class="align-field" (click)="addUtilityWebsite()">Add website</button>
-                  </div>
-                  @if (utilityEntryDraft.websites.length) {
-                    <div class="utilities-site-list" role="list">
-                      @for (site of utilityEntryDraft.websites; track site) {
-                        <div class="utilities-site-row" role="listitem" (click)="$event.stopPropagation()">
-                          <button type="button" class="utilities-site-link" (click)="onUtilitySitePrimaryClick(site, $event)">
-                            {{ site }}
-                          </button>
-                          <button
-                            mat-icon-button
-                            type="button"
-                            [matMenuTriggerFor]="utilityLinkMenu"
-                            (click)="utilityMenuContext = site"
-                            aria-label="Link options for this URL"
-                          >
-                            <mat-icon>more_vert</mat-icon>
-                          </button>
-                          <button
-                            mat-icon-button
-                            type="button"
-                            (click)="removeUtilityWebsite(site)"
-                            aria-label="Remove website from list"
-                          >
-                            <mat-icon>close</mat-icon>
-                          </button>
-                        </div>
-                      }
-                    </div>
-                  }
+                  <h3 class="form-section-title">Website</h3>
+                  <mat-form-field appearance="outline" class="full-width-field">
+                    <mat-label>Website (URL)</mat-label>
+                    <input
+                      matInput
+                      name="uWebsite"
+                      [(ngModel)]="utilityEntryDraft.website"
+                      placeholder="https://example.com/login"
+                      autocomplete="off"
+                    />
+                  </mat-form-field>
 
                   <h3 class="form-section-title">Notes</h3>
                   <mat-form-field appearance="outline" class="full-width-field">
@@ -619,31 +588,13 @@
                   </mat-card-subtitle>
                 </mat-card-header>
                 <mat-card-content>
-                  <div class="utilities-link-pref">
-                    <div class="utilities-link-pref-label">When you click a website link</div>
-                    <mat-button-toggle-group
-                      name="utilityLinkOpenPref"
-                      [(ngModel)]="utilityLinkOpenPreference"
-                      (ngModelChange)="persistUtilityLinkPreference()"
-                      aria-label="Default action for website links"
-                      class="utilities-link-toggle"
-                    >
-                      <mat-button-toggle value="inApp">In-app preview</mat-button-toggle>
-                      <mat-button-toggle value="external">New tab (browser)</mat-button-toggle>
-                    </mat-button-toggle-group>
-                    <p class="muted utilities-link-pref-hint">
-                      <strong>In-app</strong> opens a window inside this app (some sites block this).
-                      <strong>New tab</strong> uses your default browser — for Zen Browser, set it as the system default or use
-                      ⋮ on a link to choose. Use ⋮ to copy the URL.
-                    </p>
-                  </div>
                   <mat-form-field appearance="outline" class="full-width-field utilities-search-field">
                     <mat-label>Search</mat-label>
                     <input
                       matInput
                       name="uSearch"
                       [(ngModel)]="utilitySearchQuery"
-                      placeholder="Folder, item name, or username"
+                      placeholder="Folder, item name, username, or website"
                       autocomplete="off"
                     />
                     <mat-icon matPrefix>search</mat-icon>
@@ -716,55 +667,63 @@
                         <dd class="utilities-detail-password">
                           @if (!selectedUtilityEntry.password) {
                             <span class="muted">—</span>
-                          } @else if (utilityDetailPasswordVisible) {
-                            <span class="utilities-secret">{{ selectedUtilityEntry.password }}</span>
-                            <button
-                              mat-stroked-button
-                              type="button"
-                              class="utilities-reveal-btn"
-                              (click)="utilityDetailPasswordVisible = false"
-                            >
-                              Hide
-                            </button>
                           } @else {
-                            <span class="utilities-mask" aria-hidden="true">••••••••</span>
+                            @if (utilityDetailPasswordVisible) {
+                              <span class="utilities-secret">{{ selectedUtilityEntry.password }}</span>
+                              <button
+                                mat-stroked-button
+                                type="button"
+                                class="utilities-reveal-btn"
+                                (click)="utilityDetailPasswordVisible = false"
+                              >
+                                Hide
+                              </button>
+                            } @else {
+                              <span class="utilities-mask" aria-hidden="true">••••••••</span>
+                              <button
+                                mat-stroked-button
+                                type="button"
+                                class="utilities-reveal-btn"
+                                (click)="utilityDetailPasswordVisible = true"
+                              >
+                                Show
+                              </button>
+                            }
                             <button
-                              mat-stroked-button
+                              mat-icon-button
                               type="button"
-                              class="utilities-reveal-btn"
-                              (click)="utilityDetailPasswordVisible = true"
+                              (click)="copyUtilityPasswordToClipboard(selectedUtilityEntry.password); $event.stopPropagation()"
+                              aria-label="Copy password"
                             >
-                              Show
+                              <mat-icon>content_copy</mat-icon>
                             </button>
                           }
                         </dd>
                         <dt>Authenticator key</dt>
                         <dd class="utilities-secret-wrap">{{ selectedUtilityEntry.authenticatorKey || '—' }}</dd>
-                        <dt>Websites</dt>
-                        <dd>
-                          @if (!selectedUtilityEntry.websites.length) {
+                        <dt>Website</dt>
+                        <dd (click)="$event.stopPropagation()" class="utilities-website-dd">
+                          @if (!(selectedUtilityEntry.website || '').trim()) {
                             <span class="muted">—</span>
                           } @else {
-                            <ul class="utilities-websites utilities-websites--links">
-                              @for (site of selectedUtilityEntry.websites; track site) {
-                                <li (click)="$event.stopPropagation()">
-                                  <div class="utilities-site-row">
-                                    <button type="button" class="utilities-site-link" (click)="onUtilitySitePrimaryClick(site, $event)">
-                                      {{ site }}
-                                    </button>
-                                    <button
-                                      mat-icon-button
-                                      type="button"
-                                      [matMenuTriggerFor]="utilityLinkMenu"
-                                      (click)="utilityMenuContext = site"
-                                      aria-label="Link options for this URL"
-                                    >
-                                      <mat-icon>more_vert</mat-icon>
-                                    </button>
-                                  </div>
-                                </li>
-                              }
-                            </ul>
+                            <div class="utilities-site-open-row">
+                              <button
+                                type="button"
+                                class="utilities-site-link"
+                                (click)="openUtilityWebsiteInNewTab(selectedUtilityEntry.website, $event)"
+                              >
+                                {{ selectedUtilityEntry.website }}
+                              </button>
+                              <button
+                                mat-icon-button
+                                type="button"
+                                (click)="copyUtilityUrlToClipboard(selectedUtilityEntry.website); $event.stopPropagation()"
+                                aria-label="Copy website URL"
+                              >
+                                <mat-icon>content_copy</mat-icon>
+                              </button>
+                            </div>
+                            <p class="muted utilities-site-hint">Opens in a new tab</p>
                           }
                         </dd>
                         <dt>Notes</dt>
@@ -791,11 +750,6 @@
             </section>
           </div>
 
-          <mat-menu #utilityLinkMenu="matMenu">
-            <button mat-menu-item type="button" (click)="openUtilityMenuContextInApp()">Open in app (preview window)</button>
-            <button mat-menu-item type="button" (click)="openUtilityMenuContextInBrowser()">Open in browser (new tab)</button>
-            <button mat-menu-item type="button" (click)="copyUtilityMenuContext()">Copy URL</button>
-          </mat-menu>
         </section>
       </div>
     </mat-tab>
