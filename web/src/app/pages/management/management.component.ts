@@ -116,11 +116,6 @@ export class ManagementComponent implements OnInit {
   unscheduled: ManagementTaskDto[] = [];
   categories: ManagementTaskCategory[] = [];
   taskTypes: ManagementTaskType[] = [];
-  /** Add balance category / task type (Tasks tab); data is per app user. */
-  mgtCategoryDraft: Partial<ManagementTaskCategory> = { name: '', description: '' };
-  mgtTaskTypeDraft: Partial<ManagementTaskType> = { name: '', notes: '' };
-  readonly mgtCategoryColumns = ['mgtCatName', 'mgtCatDesc', 'mgtCatActions'];
-  readonly mgtTaskTypeColumns = ['mgtTtName', 'mgtTtNotes', 'mgtTtActions'];
   selectedDayTasks: ManagementTaskDto[] = [];
 
   newTask = {
@@ -603,74 +598,6 @@ export class ManagementComponent implements OnInit {
         next: () => this.reloadRefsAndCalendar(),
         error: (e) => this.err('Could not update task', e),
       });
-  }
-
-  addMgtCategory(): void {
-    const name = (this.mgtCategoryDraft.name || '').trim();
-    if (!name) {
-      this.snackBar.open('Category name is required', undefined, { duration: 2500 });
-      return;
-    }
-    this.api
-      .createCategory({
-        name,
-        description: (this.mgtCategoryDraft.description || '').trim() || undefined,
-      })
-      .subscribe({
-        next: () => {
-          this.mgtCategoryDraft = { name: '', description: '' };
-          this.reloadRefsAndCalendar();
-          this.snackBar.open('Category added', undefined, { duration: 2500 });
-        },
-        error: (e) => this.err('Could not add category', e),
-      });
-  }
-
-  deleteMgtCategory(row: ManagementTaskCategory): void {
-    if (row.id == null) {
-      return;
-    }
-    this.api.deleteCategory(row.id).subscribe({
-      next: () => {
-        this.reloadRefsAndCalendar();
-        this.snackBar.open(`Removed category “${row.name}”`, undefined, { duration: 2500 });
-      },
-      error: (e) => this.err('Could not delete category', e),
-    });
-  }
-
-  addMgtTaskType(): void {
-    const name = (this.mgtTaskTypeDraft.name || '').trim();
-    if (!name) {
-      this.snackBar.open('Task type name is required', undefined, { duration: 2500 });
-      return;
-    }
-    this.api
-      .createTaskType({
-        name,
-        notes: (this.mgtTaskTypeDraft.notes || '').trim() || undefined,
-      })
-      .subscribe({
-        next: () => {
-          this.mgtTaskTypeDraft = { name: '', notes: '' };
-          this.reloadRefsAndCalendar();
-          this.snackBar.open('Task type added', undefined, { duration: 2500 });
-        },
-        error: (e) => this.err('Could not add task type', e),
-      });
-  }
-
-  deleteMgtTaskType(row: ManagementTaskType): void {
-    if (row.id == null) {
-      return;
-    }
-    this.api.deleteTaskType(row.id).subscribe({
-      next: () => {
-        this.reloadRefsAndCalendar();
-        this.snackBar.open(`Removed task type “${row.name}”`, undefined, { duration: 2500 });
-      },
-      error: (e) => this.err('Could not delete task type', e),
-    });
   }
 
   private reloadRefsAndCalendar(): void {

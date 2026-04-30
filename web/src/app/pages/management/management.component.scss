@@ -61,19 +61,6 @@
   font-size: 0.83rem;
 }
 
-.mgmt-ref-refs {
-  margin-bottom: 1.25rem;
-}
-
-.mgmt-ref-refs + .mgmt-ref-refs {
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
-}
-
-.mgt-ref-add {
-  margin-bottom: 0.75rem;
-}
-
 .mgmt-layout {
   display: grid;
   gap: 1.25rem;
