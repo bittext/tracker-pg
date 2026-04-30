@@ -1,8 +1,9 @@
 <div class="page-head">
   <h1 class="page-title">Management</h1>
   <p class="muted">
-    Organize to-dos by <strong>balance area</strong> and <strong>urgency</strong>, then review them on the calendar. Define
-    categories and task types under <strong>Admin → Management</strong>.
+    Organize to-dos by <strong>balance area</strong> and <strong>urgency</strong>, then review them on the calendar. Add
+    <strong>balance categories</strong> and <strong>task types</strong> on the Tasks tab (your data is per login). Admins
+    can also use the <strong>Admin</strong> app for the same and other server tools.
   </p>
 </div>
 
@@ -39,6 +40,124 @@
             </p>
           </section>
         </div>
+
+        <section class="mgmt-ref-refs" aria-labelledby="mgt-balance-cats">
+          <h2 id="mgt-balance-cats" class="form-section-title">Your balance categories</h2>
+          <p class="muted">
+            Labels for where attention goes (work, health, relationships, etc.). Shown in the task form and in reports. Each
+            app account has their own list.
+          </p>
+          <div class="table-wrap-group mgt-ref-add">
+            <div class="form-row wrap">
+              <mat-form-field appearance="outline" class="grow">
+                <mat-label>Name</mat-label>
+                <input
+                  matInput
+                  name="mgtCatName"
+                  [(ngModel)]="mgtCategoryDraft.name"
+                  required
+                  placeholder="e.g. Health"
+                />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="grow">
+                <mat-label>Description</mat-label>
+                <input
+                  matInput
+                  name="mgtCatDesc"
+                  [(ngModel)]="mgtCategoryDraft.description"
+                  placeholder="Optional"
+                />
+              </mat-form-field>
+              <button mat-flat-button color="primary" type="button" (click)="addMgtCategory()">Add category</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table mat-table [dataSource]="categories" class="full-width">
+              <ng-container matColumnDef="mgtCatName">
+                <th mat-header-cell *matHeaderCellDef>Name</th>
+                <td mat-cell *matCellDef="let row">{{ row.name }}</td>
+              </ng-container>
+              <ng-container matColumnDef="mgtCatDesc">
+                <th mat-header-cell *matHeaderCellDef>Description</th>
+                <td mat-cell *matCellDef="let row">{{ row.description || '—' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="mgtCatActions">
+                <th mat-header-cell *matHeaderCellDef></th>
+                <td mat-cell *matCellDef="let row">
+                  <button
+                    mat-icon-button
+                    type="button"
+                    color="warn"
+                    (click)="deleteMgtCategory(row)"
+                    aria-label="Delete category"
+                  >
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="mgtCategoryColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: mgtCategoryColumns"></tr>
+            </table>
+            @if (!categories.length) {
+              <p class="muted empty-hint">No categories yet. Add at least one to tag tasks on the right.</p>
+            }
+          </div>
+        </section>
+
+        <section class="mgmt-ref-refs" aria-labelledby="mgt-task-types">
+          <h2 id="mgt-task-types" class="form-section-title">Your task types</h2>
+          <p class="muted">Optional: classify how you work a to-do (e.g. deep work, follow-up, planning).</p>
+          <div class="table-wrap-group mgt-ref-add">
+            <div class="form-row wrap">
+              <mat-form-field appearance="outline" class="grow">
+                <mat-label>Name</mat-label>
+                <input
+                  matInput
+                  name="mgtTtName"
+                  [(ngModel)]="mgtTaskTypeDraft.name"
+                  required
+                  placeholder="e.g. Follow-up"
+                />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="grow">
+                <mat-label>Notes</mat-label>
+                <input matInput name="mgtTtNotes" [(ngModel)]="mgtTaskTypeDraft.notes" placeholder="Optional" />
+              </mat-form-field>
+              <button mat-flat-button color="primary" type="button" (click)="addMgtTaskType()">Add task type</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table mat-table [dataSource]="taskTypes" class="full-width">
+              <ng-container matColumnDef="mgtTtName">
+                <th mat-header-cell *matHeaderCellDef>Name</th>
+                <td mat-cell *matCellDef="let row">{{ row.name }}</td>
+              </ng-container>
+              <ng-container matColumnDef="mgtTtNotes">
+                <th mat-header-cell *matHeaderCellDef>Notes</th>
+                <td mat-cell *matCellDef="let row" class="notes-cell">{{ row.notes || '—' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="mgtTtActions">
+                <th mat-header-cell *matHeaderCellDef></th>
+                <td mat-cell *matCellDef="let row">
+                  <button
+                    mat-icon-button
+                    type="button"
+                    color="warn"
+                    (click)="deleteMgtTaskType(row)"
+                    aria-label="Delete task type"
+                  >
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="mgtTaskTypeColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: mgtTaskTypeColumns"></tr>
+            </table>
+            @if (!taskTypes.length) {
+              <p class="muted empty-hint">No task types yet — you can add tasks with category only, or add types here.</p>
+            }
+          </div>
+        </section>
 
         <div class="mgmt-layout">
           <section class="mgmt-column mgmt-column--cal" aria-label="Task calendar">
@@ -468,7 +587,8 @@
         <section aria-labelledby="utilities-heading">
           <h2 id="utilities-heading" class="subsection-title">Utilities</h2>
           <p class="muted">
-            Store utility logins in this browser (local storage). Passwords stay hidden until you show them; you can copy a
+            Store utility logins in this browser (local storage), per your app login. Passwords stay hidden until you show
+            them; you can copy a
             password without revealing it. Each
             entry has one optional website — click it in details to open in a new browser tab. Search by folder, item name,
             username, or website.

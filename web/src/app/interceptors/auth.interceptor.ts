@@ -14,10 +14,9 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
   return next(request).pipe(
     catchError((err: unknown) => {
+      /** 403 can mean "not allowed" (e.g. not ADMIN) with a still-valid session — do not clear auth. */
       const shouldReauth =
-        err instanceof HttpErrorResponse &&
-        isApiCall &&
-        (err.status === 401 || (err.status === 403 && auth.isAuthenticated()));
+        err instanceof HttpErrorResponse && isApiCall && err.status === 401;
       if (shouldReauth) {
         const redirect = router.url && router.url !== '/login' ? router.url : '/exercise';
         auth.logout(false);

@@ -12,8 +12,10 @@ import { MatTableModule } from '@angular/material/table';
 import { MatTabsModule } from '@angular/material/tabs';
 import { Exercise } from '../../models/fitness.models';
 import { FinanceNotificationSettingsDto, FinanceNotificationSettingsRequestDto } from '../../models/finance.models';
+import { AuthLoginEventDto } from '../../models/auth-audit.models';
 import { JournalTagDefDto } from '../../models/journal.models';
 import { ManagementTaskCategory, ManagementTaskType } from '../../models/management.models';
+import { AdminAuthAuditApiService } from '../../services/admin-auth-audit-api.service';
 import { FitnessApiService } from '../../services/fitness-api.service';
 import { FinanceApiService } from '../../services/finance-api.service';
 import { JournalApiService } from '../../services/journal-api.service';
@@ -44,6 +46,7 @@ export class AdminComponent implements OnInit {
   private readonly financeApi = inject(FinanceApiService);
   private readonly managementApi = inject(ManagementApiService);
   private readonly journalApi = inject(JournalApiService);
+  private readonly adminAuthAuditApi = inject(AdminAuthAuditApiService);
   private readonly snackBar = inject(MatSnackBar);
 
   exercises: Exercise[] = [];
@@ -71,11 +74,18 @@ export class AdminComponent implements OnInit {
     smsEnabled: false,
   };
 
+  loginEvents: AuthLoginEventDto[] = [];
+  loginEventLoading = false;
+  loginEventSearch = '';
+  loginEventLimit = 100;
+  readonly loginEventColumns = ['createdAt', 'eventType', 'username', 'clientIp', 'detail', 'userAgent'];
+
   ngOnInit(): void {
     this.reload();
     this.reloadManagement();
     this.reloadJournalTags();
     this.loadFinanceNotificationSettings();
+    this.loadLoginEvents();
   }
 
   private err(msg: string, e: unknown): void {
@@ -274,6 +284,20 @@ export class AdminComponent implements OnInit {
       error: (e) => {
         this.financeNotificationSaving = false;
         this.err('Could not save finance notification settings', e);
+      },
+    });
+  }
+
+  loadLoginEvents(): void {
+    this.loginEventLoading = true;
+    this.adminAuthAuditApi.listLoginEvents(this.loginEventLimit, this.loginEventSearch).subscribe({
+      next: (rows) => {
+        this.loginEventLoading = false;
+        this.loginEvents = rows;
+      },
+      error: (e) => {
+        this.loginEventLoading = false;
+        this.err('Could not load sign-in log', e);
       },
     });
   }

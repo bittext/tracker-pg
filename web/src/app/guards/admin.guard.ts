@@ -2,7 +2,7 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 
-/** Requires a logged-in user whose role is ADMIN (server logs API is admin-only). */
+/** Requires a signed-in user whose app role is ADMIN. Used for /admin and for admin-only API routes. */
 export const adminGuard: CanActivateFn = (_route, state) => {
   const auth = inject(AuthService);
   const router = inject(Router);
@@ -14,5 +14,5 @@ export const adminGuard: CanActivateFn = (_route, state) => {
   if (auth.isAdmin()) {
     return true;
   }
-  return router.createUrlTree(['/exercise']);
+  return router.createUrlTree(['/management']);
 };

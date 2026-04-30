@@ -34,6 +34,7 @@ import {
 } from '../../models/report-calendar.models';
 import { ManagementApiService } from '../../services/management-api.service';
 import { ReportCalendarApiService } from '../../services/report-calendar-api.service';
+import { AuthService } from '../../services/auth.service';
 import { SafeMarkdownPipe } from '../../pipes/safe-markdown.pipe';
 import { formatHttpErrorDetail } from '../../util/http-error';
 import {
@@ -96,7 +97,9 @@ interface UtilityEntry {
   styleUrl: './management.component.scss',
 })
 export class ManagementComponent implements OnInit {
-  private static readonly UTILITIES_STORAGE_KEY = 'management.utilities.entries.v1';
+  /** Legacy unscoped key (pre–per-user storage). Migrated to the `spulickal` user key when they sign in. */
+  private static readonly UTILITIES_STORAGE_KEY_BASE = 'management.utilities.entries.v1';
+  private readonly auth = inject(AuthService);
   private readonly api = inject(ManagementApiService);
   private readonly reportCalApi = inject(ReportCalendarApiService);
   private readonly snackBar = inject(MatSnackBar);
@@ -113,6 +116,11 @@ export class ManagementComponent implements OnInit {
   unscheduled: ManagementTaskDto[] = [];
   categories: ManagementTaskCategory[] = [];
   taskTypes: ManagementTaskType[] = [];
+  /** Add balance category / task type (Tasks tab); data is per app user. */
+  mgtCategoryDraft: Partial<ManagementTaskCategory> = { name: '', description: '' };
+  mgtTaskTypeDraft: Partial<ManagementTaskType> = { name: '', notes: '' };
+  readonly mgtCategoryColumns = ['mgtCatName', 'mgtCatDesc', 'mgtCatActions'];
+  readonly mgtTaskTypeColumns = ['mgtTtName', 'mgtTtNotes', 'mgtTtActions'];
   selectedDayTasks: ManagementTaskDto[] = [];
 
   newTask = {
@@ -595,6 +603,74 @@ export class ManagementComponent implements OnInit {
         next: () => this.reloadRefsAndCalendar(),
         error: (e) => this.err('Could not update task', e),
       });
+  }
+
+  addMgtCategory(): void {
+    const name = (this.mgtCategoryDraft.name || '').trim();
+    if (!name) {
+      this.snackBar.open('Category name is required', undefined, { duration: 2500 });
+      return;
+    }
+    this.api
+      .createCategory({
+        name,
+        description: (this.mgtCategoryDraft.description || '').trim() || undefined,
+      })
+      .subscribe({
+        next: () => {
+          this.mgtCategoryDraft = { name: '', description: '' };
+          this.reloadRefsAndCalendar();
+          this.snackBar.open('Category added', undefined, { duration: 2500 });
+        },
+        error: (e) => this.err('Could not add category', e),
+      });
+  }
+
+  deleteMgtCategory(row: ManagementTaskCategory): void {
+    if (row.id == null) {
+      return;
+    }
+    this.api.deleteCategory(row.id).subscribe({
+      next: () => {
+        this.reloadRefsAndCalendar();
+        this.snackBar.open(`Removed category “${row.name}”`, undefined, { duration: 2500 });
+      },
+      error: (e) => this.err('Could not delete category', e),
+    });
+  }
+
+  addMgtTaskType(): void {
+    const name = (this.mgtTaskTypeDraft.name || '').trim();
+    if (!name) {
+      this.snackBar.open('Task type name is required', undefined, { duration: 2500 });
+      return;
+    }
+    this.api
+      .createTaskType({
+        name,
+        notes: (this.mgtTaskTypeDraft.notes || '').trim() || undefined,
+      })
+      .subscribe({
+        next: () => {
+          this.mgtTaskTypeDraft = { name: '', notes: '' };
+          this.reloadRefsAndCalendar();
+          this.snackBar.open('Task type added', undefined, { duration: 2500 });
+        },
+        error: (e) => this.err('Could not add task type', e),
+      });
+  }
+
+  deleteMgtTaskType(row: ManagementTaskType): void {
+    if (row.id == null) {
+      return;
+    }
+    this.api.deleteTaskType(row.id).subscribe({
+      next: () => {
+        this.reloadRefsAndCalendar();
+        this.snackBar.open(`Removed task type “${row.name}”`, undefined, { duration: 2500 });
+      },
+      error: (e) => this.err('Could not delete task type', e),
+    });
   }
 
   private reloadRefsAndCalendar(): void {
@@ -1191,12 +1267,65 @@ export class ManagementComponent implements OnInit {
     this.snackBar.open(`${msg}: ${formatHttpErrorDetail(e)}`, 'Dismiss', { duration: 8000 });
   }
 
+  /** `localStorage` key for the signed-in app user; not the “site username” field on each entry. */
+  private utilitiesStorageKey(): string | null {
+    const u = this.auth.username?.trim();
+    if (!u) {
+      return null;
+    }
+    return `${ManagementComponent.UTILITIES_STORAGE_KEY_BASE}.user.${u.toLowerCase()}`;
+  }
+
+  /**
+   * One-time: data stored under the legacy unscoped key is assigned to the `spulickal` app account.
+   */
+  private migrateLegacyUtilitiesToSpulickalIfNeeded(userKey: string): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    if (this.auth.username?.trim().toLowerCase() !== 'spulickal') {
+      return;
+    }
+    const current = window.localStorage.getItem(userKey);
+    if (current) {
+      try {
+        const parsed = JSON.parse(current) as unknown;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return;
+        }
+      } catch {
+        // fall through: migrate from legacy
+      }
+    }
+    const legacy = window.localStorage.getItem(ManagementComponent.UTILITIES_STORAGE_KEY_BASE);
+    if (!legacy) {
+      return;
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(legacy);
+    } catch {
+      return;
+    }
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      return;
+    }
+    window.localStorage.setItem(userKey, legacy);
+    window.localStorage.removeItem(ManagementComponent.UTILITIES_STORAGE_KEY_BASE);
+  }
+
   private loadUtilitiesFromStorage(): void {
     if (typeof window === 'undefined') {
       return;
     }
+    const storageKey = this.utilitiesStorageKey();
+    if (!storageKey) {
+      this.utilityEntries = [];
+      return;
+    }
+    this.migrateLegacyUtilitiesToSpulickalIfNeeded(storageKey);
     try {
-      const raw = window.localStorage.getItem(ManagementComponent.UTILITIES_STORAGE_KEY);
+      const raw = window.localStorage.getItem(storageKey);
       if (!raw) {
         return;
       }
@@ -1233,6 +1362,10 @@ export class ManagementComponent implements OnInit {
     if (typeof window === 'undefined') {
       return;
     }
-    window.localStorage.setItem(ManagementComponent.UTILITIES_STORAGE_KEY, JSON.stringify(this.utilityEntries));
+    const storageKey = this.utilitiesStorageKey();
+    if (!storageKey) {
+      return;
+    }
+    window.localStorage.setItem(storageKey, JSON.stringify(this.utilityEntries));
   }
 }

@@ -250,7 +250,7 @@ The top navigation includes dedicated sections for:
 - Management (tasks/calendar)
 - Journal (Markdown entries, calendar heatmap, tags, attachments)
 - Reports
-- Admin
+- Admin (including **Sign-in log**: stored login / MFA / logout events from `auth_login_events`)
 - Logs (admin only)
 
 ## GitHub Actions deploy to Lightsail

@@ -126,3 +126,32 @@
   margin: 0.75rem 0 0;
   font-size: 0.9rem;
 }
+
+.admin-login-audit-bar {
+  margin-bottom: 0.75rem;
+  align-items: center;
+}
+
+.admin-login-events-table {
+  font-size: 0.85rem;
+}
+
+.admin-event-type {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.admin-detail-cell {
+  max-width: 14rem;
+  overflow-wrap: anywhere;
+  font-size: 0.82rem;
+}
+
+.admin-ua-cell {
+  max-width: 20rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.78rem;
+  color: var(--app-text-muted, #64748b);
+}
