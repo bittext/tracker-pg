@@ -409,3 +409,110 @@ app-management .notes-att-link {
   font: inherit;
   font-weight: 500;
 }
+
+/* Task due / overdue row accents (Management + Reports → Tasks). */
+@mixin mgmt-due-row-accent($color, $tint) {
+  box-shadow: inset 4px 0 0 $color;
+  background: $tint;
+}
+
+app-management tr.mat-mdc-row.mgmt-due-row--completed,
+app-reports tr.mat-mdc-row.mgmt-due-row--completed {
+  @include mgmt-due-row-accent(#22c55e, rgba(34, 197, 94, 0.06));
+}
+
+app-management tr.mat-mdc-row.mgmt-due-row--open_no_due,
+app-reports tr.mat-mdc-row.mgmt-due-row--open_no_due {
+  box-shadow: inset 4px 0 0 rgba(100, 116, 139, 0.45);
+}
+
+app-management tr.mat-mdc-row.mgmt-due-row--open_due_future,
+app-reports tr.mat-mdc-row.mgmt-due-row--open_due_future {
+  @include mgmt-due-row-accent(#3b82f6, rgba(59, 130, 246, 0.06));
+}
+
+app-management tr.mat-mdc-row.mgmt-due-row--open_due_today,
+app-reports tr.mat-mdc-row.mgmt-due-row--open_due_today {
+  @include mgmt-due-row-accent(#ca8a04, rgba(250, 204, 21, 0.08));
+}
+
+app-management tr.mat-mdc-row.mgmt-due-row--overdue_1_7,
+app-reports tr.mat-mdc-row.mgmt-due-row--overdue_1_7 {
+  @include mgmt-due-row-accent(#d97706, rgba(251, 191, 36, 0.08));
+}
+
+app-management tr.mat-mdc-row.mgmt-due-row--overdue_8_30,
+app-reports tr.mat-mdc-row.mgmt-due-row--overdue_8_30 {
+  @include mgmt-due-row-accent(#ea580c, rgba(254, 215, 170, 0.22));
+}
+
+app-management tr.mat-mdc-row.mgmt-due-row--overdue_31_plus,
+app-reports tr.mat-mdc-row.mgmt-due-row--overdue_31_plus {
+  @include mgmt-due-row-accent(#dc2626, rgba(252, 165, 165, 0.12));
+}
+
+/* Shared legend for task due colors (Management month card + Reports Tasks tab). */
+.mgmt-due-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  margin-top: 0.65rem;
+  font-size: 0.72rem;
+  color: var(--app-text-muted, #64748b);
+}
+
+.mgmt-due-legend__title {
+  font-weight: 600;
+  margin-right: 0.25rem;
+}
+
+.mgmt-due-legend__item {
+  padding: 0.12rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+  font-weight: 600;
+  font-size: 0.68rem;
+}
+
+.mgmt-due-legend__item--done {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.35);
+}
+
+.mgmt-due-legend__item--nodue {
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.mgmt-due-legend__item--future {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+.mgmt-due-legend__item--today {
+  background: rgba(250, 204, 21, 0.2);
+  border-color: rgba(234, 179, 8, 0.45);
+}
+
+.mgmt-due-legend__item--od1 {
+  background: rgba(251, 191, 36, 0.22);
+  border-color: rgba(245, 158, 11, 0.45);
+}
+
+.mgmt-due-legend__item--od2 {
+  background: rgba(254, 215, 170, 0.45);
+  border-color: rgba(234, 88, 12, 0.45);
+}
+
+.mgmt-due-legend__item--od3 {
+  background: rgba(252, 165, 165, 0.35);
+  border-color: rgba(220, 38, 38, 0.45);
+}
+
+.rep-mgmt-due-note {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--app-text-muted, #64748b);
+}

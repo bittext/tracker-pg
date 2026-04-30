@@ -46,7 +46,10 @@
             <mat-card appearance="outlined" class="mgmt-nested-card">
               <mat-card-header>
                 <mat-card-title>Month</mat-card-title>
-                <mat-card-subtitle>To-dos by due date</mat-card-subtitle>
+                <mat-card-subtitle>
+                  To-dos by due date. Past days with <strong>open</strong> tasks are tinted by how long the due date has
+                  passed; today with open work is highlighted.
+                </mat-card-subtitle>
               </mat-card-header>
               <mat-card-content>
                 <div class="cal-toolbar">
@@ -76,6 +79,7 @@
                             class="cal-slot cal-day"
                             [class.cal-day--has-tasks]="(cell.taskCount ?? 0) > 0"
                             [class.cal-day--selected]="isSelected(cell.iso)"
+                            [ngClass]="calendarDayNgClass(cell)"
                             [attr.aria-pressed]="isSelected(cell.iso)"
                             [attr.aria-label]="
                               'Day ' + cell.label + ', ' + (cell.iso || '') + ', ' + (cell.taskCount ?? 0) + ' tasks'
@@ -92,6 +96,22 @@
                     </div>
                   }
                 </div>
+                @if (openOverdueCountInMonth() > 0) {
+                  <p class="mgmt-due-month-banner" role="status">
+                    <strong>{{ openOverdueCountInMonth() }}</strong> open task(s) in this month are past their due date.
+                    Complete them or move the date — table rows use the same colors as Reports → Tasks.
+                  </p>
+                }
+                <div class="mgmt-due-legend" aria-label="Due date color legend">
+                  <span class="mgmt-due-legend__title">Row / day colors</span>
+                  <span class="mgmt-due-legend__item mgmt-due-legend__item--done">Done</span>
+                  <span class="mgmt-due-legend__item mgmt-due-legend__item--nodue">No due date</span>
+                  <span class="mgmt-due-legend__item mgmt-due-legend__item--future">Due later</span>
+                  <span class="mgmt-due-legend__item mgmt-due-legend__item--today">Due today</span>
+                  <span class="mgmt-due-legend__item mgmt-due-legend__item--od1">1–7d overdue</span>
+                  <span class="mgmt-due-legend__item mgmt-due-legend__item--od2">8–30d</span>
+                  <span class="mgmt-due-legend__item mgmt-due-legend__item--od3">31d+</span>
+                </div>
               </mat-card-content>
             </mat-card>
           </section>
@@ -100,7 +120,14 @@
             <mat-card appearance="outlined" class="mgmt-nested-card">
               <mat-card-header>
                 <mat-card-title>{{ selectedDayLabel() }}</mat-card-title>
-                <mat-card-subtitle>{{ tasksForSelectedDay().length }} due on this day</mat-card-subtitle>
+                <mat-card-subtitle>
+                  {{ tasksForSelectedDay().length }} due on this day
+                  @if (selectedDayOpenPastDueCount() > 0) {
+                    <span class="mgmt-overdue-inline">
+                      · <strong>{{ selectedDayOpenPastDueCount() }}</strong> still open past this due date
+                    </span>
+                  }
+                </mat-card-subtitle>
               </mat-card-header>
               <mat-card-content>
                 <div class="table-wrap table-wrap--nested">
@@ -151,7 +178,7 @@
                       </td>
                     </ng-container>
                     <tr mat-header-row *matHeaderRowDef="dayTaskColumns"></tr>
-                    <tr mat-row *matRowDef="let row; columns: dayTaskColumns"></tr>
+                    <tr mat-row *matRowDef="let row; columns: dayTaskColumns" [ngClass]="taskDueRowClass(row)"></tr>
                   </table>
                   @if (!tasksForSelectedDay().length) {
                     <p class="muted empty-hint">No tasks due on this day.</p>
@@ -273,7 +300,7 @@
                 </td>
               </ng-container>
               <tr mat-header-row *matHeaderRowDef="unscheduledColumns"></tr>
-              <tr mat-row *matRowDef="let row; columns: unscheduledColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: unscheduledColumns" [ngClass]="taskDueRowClass(row)"></tr>
             </table>
             @if (!unscheduled.length) {
               <p class="muted empty-hint">No unscheduled tasks.</p>

@@ -221,9 +221,20 @@
         <section class="mgmt-report-section" aria-labelledby="mgmt-report-heading">
           <h2 id="mgmt-report-heading" class="mgmt-report-title">Tasks</h2>
           <p class="muted mgmt-report-lead">
-            Full listing of management to-dos: balance category, type, urgency, due date, and completion. Edit tasks on the
-            <a routerLink="/management">Management</a> page.
+            Full listing of management to-dos: balance category, type, urgency, due date, and completion. Rows are
+            color-coded by whether work is done, due later, due today, or overdue (severity by days past due). Edit tasks on
+            the <a routerLink="/management">Management</a> page.
           </p>
+          <div class="mgmt-due-legend mgmt-due-legend--report" aria-label="Due date color legend">
+            <span class="mgmt-due-legend__title">Row colors</span>
+            <span class="mgmt-due-legend__item mgmt-due-legend__item--done">Done</span>
+            <span class="mgmt-due-legend__item mgmt-due-legend__item--nodue">No due date</span>
+            <span class="mgmt-due-legend__item mgmt-due-legend__item--future">Due later</span>
+            <span class="mgmt-due-legend__item mgmt-due-legend__item--today">Due today</span>
+            <span class="mgmt-due-legend__item mgmt-due-legend__item--od1">1–7d overdue</span>
+            <span class="mgmt-due-legend__item mgmt-due-legend__item--od2">8–30d</span>
+            <span class="mgmt-due-legend__item mgmt-due-legend__item--od3">31d+</span>
+          </div>
           <div class="table-wrap table-wrap--mgmt">
             <table mat-table [dataSource]="managementTasks" class="full-width">
               <ng-container matColumnDef="mtTitle">
@@ -232,7 +243,12 @@
               </ng-container>
               <ng-container matColumnDef="mtDue">
                 <th mat-header-cell *matHeaderCellDef>Due</th>
-                <td mat-cell *matCellDef="let row">{{ formatMgmtDate(row.dueDate) }}</td>
+                <td mat-cell *matCellDef="let row">
+                  <span>{{ formatMgmtDate(row.dueDate) }}</span>
+                  @if (mgmtDueColumnHint(row); as hint) {
+                    <span class="rep-mgmt-due-note">{{ hint }}</span>
+                  }
+                </td>
               </ng-container>
               <ng-container matColumnDef="mtUrgency">
                 <th mat-header-cell *matHeaderCellDef>Urgency</th>
@@ -257,7 +273,7 @@
                 <td mat-cell *matCellDef="let row">{{ formatMgmtInstant(row.createdAt) }}</td>
               </ng-container>
               <tr mat-header-row *matHeaderRowDef="managementTaskColumns"></tr>
-              <tr mat-row *matRowDef="let row; columns: managementTaskColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: managementTaskColumns" [ngClass]="taskDueRowClass(row)"></tr>
             </table>
             @if (!managementTasks.length) {
               <p class="muted empty-hint mgmt-report-empty">No management tasks yet. Add balance categories under Admin → Management, then create tasks on Management.</p>

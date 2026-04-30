@@ -155,6 +155,31 @@
     outline: 2px solid var(--app-accent, #2563eb);
     outline-offset: 1px;
   }
+
+  &.cal-day-accent--future {
+    border-color: rgba(59, 130, 246, 0.5);
+    background: rgba(59, 130, 246, 0.1);
+  }
+
+  &.cal-day-accent--today {
+    border-color: rgba(234, 179, 8, 0.75);
+    background: rgba(250, 204, 21, 0.16);
+  }
+
+  &.cal-day-accent--od1 {
+    border-color: rgba(245, 158, 11, 0.75);
+    background: rgba(251, 191, 36, 0.14);
+  }
+
+  &.cal-day-accent--od2 {
+    border-color: rgba(234, 88, 12, 0.8);
+    background: rgba(254, 215, 170, 0.35);
+  }
+
+  &.cal-day-accent--od3 {
+    border-color: rgba(220, 38, 38, 0.85);
+    background: rgba(252, 165, 165, 0.28);
+  }
 }
 
 .cal-day-num {
@@ -167,6 +192,21 @@
   font-size: 0.65rem;
   font-weight: 700;
   color: var(--app-accent, #2563eb);
+}
+
+.mgmt-due-month-banner {
+  margin: 0.65rem 0 0;
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--app-radius-sm, 10px);
+  border: 1px solid rgba(234, 88, 12, 0.35);
+  background: rgba(254, 243, 199, 0.55);
+  font-size: 0.82rem;
+  color: var(--app-text, #0f172a);
+}
+
+.mgmt-overdue-inline {
+  color: var(--app-text-muted, #64748b);
+  font-weight: 500;
 }
 
 .form-section-title {

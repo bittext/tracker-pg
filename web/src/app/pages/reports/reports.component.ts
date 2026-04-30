@@ -23,6 +23,12 @@ import {
 } from '../../models/fitness.models';
 import { JournalEntryDto, JournalSummaryDto, JournalTagDefDto } from '../../models/journal.models';
 import { ManagementTaskDto } from '../../models/management.models';
+import {
+  daysBetweenIsoDates,
+  mgmtTaskDueRowClass,
+  mgmtTaskDueVisual,
+  normalizeMgmtDueIso,
+} from '../../util/management-task-due';
 import { FitnessApiService } from '../../services/fitness-api.service';
 import { JournalApiService } from '../../services/journal-api.service';
 import { ManagementApiService } from '../../services/management-api.service';
@@ -474,6 +480,24 @@ export class ReportsComponent implements OnInit {
       return 'rep-urgency-low';
     }
     return 'rep-urgency-mid';
+  }
+
+  taskDueRowClass(row: ManagementTaskDto): string {
+    return mgmtTaskDueRowClass(row, this.todayIso());
+  }
+
+  /** Short hint under the due date in the Tasks report (overdue / due today). */
+  mgmtDueColumnHint(row: ManagementTaskDto): string | null {
+    const today = this.todayIso();
+    const v = mgmtTaskDueVisual(row, today);
+    const due = normalizeMgmtDueIso(row.dueDate);
+    if ((v === 'overdue_1_7' || v === 'overdue_8_30' || v === 'overdue_31_plus') && due) {
+      return `${daysBetweenIsoDates(due, today)}d overdue`;
+    }
+    if (v === 'open_due_today') {
+      return 'Due today';
+    }
+    return null;
   }
 
   runJournalSearch(): void {

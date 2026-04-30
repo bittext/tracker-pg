@@ -38,6 +38,11 @@ import { AuthService } from '../../services/auth.service';
 import { SafeMarkdownPipe } from '../../pipes/safe-markdown.pipe';
 import { formatHttpErrorDetail } from '../../util/http-error';
 import {
+  MgmtTaskDueVisual,
+  mgmtCalendarDayDueVisual,
+  mgmtTaskDueRowClass,
+} from '../../util/management-task-due';
+import {
   ReportCalendarEntryDialogComponent,
   ReportCalendarEntryDialogData,
 } from '../reports/report-calendar-entry-dialog.component';
@@ -47,6 +52,8 @@ interface CalendarCell {
   iso?: string;
   label?: string;
   taskCount?: number;
+  /** When the day has open tasks, how that day relates to today (for calendar color). */
+  dayDueVisual?: MgmtTaskDueVisual | null;
   trackKey: string;
 }
 
@@ -434,14 +441,18 @@ export class ManagementComponent implements OnInit {
       padSeq += 1;
       flat.push({ type: 'pad', trackKey: `pad-head-${padSeq}` });
     }
+    const todayIso = this.todayIso();
     for (let d = 1; d <= last; d++) {
       const iso = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      const n = (byDay[iso] ?? []).length;
+      const tasks = byDay[iso] ?? [];
+      const n = tasks.length;
+      const dayDueVisual = n > 0 ? mgmtCalendarDayDueVisual(iso, tasks, todayIso) : null;
       flat.push({
         type: 'day',
         iso,
         label: String(d),
         taskCount: n,
+        dayDueVisual,
         trackKey: `day-${iso}`,
       });
     }
@@ -507,6 +518,61 @@ export class ManagementComponent implements OnInit {
       return 'urgency-low';
     }
     return 'urgency-mid';
+  }
+
+  /** CSS class on task table rows for due / overdue vs done. */
+  taskDueRowClass(row: ManagementTaskDto): string {
+    return mgmtTaskDueRowClass(row, this.todayIso());
+  }
+
+  /** Accent class on month grid day cells when open tasks need attention. */
+  calendarDayDueClass(cell: CalendarCell): string | null {
+    if (cell.type !== 'day' || !cell.dayDueVisual) {
+      return null;
+    }
+    const m: Record<MgmtTaskDueVisual, string> = {
+      open_due_future: 'cal-day-accent--future',
+      open_due_today: 'cal-day-accent--today',
+      overdue_1_7: 'cal-day-accent--od1',
+      overdue_8_30: 'cal-day-accent--od2',
+      overdue_31_plus: 'cal-day-accent--od3',
+      completed: '',
+      open_no_due: '',
+    };
+    return m[cell.dayDueVisual] || null;
+  }
+
+  calendarDayNgClass(cell: CalendarCell): Record<string, boolean> {
+    const c = this.calendarDayDueClass(cell);
+    return c ? { [c]: true } : {};
+  }
+
+  /** Open tasks in the visible month with due date strictly before today. */
+  openOverdueCountInMonth(): number {
+    const cal = this.monthCal;
+    const by = cal?.tasksByDay;
+    if (!by) {
+      return 0;
+    }
+    const today = this.todayIso();
+    let n = 0;
+    for (const [iso, list] of Object.entries(by)) {
+      if (iso >= today) {
+        continue;
+      }
+      n += list.filter((t) => !t.completed).length;
+    }
+    return n;
+  }
+
+  /** Selected calendar day is in the past: count of tasks still not completed (missed that due date). */
+  selectedDayOpenPastDueCount(): number {
+    const iso = this.selectedDateIso;
+    const today = this.todayIso();
+    if (!iso || iso.length < 10 || iso >= today) {
+      return 0;
+    }
+    return this.selectedDayTasks.filter((t) => !t.completed).length;
   }
 
   resetForm(): void {
