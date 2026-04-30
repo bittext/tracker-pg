@@ -20,6 +20,7 @@ import { FitnessApiService } from '../../services/fitness-api.service';
 import { FinanceApiService } from '../../services/finance-api.service';
 import { JournalApiService } from '../../services/journal-api.service';
 import { ManagementApiService } from '../../services/management-api.service';
+import { AuthService } from '../../services/auth.service';
 import { formatHttpErrorDetail } from '../../util/http-error';
 
 @Component({
@@ -47,6 +48,7 @@ export class AdminComponent implements OnInit {
   private readonly managementApi = inject(ManagementApiService);
   private readonly journalApi = inject(JournalApiService);
   private readonly adminAuthAuditApi = inject(AdminAuthAuditApiService);
+  private readonly auth = inject(AuthService);
   private readonly snackBar = inject(MatSnackBar);
 
   exercises: Exercise[] = [];
@@ -80,12 +82,19 @@ export class AdminComponent implements OnInit {
   loginEventLimit = 100;
   readonly loginEventColumns = ['createdAt', 'eventType', 'username', 'clientIp', 'detail', 'userAgent'];
 
+  /** App role ADMIN: required for the Sign-in log API and that tab. */
+  get isAppAdmin(): boolean {
+    return this.auth.isAdmin();
+  }
+
   ngOnInit(): void {
     this.reload();
     this.reloadManagement();
     this.reloadJournalTags();
     this.loadFinanceNotificationSettings();
-    this.loadLoginEvents();
+    if (this.isAppAdmin) {
+      this.loadLoginEvents();
+    }
   }
 
   private err(msg: string, e: unknown): void {
@@ -289,6 +298,9 @@ export class AdminComponent implements OnInit {
   }
 
   loadLoginEvents(): void {
+    if (!this.isAppAdmin) {
+      return;
+    }
     this.loginEventLoading = true;
     this.adminAuthAuditApi.listLoginEvents(this.loginEventLimit, this.loginEventSearch).subscribe({
       next: (rows) => {
