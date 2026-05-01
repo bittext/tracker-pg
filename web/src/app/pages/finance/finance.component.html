@@ -571,7 +571,14 @@
                   <tbody>
                     @for (row of rhRising52w.rows; track rising52wTrack($index, row)) {
                       <tr>
-                        <td><strong>{{ row.symbol }}</strong></td>
+                        <td>
+                          <a
+                            class="rh-symbol-link"
+                            [href]="row.externalDetailUrl"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            ><strong>{{ row.symbol }}</strong></a>
+                        </td>
                         <td class="rising-52w-name">{{ row.shortName }}</td>
                         <td>{{ row.fiftyTwoWeekGainPercent | number: '1.1-1' }}%</td>
                         <td>{{ row.pctPastYearNearRolling52WeekHigh | number: '1.1-1' }}%</td>
@@ -651,7 +658,14 @@
                   <tbody>
                     @for (row of breakoutCandidates.rows; track breakoutRowTrack($index, row)) {
                       <tr>
-                        <td><strong>{{ row.symbol }}</strong></td>
+                        <td>
+                          <a
+                            class="rh-symbol-link"
+                            [href]="row.externalDetailUrl"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            ><strong>{{ row.symbol }}</strong></a>
+                        </td>
                         <td class="rising-52w-name">{{ row.shortName }}</td>
                         <td>{{ row.breakoutScore | number: '1.0-0' }}</td>
                         <td>{{ row.patternLabel }}</td>
@@ -704,7 +718,12 @@
               <div class="breakout-rationale-list">
                 @for (row of breakoutCandidates.rows; track breakoutRowTrack($index, row)) {
                   <article class="breakout-rationale-item">
-                    <strong>{{ row.symbol }}</strong>
+                    <a
+                      class="rh-symbol-link"
+                      [href]="row.externalDetailUrl"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      ><strong>{{ row.symbol }}</strong></a>
                     <span class="muted"> · {{ row.patternLabel }}</span>
                     <p class="muted breakout-rationale-text">{{ row.rationale }}</p>
                   </article>

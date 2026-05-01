@@ -348,6 +348,15 @@
   max-width: 18rem;
 }
 
+a.rh-symbol-link {
+  color: var(--app-fg, #0f172a);
+  text-decoration: none;
+}
+
+a.rh-symbol-link:hover {
+  text-decoration: underline;
+}
+
 .breakout-candidates-table {
   font-size: 0.88rem;
 }
