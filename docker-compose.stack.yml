@@ -76,6 +76,10 @@ services:
       # Journal attachments: leave empty for local disk (TRACKER_JOURNAL_STORAGE_DIR); set bucket for S3.
       TRACKER_JOURNAL_S3_BUCKET: ${TRACKER_JOURNAL_S3_BUCKET:-}
       TRACKER_JOURNAL_S3_REGION: ${TRACKER_JOURNAL_S3_REGION:-us-east-1}
+      # Optional: default AWS credential chain for SES / SNS / S3 inside the container (omit if using another mechanism).
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
     ports:
       # Host:container — API always listens on 9091 inside the container.
       - "${API_PORT:-9091}:9091"

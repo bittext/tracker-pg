@@ -25,7 +25,8 @@ Defaults:
 Notes:
   - This script upserts by username (creates new users or updates existing users).
   - Reads .env.stack (when present) for DB settings and TRACKER_AUTH_PASSWORD_PEPPER.
-  - Uses local psql when available, otherwise falls back to `docker compose exec postgres psql`.
+  - If the stack's postgres container is running, applies SQL via `docker compose exec` (no host psql needed).
+  - Otherwise uses host psql when a real PostgreSQL client is installed (not Ubuntu's stub).
 EOF
 }
 
@@ -88,8 +89,40 @@ echo "Generating user upsert SQL for '${username}'..."
     "-Dexec.args=${username} ${password} ${role} ${mfa_enabled} ${active} ${phone_e164}"
 ) > "${tmp_sql}"
 
+# Ubuntu may ship a psql stub (postgresql-client-common) that errors until postgresql-client-* is installed.
+psql_client_ready() {
+  command -v psql >/dev/null 2>&1 || return 1
+  local ver
+  ver="$(psql --version 2>/dev/null || true)"
+  [[ "${ver}" =~ PostgreSQL ]] || return 1
+  return 0
+}
+
+dc_stack() {
+  if [[ -f "${dotenv_file}" ]]; then
+    docker compose --env-file "${dotenv_file}" -f "${repo_root}/docker-compose.stack.yml" "$@"
+  else
+    docker compose -f "${repo_root}/docker-compose.stack.yml" "$@"
+  fi
+}
+
+postgres_container_running() {
+  command -v docker >/dev/null 2>&1 || return 1
+  dc_stack ps --status running -q postgres 2>/dev/null | grep -q .
+}
+
 echo "Applying SQL to PostgreSQL ${postgres_host}:${postgres_port}/${postgres_db}..."
-if command -v psql >/dev/null 2>&1; then
+if postgres_container_running; then
+  echo "Using docker compose postgres service (container running)..."
+  dc_stack exec -T \
+    -e PGPASSWORD="${postgres_password}" \
+    postgres \
+    psql \
+    -U "${postgres_user}" \
+    -d "${postgres_db}" \
+    -v ON_ERROR_STOP=1 \
+    -f - < "${tmp_sql}"
+elif psql_client_ready; then
   PGPASSWORD="${postgres_password}" psql \
     -h "${postgres_host}" \
     -p "${postgres_port}" \
@@ -98,8 +131,8 @@ if command -v psql >/dev/null 2>&1; then
     -v ON_ERROR_STOP=1 \
     -f "${tmp_sql}"
 elif command -v docker >/dev/null 2>&1; then
-  echo "Local psql not found; using docker compose postgres service..."
-  docker compose -f "${repo_root}/docker-compose.stack.yml" exec -T \
+  echo "Local psql not usable; trying docker compose postgres service..." >&2
+  dc_stack exec -T \
     -e PGPASSWORD="${postgres_password}" \
     postgres \
     psql \
@@ -108,8 +141,9 @@ elif command -v docker >/dev/null 2>&1; then
     -v ON_ERROR_STOP=1 \
     -f - < "${tmp_sql}"
 else
-  echo "Error: neither 'psql' nor 'docker' is available on PATH." >&2
-  echo "Install postgresql-client or run this from a host with docker compose access." >&2
+  echo "Error: no working psql and docker is not on PATH." >&2
+  echo "Either: sudo apt install -y postgresql-client" >&2
+  echo "Or: start the stack (docker compose ... up) so this script can use the postgres container's psql." >&2
   exit 1
 fi
 
