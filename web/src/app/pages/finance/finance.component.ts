@@ -23,6 +23,8 @@ import {
   StockNewsItemDto,
   Surge52WeekHighsDto,
   Surge52WeekRowDto,
+  BreakoutCandidatesDto,
+  BreakoutCandidateRowDto,
 } from '../../models/finance.models';
 import { FinanceApiService, FinancePeriod } from '../../services/finance-api.service';
 import { formatHttpErrorDetail } from '../../util/http-error';
@@ -52,13 +54,14 @@ export class FinanceComponent implements OnInit {
   private static readonly FINANCE_COLUMNS_HIDDEN = new Set<string>(['SETTLE_DATE']);
   private static readonly STOCK_NEWS_LIMIT = 10;
   private static readonly RISING_52W_LIMIT = 5;
+  private static readonly BREAKOUT_CANDIDATES_LIMIT = 20;
 
   private readonly financeApi = inject(FinanceApiService);
   private readonly snackBar = inject(MatSnackBar);
 
   /** Finance category tabs: 0=banking, 1=investments, 2=loans, 3=market, 4=money, 5=credit, 6=trading, 7=insurance, 8=taxes. */
   financeCategoryTabIndex = 0;
-  /** Trading tabs: 0=news, 1=crawler, 2=52w high risers, 3=alerts, 4=transactions, 5=by instrument, 6=summary. */
+  /** Trading tabs: 0=news, 1=crawler, 2=52w high risers, 3=break outs, 4=alerts, 5=transactions, 6=by instrument, 7=summary. */
   financeSubTabIndex = 0;
 
   stockSymbols: string[] = [];
@@ -94,6 +97,8 @@ export class FinanceComponent implements OnInit {
   crawlLoading = false;
   rhRising52w: Surge52WeekHighsDto | null = null;
   rhRising52wLoading = false;
+  breakoutCandidates: BreakoutCandidatesDto | null = null;
+  breakoutLoading = false;
   financeAlerts: FinanceStockAlertDto[] = [];
   financeAlertEvents: FinanceAlertEventDto[] = [];
   financeAlertsLoading = false;
@@ -141,17 +146,19 @@ export class FinanceComponent implements OnInit {
     } else if (index === 2) {
       this.loadRising52WeekHighs();
     } else if (index === 3) {
+      this.loadBreakoutCandidates();
+    } else if (index === 4) {
       this.loadFinanceAlerts();
       this.loadFinanceAlertEvents();
-    } else if (index === 4) {
-      this.loadRobinhoodFinanceData();
     } else if (index === 5) {
+      this.loadRobinhoodFinanceData();
+    } else if (index === 6) {
       this.ensureStockSymbolsLoaded(() => {
         if (this.financeSelectedSymbol.trim()) {
           this.loadIndividualStockFinanceData();
         }
       }, true);
-    } else if (index === 6) {
+    } else if (index === 7) {
       this.ensureStockSymbolsLoaded(undefined, this.stockSymbols.length === 0);
       this.loadStocksSummary();
     }
@@ -161,9 +168,9 @@ export class FinanceComponent implements OnInit {
     if (this.financeCategoryTabIndex !== 6) {
       return;
     }
-    if (this.financeSubTabIndex === 4) {
+    if (this.financeSubTabIndex === 5) {
       this.loadRobinhoodFinanceData();
-    } else if (this.financeSubTabIndex === 5) {
+    } else if (this.financeSubTabIndex === 6) {
       if (this.financeSelectedSymbol.trim()) {
         this.loadIndividualStockFinanceData();
       }
@@ -171,7 +178,7 @@ export class FinanceComponent implements OnInit {
   }
 
   onStocksSummaryFilterChange(): void {
-    if (this.financeCategoryTabIndex === 6 && this.financeSubTabIndex === 6) {
+    if (this.financeCategoryTabIndex === 6 && this.financeSubTabIndex === 7) {
       this.loadStocksSummary();
     }
   }
@@ -234,6 +241,25 @@ export class FinanceComponent implements OnInit {
   }
 
   rising52wTrack(_idx: number, row: Surge52WeekRowDto): string {
+    return row.symbol;
+  }
+
+  loadBreakoutCandidates(): void {
+    this.breakoutLoading = true;
+    this.financeApi.robinhoodBreakoutCandidates(FinanceComponent.BREAKOUT_CANDIDATES_LIMIT).subscribe({
+      next: (r) => {
+        this.breakoutCandidates = r;
+        this.breakoutLoading = false;
+      },
+      error: (e) => {
+        this.breakoutCandidates = null;
+        this.breakoutLoading = false;
+        this.err('Could not load breakout candidates', e);
+      },
+    });
+  }
+
+  breakoutRowTrack(_idx: number, row: BreakoutCandidateRowDto): string {
     return row.symbol;
   }
 

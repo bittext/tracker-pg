@@ -15,6 +15,7 @@ import {
   RobinhoodTransactionsDto,
   StockNewsDto,
   Surge52WeekHighsDto,
+  BreakoutCandidatesDto,
 } from '../models/finance.models';
 
 export type FinancePeriod = 'all' | 'year' | 'month';
@@ -89,6 +90,15 @@ export class FinanceApiService {
       params = params.set('limit', String(Math.floor(limit)));
     }
     return this.http.get<Surge52WeekHighsDto>(`${this.root}/rising-52w-highs`, { params });
+  }
+
+  /** Trading “Break outs”: heuristic resistance + volume + volatility contraction scan. */
+  robinhoodBreakoutCandidates(limit?: number) {
+    let params = new HttpParams();
+    if (limit != null && Number.isFinite(limit) && limit > 0) {
+      params = params.set('limit', String(Math.floor(limit)));
+    }
+    return this.http.get<BreakoutCandidatesDto>(`${this.root}/breakout-candidates`, { params });
   }
 
   financeAlerts() {

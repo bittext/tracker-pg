@@ -84,6 +84,31 @@ export interface Surge52WeekHighsDto {
   rows: Surge52WeekRowDto[];
 }
 
+/** GET /api/finance/robinhood/breakout-candidates */
+export interface BreakoutCandidatesDto {
+  source: string;
+  fetchedAt: string;
+  returned: number;
+  note: string;
+  rows: BreakoutCandidateRowDto[];
+}
+
+export interface BreakoutCandidateRowDto {
+  symbol: string;
+  shortName: string;
+  regularMarketPrice: number | null;
+  regularMarketChangePercent: number | null;
+  percentOf52WeekHigh: number | null;
+  breakoutScore: number;
+  patternLabel: string;
+  rationale: string;
+  pctOfRecentResistance: number | null;
+  volumeRatioVs20d: number | null;
+  atrCompressionRatio: number | null;
+  pctVsSma50: number | null;
+  externalDetailUrl: string;
+}
+
 /** GET /api/finance/robinhood/crawl-snapshot */
 export interface FinanceCrawlSnapshotDto {
   fetchedAt: string;

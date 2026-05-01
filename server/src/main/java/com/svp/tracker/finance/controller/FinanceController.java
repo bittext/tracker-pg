@@ -1,6 +1,7 @@
 package com.svp.tracker.finance.controller;
 
 import com.svp.tracker.config.FinanceProperties;
+import com.svp.tracker.finance.dto.BreakoutCandidatesDto;
 import com.svp.tracker.finance.dto.FinanceCrawlSnapshotDto;
 import com.svp.tracker.finance.dto.RobinhoodCsvDirectoryImportDto;
 import com.svp.tracker.finance.dto.RobinhoodCsvImportResultDto;
@@ -8,6 +9,7 @@ import com.svp.tracker.finance.dto.RobinhoodStocksSummaryDto;
 import com.svp.tracker.finance.dto.RobinhoodTransactionsDto;
 import com.svp.tracker.finance.dto.StockNewsDto;
 import com.svp.tracker.finance.dto.Surge52WeekHighsDto;
+import com.svp.tracker.finance.service.BreakoutScanService;
 import com.svp.tracker.finance.service.FinanceCrawlService;
 import com.svp.tracker.finance.service.RobinhoodCsvImportService;
 import com.svp.tracker.finance.service.RobinhoodFinanceService;
@@ -36,6 +38,7 @@ public class FinanceController {
     private final StockNewsService stockNewsService;
     private final Surge52WeekHighsService surge52WeekHighsService;
     private final FinanceCrawlService financeCrawlService;
+    private final BreakoutScanService breakoutScanService;
     private final FinanceProperties financeProperties;
 
     /**
@@ -168,6 +171,22 @@ public class FinanceController {
         log.info("GET /api/finance/robinhood/rising-52w-highs limit={}", limit);
         try {
             return surge52WeekHighsService.fetchRecent52WeekHighRisers(limit);
+        } catch (IllegalStateException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, e.getMessage(), e);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Heuristic scan for stocks showing a technical “breakout setup” (resistance proximity, volume vs baseline, ATR
+     * contraction, trend). Yahoo screeners + daily chart; not investment advice.
+     */
+    @GetMapping("/breakout-candidates")
+    public BreakoutCandidatesDto breakoutCandidates(@RequestParam(name = "limit", required = false) Integer limit) {
+        log.info("GET /api/finance/robinhood/breakout-candidates limit={}", limit);
+        try {
+            return breakoutScanService.scan(limit);
         } catch (IllegalStateException e) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, e.getMessage(), e);
         } catch (IllegalArgumentException e) {

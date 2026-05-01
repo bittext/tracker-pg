@@ -348,6 +348,33 @@
   max-width: 18rem;
 }
 
+.breakout-candidates-table {
+  font-size: 0.88rem;
+}
+
+.breakout-rationale-title {
+  margin: 1.1rem 0 0.4rem;
+}
+
+.breakout-rationale-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.breakout-rationale-item {
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--app-radius-sm, 10px);
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+  background: var(--app-surface-muted, #f8fafc);
+}
+
+.breakout-rationale-text {
+  margin: 0.3rem 0 0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
 .finance-crawl-panel {
   .crawl-source-note {
     font-size: 0.86rem;
