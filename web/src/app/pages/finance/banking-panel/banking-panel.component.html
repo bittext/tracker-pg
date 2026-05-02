@@ -136,6 +136,11 @@
 
     @if (ledger && !ledgerLoading) {
       <h4 class="banking-table-title">Transactions</h4>
+      <p class="muted banking-txns-hint">
+        Rows come from imports (CSV, QFX, QIF, QBO, OFX, Excel). <strong>Credit</strong> means a positive amount
+        (money in); <strong>Debit</strong> means a negative amount (money out), matching the stored values from your
+        files.
+      </p>
       <div class="table-wrap">
         <table mat-table [dataSource]="ledger.transactions" class="mat-elevation-z0 banking-table">
           <ng-container matColumnDef="txnDate">
@@ -145,6 +150,14 @@
           <ng-container matColumnDef="institutionName">
             <th mat-header-cell *matHeaderCellDef>Institution</th>
             <td mat-cell *matCellDef="let row">{{ row.institutionName }}</td>
+          </ng-container>
+          <ng-container matColumnDef="sourceFormat">
+            <th mat-header-cell *matHeaderCellDef>From file</th>
+            <td mat-cell *matCellDef="let row">{{ row.sourceFormat || '—' }}</td>
+          </ng-container>
+          <ng-container matColumnDef="debitCredit">
+            <th mat-header-cell *matHeaderCellDef>Debit / credit</th>
+            <td mat-cell *matCellDef="let row">{{ debitCreditLabel(row.debitCredit) }}</td>
           </ng-container>
           <ng-container matColumnDef="amount">
             <th mat-header-cell *matHeaderCellDef>Amount</th>

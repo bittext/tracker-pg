@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -371,14 +372,35 @@ public class BankingService {
                 f.getCreatedAt().toString());
     }
 
+    private static final Map<String, String> SOURCE_FORMAT_LABELS = Map.ofEntries(
+            Map.entry("csv", "CSV"),
+            Map.entry("qfx", "QFX"),
+            Map.entry("qif", "QIF"),
+            Map.entry("qbo", "QBO"),
+            Map.entry("ofx", "OFX"),
+            Map.entry("xls", "Excel (XLS)"),
+            Map.entry("xlsx", "Excel (XLSX)"));
+
     private static BankingTransactionDto toTxnDto(BankingTransaction t) {
+        var amt = t.getAmount();
+        String debitCredit =
+                switch (amt.signum()) {
+                    case 1 -> "CREDIT";
+                    case -1 -> "DEBIT";
+                    default -> "ZERO";
+                };
+        String fn = t.getImportFile().getOriginalFilename();
+        String ext = BankingFormatParser.extension(fn == null ? "" : fn);
+        String sourceFormat = SOURCE_FORMAT_LABELS.getOrDefault(ext, ext.isEmpty() ? "" : ext.toUpperCase(Locale.ROOT));
         return new BankingTransactionDto(
                 t.getId(),
                 t.getInstitution().getId(),
                 t.getInstitution().getName(),
                 t.getImportFile().getId(),
                 t.getTxnDate().toString(),
-                t.getAmount(),
-                t.getDescription());
+                amt,
+                t.getDescription(),
+                debitCredit,
+                sourceFormat);
     }
 }

@@ -68,7 +68,14 @@ export class BankingPanelComponent implements OnInit {
   ledger: BankingLedgerDto | null = null;
   ledgerLoading = false;
 
-  readonly txnColumns: string[] = ['txnDate', 'institutionName', 'amount', 'description'];
+  readonly txnColumns: string[] = [
+    'txnDate',
+    'institutionName',
+    'sourceFormat',
+    'debitCredit',
+    'amount',
+    'description',
+  ];
   readonly fileColumns: string[] = [
     'createdAt',
     'institutionName',
@@ -214,6 +221,20 @@ export class BankingPanelComponent implements OnInit {
         this.snackBar.open(`Download failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 5000 });
       },
     });
+  }
+
+  /** Human label for API {@code debitCredit} (CREDIT / DEBIT / ZERO). */
+  debitCreditLabel(code: string | null | undefined): string {
+    switch (code) {
+      case 'CREDIT':
+        return 'Credit';
+      case 'DEBIT':
+        return 'Debit';
+      case 'ZERO':
+        return '—';
+      default:
+        return code?.trim() ? code : '—';
+    }
   }
 
   formatBytes(n: number): string {

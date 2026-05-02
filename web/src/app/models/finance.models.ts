@@ -407,6 +407,10 @@ export interface BankingTransactionDto {
   txnDate: string;
   amount: number;
   description: string;
+  /** CREDIT = positive amount (inflow), DEBIT = negative (outflow), ZERO = zero. */
+  debitCredit: string;
+  /** Label derived from uploaded file type, e.g. CSV, QFX, Excel (XLSX). */
+  sourceFormat: string;
 }
 
 export interface BankingLedgerDto {
