@@ -1,203 +1,214 @@
 <div class="banking-panel">
-  <p class="muted banking-intro">
-    Create an <strong>institution</strong> (bank or brokerage), then upload <strong>CSV</strong>, <strong>QFX</strong>,
-    <strong>QIF</strong>, <strong>QBO</strong>, <strong>OFX</strong>, <strong>Excel</strong>, or <strong>PDF</strong>.
-    Duplicate files (same content hash) and duplicate transactions are skipped. Imports are stored under the server
-    directory configured in <code>tracker.finance.banking.import-directory</code> (default
-    <code>~/imports/banking</code>). All data is scoped to your account.
-  </p>
+  @if (segment === 'imports') {
+    <p class="muted banking-intro">
+      Create an <strong>institution</strong> (bank or brokerage), then upload <strong>CSV</strong>, <strong>QFX</strong>,
+      <strong>QIF</strong>, <strong>QBO</strong>, <strong>OFX</strong>, <strong>Excel</strong>, or <strong>PDF</strong>.
+      Duplicate files (same content hash) and duplicate transactions are skipped. Imports are stored under the server
+      directory configured in <code>tracker.finance.banking.import-directory</code> (default
+      <code>~/imports/banking</code>). All data is scoped to your account. View transactions and downloads under
+      <a routerLink="/finance">Finance → Banking</a>.
+    </p>
 
-  <div class="banking-toolbar">
-    <mat-form-field appearance="outline" class="banking-field grow">
-      <mat-label>New institution</mat-label>
-      <input matInput [(ngModel)]="newInstitutionName" name="bankNewInst" placeholder="e.g. Chase checking" />
-    </mat-form-field>
-    <button
-      mat-flat-button
-      color="primary"
-      type="button"
-      (click)="createInstitution()"
-      [disabled]="createBusy || !newInstitutionName.trim()"
-    >
-      <mat-icon>add_business</mat-icon>
-      Add
-    </button>
-    <button mat-stroked-button type="button" (click)="reloadInstitutions()" [disabled]="institutionsLoading">
-      <mat-icon>refresh</mat-icon>
-      Refresh list
-    </button>
-  </div>
+    <div class="banking-toolbar">
+      <mat-form-field appearance="outline" class="banking-field grow">
+        <mat-label>New institution</mat-label>
+        <input matInput [(ngModel)]="newInstitutionName" name="bankNewInst" placeholder="e.g. Chase checking" />
+      </mat-form-field>
+      <button
+        mat-flat-button
+        color="primary"
+        type="button"
+        (click)="createInstitution()"
+        [disabled]="createBusy || !newInstitutionName.trim()"
+      >
+        <mat-icon>add_business</mat-icon>
+        Add
+      </button>
+      <button mat-stroked-button type="button" (click)="reloadInstitutions()" [disabled]="institutionsLoading">
+        <mat-icon>refresh</mat-icon>
+        Refresh list
+      </button>
+    </div>
 
-  <div class="banking-toolbar">
-    <mat-form-field appearance="outline" class="banking-field">
-      <mat-label>Institution for upload</mat-label>
-      <mat-select [(ngModel)]="uploadInstitutionId" name="bankUploadInst">
-        @for (i of institutions; track i.id) {
-          <mat-option [value]="i.id">{{ i.name }}</mat-option>
-        }
-      </mat-select>
-    </mat-form-field>
-    <input
-      #filePick
-      type="file"
-      class="banking-file-input"
-      accept=".csv,.qfx,.qif,.qbo,.ofx,.xls,.xlsx,.pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,application/pdf"
-      (change)="onUploadFilePicked($event)"
-    />
-    <button mat-stroked-button type="button" (click)="filePick.click()">Choose file</button>
-    @if (selectedUploadFile) {
-      <span class="muted banking-file-label">{{ selectedUploadFile.name }}</span>
-    }
-    <button
-      mat-flat-button
-      color="primary"
-      type="button"
-      (click)="upload()"
-      [disabled]="uploadBusy || uploadInstitutionId == null || !selectedUploadFile"
-    >
-      <mat-icon>cloud_upload</mat-icon>
-      Upload
-    </button>
-  </div>
-
-  <h3 class="banking-subtitle">Ledger</h3>
-  <div class="banking-toolbar wrap">
-    <mat-button-toggle-group [(ngModel)]="ledgerRange" name="bankRange" (change)="loadLedger()">
-      <mat-button-toggle value="MONTH">Month</mat-button-toggle>
-      <mat-button-toggle value="QUARTER">Quarter</mat-button-toggle>
-      <mat-button-toggle value="YEAR">Year</mat-button-toggle>
-    </mat-button-toggle-group>
-    <mat-form-field appearance="outline" class="banking-field narrow">
-      <mat-label>Year</mat-label>
-      <input matInput type="number" [(ngModel)]="ledgerYear" name="bankYear" (change)="loadLedger()" />
-    </mat-form-field>
-    @if (ledgerRange === 'MONTH') {
+    <div class="banking-toolbar">
       <mat-form-field appearance="outline" class="banking-field">
-        <mat-label>Month</mat-label>
-        <mat-select [(ngModel)]="ledgerMonth" name="bankMonth" (selectionChange)="loadLedger()">
-          @for (m of monthChoices; track m.value) {
-            <mat-option [value]="m.value">{{ m.label }}</mat-option>
+        <mat-label>Institution for upload</mat-label>
+        <mat-select [(ngModel)]="uploadInstitutionId" name="bankUploadInst">
+          @for (i of institutions; track i.id) {
+            <mat-option [value]="i.id">{{ i.name }}</mat-option>
           }
         </mat-select>
       </mat-form-field>
-    }
-    @if (ledgerRange === 'QUARTER') {
+      <input
+        #filePick
+        type="file"
+        class="banking-file-input"
+        accept=".csv,.qfx,.qif,.qbo,.ofx,.xls,.xlsx,.pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,application/pdf"
+        (change)="onUploadFilePicked($event)"
+      />
+      <button mat-stroked-button type="button" (click)="filePick.click()">Choose file</button>
+      @if (selectedUploadFile) {
+        <span class="muted banking-file-label">{{ selectedUploadFile.name }}</span>
+      }
+      <button
+        mat-flat-button
+        color="primary"
+        type="button"
+        (click)="upload()"
+        [disabled]="uploadBusy || uploadInstitutionId == null || !selectedUploadFile"
+      >
+        <mat-icon>cloud_upload</mat-icon>
+        Upload
+      </button>
+    </div>
+  }
+
+  @if (segment === 'ledger') {
+    <p class="muted banking-intro">
+      Review imported <strong>transactions</strong> and <strong>uploaded files</strong> (including PDFs) by month,
+      quarter, or year. To add institutions or upload files, use <strong>Admin → Finance → Banking</strong> (requires an
+      admin account).
+    </p>
+
+    <h3 class="banking-subtitle">Ledger</h3>
+    <div class="banking-toolbar wrap">
+      <mat-button-toggle-group [(ngModel)]="ledgerRange" name="bankRange" (change)="loadLedger()">
+        <mat-button-toggle value="MONTH">Month</mat-button-toggle>
+        <mat-button-toggle value="QUARTER">Quarter</mat-button-toggle>
+        <mat-button-toggle value="YEAR">Year</mat-button-toggle>
+      </mat-button-toggle-group>
       <mat-form-field appearance="outline" class="banking-field narrow">
-        <mat-label>Quarter</mat-label>
-        <mat-select [(ngModel)]="ledgerQuarter" name="bankQ" (selectionChange)="loadLedger()">
-          <mat-option [value]="1">Q1</mat-option>
-          <mat-option [value]="2">Q2</mat-option>
-          <mat-option [value]="3">Q3</mat-option>
-          <mat-option [value]="4">Q4</mat-option>
+        <mat-label>Year</mat-label>
+        <input matInput type="number" [(ngModel)]="ledgerYear" name="bankYear" (change)="loadLedger()" />
+      </mat-form-field>
+      @if (ledgerRange === 'MONTH') {
+        <mat-form-field appearance="outline" class="banking-field">
+          <mat-label>Month</mat-label>
+          <mat-select [(ngModel)]="ledgerMonth" name="bankMonth" (selectionChange)="loadLedger()">
+            @for (m of monthChoices; track m.value) {
+              <mat-option [value]="m.value">{{ m.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      }
+      @if (ledgerRange === 'QUARTER') {
+        <mat-form-field appearance="outline" class="banking-field narrow">
+          <mat-label>Quarter</mat-label>
+          <mat-select [(ngModel)]="ledgerQuarter" name="bankQ" (selectionChange)="loadLedger()">
+            <mat-option [value]="1">Q1</mat-option>
+            <mat-option [value]="2">Q2</mat-option>
+            <mat-option [value]="3">Q3</mat-option>
+            <mat-option [value]="4">Q4</mat-option>
+          </mat-select>
+        </mat-form-field>
+      }
+      <mat-form-field appearance="outline" class="banking-field grow">
+        <mat-label>Filter by institution</mat-label>
+        <mat-select [(ngModel)]="filterInstitutionId" name="bankFilterInst" (selectionChange)="loadLedger()">
+          <mat-option value="">All</mat-option>
+          @for (i of institutions; track i.id) {
+            <mat-option [value]="i.id">{{ i.name }}</mat-option>
+          }
         </mat-select>
       </mat-form-field>
-    }
-    <mat-form-field appearance="outline" class="banking-field grow">
-      <mat-label>Filter by institution</mat-label>
-      <mat-select [(ngModel)]="filterInstitutionId" name="bankFilterInst" (selectionChange)="loadLedger()">
-        <mat-option value="">All</mat-option>
-        @for (i of institutions; track i.id) {
-          <mat-option [value]="i.id">{{ i.name }}</mat-option>
+      <button mat-stroked-button type="button" (click)="loadLedger()" [disabled]="ledgerLoading">
+        <mat-icon>refresh</mat-icon>
+        Reload
+      </button>
+    </div>
+
+    @if (ledger) {
+      <p class="muted">
+        <strong>{{ ledger.rangeLabel }}</strong>
+        @if (!ledger.importDirectoryConfigured) {
+          · <span class="warn">Import directory is not configured on the server; uploads from Admin will fail until it is set.</span>
+        } @else {
+          · Server import root: <code>{{ ledger.importDirectory }}</code>
         }
-      </mat-select>
-    </mat-form-field>
-    <button mat-stroked-button type="button" (click)="loadLedger()" [disabled]="ledgerLoading">
-      <mat-icon>refresh</mat-icon>
-      Reload
-    </button>
-  </div>
+      </p>
+    }
 
-  @if (ledger) {
-    <p class="muted">
-      <strong>{{ ledger.rangeLabel }}</strong>
-      @if (!ledger.importDirectoryConfigured) {
-        · <span class="warn">Import directory is not configured on the server; uploads will fail until it is set.</span>
-      } @else {
-        · Server import root: <code>{{ ledger.importDirectory }}</code>
-      }
-    </p>
-  }
+    @if (ledgerLoading) {
+      <div class="banking-spinner">
+        <mat-progress-spinner diameter="36" mode="indeterminate" />
+      </div>
+    }
 
-  @if (ledgerLoading) {
-    <div class="banking-spinner">
-      <mat-progress-spinner diameter="36" mode="indeterminate" />
-    </div>
-  }
+    @if (ledger && !ledgerLoading) {
+      <h4 class="banking-table-title">Transactions</h4>
+      <div class="table-wrap">
+        <table mat-table [dataSource]="ledger.transactions" class="mat-elevation-z0 banking-table">
+          <ng-container matColumnDef="txnDate">
+            <th mat-header-cell *matHeaderCellDef>Date</th>
+            <td mat-cell *matCellDef="let row">{{ row.txnDate }}</td>
+          </ng-container>
+          <ng-container matColumnDef="institutionName">
+            <th mat-header-cell *matHeaderCellDef>Institution</th>
+            <td mat-cell *matCellDef="let row">{{ row.institutionName }}</td>
+          </ng-container>
+          <ng-container matColumnDef="amount">
+            <th mat-header-cell *matHeaderCellDef>Amount</th>
+            <td mat-cell *matCellDef="let row">{{ row.amount | number: '1.2-2' }}</td>
+          </ng-container>
+          <ng-container matColumnDef="description">
+            <th mat-header-cell *matHeaderCellDef>Description</th>
+            <td mat-cell *matCellDef="let row">{{ row.description }}</td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="txnColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: txnColumns"></tr>
+        </table>
+        @if (!ledger.transactions.length) {
+          <p class="muted empty-hint">No transactions in this range.</p>
+        }
+      </div>
 
-  @if (ledger && !ledgerLoading) {
-    <h4 class="banking-table-title">Transactions</h4>
-    <div class="table-wrap">
-      <table mat-table [dataSource]="ledger.transactions" class="mat-elevation-z0 banking-table">
-        <ng-container matColumnDef="txnDate">
-          <th mat-header-cell *matHeaderCellDef>Date</th>
-          <td mat-cell *matCellDef="let row">{{ row.txnDate }}</td>
-        </ng-container>
-        <ng-container matColumnDef="institutionName">
-          <th mat-header-cell *matHeaderCellDef>Institution</th>
-          <td mat-cell *matCellDef="let row">{{ row.institutionName }}</td>
-        </ng-container>
-        <ng-container matColumnDef="amount">
-          <th mat-header-cell *matHeaderCellDef>Amount</th>
-          <td mat-cell *matCellDef="let row">{{ row.amount | number: '1.2-2' }}</td>
-        </ng-container>
-        <ng-container matColumnDef="description">
-          <th mat-header-cell *matHeaderCellDef>Description</th>
-          <td mat-cell *matCellDef="let row">{{ row.description }}</td>
-        </ng-container>
-        <tr mat-header-row *matHeaderRowDef="txnColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: txnColumns"></tr>
-      </table>
-      @if (!ledger.transactions.length) {
-        <p class="muted empty-hint">No transactions in this range.</p>
-      }
-    </div>
-
-    <h4 class="banking-table-title">Uploaded files (including PDFs)</h4>
-    <div class="table-wrap">
-      <table mat-table [dataSource]="ledger.importFiles" class="mat-elevation-z0 banking-table">
-        <ng-container matColumnDef="createdAt">
-          <th mat-header-cell *matHeaderCellDef>Uploaded</th>
-          <td mat-cell *matCellDef="let row">{{ row.createdAt | slice: 0:19 }}</td>
-        </ng-container>
-        <ng-container matColumnDef="institutionName">
-          <th mat-header-cell *matHeaderCellDef>Institution</th>
-          <td mat-cell *matCellDef="let row">{{ row.institutionName }}</td>
-        </ng-container>
-        <ng-container matColumnDef="fileKind">
-          <th mat-header-cell *matHeaderCellDef>Kind</th>
-          <td mat-cell *matCellDef="let row">{{ row.fileKind }}</td>
-        </ng-container>
-        <ng-container matColumnDef="originalFilename">
-          <th mat-header-cell *matHeaderCellDef>File</th>
-          <td mat-cell *matCellDef="let row">{{ row.originalFilename }}</td>
-        </ng-container>
-        <ng-container matColumnDef="sizeBytes">
-          <th mat-header-cell *matHeaderCellDef>Size</th>
-          <td mat-cell *matCellDef="let row">{{ formatBytes(row.sizeBytes) }}</td>
-        </ng-container>
-        <ng-container matColumnDef="rowsInserted">
-          <th mat-header-cell *matHeaderCellDef>Rows in</th>
-          <td mat-cell *matCellDef="let row">{{ row.rowsInserted }}</td>
-        </ng-container>
-        <ng-container matColumnDef="rowsSkippedDuplicate">
-          <th mat-header-cell *matHeaderCellDef>Dup skip</th>
-          <td mat-cell *matCellDef="let row">{{ row.rowsSkippedDuplicate }}</td>
-        </ng-container>
-        <ng-container matColumnDef="actions">
-          <th mat-header-cell *matHeaderCellDef></th>
-          <td mat-cell *matCellDef="let row">
-            <button mat-button type="button" (click)="download(row)">Download</button>
-            @if (row.parseNote) {
-              <span class="muted parse-note" [attr.title]="row.parseNote">Note</span>
-            }
-          </td>
-        </ng-container>
-        <tr mat-header-row *matHeaderRowDef="fileColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: fileColumns"></tr>
-      </table>
-      @if (!ledger.importFiles.length) {
-        <p class="muted empty-hint">No files uploaded in this range.</p>
-      }
-    </div>
+      <h4 class="banking-table-title">Uploaded files (including PDFs)</h4>
+      <div class="table-wrap">
+        <table mat-table [dataSource]="ledger.importFiles" class="mat-elevation-z0 banking-table">
+          <ng-container matColumnDef="createdAt">
+            <th mat-header-cell *matHeaderCellDef>Uploaded</th>
+            <td mat-cell *matCellDef="let row">{{ row.createdAt | slice: 0:19 }}</td>
+          </ng-container>
+          <ng-container matColumnDef="institutionName">
+            <th mat-header-cell *matHeaderCellDef>Institution</th>
+            <td mat-cell *matCellDef="let row">{{ row.institutionName }}</td>
+          </ng-container>
+          <ng-container matColumnDef="fileKind">
+            <th mat-header-cell *matHeaderCellDef>Kind</th>
+            <td mat-cell *matCellDef="let row">{{ row.fileKind }}</td>
+          </ng-container>
+          <ng-container matColumnDef="originalFilename">
+            <th mat-header-cell *matHeaderCellDef>File</th>
+            <td mat-cell *matCellDef="let row">{{ row.originalFilename }}</td>
+          </ng-container>
+          <ng-container matColumnDef="sizeBytes">
+            <th mat-header-cell *matHeaderCellDef>Size</th>
+            <td mat-cell *matCellDef="let row">{{ formatBytes(row.sizeBytes) }}</td>
+          </ng-container>
+          <ng-container matColumnDef="rowsInserted">
+            <th mat-header-cell *matHeaderCellDef>Rows in</th>
+            <td mat-cell *matCellDef="let row">{{ row.rowsInserted }}</td>
+          </ng-container>
+          <ng-container matColumnDef="rowsSkippedDuplicate">
+            <th mat-header-cell *matHeaderCellDef>Dup skip</th>
+            <td mat-cell *matCellDef="let row">{{ row.rowsSkippedDuplicate }}</td>
+          </ng-container>
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef></th>
+            <td mat-cell *matCellDef="let row">
+              <button mat-button type="button" (click)="download(row)">Download</button>
+              @if (row.parseNote) {
+                <span class="muted parse-note" [attr.title]="row.parseNote">Note</span>
+              }
+            </td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="fileColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: fileColumns"></tr>
+        </table>
+        @if (!ledger.importFiles.length) {
+          <p class="muted empty-hint">No files uploaded in this range.</p>
+        }
+      </div>
+    }
   }
 </div>

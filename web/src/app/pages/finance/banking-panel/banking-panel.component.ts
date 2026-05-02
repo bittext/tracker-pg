@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, Input, OnInit, inject } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -24,6 +25,7 @@ import { formatHttpErrorDetail } from '../../../util/http-error';
   standalone: true,
   imports: [
     CommonModule,
+    RouterLink,
     FormsModule,
     MatButtonModule,
     MatButtonToggleModule,
@@ -41,6 +43,12 @@ import { formatHttpErrorDetail } from '../../../util/http-error';
 export class BankingPanelComponent implements OnInit {
   private readonly api = inject(FinanceApiService);
   private readonly snackBar = inject(MatSnackBar);
+
+  /**
+   * {@code imports}: institutions + file upload (Admin → Finance → Banking).
+   * {@code ledger}: period filter, transactions, uploaded files (Finance → Banking).
+   */
+  @Input() segment: 'imports' | 'ledger' = 'ledger';
 
   institutions: BankingInstitutionDto[] = [];
   institutionsLoading = false;
@@ -89,7 +97,9 @@ export class BankingPanelComponent implements OnInit {
 
   ngOnInit(): void {
     this.reloadInstitutions();
-    this.loadLedger();
+    if (this.segment === 'ledger') {
+      this.loadLedger();
+    }
   }
 
   reloadInstitutions(): void {
@@ -150,7 +160,9 @@ export class BankingPanelComponent implements OnInit {
         this.selectedUploadFile = null;
         const msg = r.message + (r.skippedDuplicateFile ? ' (duplicate file skipped.)' : '');
         this.snackBar.open(msg, undefined, { duration: 5000 });
-        this.loadLedger();
+        if (this.segment === 'ledger') {
+          this.loadLedger();
+        }
       },
       error: (e) => {
         this.uploadBusy = false;
