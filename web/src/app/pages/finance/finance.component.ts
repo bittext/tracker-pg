@@ -587,8 +587,8 @@ export class FinanceComponent implements OnInit {
 
   private sortFinanceRowsByActivityDateAsc(rows: Record<string, unknown>[]): Record<string, unknown>[] {
     return [...rows].sort((a, b) => {
-      const ta = this.parseFlexibleDate(this.activityDateValue(a))?.getTime();
-      const tb = this.parseFlexibleDate(this.activityDateValue(b))?.getTime();
+      const ta = this.utcCalendarDateForSort(this.activityDateValue(a))?.getTime();
+      const tb = this.utcCalendarDateForSort(this.activityDateValue(b))?.getTime();
       if (ta == null && tb == null) {
         return 0;
       }
@@ -630,11 +630,8 @@ export class FinanceComponent implements OnInit {
   }
 
   formatFinanceCell(column: string, v: unknown): string {
-    if (this.isActivityDateColumn(column)) {
-      return this.formatActivityDateTime(v);
-    }
-    if (this.isProcessDateColumn(column)) {
-      return this.formatProcessDateOnly(v);
+    if (this.isRobinhoodTableDateColumn(column)) {
+      return this.formatRobinhoodUtcCalendarDateOnly(v);
     }
     if (this.isAmountOrPriceColumn(column)) {
       return this.formatUsdCurrency(v);
@@ -760,12 +757,10 @@ export class FinanceComponent implements OnInit {
     return String(v);
   }
 
-  private isActivityDateColumn(column: string): boolean {
-    return column.trim().toUpperCase() === 'ACTIVITY_DATE';
-  }
-
-  private isProcessDateColumn(column: string): boolean {
-    return column.trim().toUpperCase() === 'PROCESS_DATE';
+  /** Robinhood JDBC dates are UTC instants; show the UTC calendar day (avoids “previous evening” in US timezones). */
+  private isRobinhoodTableDateColumn(column: string): boolean {
+    const u = column.trim().toUpperCase();
+    return u === 'ACTIVITY_DATE' || u === 'PROCESS_DATE' || u === 'SETTLE_DATE';
   }
 
   private isAmountOrPriceColumn(column: string): boolean {
@@ -803,37 +798,61 @@ export class FinanceComponent implements OnInit {
     return null;
   }
 
-  private formatProcessDateOnly(v: unknown): string {
+  /**
+   * Normalizes API/JDBC timestamps to a Date at UTC midnight for the UTC calendar day, then formats with
+   * {@code timeZone: 'UTC'} so May 1 stored as {@code 2026-05-01T00:00:00Z} shows as May 1 (not Apr 30 evening local).
+   */
+  private formatRobinhoodUtcCalendarDateOnly(v: unknown): string {
     if (v == null || v === '') {
       return '—';
     }
-    const d = this.parseFlexibleDate(v);
-    if (d == null) {
+    const cal = this.utcCalendarDateForSort(v);
+    if (cal == null) {
       return this.formatRhCell(v);
     }
     try {
-      return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(d);
+      return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' }).format(cal);
     } catch {
-      return d.toISOString().slice(0, 10);
+      const y = cal.getUTCFullYear();
+      const m = String(cal.getUTCMonth() + 1).padStart(2, '0');
+      const d = String(cal.getUTCDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
     }
   }
 
-  private formatActivityDateTime(v: unknown): string {
-    if (v == null || v === '') {
-      return '—';
+  /** UTC midnight for the UTC calendar day of {@code v}; used for sort + display. */
+  private utcCalendarDateForSort(v: unknown): Date | null {
+    if (v instanceof Date) {
+      if (Number.isNaN(v.getTime())) {
+        return null;
+      }
+      return new Date(Date.UTC(v.getUTCFullYear(), v.getUTCMonth(), v.getUTCDate()));
+    }
+    if (typeof v === 'number' && Number.isFinite(v)) {
+      const d = new Date(v);
+      if (Number.isNaN(d.getTime())) {
+        return null;
+      }
+      return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+    }
+    if (typeof v === 'string') {
+      const s = v.trim();
+      const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+      if (m) {
+        const y = Number(m[1]);
+        const mo = Number(m[2]) - 1;
+        const da = Number(m[3]);
+        if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(da)) {
+          return null;
+        }
+        return new Date(Date.UTC(y, mo, da));
+      }
     }
     const d = this.parseFlexibleDate(v);
-    if (d == null) {
-      return this.formatRhCell(v);
+    if (d == null || Number.isNaN(d.getTime())) {
+      return null;
     }
-    try {
-      return new Intl.DateTimeFormat(undefined, {
-        dateStyle: 'medium',
-        timeStyle: 'medium',
-      }).format(d);
-    } catch {
-      return d.toISOString();
-    }
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
   }
 
   private err(msg: string, e: unknown): void {
