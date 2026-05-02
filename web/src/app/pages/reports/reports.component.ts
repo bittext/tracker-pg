@@ -38,6 +38,7 @@ import {
   ReportJournalAttachmentsDialogData,
 } from './report-journal-attachments-dialog.component';
 import { ReportJournalBodyDialogComponent, ReportJournalBodyDialogData } from './report-journal-body-dialog.component';
+import { ReportsFinanceBankingComponent } from './reports-finance-banking/reports-finance-banking.component';
 
 /** Padding slot or a real day in the month grid. */
 interface CalendarCell {
@@ -68,6 +69,7 @@ interface CalendarCell {
     MatSelectModule,
     MatIconModule,
     MatMenuModule,
+    ReportsFinanceBankingComponent,
   ],
   templateUrl: './reports.component.html',
   styleUrl: './reports.component.scss',

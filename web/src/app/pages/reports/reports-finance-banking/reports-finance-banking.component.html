@@ -1,0 +1,236 @@
+<section class="banking-report" aria-labelledby="banking-report-heading">
+  <h2 id="banking-report-heading" class="banking-report-title">Banking — money flow</h2>
+  <p class="muted banking-report-lead">
+    Summaries are built from <strong>imported</strong> banking transactions (CSV, QFX, QIF, QBO, OFX, Excel) for the
+    selected calendar year. <strong>Credits</strong> are inflows (positive amounts); <strong>debits</strong> are outflows
+    (absolute value of negative amounts). Upload new files under
+    <a routerLink="/admin">Admin</a> → Finance → Banking; line-level detail under
+    <a routerLink="/finance">Finance</a> → Banking.
+  </p>
+
+  <div class="banking-report-toolbar">
+    <mat-form-field appearance="outline" class="br-field narrow">
+      <mat-label>Year</mat-label>
+      <input
+        matInput
+        type="number"
+        [(ngModel)]="reportYear"
+        name="brYear"
+        min="1990"
+        max="2100"
+        (change)="loadReport()"
+        (keyup.enter)="loadReport()"
+      />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="br-field grow">
+      <mat-label>Institution</mat-label>
+      <mat-select [(ngModel)]="filterInstitutionId" name="brInst" (selectionChange)="loadReport()">
+        <mat-option value="">All institutions</mat-option>
+        @for (i of institutions; track i.id) {
+          <mat-option [value]="'' + i.id">{{ i.name }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <button mat-stroked-button type="button" (click)="loadReport()" [disabled]="loading">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+  </div>
+
+  @if (loading) {
+    <div class="banking-report-spinner">
+      <mat-progress-spinner diameter="40" mode="indeterminate" />
+    </div>
+  }
+
+  @if (ledger && !loading) {
+    @if (!ledger.importDirectoryConfigured) {
+      <p class="muted br-warn">Server import directory is not configured; uploads may be disabled.</p>
+    }
+
+    <div class="br-kpi-strip" role="group" aria-label="Year totals">
+      <div class="br-kpi">
+        <span class="br-kpi-label">Year</span>
+        <span class="br-kpi-value">{{ reportYear }}</span>
+      </div>
+      <div class="br-kpi">
+        <span class="br-kpi-label">Total credits (in)</span>
+        <span class="br-kpi-value br-kpi--in">{{ yearCreditTotal | number: '1.2-2' }}</span>
+      </div>
+      <div class="br-kpi">
+        <span class="br-kpi-label">Total debits (out)</span>
+        <span class="br-kpi-value br-kpi--out">{{ yearDebitTotal | number: '1.2-2' }}</span>
+      </div>
+      <div class="br-kpi">
+        <span class="br-kpi-label">Net flow</span>
+        <span class="br-kpi-value" [class.br-kpi--net-pos]="yearNet > 0" [class.br-kpi--net-neg]="yearNet < 0">{{
+          yearNet | number: '1.2-2'
+        }}</span>
+      </div>
+      <div class="br-kpi">
+        <span class="br-kpi-label">Transactions</span>
+        <span class="br-kpi-value">{{ yearTxnCount }}</span>
+      </div>
+      <div class="br-kpi">
+        <span class="br-kpi-label">Files uploaded</span>
+        <span class="br-kpi-value">{{ ledger.importFiles.length }}</span>
+      </div>
+    </div>
+
+    <mat-card appearance="outlined" class="br-card">
+      <mat-card-header>
+        <mat-card-title>By institution</mat-card-title>
+        <mat-card-subtitle>Credits, debits, and net for the year</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="table-wrap">
+          <table mat-table [dataSource]="byInstitution" class="full-width">
+            <ng-container matColumnDef="institutionName">
+              <th mat-header-cell *matHeaderCellDef>Institution</th>
+              <td mat-cell *matCellDef="let row">{{ row.institutionName }}</td>
+            </ng-container>
+            <ng-container matColumnDef="creditTotal">
+              <th mat-header-cell *matHeaderCellDef>Credits</th>
+              <td mat-cell *matCellDef="let row">{{ row.creditTotal | number: '1.2-2' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="debitTotal">
+              <th mat-header-cell *matHeaderCellDef>Debits</th>
+              <td mat-cell *matCellDef="let row">{{ row.debitTotal | number: '1.2-2' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="net">
+              <th mat-header-cell *matHeaderCellDef>Net</th>
+              <td mat-cell *matCellDef="let row">{{ row.net | number: '1.2-2' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="txnCount">
+              <th mat-header-cell *matHeaderCellDef>Txns</th>
+              <td mat-cell *matCellDef="let row">{{ row.txnCount }}</td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="instColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: instColumns"></tr>
+          </table>
+          @if (!byInstitution.length) {
+            <p class="muted empty-hint">No transactions in this year for this filter.</p>
+          }
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card appearance="outlined" class="br-card">
+      <mat-card-header>
+        <mat-card-title>By month</mat-card-title>
+        <mat-card-subtitle>Cash-flow shape across the year</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="table-wrap">
+          <table mat-table [dataSource]="byMonth" class="full-width">
+            <ng-container matColumnDef="monthLabel">
+              <th mat-header-cell *matHeaderCellDef>Month</th>
+              <td mat-cell *matCellDef="let row">{{ row.monthLabel }}</td>
+            </ng-container>
+            <ng-container matColumnDef="creditTotal">
+              <th mat-header-cell *matHeaderCellDef>Credits</th>
+              <td mat-cell *matCellDef="let row">{{ row.creditTotal | number: '1.2-2' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="debitTotal">
+              <th mat-header-cell *matHeaderCellDef>Debits</th>
+              <td mat-cell *matCellDef="let row">{{ row.debitTotal | number: '1.2-2' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="net">
+              <th mat-header-cell *matHeaderCellDef>Net</th>
+              <td mat-cell *matCellDef="let row">{{ row.net | number: '1.2-2' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="txnCount">
+              <th mat-header-cell *matHeaderCellDef>Txns</th>
+              <td mat-cell *matCellDef="let row">{{ row.txnCount }}</td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="monthColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: monthColumns"></tr>
+          </table>
+          @if (!byMonth.length) {
+            <p class="muted empty-hint">No monthly breakdown (no transactions).</p>
+          }
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card appearance="outlined" class="br-card">
+      <mat-card-header>
+        <mat-card-title>By import file type</mat-card-title>
+        <mat-card-subtitle>Grouped by the “From file” label on each transaction</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="table-wrap">
+          <table mat-table [dataSource]="bySource" class="full-width">
+            <ng-container matColumnDef="sourceFormat">
+              <th mat-header-cell *matHeaderCellDef>Source</th>
+              <td mat-cell *matCellDef="let row">{{ row.sourceFormat }}</td>
+            </ng-container>
+            <ng-container matColumnDef="creditTotal">
+              <th mat-header-cell *matHeaderCellDef>Credits</th>
+              <td mat-cell *matCellDef="let row">{{ row.creditTotal | number: '1.2-2' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="debitTotal">
+              <th mat-header-cell *matHeaderCellDef>Debits</th>
+              <td mat-cell *matCellDef="let row">{{ row.debitTotal | number: '1.2-2' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="net">
+              <th mat-header-cell *matHeaderCellDef>Net</th>
+              <td mat-cell *matCellDef="let row">{{ row.net | number: '1.2-2' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="txnCount">
+              <th mat-header-cell *matHeaderCellDef>Txns</th>
+              <td mat-cell *matCellDef="let row">{{ row.txnCount }}</td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="sourceColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: sourceColumns"></tr>
+          </table>
+          @if (!bySource.length) {
+            <p class="muted empty-hint">No source breakdown.</p>
+          }
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card appearance="outlined" class="br-card">
+      <mat-card-header>
+        <mat-card-title>Uploaded files in this year</mat-card-title>
+        <mat-card-subtitle>Imports and PDFs recorded in the period (by upload time)</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="table-wrap">
+          <table mat-table [dataSource]="ledger.importFiles" class="full-width">
+            <ng-container matColumnDef="createdAt">
+              <th mat-header-cell *matHeaderCellDef>Uploaded</th>
+              <td mat-cell *matCellDef="let row">{{ row.createdAt | slice: 0:19 }}</td>
+            </ng-container>
+            <ng-container matColumnDef="institutionName">
+              <th mat-header-cell *matHeaderCellDef>Institution</th>
+              <td mat-cell *matCellDef="let row">{{ row.institutionName }}</td>
+            </ng-container>
+            <ng-container matColumnDef="fileKind">
+              <th mat-header-cell *matHeaderCellDef>Kind</th>
+              <td mat-cell *matCellDef="let row">{{ row.fileKind }}</td>
+            </ng-container>
+            <ng-container matColumnDef="originalFilename">
+              <th mat-header-cell *matHeaderCellDef>File</th>
+              <td mat-cell *matCellDef="let row">{{ row.originalFilename }}</td>
+            </ng-container>
+            <ng-container matColumnDef="rowsInserted">
+              <th mat-header-cell *matHeaderCellDef>Rows in</th>
+              <td mat-cell *matCellDef="let row">{{ row.rowsInserted }}</td>
+            </ng-container>
+            <ng-container matColumnDef="rowsSkippedDuplicate">
+              <th mat-header-cell *matHeaderCellDef>Dup skip</th>
+              <td mat-cell *matCellDef="let row">{{ row.rowsSkippedDuplicate }}</td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="fileColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: fileColumns"></tr>
+          </table>
+          @if (!ledger.importFiles.length) {
+            <p class="muted empty-hint">No files uploaded in this year (for this filter).</p>
+          }
+        </div>
+      </mat-card-content>
+    </mat-card>
+  }
+</section>

@@ -17,6 +17,18 @@
 
 .tab-panel {
   padding: 1rem 1rem 1.25rem;
+
+  &--nested {
+    padding-top: 0.75rem;
+  }
+}
+
+.finance-report-panel {
+  max-width: 100%;
+}
+
+.reports-finance-inner-tabs {
+  --mat-tab-header-label-text-size: 0.9rem;
 }
 
 .exercise-report {
