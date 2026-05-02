@@ -1,6 +1,7 @@
 package com.svp.tracker.common.web;
 
 import com.svp.tracker.fitness.exception.NotFoundException;
+import java.io.UncheckedIOException;
 import java.util.Map;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
@@ -40,6 +41,18 @@ public class ApiExceptionHandler {
                         "database_unavailable",
                         "message",
                         msg != null ? msg : "Database transaction failed (is PostgreSQL running and reachable?)"));
+    }
+
+    @ExceptionHandler(UncheckedIOException.class)
+    public ResponseEntity<Map<String, String>> storageIo(UncheckedIOException ex) {
+        Throwable c = ex.getCause();
+        String msg = c != null ? c.getMessage() : ex.getMessage();
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(Map.of(
+                        "error",
+                        "storage_io",
+                        "message",
+                        msg != null ? msg : "Attachment storage failed (check S3 credentials/bucket or local journal directory)"));
     }
 
     @ExceptionHandler(ResponseStatusException.class)

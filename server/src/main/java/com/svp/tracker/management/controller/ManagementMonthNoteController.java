@@ -7,7 +7,6 @@ import com.svp.tracker.management.dto.ManagementMonthNoteWriteRequest;
 import com.svp.tracker.management.service.ManagementMonthNoteService;
 import com.svp.tracker.management.service.ManagementMonthNoteService.AttachmentFile;
 import jakarta.validation.Valid;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -70,7 +69,7 @@ public class ManagementMonthNoteController {
 
     @PostMapping("/{id}/attachments")
     @ResponseStatus(HttpStatus.CREATED)
-    public ManagementMonthNoteAttachmentDto upload(@PathVariable long id, @RequestParam("file") MultipartFile file) throws IOException {
+    public ManagementMonthNoteAttachmentDto upload(@PathVariable long id, @RequestParam("file") MultipartFile file) {
         return service.addAttachment(id, file);
     }
 

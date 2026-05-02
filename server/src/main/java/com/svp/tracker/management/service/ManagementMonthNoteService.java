@@ -131,7 +131,7 @@ public class ManagementMonthNoteService {
     }
 
     @Transactional
-    public ManagementMonthNoteAttachmentDto addAttachment(long noteId, MultipartFile file) throws IOException {
+    public ManagementMonthNoteAttachmentDto addAttachment(long noteId, MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File required");
         }
@@ -146,6 +146,9 @@ public class ManagementMonthNoteService {
         String key;
         try (var in = file.getInputStream()) {
             key = blobStore.put(n.getOwnerUserId(), n.getId(), in, file.getSize());
+        } catch (IOException ex) {
+            // Same as journal attachments: checked I/O must not escape @Transactional as a bare IOException (opaque 500).
+            throw new UncheckedIOException(ex);
         }
         ManagementMonthNoteAttachment a = new ManagementMonthNoteAttachment();
         a.setNote(n);
@@ -155,9 +158,7 @@ public class ManagementMonthNoteService {
         a.setSizeBytes(file.getSize());
         a.setCreatedAt(Instant.now());
         a = attachmentRepository.save(a);
-        n.getAttachments().add(a);
         n.setUpdatedAt(Instant.now());
-        noteRepository.save(n);
         return toAttachmentDto(a);
     }
 
