@@ -5,14 +5,18 @@ import com.svp.tracker.config.FinanceProperties;
 import com.svp.tracker.finance.dto.RobinhoodCsvDirectoryImportDto;
 import com.svp.tracker.finance.dto.RobinhoodCsvDirectoryImportFileDto;
 import com.svp.tracker.finance.dto.RobinhoodCsvImportResultDto;
+import com.svp.tracker.finance.dto.RobinhoodCsvSavedImportDto;
 import java.io.IOException;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.Comparator;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -80,6 +84,64 @@ public class RobinhoodCsvImportService {
             throw new IllegalStateException("Could not read CSV file", e);
         }
         return importCsvBytes(raw, file.getOriginalFilename(), apply);
+    }
+
+    /**
+     * Saves the uploaded CSV into {@link FinanceProperties#robinhoodCsvImportDirectory()} (creates the directory if
+     * needed), then runs {@link #importCsvBytes} on the same content. Filename is sanitized to a single path segment;
+     * if the name already exists, a millisecond suffix is inserted before {@code .csv}. Does not move the file to the
+     * uploaded directory — use directory import for batch moves after successful applies.
+     */
+    public RobinhoodCsvSavedImportDto saveUploadToImportDirectoryAndImport(MultipartFile file, boolean apply) {
+        String inDir = props.robinhoodCsvImportDirectory();
+        if (inDir.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Configure tracker.finance.robinhood-csv-import-directory so uploads can be saved (e.g. "
+                            + "/robinhood/import when host folder is mounted via docker-compose.robinhood.yml)");
+        }
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("CSV file is required");
+        }
+        if (file.getSize() > props.maxImportCsvBytes()) {
+            throw new IllegalArgumentException(
+                    "CSV file exceeds max-import-csv-bytes=" + props.maxImportCsvBytes());
+        }
+        byte[] raw;
+        try {
+            raw = file.getBytes();
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not read CSV file", e);
+        }
+
+        Path importDir;
+        try {
+            importDir = Path.of(inDir).toAbsolutePath().normalize();
+            Files.createDirectories(importDir);
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not prepare import directory: " + inDir, e);
+        }
+        if (!Files.isDirectory(importDir)) {
+            throw new IllegalArgumentException("Import path is not a directory: " + importDir);
+        }
+
+        String baseName = safeCsvFileName(file.getOriginalFilename());
+        Path dest = importDir.resolve(baseName);
+        int collisions = 0;
+        while (collisions < 12) {
+            try {
+                Files.write(dest, raw, StandardOpenOption.CREATE_NEW);
+                String written = dest.getFileName().toString();
+                RobinhoodCsvImportResultDto result = importCsvBytes(raw, written, apply);
+                return new RobinhoodCsvSavedImportDto(importDir.toString(), dest.toAbsolutePath().normalize().toString(), result);
+            } catch (FileAlreadyExistsException e) {
+                baseName = uniqueCsvFileName(baseName);
+                dest = importDir.resolve(baseName);
+                collisions++;
+            } catch (IOException e) {
+                throw new IllegalStateException("Could not write CSV under " + importDir, e);
+            }
+        }
+        throw new IllegalStateException("Could not allocate a unique CSV filename under " + importDir);
     }
 
     /**
@@ -364,6 +426,32 @@ public class RobinhoodCsvImportService {
         }
         String s = raw.replace('\n', ' ').replace('\r', ' ').replaceAll("\\s+", " ").trim();
         return s.length() > 220 ? s.substring(0, 217) + "..." : s;
+    }
+
+    /** Single path segment; only {@code [A-Za-z0-9._-]}, forces {@code .csv} suffix. */
+    private static String safeCsvFileName(String raw) {
+        String name =
+                raw == null || raw.isBlank()
+                        ? "robinhood-upload.csv"
+                        : Path.of(raw).getFileName().toString().trim();
+        if (name.isEmpty()) {
+            name = "robinhood-upload.csv";
+        }
+        name = name.replaceAll("[^a-zA-Z0-9._-]", "_");
+        if (name.length() > 200) {
+            name = name.substring(name.length() - 200);
+        }
+        if (!name.toLowerCase(Locale.ROOT).endsWith(".csv")) {
+            name = name + ".csv";
+        }
+        return name;
+    }
+
+    private static String uniqueCsvFileName(String safeName) {
+        int dot = safeName.lastIndexOf('.');
+        String stem = dot > 0 ? safeName.substring(0, dot) : safeName;
+        String ext = dot > 0 ? safeName.substring(dot) : ".csv";
+        return stem + "_" + Instant.now().toEpochMilli() + ext;
     }
 
     private ParsedRow mapRow(

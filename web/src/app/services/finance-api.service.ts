@@ -16,6 +16,8 @@ import {
   StockNewsDto,
   Surge52WeekHighsDto,
   BreakoutCandidatesDto,
+  RobinhoodCsvSavedImportDto,
+  RobinhoodCsvUploadStatusDto,
 } from '../models/finance.models';
 
 export type FinancePeriod = 'all' | 'year' | 'month';
@@ -99,6 +101,19 @@ export class FinanceApiService {
       params = params.set('limit', String(Math.floor(limit)));
     }
     return this.http.get<BreakoutCandidatesDto>(`${this.root}/breakout-candidates`, { params });
+  }
+
+  /** Whether robinhood CSV import directory is configured (for UI uploads). */
+  robinhoodCsvImportUploadStatus() {
+    return this.http.get<RobinhoodCsvUploadStatusDto>(`${this.root}/csv-import-upload-status`);
+  }
+
+  /** Save CSV to configured import folder then run import pipeline (same as import-csv). */
+  robinhoodCsvSaveToImportDirectory(file: File, apply: boolean) {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    const params = new HttpParams().set('apply', apply ? 'true' : 'false');
+    return this.http.post<RobinhoodCsvSavedImportDto>(`${this.root}/import-csv-save-to-directory`, form, { params });
   }
 
   financeAlerts() {

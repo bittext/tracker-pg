@@ -1,3 +1,33 @@
+/** GET /api/finance/robinhood/csv-import-upload-status */
+export interface RobinhoodCsvUploadStatusDto {
+  configured: boolean;
+  importDirectory: string;
+}
+
+/** POST /api/finance/robinhood/import-csv-save-to-directory */
+export interface RobinhoodCsvSavedImportDto {
+  importDirectory: string;
+  savedAbsolutePath: string;
+  importResult: RobinhoodCsvImportResultDto;
+}
+
+export interface RobinhoodCsvImportResultDto {
+  apply: boolean;
+  fileName: string;
+  csvRowCount: number;
+  parsedRows: number;
+  insertedRows: number;
+  duplicateRowsSkipped: number;
+  skippedRows: number;
+  errorCount: number;
+  errors: string[];
+  detectedHeaders: string[];
+  detectedInstruments: string[];
+  previewRows: Record<string, string>[];
+  tableTarget: string;
+  note: string;
+}
+
 /** GET /api/finance/robinhood/transactions */
 export interface RobinhoodTransactionsDto {
   rows: Record<string, unknown>[];

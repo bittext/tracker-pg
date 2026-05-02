@@ -5,6 +5,8 @@ import com.svp.tracker.finance.dto.BreakoutCandidatesDto;
 import com.svp.tracker.finance.dto.FinanceCrawlSnapshotDto;
 import com.svp.tracker.finance.dto.RobinhoodCsvDirectoryImportDto;
 import com.svp.tracker.finance.dto.RobinhoodCsvImportResultDto;
+import com.svp.tracker.finance.dto.RobinhoodCsvSavedImportDto;
+import com.svp.tracker.finance.dto.RobinhoodCsvUploadStatusDto;
 import com.svp.tracker.finance.dto.RobinhoodStocksSummaryDto;
 import com.svp.tracker.finance.dto.RobinhoodTransactionsDto;
 import com.svp.tracker.finance.dto.StockNewsDto;
@@ -24,6 +26,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+import java.nio.file.Path;
 import java.util.List;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -128,6 +131,45 @@ public class FinanceController {
         log.info("POST /api/finance/robinhood/import-csv-directory apply={}", apply);
         try {
             return robinhoodCsvImportService.importAllCsvFromConfiguredDirectory(apply);
+        } catch (IllegalStateException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Whether {@code tracker.finance.robinhood-csv-import-directory} is set (upload UI). {@code importDirectory} is the
+     * normalized path when configured.
+     */
+    @GetMapping("/csv-import-upload-status")
+    public RobinhoodCsvUploadStatusDto csvImportUploadStatus() {
+        String raw = financeProperties.robinhoodCsvImportDirectory().trim();
+        if (raw.isBlank()) {
+            return new RobinhoodCsvUploadStatusDto(false, "");
+        }
+        try {
+            return new RobinhoodCsvUploadStatusDto(true, Path.of(raw).toAbsolutePath().normalize().toString());
+        } catch (Exception e) {
+            return new RobinhoodCsvUploadStatusDto(true, raw);
+        }
+    }
+
+    /**
+     * Saves the uploaded CSV into {@code tracker.finance.robinhood-csv-import-directory}, then runs the same import as
+     * {@link #importCsv}. On Ubuntu/Lightsail the directory is often mounted from {@code /home/ubuntu/robinhood/reports/import}.
+     */
+    @PostMapping("/import-csv-save-to-directory")
+    public RobinhoodCsvSavedImportDto importCsvSaveToDirectory(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(name = "apply", required = false, defaultValue = "false") boolean apply) {
+        log.info(
+                "POST /api/finance/robinhood/import-csv-save-to-directory apply={} filename={} size={}",
+                apply,
+                file != null ? file.getOriginalFilename() : null,
+                file != null ? file.getSize() : null);
+        try {
+            return robinhoodCsvImportService.saveUploadToImportDirectoryAndImport(file, apply);
         } catch (IllegalStateException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
         } catch (IllegalArgumentException e) {
