@@ -30,6 +30,7 @@ import {
 } from '../../models/finance.models';
 import { FinanceApiService, FinancePeriod } from '../../services/finance-api.service';
 import { formatHttpErrorDetail } from '../../util/http-error';
+import { BankingPanelComponent } from './banking-panel/banking-panel.component';
 import { FinanceTax1040PanelComponent } from './finance-tax-1040-panel/finance-tax-1040-panel.component';
 
 @Component({
@@ -48,6 +49,7 @@ import { FinanceTax1040PanelComponent } from './finance-tax-1040-panel/finance-t
     MatSnackBarModule,
     MatTableModule,
     FinanceTax1040PanelComponent,
+    BankingPanelComponent,
   ],
   templateUrl: './finance.component.html',
   styleUrl: './finance.component.scss',

@@ -217,90 +217,108 @@
 
     <mat-tab label="Finance">
       <div class="tab-panel">
-        <section class="admin-section">
-          <h2 class="section-title">Finance alert notifications</h2>
-          <p class="muted">
-            Provision the recipient channels used by Finance → Alerts. Outbound email uses Amazon SES and SMS uses
-            Amazon SNS; configure region, verified sender, and AWS credentials on the server. This screen only stores the
-            destination email/mobile and channel toggles.
-          </p>
-          <div class="table-wrap-group admin-add-wrap">
-            <div class="table-wrap tight table-wrap--entry">
-              <div class="form-row wrap">
-                <mat-form-field appearance="outline" class="grow">
-                  <mat-label>Email address</mat-label>
-                  <input
-                    matInput
-                    [(ngModel)]="financeNotificationForm.emailAddress"
-                    name="financeAlertEmail"
-                    placeholder="you@example.com"
-                  />
-                </mat-form-field>
-                <mat-form-field appearance="outline" class="grow">
-                  <mat-label>Mobile number (E.164)</mat-label>
-                  <input
-                    matInput
-                    [(ngModel)]="financeNotificationForm.mobileE164"
-                    name="financeAlertMobile"
-                    placeholder="+15551234567"
-                  />
-                </mat-form-field>
-                <label class="admin-check">
-                  <input
-                    type="checkbox"
-                    [(ngModel)]="financeNotificationForm.emailEnabled"
-                    name="financeAlertEmailEnabled"
-                  />
-                  Email enabled
-                </label>
-                <label class="admin-check">
-                  <input
-                    type="checkbox"
-                    [(ngModel)]="financeNotificationForm.smsEnabled"
-                    name="financeAlertSmsEnabled"
-                  />
-                  SMS enabled
-                </label>
-                <button
-                  mat-flat-button
-                  color="primary"
-                  type="button"
-                  (click)="saveFinanceNotificationSettings()"
-                  [disabled]="financeNotificationSaving"
-                >
-                  Save
-                </button>
-              </div>
-              @if (financeNotificationSettings) {
-                <p class="muted admin-provider-status">
-                  Email provider:
-                  <strong>{{ financeNotificationSettings.emailProviderConfigured ? 'configured' : 'not configured' }}</strong>
-                  · SMS provider:
-                  <strong>{{ financeNotificationSettings.smsProviderConfigured ? 'configured' : 'not configured' }}</strong>
+        <mat-tab-group animationDuration="180ms" class="admin-finance-inner-tabs">
+          <mat-tab label="Notifications">
+            <div class="tab-panel tab-panel--nested">
+              <section class="admin-section">
+                <h2 class="section-title">Finance alert notifications</h2>
+                <p class="muted">
+                  Provision the recipient channels used by Finance → Alerts. Outbound email uses Amazon SES and SMS uses
+                  Amazon SNS; configure region, verified sender, and AWS credentials on the server. This screen only stores the
+                  destination email/mobile and channel toggles.
                 </p>
-              }
-              <div class="form-row wrap admin-test-row">
-                <button
-                  mat-stroked-button
-                  type="button"
-                  (click)="testFinanceNotificationSettings(true, false)"
-                  [disabled]="financeNotificationTesting"
-                >
-                  Test email
-                </button>
-                <button
-                  mat-stroked-button
-                  type="button"
-                  (click)="testFinanceNotificationSettings(false, true)"
-                  [disabled]="financeNotificationTesting"
-                >
-                  Test SMS
-                </button>
-                <a mat-button color="primary" routerLink="/finance">Open Finance alerts</a>
-              </div>
+                <div class="table-wrap-group admin-add-wrap">
+                  <div class="table-wrap tight table-wrap--entry">
+                    <div class="form-row wrap">
+                      <mat-form-field appearance="outline" class="grow">
+                        <mat-label>Email address</mat-label>
+                        <input
+                          matInput
+                          [(ngModel)]="financeNotificationForm.emailAddress"
+                          name="financeAlertEmail"
+                          placeholder="you@example.com"
+                        />
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" class="grow">
+                        <mat-label>Mobile number (E.164)</mat-label>
+                        <input
+                          matInput
+                          [(ngModel)]="financeNotificationForm.mobileE164"
+                          name="financeAlertMobile"
+                          placeholder="+15551234567"
+                        />
+                      </mat-form-field>
+                      <label class="admin-check">
+                        <input
+                          type="checkbox"
+                          [(ngModel)]="financeNotificationForm.emailEnabled"
+                          name="financeAlertEmailEnabled"
+                        />
+                        Email enabled
+                      </label>
+                      <label class="admin-check">
+                        <input
+                          type="checkbox"
+                          [(ngModel)]="financeNotificationForm.smsEnabled"
+                          name="financeAlertSmsEnabled"
+                        />
+                        SMS enabled
+                      </label>
+                      <button
+                        mat-flat-button
+                        color="primary"
+                        type="button"
+                        (click)="saveFinanceNotificationSettings()"
+                        [disabled]="financeNotificationSaving"
+                      >
+                        Save
+                      </button>
+                    </div>
+                    @if (financeNotificationSettings) {
+                      <p class="muted admin-provider-status">
+                        Email provider:
+                        <strong>{{ financeNotificationSettings.emailProviderConfigured ? 'configured' : 'not configured' }}</strong>
+                        · SMS provider:
+                        <strong>{{ financeNotificationSettings.smsProviderConfigured ? 'configured' : 'not configured' }}</strong>
+                      </p>
+                    }
+                    <div class="form-row wrap admin-test-row">
+                      <button
+                        mat-stroked-button
+                        type="button"
+                        (click)="testFinanceNotificationSettings(true, false)"
+                        [disabled]="financeNotificationTesting"
+                      >
+                        Test email
+                      </button>
+                      <button
+                        mat-stroked-button
+                        type="button"
+                        (click)="testFinanceNotificationSettings(false, true)"
+                        [disabled]="financeNotificationTesting"
+                      >
+                        Test SMS
+                      </button>
+                      <a mat-button color="primary" routerLink="/finance">Open Finance alerts</a>
+                    </div>
+                  </div>
+                </div>
+              </section>
             </div>
-          </div>
-        </section>
+          </mat-tab>
+          <mat-tab label="Banking">
+            <div class="tab-panel tab-panel--nested">
+              <section class="admin-section">
+                <h2 class="section-title">Banking imports</h2>
+                <p class="muted">
+                  Same tools as <a routerLink="/finance">Finance → Banking</a>. Data is tied to the account you are signed
+                  in with (not shared across users).
+                </p>
+                <app-banking-panel />
+              </section>
+            </div>
+          </mat-tab>
+        </mat-tab-group>
       </div>
     </mat-tab>
 

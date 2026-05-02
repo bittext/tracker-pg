@@ -1,0 +1,16 @@
+# Optional merge for banking file imports on Linux / Lightsail.
+# Default server path is ~/imports/banking; in Docker set TRACKER_BANKING_IMPORT_DIRECTORY to a mounted volume.
+#
+#   mkdir -p /home/ubuntu/imports/banking
+#   docker compose -f docker-compose.stack.yml -f docker-compose.banking.yml --env-file .env.stack up -d --build
+#
+# Override host dir in .env.stack with BANKING_IMPORT_HOST_DIR if needed.
+
+name: tracker-pg
+
+services:
+  api:
+    volumes:
+      - ${BANKING_IMPORT_HOST_DIR:-/home/ubuntu/imports/banking}:/imports/banking:rw
+    environment:
+      TRACKER_BANKING_IMPORT_DIRECTORY: /imports/banking

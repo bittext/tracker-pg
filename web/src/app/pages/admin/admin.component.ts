@@ -15,6 +15,7 @@ import { FinanceNotificationSettingsDto, FinanceNotificationSettingsRequestDto }
 import { AuthLoginEventDto } from '../../models/auth-audit.models';
 import { JournalTagDefDto } from '../../models/journal.models';
 import { ManagementTaskCategory, ManagementTaskType } from '../../models/management.models';
+import { BankingPanelComponent } from '../finance/banking-panel/banking-panel.component';
 import { AdminAuthAuditApiService } from '../../services/admin-auth-audit-api.service';
 import { FitnessApiService } from '../../services/fitness-api.service';
 import { FinanceApiService } from '../../services/finance-api.service';
@@ -38,6 +39,7 @@ import { formatHttpErrorDetail } from '../../util/http-error';
     MatSnackBarModule,
     MatTabsModule,
     RouterLink,
+    BankingPanelComponent,
   ],
   templateUrl: './admin.component.html',
   styleUrl: './admin.component.scss',

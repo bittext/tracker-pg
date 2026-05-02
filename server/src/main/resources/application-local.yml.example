@@ -28,6 +28,9 @@ tracker:
     # Absolute paths for POST /import-csv-directory (leave empty if unused).
     robinhood-csv-import-directory: "/absolute/path/to/robinhood/import"
     robinhood-csv-uploaded-directory: "/absolute/path/to/robinhood/uploaded"
+    banking:
+      # Banking uploads (CSV, QFX, QIF, QBO, Excel, PDF). Default when unset: ~/imports/banking.
+      import-directory: "/absolute/path/to/imports/banking"
     alerts:
       # Set true only after SES/SNS + aws-region + AWS credentials are configured for local tests.
       email-enabled: false

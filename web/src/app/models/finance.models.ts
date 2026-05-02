@@ -374,3 +374,53 @@ export interface FinanceTax1040ReturnDto {
   createdAt: string;
   updatedAt: string;
 }
+
+/** Banking imports (CSV, QFX, QIF, QBO, Excel, PDF) scoped to the logged-in user. */
+export type BankingLedgerRange = 'MONTH' | 'QUARTER' | 'YEAR';
+
+export interface BankingInstitutionDto {
+  id: number;
+  name: string;
+}
+
+export interface BankingImportFileDto {
+  id: number;
+  institutionId: number;
+  institutionName: string;
+  fileKind: string;
+  originalFilename: string;
+  contentType: string | null;
+  sha256Hex: string;
+  sizeBytes: number;
+  skippedDuplicateFile: boolean;
+  rowsInserted: number;
+  rowsSkippedDuplicate: number;
+  parseNote: string | null;
+  createdAt: string;
+}
+
+export interface BankingTransactionDto {
+  id: number;
+  institutionId: number;
+  institutionName: string;
+  importFileId: number;
+  txnDate: string;
+  amount: number;
+  description: string;
+}
+
+export interface BankingLedgerDto {
+  importDirectoryConfigured: boolean;
+  importDirectory: string;
+  rangeLabel: string;
+  institutions: BankingInstitutionDto[];
+  transactions: BankingTransactionDto[];
+  importFiles: BankingImportFileDto[];
+}
+
+export interface BankingImportResultDto {
+  success: boolean;
+  skippedDuplicateFile: boolean;
+  file: BankingImportFileDto | null;
+  message: string;
+}

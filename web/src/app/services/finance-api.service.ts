@@ -18,6 +18,10 @@ import {
   BreakoutCandidatesDto,
   RobinhoodCsvSavedImportDto,
   RobinhoodCsvUploadStatusDto,
+  BankingImportResultDto,
+  BankingInstitutionDto,
+  BankingLedgerDto,
+  BankingLedgerRange,
 } from '../models/finance.models';
 
 export type FinancePeriod = 'all' | 'year' | 'month';
@@ -28,6 +32,7 @@ export class FinanceApiService {
   private readonly root = `${environment.apiBaseUrl}/api/finance/robinhood`;
   private readonly tax1040Root = `${environment.apiBaseUrl}/api/finance/tax/1040`;
   private readonly adminNotificationsRoot = `${environment.apiBaseUrl}/api/admin/finance/notifications`;
+  private readonly bankingRoot = `${environment.apiBaseUrl}/api/finance/banking`;
 
   /**
    * Rows from configured Robinhood table with optional period filter (year / year+month query params).
@@ -178,5 +183,47 @@ export class FinanceApiService {
   downloadTax1040Blob(downloadPath: string) {
     const u = downloadPath.startsWith('http') ? downloadPath : `${environment.apiBaseUrl}${downloadPath}`;
     return this.http.get(u, { responseType: 'blob' });
+  }
+
+  listBankingInstitutions() {
+    return this.http.get<BankingInstitutionDto[]>(`${this.bankingRoot}/institutions`);
+  }
+
+  createBankingInstitution(name: string) {
+    return this.http.post<BankingInstitutionDto>(`${this.bankingRoot}/institutions`, { name });
+  }
+
+  bankingLedger(
+    range: BankingLedgerRange,
+    year: number,
+    month?: number | null,
+    quarter?: number | null,
+    institutionId?: number | null,
+  ) {
+    let params = new HttpParams().set('range', range).set('year', String(year));
+    if (month != null) {
+      params = params.set('month', String(month));
+    }
+    if (quarter != null) {
+      params = params.set('quarter', String(quarter));
+    }
+    if (institutionId != null && institutionId > 0) {
+      params = params.set('institutionId', String(institutionId));
+    }
+    return this.http.get<BankingLedgerDto>(`${this.bankingRoot}/ledger`, { params });
+  }
+
+  importBankingFile(institutionId: number, file: File) {
+    const form = new FormData();
+    form.append('institutionId', String(institutionId));
+    form.append('file', file, file.name);
+    return this.http.post<BankingImportResultDto>(`${this.bankingRoot}/imports`, form);
+  }
+
+  downloadBankingFile(id: number) {
+    return this.http.get(`${this.bankingRoot}/files/${id}/download`, {
+      responseType: 'blob',
+      observe: 'response',
+    });
   }
 }

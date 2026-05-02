@@ -89,6 +89,10 @@ tracker:
     robinhood-csv-import-directory: ""
     robinhood-csv-uploaded-directory: ""
     max-directory-import-files: 500
+    banking:
+      # Host default ~/imports/banking; in Docker set TRACKER_BANKING_IMPORT_DIRECTORY to a mounted volume.
+      import-directory: ${TRACKER_BANKING_IMPORT_DIRECTORY:${user.home}/imports/banking}
+      max-upload-bytes: ${TRACKER_BANKING_MAX_UPLOAD_BYTES:20971520}
     news-enabled: true
     news-max-items: 10
     news-timeout-ms: 8000

@@ -11,7 +11,7 @@
     </parent>
     <groupId>com.svp</groupId>
     <artifactId>tracker-pg-server</artifactId>
-    <version>2.5.0</version>
+    <version>3.0.0</version>
     <name>tracker-pg-server</name>
     <description>Tracker REST API backed by PostgreSQL</description>
     <properties>
@@ -137,6 +137,11 @@
             <groupId>org.apache.pdfbox</groupId>
             <artifactId>pdfbox</artifactId>
             <version>2.0.31</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.2.5</version>
         </dependency>
     </dependencies>
     <build>

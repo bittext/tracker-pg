@@ -13,6 +13,14 @@
 .tab-panel {
   padding: 1rem 1rem 1.25rem;
   box-sizing: border-box;
+
+  &--nested {
+    padding-top: 0.75rem;
+  }
+}
+
+.admin-finance-inner-tabs {
+  --mat-tab-header-label-text-size: 0.9rem;
 }
 
 .admin-section {
