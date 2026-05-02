@@ -16,6 +16,7 @@ import {
   BankingInstitutionDto,
   BankingLedgerDto,
   BankingLedgerRange,
+  BankingTransactionDto,
 } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
@@ -67,6 +68,9 @@ export class BankingPanelComponent implements OnInit {
 
   ledger: BankingLedgerDto | null = null;
   ledgerLoading = false;
+
+  /** Single text box: matches any displayed transaction column (whitespace = multiple terms, all must match). */
+  txnSearchText = '';
 
   readonly txnColumns: string[] = [
     'txnDate',
@@ -201,6 +205,42 @@ export class BankingPanelComponent implements OnInit {
           });
         },
       });
+  }
+
+  /** Rows in the current ledger range after {@link txnSearchText} is applied. */
+  get filteredLedgerTransactions(): BankingTransactionDto[] {
+    const all = this.ledger?.transactions;
+    if (!all?.length) {
+      return [];
+    }
+    const raw = this.txnSearchText.trim().toLowerCase();
+    if (!raw) {
+      return all;
+    }
+    const tokens = raw.split(/\s+/).filter(Boolean);
+    return all.filter((row) => this.transactionMatchesSearchTokens(row, tokens));
+  }
+
+  private transactionMatchesSearchTokens(row: BankingTransactionDto, tokens: string[]): boolean {
+    const fields = this.transactionSearchFields(row);
+    return tokens.every((tok) => fields.some((f) => f.includes(tok)));
+  }
+
+  private transactionSearchFields(row: BankingTransactionDto): string[] {
+    const amt = Number(row.amount);
+    const amtFixed = Number.isFinite(amt) ? amt.toFixed(2) : String(row.amount ?? '');
+    const dc = (row.debitCredit ?? '').toString();
+    const dcLabel = this.debitCreditLabel(row.debitCredit).toLowerCase();
+    return [
+      (row.txnDate ?? '').toString().toLowerCase(),
+      (row.institutionName ?? '').toLowerCase(),
+      (row.sourceFormat ?? '').toLowerCase(),
+      dc.toLowerCase(),
+      dcLabel,
+      String(row.amount ?? '').toLowerCase(),
+      amtFixed.toLowerCase(),
+      (row.description ?? '').toLowerCase(),
+    ];
   }
 
   download(row: BankingImportFileDto): void {

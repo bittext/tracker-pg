@@ -141,8 +141,37 @@
         (money in); <strong>Debit</strong> means a negative amount (money out), matching the stored values from your
         files.
       </p>
+      <div class="banking-toolbar banking-txn-filter">
+        <mat-form-field appearance="outline" class="banking-field grow">
+          <mat-label>Filter transactions</mat-label>
+          <input
+            matInput
+            [(ngModel)]="txnSearchText"
+            name="bankTxnSearch"
+            placeholder="Search date, institution, file type, debit/credit, amount, description…"
+            autocomplete="off"
+          />
+          @if (txnSearchText.trim()) {
+            <button
+              type="button"
+              matSuffix
+              mat-icon-button
+              aria-label="Clear transaction filter"
+              (click)="txnSearchText = ''"
+            >
+              <mat-icon>close</mat-icon>
+            </button>
+          }
+        </mat-form-field>
+      </div>
+      @if (ledger.transactions.length && txnSearchText.trim()) {
+        <p class="muted banking-txn-count">
+          Showing <strong>{{ filteredLedgerTransactions.length }}</strong> of
+          <strong>{{ ledger.transactions.length }}</strong> in this range.
+        </p>
+      }
       <div class="table-wrap">
-        <table mat-table [dataSource]="ledger.transactions" class="mat-elevation-z0 banking-table">
+        <table mat-table [dataSource]="filteredLedgerTransactions" class="mat-elevation-z0 banking-table">
           <ng-container matColumnDef="txnDate">
             <th mat-header-cell *matHeaderCellDef>Date</th>
             <td mat-cell *matCellDef="let row">{{ row.txnDate }}</td>
@@ -172,6 +201,8 @@
         </table>
         @if (!ledger.transactions.length) {
           <p class="muted empty-hint">No transactions in this range.</p>
+        } @else if (!filteredLedgerTransactions.length) {
+          <p class="muted empty-hint">No transactions match this filter.</p>
         }
       </div>
 
