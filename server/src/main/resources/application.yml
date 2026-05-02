@@ -22,7 +22,6 @@ spring:
     properties:
       hibernate:
         format_sql: true
-        dialect: org.hibernate.dialect.PostgreSQLDialect
   flyway:
     enabled: true
     # On each startup Flyway applies only *pending* migrations (new files). Already-applied versions are skipped.
