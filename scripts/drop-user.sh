@@ -124,7 +124,7 @@ postgres_container_running() {
 
 echo "Deleting user '${username}' from ${postgres_host}:${postgres_port}/${postgres_db} ..."
 if postgres_container_running; then
-  dc_stack exec -T \
+  dc_stack exec -iT \
     -e PGPASSWORD="${postgres_password}" \
     postgres \
     psql \
@@ -141,7 +141,7 @@ elif psql_client_ready; then
     -v ON_ERROR_STOP=1 \
     -f - <"${tmp_sql}"
 elif command -v docker >/dev/null 2>&1; then
-  dc_stack exec -T \
+  dc_stack exec -iT \
     -e PGPASSWORD="${postgres_password}" \
     postgres \
     psql \

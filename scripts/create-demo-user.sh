@@ -33,7 +33,8 @@ Notes:
     to match the server and run again.
   - Do not set TRACKER_AUTH_PASSWORD_PEPPER to an empty value in .env.stack unless the API uses an empty pepper too;
     an empty line used to force a CLI/API mismatch (fixed by unsetting the variable before mvn when blank).
-  - If the stack's postgres container is running, applies SQL via `docker compose exec` (no host psql needed).
+  - If the stack's postgres container is running, applies SQL via `docker compose exec -iT` (stdin must stay open for
+    `psql -f -`; without `-i`, no SQL runs and the script still exits 0).
   - Otherwise uses host psql when a real PostgreSQL client is installed (not Ubuntu's stub).
 EOF
 }
@@ -103,6 +104,12 @@ echo "Generating user upsert SQL for '${username}'..."
     "-Dexec.args=${username} ${password} ${role} ${mfa_enabled} ${active} ${phone_e164}"
 ) > "${tmp_sql}"
 
+if ! grep -q "INSERT INTO auth_users" "${tmp_sql}"; then
+  echo "Error: Maven did not produce an INSERT for auth_users (empty or unexpected output)." >&2
+  cat "${tmp_sql}" >&2
+  exit 1
+fi
+
 # Ubuntu may ship a psql stub (postgresql-client-common) that errors until postgresql-client-* is installed.
 psql_client_ready() {
   command -v psql >/dev/null 2>&1 || return 1
@@ -128,7 +135,7 @@ postgres_container_running() {
 echo "Applying SQL to PostgreSQL ${postgres_host}:${postgres_port}/${postgres_db}..."
 if postgres_container_running; then
   echo "Using docker compose postgres service (container running)..."
-  dc_stack exec -T \
+  dc_stack exec -iT \
     -e PGPASSWORD="${postgres_password}" \
     postgres \
     psql \
@@ -146,7 +153,7 @@ elif psql_client_ready; then
     -f "${tmp_sql}"
 elif command -v docker >/dev/null 2>&1; then
   echo "Local psql not usable; trying docker compose postgres service..." >&2
-  dc_stack exec -T \
+  dc_stack exec -iT \
     -e PGPASSWORD="${postgres_password}" \
     postgres \
     psql \

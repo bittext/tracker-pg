@@ -20,6 +20,7 @@ import com.svp.tracker.member.dto.UsPostalValidationResponseDto;
 import com.svp.tracker.member.repository.MemberProfileRepository;
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.util.Locale;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -151,7 +152,12 @@ public class MemberOnboardingService {
         profile.setNickname(trimToNull(req.nickname()));
         profile.setDateOfBirth(req.dateOfBirth());
         profile.setGender(req.gender());
-        profile.setEmail(req.email().trim());
+        String emailNorm = req.email().trim().toLowerCase(Locale.ROOT);
+        if (StringUtils.hasText(emailNorm)
+                && memberProfileRepository.existsOtherUserWithNormalizedEmail(userId, emailNorm)) {
+            throw new ResponseStatusException(CONFLICT, "That email is already used by another account.");
+        }
+        profile.setEmail(emailNorm);
         profile.setPhoneCountryCode(normalizeCountryCode(req.phoneCountryCode()));
         profile.setPhoneNationalNumber(digitsOnly(req.phoneNationalNumber()));
         profile.setAddressLine1(req.addressLine1().trim());

@@ -8,9 +8,11 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import java.time.Instant;
+import java.util.Locale;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -27,7 +29,7 @@ public class AppUser {
     private Long id;
 
     @NotBlank
-    @Column(nullable = false, unique = true, length = 120)
+    @Column(nullable = false, length = 120)
     private String username;
 
     @Column(nullable = false, length = 256)
@@ -71,6 +73,18 @@ public class AppUser {
     void onCreate() {
         if (createdAt == null) {
             createdAt = Instant.now();
+        }
+        normalizeUsername();
+    }
+
+    @PreUpdate
+    void onUpdate() {
+        normalizeUsername();
+    }
+
+    private void normalizeUsername() {
+        if (username != null) {
+            username = username.trim().toLowerCase(Locale.ROOT);
         }
     }
 }

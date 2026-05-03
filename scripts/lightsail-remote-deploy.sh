@@ -125,7 +125,7 @@ cmd_apply() {
   local remote_sql="${LIGHTSAIL_REPO_DIR}/dumps/${base}"
   echo "Applying on ${LIGHTSAIL_HOST} via docker compose postgres (ON_ERROR_STOP) ..."
   # SQL path is on the VM host; stream it into psql inside the container (not mounted in the image).
-  ssh_base "cd '${LIGHTSAIL_REPO_DIR}' && test -f '${TRACKER_ENV_FILE}' && test -f '${remote_sql}' && cat '${remote_sql}' | docker compose -f docker-compose.stack.yml --env-file '${TRACKER_ENV_FILE}' exec -T postgres psql -U '${REMOTE_POSTGRES_USER}' -d '${REMOTE_POSTGRES_DB}' -v ON_ERROR_STOP=1 -f -"
+  ssh_base "cd '${LIGHTSAIL_REPO_DIR}' && test -f '${TRACKER_ENV_FILE}' && test -f '${remote_sql}' && cat '${remote_sql}' | docker compose -f docker-compose.stack.yml --env-file '${TRACKER_ENV_FILE}' exec -iT postgres psql -U '${REMOTE_POSTGRES_USER}' -d '${REMOTE_POSTGRES_DB}' -v ON_ERROR_STOP=1 -f -"
   echo "Apply finished."
 }
 

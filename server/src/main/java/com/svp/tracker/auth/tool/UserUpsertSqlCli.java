@@ -3,6 +3,7 @@ package com.svp.tracker.auth.tool;
 import com.svp.tracker.auth.domain.AppUserRole;
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.Locale;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 /**
@@ -35,7 +36,7 @@ public final class UserUpsertSqlCli {
             System.exit(1);
         }
 
-        String username = args[0].trim();
+        String username = args[0].trim().toLowerCase(Locale.ROOT);
         String rawPassword = args[1];
         AppUserRole role = parseRole(args.length > 2 ? args[2] : "USER");
         boolean mfaEnabled = parseBoolean(args.length > 3 ? args[3] : "false", "mfaEnabled");
@@ -64,7 +65,7 @@ public final class UserUpsertSqlCli {
         System.out.println("VALUES");
         System.out.println("  ('" + escUsername + "', '" + escHash + "', '" + escSalt + "', '" + escRole + "', "
                 + phoneSql + ", " + mfaEnabled + ", " + active + ", NOW())");
-        System.out.println("ON CONFLICT (username) DO UPDATE");
+        System.out.println("ON CONFLICT ((LOWER(TRIM(username)))) DO UPDATE");
         System.out.println("SET password_hash = EXCLUDED.password_hash,");
         System.out.println("    password_salt = EXCLUDED.password_salt,");
         System.out.println("    role = EXCLUDED.role,");
