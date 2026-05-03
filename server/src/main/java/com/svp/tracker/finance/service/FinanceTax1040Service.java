@@ -1,7 +1,7 @@
 package com.svp.tracker.finance.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.JournalProperties;
 import com.svp.tracker.finance.domain.FinanceTax1040Return;
@@ -42,7 +42,7 @@ public class FinanceTax1040Service {
     private final JournalBlobStore blobStore;
     private final JournalProperties journalProperties;
     private final CurrentUserService currentUser;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
 
     @Transactional(readOnly = true)
     public List<FinanceTax1040ReturnDto> list(boolean includeFullExtract) {
@@ -287,8 +287,8 @@ public class FinanceTax1040Service {
 
     private Form1040ParsedSummary readSummary(String json) {
         try {
-            return objectMapper.readValue(json, Form1040ParsedSummary.class);
-        } catch (JsonProcessingException e) {
+            return jsonMapper.readValue(json, Form1040ParsedSummary.class);
+        } catch (JacksonException e) {
             return Form1040ParsedSummary.builder()
                     .likelyForm1040(false)
                     .parseNote("Could not read stored summary.")
@@ -298,8 +298,8 @@ public class FinanceTax1040Service {
 
     private String writeJson(Form1040ParsedSummary s) {
         try {
-            return objectMapper.writeValueAsString(s);
-        } catch (JsonProcessingException e) {
+            return jsonMapper.writeValueAsString(s);
+        } catch (JacksonException e) {
             throw new IllegalStateException(e);
         }
     }
