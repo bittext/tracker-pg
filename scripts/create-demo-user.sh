@@ -31,6 +31,8 @@ Notes:
     application.yml: pepper tracker-dev-pepper when TRACKER_AUTH_PASSWORD_PEPPER is unset, strength 12). If login fails
     after creating a user, re-run this script after pulling the fix, or set TRACKER_AUTH_PASSWORD_PEPPER in .env.stack
     to match the server and run again.
+  - Do not set TRACKER_AUTH_PASSWORD_PEPPER to an empty value in .env.stack unless the API uses an empty pepper too;
+    an empty line used to force a CLI/API mismatch (fixed by unsetting the variable before mvn when blank).
   - If the stack's postgres container is running, applies SQL via `docker compose exec` (no host psql needed).
   - Otherwise uses host psql when a real PostgreSQL client is installed (not Ubuntu's stub).
 EOF
@@ -90,7 +92,13 @@ trap 'rm -f "${tmp_sql}"' EXIT
 echo "Generating user upsert SQL for '${username}'..."
 (
   cd "${server_dir}"
-  TRACKER_AUTH_PASSWORD_PEPPER="${auth_pepper}" mvn -q compile exec:java \
+  # If we export TRACKER_AUTH_PASSWORD_PEPPER="", the JVM sees an empty pepper; the API defaults to
+  # tracker-dev-pepper when the variable is absent. Unset when blank so the CLI matches the server.
+  unset TRACKER_AUTH_PASSWORD_PEPPER 2>/dev/null || true
+  if [[ -n "${auth_pepper// }" ]]; then
+    export TRACKER_AUTH_PASSWORD_PEPPER="${auth_pepper}"
+  fi
+  mvn -q compile exec:java \
     -Dexec.mainClass=com.svp.tracker.auth.tool.UserUpsertSqlCli \
     "-Dexec.args=${username} ${password} ${role} ${mfa_enabled} ${active} ${phone_e164}"
 ) > "${tmp_sql}"
@@ -159,3 +167,4 @@ echo "  username=${username}"
 echo "  role=${role}"
 echo "  mfa_enabled=${mfa_enabled}"
 echo "  active=${active}"
+echo "  Sign in with that username and the password you passed as the 2nd argument (defaults: demo→demo123; scripts/demo-user.sh → nisha123)."

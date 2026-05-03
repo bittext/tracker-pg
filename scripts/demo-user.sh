@@ -21,7 +21,10 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
 fi
 
 if [[ "$#" -eq 0 ]]; then
-  exec bash "${here}/create-demo-user.sh" nisha nisha123 USER false true -
+  bash "${here}/create-demo-user.sh" nisha nisha123 USER false true -
+  echo "" >&2
+  echo "Sign in: username nisha  |  password nisha123" >&2
+  exit 0
 fi
 
 exec bash "${here}/create-demo-user.sh" nisha "$@"
