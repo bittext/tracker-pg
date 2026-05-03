@@ -1,0 +1,256 @@
+package com.svp.tracker.admin.github;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.svp.tracker.admin.github.dto.GithubCommitSummaryDto;
+import com.svp.tracker.admin.github.dto.GithubContributorDto;
+import com.svp.tracker.admin.github.dto.GithubRepoSummaryDto;
+import com.svp.tracker.admin.github.dto.GithubRepositoryInsightsDto;
+import com.svp.tracker.admin.github.dto.GithubTrafficDayDto;
+import com.svp.tracker.admin.github.dto.GithubTrafficSummaryDto;
+import com.svp.tracker.admin.github.dto.GithubUserRefDto;
+import com.svp.tracker.config.GithubProperties;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.client.ClientHttpRequestFactory;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.server.ResponseStatusException;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class GithubRepositoryInsightsService {
+
+    private static final String BASE = "https://api.github.com";
+
+    private final GithubProperties githubProperties;
+    private final ClientHttpRequestFactory outboundHttpRequestFactory;
+
+    public GithubRepositoryInsightsDto loadInsights() {
+        if (!githubProperties.configured()) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "GitHub is disabled or owner/repo is not set. Configure tracker.github.enabled, owner, and repo (optional api-token for higher limits, subscribers list, and traffic).");
+        }
+        String owner = githubProperties.owner();
+        String repo = githubProperties.repo();
+        String basePath = "/repos/" + owner + "/" + repo;
+        List<String> warnings = new ArrayList<>();
+
+        JsonNode repoJson = getJson(basePath, warnings)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_GATEWAY,
+                        "Could not read repository from GitHub. Check owner/repo and network; use api-token if the repo is private."));
+
+        GithubRepoSummaryDto summary = parseRepo(repoJson);
+
+        List<GithubContributorDto> contributors = parseContributors(getJson(basePath + "/contributors?per_page=100", warnings));
+
+        List<GithubUserRefDto> subscribers = new ArrayList<>();
+        String subscribersNote =
+                "Accounts watching this repository for GitHub notifications. Listing often requires a token with access to the repo.";
+        parseUserArray(getJson(basePath + "/subscribers?per_page=100", warnings)).ifPresent(subscribers::addAll);
+
+        List<GithubUserRefDto> stargazers = new ArrayList<>();
+        parseUserArray(getJson(basePath + "/stargazers?per_page=50", warnings)).ifPresent(stargazers::addAll);
+        String stargazersNote =
+                "Users who starred the repository (REST API returns an early page in chronological order, not “most recent” without GitHub GraphQL).";
+
+        List<GithubCommitSummaryDto> commits = parseCommits(getJson(basePath + "/commits?per_page=30", warnings));
+        List<GithubUserRefDto> recentAuthors = uniqueCommitAuthors(commits);
+
+        GithubTrafficSummaryDto traffic = null;
+        String trafficNote;
+        Optional<JsonNode> trafficJson = getJson(basePath + "/traffic/views", warnings);
+        if (trafficJson.isPresent()) {
+            traffic = parseTraffic(trafficJson.get());
+            trafficNote = "Aggregate views/clones for the last ~14 days (requires a token with push access). GitHub does not expose individual “who opened the repo” identities via this API.";
+        } else {
+            trafficNote =
+                    "Traffic (unique visitors over time) requires a personal access token with push (or admin) permission on this repository. Anonymous page views are not listed per-user.";
+        }
+
+        return new GithubRepositoryInsightsDto(
+                summary,
+                contributors,
+                subscribers,
+                subscribersNote,
+                stargazers,
+                stargazersNote,
+                commits,
+                recentAuthors,
+                traffic,
+                trafficNote,
+                warnings);
+    }
+
+    private Optional<JsonNode> getJson(String path, List<String> warnings) {
+        try {
+            RestClient client = RestClient.builder()
+                    .requestFactory(outboundHttpRequestFactory)
+                    .baseUrl(BASE)
+                    .defaultHeader(HttpHeaders.ACCEPT, "application/vnd.github+json")
+                    .defaultHeader(HttpHeaders.USER_AGENT, "TrackerPgServer/5.0")
+                    .build();
+            JsonNode body = client.get()
+                    .uri(path)
+                    .headers(this::applyAuth)
+                    .retrieve()
+                    .body(JsonNode.class);
+            return Optional.ofNullable(body);
+        } catch (RestClientResponseException e) {
+            int code = e.getStatusCode().value();
+            if (code == 404 || code == 403 || code == 401) {
+                warnings.add("GitHub " + path + " → HTTP " + code);
+                return Optional.empty();
+            }
+            log.warn("GitHub API error {} {}", path, e.getStatusCode());
+            warnings.add("GitHub " + path + " → HTTP " + code + ": " + safeMsg(e));
+            return Optional.empty();
+        } catch (Exception e) {
+            log.warn("GitHub API request failed: {}", path, e);
+            warnings.add("GitHub " + path + ": " + safeMsg(e));
+            return Optional.empty();
+        }
+    }
+
+    private void applyAuth(HttpHeaders h) {
+        if (!StringUtils.hasText(githubProperties.apiToken())) {
+            return;
+        }
+        String t = githubProperties.apiToken();
+        if (t.startsWith("ghp_")) {
+            h.add(HttpHeaders.AUTHORIZATION, "token " + t);
+        } else {
+            h.add(HttpHeaders.AUTHORIZATION, "Bearer " + t);
+        }
+    }
+
+    private static String safeMsg(Exception e) {
+        String m = e.getMessage();
+        return m == null ? e.getClass().getSimpleName() : m.replace('\n', ' ');
+    }
+
+    private static GithubRepoSummaryDto parseRepo(JsonNode n) {
+        return new GithubRepoSummaryDto(
+                text(n, "full_name"),
+                text(n, "html_url"),
+                text(n, "description"),
+                text(n, "default_branch"),
+                text(n, "pushed_at"),
+                longVal(n, "stargazers_count"),
+                longVal(n, "forks_count"),
+                longVal(n, "subscribers_count"),
+                longVal(n, "watchers_count"),
+                longVal(n, "open_issues_count"));
+    }
+
+    private static long longVal(JsonNode n, String field) {
+        JsonNode v = n.get(field);
+        return v == null || !v.isNumber() ? 0L : v.asLong();
+    }
+
+    private static String text(JsonNode n, String field) {
+        JsonNode v = n.get(field);
+        if (v == null || v.isNull()) {
+            return "";
+        }
+        return v.asText("");
+    }
+
+    private static List<GithubContributorDto> parseContributors(Optional<JsonNode> root) {
+        List<GithubContributorDto> out = new ArrayList<>();
+        if (root.isEmpty() || !root.get().isArray()) {
+            return out;
+        }
+        for (JsonNode n : root.get()) {
+            String login = text(n, "login");
+            if (login.isEmpty()) {
+                continue;
+            }
+            out.add(new GithubContributorDto(
+                    login, text(n, "html_url"), text(n, "avatar_url"), n.path("contributions").asInt(0)));
+        }
+        return out;
+    }
+
+    private static Optional<List<GithubUserRefDto>> parseUserArray(Optional<JsonNode> root) {
+        if (root.isEmpty() || !root.get().isArray()) {
+            return Optional.empty();
+        }
+        List<GithubUserRefDto> out = new ArrayList<>();
+        for (JsonNode n : root.get()) {
+            String login = text(n, "login");
+            if (login.isEmpty()) {
+                continue;
+            }
+            out.add(new GithubUserRefDto(login, text(n, "html_url"), text(n, "avatar_url")));
+        }
+        return Optional.of(out);
+    }
+
+    private static List<GithubCommitSummaryDto> parseCommits(Optional<JsonNode> root) {
+        List<GithubCommitSummaryDto> out = new ArrayList<>();
+        if (root.isEmpty() || !root.get().isArray()) {
+            return out;
+        }
+        for (JsonNode n : root.get()) {
+            String sha = text(n, "sha");
+            String shaShort = sha.length() > 7 ? sha.substring(0, 7) : sha;
+            JsonNode commit = n.path("commit");
+            String msg = commit.path("message").asText("");
+            String first = msg.contains("\n") ? msg.substring(0, msg.indexOf('\n')) : msg;
+            if (first.length() > 200) {
+                first = first.substring(0, 197) + "...";
+            }
+            JsonNode author = commit.path("author");
+            String name = text(author, "name");
+            String date = text(author, "date");
+            String login = "";
+            JsonNode ghAuthor = n.path("author");
+            if (!ghAuthor.isMissingNode() && !ghAuthor.isNull()) {
+                login = text(ghAuthor, "login");
+            }
+            out.add(new GithubCommitSummaryDto(
+                    shaShort, first, login, name, date, text(n, "html_url")));
+        }
+        return out;
+    }
+
+    private static List<GithubUserRefDto> uniqueCommitAuthors(List<GithubCommitSummaryDto> commits) {
+        Map<String, GithubUserRefDto> byLogin = new LinkedHashMap<>();
+        for (GithubCommitSummaryDto c : commits) {
+            if (c.authorLogin() != null && !c.authorLogin().isBlank()) {
+                String login = c.authorLogin().trim();
+                byLogin.putIfAbsent(
+                        login.toLowerCase(Locale.ROOT),
+                        new GithubUserRefDto(login, "https://github.com/" + login, ""));
+            }
+        }
+        return new ArrayList<>(byLogin.values());
+    }
+
+    private static GithubTrafficSummaryDto parseTraffic(JsonNode n) {
+        int total = n.path("count").asInt(0);
+        int uniques = n.path("uniques").asInt(0);
+        List<GithubTrafficDayDto> days = new ArrayList<>();
+        JsonNode views = n.path("views");
+        if (views.isArray()) {
+            for (JsonNode d : views) {
+                days.add(new GithubTrafficDayDto(
+                        text(d, "timestamp"), d.path("count").asInt(0), d.path("uniques").asInt(0)));
+            }
+        }
+        return new GithubTrafficSummaryDto(total, uniques, days);
+    }
+}

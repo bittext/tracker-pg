@@ -13,7 +13,12 @@
 </div>
 
 <mat-card class="card admin-card">
-  <mat-tab-group animationDuration="220ms" class="admin-tab-group">
+  <mat-tab-group
+    animationDuration="220ms"
+    class="admin-tab-group"
+    [(selectedIndex)]="adminTabIndex"
+    (selectedTabChange)="onAdminTabChange($event)"
+  >
     <mat-tab label="Sign-in log">
       <div class="tab-panel">
         <section class="admin-section">
@@ -93,6 +98,19 @@
               <p class="muted empty-hint">No events yet or no matches.</p>
             }
           </div>
+        </section>
+      </div>
+    </mat-tab>
+
+    <mat-tab label="My profile">
+      <div class="tab-panel">
+        <section class="admin-section">
+          <h2 class="section-title">Member details</h2>
+          <p class="muted">
+            Your name, birth date, contact information, and mailing address. This is stored with your account and used
+            as the basis for future communications when those features are turned on.
+          </p>
+          <app-member-profile-panel />
         </section>
       </div>
     </mat-tab>
@@ -452,5 +470,219 @@
         </section>
       </div>
     </mat-tab>
+
+    @if (isAppAdmin) {
+      <mat-tab label="Repository (GitHub)">
+        <div class="tab-panel">
+          <section class="admin-section">
+            <h2 class="section-title">Repository (GitHub)</h2>
+            <p class="muted">
+              Read-only summary from the
+              <a href="https://docs.github.com/en/rest" target="_blank" rel="noopener noreferrer">GitHub REST API</a>.
+              GitHub does <strong>not</strong> expose a list of everyone who opened the repository in a browser; use
+              <strong>traffic</strong> (with a push-capable token) for aggregate views, and <strong>commits / stars /
+              watchers</strong> for public engagement signals.
+            </p>
+            <div class="form-row wrap github-toolbar">
+              <button mat-stroked-button type="button" (click)="refreshGithubInsights()" [disabled]="githubLoading">
+                Refresh from GitHub
+              </button>
+              @if (githubLoading) {
+                <mat-spinner diameter="28" />
+              }
+            </div>
+            @if (githubInsights) {
+              <div class="github-summary-grid">
+                <div class="github-stat">
+                  <span class="github-stat__label">Repository</span>
+                  <a [href]="githubInsights.repository.htmlUrl" target="_blank" rel="noopener noreferrer">{{
+                    githubInsights.repository.fullName || '—'
+                  }}</a>
+                </div>
+                <div class="github-stat">
+                  <span class="github-stat__label">Default branch</span>
+                  <span>{{ githubInsights.repository.defaultBranch || '—' }}</span>
+                </div>
+                <div class="github-stat">
+                  <span class="github-stat__label">Last push</span>
+                  <span>{{ githubInsights.repository.pushedAt || '—' }}</span>
+                </div>
+                <div class="github-stat">
+                  <span class="github-stat__label">Stars</span>
+                  <span>{{ githubInsights.repository.stargazersCount }}</span>
+                </div>
+                <div class="github-stat">
+                  <span class="github-stat__label">Forks</span>
+                  <span>{{ githubInsights.repository.forksCount }}</span>
+                </div>
+                <div class="github-stat">
+                  <span class="github-stat__label">Subscribers (watch)</span>
+                  <span>{{ githubInsights.repository.subscribersCount }}</span>
+                </div>
+                <div class="github-stat">
+                  <span class="github-stat__label">Open issues</span>
+                  <span>{{ githubInsights.repository.openIssuesCount }}</span>
+                </div>
+              </div>
+              @if (githubInsights.repository.description) {
+                <p class="muted github-desc">{{ githubInsights.repository.description }}</p>
+              }
+
+              <h3 class="subsection-title">Contributors (persisted commits)</h3>
+              <div class="table-wrap">
+                <table
+                  mat-table
+                  [dataSource]="githubInsights.contributors"
+                  class="mat-elevation-z1 full-width github-table"
+                >
+                  <ng-container matColumnDef="login">
+                    <th mat-header-cell *matHeaderCellDef>Login</th>
+                    <td mat-cell *matCellDef="let row">
+                      <a [href]="row.htmlUrl" target="_blank" rel="noopener noreferrer">{{ row.login }}</a>
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="contributions">
+                    <th mat-header-cell *matHeaderCellDef>Contributions</th>
+                    <td mat-cell *matCellDef="let row">{{ row.contributions }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="gh">
+                    <th mat-header-cell *matHeaderCellDef></th>
+                    <td mat-cell *matCellDef="let row">
+                      <a [href]="row.htmlUrl" target="_blank" rel="noopener noreferrer">Profile</a>
+                    </td>
+                  </ng-container>
+                  <tr mat-header-row *matHeaderRowDef="githubContributorColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: githubContributorColumns"></tr>
+                </table>
+                @if (!githubInsights.contributors.length) {
+                  <p class="muted empty-hint">No contributor data returned.</p>
+                }
+              </div>
+
+              <h3 class="subsection-title">Watchers (subscribers)</h3>
+              <p class="muted small">{{ githubInsights.subscribersNote }}</p>
+              <ul class="github-user-list">
+                @for (u of githubInsights.subscribers; track u.login) {
+                  <li>
+                    <a [href]="u.htmlUrl" target="_blank" rel="noopener noreferrer">{{ u.login }}</a>
+                  </li>
+                }
+              </ul>
+              @if (!githubInsights.subscribers.length) {
+                <p class="muted empty-hint">No subscriber list (often needs a token with repo access).</p>
+              }
+
+              <h3 class="subsection-title">Stargazers (sample)</h3>
+              <p class="muted small">{{ githubInsights.stargazersNote }}</p>
+              <ul class="github-user-list">
+                @for (u of githubInsights.stargazersSample; track u.login) {
+                  <li>
+                    <a [href]="u.htmlUrl" target="_blank" rel="noopener noreferrer">{{ u.login }}</a>
+                  </li>
+                }
+              </ul>
+              @if (!githubInsights.stargazersSample.length) {
+                <p class="muted empty-hint">No stargazer page returned.</p>
+              }
+
+              <h3 class="subsection-title">Recent commit history</h3>
+              <div class="table-wrap">
+                <table
+                  mat-table
+                  [dataSource]="githubInsights.recentCommits"
+                  class="mat-elevation-z1 full-width github-table"
+                >
+                  <ng-container matColumnDef="shaShort">
+                    <th mat-header-cell *matHeaderCellDef>SHA</th>
+                    <td mat-cell *matCellDef="let row"><code>{{ row.shaShort }}</code></td>
+                  </ng-container>
+                  <ng-container matColumnDef="messageFirstLine">
+                    <th mat-header-cell *matHeaderCellDef>Message</th>
+                    <td mat-cell *matCellDef="let row" class="github-msg-cell">{{ row.messageFirstLine }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="authorLogin">
+                    <th mat-header-cell *matHeaderCellDef>Author</th>
+                    <td mat-cell *matCellDef="let row">{{ row.authorLogin || row.authorName || '—' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="committedAt">
+                    <th mat-header-cell *matHeaderCellDef>Committed</th>
+                    <td mat-cell *matCellDef="let row">{{ row.committedAt | date: 'medium' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="link">
+                    <th mat-header-cell *matHeaderCellDef></th>
+                    <td mat-cell *matCellDef="let row">
+                      @if (row.htmlUrl) {
+                        <a [href]="row.htmlUrl" target="_blank" rel="noopener noreferrer">Commit</a>
+                      }
+                    </td>
+                  </ng-container>
+                  <tr mat-header-row *matHeaderRowDef="githubCommitColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: githubCommitColumns"></tr>
+                </table>
+                @if (!githubInsights.recentCommits.length) {
+                  <p class="muted empty-hint">No commits returned.</p>
+                }
+              </div>
+
+              <h3 class="subsection-title">Recent commit authors (GitHub logins)</h3>
+              <p class="muted small">
+                Unique GitHub identities on the loaded commit page — useful for spotting activity beyond top
+                contributors, not a full “who accessed the repo” list.
+              </p>
+              <ul class="github-user-list">
+                @for (u of githubInsights.recentCommitAuthors; track u.login) {
+                  <li>
+                    <a [href]="u.htmlUrl" target="_blank" rel="noopener noreferrer">{{ u.login }}</a>
+                  </li>
+                }
+              </ul>
+              @if (!githubInsights.recentCommitAuthors.length) {
+                <p class="muted empty-hint">No GitHub author logins on these commits (e.g. non-GitHub emails only).</p>
+              }
+
+              <h3 class="subsection-title">Traffic (aggregate)</h3>
+              <p class="muted small">{{ githubInsights.trafficNote }}</p>
+              @if (githubInsights.trafficViews) {
+                <p class="muted">
+                  Total views (window): {{ githubInsights.trafficViews.totalViews }} · Uniques:
+                  {{ githubInsights.trafficViews.totalUniques }}
+                </p>
+                <div class="table-wrap">
+                  <table mat-table [dataSource]="githubInsights.trafficViews.days" class="mat-elevation-z1 full-width">
+                    <ng-container matColumnDef="ts">
+                      <th mat-header-cell *matHeaderCellDef>Day (UTC)</th>
+                      <td mat-cell *matCellDef="let row">{{ row.timestamp | date: 'mediumDate' }}</td>
+                    </ng-container>
+                    <ng-container matColumnDef="c">
+                      <th mat-header-cell *matHeaderCellDef>Views</th>
+                      <td mat-cell *matCellDef="let row">{{ row.count }}</td>
+                    </ng-container>
+                    <ng-container matColumnDef="u">
+                      <th mat-header-cell *matHeaderCellDef>Uniques</th>
+                      <td mat-cell *matCellDef="let row">{{ row.uniques }}</td>
+                    </ng-container>
+                    <tr mat-header-row *matHeaderRowDef="['ts', 'c', 'u']"></tr>
+                    <tr mat-row *matRowDef="let row; columns: ['ts', 'c', 'u']"></tr>
+                  </table>
+                </div>
+              }
+
+              @if (githubInsights.warnings.length) {
+                <h3 class="subsection-title">API notes</h3>
+                <ul class="muted small github-warnings">
+                  @for (w of githubInsights.warnings; track w) {
+                    <li>{{ w }}</li>
+                  }
+                </ul>
+              }
+            } @else if (githubLoading) {
+              <p class="muted">Loading GitHub data…</p>
+            } @else {
+              <p class="muted">Use “Refresh from GitHub” after configuring <code>tracker.github</code> on the server.</p>
+            }
+          </section>
+        </div>
+      </mat-tab>
+    }
   </mat-tab-group>
 </mat-card>

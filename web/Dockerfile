@@ -1,6 +1,6 @@
 # Build with repository root as context:
 #   docker build -f web/Dockerfile .
-FROM node:20-alpine AS build
+FROM node:22-alpine AS build
 WORKDIR /app
 COPY web/package.json web/package-lock.json ./
 RUN npm ci

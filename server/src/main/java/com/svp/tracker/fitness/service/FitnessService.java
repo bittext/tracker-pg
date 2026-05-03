@@ -42,9 +42,6 @@ public class FitnessService {
     private final CurrentUserService currentUser;
 
     public List<Exercise> listExercises() {
-        if (currentUser.isAdmin()) {
-            return exerciseRepository.findAll();
-        }
         return exerciseRepository.findByOwnerUserIdOrderByNameAsc(currentUser.requireUserId());
     }
 
@@ -85,17 +82,11 @@ public class FitnessService {
 
     public List<ExerciseDayLog> listDayLogsForDay(Long exerciseId, LocalDate day) {
         getExercise(exerciseId);
-        if (currentUser.isAdmin()) {
-            return exerciseDayLogRepository.findByExerciseIdAndPerformedOnOrderByIdAsc(exerciseId, day);
-        }
         return exerciseDayLogRepository.findByOwnerUserIdAndExerciseIdAndPerformedOnOrderByIdAsc(
                 currentUser.requireUserId(), exerciseId, day);
     }
 
     public List<ExerciseDayLog> listDayLogsBetween(LocalDate from, LocalDate to) {
-        if (currentUser.isAdmin()) {
-            return exerciseDayLogRepository.findByPerformedOnBetweenOrderByPerformedOnAscIdAsc(from, to);
-        }
         return exerciseDayLogRepository.findByOwnerUserIdAndPerformedOnBetweenOrderByPerformedOnAscIdAsc(
                 currentUser.requireUserId(), from, to);
     }
@@ -134,9 +125,6 @@ public class FitnessService {
     }
 
     public List<BodyWeightLog> listBodyWeight() {
-        if (currentUser.isAdmin()) {
-            return bodyWeightLogRepository.findAllByOrderByLoggedOnDesc();
-        }
         return bodyWeightLogRepository.findByOwnerUserIdOrderByLoggedOnDesc(currentUser.requireUserId());
     }
 
@@ -192,10 +180,8 @@ public class FitnessService {
     @Transactional(readOnly = true)
     public DailyExerciseReportDto dailyReport(LocalDate date) {
         List<ExerciseDayLog> logs =
-                currentUser.isAdmin()
-                        ? exerciseDayLogRepository.findByPerformedOnBetweenOrderByPerformedOnAscIdAsc(date, date)
-                        : exerciseDayLogRepository.findByOwnerUserIdAndPerformedOnBetweenOrderByPerformedOnAscIdAsc(
-                                currentUser.requireUserId(), date, date);
+                exerciseDayLogRepository.findByOwnerUserIdAndPerformedOnBetweenOrderByPerformedOnAscIdAsc(
+                        currentUser.requireUserId(), date, date);
         DailyExerciseReportDto dto = new DailyExerciseReportDto();
         dto.setDate(date);
         dto.setTotalLogs(logs.size());
@@ -208,13 +194,9 @@ public class FitnessService {
             DayAgg agg = byExercise.computeIfAbsent(ex.getId(), i -> new DayAgg(ex.getId(), ex.getName()));
             agg.logCount++;
         }
-        if (currentUser.isAdmin()) {
-            bodyWeightLogRepository.findFirstByLoggedOn(date).ifPresent(b -> dto.setBodyWeightKg(b.getWeightKg()));
-        } else {
-            bodyWeightLogRepository
-                    .findFirstByOwnerUserIdAndLoggedOn(currentUser.requireUserId(), date)
-                    .ifPresent(b -> dto.setBodyWeightKg(b.getWeightKg()));
-        }
+        bodyWeightLogRepository
+                .findFirstByOwnerUserIdAndLoggedOn(currentUser.requireUserId(), date)
+                .ifPresent(b -> dto.setBodyWeightKg(b.getWeightKg()));
         List<ExerciseDayBreakdownDto> rows = byExercise.values().stream()
                 .sorted(Comparator.comparing(a -> a.name))
                 .map(a -> new ExerciseDayBreakdownDto(a.exerciseId, a.name, a.logCount))
@@ -240,10 +222,8 @@ public class FitnessService {
         LocalDate from = ym.atDay(1);
         LocalDate to = ym.atEndOfMonth();
         List<ExerciseDayLog> logs =
-                currentUser.isAdmin()
-                        ? exerciseDayLogRepository.findByPerformedOnBetweenOrderByPerformedOnAscIdAsc(from, to)
-                        : exerciseDayLogRepository.findByOwnerUserIdAndPerformedOnBetweenOrderByPerformedOnAscIdAsc(
-                                currentUser.requireUserId(), from, to);
+                exerciseDayLogRepository.findByOwnerUserIdAndPerformedOnBetweenOrderByPerformedOnAscIdAsc(
+                        currentUser.requireUserId(), from, to);
         MonthlyExerciseReportDto dto = new MonthlyExerciseReportDto();
         dto.setYear(year);
         dto.setMonth(month);
@@ -277,25 +257,16 @@ public class FitnessService {
         LocalDate from = ym.atDay(1);
         LocalDate to = ym.atEndOfMonth();
         List<ExerciseDayLog> logRows =
-                currentUser.isAdmin()
-                        ? exerciseDayLogRepository.findByPerformedOnBetweenOrderByPerformedOnAscIdAsc(from, to)
-                        : exerciseDayLogRepository.findByOwnerUserIdAndPerformedOnBetweenOrderByPerformedOnAscIdAsc(
-                                currentUser.requireUserId(), from, to);
+                exerciseDayLogRepository.findByOwnerUserIdAndPerformedOnBetweenOrderByPerformedOnAscIdAsc(
+                        currentUser.requireUserId(), from, to);
         List<BodyWeightLog> weightRows =
-                currentUser.isAdmin()
-                        ? bodyWeightLogRepository.findByLoggedOnBetweenOrderByLoggedOnAsc(from, to)
-                        : bodyWeightLogRepository.findByOwnerUserIdAndLoggedOnBetweenOrderByLoggedOnAsc(
-                                currentUser.requireUserId(), from, to);
+                bodyWeightLogRepository.findByOwnerUserIdAndLoggedOnBetweenOrderByLoggedOnAsc(
+                        currentUser.requireUserId(), from, to);
         List<LocalDate> strength =
-                currentUser.isAdmin()
-                        ? exerciseDayLogRepository.findDistinctPerformedOnBetween(from, to)
-                        : exerciseDayLogRepository.findDistinctPerformedOnBetweenForOwner(
-                                currentUser.requireUserId(), from, to);
+                exerciseDayLogRepository.findDistinctPerformedOnBetweenForOwner(
+                        currentUser.requireUserId(), from, to);
         List<LocalDate> weight =
-                currentUser.isAdmin()
-                        ? bodyWeightLogRepository.findDistinctLoggedOnBetween(from, to)
-                        : bodyWeightLogRepository.findDistinctLoggedOnBetweenForOwner(
-                                currentUser.requireUserId(), from, to);
+                bodyWeightLogRepository.findDistinctLoggedOnBetweenForOwner(currentUser.requireUserId(), from, to);
         MonthActivityCalendarDto dto = new MonthActivityCalendarDto();
         dto.setYear(year);
         dto.setMonth(month);
@@ -324,9 +295,6 @@ public class FitnessService {
     }
 
     private void assertRowAccess(Long ownerUserId) {
-        if (currentUser.isAdmin()) {
-            return;
-        }
         if (ownerUserId == null) {
             throw new NotFoundException("Resource not found");
         }

@@ -4,7 +4,7 @@ Full **Tracker** REST API (auth, fitness, management, finance, logs, OpenAPI) ba
 
 ## Prerequisites
 
-- Java 17+
+- Java 21+
 - Maven 3.9+
 - Docker (for local Postgres, optional API image, and integration tests)
 

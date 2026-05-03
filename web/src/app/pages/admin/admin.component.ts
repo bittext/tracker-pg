@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -9,7 +10,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
-import { MatTabsModule } from '@angular/material/tabs';
+import { MatTabChangeEvent, MatTabsModule } from '@angular/material/tabs';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Exercise } from '../../models/fitness.models';
 import { FinanceNotificationSettingsDto, FinanceNotificationSettingsRequestDto } from '../../models/finance.models';
 import { AuthLoginEventDto } from '../../models/auth-audit.models';
@@ -18,6 +20,7 @@ import { ManagementTaskCategory, ManagementTaskType } from '../../models/managem
 import { AdminFinanceRobinhoodCsvComponent } from './admin-finance-robinhood-csv/admin-finance-robinhood-csv.component';
 import { BankingPanelComponent } from '../finance/banking-panel/banking-panel.component';
 import { AdminAuthAuditApiService } from '../../services/admin-auth-audit-api.service';
+import { AdminGithubApiService } from '../../services/admin-github-api.service';
 import { MeSignInLogApiService } from '../../services/me-sign-in-log-api.service';
 import { FitnessApiService } from '../../services/fitness-api.service';
 import { FinanceApiService } from '../../services/finance-api.service';
@@ -25,6 +28,8 @@ import { JournalApiService } from '../../services/journal-api.service';
 import { ManagementApiService } from '../../services/management-api.service';
 import { AuthService } from '../../services/auth.service';
 import { formatHttpErrorDetail } from '../../util/http-error';
+import { GithubRepositoryInsightsDto } from '../../models/github-insights.models';
+import { MemberProfilePanelComponent } from '../member/member-profile-panel.component';
 
 @Component({
   selector: 'app-admin',
@@ -40,19 +45,32 @@ import { formatHttpErrorDetail } from '../../util/http-error';
     MatIconModule,
     MatSnackBarModule,
     MatTabsModule,
+    MatProgressSpinnerModule,
     RouterLink,
     BankingPanelComponent,
     AdminFinanceRobinhoodCsvComponent,
+    MemberProfilePanelComponent,
   ],
   templateUrl: './admin.component.html',
   styleUrl: './admin.component.scss',
 })
 export class AdminComponent implements OnInit {
+  private readonly route = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly fitnessApi = inject(FitnessApiService);
+
+  constructor() {
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((qm) => {
+      if (qm.get('onboardingProfile') === '1') {
+        this.adminTabIndex = 1;
+      }
+    });
+  }
   private readonly financeApi = inject(FinanceApiService);
   private readonly managementApi = inject(ManagementApiService);
   private readonly journalApi = inject(JournalApiService);
   private readonly adminAuthAuditApi = inject(AdminAuthAuditApiService);
+  private readonly adminGithubApi = inject(AdminGithubApiService);
   private readonly meSignInLogApi = inject(MeSignInLogApiService);
   private readonly auth = inject(AuthService);
   private readonly snackBar = inject(MatSnackBar);
@@ -88,9 +106,59 @@ export class AdminComponent implements OnInit {
   loginEventLimit = 100;
   readonly loginEventColumns = ['createdAt', 'eventType', 'username', 'clientIp', 'detail', 'userAgent'];
 
+  /** Selected tab in Admin (0 = Sign-in log, 1 = My profile, …). */
+  adminTabIndex = 0;
+
+  /** Last tab index when {@link #isAppAdmin} (0–6); GitHub is index 6. */
+  private static readonly GITHUB_TAB_INDEX = 6;
+
+  githubInsights: GithubRepositoryInsightsDto | null = null;
+  githubLoading = false;
+  readonly githubCommitColumns = ['shaShort', 'messageFirstLine', 'authorLogin', 'committedAt', 'link'];
+  readonly githubContributorColumns = ['login', 'contributions', 'gh'];
+
   /** App role ADMIN: full sign-in audit and elevated server APIs under /api/admin/** */
   get isAppAdmin(): boolean {
     return this.auth.isAdmin();
+  }
+
+  onAdminTabChange(ev: MatTabChangeEvent): void {
+    if (this.isAppAdmin && ev.index === AdminComponent.GITHUB_TAB_INDEX) {
+      this.ensureGithubInsightsLoaded();
+    }
+  }
+
+  ensureGithubInsightsLoaded(): void {
+    if (!this.isAppAdmin || this.githubLoading || this.githubInsights) {
+      return;
+    }
+    this.loadGithubInsights();
+  }
+
+  refreshGithubInsights(): void {
+    if (!this.isAppAdmin) {
+      return;
+    }
+    this.githubInsights = null;
+    this.loadGithubInsights();
+  }
+
+  loadGithubInsights(): void {
+    if (!this.isAppAdmin) {
+      return;
+    }
+    this.githubLoading = true;
+    this.adminGithubApi.getRepositoryInsights().subscribe({
+      next: (d) => {
+        this.githubLoading = false;
+        this.githubInsights = d;
+      },
+      error: (e) => {
+        this.githubLoading = false;
+        this.githubInsights = null;
+        this.err('Could not load GitHub insights', e);
+      },
+    });
   }
 
   ngOnInit(): void {

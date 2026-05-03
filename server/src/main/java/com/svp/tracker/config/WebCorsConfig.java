@@ -16,7 +16,8 @@ public class WebCorsConfig {
                 registry.addMapping("/api/**")
                         .allowedOriginPatterns(webProperties.corsPatterns().toArray(String[]::new))
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-                        .allowedHeaders("*");
+                        .allowedHeaders("*")
+                        .maxAge(3600);
             }
         };
     }

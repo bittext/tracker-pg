@@ -308,18 +308,12 @@ public class JournalService {
     }
 
     private void assertRowAccess(Long ownerUserId) {
-        if (currentUser.isAdmin()) {
-            return;
-        }
         if (!Objects.equals(ownerUserId, currentUser.requireUserId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not allowed");
         }
     }
 
     private long effectiveOwnerId(Long filterOwnerId) {
-        if (currentUser.isAdmin() && filterOwnerId != null) {
-            return filterOwnerId;
-        }
         return currentUser.requireUserId();
     }
 

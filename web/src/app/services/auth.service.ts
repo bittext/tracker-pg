@@ -4,7 +4,7 @@ import { Router } from '@angular/router';
 import { BehaviorSubject, map, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
 
-interface AuthTokenDto {
+export interface AuthTokenDto {
   token: string;
   expiresAt: string;
   username: string;
@@ -66,13 +66,15 @@ export class AuthService {
           }
           return res.token;
         }),
-        tap((token) => {
-          localStorage.setItem(TOKEN_KEY, token.token);
-          localStorage.setItem(USER_KEY, token.username);
-          localStorage.setItem(ROLE_KEY, token.role);
-          this.authState$.next(true);
-        }),
+        tap((token) => this.applyToken(token)),
       );
+  }
+
+  applyToken(token: AuthTokenDto): void {
+    localStorage.setItem(TOKEN_KEY, token.token);
+    localStorage.setItem(USER_KEY, token.username);
+    localStorage.setItem(ROLE_KEY, token.role);
+    this.authState$.next(true);
   }
 
   logout(redirectToLogin = true): void {

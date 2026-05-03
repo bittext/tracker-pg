@@ -36,7 +36,7 @@ public class ManagementTaskCategory {
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
-    /** Owning application user; ADMIN may list or moderate all users' rows. */
+    /** Owning application user; all reads and writes are scoped to this user. */
     @Column(name = "owner_user_id")
     private Long ownerUserId;
 

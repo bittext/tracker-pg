@@ -1,0 +1,2 @@
+ALTER TABLE member_profiles
+    ADD COLUMN IF NOT EXISTS gender VARCHAR(24);

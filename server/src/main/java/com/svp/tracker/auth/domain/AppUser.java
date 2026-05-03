@@ -52,6 +52,21 @@ public class AppUser {
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
+    /** When set, first-login onboarding (credentials → profile → member id) is finished. */
+    @Column(name = "onboarding_completed_at")
+    private Instant onboardingCompletedAt;
+
+    /** User finished the username/password step and may capture profile under Admin. */
+    @Column(name = "credentials_step_completed_at")
+    private Instant credentialsStepCompletedAt;
+
+    /**
+     * Stable public identifier (digits) shown to the member; minted when profile is first saved. Distinct from {@link
+     * #id} (internal surrogate).
+     */
+    @Column(name = "member_public_id", unique = true)
+    private Long memberPublicId;
+
     @PrePersist
     void onCreate() {
         if (createdAt == null) {

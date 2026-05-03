@@ -3,6 +3,7 @@ package com.svp.tracker.common.web;
 import com.svp.tracker.fitness.exception.NotFoundException;
 import java.io.UncheckedIOException;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
 
+@Slf4j
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
@@ -21,10 +23,9 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<Map<String, String>> dataAccess(DataAccessException ex) {
-        Throwable root = ex.getMostSpecificCause();
-        String msg = root != null ? root.getMessage() : ex.getMessage();
+        log.error("Data access error", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "data_access", "message", msg != null ? msg : "database error"));
+                .body(Map.of("error", "data_access", "message", "A database error occurred."));
     }
 
     /**
@@ -33,26 +34,24 @@ public class ApiExceptionHandler {
      */
     @ExceptionHandler(TransactionException.class)
     public ResponseEntity<Map<String, String>> transaction(TransactionException ex) {
-        Throwable root = ex.getMostSpecificCause();
-        String msg = root != null ? root.getMessage() : ex.getMessage();
+        log.error("Transaction / database availability error", ex);
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                 .body(Map.of(
                         "error",
                         "database_unavailable",
                         "message",
-                        msg != null ? msg : "Database transaction failed (is PostgreSQL running and reachable?)"));
+                        "The database is unavailable or could not complete the request. Try again later."));
     }
 
     @ExceptionHandler(UncheckedIOException.class)
     public ResponseEntity<Map<String, String>> storageIo(UncheckedIOException ex) {
-        Throwable c = ex.getCause();
-        String msg = c != null ? c.getMessage() : ex.getMessage();
+        log.error("Storage I/O error", ex);
         return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
                 .body(Map.of(
                         "error",
                         "storage_io",
                         "message",
-                        msg != null ? msg : "Attachment storage failed (check S3 credentials/bucket or local journal directory)"));
+                        "Attachment storage failed. Check server configuration and try again."));
     }
 
     @ExceptionHandler(ResponseStatusException.class)

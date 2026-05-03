@@ -1,0 +1,31 @@
+<div class="mid-wrap">
+  @if (loading) {
+    <p class="muted">Loading…</p>
+  } @else if (status && status.memberPublicId != null) {
+    <mat-card class="mid-card hero" appearance="outlined">
+      <div class="mid-badge">Member ID assigned</div>
+      <h1 class="mid-title">You are all set, {{ status.username }}</h1>
+      <p class="mid-lead">
+        Save this number — it is your <strong>primary member identifier</strong> for Tracker. Use it in any future
+        correspondence or support requests so we can match you instantly (it is separate from your internal database id).
+      </p>
+      <div class="mid-id-block" role="group" aria-label="Member ID">
+        <span class="mid-id-label">Member ID</span>
+        <span class="mid-id-value">{{ formatMemberId(status.memberPublicId) }}</span>
+      </div>
+      <div class="mid-actions">
+        <button mat-stroked-button type="button" color="primary" (click)="copyId()">
+          <mat-icon>content_copy</mat-icon>
+          Copy ID
+        </button>
+        <button mat-flat-button color="primary" type="button" (click)="continue()" [disabled]="finishing">
+          {{ finishing ? 'Opening…' : 'Continue to Welcome' }}
+        </button>
+      </div>
+    </mat-card>
+  } @else {
+    <mat-card class="mid-card" appearance="outlined">
+      <p class="muted">No member ID was found yet. Save your profile under Admin → My profile first.</p>
+    </mat-card>
+  }
+</div>

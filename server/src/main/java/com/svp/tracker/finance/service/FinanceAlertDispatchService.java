@@ -7,6 +7,8 @@ import com.svp.tracker.finance.domain.FinanceAlertEvent;
 import com.svp.tracker.finance.domain.FinanceNotificationSettings;
 import com.svp.tracker.finance.domain.FinanceStockAlert;
 import com.svp.tracker.finance.repository.FinanceAlertEventRepository;
+import com.svp.tracker.member.domain.MemberProfile;
+import com.svp.tracker.member.repository.MemberProfileRepository;
 import jakarta.annotation.PreDestroy;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -35,6 +37,7 @@ public class FinanceAlertDispatchService {
 
     private final FinanceAlertProperties props;
     private final FinanceAlertEventRepository eventRepository;
+    private final MemberProfileRepository memberProfileRepository;
 
     private final Object clientLock = new Object();
     private volatile SnsClient snsClient;
@@ -46,15 +49,21 @@ public class FinanceAlertDispatchService {
             String subject,
             String body) {
         List<FinanceAlertEvent> events = new ArrayList<>();
-        if (settings == null || (!settings.isEmailEnabled() && !settings.isSmsEnabled())) {
+        boolean wantEmail = settings != null && settings.isEmailEnabled();
+        boolean wantSms = settings != null && settings.isSmsEnabled();
+        EffectiveNotifyChannels ch = effectiveNotifyChannels(alert.getOwnerUserId(), wantEmail, wantSms);
+        if (settings == null || (!ch.email() && !ch.sms())) {
+            String reason = settings == null || (!wantEmail && !wantSms)
+                    ? "No notification channels enabled"
+                    : "Email/SMS notifications are turned off in member profile (My profile)";
             events.add(save(systemEvent(
-                    alert, FinanceAlertDeliveryChannel.SYSTEM, FinanceAlertDeliveryStatus.SKIPPED, "No notification channels enabled", "")));
+                    alert, FinanceAlertDeliveryChannel.SYSTEM, FinanceAlertDeliveryStatus.SKIPPED, reason, "")));
             return events;
         }
-        if (settings.isEmailEnabled()) {
+        if (ch.email()) {
             events.add(sendEmail(alert, settings.getEmailAddress(), subject, body));
         }
-        if (settings.isSmsEnabled()) {
+        if (ch.sms()) {
             events.add(sendSms(alert, settings.getMobileE164(), body));
         }
         return events;
@@ -62,6 +71,14 @@ public class FinanceAlertDispatchService {
 
     public FinanceAlertEvent testEmail(long ownerUserId, String emailAddress) {
         FinanceStockAlert pseudo = pseudoAlert(ownerUserId);
+        if (!memberAllowsEmail(ownerUserId)) {
+            return save(systemEvent(
+                    pseudo,
+                    FinanceAlertDeliveryChannel.EMAIL,
+                    FinanceAlertDeliveryStatus.SKIPPED,
+                    "Email notifications are off in your member profile (My profile). Turn them on to receive messages.",
+                    ""));
+        }
         return sendEmail(
                 pseudo,
                 emailAddress,
@@ -71,6 +88,14 @@ public class FinanceAlertDispatchService {
 
     public FinanceAlertEvent testSms(long ownerUserId, String mobileE164) {
         FinanceStockAlert pseudo = pseudoAlert(ownerUserId);
+        if (!memberAllowsSms(ownerUserId)) {
+            return save(systemEvent(
+                    pseudo,
+                    FinanceAlertDeliveryChannel.SMS,
+                    FinanceAlertDeliveryStatus.SKIPPED,
+                    "SMS notifications are off in your member profile (My profile). Turn them on to receive messages.",
+                    ""));
+        }
         return sendSms(
                 pseudo,
                 mobileE164,
@@ -268,6 +293,34 @@ public class FinanceAlertDispatchService {
         a.setSymbol("TEST");
         return a;
     }
+
+    /**
+     * Finance channels AND member profile notification opt-ins. If the user has no {@link MemberProfile} row yet,
+     * opt-in is treated as true so existing installs are not blocked until they save profile preferences.
+     */
+    private EffectiveNotifyChannels effectiveNotifyChannels(long ownerUserId, boolean financeWantsEmail, boolean financeWantsSms) {
+        return memberProfileRepository
+                .findByUserId(ownerUserId)
+                .map(p -> new EffectiveNotifyChannels(
+                        financeWantsEmail && p.isMarketingEmailOptIn(), financeWantsSms && p.isMarketingSmsOptIn()))
+                .orElseGet(() -> new EffectiveNotifyChannels(financeWantsEmail, financeWantsSms));
+    }
+
+    private boolean memberAllowsEmail(long ownerUserId) {
+        return memberProfileRepository
+                .findByUserId(ownerUserId)
+                .map(MemberProfile::isMarketingEmailOptIn)
+                .orElse(true);
+    }
+
+    private boolean memberAllowsSms(long ownerUserId) {
+        return memberProfileRepository
+                .findByUserId(ownerUserId)
+                .map(MemberProfile::isMarketingSmsOptIn)
+                .orElse(true);
+    }
+
+    private record EffectiveNotifyChannels(boolean email, boolean sms) {}
 
     private static String clean(String s) {
         return s == null ? "unknown" : s.replace('\n', ' ').replace('\r', ' ');

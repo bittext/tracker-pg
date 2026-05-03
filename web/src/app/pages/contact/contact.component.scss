@@ -1,0 +1,19 @@
+.page-head {
+  margin-bottom: 1.25rem;
+}
+
+.contact-card {
+  max-width: 42rem;
+  border-radius: var(--app-radius, 12px) !important;
+}
+
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+.full {
+  width: 100%;
+}

@@ -3,9 +3,12 @@ package com.svp.tracker;
 import com.svp.tracker.auth.config.AuthProperties;
 import com.svp.tracker.auth.config.SmsProperties;
 import com.svp.tracker.config.BankingImportProperties;
+import com.svp.tracker.config.FeedbackProperties;
+import com.svp.tracker.config.GithubProperties;
 import com.svp.tracker.config.FinanceAlertProperties;
 import com.svp.tracker.config.FinanceProperties;
 import com.svp.tracker.config.JournalProperties;
+import com.svp.tracker.config.SecurityProperties;
 import com.svp.tracker.config.WebProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -17,11 +20,14 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableConfigurationProperties({
     FinanceProperties.class,
     BankingImportProperties.class,
+    FeedbackProperties.class,
+    GithubProperties.class,
     FinanceAlertProperties.class,
     AuthProperties.class,
     SmsProperties.class,
     WebProperties.class,
-    JournalProperties.class
+    JournalProperties.class,
+    SecurityProperties.class
 })
 public class TrackerApplication {
 

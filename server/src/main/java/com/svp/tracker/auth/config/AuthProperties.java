@@ -9,6 +9,8 @@ public record AuthProperties(
         String jwtSecret,
         int jwtTtlSeconds,
         String passwordPepper,
+        /** BCrypt work factor (4–31). Higher is slower and more resistant to offline guessing. */
+        int bcryptStrength,
         int trustedLocationDays,
         int mfaOtpTtlSeconds,
         int mfaMaxAttempts,
@@ -31,6 +33,12 @@ public record AuthProperties(
         }
         if (passwordPepper == null) {
             passwordPepper = "";
+        }
+        if (bcryptStrength < 4) {
+            bcryptStrength = 12;
+        }
+        if (bcryptStrength > 31) {
+            bcryptStrength = 31;
         }
         if (trustedLocationDays < 1) {
             trustedLocationDays = 90;

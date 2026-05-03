@@ -3,12 +3,16 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { switchMap } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AuthService } from '../../services/auth.service';
+import { MeMemberApiService } from '../../services/me-member-api.service';
+import { MeOnboardingStatusDto } from '../../models/member.models';
 
 @Component({
   selector: 'app-login',
@@ -20,6 +24,7 @@ import { AuthService } from '../../services/auth.service';
     MatCardModule,
     MatFormFieldModule,
     MatInputModule,
+    MatIconModule,
     MatButtonModule,
     MatProgressSpinnerModule,
   ],
@@ -29,6 +34,7 @@ import { AuthService } from '../../services/auth.service';
 export class LoginComponent {
   private readonly fb = inject(FormBuilder);
   private readonly auth = inject(AuthService);
+  private readonly meMemberApi = inject(MeMemberApiService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
@@ -39,6 +45,8 @@ export class LoginComponent {
 
   submitting = false;
   error: string | null = null;
+  /** When true, password characters are masked in the field; user may reveal to verify typing. */
+  passwordMasked = true;
 
   submit(): void {
     if (this.form.invalid || this.submitting) {
@@ -49,11 +57,15 @@ export class LoginComponent {
     this.submitting = true;
     this.error = null;
     const { username, password } = this.form.getRawValue();
-    this.auth.login(username.trim(), password).subscribe({
-      next: () => {
-        const redirect = this.route.snapshot.queryParamMap.get('redirect') || '/welcome';
-        this.router.navigateByUrl(redirect);
-      },
+    this.auth
+      .login(username.trim(), password)
+      .pipe(switchMap(() => this.meMemberApi.getOnboardingStatus()))
+      .subscribe({
+        next: (status) => {
+          this.form.patchValue({ password: '' });
+          const redirect = this.route.snapshot.queryParamMap.get('redirect');
+          this.router.navigateByUrl(postLoginPath(status, redirect));
+        },
       error: (e: unknown) => {
         this.submitting = false;
         this.error = this.toMessage(e);
@@ -82,4 +94,21 @@ export class LoginComponent {
     }
     return 'Login failed.';
   }
+}
+
+function postLoginPath(status: MeOnboardingStatusDto, redirect: string | null): string {
+  if (!status.onboardingCompleted) {
+    if (!status.credentialsStepCompleted) {
+      return '/onboarding/credentials';
+    }
+    if (!status.profileSubmitted) {
+      return '/admin?onboardingProfile=1';
+    }
+    return '/onboarding/member-id';
+  }
+  const r = redirect?.trim();
+  if (r && r !== '/login' && !r.startsWith('/login?')) {
+    return r;
+  }
+  return '/welcome';
 }

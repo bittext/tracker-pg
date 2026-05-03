@@ -34,11 +34,6 @@ public class ManagementService {
     private final CurrentUserService currentUser;
 
     public List<ManagementTaskCategory> listCategories() {
-        if (currentUser.isAdmin()) {
-            return categoryRepository.findAll().stream()
-                    .sorted(Comparator.comparing(ManagementTaskCategory::getName, String.CASE_INSENSITIVE_ORDER))
-                    .toList();
-        }
         return categoryRepository.findByOwnerUserIdOrderByNameAsc(currentUser.requireUserId());
     }
 
@@ -59,11 +54,6 @@ public class ManagementService {
     }
 
     public List<ManagementTaskType> listTaskTypes() {
-        if (currentUser.isAdmin()) {
-            return taskTypeRepository.findAll().stream()
-                    .sorted(Comparator.comparing(ManagementTaskType::getName, String.CASE_INSENSITIVE_ORDER))
-                    .toList();
-        }
         return taskTypeRepository.findByOwnerUserIdOrderByNameAsc(currentUser.requireUserId());
     }
 
@@ -85,18 +75,13 @@ public class ManagementService {
 
     public List<ManagementTaskDto> listTasksForReport() {
         List<ManagementTask> tasks =
-                currentUser.isAdmin()
-                        ? taskRepository.findAll()
-                        : taskRepository.findByOwnerUserIdOrderByDueDateAscIdAsc(currentUser.requireUserId());
+                taskRepository.findByOwnerUserIdOrderByDueDateAscIdAsc(currentUser.requireUserId());
         return tasks.stream().sorted(taskReportOrder()).map(this::toDto).toList();
     }
 
     public List<ManagementTaskDto> listTasksUnscheduled() {
         List<ManagementTask> tasks =
-                currentUser.isAdmin()
-                        ? taskRepository.findByDueDateIsNullOrderByCreatedAtDesc()
-                        : taskRepository.findByOwnerUserIdAndDueDateIsNullOrderByCreatedAtDesc(
-                                currentUser.requireUserId());
+                taskRepository.findByOwnerUserIdAndDueDateIsNullOrderByCreatedAtDesc(currentUser.requireUserId());
         return tasks.stream().map(this::toDto).toList();
     }
 
@@ -105,10 +90,8 @@ public class ManagementService {
         LocalDate from = ym.atDay(1);
         LocalDate to = ym.atEndOfMonth();
         List<ManagementTask> inMonth =
-                currentUser.isAdmin()
-                        ? taskRepository.findByDueDateBetweenOrderByDueDateAscIdAsc(from, to)
-                        : taskRepository.findByOwnerUserIdAndDueDateBetweenOrderByDueDateAscIdAsc(
-                                currentUser.requireUserId(), from, to);
+                taskRepository.findByOwnerUserIdAndDueDateBetweenOrderByDueDateAscIdAsc(
+                        currentUser.requireUserId(), from, to);
         Map<String, List<ManagementTaskDto>> byDay = new HashMap<>();
         for (ManagementTask t : inMonth) {
             if (t.getDueDate() == null) {
@@ -154,9 +137,6 @@ public class ManagementService {
     }
 
     private void assertRowAccess(Long ownerUserId) {
-        if (currentUser.isAdmin()) {
-            return;
-        }
         if (ownerUserId == null) {
             throw new NotFoundException("Resource not found");
         }
@@ -195,8 +175,7 @@ public class ManagementService {
     private ManagementTaskCategory resolveCategory(Long id, Long taskOwnerId) {
         ManagementTaskCategory c =
                 categoryRepository.findById(id).orElseThrow(() -> new NotFoundException("Category not found: " + id));
-        if (!currentUser.isAdmin()
-                && (c.getOwnerUserId() == null || !Objects.equals(c.getOwnerUserId(), taskOwnerId))) {
+        if (c.getOwnerUserId() == null || !Objects.equals(c.getOwnerUserId(), taskOwnerId)) {
             throw new NotFoundException("Category not found: " + id);
         }
         return c;
@@ -205,8 +184,7 @@ public class ManagementService {
     private ManagementTaskType resolveTaskType(Long id, Long taskOwnerId) {
         ManagementTaskType t =
                 taskTypeRepository.findById(id).orElseThrow(() -> new NotFoundException("Task type not found: " + id));
-        if (!currentUser.isAdmin()
-                && (t.getOwnerUserId() == null || !Objects.equals(t.getOwnerUserId(), taskOwnerId))) {
+        if (t.getOwnerUserId() == null || !Objects.equals(t.getOwnerUserId(), taskOwnerId)) {
             throw new NotFoundException("Task type not found: " + id);
         }
         return t;

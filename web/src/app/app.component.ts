@@ -37,7 +37,7 @@ export class AppComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
   private readonly http = inject(HttpClient);
-  readonly title = 'Tracker · PostgreSQL';
+  readonly title = 'Tracker';
   readonly webReleaseVersion = WEB_RELEASE_VERSION;
   /** Populated from API after startup (null if unreachable). */
   apiRelease: ApiVersionPayload | null = null;
@@ -52,7 +52,7 @@ export class AppComponent implements OnInit {
 
   private isPublicStandaloneRoute(url: string): boolean {
     const path = url.split('?')[0].split('#')[0];
-    return path === '/login' || path === '/privacy';
+    return path === '/login' || path === '/privacy' || path.startsWith('/onboarding/');
   }
 
   ngOnInit(): void {

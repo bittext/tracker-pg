@@ -1,0 +1,201 @@
+<section class="member-profile">
+  <p class="muted intro">
+    Your legal-style name, optional nickname for social use, contact details, and mailing address. US ZIP codes can be
+    checked against a public lookup service; you may keep your entered city/state or adopt the suggested values.
+  </p>
+
+  @if (onboardingComplete) {
+    <mat-card class="pwd-card" appearance="outlined">
+      <mat-card-title class="pwd-card-title">Change sign-in password</mat-card-title>
+      <mat-card-content>
+        <p class="muted small pwd-hint">
+          Enter your current password, then choose a new one (at least 8 characters). Your session stays active with an
+          updated token after a successful change.
+        </p>
+        <div class="pwd-grid">
+          <mat-form-field appearance="outline" class="pwd-full">
+            <mat-label>Current password</mat-label>
+            <input
+              matInput
+              name="pwdCur"
+              [type]="pwdMaskCurrent ? 'password' : 'text'"
+              [(ngModel)]="pwdCurrent"
+              autocomplete="current-password"
+            />
+            <button
+              mat-icon-button
+              matSuffix
+              type="button"
+              (click)="pwdMaskCurrent = !pwdMaskCurrent"
+              [attr.aria-label]="pwdMaskCurrent ? 'Show password' : 'Hide password'"
+            >
+              <mat-icon>{{ pwdMaskCurrent ? 'visibility' : 'visibility_off' }}</mat-icon>
+            </button>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="pwd-full">
+            <mat-label>New password</mat-label>
+            <input
+              matInput
+              name="pwdNew"
+              [type]="pwdMaskNew ? 'password' : 'text'"
+              [(ngModel)]="pwdNew"
+              autocomplete="new-password"
+            />
+            <button
+              mat-icon-button
+              matSuffix
+              type="button"
+              (click)="pwdMaskNew = !pwdMaskNew"
+              [attr.aria-label]="pwdMaskNew ? 'Show password' : 'Hide password'"
+            >
+              <mat-icon>{{ pwdMaskNew ? 'visibility' : 'visibility_off' }}</mat-icon>
+            </button>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="pwd-full">
+            <mat-label>Confirm new password</mat-label>
+            <input
+              matInput
+              name="pwdConf"
+              [type]="pwdMaskConfirm ? 'password' : 'text'"
+              [(ngModel)]="pwdConfirm"
+              autocomplete="new-password"
+            />
+            <button
+              mat-icon-button
+              matSuffix
+              type="button"
+              (click)="pwdMaskConfirm = !pwdMaskConfirm"
+              [attr.aria-label]="pwdMaskConfirm ? 'Show password' : 'Hide password'"
+            >
+              <mat-icon>{{ pwdMaskConfirm ? 'visibility' : 'visibility_off' }}</mat-icon>
+            </button>
+          </mat-form-field>
+        </div>
+        <button mat-stroked-button color="primary" type="button" (click)="changePassword()" [disabled]="pwdSaving">
+          {{ pwdSaving ? 'Updating…' : 'Update password' }}
+        </button>
+      </mat-card-content>
+    </mat-card>
+  }
+
+  <div class="form-grid">
+    <mat-form-field appearance="outline">
+      <mat-label>First name</mat-label>
+      <input matInput name="mpFirst" [(ngModel)]="form.firstName" required autocomplete="given-name" />
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Middle name</mat-label>
+      <input matInput name="mpMid" [(ngModel)]="form.middleName" autocomplete="additional-name" />
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Last name</mat-label>
+      <input matInput name="mpLast" [(ngModel)]="form.lastName" required autocomplete="family-name" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="span-2">
+      <mat-label>Nickname (optional)</mat-label>
+      <input
+        matInput
+        name="mpNick"
+        [(ngModel)]="form.nickname"
+        maxlength="80"
+        autocomplete="nickname"
+      />
+      <mat-hint>Optional. Use when interacting socially so others do not see your legal name.</mat-hint>
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Date of birth</mat-label>
+      <input matInput type="date" name="mpDob" [(ngModel)]="form.dateOfBirth" required />
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Gender</mat-label>
+      <mat-select name="mpGender" [(ngModel)]="form.gender">
+        <mat-option value="">Prefer not to say</mat-option>
+        <mat-option value="FEMALE">Female</mat-option>
+        <mat-option value="MALE">Male</mat-option>
+        <mat-option value="NON_BINARY">Non-binary</mat-option>
+        <mat-option value="OTHER">Other</mat-option>
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="span-2">
+      <mat-label>Email</mat-label>
+      <input matInput type="email" name="mpEmail" [(ngModel)]="form.email" required autocomplete="email" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="narrow">
+      <mat-label>Country code</mat-label>
+      <input matInput name="mpCc" [(ngModel)]="form.phoneCountryCode" placeholder="+1" />
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>Phone (national)</mat-label>
+      <input
+        matInput
+        name="mpPhone"
+        [(ngModel)]="form.phoneNationalNumber"
+        placeholder="Digits only, e.g. 4155550100"
+        autocomplete="tel-national"
+      />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="span-3">
+      <mat-label>Address line 1</mat-label>
+      <input matInput name="mpA1" [(ngModel)]="form.addressLine1" required autocomplete="address-line1" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="span-3">
+      <mat-label>Address line 2</mat-label>
+      <input matInput name="mpA2" [(ngModel)]="form.addressLine2" autocomplete="address-line2" />
+    </mat-form-field>
+    <mat-form-field appearance="outline">
+      <mat-label>City</mat-label>
+      <input matInput name="mpCity" [(ngModel)]="form.city" required autocomplete="address-level2" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="narrow">
+      <mat-label>State / region</mat-label>
+      <input matInput name="mpSt" [(ngModel)]="form.stateRegion" required autocomplete="address-level1" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="narrow">
+      <mat-label>ZIP / postal</mat-label>
+      <input matInput name="mpZip" [(ngModel)]="form.postalCode" required autocomplete="postal-code" />
+    </mat-form-field>
+    <div class="zip-actions">
+      <button mat-stroked-button type="button" color="primary" (click)="validateZip()" [disabled]="validatingZip">
+        @if (validatingZip) {
+          <span>Checking…</span>
+        } @else {
+          <span>Validate US ZIP</span>
+        }
+      </button>
+    </div>
+  </div>
+
+  @if (zipLookup && zipLookup.places.length) {
+    <mat-card class="suggest-card" appearance="outlined">
+      <mat-card-title class="suggest-title">ZIP lookup suggestion</mat-card-title>
+      <mat-card-content>
+        <p class="muted small">
+          For ZIP <strong>{{ zipLookup.postalCode }}</strong> we received:
+          <strong>{{ zipLookup.places[0].placeName }}</strong>, <strong>{{ zipLookup.places[0].stateAbbreviation }}</strong
+          >. Compare with your entries above.
+        </p>
+        <mat-radio-group [(ngModel)]="addressChoice" name="addrChoice" class="choice-row">
+          <mat-radio-button value="mine">Keep my city / state / ZIP as entered</mat-radio-button>
+          <mat-radio-button value="validated">Use suggested city / state / ZIP from lookup</mat-radio-button>
+        </mat-radio-group>
+      </mat-card-content>
+    </mat-card>
+  } @else if (zipLookup && zipLookup.message) {
+    <p class="muted small zip-msg">{{ zipLookup.message }}</p>
+  }
+
+  <div class="optins">
+    <mat-checkbox [(ngModel)]="form.marketingEmailOptIn" name="mpOptEmail"
+      >Send me email notifications from Tracker (alerts and product messages)</mat-checkbox
+    >
+    <mat-checkbox [(ngModel)]="form.marketingSmsOptIn" name="mpOptSms"
+      >Send me SMS notifications from Tracker (alerts and product messages)</mat-checkbox
+    >
+  </div>
+
+  <div class="actions">
+    <button mat-flat-button color="primary" type="button" (click)="save()" [disabled]="saving">
+      {{ saving ? 'Saving…' : 'Save profile' }}
+    </button>
+  </div>
+</section>

@@ -32,6 +32,11 @@ server:
   address: ${SERVER_ADDRESS:0.0.0.0}
   # Trust X-Forwarded-* from nginx and from Caddy (TLS termination) so redirects and security see https.
   forward-headers-strategy: framework
+  error:
+    # Do not leak exception text or stack traces to API clients (details stay in server logs).
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
 
 management:
   endpoints:
@@ -41,13 +46,28 @@ management:
 
 # Finance JDBC targets the local Flyway table (unquoted identifiers fold to lowercase in PostgreSQL).
 tracker:
+  security:
+    # Strict-Transport-Security: enable only when the app is served over HTTPS (direct TLS or trusted TLS proxy).
+    hsts-enabled: ${TRACKER_SECURITY_HSTS:false}
   journal:
     storage-directory: ${TRACKER_JOURNAL_STORAGE_DIR:}
     max-attachment-bytes: 20971520
     # If set (e.g. tracker-pg-journal), attachments go to S3; otherwise use storage-directory (or tmp).
     s3-bucket: ${TRACKER_JOURNAL_S3_BUCKET:}
     s3-region: ${TRACKER_JOURNAL_S3_REGION:us-east-1}
+  feedback:
+    # Optional comma-separated inboxes when no ADMIN user has a member profile email (dev / break-glass).
+    fallback-admin-emails: ${TRACKER_FEEDBACK_FALLBACK_ADMIN_EMAILS:}
+  github:
+    # Admin → Repository (GitHub) tab: REST v3 aggregate data (contributors, commits, stars, optional traffic).
+    enabled: ${TRACKER_GITHUB_ENABLED:false}
+    owner: ${TRACKER_GITHUB_OWNER:}
+    repo: ${TRACKER_GITHUB_REPO:}
+    # Classic PAT (ghp_…) or fine-grained (github_pat_…). Improves rate limits; required for private repos & traffic/views.
+    api-token: ${TRACKER_GITHUB_TOKEN:}
   web:
+    # Base URL for links in transactional account emails (first profile, password change). Override in production.
+    public-app-url: ${TRACKER_WEB_PUBLIC_APP_URL:http://localhost:4200}
     cors-allowed-origin-patterns:
       - "http://localhost:*"
       - "http://127.0.0.1:*"
@@ -55,6 +75,8 @@ tracker:
   auth:
     jwt-secret: ${TRACKER_AUTH_JWT_SECRET:dev-secret-change-me-dev-secret-change-me-dev-secret-change-me}
     jwt-ttl-seconds: ${TRACKER_AUTH_JWT_TTL_SECONDS:43200}
+    # BCrypt cost (4–31). Default 12; raise in production if login latency allows.
+    bcrypt-strength: ${TRACKER_AUTH_BCRYPT_STRENGTH:12}
     password-pepper: ${TRACKER_AUTH_PASSWORD_PEPPER:tracker-dev-pepper}
     bootstrap-admin-enabled: ${TRACKER_AUTH_BOOTSTRAP_ADMIN_ENABLED:true}
     bootstrap-admin-username: ${TRACKER_AUTH_BOOTSTRAP_ADMIN_USERNAME:admin}

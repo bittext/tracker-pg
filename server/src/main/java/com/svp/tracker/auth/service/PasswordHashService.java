@@ -6,15 +6,20 @@ import java.util.Base64;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+/**
+ * One-way password protection: BCrypt over a per-user random salt and application-level pepper. Raw passwords are
+ * never persisted and cannot be recovered from stored values.
+ */
 @Service
 public class PasswordHashService {
 
     private final AuthProperties authProperties;
-    private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
+    private final BCryptPasswordEncoder encoder;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public PasswordHashService(AuthProperties authProperties) {
         this.authProperties = authProperties;
+        this.encoder = new BCryptPasswordEncoder(authProperties.bcryptStrength());
     }
 
     public PasswordHash create(String rawPassword) {

@@ -22,7 +22,9 @@ import org.springframework.web.util.ContentCachingResponseWrapper;
 /**
  * Logs every {@code /api/**} request/response (except CORS OPTIONS): servlet fields, non-sensitive headers, and
  * bodies. Bodies for {@code /api/admin/logs} are not logged verbatim (avoids filling the in-memory log buffer with
- * duplicate log text). Omits Authorization/Cookie headers.
+ * duplicate log text). Request/response bodies for {@code /api/auth/**} and {@code /api/me/onboarding/credentials} are
+ * redacted (passwords, MFA codes, tokens), including {@code /api/me/password} and {@code /api/me/contact-feedback}.
+ * Omits Authorization/Cookie headers.
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 50)
@@ -32,6 +34,8 @@ public class ApiHttpLoggingFilter extends OncePerRequestFilter {
 
     private static final int MAX_BODY_CHARS = 8192;
     private static final int MAX_HEADER_VALUE_CHARS = 512;
+    /** Spring 7+ requires a bounded cache on {@link ContentCachingRequestWrapper}; cap memory per request. */
+    private static final int REQUEST_CONTENT_CACHE_LIMIT = 10 * 1024 * 1024;
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -49,8 +53,9 @@ public class ApiHttpLoggingFilter extends OncePerRequestFilter {
             @NonNull HttpServletResponse response,
             @NonNull FilterChain filterChain)
             throws ServletException, IOException {
-        ContentCachingRequestWrapper req =
-                request instanceof ContentCachingRequestWrapper w ? w : new ContentCachingRequestWrapper(request);
+        ContentCachingRequestWrapper req = request instanceof ContentCachingRequestWrapper w
+                ? w
+                : new ContentCachingRequestWrapper(request, REQUEST_CONTENT_CACHE_LIMIT);
         ContentCachingResponseWrapper res = new ContentCachingResponseWrapper(response);
 
         long t0 = System.nanoTime();
@@ -201,13 +206,17 @@ public class ApiHttpLoggingFilter extends OncePerRequestFilter {
             String side = isRequestSide ? "request" : "response";
             return "[omitted " + side + " body, " + n + " bytes — use server console file log for full capture]";
         }
-        if (requestUri != null && requestUri.startsWith("/api/auth/")) {
+        if (requestUri != null
+                && (requestUri.startsWith("/api/auth/")
+                        || requestUri.startsWith("/api/me/onboarding/credentials")
+                        || requestUri.startsWith("/api/me/password")
+                        || requestUri.startsWith("/api/me/contact-feedback"))) {
             int n = raw == null ? 0 : raw.length;
             if (n == 0) {
                 return "-";
             }
             String side = isRequestSide ? "request" : "response";
-            return "[redacted " + side + " body for auth route, " + n + " bytes]";
+            return "[redacted " + side + " body (auth or credentials), " + n + " bytes]";
         }
         if (raw == null || raw.length == 0) {
             return "-";

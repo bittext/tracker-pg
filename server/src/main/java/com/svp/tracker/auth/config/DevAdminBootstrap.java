@@ -4,6 +4,7 @@ import com.svp.tracker.auth.domain.AppUser;
 import com.svp.tracker.auth.domain.AppUserRole;
 import com.svp.tracker.auth.repository.AppUserRepository;
 import com.svp.tracker.auth.service.PasswordHashService;
+import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
@@ -38,6 +39,9 @@ public class DevAdminBootstrap implements ApplicationRunner {
         admin.setRole(AppUserRole.ADMIN);
         admin.setMfaEnabled(false);
         admin.setActive(true);
+        Instant now = Instant.now();
+        admin.setCredentialsStepCompletedAt(now);
+        // Leave onboarding_completed_at null until member profile + member-ID step (same as other accounts).
         appUserRepository.save(admin);
         backfillOwnerUserIdForNullRows(admin.getId());
 

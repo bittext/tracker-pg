@@ -73,6 +73,16 @@
         </a>
         <a
           mat-tab-link
+          routerLink="/contact"
+          routerLinkActive
+          #contactTab="routerLinkActive"
+          [active]="contactTab.isActive"
+          [routerLinkActiveOptions]="{ exact: true }"
+        >
+          Contact us
+        </a>
+        <a
+          mat-tab-link
           routerLink="/admin"
           routerLinkActive
           #adminTab="routerLinkActive"

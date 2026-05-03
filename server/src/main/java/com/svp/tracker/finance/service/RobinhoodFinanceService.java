@@ -207,11 +207,8 @@ public class RobinhoodFinanceService {
                 new ColumnMapRowMapper());
     }
 
-    /** Non-admin users only see Robinhood rows they own ({@code owner_user_id}). */
+    /** Restrict Robinhood SQL to rows owned by the signed-in user ({@code owner_user_id}). */
     private boolean appendUserOwnerClause(StringBuilder sql, List<Object> prefixBinds) {
-        if (currentUser.isAdmin()) {
-            return false;
-        }
         sql.append(" WHERE ").append(T).append(".owner_user_id = ?");
         prefixBinds.add(currentUser.requireUserId());
         return true;
@@ -462,10 +459,8 @@ public class RobinhoodFinanceService {
                 .append(trimExpr)
                 .append(" IS NOT NULL");
         List<Object> symBinds = new ArrayList<>();
-        if (!currentUser.isAdmin()) {
-            sql.append(" AND ").append(T).append(".owner_user_id = ?");
-            symBinds.add(currentUser.requireUserId());
-        }
+        sql.append(" AND ").append(T).append(".owner_user_id = ?");
+        symBinds.add(currentUser.requireUserId());
         sql.append(" ORDER BY 1 LIMIT ?");
         log.debug("Robinhood symbols query: {}", sql.toString().replaceFirst("\\?", Integer.toString(cap)));
         try {
@@ -527,10 +522,8 @@ public class RobinhoodFinanceService {
                 .append(qual)
                 .append(" IS NOT NULL");
         List<Object> fbBinds = new ArrayList<>();
-        if (!currentUser.isAdmin()) {
-            sql.append(" AND ").append(T).append(".owner_user_id = ?");
-            fbBinds.add(currentUser.requireUserId());
-        }
+        sql.append(" AND ").append(T).append(".owner_user_id = ?");
+        fbBinds.add(currentUser.requireUserId());
         sql.append(" LIMIT ?");
         log.info("Robinhood symbols: primary DISTINCT yielded no values; trying fallback scan (cap {})", cap);
         try {

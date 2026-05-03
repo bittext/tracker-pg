@@ -22,6 +22,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.http.HttpStatus;
@@ -165,9 +166,6 @@ public class FinanceTax1040Service {
     }
 
     private void assertAccess(Long ownerUserId) {
-        if (currentUser.isAdmin()) {
-            return;
-        }
         if (!Objects.equals(ownerUserId, currentUser.requireUserId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not allowed");
         }
@@ -319,7 +317,7 @@ public class FinanceTax1040Service {
         if (data == null || data.length < 5) {
             return null;
         }
-        try (PDDocument doc = PDDocument.load(new ByteArrayInputStream(data))) {
+        try (PDDocument doc = Loader.loadPDF(data)) {
             PDFTextStripper stripper = new PDFTextStripper();
             String t = stripper.getText(doc);
             return t == null ? null : t.trim();

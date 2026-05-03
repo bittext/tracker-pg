@@ -1,6 +1,10 @@
 import { Routes } from '@angular/router';
 import { adminGuard } from './guards/admin.guard';
 import { authGuard } from './guards/auth.guard';
+import { onboardingAdminGuard } from './guards/onboarding-admin.guard';
+import { onboardingCompleteGuard } from './guards/onboarding-complete.guard';
+import { onboardingCredentialsGuard } from './guards/onboarding-credentials.guard';
+import { onboardingMemberIdGuard } from './guards/onboarding-member-id.guard';
 import { AdminComponent } from './pages/admin/admin.component';
 import { ExerciseComponent } from './pages/exercise/exercise.component';
 import { FinanceComponent } from './pages/finance/finance.component';
@@ -8,6 +12,7 @@ import { JournalComponent } from './pages/journal/journal.component';
 import { ManagementComponent } from './pages/management/management.component';
 import { ReportsComponent } from './pages/reports/reports.component';
 import { WelcomeComponent } from './pages/welcome/welcome.component';
+import { ContactComponent } from './pages/contact/contact.component';
 
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'welcome' },
@@ -21,38 +26,55 @@ export const routes: Routes = [
   },
   { path: 'privacy-policy', redirectTo: 'privacy', pathMatch: 'full' },
   {
+    path: 'onboarding/credentials',
+    canActivate: [authGuard, onboardingCredentialsGuard],
+    loadComponent: () =>
+      import('./pages/onboarding/onboarding-credentials.component').then((m) => m.OnboardingCredentialsComponent),
+  },
+  {
+    path: 'onboarding/member-id',
+    canActivate: [authGuard, onboardingMemberIdGuard],
+    loadComponent: () =>
+      import('./pages/onboarding/onboarding-member-id.component').then((m) => m.OnboardingMemberIdComponent),
+  },
+  {
     path: 'welcome',
-    canActivate: [authGuard],
+    canActivate: [authGuard, onboardingCompleteGuard],
     component: WelcomeComponent,
   },
   {
     path: 'exercise',
-    canActivate: [authGuard],
+    canActivate: [authGuard, onboardingCompleteGuard],
     component: ExerciseComponent,
   },
   {
     path: 'finance',
-    canActivate: [authGuard],
+    canActivate: [authGuard, onboardingCompleteGuard],
     component: FinanceComponent,
   },
   {
     path: 'management',
-    canActivate: [authGuard],
+    canActivate: [authGuard, onboardingCompleteGuard],
     component: ManagementComponent,
   },
   {
     path: 'journal',
-    canActivate: [authGuard],
+    canActivate: [authGuard, onboardingCompleteGuard],
     component: JournalComponent,
   },
   {
     path: 'reports',
-    canActivate: [authGuard],
+    canActivate: [authGuard, onboardingCompleteGuard],
     component: ReportsComponent,
   },
   {
+    path: 'contact',
+    canActivate: [authGuard, onboardingCompleteGuard],
+    component: ContactComponent,
+  },
+  {
     path: 'admin',
-    canActivate: [authGuard],
+    canActivate: [authGuard, onboardingAdminGuard],
     component: AdminComponent,
   },
   {

@@ -12,6 +12,21 @@ spring:
     password: tracker
 
 tracker:
+  # Optional comma-separated inboxes for Contact us feedback when ADMIN accounts have no profile email.
+  feedback:
+    fallback-admin-emails: ""
+
+  # Admin → Repository (GitHub): REST insights (contributors, commits, stars, optional traffic/views).
+  github:
+    enabled: false
+    owner: ""
+    repo: ""
+    api-token: ""
+
+  # Sign-in links in transactional emails (first profile saved, password changed). Production: your real web origin.
+  web:
+    public-app-url: "http://localhost:4200"
+
   auth:
     # Use long random values on your machine; do not reuse production secrets.
     jwt-secret: "CHANGE_ME_LOCAL_JWT_SECRET_AT_LEAST_32_CHARS"
@@ -32,6 +47,7 @@ tracker:
       # Banking uploads (CSV, QFX, QIF, QBO, Excel, PDF). Default when unset: ~/imports/banking.
       import-directory: "/absolute/path/to/imports/banking"
     alerts:
+      # When true + email-from + aws-region, SES also sends transactional account emails (first profile, password change).
       # Set true only after SES/SNS + aws-region + AWS credentials are configured for local tests.
       email-enabled: false
       email-from: ""
