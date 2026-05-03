@@ -185,8 +185,8 @@ export class ManagementComponent implements OnInit {
   private readonly MGMT_TAB_WRITEUP = 4;
 
   noteYear = new Date().getFullYear();
-  /** When set, list is limited to that month; when null, all months in the year. */
-  noteFilterMonth: number | null = null;
+  /** When set, list is limited to that month; when null, all months in the year. Default: current month (1–12). */
+  noteFilterMonth: number | null = new Date().getMonth() + 1;
   noteCalendar: ManagementMonthNoteCalendarDto | null = null;
   monthNotes: ManagementMonthNoteDto[] = [];
   noteEditingId: number | null = null;
