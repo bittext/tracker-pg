@@ -12,6 +12,8 @@ public interface BankingImportFileRepository extends JpaRepository<BankingImport
 
     boolean existsByOwnerUserIdAndSha256Hex(long ownerUserId, String sha256Hex);
 
+    boolean existsByOwnerUserIdAndInstitutionIdAndSha256Hex(long ownerUserId, long institutionId, String sha256Hex);
+
     Optional<BankingImportFile> findByIdAndOwnerUserId(long id, long ownerUserId);
 
     List<BankingImportFile> findByOwnerUserIdOrderByCreatedAtDesc(long ownerUserId);

@@ -104,12 +104,12 @@ public class BankingService {
         }
         String originalName = Optional.ofNullable(multipart.getOriginalFilename()).orElse("upload");
         String sha = BankingHashUtil.sha256Hex(raw);
-        if (importFileRepository.existsByOwnerUserIdAndSha256Hex(uid, sha)) {
+        if (importFileRepository.existsByOwnerUserIdAndInstitution_IdAndSha256Hex(uid, institutionId, sha)) {
             return new BankingImportResultDto(
                     true,
                     true,
                     null,
-                    "This file was already imported (same SHA-256); skipped.");
+                    "This file was already imported for this institution (same SHA-256); skipped.");
         }
 
         Path root = Path.of(importRoot).toAbsolutePath().normalize();

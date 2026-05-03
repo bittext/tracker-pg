@@ -3,7 +3,6 @@ package com.svp.tracker.finance.service.banking;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -58,14 +57,13 @@ public final class BankingFormatParser {
     }
 
     private static BankingParseOutcome parseCsv(byte[] raw) {
-        Charset cs = sniffCharset(raw);
-        String text = new String(raw, cs);
+        String text = stripBom(decodeText(raw));
         String[] lines = text.split("\\R");
         if (lines.length == 0) {
             return new BankingParseOutcome(List.of(), "Empty CSV.");
         }
         String headerLine = lines[0];
-        char delim = headerLine.contains("\t") ? '\t' : ',';
+        char delim = detectCsvDelimiter(headerLine);
         String[] headers = splitCsvLine(headerLine, delim);
         Map<String, Integer> col = new LinkedHashMap<>();
         for (int i = 0; i < headers.length; i++) {
@@ -79,11 +77,12 @@ public final class BankingFormatParser {
                 "transaction date",
                 "trans date",
                 "dtposted");
-        Integer amtIdx = findColumn(col, "amount", "amt", "value", "debit", "credit", "transaction amount");
+        // Do not map "debit"/"credit" here — those columns use the signed amount path below.
+        Integer amtIdx = findColumn(col, "amount", "amt", "value", "transaction amount", "sum", "total");
         Integer descIdx = findColumn(
                 col, "description", "memo", "payee", "details", "name", "narration", "merchant", "note");
-        Integer debitIdx = findColumn(col, "debit");
-        Integer creditIdx = findColumn(col, "credit");
+        Integer debitIdx = findColumn(col, "debit", "withdrawal", "withdrawals", "outflow");
+        Integer creditIdx = findColumn(col, "credit", "deposit", "deposits", "inflow");
         if (dateIdx == null || (amtIdx == null && (debitIdx == null || creditIdx == null))) {
             return new BankingParseOutcome(
                     List.of(),
@@ -119,9 +118,8 @@ public final class BankingFormatParser {
     }
 
     private static BankingParseOutcome parseQif(byte[] raw) {
-        Charset cs = sniffCharset(raw);
         List<String> lines = new ArrayList<>();
-        for (String ln : new String(raw, cs).split("\\R")) {
+        for (String ln : stripBom(decodeText(raw)).split("\\R")) {
             lines.add(ln);
         }
         List<BankingParsedRow> out = new ArrayList<>();
@@ -237,11 +235,11 @@ public final class BankingFormatParser {
                     "transaction date",
                     "trans date",
                     "dtposted");
-            Integer amtIdx = findColumn(col, "amount", "amt", "value", "debit", "credit", "transaction amount");
+            Integer amtIdx = findColumn(col, "amount", "amt", "value", "transaction amount", "sum", "total");
             Integer descIdx = findColumn(
                     col, "description", "memo", "payee", "details", "name", "narration", "merchant", "note");
-            Integer debitIdx = findColumn(col, "debit");
-            Integer creditIdx = findColumn(col, "credit");
+            Integer debitIdx = findColumn(col, "debit", "withdrawal", "withdrawals", "outflow");
+            Integer creditIdx = findColumn(col, "credit", "deposit", "deposits", "inflow");
             if (dateIdx == null || (amtIdx == null && (debitIdx == null || creditIdx == null))) {
                 return new BankingParseOutcome(
                         List.of(),
@@ -300,11 +298,41 @@ public final class BankingFormatParser {
         throw new DateTimeParseException("ofx date", v, 0);
     }
 
-    private static Charset sniffCharset(byte[] raw) {
-        if (raw.length >= 3 && raw[0] == (byte) 0xEF && raw[1] == (byte) 0xBB && raw[2] == (byte) 0xBF) {
-            return StandardCharsets.UTF_8;
+    /**
+     * Decodes CSV/QIF text; handles UTF-8, UTF-8 BOM, and UTF-16 LE/BE BOM (common for Excel on Windows).
+     */
+    private static String decodeText(byte[] raw) {
+        if (raw.length >= 2) {
+            if (raw[0] == (byte) 0xFF && raw[1] == (byte) 0xFE) {
+                return new String(raw, 2, raw.length - 2, StandardCharsets.UTF_16LE);
+            }
+            if (raw[0] == (byte) 0xFE && raw[1] == (byte) 0xFF) {
+                return new String(raw, 2, raw.length - 2, StandardCharsets.UTF_16BE);
+            }
         }
-        return StandardCharsets.UTF_8;
+        if (raw.length >= 3 && raw[0] == (byte) 0xEF && raw[1] == (byte) 0xBB && raw[2] == (byte) 0xBF) {
+            return new String(raw, 3, raw.length - 3, StandardCharsets.UTF_8);
+        }
+        return new String(raw, StandardCharsets.UTF_8);
+    }
+
+    private static String stripBom(String text) {
+        if (!text.isEmpty() && text.charAt(0) == '\uFEFF') {
+            return text.substring(1);
+        }
+        return text;
+    }
+
+    private static char detectCsvDelimiter(String headerLine) {
+        if (headerLine.indexOf('\t') >= 0) {
+            return '\t';
+        }
+        long semis = headerLine.chars().filter(ch -> ch == ';').count();
+        long commas = headerLine.chars().filter(ch -> ch == ',').count();
+        if (semis > commas) {
+            return ';';
+        }
+        return ',';
     }
 
     private static String[] splitCsvLine(String line, char delim) {
@@ -367,6 +395,10 @@ public final class BankingFormatParser {
             DateTimeFormatter.ofPattern("MM/dd/yyyy"),
             DateTimeFormatter.ofPattern("M/d/yy"),
             DateTimeFormatter.ofPattern("MM/dd/yy"),
+            DateTimeFormatter.ofPattern("d/M/yyyy"),
+            DateTimeFormatter.ofPattern("dd/MM/yyyy"),
+            DateTimeFormatter.ofPattern("d/M/yy"),
+            DateTimeFormatter.ofPattern("dd/MM/yy"),
             DateTimeFormatter.ofPattern("d-MMM-yyyy", Locale.ENGLISH),
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"),
             DateTimeFormatter.ofPattern("yyyy-MM-dd")
@@ -382,11 +414,49 @@ public final class BankingFormatParser {
     }
 
     private static BigDecimal parseAmount(String raw) {
-        String s = raw.replace("$", "").replace(",", "").trim();
+        String s = raw.replace("$", "").trim();
         if (s.isEmpty()) {
             throw new NumberFormatException("empty amount");
         }
-        return new BigDecimal(s);
+        boolean parenNeg = s.startsWith("(") && s.endsWith(")");
+        if (parenNeg) {
+            s = s.substring(1, s.length() - 1).trim();
+        }
+        s = normalizeAmountDigits(s);
+        if (s.isEmpty()) {
+            throw new NumberFormatException("empty amount");
+        }
+        BigDecimal v = new BigDecimal(s);
+        return parenNeg ? v.negate() : v;
+    }
+
+    /** Handles US grouping (1,234.56) and European (1.234,56 or 12,34). */
+    private static String normalizeAmountDigits(String s) {
+        s = s.replace(" ", "");
+        int lastComma = s.lastIndexOf(',');
+        int lastDot = s.lastIndexOf('.');
+        if (lastComma >= 0 && lastDot >= 0) {
+            if (lastComma > lastDot) {
+                // European: 1.234,56
+                s = s.replace(".", "").replace(',', '.');
+            } else {
+                // US: 1,234.56
+                s = s.replace(",", "");
+            }
+        } else if (lastComma >= 0) {
+            String after = s.substring(lastComma + 1);
+            if (after.length() == 2 && after.chars().allMatch(Character::isDigit)) {
+                s = s.replace(',', '.');
+            } else {
+                s = s.replace(",", "");
+            }
+        } else if (lastDot >= 0) {
+            String after = s.substring(lastDot + 1);
+            if (after.length() == 3 && after.chars().allMatch(Character::isDigit)) {
+                s = s.replace(".", "");
+            }
+        }
+        return s;
     }
 
     private static BigDecimal parseAmountOrZero(String raw) {
