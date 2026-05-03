@@ -18,6 +18,7 @@ import { ManagementTaskCategory, ManagementTaskType } from '../../models/managem
 import { AdminFinanceRobinhoodCsvComponent } from './admin-finance-robinhood-csv/admin-finance-robinhood-csv.component';
 import { BankingPanelComponent } from '../finance/banking-panel/banking-panel.component';
 import { AdminAuthAuditApiService } from '../../services/admin-auth-audit-api.service';
+import { MeSignInLogApiService } from '../../services/me-sign-in-log-api.service';
 import { FitnessApiService } from '../../services/fitness-api.service';
 import { FinanceApiService } from '../../services/finance-api.service';
 import { JournalApiService } from '../../services/journal-api.service';
@@ -52,6 +53,7 @@ export class AdminComponent implements OnInit {
   private readonly managementApi = inject(ManagementApiService);
   private readonly journalApi = inject(JournalApiService);
   private readonly adminAuthAuditApi = inject(AdminAuthAuditApiService);
+  private readonly meSignInLogApi = inject(MeSignInLogApiService);
   private readonly auth = inject(AuthService);
   private readonly snackBar = inject(MatSnackBar);
 
@@ -96,9 +98,7 @@ export class AdminComponent implements OnInit {
     this.reloadManagement();
     this.reloadJournalTags();
     this.loadFinanceNotificationSettings();
-    if (this.isAppAdmin) {
-      this.loadLoginEvents();
-    }
+    this.loadLoginEvents();
   }
 
   private err(msg: string, e: unknown): void {
@@ -302,11 +302,11 @@ export class AdminComponent implements OnInit {
   }
 
   loadLoginEvents(): void {
-    if (!this.isAppAdmin) {
-      return;
-    }
     this.loginEventLoading = true;
-    this.adminAuthAuditApi.listLoginEvents(this.loginEventLimit, this.loginEventSearch).subscribe({
+    const req = this.isAppAdmin
+      ? this.adminAuthAuditApi.listLoginEvents(this.loginEventLimit, this.loginEventSearch)
+      : this.meSignInLogApi.list(this.loginEventLimit, this.loginEventSearch);
+    req.subscribe({
       next: (rows) => {
         this.loginEventLoading = false;
         this.loginEvents = rows;

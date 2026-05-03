@@ -1,10 +1,11 @@
 <div class="page-head">
   <h1 class="page-title">Admin</h1>
   <p class="muted">
+    Use <strong>Sign-in log</strong> to review your own sign-ins, MFA steps, and sign-outs
     @if (isAppAdmin) {
-      <span
-        >Use <strong>Sign-in log</strong> to review logins, MFA, and sign-outs.
-      </span>
+      <span>; as an admin you also see <strong>all accounts</strong> in that same tab.</span>
+    } @else {
+      <span>(only events for your account).</span>
     }
     Use <strong>Exercise</strong> to manage the workout catalog. Use <strong>Journal</strong> for entry tag labels. Use
     <strong>Management</strong> for balance categories and task types. Use <strong>Finance</strong> for money-related
@@ -14,26 +15,35 @@
 
 <mat-card class="card admin-card">
   <mat-tab-group animationDuration="220ms" class="admin-tab-group">
-    @if (isAppAdmin) {
-      <mat-tab label="Sign-in log">
-        <div class="tab-panel">
-          <section class="admin-section">
-            <h2 class="section-title">Sign-in and sign-out events</h2>
+    <mat-tab label="Sign-in log">
+      <div class="tab-panel">
+        <section class="admin-section">
+          <h2 class="section-title">Sign-in and sign-out events</h2>
+          @if (isAppAdmin) {
             <p class="muted">
-              Recent authentication events (success, failure, MFA, logout) stored on the server. Use search to filter by
-              username, IP, or detail.
+              <strong>Admin view:</strong> all accounts. Recent authentication events (success, failure, MFA, logout).
+              Search by username, IP, user agent, or detail.
             </p>
-            <div class="form-row wrap admin-login-audit-bar">
-              <mat-form-field appearance="outline" class="grow">
-                <mat-label>Search</mat-label>
-                <input
-                  matInput
-                  name="loginEventSearch"
-                  [(ngModel)]="loginEventSearch"
-                  placeholder="Username, IP, user agent, detail"
-                  (keyup.enter)="loadLoginEvents()"
-                />
-              </mat-form-field>
+          } @else {
+            <p class="muted">
+              <strong>Your activity only:</strong> logins, MFA, and sign-outs tied to your account (including failed
+              attempts recorded under your username). Search narrows to IP, user agent, or detail text within your
+              history.
+            </p>
+          }
+          <div class="form-row wrap admin-login-audit-bar">
+            <mat-form-field appearance="outline" class="grow">
+              <mat-label>Search</mat-label>
+              <input
+                matInput
+                name="loginEventSearch"
+                [(ngModel)]="loginEventSearch"
+                [placeholder]="
+                  isAppAdmin ? 'Username, IP, user agent, detail' : 'IP, user agent, or detail (your events only)'
+                "
+                (keyup.enter)="loadLoginEvents()"
+              />
+            </mat-form-field>
               <mat-form-field appearance="outline" class="narrow">
                 <mat-label>Limit</mat-label>
                 <input matInput type="number" name="loginEventLimit" [(ngModel)]="loginEventLimit" min="1" max="500" />
@@ -87,8 +97,7 @@
             </div>
           </section>
         </div>
-      </mat-tab>
-    }
+    </mat-tab>
 
     <mat-tab label="Exercise">
       <div class="tab-panel">

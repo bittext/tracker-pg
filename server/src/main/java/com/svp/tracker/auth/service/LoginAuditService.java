@@ -57,6 +57,22 @@ public class LoginAuditService {
         return pageResult.getContent().stream().map(LoginAuditService::toDto).toList();
     }
 
+    /**
+     * Events for one user: rows with their {@code user_id}, plus failed "user not found" attempts that match their
+     * username (same casing rules as login).
+     */
+    @Transactional(readOnly = true)
+    public List<AuthLoginEventResponseDto> listMine(long userId, String username, int limit, String searchQuery) {
+        int n = Math.min(500, Math.max(1, limit));
+        PageRequest page = PageRequest.of(0, n, Sort.by(Sort.Direction.DESC, "createdAt"));
+        String un = username == null ? "" : username.trim();
+        Page<AuthLoginEvent> pageResult =
+                StringUtils.hasText(searchQuery)
+                        ? authLoginEventRepository.searchMine(userId, un, searchQuery.trim(), page)
+                        : authLoginEventRepository.findMine(userId, un, page);
+        return pageResult.getContent().stream().map(LoginAuditService::toDto).toList();
+    }
+
     private static AuthLoginEventResponseDto toDto(AuthLoginEvent e) {
         return new AuthLoginEventResponseDto(
                 e.getId(),
