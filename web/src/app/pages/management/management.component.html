@@ -3,7 +3,7 @@
   <p class="muted">
     Organize to-dos by <strong>balance area</strong> and <strong>urgency</strong>, then review them on the calendar. Define
     <strong>balance categories</strong> and <strong>task types</strong> under <strong>Admin → Management</strong> (per
-    login); use this page for tasks, calendar, utilities, and notes.
+    login); use this page for tasks, calendar, utilities, month notes, and year-scoped write-ups.
   </p>
 </div>
 
@@ -940,6 +940,162 @@
                 </mat-card-content>
               </mat-card>
             </section>
+          </div>
+        </section>
+      </div>
+    </mat-tab>
+
+    <mat-tab label="Write-up">
+      <div class="tab-panel mgmt-writeup-panel">
+        <section aria-labelledby="mgmt-wu-heading">
+          <h2 id="mgmt-wu-heading" class="subsection-title">Write-ups</h2>
+          <p class="muted">
+            Long-form <strong>reports and reviews</strong> tied to a calendar year. Use <strong>Topic</strong> as the
+            title, <strong>Topic highlight</strong> for a short colored callout shown under the topic, and the large area
+            for detailed Markdown. Filter by year and a single search box (topic, highlight, or body). Only your account
+            can see these records.
+          </p>
+
+          <div class="notes-year-bar">
+            <button mat-icon-button type="button" (click)="prevWriteupYear()" aria-label="Previous year">
+              <mat-icon>chevron_left</mat-icon>
+            </button>
+            <span class="notes-year-chip wu-year-chip">{{ writeupYear }}</span>
+            <button mat-icon-button type="button" (click)="nextWriteupYear()" aria-label="Next year">
+              <mat-icon>chevron_right</mat-icon>
+            </button>
+            <span class="notes-filter-hint wu-count-hint" aria-live="polite">
+              @if (writeupSearchTrim) {
+                <strong>{{ writeupFilteredEntries.length }}</strong> matching ·
+                <span class="wu-count-total">{{ writeupsRaw.length }}</span> total in {{ writeupYear }}
+              } @else {
+                <strong>{{ writeupsRaw.length }}</strong>
+                {{ writeupsRaw.length === 1 ? 'entry' : 'entries' }} in {{ writeupYear }}
+              }
+            </span>
+          </div>
+
+          <mat-form-field appearance="outline" class="wu-search-field full-width-field">
+            <mat-label>Search topic, highlight, or notes</mat-label>
+            <input
+              matInput
+              name="wuSearch"
+              [(ngModel)]="writeupSearch"
+              placeholder="One box — matches topic, highlight, or body text…"
+              autocomplete="off"
+            />
+          </mat-form-field>
+
+          <div class="wu-layout">
+            <section class="wu-composer" aria-label="Compose write-up">
+              <mat-card appearance="outlined" class="mgmt-nested-card wu-composer-card">
+                <mat-card-header>
+                  <mat-card-title>{{ writeupEditingId != null ? 'Edit write-up' : 'New write-up' }}</mat-card-title>
+                  <mat-card-subtitle>Topic, colored highlight, then full notes (Markdown)</mat-card-subtitle>
+                </mat-card-header>
+                <mat-card-content>
+                  <mat-form-field appearance="outline" class="full-width-field wu-topic-field">
+                    <mat-label>Topic</mat-label>
+                    <input matInput name="wuTopic" [(ngModel)]="writeupDraft.topic" required placeholder="Clear title for this report or review" />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="full-width-field wu-highlight-field">
+                    <mat-label>Topic highlight</mat-label>
+                    <textarea
+                      matInput
+                      name="wuHi"
+                      rows="3"
+                      [(ngModel)]="writeupDraft.highlight"
+                      placeholder="Short emphasis (one or two lines). Shown in color under the topic."
+                    ></textarea>
+                  </mat-form-field>
+                  <div class="wu-highlight-banner" aria-label="Highlight preview">
+                    @if ((writeupDraft.highlight || '').trim()) {
+                      <div class="wu-highlight-banner-inner">{{ writeupDraft.highlight }}</div>
+                    } @else {
+                      <div class="wu-highlight-banner-inner wu-highlight-banner-inner--empty muted">
+                        Highlight preview — add text above to see it here in color.
+                      </div>
+                    }
+                  </div>
+                  <mat-form-field appearance="outline" class="full-width-field wu-body-field">
+                    <mat-label>Notes (Markdown)</mat-label>
+                    <textarea
+                      matInput
+                      name="wuBody"
+                      rows="22"
+                      [(ngModel)]="writeupDraft.body"
+                      placeholder="# Section&#10;&#10;Detailed findings, tables, links, and narrative…"
+                    ></textarea>
+                  </mat-form-field>
+                  <div class="form-actions wu-form-actions">
+                    <button mat-flat-button color="primary" type="button" (click)="saveWriteup()" [disabled]="writeupSaving">
+                      {{ writeupEditingId != null ? 'Save changes' : 'Save write-up' }}
+                    </button>
+                    <button mat-button type="button" (click)="resetWriteupForm()" [disabled]="writeupSaving">New / clear</button>
+                    @if (writeupEditingId != null) {
+                      <button mat-button color="warn" type="button" (click)="deleteWriteup()" [disabled]="writeupSaving">
+                        Delete
+                      </button>
+                    }
+                  </div>
+                </mat-card-content>
+              </mat-card>
+
+              @if (writeupHasDocPreview) {
+                <mat-card appearance="outlined" class="mgmt-nested-card wu-preview-card">
+                  <mat-card-header>
+                    <mat-card-title>Read view</mat-card-title>
+                    <mat-card-subtitle>Live preview — same layout as when you open a saved entry</mat-card-subtitle>
+                  </mat-card-header>
+                  <mat-card-content>
+                    <h3 class="wu-read-topic">{{ writeupDraft.topic || '—' }}</h3>
+                    @if ((writeupDraft.highlight || '').trim()) {
+                      <div class="wu-highlight-banner wu-highlight-banner--read">
+                        <div class="wu-highlight-banner-inner">{{ writeupDraft.highlight }}</div>
+                      </div>
+                    }
+                    <div class="markdown-body wu-read-body" [innerHTML]="writeupDraft.body | safeMarkdown"></div>
+                  </mat-card-content>
+                </mat-card>
+              }
+            </section>
+
+            <aside class="wu-index" aria-label="Write-ups for this year">
+              <mat-card appearance="outlined" class="mgmt-nested-card wu-index-card">
+                <mat-card-header>
+                  <mat-card-title>Entries</mat-card-title>
+                  <mat-card-subtitle>Newest first · click to open</mat-card-subtitle>
+                </mat-card-header>
+                <mat-card-content>
+                  @if (!writeupFilteredEntries.length) {
+                    <p class="muted empty-hint">
+                      @if (writeupsRaw.length && writeupSearchTrim) {
+                        Nothing matches this search. Try different words or clear the filter.
+                      } @else {
+                        No write-ups for {{ writeupYear }} yet. Add one in the form.
+                      }
+                    </p>
+                  } @else {
+                    <div class="wu-pick-list">
+                      @for (w of writeupFilteredEntries; track w.id) {
+                        <button
+                          type="button"
+                          class="wu-pick"
+                          [class.wu-pick--active]="writeupSelectedId === w.id"
+                          (click)="selectWriteup(w)"
+                        >
+                          <span class="wu-pick-topic">{{ w.topic }}</span>
+                          @if (writeupSnippet(w.highlight)) {
+                            <span class="wu-pick-hi">{{ writeupSnippet(w.highlight) }}</span>
+                          }
+                          <span class="wu-pick-meta">{{ w.updatedAt | slice: 0:16 }}</span>
+                        </button>
+                      }
+                    </div>
+                  }
+                </mat-card-content>
+              </mat-card>
+            </aside>
           </div>
         </section>
       </div>

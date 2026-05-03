@@ -20,6 +20,7 @@ import {
   BalanceUrgency,
   ManagementMonthNoteCalendarDto,
   ManagementMonthNoteDto,
+  ManagementWriteupDto,
   ManagementTaskCategory,
   ManagementTaskDto,
   ManagementTaskType,
@@ -178,8 +179,9 @@ export class ManagementComponent implements OnInit {
 
   readonly utilityTableColumns: string[] = ['folder', 'itemName', 'username', 'actions'];
 
-  /** 0 Tasks, 1 Calendar, 2 Utilities, 3 Notes */
+  /** 0 Tasks, 1 Calendar, 2 Utilities, 3 Notes, 4 Write-up */
   private readonly MGMT_TAB_NOTES = 3;
+  private readonly MGMT_TAB_WRITEUP = 4;
 
   noteYear = new Date().getFullYear();
   /** When set, list is limited to that month; when null, all months in the year. */
@@ -195,6 +197,19 @@ export class ManagementComponent implements OnInit {
   };
   noteUploading = false;
   readonly noteMonthOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
+
+  /** Write-up: year-scoped long-form entries (current user only; API-enforced). */
+  writeupYear = new Date().getFullYear();
+  writeupsRaw: ManagementWriteupDto[] = [];
+  writeupSearch = '';
+  writeupEditingId: number | null = null;
+  writeupSelectedId: number | null = null;
+  writeupDraft = {
+    topic: '',
+    highlight: '',
+    body: '',
+  };
+  writeupSaving = false;
 
   ngOnInit(): void {
     const t = this.todayIso();
@@ -1067,6 +1082,147 @@ export class ManagementComponent implements OnInit {
       }
       this.reloadMonthNotesData();
     }
+    if (index === this.MGMT_TAB_WRITEUP) {
+      this.loadWriteups();
+    }
+  }
+
+  get writeupSearchTrim(): string {
+    return (this.writeupSearch || '').trim().toLowerCase();
+  }
+
+  get writeupHasDocPreview(): boolean {
+    return !!(
+      (this.writeupDraft.topic || '').trim() ||
+      (this.writeupDraft.body || '').trim() ||
+      (this.writeupDraft.highlight || '').trim()
+    );
+  }
+
+  get writeupFilteredEntries(): ManagementWriteupDto[] {
+    const q = this.writeupSearchTrim;
+    if (!q) {
+      return this.writeupsRaw;
+    }
+    return this.writeupsRaw.filter((w) => {
+      const topic = (w.topic || '').toLowerCase();
+      const hi = (w.highlight || '').toLowerCase();
+      const body = (w.body || '').toLowerCase();
+      return topic.includes(q) || hi.includes(q) || body.includes(q);
+    });
+  }
+
+  loadWriteups(): void {
+    this.api.listWriteups(this.writeupYear).subscribe({
+      next: (rows) => {
+        this.writeupsRaw = rows;
+        if (this.writeupEditingId != null && !rows.some((r) => r.id === this.writeupEditingId)) {
+          this.resetWriteupForm();
+        }
+      },
+      error: (e) => this.err('Could not load write-ups', e),
+    });
+  }
+
+  prevWriteupYear(): void {
+    this.writeupYear -= 1;
+    this.loadWriteups();
+  }
+
+  nextWriteupYear(): void {
+    this.writeupYear += 1;
+    this.loadWriteups();
+  }
+
+  selectWriteup(w: ManagementWriteupDto): void {
+    this.writeupSelectedId = w.id;
+    this.writeupEditingId = w.id;
+    this.writeupDraft = {
+      topic: w.topic ?? '',
+      highlight: w.highlight ?? '',
+      body: w.body ?? '',
+    };
+  }
+
+  resetWriteupForm(): void {
+    this.writeupEditingId = null;
+    this.writeupSelectedId = null;
+    this.writeupDraft = {
+      topic: '',
+      highlight: '',
+      body: '',
+    };
+  }
+
+  saveWriteup(): void {
+    const topic = (this.writeupDraft.topic || '').trim();
+    if (!topic) {
+      this.snackBar.open('Topic is required', undefined, { duration: 2500 });
+      return;
+    }
+    const highlight = (this.writeupDraft.highlight || '').trim();
+    const body = {
+      year: this.writeupYear,
+      topic,
+      highlight: highlight.length ? highlight : null,
+      body: this.writeupDraft.body ?? '',
+    };
+    this.writeupSaving = true;
+    if (this.writeupEditingId != null) {
+      this.api.updateWriteup(this.writeupEditingId, body).subscribe({
+        next: (row) => {
+          this.writeupSaving = false;
+          this.snackBar.open('Write-up saved', undefined, { duration: 2000 });
+          this.writeupSelectedId = row.id;
+          this.writeupEditingId = row.id;
+          this.loadWriteups();
+        },
+        error: (e) => {
+          this.writeupSaving = false;
+          this.err('Could not save write-up', e);
+        },
+      });
+    } else {
+      this.api.createWriteup(body).subscribe({
+        next: (row) => {
+          this.writeupSaving = false;
+          this.snackBar.open('Write-up created', undefined, { duration: 2000 });
+          this.writeupSelectedId = row.id;
+          this.writeupEditingId = row.id;
+          this.loadWriteups();
+        },
+        error: (e) => {
+          this.writeupSaving = false;
+          this.err('Could not create write-up', e);
+        },
+      });
+    }
+  }
+
+  deleteWriteup(): void {
+    if (this.writeupEditingId == null) {
+      return;
+    }
+    if (typeof window !== 'undefined' && !window.confirm('Delete this write-up permanently?')) {
+      return;
+    }
+    const id = this.writeupEditingId;
+    this.api.deleteWriteup(id).subscribe({
+      next: () => {
+        this.snackBar.open('Write-up removed', undefined, { duration: 2000 });
+        this.resetWriteupForm();
+        this.loadWriteups();
+      },
+      error: (e) => this.err('Could not delete write-up', e),
+    });
+  }
+
+  writeupSnippet(s: string | null | undefined, max = 80): string {
+    const t = (s ?? '').replace(/\s+/g, ' ').trim();
+    if (!t) {
+      return '';
+    }
+    return t.length <= max ? t : `${t.slice(0, max)}…`;
   }
 
   get noteMonthCells(): { month: number; noteCount: number }[] {

@@ -10,6 +10,8 @@ import {
   ManagementTaskWriteBody,
   ManagementMonthNoteWriteBody,
   ManagementMonthNoteAttachmentDto,
+  ManagementWriteupDto,
+  ManagementWriteupWriteBody,
   TaskMonthCalendarDto,
 } from '../models/management.models';
 
@@ -117,5 +119,27 @@ export class ManagementApiService {
       responseType: 'blob',
       params: { disposition },
     });
+  }
+
+  listWriteups(year: number) {
+    return this.http.get<ManagementWriteupDto[]>(`${this.root}/writeups`, {
+      params: { year: String(year) },
+    });
+  }
+
+  getWriteup(id: number) {
+    return this.http.get<ManagementWriteupDto>(`${this.root}/writeups/${id}`);
+  }
+
+  createWriteup(body: ManagementWriteupWriteBody) {
+    return this.http.post<ManagementWriteupDto>(`${this.root}/writeups`, body);
+  }
+
+  updateWriteup(id: number, body: ManagementWriteupWriteBody) {
+    return this.http.put<ManagementWriteupDto>(`${this.root}/writeups/${id}`, body);
+  }
+
+  deleteWriteup(id: number) {
+    return this.http.delete<void>(`${this.root}/writeups/${id}`);
   }
 }

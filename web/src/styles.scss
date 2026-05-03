@@ -410,6 +410,183 @@ app-management .notes-att-link {
   font-weight: 500;
 }
 
+/* Management → Write-up tab */
+app-management .mgmt-writeup-panel {
+  max-width: min(100%, 96rem);
+}
+
+app-management .wu-year-chip {
+  cursor: default;
+  pointer-events: none;
+}
+
+app-management .wu-count-hint .wu-count-total {
+  font-weight: 600;
+  color: var(--app-text, #0f172a);
+}
+
+app-management .wu-search-field {
+  width: 100%;
+  margin-bottom: 0.25rem;
+}
+
+app-management .wu-layout {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+
+@media (min-width: 1100px) {
+  app-management .wu-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(14rem, 20rem);
+  }
+}
+
+app-management .wu-composer-card {
+  border: 1px solid rgba(14, 165, 233, 0.22) !important;
+  background: linear-gradient(180deg, #fff 0%, rgba(240, 249, 255, 0.75) 100%) !important;
+}
+
+app-management .wu-preview-card {
+  margin-top: 1rem;
+  border: 1px solid rgba(15, 23, 42, 0.1) !important;
+  background: var(--app-surface, #fff) !important;
+}
+
+app-management .wu-index-card {
+  border: 1px solid rgba(245, 158, 11, 0.25) !important;
+  background: linear-gradient(180deg, #fff 0%, rgba(255, 251, 235, 0.65) 100%) !important;
+}
+
+app-management .wu-topic-field .mat-mdc-input-element {
+  font-size: 1.12rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+app-management .wu-highlight-field textarea.mat-mdc-input-element {
+  min-height: 5.5rem;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+app-management .wu-highlight-banner {
+  margin: 0 0 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(249, 115, 22, 0.35);
+  background: linear-gradient(120deg, rgba(251, 191, 36, 0.22) 0%, rgba(249, 115, 22, 0.18) 45%, rgba(244, 63, 94, 0.12) 100%);
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+}
+
+app-management .wu-highlight-banner--read {
+  margin-top: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+
+app-management .wu-highlight-banner-inner {
+  padding: 0.85rem 1.05rem;
+  font-size: 1.02rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: #9a3412;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+app-management .wu-highlight-banner-inner--empty {
+  font-weight: 500;
+  color: var(--app-text-muted, #94a3b8);
+}
+
+app-management .wu-body-field textarea.mat-mdc-input-element {
+  min-height: 22rem;
+  resize: vertical;
+  line-height: 1.5;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 0.9rem;
+}
+
+app-management .wu-read-topic {
+  margin: 0 0 0.5rem;
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.25;
+  color: #0c4a6e;
+  font-family: var(--app-font-display, 'Plus Jakarta Sans', sans-serif);
+}
+
+app-management .wu-read-body {
+  margin-top: 0.5rem;
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+app-management .wu-pick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: min(70vh, 36rem);
+  overflow: auto;
+  padding-right: 0.15rem;
+}
+
+app-management .wu-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+  background: var(--app-surface, #fff);
+  color: var(--app-text, #0f172a);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease;
+}
+
+app-management .wu-pick:hover {
+  border-color: rgba(14, 165, 233, 0.35);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+}
+
+app-management .wu-pick.wu-pick--active {
+  outline: 2px solid var(--app-accent, #2563eb);
+  outline-offset: 1px;
+  border-color: rgba(37, 99, 235, 0.45);
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.08) 0%, #fff 70%);
+}
+
+app-management .wu-pick-topic {
+  font-weight: 700;
+  font-size: 0.92rem;
+  line-height: 1.3;
+  color: #0c4a6e;
+}
+
+app-management .wu-pick-hi {
+  font-size: 0.8rem;
+  color: #c2410c;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+app-management .wu-pick-meta {
+  font-size: 0.72rem;
+  color: var(--app-text-muted, #64748b);
+}
+
+app-management .wu-form-actions {
+  margin-top: 0.25rem;
+}
+
 /* Task due / overdue row accents (Management + Reports → Tasks). */
 @mixin mgmt-due-row-accent($color, $tint) {
   box-shadow: inset 4px 0 0 $color;

@@ -77,3 +77,22 @@ export interface ManagementMonthNoteWriteBody {
   subject: string;
   body: string;
 }
+
+/** Year-scoped detailed reports / reviews (Management → Write-up). */
+export interface ManagementWriteupDto {
+  id: number;
+  ownerUserId: number;
+  year: number;
+  topic: string;
+  highlight: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ManagementWriteupWriteBody {
+  year: number;
+  topic: string;
+  highlight?: string | null;
+  body: string;
+}
