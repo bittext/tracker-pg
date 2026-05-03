@@ -226,4 +226,8 @@ export class FinanceApiService {
       observe: 'response',
     });
   }
+
+  deleteBankingImportFile(id: number) {
+    return this.http.delete<void>(`${this.bankingRoot}/files/${id}`);
+  }
 }

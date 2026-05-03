@@ -277,6 +277,29 @@ public class BankingService {
                 fileDtos);
     }
 
+    @Transactional
+    public void deleteImportFile(long fileId) {
+        long uid = currentUserService.requireUserId();
+        BankingImportFile f = importFileRepository
+                .findByIdAndOwnerUserId(fileId, uid)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
+        String importRoot = bankingProps.importDirectory();
+        if (!importRoot.isBlank()) {
+            Path root = Path.of(importRoot).toAbsolutePath().normalize();
+            Path abs = root.resolve(f.getStoredRelativePath()).normalize();
+            if (abs.startsWith(root) && Files.isRegularFile(abs)) {
+                try {
+                    Files.delete(abs);
+                } catch (IOException e) {
+                    log.warn("Could not delete stored banking file {}", abs, e);
+                }
+            }
+        }
+        transactionRepository.deleteByImportFile_Id(fileId);
+        importFileRepository.delete(f);
+        log.info("Banking import file deleted user={} fileId={} path={}", uid, fileId, f.getStoredRelativePath());
+    }
+
     @Transactional(readOnly = true)
     public BankingFileContent readFile(long fileId) {
         long uid = currentUserService.requireUserId();

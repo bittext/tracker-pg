@@ -68,6 +68,8 @@ export class BankingPanelComponent implements OnInit {
 
   ledger: BankingLedgerDto | null = null;
   ledgerLoading = false;
+  /** While DELETE /banking/files/:id is in flight. */
+  deletingFileId: number | null = null;
 
   /** Single text box: matches any displayed transaction column (whitespace = multiple terms, all must match). */
   txnSearchText = '';
@@ -241,6 +243,25 @@ export class BankingPanelComponent implements OnInit {
       amtFixed.toLowerCase(),
       (row.description ?? '').toLowerCase(),
     ];
+  }
+
+  deleteImportFile(row: BankingImportFileDto): void {
+    const msg = `Remove import “${row.originalFilename}” from ${row.institutionName}? All transactions from this file will be deleted and you can upload the same file again.`;
+    if (!window.confirm(msg)) {
+      return;
+    }
+    this.deletingFileId = row.id;
+    this.api.deleteBankingImportFile(row.id).subscribe({
+      next: () => {
+        this.deletingFileId = null;
+        this.snackBar.open('Import removed', undefined, { duration: 3000 });
+        this.loadLedger();
+      },
+      error: (e) => {
+        this.deletingFileId = null;
+        this.snackBar.open(`Remove failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 5000 });
+      },
+    });
   }
 
   download(row: BankingImportFileDto): void {

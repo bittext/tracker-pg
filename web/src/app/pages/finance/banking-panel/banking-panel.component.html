@@ -241,6 +241,19 @@
             <th mat-header-cell *matHeaderCellDef></th>
             <td mat-cell *matCellDef="let row">
               <button mat-button type="button" (click)="download(row)">Download</button>
+              <button
+                mat-button
+                type="button"
+                color="warn"
+                [disabled]="deletingFileId === row.id"
+                (click)="deleteImportFile(row)"
+              >
+                @if (deletingFileId === row.id) {
+                  Removing…
+                } @else {
+                  Remove
+                }
+              </button>
               @if (row.parseNote) {
                 <span class="muted parse-note" [attr.title]="row.parseNote">Note</span>
               }

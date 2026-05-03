@@ -10,6 +10,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface BankingTransactionRepository extends JpaRepository<BankingTransaction, Long> {
 
+    void deleteByImportFile_Id(long importFileId);
+
     boolean existsByOwnerUserIdAndDedupeHash(long ownerUserId, String dedupeHash);
 
     @Query(
