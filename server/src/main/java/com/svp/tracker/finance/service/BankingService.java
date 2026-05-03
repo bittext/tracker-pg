@@ -104,7 +104,7 @@ public class BankingService {
         }
         String originalName = Optional.ofNullable(multipart.getOriginalFilename()).orElse("upload");
         String sha = BankingHashUtil.sha256Hex(raw);
-        if (importFileRepository.existsByOwnerUserIdAndInstitution_IdAndSha256Hex(uid, institutionId, sha)) {
+        if (importFileRepository.existsByOwnerUserIdAndInstitutionIdAndSha256Hex(uid, institutionId, sha)) {
             return new BankingImportResultDto(
                     true,
                     true,
