@@ -18,7 +18,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
       const shouldReauth =
         err instanceof HttpErrorResponse && isApiCall && err.status === 401;
       if (shouldReauth) {
-        const redirect = router.url && router.url !== '/login' ? router.url : '/exercise';
+        const redirect = router.url && router.url !== '/login' ? router.url : '/welcome';
         auth.logout(false);
         router.navigate(['/login'], { queryParams: { redirect } });
       }

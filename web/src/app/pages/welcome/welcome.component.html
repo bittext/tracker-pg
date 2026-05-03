@@ -1,0 +1,147 @@
+<div class="welcome">
+  <header class="welcome-hero" aria-labelledby="welcome-title">
+    <div class="welcome-hero__glow" aria-hidden="true"></div>
+    <div class="welcome-hero__inner">
+      <p class="welcome-hero__eyebrow">Tracker · PostgreSQL</p>
+      <h1 id="welcome-title" class="welcome-hero__title">Welcome back, {{ displayName }}</h1>
+      <p class="welcome-hero__lead">
+        Your personal hub for workouts, money, planning, and notes—organized in one place with a calm, focused layout.
+      </p>
+      <div class="welcome-hero__actions">
+        <a mat-flat-button color="primary" routerLink="/exercise" class="welcome-hero__cta">Get started → Exercise</a>
+        <a mat-stroked-button routerLink="/management" class="welcome-hero__cta welcome-hero__cta--alt"
+          >Plan with Management</a
+        >
+      </div>
+    </div>
+  </header>
+
+  <section class="welcome-section" aria-labelledby="features-heading">
+    <h2 id="features-heading" class="welcome-section__title">What you can do here</h2>
+    <p class="welcome-section__intro">
+      Each top tab is a workspace. Use them in any order—data is saved as you go.
+    </p>
+    <div class="welcome-features">
+      <mat-card class="welcome-card welcome-card--indigo" appearance="outlined">
+        <mat-card-header>
+          <div mat-card-avatar class="welcome-card__avatar"><mat-icon>fitness_center</mat-icon></div>
+          <mat-card-title>Exercise</mat-card-title>
+          <mat-card-subtitle>Training log &amp; catalog</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <p>Pick exercises, log sets and days, and follow strength or weight work over time.</p>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="welcome-card welcome-card--emerald" appearance="outlined">
+        <mat-card-header>
+          <div mat-card-avatar class="welcome-card__avatar"><mat-icon>account_balance_wallet</mat-icon></div>
+          <mat-card-title>Finance</mat-card-title>
+          <mat-card-subtitle>Holdings &amp; money tools</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <p>Review positions, tax helpers, banking imports, and optional alerts when configured.</p>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="welcome-card welcome-card--amber" appearance="outlined">
+        <mat-card-header>
+          <div mat-card-avatar class="welcome-card__avatar"><mat-icon>task_alt</mat-icon></div>
+          <mat-card-title>Management</mat-card-title>
+          <mat-card-subtitle>Tasks &amp; balance</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <p>Balance categories, calendar, utilities vault, month notes, and long-form write-ups—scoped to you.</p>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="welcome-card welcome-card--violet" appearance="outlined">
+        <mat-card-header>
+          <div mat-card-avatar class="welcome-card__avatar"><mat-icon>menu_book</mat-icon></div>
+          <mat-card-title>Journal</mat-card-title>
+          <mat-card-subtitle>Entries &amp; tags</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <p>Capture thoughts with tags and browse your history when you need context.</p>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="welcome-card welcome-card--rose" appearance="outlined">
+        <mat-card-header>
+          <div mat-card-avatar class="welcome-card__avatar"><mat-icon>analytics</mat-icon></div>
+          <mat-card-title>Reports</mat-card-title>
+          <mat-card-subtitle>Summaries &amp; exports</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <p>Pull together exercise and journal views to see patterns at a glance.</p>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="welcome-card welcome-card--cyan" appearance="outlined">
+        <mat-card-header>
+          <div mat-card-avatar class="welcome-card__avatar"><mat-icon>tune</mat-icon></div>
+          <mat-card-title>Admin</mat-card-title>
+          <mat-card-subtitle>Settings &amp; monitoring</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <p>Per-user configuration, sign-in history for your account (and full audit if you are an admin), and finance
+            admin tools when available.</p>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  </section>
+
+  <section class="welcome-section welcome-section--steps" aria-labelledby="steps-heading">
+    <h2 id="steps-heading" class="welcome-section__title">Getting started</h2>
+    <ol class="welcome-steps">
+      <li class="welcome-step">
+        <span class="welcome-step__num" aria-hidden="true">1</span>
+        <div class="welcome-step__body">
+          <h3 class="welcome-step__title">Stay oriented with the tabs</h3>
+          <p>
+            The bar under the header mirrors major areas of the app. You can return to this <strong>Welcome</strong> tab
+            anytime for a quick map.
+          </p>
+        </div>
+      </li>
+      <li class="welcome-step">
+        <span class="welcome-step__num" aria-hidden="true">2</span>
+        <div class="welcome-step__body">
+          <h3 class="welcome-step__title">Log a workout</h3>
+          <p>
+            Open <a routerLink="/exercise">Exercise</a>, choose an exercise from the catalog (or add one under
+            <a routerLink="/admin">Admin</a> if you have access), and record today’s session.
+          </p>
+        </div>
+      </li>
+      <li class="welcome-step">
+        <span class="welcome-step__num" aria-hidden="true">3</span>
+        <div class="welcome-step__body">
+          <h3 class="welcome-step__title">Shape your week</h3>
+          <p>
+            In <a routerLink="/management">Management</a>, create tasks with balance categories and due dates, then use
+            the calendar to see what needs attention.
+          </p>
+        </div>
+      </li>
+      <li class="welcome-step">
+        <span class="welcome-step__num" aria-hidden="true">4</span>
+        <div class="welcome-step__body">
+          <h3 class="welcome-step__title">Optional: Finance &amp; Journal</h3>
+          <p>
+            Connect money tracking under <a routerLink="/finance">Finance</a> when you need it. Use
+            <a routerLink="/journal">Journal</a> for dated entries and <a routerLink="/reports">Reports</a> for rollups.
+          </p>
+        </div>
+      </li>
+      <li class="welcome-step">
+        <span class="welcome-step__num" aria-hidden="true">5</span>
+        <div class="welcome-step__body">
+          <h3 class="welcome-step__title">Review account activity</h3>
+          <p>
+            Under <a routerLink="/admin">Admin</a> → <strong>Sign-in log</strong>, you can review recent sign-ins and
+            security-related events for your account.
+          </p>
+        </div>
+      </li>
+    </ol>
+    <div class="welcome-footer-cta">
+      <a mat-flat-button color="primary" routerLink="/exercise">Continue to Exercise</a>
+    </div>
+  </section>
+</div>

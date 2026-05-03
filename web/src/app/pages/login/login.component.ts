@@ -51,7 +51,7 @@ export class LoginComponent {
     const { username, password } = this.form.getRawValue();
     this.auth.login(username.trim(), password).subscribe({
       next: () => {
-        const redirect = this.route.snapshot.queryParamMap.get('redirect') || '/exercise';
+        const redirect = this.route.snapshot.queryParamMap.get('redirect') || '/welcome';
         this.router.navigateByUrl(redirect);
       },
       error: (e: unknown) => {

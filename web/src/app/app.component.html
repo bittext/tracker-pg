@@ -13,6 +13,16 @@
       <nav mat-tab-nav-bar class="tab-nav" [tabPanel]="tabPanel">
         <a
           mat-tab-link
+          routerLink="/welcome"
+          routerLinkActive
+          #welcomeTab="routerLinkActive"
+          [active]="welcomeTab.isActive"
+          [routerLinkActiveOptions]="{ exact: true }"
+        >
+          Welcome
+        </a>
+        <a
+          mat-tab-link
           routerLink="/exercise"
           routerLinkActive
           #exTab="routerLinkActive"

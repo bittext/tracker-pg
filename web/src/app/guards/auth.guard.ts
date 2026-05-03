@@ -9,6 +9,6 @@ export const authGuard: CanActivateFn = (_route, state) => {
     return true;
   }
   return router.createUrlTree(['/login'], {
-    queryParams: { redirect: state.url || '/exercise' },
+    queryParams: { redirect: state.url || '/welcome' },
   });
 };

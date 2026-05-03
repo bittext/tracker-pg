@@ -7,9 +7,10 @@ import { FinanceComponent } from './pages/finance/finance.component';
 import { JournalComponent } from './pages/journal/journal.component';
 import { ManagementComponent } from './pages/management/management.component';
 import { ReportsComponent } from './pages/reports/reports.component';
+import { WelcomeComponent } from './pages/welcome/welcome.component';
 
 export const routes: Routes = [
-  { path: '', pathMatch: 'full', redirectTo: 'exercise' },
+  { path: '', pathMatch: 'full', redirectTo: 'welcome' },
   {
     path: 'login',
     loadComponent: () => import('./pages/login/login.component').then((m) => m.LoginComponent),
@@ -19,6 +20,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/privacy-policy/privacy-policy.component').then((m) => m.PrivacyPolicyComponent),
   },
   { path: 'privacy-policy', redirectTo: 'privacy', pathMatch: 'full' },
+  {
+    path: 'welcome',
+    canActivate: [authGuard],
+    component: WelcomeComponent,
+  },
   {
     path: 'exercise',
     canActivate: [authGuard],
@@ -54,5 +60,5 @@ export const routes: Routes = [
     canActivate: [adminGuard],
     loadComponent: () => import('./pages/logs/logs.component').then((m) => m.LogsComponent),
   },
-  { path: '**', redirectTo: 'exercise' },
+  { path: '**', redirectTo: 'welcome' },
 ];
