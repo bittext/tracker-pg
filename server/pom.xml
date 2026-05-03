@@ -11,7 +11,7 @@
     </parent>
     <groupId>com.svp</groupId>
     <artifactId>tracker-pg-server</artifactId>
-    <version>5.0.0</version>
+    <version>5.0.1</version>
     <name>tracker-pg-server</name>
     <description>Tracker REST API backed by PostgreSQL</description>
     <properties>
@@ -52,9 +52,10 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-jdbc</artifactId>
         </dependency>
+        <!-- Spring Boot 4: Flyway runs at startup only with boot-flyway wiring (flyway-core alone is not enough). -->
         <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-core</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
         </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
