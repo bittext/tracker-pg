@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -27,6 +28,7 @@ import {
   ManagementTaskType,
   TaskMonthCalendarDto,
 } from '../../models/management.models';
+import { AuthLoginEventDto } from '../../models/auth-audit.models';
 import {
   REPORT_CALENDAR_FILTER_OPTIONS,
   ReportCalendarEntryDto,
@@ -35,6 +37,7 @@ import {
   reportCalendarTypeLabel,
 } from '../../models/report-calendar.models';
 import { ManagementApiService } from '../../services/management-api.service';
+import { MeSignInLogApiService } from '../../services/me-sign-in-log-api.service';
 import { ReportCalendarApiService } from '../../services/report-calendar-api.service';
 import { AuthService } from '../../services/auth.service';
 import { SafeMarkdownPipe } from '../../pipes/safe-markdown.pipe';
@@ -86,6 +89,7 @@ interface UtilityEntry {
   standalone: true,
   imports: [
     CommonModule,
+    RouterLink,
     FormsModule,
     SafeMarkdownPipe,
     MatCardModule,
@@ -110,6 +114,7 @@ export class ManagementComponent implements OnInit {
   private static readonly UTILITIES_STORAGE_KEY_BASE = 'management.utilities.entries.v1';
   private readonly auth = inject(AuthService);
   private readonly api = inject(ManagementApiService);
+  private readonly meSignInLogApi = inject(MeSignInLogApiService);
   private readonly reportCalApi = inject(ReportCalendarApiService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
@@ -180,9 +185,10 @@ export class ManagementComponent implements OnInit {
 
   readonly utilityTableColumns: string[] = ['folder', 'itemName', 'username', 'actions'];
 
-  /** 0 Tasks, 1 Calendar, 2 Utilities, 3 Notes, 4 Write-up */
+  /** 0 Tasks, 1 Calendar, 2 Utilities, 3 Notes, 4 Write-up, 5 Sign-in log */
   private readonly MGMT_TAB_NOTES = 3;
   private readonly MGMT_TAB_WRITEUP = 4;
+  private readonly MGMT_TAB_SIGNIN_LOG = 5;
 
   noteYear = new Date().getFullYear();
   /** When set, list is limited to that month; when null, all months in the year. */
@@ -214,6 +220,16 @@ export class ManagementComponent implements OnInit {
   writeupUploading = false;
   /** Attachments for the write-up currently being edited (synced from API after load). */
   writeupSelectedAttachments: ManagementWriteupAttachmentDto[] = [];
+
+  signInLogEvents: AuthLoginEventDto[] = [];
+  signInLogLoading = false;
+  signInLogSearch = '';
+  signInLogLimit = 100;
+  readonly signInLogColumns = ['createdAt', 'eventType', 'username', 'clientIp', 'detail', 'userAgent'];
+
+  get isAdminUser(): boolean {
+    return this.auth.isAdmin();
+  }
 
   ngOnInit(): void {
     const t = this.todayIso();
@@ -1089,6 +1105,23 @@ export class ManagementComponent implements OnInit {
     if (index === this.MGMT_TAB_WRITEUP) {
       this.loadWriteups();
     }
+    if (index === this.MGMT_TAB_SIGNIN_LOG) {
+      this.loadMySignInLog();
+    }
+  }
+
+  loadMySignInLog(): void {
+    this.signInLogLoading = true;
+    this.meSignInLogApi.list(this.signInLogLimit, this.signInLogSearch).subscribe({
+      next: (rows) => {
+        this.signInLogLoading = false;
+        this.signInLogEvents = rows;
+      },
+      error: (e) => {
+        this.signInLogLoading = false;
+        this.err('Could not load your sign-in log', e);
+      },
+    });
   }
 
   get writeupSearchTrim(): string {

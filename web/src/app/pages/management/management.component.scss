@@ -728,3 +728,36 @@
 .utilities-notes {
   white-space: pre-wrap;
 }
+
+.mgmt-signin-panel {
+  max-width: min(100%, 88rem);
+}
+
+.mgmt-signin-audit-bar {
+  margin-bottom: 0.75rem;
+  align-items: center;
+}
+
+.mgmt-signin-events-table {
+  font-size: 0.85rem;
+}
+
+.mgmt-signin-event-type {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.mgmt-signin-detail-cell {
+  max-width: 14rem;
+  overflow-wrap: anywhere;
+  font-size: 0.82rem;
+}
+
+.mgmt-signin-ua-cell {
+  max-width: 20rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.78rem;
+  color: var(--app-text-muted, #64748b);
+}
