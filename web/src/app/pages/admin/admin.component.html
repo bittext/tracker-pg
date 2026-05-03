@@ -1,96 +1,101 @@
 <div class="page-head">
   <h1 class="page-title">Admin</h1>
   <p class="muted">
+    Use this area for <strong>account-level configuration and monitoring</strong> (exercise catalog, journal tags,
+    finance notification channels, banking imports, and more). <strong>Sign-in log</strong> shows
     @if (isAppAdmin) {
-      <span
-        >Use <strong>Sign-in log</strong> to review logins, MFA, and sign-outs for <strong>all accounts</strong>. Your
-        own history is also under <a routerLink="/management">Management</a> → <strong>Sign-in log</strong>.
-      </span>
+      <span>the <strong>full audit</strong> for every account.</span>
+    } @else {
+      <span><strong>your sign-in activity only</strong> (server-enforced).</span>
     }
-    Use <strong>Exercise</strong> to manage the workout catalog. Use <strong>Journal</strong> for entry tag labels. Use
-    <strong>Management</strong> for balance categories and task types. Use <strong>Finance</strong> for money-related
-    admin when it is available.
+    App-wide tools that require the ADMIN role stay on the server; only admins see the full sign-in audit here.
   </p>
 </div>
 
 <mat-card class="card admin-card">
   <mat-tab-group animationDuration="220ms" class="admin-tab-group">
-    @if (isAppAdmin) {
-      <mat-tab label="Sign-in log">
-        <div class="tab-panel">
-          <section class="admin-section">
-            <h2 class="section-title">Sign-in and sign-out events</h2>
+    <mat-tab label="Sign-in log">
+      <div class="tab-panel">
+        <section class="admin-section">
+          <h2 class="section-title">Sign-in and sign-out events</h2>
+          @if (isAppAdmin) {
             <p class="muted">
-              Recent authentication events (success, failure, MFA, logout) stored on the server. Use search to filter by
-              username, IP, or detail. Admins see all accounts; every user can review their own history under
-              <a routerLink="/management">Management</a> → <strong>Sign-in log</strong>.
+              <strong>Admin view:</strong> recent authentication events for <strong>all accounts</strong>. Search by
+              username, IP, user agent, or detail.
             </p>
-            <div class="form-row wrap admin-login-audit-bar">
-              <mat-form-field appearance="outline" class="grow">
-                <mat-label>Search</mat-label>
-                <input
-                  matInput
-                  name="loginEventSearch"
-                  [(ngModel)]="loginEventSearch"
-                  placeholder="Username, IP, user agent, detail"
-                  (keyup.enter)="loadLoginEvents()"
-                />
-              </mat-form-field>
-              <mat-form-field appearance="outline" class="narrow">
-                <mat-label>Limit</mat-label>
-                <input matInput type="number" name="loginEventLimit" [(ngModel)]="loginEventLimit" min="1" max="500" />
-              </mat-form-field>
-              <button
-                mat-flat-button
-                color="primary"
-                type="button"
-                (click)="loadLoginEvents()"
-                [disabled]="loginEventLoading"
-              >
-                Refresh
-              </button>
-            </div>
-            <div class="table-wrap">
-              <table mat-table [dataSource]="loginEvents" class="mat-elevation-z1 full-width admin-login-events-table">
-                <ng-container matColumnDef="createdAt">
-                  <th mat-header-cell *matHeaderCellDef>Time (UTC)</th>
-                  <td mat-cell *matCellDef="let row">{{ row.createdAt | date: 'medium' }}</td>
-                </ng-container>
-                <ng-container matColumnDef="eventType">
-                  <th mat-header-cell *matHeaderCellDef>Event</th>
-                  <td mat-cell *matCellDef="let row">
-                    <code class="admin-event-type">{{ row.eventType }}</code>
-                  </td>
-                </ng-container>
-                <ng-container matColumnDef="username">
-                  <th mat-header-cell *matHeaderCellDef>User</th>
-                  <td mat-cell *matCellDef="let row">{{ row.username || '—' }}</td>
-                </ng-container>
-                <ng-container matColumnDef="clientIp">
-                  <th mat-header-cell *matHeaderCellDef>IP</th>
-                  <td mat-cell *matCellDef="let row">{{ row.clientIp || '—' }}</td>
-                </ng-container>
-                <ng-container matColumnDef="detail">
-                  <th mat-header-cell *matHeaderCellDef>Detail</th>
-                  <td mat-cell *matCellDef="let row" class="admin-detail-cell">{{ row.detail || '—' }}</td>
-                </ng-container>
-                <ng-container matColumnDef="userAgent">
-                  <th mat-header-cell *matHeaderCellDef>User agent</th>
-                  <td mat-cell *matCellDef="let row" class="admin-ua-cell" [title]="row.userAgent">
-                    {{ row.userAgent || '—' }}
-                  </td>
-                </ng-container>
-                <tr mat-header-row *matHeaderRowDef="loginEventColumns"></tr>
-                <tr mat-row *matRowDef="let row; columns: loginEventColumns"></tr>
-              </table>
-              @if (!loginEvents.length && !loginEventLoading) {
-                <p class="muted empty-hint">No events yet or no matches.</p>
-              }
-            </div>
-          </section>
-        </div>
-      </mat-tab>
-    }
+          } @else {
+            <p class="muted">
+              <strong>Your activity only:</strong> logins, MFA, failures, and sign-outs tied to your account. Search
+              filters IP, user agent, and detail within your history.
+            </p>
+          }
+          <div class="form-row wrap admin-login-audit-bar">
+            <mat-form-field appearance="outline" class="grow">
+              <mat-label>Search</mat-label>
+              <input
+                matInput
+                name="loginEventSearch"
+                [(ngModel)]="loginEventSearch"
+                [placeholder]="
+                  isAppAdmin ? 'Username, IP, user agent, detail' : 'IP, user agent, or detail (your events only)'
+                "
+                (keyup.enter)="loadLoginEvents()"
+              />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="narrow">
+              <mat-label>Limit</mat-label>
+              <input matInput type="number" name="loginEventLimit" [(ngModel)]="loginEventLimit" min="1" max="500" />
+            </mat-form-field>
+            <button
+              mat-flat-button
+              color="primary"
+              type="button"
+              (click)="loadLoginEvents()"
+              [disabled]="loginEventLoading"
+            >
+              Refresh
+            </button>
+          </div>
+          <div class="table-wrap">
+            <table mat-table [dataSource]="loginEvents" class="mat-elevation-z1 full-width admin-login-events-table">
+              <ng-container matColumnDef="createdAt">
+                <th mat-header-cell *matHeaderCellDef>Time (UTC)</th>
+                <td mat-cell *matCellDef="let row">{{ row.createdAt | date: 'medium' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="eventType">
+                <th mat-header-cell *matHeaderCellDef>Event</th>
+                <td mat-cell *matCellDef="let row">
+                  <code class="admin-event-type">{{ row.eventType }}</code>
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="username">
+                <th mat-header-cell *matHeaderCellDef>User</th>
+                <td mat-cell *matCellDef="let row">{{ row.username || '—' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="clientIp">
+                <th mat-header-cell *matHeaderCellDef>IP</th>
+                <td mat-cell *matCellDef="let row">{{ row.clientIp || '—' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="detail">
+                <th mat-header-cell *matHeaderCellDef>Detail</th>
+                <td mat-cell *matCellDef="let row" class="admin-detail-cell">{{ row.detail || '—' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="userAgent">
+                <th mat-header-cell *matHeaderCellDef>User agent</th>
+                <td mat-cell *matCellDef="let row" class="admin-ua-cell" [title]="row.userAgent">
+                  {{ row.userAgent || '—' }}
+                </td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="loginEventColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: loginEventColumns"></tr>
+            </table>
+            @if (!loginEvents.length && !loginEventLoading) {
+              <p class="muted empty-hint">No events yet or no matches.</p>
+            }
+          </div>
+        </section>
+      </div>
+    </mat-tab>
 
     <mat-tab label="Exercise">
       <div class="tab-panel">
