@@ -25,8 +25,6 @@ import {
   Surge52WeekRowDto,
   BreakoutCandidatesDto,
   BreakoutCandidateRowDto,
-  RobinhoodCsvSavedImportDto,
-  RobinhoodCsvUploadStatusDto,
 } from '../../models/finance.models';
 import { FinanceApiService, FinancePeriod } from '../../services/finance-api.service';
 import { formatHttpErrorDetail } from '../../util/http-error';
@@ -65,7 +63,7 @@ export class FinanceComponent implements OnInit {
 
   /** Finance category tabs: 0=banking, 1=investments, 2=loans, 3=market, 4=money, 5=credit, 6=trading, 7=insurance, 8=taxes. */
   financeCategoryTabIndex = 0;
-  /** Trading tabs: 0=news, 1=crawler, 2=52w high risers, 3=break outs, 4=alerts, 5=transactions, 6=by instrument, 7=Robinhood CSV, 8=summary. */
+  /** Trading tabs: 0=news, 1=crawler, 2=52w high risers, 3=break outs, 4=alerts, 5=transactions, 6=by instrument, 7=summary. */
   financeSubTabIndex = 0;
 
   stockSymbols: string[] = [];
@@ -104,13 +102,6 @@ export class FinanceComponent implements OnInit {
   breakoutCandidates: BreakoutCandidatesDto | null = null;
   breakoutLoading = false;
 
-  rhCsvUploadStatus: RobinhoodCsvUploadStatusDto | null = null;
-  rhCsvUploadStatusLoading = false;
-  rhCsvSaveResult: RobinhoodCsvSavedImportDto | null = null;
-  rhCsvUploading = false;
-  rhCsvApplyToDb = false;
-  rhCsvSelectedLabel: string | null = null;
-  rhCsvSelectedFile: File | null = null;
   financeAlerts: FinanceStockAlertDto[] = [];
   financeAlertEvents: FinanceAlertEventDto[] = [];
   financeAlertsLoading = false;
@@ -171,8 +162,6 @@ export class FinanceComponent implements OnInit {
         }
       }, true);
     } else if (index === 7) {
-      this.loadRhCsvUploadStatus();
-    } else if (index === 8) {
       this.ensureStockSymbolsLoaded(undefined, this.stockSymbols.length === 0);
       this.loadStocksSummary();
     }
@@ -192,7 +181,7 @@ export class FinanceComponent implements OnInit {
   }
 
   onStocksSummaryFilterChange(): void {
-    if (this.financeCategoryTabIndex === 6 && this.financeSubTabIndex === 8) {
+    if (this.financeCategoryTabIndex === 6 && this.financeSubTabIndex === 7) {
       this.loadStocksSummary();
     }
   }
@@ -275,59 +264,6 @@ export class FinanceComponent implements OnInit {
 
   breakoutRowTrack(_idx: number, row: BreakoutCandidateRowDto): string {
     return row.symbol;
-  }
-
-  onRhCsvFileSelected(ev: Event): void {
-    const input = ev.target as HTMLInputElement;
-    const f = input.files?.[0];
-    this.rhCsvSelectedFile = f ?? null;
-    this.rhCsvSelectedLabel = f?.name ?? null;
-    this.rhCsvSaveResult = null;
-  }
-
-  loadRhCsvUploadStatus(): void {
-    this.rhCsvUploadStatusLoading = true;
-    this.financeApi.robinhoodCsvImportUploadStatus().subscribe({
-      next: (s) => {
-        this.rhCsvUploadStatus = s;
-        this.rhCsvUploadStatusLoading = false;
-      },
-      error: (e) => {
-        this.rhCsvUploadStatus = null;
-        this.rhCsvUploadStatusLoading = false;
-        this.err('Could not load CSV upload status', e);
-      },
-    });
-  }
-
-  uploadRhCsvToImportFolder(): void {
-    const f = this.rhCsvSelectedFile;
-    if (!f) {
-      this.snackBar.open('Choose a CSV file first', 'Dismiss', { duration: 4500 });
-      return;
-    }
-    this.rhCsvUploading = true;
-    this.rhCsvSaveResult = null;
-    this.financeApi.robinhoodCsvSaveToImportDirectory(f, this.rhCsvApplyToDb).subscribe({
-      next: (r) => {
-        this.rhCsvSaveResult = r;
-        this.rhCsvUploading = false;
-        const ir = r.importResult;
-        let msg: string;
-        if (ir.apply && ir.errorCount === 0) {
-          msg = `Saved and imported ${ir.insertedRows} row(s)`;
-        } else if (ir.apply) {
-          msg = `Saved; import finished with ${ir.errorCount} error(s)`;
-        } else {
-          msg = `Saved; dry-run parsed ${ir.parsedRows} row(s)`;
-        }
-        this.snackBar.open(msg, 'Dismiss', { duration: 6500 });
-      },
-      error: (e) => {
-        this.rhCsvUploading = false;
-        this.err('CSV save/import failed', e);
-      },
-    });
   }
 
   loadFinanceAlerts(): void {

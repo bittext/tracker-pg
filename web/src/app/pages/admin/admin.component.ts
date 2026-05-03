@@ -15,6 +15,7 @@ import { FinanceNotificationSettingsDto, FinanceNotificationSettingsRequestDto }
 import { AuthLoginEventDto } from '../../models/auth-audit.models';
 import { JournalTagDefDto } from '../../models/journal.models';
 import { ManagementTaskCategory, ManagementTaskType } from '../../models/management.models';
+import { AdminFinanceRobinhoodCsvComponent } from './admin-finance-robinhood-csv/admin-finance-robinhood-csv.component';
 import { BankingPanelComponent } from '../finance/banking-panel/banking-panel.component';
 import { AdminAuthAuditApiService } from '../../services/admin-auth-audit-api.service';
 import { FitnessApiService } from '../../services/fitness-api.service';
@@ -40,6 +41,7 @@ import { formatHttpErrorDetail } from '../../util/http-error';
     MatTabsModule,
     RouterLink,
     BankingPanelComponent,
+    AdminFinanceRobinhoodCsvComponent,
   ],
   templateUrl: './admin.component.html',
   styleUrl: './admin.component.scss',

@@ -2,8 +2,8 @@
   <h1 class="page-title">Finance</h1>
   <p class="muted">
     Banking, investments, loans, market, money, credit, trading, insurance, and taxes are grouped under one Finance page.
-    Trading includes news, crawler, 52-week-high risers, break-out setup scan, alerts, transactions, Robinhood CSV
-    upload, and summary tools.
+    Trading includes news, crawler, 52-week-high risers, break-out setup scan, alerts, transactions, and summary tools.
+    Robinhood CSV upload lives under <strong>Admin → Finance → Trading</strong>.
   </p>
 </div>
 
@@ -1097,104 +1097,6 @@
         </div>
       </mat-tab>
 
-      <mat-tab label="Robinhood">
-        <div class="finance-panel finance-robinhood-csv-panel">
-          <p class="muted stocks-news-intro">
-            Upload a Robinhood transaction export (<strong>.csv</strong>). The server saves it under the configured
-            import directory (on Lightsail with <code>docker-compose.robinhood.yml</code>, the host folder is typically
-            <code>/home/ubuntu/robinhood/reports/import</code>, mounted at <code>/robinhood/import</code> in the API
-            container), then runs the same import pipeline as <code>POST /import-csv</code>. Leave
-            <strong>Apply to database</strong> unchecked for a dry-run preview first.
-          </p>
-
-          @if (rhCsvUploadStatusLoading) {
-            <p class="muted">Checking upload configuration…</p>
-          }
-
-          @if (rhCsvUploadStatus && !rhCsvUploadStatusLoading) {
-            @if (!rhCsvUploadStatus.configured) {
-              <div class="finance-empty-report rh-csv-warning" role="status">
-                <p class="finance-empty-title">CSV import folder not configured</p>
-                <p class="muted finance-empty-detail">
-                  Set <code>TRACKER_FINANCE_ROBINHOOD_CSV_IMPORT_DIRECTORY</code> (e.g. <code>/robinhood/import</code> with
-                  the Robinhood compose merge). See README “Robinhood CSV directory import on Lightsail”.
-                </p>
-              </div>
-            } @else {
-              <p class="muted finance-meta">
-                Import directory (server): <strong>{{ rhCsvUploadStatus.importDirectory }}</strong>
-              </p>
-            }
-          }
-
-          <div class="finance-toolbar rh-csv-toolbar">
-            <input
-              #rhCsvPick
-              type="file"
-              accept=".csv,text/csv"
-              class="rh-csv-file-input"
-              (change)="onRhCsvFileSelected($event)"
-            />
-            <button mat-stroked-button type="button" (click)="rhCsvPick.click()" [disabled]="rhCsvUploading">
-              Choose CSV…
-            </button>
-            @if (rhCsvSelectedLabel) {
-              <span class="muted rh-csv-file-label">{{ rhCsvSelectedLabel }}</span>
-            }
-            <label class="finance-alert-check rh-csv-apply">
-              <input type="checkbox" [(ngModel)]="rhCsvApplyToDb" name="rhCsvApply" [disabled]="rhCsvUploading" />
-              Apply to database
-            </label>
-            <button
-              mat-flat-button
-              color="primary"
-              type="button"
-              (click)="uploadRhCsvToImportFolder()"
-              [disabled]="rhCsvUploading || !rhCsvUploadStatus?.configured || !rhCsvSelectedFile"
-            >
-              <mat-icon>upload</mat-icon>
-              Save &amp; import
-            </button>
-          </div>
-
-          @if (rhCsvUploading) {
-            <p class="muted">Saving file and running import…</p>
-          }
-
-          @if (rhCsvSaveResult) {
-            <div class="rh-csv-result" role="region" aria-label="Import result">
-              <h3 class="crawl-section-title">Last result</h3>
-              <p class="muted rh-csv-path">
-                <strong>Saved:</strong> {{ rhCsvSaveResult.savedAbsolutePath }}
-              </p>
-              <ul class="rh-csv-stats muted">
-                <li><strong>File:</strong> {{ rhCsvSaveResult.importResult.fileName }}</li>
-                <li>
-                  <strong>Apply:</strong> {{ rhCsvSaveResult.importResult.apply ? 'yes' : 'no (dry-run)' }}
-                </li>
-                <li><strong>CSV rows:</strong> {{ rhCsvSaveResult.importResult.csvRowCount }}</li>
-                <li><strong>Parsed:</strong> {{ rhCsvSaveResult.importResult.parsedRows }}</li>
-                <li><strong>Inserted:</strong> {{ rhCsvSaveResult.importResult.insertedRows }}</li>
-                <li>
-                  <strong>Duplicates skipped:</strong> {{ rhCsvSaveResult.importResult.duplicateRowsSkipped }}
-                </li>
-                <li><strong>Skipped:</strong> {{ rhCsvSaveResult.importResult.skippedRows }}</li>
-                <li><strong>Errors:</strong> {{ rhCsvSaveResult.importResult.errorCount }}</li>
-                <li><strong>Table:</strong> {{ rhCsvSaveResult.importResult.tableTarget }}</li>
-              </ul>
-              <p class="muted rh-csv-note">{{ rhCsvSaveResult.importResult.note }}</p>
-              @if (rhCsvSaveResult.importResult.errors.length) {
-                <ul class="rh-csv-errors">
-                  @for (err of rhCsvSaveResult.importResult.errors; track err) {
-                    <li>{{ err }}</li>
-                  }
-                </ul>
-              }
-            </div>
-          }
-        </div>
-      </mat-tab>
-
       <mat-tab label="Summary">
         <div class="finance-panel">
           <p class="muted stocks-summary-intro">
@@ -1244,7 +1146,7 @@
             </button>
           </div>
 
-          @if (stockSymbolsLoading && financeSubTabIndex === 8) {
+          @if (stockSymbolsLoading && financeSubTabIndex === 7) {
             <p class="muted">Loading instruments…</p>
           }
 

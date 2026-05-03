@@ -1,0 +1,97 @@
+<div class="arh-panel">
+  <p class="muted arh-intro">
+    Upload a Robinhood transaction export (<strong>.csv</strong>). The server saves it under the configured import
+    directory (on Lightsail with <code>docker-compose.robinhood.yml</code>, the host folder is typically
+    <code>/home/ubuntu/robinhood/reports/import</code>, mounted at <code>/robinhood/import</code> in the API container),
+    then runs the same import pipeline as <code>POST /import-csv</code>. Leave <strong>Apply to database</strong>
+    unchecked for a dry-run preview first. View imported rows under
+    <a routerLink="/finance">Finance</a> → Trading → Transactions.
+  </p>
+
+  @if (rhCsvUploadStatusLoading) {
+    <p class="muted">Checking upload configuration…</p>
+  }
+
+  @if (rhCsvUploadStatus && !rhCsvUploadStatusLoading) {
+    @if (!rhCsvUploadStatus.configured) {
+      <div class="arh-empty-report" role="status">
+        <p class="arh-empty-title">CSV import folder not configured</p>
+        <p class="muted arh-empty-detail">
+          Set <code>TRACKER_FINANCE_ROBINHOOD_CSV_IMPORT_DIRECTORY</code> (e.g. <code>/robinhood/import</code> with the
+          Robinhood compose merge). See README “Robinhood CSV directory import on Lightsail”.
+        </p>
+      </div>
+    } @else {
+      <p class="muted arh-meta">
+        Import directory (server): <strong>{{ rhCsvUploadStatus.importDirectory }}</strong>
+      </p>
+    }
+  }
+
+  <div class="arh-toolbar">
+    <input
+      #rhCsvPick
+      type="file"
+      accept=".csv,text/csv"
+      class="arh-file-input"
+      (change)="onRhCsvFileSelected($event)"
+    />
+    <button mat-stroked-button type="button" (click)="rhCsvPick.click()" [disabled]="rhCsvUploading">Choose CSV…</button>
+    @if (rhCsvSelectedLabel) {
+      <span class="muted arh-file-label">{{ rhCsvSelectedLabel }}</span>
+    }
+    <label class="arh-apply">
+      <input type="checkbox" [(ngModel)]="rhCsvApplyToDb" name="arhRhCsvApply" [disabled]="rhCsvUploading" />
+      Apply to database
+    </label>
+    <button
+      mat-flat-button
+      color="primary"
+      type="button"
+      (click)="uploadRhCsvToImportFolder()"
+      [disabled]="rhCsvUploading || !rhCsvUploadStatus?.configured || !rhCsvSelectedFile"
+    >
+      <mat-icon>upload</mat-icon>
+      Save &amp; import
+    </button>
+    <button mat-stroked-button type="button" (click)="loadRhCsvUploadStatus()" [disabled]="rhCsvUploadStatusLoading">
+      Refresh status
+    </button>
+  </div>
+
+  @if (rhCsvUploading) {
+    <p class="muted">Saving file and running import…</p>
+  }
+
+  @if (rhCsvSaveResult) {
+    <div class="arh-result" role="region" aria-label="Import result">
+      <h3 class="arh-result-title">Last result</h3>
+      <p class="muted arh-path">
+        <strong>Saved:</strong> {{ rhCsvSaveResult.savedAbsolutePath }}
+      </p>
+      <ul class="arh-stats muted">
+        <li><strong>File:</strong> {{ rhCsvSaveResult.importResult.fileName }}</li>
+        <li>
+          <strong>Apply:</strong> {{ rhCsvSaveResult.importResult.apply ? 'yes' : 'no (dry-run)' }}
+        </li>
+        <li><strong>CSV rows:</strong> {{ rhCsvSaveResult.importResult.csvRowCount }}</li>
+        <li><strong>Parsed:</strong> {{ rhCsvSaveResult.importResult.parsedRows }}</li>
+        <li><strong>Inserted:</strong> {{ rhCsvSaveResult.importResult.insertedRows }}</li>
+        <li>
+          <strong>Duplicates skipped:</strong> {{ rhCsvSaveResult.importResult.duplicateRowsSkipped }}
+        </li>
+        <li><strong>Skipped:</strong> {{ rhCsvSaveResult.importResult.skippedRows }}</li>
+        <li><strong>Errors:</strong> {{ rhCsvSaveResult.importResult.errorCount }}</li>
+        <li><strong>Table:</strong> {{ rhCsvSaveResult.importResult.tableTarget }}</li>
+      </ul>
+      <p class="muted arh-note">{{ rhCsvSaveResult.importResult.note }}</p>
+      @if (rhCsvSaveResult.importResult.errors.length) {
+        <ul class="arh-errors">
+          @for (err of rhCsvSaveResult.importResult.errors; track err) {
+            <li>{{ err }}</li>
+          }
+        </ul>
+      }
+    </div>
+  }
+</div>
