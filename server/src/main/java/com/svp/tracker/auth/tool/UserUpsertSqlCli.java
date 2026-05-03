@@ -16,14 +16,37 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
  * TRACKER_AUTH_PASSWORD_PEPPER='your-pepper' mvn -q compile exec:java \
  *   -Dexec.mainClass=com.svp.tracker.auth.tool.UserUpsertSqlCli \
  *   "-Dexec.args=demo demo123 USER false true"
+ *
+ * When TRACKER_UPSERT_PASSWORD is set (non-empty), the password is read from that env var and exec.args must omit it:
+ *   TRACKER_UPSERT_PASSWORD='secret' mvn ... "-Dexec.args=demo USER false true -"
+ * Shell scripts should use this form so passwords containing {@code $} are not mangled by bash when building {@code -Dexec.args}.
  * </pre>
  */
 public final class UserUpsertSqlCli {
 
+    private static final String UPSERT_PASSWORD_ENV = "TRACKER_UPSERT_PASSWORD";
+
     private UserUpsertSqlCli() {}
 
     public static void main(String[] args) {
-        if (args.length < 2 || args.length > 7) {
+        String envPassword = System.getenv(UPSERT_PASSWORD_ENV);
+        boolean passwordFromEnv = envPassword != null && !envPassword.isEmpty();
+
+        if (passwordFromEnv) {
+            if (args.length < 1 || args.length > 6) {
+                System.err.println(
+                        """
+                        Usage (with %s set): UserUpsertSqlCli <username> [role] [mfaEnabled] [active] [phoneE164] [pepper]
+                          role: ADMIN or USER (default USER)
+                          mfaEnabled: true|false (default false)
+                          active: true|false (default true)
+                          phoneE164: optional, use '-' for blank
+                          pepper: optional; else env TRACKER_AUTH_PASSWORD_PEPPER; if unset, same default as application.yml (tracker-dev-pepper)
+                        """
+                                .formatted(UPSERT_PASSWORD_ENV));
+                System.exit(1);
+            }
+        } else if (args.length < 2 || args.length > 7) {
             System.err.println(
                     """
                     Usage: UserUpsertSqlCli <username> <password> [role] [mfaEnabled] [active] [phoneE164] [pepper]
@@ -32,17 +55,31 @@ public final class UserUpsertSqlCli {
                       active: true|false (default true)
                       phoneE164: optional, use '-' for blank
                       pepper: optional; else env TRACKER_AUTH_PASSWORD_PEPPER; if unset, same default as application.yml (tracker-dev-pepper)
-                    """);
+                    Or set %s for the password and pass only username and optional trailing args (see scripts/create-demo-user.sh).
+                    """
+                            .formatted(UPSERT_PASSWORD_ENV));
             System.exit(1);
         }
 
         String username = args[0].trim().toLowerCase(Locale.ROOT);
-        String rawPassword = args[1];
-        AppUserRole role = parseRole(args.length > 2 ? args[2] : "USER");
-        boolean mfaEnabled = parseBoolean(args.length > 3 ? args[3] : "false", "mfaEnabled");
-        boolean active = parseBoolean(args.length > 4 ? args[4] : "true", "active");
-        String phoneE164 = normalizePhone(args.length > 5 ? args[5] : "");
-        String pepper = args.length > 6 ? args[6] : AuthCliDefaults.passwordPepper();
+        String rawPassword = passwordFromEnv ? envPassword : args[1];
+        AppUserRole role =
+                parseRole(passwordFromEnv ? (args.length > 1 ? args[1] : "USER") : (args.length > 2 ? args[2] : "USER"));
+        boolean mfaEnabled =
+                parseBoolean(
+                        passwordFromEnv ? (args.length > 2 ? args[2] : "false") : (args.length > 3 ? args[3] : "false"),
+                        "mfaEnabled");
+        boolean active =
+                parseBoolean(
+                        passwordFromEnv ? (args.length > 3 ? args[3] : "true") : (args.length > 4 ? args[4] : "true"),
+                        "active");
+        String phoneE164 =
+                normalizePhone(
+                        passwordFromEnv ? (args.length > 4 ? args[4] : "") : (args.length > 5 ? args[5] : ""));
+        String pepper =
+                passwordFromEnv
+                        ? (args.length > 5 ? args[5] : AuthCliDefaults.passwordPepper())
+                        : (args.length > 6 ? args[6] : AuthCliDefaults.passwordPepper());
 
         if (username.isBlank()) {
             throw new IllegalArgumentException("username cannot be blank");

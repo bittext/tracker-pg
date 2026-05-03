@@ -33,6 +33,8 @@ Notes:
     to match the server and run again.
   - Do not set TRACKER_AUTH_PASSWORD_PEPPER to an empty value in .env.stack unless the API uses an empty pepper too;
     an empty line used to force a CLI/API mismatch (fixed by unsetting the variable before mvn when blank).
+  - Password is passed via env TRACKER_UPSERT_PASSWORD (not in -Dexec.args) so characters like $ in the password are
+    not interpreted by the shell.
   - If the stack's postgres container is running, applies SQL via `docker compose exec -iT` (stdin must stay open for
     `psql -f -`; without `-i`, no SQL runs and the script still exits 0).
   - Otherwise uses host psql when a real PostgreSQL client is installed (not Ubuntu's stub).
@@ -99,9 +101,13 @@ echo "Generating user upsert SQL for '${username}'..."
   if [[ -n "${auth_pepper// }" ]]; then
     export TRACKER_AUTH_PASSWORD_PEPPER="${auth_pepper}"
   fi
+  # Password must not appear in -Dexec.args: bash expands $ and other characters inside double quotes, which breaks
+  # Maven/Java args. UserUpsertSqlCli reads TRACKER_UPSERT_PASSWORD when set (see server UserUpsertSqlCli).
+  unset TRACKER_UPSERT_PASSWORD 2>/dev/null || true
+  export TRACKER_UPSERT_PASSWORD="${password}"
   mvn -q compile exec:java \
     -Dexec.mainClass=com.svp.tracker.auth.tool.UserUpsertSqlCli \
-    "-Dexec.args=${username} ${password} ${role} ${mfa_enabled} ${active} ${phone_e164}"
+    "-Dexec.args=${username} ${role} ${mfa_enabled} ${active} ${phone_e164}"
 ) > "${tmp_sql}"
 
 if ! grep -q "INSERT INTO auth_users" "${tmp_sql}"; then
@@ -132,39 +138,65 @@ postgres_container_running() {
   dc_stack ps --status running -q postgres 2>/dev/null | grep -q .
 }
 
-echo "Applying SQL to PostgreSQL ${postgres_host}:${postgres_port}/${postgres_db}..."
+sql_escape_literal() {
+  printf '%s' "$1" | sed "s/'/''/g"
+}
+
+# How we reach Postgres for this run (fixed for apply + verify so we never switch compose vs host mid-script).
+pg_via_compose_exec=false
 if postgres_container_running; then
-  echo "Using docker compose postgres service (container running)..."
-  dc_stack exec -iT \
-    -e PGPASSWORD="${postgres_password}" \
-    postgres \
-    psql \
-    -U "${postgres_user}" \
-    -d "${postgres_db}" \
-    -v ON_ERROR_STOP=1 \
-    -f - < "${tmp_sql}"
+  pg_via_compose_exec=true
+elif ! psql_client_ready && command -v docker >/dev/null 2>&1; then
+  pg_via_compose_exec=true
+fi
+
+# Run psql against the same target chosen for apply.
+psql_apply_or_query() {
+  if [[ "${pg_via_compose_exec}" == "true" ]]; then
+    dc_stack exec -iT \
+      -e PGPASSWORD="${postgres_password}" \
+      postgres \
+      psql \
+      -U "${postgres_user}" \
+      -d "${postgres_db}" \
+      -v ON_ERROR_STOP=1 \
+      "$@"
+  elif psql_client_ready; then
+    PGPASSWORD="${postgres_password}" psql \
+      -h "${postgres_host}" \
+      -p "${postgres_port}" \
+      -U "${postgres_user}" \
+      -d "${postgres_db}" \
+      -v ON_ERROR_STOP=1 \
+      "$@"
+  else
+    return 1
+  fi
+}
+
+echo "Applying SQL to PostgreSQL ${postgres_host}:${postgres_port}/${postgres_db}..."
+if [[ "${pg_via_compose_exec}" == "true" ]]; then
+  if postgres_container_running; then
+    echo "Using docker compose postgres service (container running)..."
+  else
+    echo "Local psql not usable; trying docker compose postgres service..." >&2
+  fi
+  psql_apply_or_query -f - < "${tmp_sql}"
 elif psql_client_ready; then
-  PGPASSWORD="${postgres_password}" psql \
-    -h "${postgres_host}" \
-    -p "${postgres_port}" \
-    -U "${postgres_user}" \
-    -d "${postgres_db}" \
-    -v ON_ERROR_STOP=1 \
-    -f "${tmp_sql}"
-elif command -v docker >/dev/null 2>&1; then
-  echo "Local psql not usable; trying docker compose postgres service..." >&2
-  dc_stack exec -iT \
-    -e PGPASSWORD="${postgres_password}" \
-    postgres \
-    psql \
-    -U "${postgres_user}" \
-    -d "${postgres_db}" \
-    -v ON_ERROR_STOP=1 \
-    -f - < "${tmp_sql}"
+  psql_apply_or_query -f "${tmp_sql}"
 else
   echo "Error: no working psql and docker is not on PATH." >&2
   echo "Either: sudo apt install -y postgresql-client" >&2
   echo "Or: start the stack (docker compose ... up) so this script can use the postgres container's psql." >&2
+  exit 1
+fi
+
+u_esc="$(sql_escape_literal "${username}")"
+verify_sql="SELECT COUNT(*)::text FROM auth_users WHERE LOWER(TRIM(username)) = LOWER(TRIM('${u_esc}'));"
+row_count="$(psql_apply_or_query -At -c "${verify_sql}" | tr -d '\r\n')"
+if [[ "${row_count}" != "1" ]]; then
+  echo "Error: expected exactly 1 auth_users row for username '${username}' after apply; got count='${row_count}'." >&2
+  echo "Check that this script targets the same database as the API (see .env.stack POSTGRES_* and compose project)." >&2
   exit 1
 fi
 
@@ -175,3 +207,4 @@ echo "  role=${role}"
 echo "  mfa_enabled=${mfa_enabled}"
 echo "  active=${active}"
 echo "  Sign in with that username and the password you passed as the 2nd argument (defaults: demo→demo123; scripts/demo-user.sh → nisha123)."
+
