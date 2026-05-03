@@ -21,23 +21,22 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
  */
 public final class PasswordHashCli {
 
-    private static final BCryptPasswordEncoder ENCODER = new BCryptPasswordEncoder();
-
     public static void main(String[] args) {
         if (args.length < 1 || args.length > 2) {
             System.err.println(
                     """
                     Usage: PasswordHashCli <newPassword> [pepper]
-                      pepper: optional; if omitted, uses env TRACKER_AUTH_PASSWORD_PEPPER or empty string.
+                      pepper: optional; else env TRACKER_AUTH_PASSWORD_PEPPER; if unset, same default as application.yml (tracker-dev-pepper).
                     Prints a PostgreSQL UPDATE for user admin. Edit the WHERE clause for other users.
                     """);
             System.exit(1);
         }
         String rawPassword = args[0];
-        String pepper = args.length > 1 ? args[1] : System.getenv().getOrDefault("TRACKER_AUTH_PASSWORD_PEPPER", "");
+        String pepper = args.length > 1 ? args[1] : AuthCliDefaults.passwordPepper();
+        BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(AuthCliDefaults.bcryptStrength());
         String salt = randomSalt();
         String toHash = rawPassword + "::" + salt + "::" + pepper;
-        String hash = ENCODER.encode(toHash);
+        String hash = encoder.encode(toHash);
 
         String escHash = hash.replace("'", "''");
         String escSalt = salt.replace("'", "''");

@@ -13,6 +13,8 @@ Examples:
   bash scripts/create-demo-user.sh
   bash scripts/create-demo-user.sh demo DemoPass123 USER false true
   bash scripts/create-demo-user.sh alice 'A#Strong#Pass9' ADMIN false true +15551234567
+  bash scripts/demo-user.sh
+  bash scripts/demo-user.sh 'NishaSecurePass9' ADMIN
 
 Defaults:
   username=demo
@@ -25,6 +27,10 @@ Defaults:
 Notes:
   - This script upserts by username (creates new users or updates existing users).
   - Reads .env.stack (when present) for DB settings and TRACKER_AUTH_PASSWORD_PEPPER.
+  - The generated hash must use the same password pepper and BCrypt strength as the API (defaults match
+    application.yml: pepper tracker-dev-pepper when TRACKER_AUTH_PASSWORD_PEPPER is unset, strength 12). If login fails
+    after creating a user, re-run this script after pulling the fix, or set TRACKER_AUTH_PASSWORD_PEPPER in .env.stack
+    to match the server and run again.
   - If the stack's postgres container is running, applies SQL via `docker compose exec` (no host psql needed).
   - Otherwise uses host psql when a real PostgreSQL client is installed (not Ubuntu's stub).
 EOF

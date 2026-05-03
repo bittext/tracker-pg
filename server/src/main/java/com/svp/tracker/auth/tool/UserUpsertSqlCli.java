@@ -19,8 +19,6 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
  */
 public final class UserUpsertSqlCli {
 
-    private static final BCryptPasswordEncoder ENCODER = new BCryptPasswordEncoder();
-
     private UserUpsertSqlCli() {}
 
     public static void main(String[] args) {
@@ -32,7 +30,7 @@ public final class UserUpsertSqlCli {
                       mfaEnabled: true|false (default false)
                       active: true|false (default true)
                       phoneE164: optional, use '-' for blank
-                      pepper: optional, defaults to env TRACKER_AUTH_PASSWORD_PEPPER (or empty)
+                      pepper: optional; else env TRACKER_AUTH_PASSWORD_PEPPER; if unset, same default as application.yml (tracker-dev-pepper)
                     """);
             System.exit(1);
         }
@@ -43,15 +41,16 @@ public final class UserUpsertSqlCli {
         boolean mfaEnabled = parseBoolean(args.length > 3 ? args[3] : "false", "mfaEnabled");
         boolean active = parseBoolean(args.length > 4 ? args[4] : "true", "active");
         String phoneE164 = normalizePhone(args.length > 5 ? args[5] : "");
-        String pepper = args.length > 6 ? args[6] : System.getenv().getOrDefault("TRACKER_AUTH_PASSWORD_PEPPER", "");
+        String pepper = args.length > 6 ? args[6] : AuthCliDefaults.passwordPepper();
 
         if (username.isBlank()) {
             throw new IllegalArgumentException("username cannot be blank");
         }
 
+        BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(AuthCliDefaults.bcryptStrength());
         String salt = randomSalt();
         String toHash = rawPassword + "::" + salt + "::" + pepper;
-        String hash = ENCODER.encode(toHash);
+        String hash = encoder.encode(toHash);
 
         String escUsername = sqlQuote(username);
         String escHash = sqlQuote(hash);
