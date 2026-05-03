@@ -587,6 +587,77 @@ app-management .wu-form-actions {
   margin-top: 0.25rem;
 }
 
+app-management .wu-attach-hint {
+  margin: 0.75rem 0 0.35rem;
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+app-management .wu-attach-row {
+  margin: 0.15rem 0 0.35rem;
+}
+
+app-management .wu-file-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  font-size: 0.88rem;
+  color: var(--app-accent, #2563eb);
+}
+
+app-management .wu-file-label input[type='file'] {
+  max-width: 10rem;
+  font-size: 0.8rem;
+}
+
+app-management .wu-file-label-text {
+  font-weight: 500;
+}
+
+app-management .wu-attachment-list {
+  margin: 0.35rem 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.88rem;
+}
+
+app-management .wu-attachment-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.35rem;
+  margin-bottom: 0.25rem;
+}
+
+app-management .wu-attachment-list--read {
+  margin-top: 0.5rem;
+}
+
+app-management .wu-att-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--app-accent, #2563eb);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 500;
+}
+
+app-management .wu-attach-read-title {
+  margin: 1rem 0 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--app-text-muted, #64748b);
+}
+
+app-management .wu-pick-files {
+  font-weight: 600;
+  color: #0d9488;
+}
+
 /* Task due / overdue row accents (Management + Reports → Tasks). */
 @mixin mgmt-due-row-accent($color, $tint) {
   box-shadow: inset 4px 0 0 $color;

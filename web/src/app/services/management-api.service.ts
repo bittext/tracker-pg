@@ -10,6 +10,7 @@ import {
   ManagementTaskWriteBody,
   ManagementMonthNoteWriteBody,
   ManagementMonthNoteAttachmentDto,
+  ManagementWriteupAttachmentDto,
   ManagementWriteupDto,
   ManagementWriteupWriteBody,
   TaskMonthCalendarDto,
@@ -141,5 +142,22 @@ export class ManagementApiService {
 
   deleteWriteup(id: number) {
     return this.http.delete<void>(`${this.root}/writeups/${id}`);
+  }
+
+  uploadWriteupAttachment(writeupId: number, file: File) {
+    const fd = new FormData();
+    fd.append('file', file, file.name);
+    return this.http.post<ManagementWriteupAttachmentDto>(`${this.root}/writeups/${writeupId}/attachments`, fd);
+  }
+
+  deleteWriteupAttachment(attachmentId: number) {
+    return this.http.delete<void>(`${this.root}/writeups/attachments/${attachmentId}`);
+  }
+
+  getWriteupAttachmentBlob(attachmentId: number, disposition: 'inline' | 'attachment' = 'inline') {
+    return this.http.get(`${this.root}/writeups/attachments/${attachmentId}/file`, {
+      responseType: 'blob',
+      params: { disposition },
+    });
   }
 }

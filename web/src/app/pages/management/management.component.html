@@ -952,8 +952,9 @@
           <p class="muted">
             Long-form <strong>reports and reviews</strong> tied to a calendar year. Use <strong>Topic</strong> as the
             title, <strong>Topic highlight</strong> for a short colored callout shown under the topic, and the large area
-            for detailed Markdown. Filter by year and a single search box (topic, highlight, or body). Only your account
-            can see these records.
+            for detailed Markdown. Attach supporting documents after saving; open them in a new tab to review. Filter by
+            year and one search box (topic, highlight, body, or attachment names). Only your account can see these
+            records.
           </p>
 
           <div class="notes-year-bar">
@@ -1038,6 +1039,43 @@
                       </button>
                     }
                   </div>
+                  @if (writeupEditingId != null) {
+                    <p class="muted wu-attach-hint">
+                      Save the write-up first if it is new, then add PDFs, spreadsheets, or other supporting documents.
+                      Open in a new tab to review; files use the same secure storage as journal and month-note attachments.
+                    </p>
+                    <div class="wu-attach-row">
+                      <label class="wu-file-label">
+                        <input
+                          type="file"
+                          multiple
+                          (change)="onWriteupFilesSelected($event, writeupEditingId)"
+                          [disabled]="writeupUploading"
+                        />
+                        <span class="wu-file-label-text">Add attachment(s)</span>
+                      </label>
+                    </div>
+                    @if (writeupSelectedAttachments.length) {
+                      <ul class="wu-attachment-list">
+                        @for (a of writeupSelectedAttachments; track a.id) {
+                          <li>
+                            <button type="button" class="wu-att-link" (click)="openWriteupAttachment(a.id, a.originalFilename)">
+                              {{ a.originalFilename }}
+                            </button>
+                            <span class="muted">({{ (a.sizeBytes / 1024) | number: '1.0-0' }} KB)</span>
+                            <button
+                              mat-icon-button
+                              type="button"
+                              (click)="removeWriteupAttachment(a.id, $event)"
+                              aria-label="Remove attachment"
+                            >
+                              <mat-icon>close</mat-icon>
+                            </button>
+                          </li>
+                        }
+                      </ul>
+                    }
+                  }
                 </mat-card-content>
               </mat-card>
 
@@ -1055,6 +1093,19 @@
                       </div>
                     }
                     <div class="markdown-body wu-read-body" [innerHTML]="writeupDraft.body | safeMarkdown"></div>
+                    @if (writeupSelectedAttachments.length) {
+                      <h4 class="wu-attach-read-title">Attachments</h4>
+                      <ul class="wu-attachment-list wu-attachment-list--read">
+                        @for (a of writeupSelectedAttachments; track a.id) {
+                          <li>
+                            <button type="button" class="wu-att-link" (click)="openWriteupAttachment(a.id, a.originalFilename)">
+                              {{ a.originalFilename }}
+                            </button>
+                            <span class="muted"> · review in new tab</span>
+                          </li>
+                        }
+                      </ul>
+                    }
                   </mat-card-content>
                 </mat-card>
               }
@@ -1088,7 +1139,12 @@
                           @if (writeupSnippet(w.highlight)) {
                             <span class="wu-pick-hi">{{ writeupSnippet(w.highlight) }}</span>
                           }
-                          <span class="wu-pick-meta">{{ w.updatedAt | slice: 0:16 }}</span>
+                          <span class="wu-pick-meta">
+                            {{ w.updatedAt | slice: 0:16 }}
+                            @if (writeupAttachmentCountLabel(w)) {
+                              <span class="wu-pick-files"> · {{ writeupAttachmentCountLabel(w) }}</span>
+                            }
+                          </span>
                         </button>
                       }
                     </div>

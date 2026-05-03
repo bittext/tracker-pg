@@ -79,6 +79,14 @@ export interface ManagementMonthNoteWriteBody {
 }
 
 /** Year-scoped detailed reports / reviews (Management → Write-up). */
+export interface ManagementWriteupAttachmentDto {
+  id: number;
+  originalFilename: string;
+  contentType: string | null;
+  sizeBytes: number;
+  downloadPath: string;
+}
+
 export interface ManagementWriteupDto {
   id: number;
   ownerUserId: number;
@@ -86,6 +94,7 @@ export interface ManagementWriteupDto {
   topic: string;
   highlight: string;
   body: string;
+  attachments: ManagementWriteupAttachmentDto[];
   createdAt: string;
   updatedAt: string;
 }

@@ -20,6 +20,7 @@ import {
   BalanceUrgency,
   ManagementMonthNoteCalendarDto,
   ManagementMonthNoteDto,
+  ManagementWriteupAttachmentDto,
   ManagementWriteupDto,
   ManagementTaskCategory,
   ManagementTaskDto,
@@ -210,6 +211,9 @@ export class ManagementComponent implements OnInit {
     body: '',
   };
   writeupSaving = false;
+  writeupUploading = false;
+  /** Attachments for the write-up currently being edited (synced from API after load). */
+  writeupSelectedAttachments: ManagementWriteupAttachmentDto[] = [];
 
   ngOnInit(): void {
     const t = this.todayIso();
@@ -1108,7 +1112,10 @@ export class ManagementComponent implements OnInit {
       const topic = (w.topic || '').toLowerCase();
       const hi = (w.highlight || '').toLowerCase();
       const body = (w.body || '').toLowerCase();
-      return topic.includes(q) || hi.includes(q) || body.includes(q);
+      const attNames = (w.attachments ?? [])
+        .map((a) => (a.originalFilename || '').toLowerCase())
+        .join(' ');
+      return topic.includes(q) || hi.includes(q) || body.includes(q) || attNames.includes(q);
     });
   }
 
@@ -1116,8 +1123,13 @@ export class ManagementComponent implements OnInit {
     this.api.listWriteups(this.writeupYear).subscribe({
       next: (rows) => {
         this.writeupsRaw = rows;
-        if (this.writeupEditingId != null && !rows.some((r) => r.id === this.writeupEditingId)) {
-          this.resetWriteupForm();
+        if (this.writeupEditingId != null) {
+          const found = rows.find((r) => r.id === this.writeupEditingId);
+          if (!found) {
+            this.resetWriteupForm();
+          } else {
+            this.writeupSelectedAttachments = [...(found.attachments ?? [])];
+          }
         }
       },
       error: (e) => this.err('Could not load write-ups', e),
@@ -1137,6 +1149,7 @@ export class ManagementComponent implements OnInit {
   selectWriteup(w: ManagementWriteupDto): void {
     this.writeupSelectedId = w.id;
     this.writeupEditingId = w.id;
+    this.writeupSelectedAttachments = [...(w.attachments ?? [])];
     this.writeupDraft = {
       topic: w.topic ?? '',
       highlight: w.highlight ?? '',
@@ -1147,11 +1160,79 @@ export class ManagementComponent implements OnInit {
   resetWriteupForm(): void {
     this.writeupEditingId = null;
     this.writeupSelectedId = null;
+    this.writeupSelectedAttachments = [];
+    this.writeupUploading = false;
     this.writeupDraft = {
       topic: '',
       highlight: '',
       body: '',
     };
+  }
+
+  writeupAttachmentCountLabel(w: ManagementWriteupDto): string {
+    const n = w.attachments?.length ?? 0;
+    if (n < 1) {
+      return '';
+    }
+    return `${n} ${n === 1 ? 'file' : 'files'}`;
+  }
+
+  onWriteupFilesSelected(event: Event, writeupId: number): void {
+    const input = event.target as HTMLInputElement;
+    const files = input.files;
+    if (!files?.length) {
+      return;
+    }
+    this.writeupUploading = true;
+    const list = Array.from(files);
+    let i = 0;
+    const step = (): void => {
+      if (i >= list.length) {
+        this.writeupUploading = false;
+        input.value = '';
+        this.loadWriteups();
+        this.snackBar.open('Attachment(s) uploaded', undefined, { duration: 2000 });
+        return;
+      }
+      this.api.uploadWriteupAttachment(writeupId, list[i]).subscribe({
+        next: () => {
+          i += 1;
+          step();
+        },
+        error: (e) => {
+          this.writeupUploading = false;
+          input.value = '';
+          this.err('Upload failed', e);
+        },
+      });
+    };
+    step();
+  }
+
+  openWriteupAttachment(attachmentId: number, _filename: string): void {
+    this.api.getWriteupAttachmentBlob(attachmentId, 'inline').subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const win = window.open(url, '_blank', 'noopener');
+        if (!win) {
+          URL.revokeObjectURL(url);
+        } else {
+          win.addEventListener('beforeunload', () => URL.revokeObjectURL(url));
+        }
+      },
+      error: (e) => this.err('Could not open attachment', e),
+    });
+  }
+
+  removeWriteupAttachment(attachmentId: number, ev: Event): void {
+    ev.stopPropagation();
+    this.api.deleteWriteupAttachment(attachmentId).subscribe({
+      next: () => {
+        this.snackBar.open('Attachment removed', undefined, { duration: 2000 });
+        this.loadWriteups();
+      },
+      error: (e) => this.err('Could not remove attachment', e),
+    });
   }
 
   saveWriteup(): void {
