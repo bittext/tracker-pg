@@ -31,6 +31,12 @@ export interface MeMemberProfileResponseDto {
   marketingEmailOptIn: boolean;
   marketingSmsOptIn: boolean;
   memberPublicId: number | null;
+  /** When true, email is stored on auth_users and cannot be edited here. */
+  contactEmailLockedFromAuth: boolean;
+  /** When true, phone is stored on auth_users.phone_e164 and cannot be edited here. */
+  contactPhoneLockedFromAuth: boolean;
+  /** When phone is locked, full E.164 for read-only display; otherwise null. */
+  accountPhoneE164: string | null;
 }
 
 export interface UsPostalPlaceDto {

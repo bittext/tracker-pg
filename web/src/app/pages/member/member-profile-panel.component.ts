@@ -46,6 +46,12 @@ export class MemberProfilePanelComponent implements OnInit {
   /** When true, show change-password (account setup finished). */
   onboardingComplete = false;
 
+  /** Set from API when email / phone are stored on auth_users and must not be edited here. */
+  contactEmailLockedFromAuth = false;
+  contactPhoneLockedFromAuth = false;
+  /** When phone is locked, full E.164 from the server for read-only display. */
+  accountPhoneE164: string | null = null;
+
   saving = false;
   validatingZip = false;
   zipLookup: UsPostalValidationResponseDto | null = null;
@@ -151,11 +157,11 @@ export class MemberProfilePanelComponent implements OnInit {
       this.snackBar.open('First name, last name, and date of birth are required.', undefined, { duration: 4000 });
       return;
     }
-    if (!this.form.email.trim()) {
+    if (!this.contactEmailLockedFromAuth && !this.form.email.trim()) {
       this.snackBar.open('Email is required.', undefined, { duration: 3500 });
       return;
     }
-    if (!this.form.phoneNationalNumber.replace(/\D/g, '')) {
+    if (!this.contactPhoneLockedFromAuth && !this.form.phoneNationalNumber.replace(/\D/g, '')) {
       this.snackBar.open('Phone number is required.', undefined, { duration: 3500 });
       return;
     }
@@ -218,8 +224,16 @@ export class MemberProfilePanelComponent implements OnInit {
     this.form.dateOfBirth = p.dateOfBirth ?? '';
     this.form.gender = (p.gender as MemberGender | null | undefined) ?? '';
     this.form.email = p.email ?? '';
-    this.form.phoneCountryCode = p.phoneCountryCode ?? '+1';
-    this.form.phoneNationalNumber = p.phoneNationalNumber ?? '';
+    this.contactEmailLockedFromAuth = p.contactEmailLockedFromAuth ?? false;
+    this.contactPhoneLockedFromAuth = p.contactPhoneLockedFromAuth ?? false;
+    this.accountPhoneE164 = p.accountPhoneE164 ?? null;
+    if (this.contactPhoneLockedFromAuth) {
+      this.form.phoneCountryCode = '+1';
+      this.form.phoneNationalNumber = '';
+    } else {
+      this.form.phoneCountryCode = p.phoneCountryCode ?? '+1';
+      this.form.phoneNationalNumber = p.phoneNationalNumber ?? '';
+    }
     this.form.addressLine1 = p.addressLine1 ?? '';
     this.form.addressLine2 = p.addressLine2 ?? '';
     this.form.city = p.city ?? '';

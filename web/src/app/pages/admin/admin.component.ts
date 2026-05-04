@@ -12,6 +12,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatTabChangeEvent, MatTabsModule } from '@angular/material/tabs';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatOption, MatSelectModule } from '@angular/material/select';
 import { Exercise } from '../../models/fitness.models';
 import { FinanceNotificationSettingsDto, FinanceNotificationSettingsRequestDto } from '../../models/finance.models';
 import { AuthLoginEventDto } from '../../models/auth-audit.models';
@@ -30,6 +31,8 @@ import { AuthService } from '../../services/auth.service';
 import { formatHttpErrorDetail } from '../../util/http-error';
 import { GithubRepositoryInsightsDto } from '../../models/github-insights.models';
 import { MemberProfilePanelComponent } from '../member/member-profile-panel.component';
+import { AdminUsersApiService } from '../../services/admin-users-api.service';
+import { AdminCreateUserRequest, AdminProvisionRole } from '../../models/admin-users.models';
 
 @Component({
   selector: 'app-admin',
@@ -46,6 +49,8 @@ import { MemberProfilePanelComponent } from '../member/member-profile-panel.comp
     MatSnackBarModule,
     MatTabsModule,
     MatProgressSpinnerModule,
+    MatSelectModule,
+    MatOption,
     RouterLink,
     BankingPanelComponent,
     AdminFinanceRobinhoodCsvComponent,
@@ -58,11 +63,13 @@ export class AdminComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   private readonly fitnessApi = inject(FitnessApiService);
+  private readonly auth = inject(AuthService);
 
   constructor() {
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((qm) => {
       if (qm.get('onboardingProfile') === '1') {
-        this.adminTabIndex = 1;
+        // Tab "My profile" shifts when the admin-only "Create user" tab is present.
+        this.adminTabIndex = this.auth.isAdmin() ? 2 : 1;
       }
     });
   }
@@ -71,8 +78,8 @@ export class AdminComponent implements OnInit {
   private readonly journalApi = inject(JournalApiService);
   private readonly adminAuthAuditApi = inject(AdminAuthAuditApiService);
   private readonly adminGithubApi = inject(AdminGithubApiService);
+  private readonly adminUsersApi = inject(AdminUsersApiService);
   private readonly meSignInLogApi = inject(MeSignInLogApiService);
-  private readonly auth = inject(AuthService);
   private readonly snackBar = inject(MatSnackBar);
 
   exercises: Exercise[] = [];
@@ -106,11 +113,28 @@ export class AdminComponent implements OnInit {
   loginEventLimit = 100;
   readonly loginEventColumns = ['createdAt', 'eventType', 'username', 'clientIp', 'detail', 'userAgent'];
 
-  /** Selected tab in Admin (0 = Sign-in log, 1 = My profile, …). */
+  /** Selected tab in Admin (0 = Sign-in log, …). */
   adminTabIndex = 0;
 
-  /** Last tab index when {@link #isAppAdmin} (0–6); GitHub is index 6. */
-  private static readonly GITHUB_TAB_INDEX = 6;
+  /** Last tab index when {@link #isAppAdmin}; GitHub is after Management. */
+  private static readonly GITHUB_TAB_INDEX = 7;
+
+  createUserSaving = false;
+  newProvisionedUser: {
+    username: string;
+    email: string;
+    password: string;
+    role: AdminProvisionRole;
+    mfaEnabled: boolean;
+    active: boolean;
+  } = {
+    username: '',
+    email: '',
+    password: '',
+    role: 'USER',
+    mfaEnabled: false,
+    active: true,
+  };
 
   githubInsights: GithubRepositoryInsightsDto | null = null;
   githubLoading = false;
@@ -365,6 +389,54 @@ export class AdminComponent implements OnInit {
       error: (e) => {
         this.financeNotificationSaving = false;
         this.err('Could not save finance notification settings', e);
+      },
+    });
+  }
+
+  createProvisionedUser(): void {
+    if (!this.isAppAdmin) {
+      return;
+    }
+    const u = (this.newProvisionedUser.username || '').trim();
+    const e = (this.newProvisionedUser.email || '').trim();
+    const p = this.newProvisionedUser.password;
+    if (!u || !e || !p) {
+      this.snackBar.open('Username, email, and password are required.', 'Dismiss', { duration: 5000 });
+      return;
+    }
+    if (p.length < 8) {
+      this.snackBar.open('Password must be at least 8 characters.', 'Dismiss', { duration: 5000 });
+      return;
+    }
+    const body: AdminCreateUserRequest = {
+      username: u,
+      email: e,
+      password: p,
+      role: this.newProvisionedUser.role,
+      mfaEnabled: this.newProvisionedUser.mfaEnabled,
+      active: this.newProvisionedUser.active,
+    };
+    this.createUserSaving = true;
+    this.adminUsersApi.createUser(body).subscribe({
+      next: () => {
+        this.createUserSaving = false;
+        this.newProvisionedUser = {
+          username: '',
+          email: '',
+          password: '',
+          role: 'USER',
+          mfaEnabled: false,
+          active: true,
+        };
+        this.snackBar.open(
+          'User created. A welcome email was sent when outbound email (SES) is configured on the server.',
+          undefined,
+          { duration: 6000 },
+        );
+      },
+      error: (err) => {
+        this.createUserSaving = false;
+        this.err('Could not create user', err);
       },
     });
   }

@@ -118,8 +118,8 @@ public class MemberOnboardingService {
         AppUser user = loadUser(userId);
         return memberProfileRepository
                 .findByUserId(userId)
-                .map(p -> toDto(p, user.getMemberPublicId()))
-                .orElseGet(() -> emptyDto(user.getMemberPublicId()));
+                .map(p -> toDto(p, user))
+                .orElseGet(() -> emptyDto(user));
     }
 
     @Transactional
@@ -152,14 +152,33 @@ public class MemberOnboardingService {
         profile.setNickname(trimToNull(req.nickname()));
         profile.setDateOfBirth(req.dateOfBirth());
         profile.setGender(req.gender());
-        String emailNorm = req.email().trim().toLowerCase(Locale.ROOT);
-        if (StringUtils.hasText(emailNorm)
-                && memberProfileRepository.existsOtherUserWithNormalizedEmail(userId, emailNorm)) {
-            throw new ResponseStatusException(CONFLICT, "That email is already used by another account.");
+        boolean emailLocked = StringUtils.hasText(user.getEmail());
+        boolean phoneLocked = StringUtils.hasText(user.getPhoneE164());
+        if (emailLocked) {
+            String canon = user.getEmail().trim().toLowerCase(Locale.ROOT);
+            String submitted = req.email().trim().toLowerCase(Locale.ROOT);
+            if (!canon.equals(submitted)) {
+                throw new ResponseStatusException(
+                        BAD_REQUEST, "Email is managed on your account and cannot be changed here.");
+            }
+            profile.setEmail(canon);
+        } else {
+            String emailNorm = req.email().trim().toLowerCase(Locale.ROOT);
+            if (StringUtils.hasText(emailNorm)
+                    && (memberProfileRepository.existsOtherUserWithNormalizedEmail(userId, emailNorm)
+                            || appUserRepository.existsOtherAuthUserWithNormalizedEmail(userId, emailNorm))) {
+                throw new ResponseStatusException(CONFLICT, "That email is already used by another account.");
+            }
+            profile.setEmail(emailNorm);
         }
-        profile.setEmail(emailNorm);
-        profile.setPhoneCountryCode(normalizeCountryCode(req.phoneCountryCode()));
-        profile.setPhoneNationalNumber(digitsOnly(req.phoneNationalNumber()));
+        if (phoneLocked) {
+            ParsedE164Phone parsed = parseE164ToProfileFields(user.getPhoneE164().trim());
+            profile.setPhoneCountryCode(normalizeCountryCode(parsed.countryWithPlus()));
+            profile.setPhoneNationalNumber(parsed.nationalDigits());
+        } else {
+            profile.setPhoneCountryCode(normalizeCountryCode(req.phoneCountryCode()));
+            profile.setPhoneNationalNumber(digitsOnly(req.phoneNationalNumber()));
+        }
         profile.setAddressLine1(req.addressLine1().trim());
         profile.setAddressLine2(trimToNull(req.addressLine2()));
         profile.setCity(req.city().trim());
@@ -178,9 +197,11 @@ public class MemberOnboardingService {
         profile.setMarketingSmsOptIn(req.marketingSmsOptIn());
         memberProfileRepository.save(profile);
 
-        String e164 = toE164(profile.getPhoneCountryCode(), profile.getPhoneNationalNumber());
-        if (e164 != null) {
-            user.setPhoneE164(e164);
+        if (!phoneLocked) {
+            String e164 = toE164(profile.getPhoneCountryCode(), profile.getPhoneNationalNumber());
+            if (e164 != null) {
+                user.setPhoneE164(e164);
+            }
         }
         if (user.getMemberPublicId() == null) {
             user.setMemberPublicId(mintUniqueMemberPublicId());
@@ -195,7 +216,7 @@ public class MemberOnboardingService {
             final long uid = user.getId();
             runAfterCommit(() -> memberTransactionalEmailService.sendFirstProfileCreated(mailTo, uname, memPub, uid));
         }
-        return toDto(profile, user.getMemberPublicId());
+        return toDto(profile, user);
     }
 
     @Transactional
@@ -297,7 +318,11 @@ public class MemberOnboardingService {
         return countryCode + nationalDigits;
     }
 
-    private static MeMemberProfileResponseDto emptyDto(Long memberPublicId) {
+    private static MeMemberProfileResponseDto emptyDto(AppUser user) {
+        boolean emailLocked = StringUtils.hasText(user.getEmail());
+        boolean phoneLocked = StringUtils.hasText(user.getPhoneE164());
+        String emailOut = emailLocked ? user.getEmail().trim().toLowerCase(Locale.ROOT) : null;
+        String accountPhoneE164 = phoneLocked ? user.getPhoneE164().trim() : null;
         return new MeMemberProfileResponseDto(
                 null,
                 null,
@@ -305,6 +330,7 @@ public class MemberOnboardingService {
                 null,
                 null,
                 null,
+                emailOut,
                 null,
                 null,
                 null,
@@ -319,10 +345,26 @@ public class MemberOnboardingService {
                 false,
                 false,
                 false,
-                memberPublicId);
+                user.getMemberPublicId(),
+                emailLocked,
+                phoneLocked,
+                accountPhoneE164);
     }
 
-    private static MeMemberProfileResponseDto toDto(MemberProfile p, Long memberPublicId) {
+    private static MeMemberProfileResponseDto toDto(MemberProfile p, AppUser user) {
+        boolean emailLocked = StringUtils.hasText(user.getEmail());
+        boolean phoneLocked = StringUtils.hasText(user.getPhoneE164());
+        String emailOut;
+        if (emailLocked) {
+            emailOut = user.getEmail().trim().toLowerCase(Locale.ROOT);
+        } else if (StringUtils.hasText(p.getEmail())) {
+            emailOut = p.getEmail();
+        } else {
+            emailOut = null;
+        }
+        String accountPhoneE164 = phoneLocked ? user.getPhoneE164().trim() : null;
+        String phoneCc = phoneLocked ? null : p.getPhoneCountryCode();
+        String phoneNat = phoneLocked ? null : p.getPhoneNationalNumber();
         return new MeMemberProfileResponseDto(
                 p.getFirstName(),
                 p.getMiddleName(),
@@ -330,9 +372,9 @@ public class MemberOnboardingService {
                 p.getNickname(),
                 p.getDateOfBirth(),
                 p.getGender(),
-                p.getEmail(),
-                p.getPhoneCountryCode(),
-                p.getPhoneNationalNumber(),
+                emailOut,
+                phoneCc,
+                phoneNat,
                 p.getAddressLine1(),
                 p.getAddressLine2(),
                 p.getCity(),
@@ -344,6 +386,39 @@ public class MemberOnboardingService {
                 p.isAddressUseValidatedSuggestion(),
                 p.isMarketingEmailOptIn(),
                 p.isMarketingSmsOptIn(),
-                memberPublicId);
+                user.getMemberPublicId(),
+                emailLocked,
+                phoneLocked,
+                accountPhoneE164);
+    }
+
+    private record ParsedE164Phone(String countryWithPlus, String nationalDigits) {}
+
+    /**
+     * Best-effort split of E.164 into country calling code + national digits for {@code member_profiles} columns.
+     * US (+1 + 10 digits) is exact; other numbers use a longest-national split heuristic.
+     */
+    private static ParsedE164Phone parseE164ToProfileFields(String e164) {
+        if (!StringUtils.hasText(e164)) {
+            return new ParsedE164Phone("+1", "");
+        }
+        String t = e164.trim();
+        if (t.matches("^\\+1\\d{10}$")) {
+            return new ParsedE164Phone("+1", t.substring(2));
+        }
+        String d = t.startsWith("+") ? digitsOnly(t.substring(1)) : digitsOnly(t);
+        if (d.isEmpty()) {
+            return new ParsedE164Phone("+1", "");
+        }
+        if (d.length() >= 11 && d.charAt(0) == '1') {
+            return new ParsedE164Phone("+1", d.substring(1));
+        }
+        for (int ccLen = Math.min(3, d.length() - 4); ccLen >= 1; ccLen--) {
+            String nat = d.substring(ccLen);
+            if (nat.length() >= 4) {
+                return new ParsedE164Phone("+" + d.substring(0, ccLen), nat);
+            }
+        }
+        return new ParsedE164Phone("+1", d);
     }
 }

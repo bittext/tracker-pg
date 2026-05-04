@@ -24,4 +24,13 @@ public record MeMemberProfileResponseDto(
         boolean addressUseValidatedSuggestion,
         boolean marketingEmailOptIn,
         boolean marketingSmsOptIn,
-        Long memberPublicId) {}
+        Long memberPublicId,
+        /** When true, email is stored on {@code auth_users} and cannot be edited from this profile. */
+        boolean contactEmailLockedFromAuth,
+        /** When true, phone is stored on {@code auth_users.phone_e164} and cannot be edited from this profile. */
+        boolean contactPhoneLockedFromAuth,
+        /**
+         * When {@code contactPhoneLockedFromAuth}, the E.164 value shown as a single read-only line (all formats). Null
+         * when the phone is not locked.
+         */
+        String accountPhoneE164) {}

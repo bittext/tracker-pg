@@ -11,6 +11,7 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.util.Locale;
 import lombok.Getter;
@@ -31,6 +32,14 @@ public class AppUser {
     @NotBlank
     @Column(nullable = false, length = 120)
     private String username;
+
+    /**
+     * Primary account email (admin provisioning, contact). Normalized to trimmed lowercase. Optional for legacy rows;
+     * must not duplicate another account’s email (see Flyway {@code ux_auth_users_email_lower} and member_profiles).
+     */
+    @Size(max = 320)
+    @Column(length = 320)
+    private String email;
 
     @Column(nullable = false, length = 256)
     private String passwordHash;
@@ -75,16 +84,26 @@ public class AppUser {
             createdAt = Instant.now();
         }
         normalizeUsername();
+        normalizeEmail();
     }
 
     @PreUpdate
     void onUpdate() {
         normalizeUsername();
+        normalizeEmail();
     }
 
     private void normalizeUsername() {
         if (username != null) {
             username = username.trim().toLowerCase(Locale.ROOT);
         }
+    }
+
+    private void normalizeEmail() {
+        if (email == null) {
+            return;
+        }
+        String t = email.trim().toLowerCase(Locale.ROOT);
+        email = t.isEmpty() ? null : t;
     }
 }

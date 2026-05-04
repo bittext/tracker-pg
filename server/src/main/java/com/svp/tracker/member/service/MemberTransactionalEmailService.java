@@ -64,6 +64,40 @@ public class MemberTransactionalEmailService {
         send(toEmail.trim(), "Your Tracker member ID and sign-in link", body);
     }
 
+    /**
+     * Sent after an administrator creates a login. Does not include the password; the admin should share credentials
+     * out-of-band.
+     */
+    public void sendAdminProvisionedWelcome(String toEmail, String username, String roleName) {
+        if (!StringUtils.hasText(toEmail)) {
+            return;
+        }
+        if (!financeAlertProperties.emailProviderConfigured()) {
+            log.debug("Skipping admin welcome email: SES not configured (tracker.finance.alerts email-from / region)");
+            return;
+        }
+        String signIn = signInUrl();
+        String body =
+                """
+                Hello,
+
+                An administrator created a Tracker account for you.
+
+                Sign-in name (username): %s
+                Role: %s
+
+                Open the application and sign in with the password your administrator gave you (it is not included in this email). We recommend changing your password after first sign-in.
+
+                %s
+
+                If you were not expecting this account, contact your administrator.
+
+                — Tracker
+                """
+                        .formatted(username, roleName, signIn);
+        send(toEmail.trim(), "Your Tracker account is ready", body);
+    }
+
     public void sendPasswordChangedNotice(String toEmail, String username) {
         if (!StringUtils.hasText(toEmail)) {
             return;

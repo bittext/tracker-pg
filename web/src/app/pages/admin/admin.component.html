@@ -102,6 +102,83 @@
       </div>
     </mat-tab>
 
+    @if (isAppAdmin) {
+      <mat-tab label="Create user">
+        <div class="tab-panel">
+          <section class="admin-section">
+            <h2 class="section-title">Create user account</h2>
+            <p class="muted">
+              Creates a row in <code>auth_users</code> with the given email, username, and password. The new user
+              receives a welcome email when Amazon SES is configured for transactional mail (same settings as Finance
+              alerts). The message does <strong>not</strong> include the password—share it with them separately.
+            </p>
+            <div class="table-wrap-group admin-add-wrap">
+              <div class="table-wrap tight table-wrap--entry">
+                <div class="form-row wrap">
+                  <mat-form-field appearance="outline" class="grow">
+                    <mat-label>Username</mat-label>
+                    <input
+                      matInput
+                      name="provUsername"
+                      [(ngModel)]="newProvisionedUser.username"
+                      autocomplete="off"
+                      placeholder="e.g. jsmith"
+                    />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="grow">
+                    <mat-label>Email</mat-label>
+                    <input
+                      matInput
+                      type="email"
+                      name="provEmail"
+                      [(ngModel)]="newProvisionedUser.email"
+                      autocomplete="off"
+                      placeholder="user@example.com"
+                    />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="grow">
+                    <mat-label>Initial password</mat-label>
+                    <input
+                      matInput
+                      type="password"
+                      name="provPassword"
+                      [(ngModel)]="newProvisionedUser.password"
+                      autocomplete="new-password"
+                      placeholder="At least 8 characters"
+                    />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline" class="narrow">
+                    <mat-label>Role</mat-label>
+                    <mat-select name="provRole" [(ngModel)]="newProvisionedUser.role">
+                      <mat-option value="USER">USER</mat-option>
+                      <mat-option value="ADMIN">ADMIN</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                  <label class="admin-check">
+                    <input type="checkbox" name="provMfa" [(ngModel)]="newProvisionedUser.mfaEnabled" />
+                    MFA enabled
+                  </label>
+                  <label class="admin-check">
+                    <input type="checkbox" name="provActive" [(ngModel)]="newProvisionedUser.active" />
+                    Active
+                  </label>
+                  <button
+                    mat-flat-button
+                    color="primary"
+                    type="button"
+                    (click)="createProvisionedUser()"
+                    [disabled]="createUserSaving"
+                  >
+                    Create user
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </mat-tab>
+    }
+
     <mat-tab label="My profile">
       <div class="tab-panel">
         <section class="admin-section">

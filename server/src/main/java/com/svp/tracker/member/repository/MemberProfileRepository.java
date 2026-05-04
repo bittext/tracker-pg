@@ -23,4 +23,17 @@ public interface MemberProfileRepository extends JpaRepository<MemberProfile, Lo
                     """,
             nativeQuery = true)
     boolean existsOtherUserWithNormalizedEmail(@Param("userId") long userId, @Param("email") String email);
+
+    @Query(
+            value =
+                    """
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM member_profiles p
+                        WHERE btrim(p.email) <> ''
+                          AND LOWER(btrim(p.email)) = LOWER(btrim(:email))
+                    )
+                    """,
+            nativeQuery = true)
+    boolean existsAnyMemberProfileWithNormalizedEmail(@Param("email") String email);
 }

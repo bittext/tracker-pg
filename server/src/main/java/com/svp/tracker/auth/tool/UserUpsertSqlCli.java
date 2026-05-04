@@ -98,9 +98,10 @@ public final class UserUpsertSqlCli {
 
         System.out.println("-- Upsert auth user (hashing matches PasswordHashService with current pepper).");
         System.out.println("INSERT INTO auth_users");
-        System.out.println("  (username, password_hash, password_salt, role, phone_e164, mfa_enabled, active, created_at)");
+        System.out.println(
+                "  (username, email, password_hash, password_salt, role, phone_e164, mfa_enabled, active, created_at)");
         System.out.println("VALUES");
-        System.out.println("  ('" + escUsername + "', '" + escHash + "', '" + escSalt + "', '" + escRole + "', "
+        System.out.println("  ('" + escUsername + "', NULL, '" + escHash + "', '" + escSalt + "', '" + escRole + "', "
                 + phoneSql + ", " + mfaEnabled + ", " + active + ", NOW())");
         System.out.println("ON CONFLICT ((LOWER(TRIM(username)))) DO UPDATE");
         System.out.println("SET password_hash = EXCLUDED.password_hash,");

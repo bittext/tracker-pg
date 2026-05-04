@@ -4,7 +4,7 @@ Angular front end for the **tracker-pg** API. Same features as the Oracle `track
 
 ## Prerequisites
 
-- Node 18+ (LTS recommended)
+- **Node.js (even major, LTS only):** use **20.x**, **22.x**, or **24.x** (see `package.json` → `engines` and `.nvmrc`). Odd majors (e.g. 21, 23, 25) are not supported for this app. With [nvm](https://github.com/nvm-sh/nvm): `nvm install` then `nvm use` from this directory (reads `.nvmrc`, currently **22** — same line as `web/Dockerfile`’s `node:22-alpine`).
 - tracker-pg Spring Boot API on `http://127.0.0.1:9091` (e.g. `docker compose up -d` then `cd ../server && mvn spring-boot:run`)
 
 ## Install & run
