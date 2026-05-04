@@ -1108,15 +1108,20 @@ export class ManagementComponent implements OnInit {
     if (!q) {
       return this.writeupsRaw;
     }
-    return this.writeupsRaw.filter((w) => {
-      const topic = (w.topic || '').toLowerCase();
-      const hi = (w.highlight || '').toLowerCase();
-      const body = (w.body || '').toLowerCase();
-      const attNames = (w.attachments ?? [])
-        .map((a) => (a.originalFilename || '').toLowerCase())
-        .join(' ');
-      return topic.includes(q) || hi.includes(q) || body.includes(q) || attNames.includes(q);
-    });
+    const tokens = q.split(/\s+/).filter(Boolean);
+    return this.writeupsRaw.filter((w) => this.writeupMatchesSearchTokens(w, tokens));
+  }
+
+  /** Each token must appear in at least one of topic, highlight, body, or attachment filenames (same idea as banking txn filter). */
+  private writeupMatchesSearchTokens(w: ManagementWriteupDto, tokens: string[]): boolean {
+    const topic = (w.topic || '').toLowerCase();
+    const hi = (w.highlight || '').toLowerCase();
+    const body = (w.body || '').toLowerCase();
+    const attNames = (w.attachments ?? [])
+      .map((a) => (a.originalFilename || '').toLowerCase())
+      .join(' ');
+    const fields = [topic, hi, body, attNames];
+    return tokens.every((tok) => fields.some((f) => f.includes(tok)));
   }
 
   loadWriteups(): void {

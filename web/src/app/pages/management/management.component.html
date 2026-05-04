@@ -954,8 +954,8 @@
             Long-form <strong>reports and reviews</strong> tied to a calendar year. Use <strong>Topic</strong> as the
             title, <strong>Topic highlight</strong> for a short colored callout shown under the topic, and the large area
             for detailed Markdown. Attach supporting documents after saving; open them in a new tab to review. Filter by
-            year and one search box (topic, highlight, body, or attachment names). Only your account can see these
-            records.
+            year and one search box: separate words with spaces — each word must appear somewhere in topic, highlight,
+            body, or attachment file names. Only your account can see these records.
           </p>
 
           <div class="notes-year-bar">
@@ -978,12 +978,12 @@
           </div>
 
           <mat-form-field appearance="outline" class="wu-search-field full-width-field">
-            <mat-label>Search topic, highlight, or notes</mat-label>
+            <mat-label>Search topic, highlight, body, or attachments</mat-label>
             <input
               matInput
               name="wuSearch"
               [(ngModel)]="writeupSearch"
-              placeholder="One box — matches topic, highlight, or body text…"
+              placeholder="Words separated by spaces — all must match (topic, highlight, body, filenames)…"
               autocomplete="off"
             />
           </mat-form-field>

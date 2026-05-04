@@ -100,7 +100,7 @@ public class GithubRepositoryInsightsService {
                     .requestFactory(outboundHttpRequestFactory)
                     .baseUrl(BASE)
                     .defaultHeader(HttpHeaders.ACCEPT, "application/vnd.github+json")
-                    .defaultHeader(HttpHeaders.USER_AGENT, "TrackerPgServer/5.1.2")
+                    .defaultHeader(HttpHeaders.USER_AGENT, "TrackerPgServer/5.1.3")
                     .build();
             JsonNode body = client.get()
                     .uri(path)
