@@ -9,7 +9,8 @@ WORKDIR /workspace
 COPY server/pom.xml server/pom.xml
 COPY server/src server/src
 
-RUN mvn -f server/pom.xml -DskipTests package
+# Skip compiling and running tests (faster than -DskipTests alone, which still compiles src/test/java).
+RUN mvn -f server/pom.xml -Dmaven.test.skip=true package
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
