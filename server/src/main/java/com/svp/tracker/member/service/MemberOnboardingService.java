@@ -341,7 +341,6 @@ public class MemberOnboardingService {
                 null,
                 null,
                 null,
-                null,
                 false,
                 false,
                 false,
