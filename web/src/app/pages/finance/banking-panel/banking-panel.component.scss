@@ -75,6 +75,30 @@
   width: 100%;
 }
 
+.banking-plaid-card {
+  margin-top: 1.25rem;
+  padding: 1rem 1.1rem 1.1rem;
+  border: 1px solid color-mix(in srgb, var(--mat-sys-outline-variant, #ccc) 80%, transparent);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--mat-sys-surface-container-low, #f8f8f8) 90%, transparent);
+  max-width: 52rem;
+}
+
+.banking-plaid-intro {
+  max-width: 48rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.banking-plaid-status-line {
+  margin: 0 0 0.75rem;
+}
+
+.banking-spinner--inline {
+  padding: 0.5rem 0;
+  justify-content: flex-start;
+}
+
 .parse-note {
   margin-left: 0.25rem;
   cursor: default;

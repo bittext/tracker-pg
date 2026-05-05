@@ -2,11 +2,11 @@
   @if (segment === 'imports') {
     <p class="muted banking-intro">
       Create an <strong>institution</strong> (bank or brokerage), then upload <strong>CSV</strong>, <strong>QFX</strong>,
-      <strong>QIF</strong>, <strong>QBO</strong>, <strong>OFX</strong>, <strong>Excel</strong>, or <strong>PDF</strong>.
-      Duplicate files (same content hash) and duplicate transactions are skipped. Imports are stored under the server
-      directory configured in <code>tracker.finance.banking.import-directory</code> (default
-      <code>~/imports/banking</code>). All data is scoped to your account. View transactions and downloads under
-      <a routerLink="/finance">Finance → Banking</a>.
+      <strong>QIF</strong>, <strong>QBO</strong>, <strong>OFX</strong>, <strong>Excel</strong>, or <strong>PDF</strong>,
+      or use <strong>Plaid</strong> below to connect and sync. Duplicate files (same content hash) and duplicate
+      transactions are skipped. Imports are stored under the server directory configured in
+      <code>tracker.finance.banking.import-directory</code> (default <code>~/imports/banking</code>). All data is scoped
+      to your account. View transactions and downloads under <a routerLink="/finance">Finance → Banking</a>.
     </p>
 
     <div class="banking-toolbar">
@@ -33,7 +33,11 @@
     <div class="banking-toolbar">
       <mat-form-field appearance="outline" class="banking-field">
         <mat-label>Institution for upload</mat-label>
-        <mat-select [(ngModel)]="uploadInstitutionId" name="bankUploadInst">
+        <mat-select
+          [(ngModel)]="uploadInstitutionId"
+          name="bankUploadInst"
+          (selectionChange)="refreshPlaidStatus()"
+        >
           @for (i of institutions; track i.id) {
             <mat-option [value]="i.id">{{ i.name }}</mat-option>
           }
@@ -61,13 +65,79 @@
         Upload
       </button>
     </div>
+
+    <div class="banking-plaid-card">
+      <h3 class="banking-subtitle">Plaid</h3>
+      <p class="muted banking-plaid-intro">
+        <strong>Connect with Plaid</strong> opens Plaid Link in this browser. After linking, <strong>Sync from Plaid</strong>
+        downloads transactions for the date range, writes a QFX file under the server’s
+        <code>plaid/</code> subdirectory, and imports rows (skipping duplicates already in the ledger). Configure
+        <code>TRACKER_PLAID_*</code> and <code>TRACKER_BANKING_IMPORT_DIRECTORY</code> on the API.
+      </p>
+      @if (plaidStatusLoading) {
+        <div class="banking-spinner banking-spinner--inline">
+          <mat-progress-spinner diameter="28" mode="indeterminate" />
+        </div>
+      } @else if (plaidStatus && !plaidStatus.plaidConfigured) {
+        <p class="muted">Plaid is not enabled on the server (<code>TRACKER_PLAID_ENABLED</code> and credentials).</p>
+      } @else if (uploadInstitutionId != null) {
+        <p class="muted banking-plaid-status-line">
+          <strong>{{ institutionName(uploadInstitutionId) }}</strong>
+          @if (plaidStatus?.linked) {
+            <span> · Linked</span>
+            @if (plaidStatus?.itemIdSuffix) {
+              <span> · Item <code>{{ plaidStatus.itemIdSuffix }}</code></span>
+            }
+          } @else {
+            <span> · Not linked — choose <strong>Connect with Plaid</strong>.</span>
+          }
+        </p>
+        <div class="banking-toolbar wrap">
+          <button
+            mat-stroked-button
+            color="primary"
+            type="button"
+            (click)="openPlaidLink()"
+            [disabled]="plaidLinkOpening || institutionsLoading || (plaidStatus && !plaidStatus.plaidConfigured)"
+          >
+            <mat-icon>link</mat-icon>
+            Connect with Plaid
+          </button>
+          <button mat-stroked-button type="button" (click)="refreshPlaidStatus()" [disabled]="plaidStatusLoading">
+            <mat-icon>refresh</mat-icon>
+            Refresh status
+          </button>
+        </div>
+        <div class="banking-toolbar wrap">
+          <mat-form-field appearance="outline" class="banking-field narrow">
+            <mat-label>From</mat-label>
+            <input matInput type="date" name="plaidStartImp" [(ngModel)]="plaidSyncStart" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="banking-field narrow">
+            <mat-label>To</mat-label>
+            <input matInput type="date" name="plaidEndImp" [(ngModel)]="plaidSyncEnd" />
+          </mat-form-field>
+          <button
+            mat-flat-button
+            color="primary"
+            type="button"
+            (click)="runPlaidSync()"
+            [disabled]="plaidSyncBusy || !plaidStatus?.linked || (plaidStatus && !plaidStatus.plaidConfigured)"
+          >
+            <mat-icon>sync</mat-icon>
+            Sync from Plaid
+          </button>
+        </div>
+      }
+    </div>
   }
 
   @if (segment === 'ledger') {
     <p class="muted banking-intro">
       Review imported <strong>transactions</strong> and <strong>uploaded files</strong> (including PDFs) by month,
-      quarter, or year. To add institutions or upload files, use <strong>Admin → Finance → Banking</strong> (requires an
-      admin account).
+      quarter, or year. To add institutions, upload files, or <strong>connect Plaid</strong>, use
+      <strong>Admin → Finance → Banking</strong> (requires an admin account). If this institution is already linked, you
+      can <strong>Sync from Plaid</strong> here without re-opening Link.
     </p>
 
     <h3 class="banking-subtitle">Ledger</h3>
@@ -104,7 +174,7 @@
       }
       <mat-form-field appearance="outline" class="banking-field grow">
         <mat-label>Filter by institution</mat-label>
-        <mat-select [(ngModel)]="filterInstitutionId" name="bankFilterInst" (selectionChange)="loadLedger()">
+        <mat-select [(ngModel)]="filterInstitutionId" name="bankFilterInst" (selectionChange)="onLedgerFilterChange()">
           <mat-option value="">All</mat-option>
           @for (i of institutions; track i.id) {
             <mat-option [value]="i.id">{{ i.name }}</mat-option>
@@ -116,6 +186,65 @@
         Reload
       </button>
     </div>
+
+    @if (institutions.length) {
+      <div class="banking-plaid-card">
+        <h3 class="banking-subtitle">Plaid</h3>
+        <p class="muted banking-plaid-intro">
+          Pull new transactions from Plaid for the selected institution and date range (same dedupe rules as uploads).
+          Link a bank under <strong>Admin → Finance → Banking</strong> if you have not yet.
+        </p>
+        <div class="banking-toolbar wrap">
+          <mat-form-field appearance="outline" class="banking-field grow">
+            <mat-label>Institution</mat-label>
+            <mat-select
+              [(ngModel)]="plaidLedgerInstitutionId"
+              name="plaidLedInst"
+              (selectionChange)="refreshPlaidStatus()"
+            >
+              @for (i of institutions; track i.id) {
+                <mat-option [value]="i.id">{{ i.name }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          @if (plaidStatusLoading) {
+            <mat-progress-spinner diameter="28" mode="indeterminate" />
+          } @else if (plaidStatus && !plaidStatus.plaidConfigured) {
+            <span class="muted">Plaid not configured on server.</span>
+          } @else if (plaidStatus) {
+            <span class="muted">
+              @if (plaidStatus.linked) {
+                Linked @if (plaidStatus.itemIdSuffix) {
+                  <code>{{ plaidStatus.itemIdSuffix }}</code>
+                }
+              } @else {
+                Not linked for this institution.
+              }
+            </span>
+          }
+        </div>
+        <div class="banking-toolbar wrap">
+          <mat-form-field appearance="outline" class="banking-field narrow">
+            <mat-label>From</mat-label>
+            <input matInput type="date" name="plaidStartLed" [(ngModel)]="plaidSyncStart" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="banking-field narrow">
+            <mat-label>To</mat-label>
+            <input matInput type="date" name="plaidEndLed" [(ngModel)]="plaidSyncEnd" />
+          </mat-form-field>
+          <button
+            mat-flat-button
+            color="primary"
+            type="button"
+            (click)="runPlaidSync()"
+            [disabled]="plaidSyncBusy || plaidLedgerInstitutionId == null || !plaidStatus?.linked || (plaidStatus && !plaidStatus.plaidConfigured)"
+          >
+            <mat-icon>sync</mat-icon>
+            Sync from Plaid
+          </button>
+        </div>
+      </div>
+    }
 
     @if (ledger) {
       <p class="muted">

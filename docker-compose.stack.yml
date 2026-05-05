@@ -76,6 +76,13 @@ services:
       # Journal attachments: leave empty for local disk (TRACKER_JOURNAL_STORAGE_DIR); set bucket for S3.
       TRACKER_JOURNAL_S3_BUCKET: ${TRACKER_JOURNAL_S3_BUCKET:-}
       TRACKER_JOURNAL_S3_REGION: ${TRACKER_JOURNAL_S3_REGION:-us-east-1}
+      # Banking uploads + Plaid-generated QFX (see README / scripts/plaid-request.example.json).
+      TRACKER_BANKING_IMPORT_DIRECTORY: ${TRACKER_BANKING_IMPORT_DIRECTORY:-}
+      TRACKER_PLAID_ENABLED: ${TRACKER_PLAID_ENABLED:-false}
+      TRACKER_PLAID_CLIENT_ID: ${TRACKER_PLAID_CLIENT_ID:-}
+      TRACKER_PLAID_SECRET: ${TRACKER_PLAID_SECRET:-}
+      TRACKER_PLAID_ENVIRONMENT: ${TRACKER_PLAID_ENVIRONMENT:-sandbox}
+      TRACKER_PLAID_OUTPUT_SUBDIRECTORY: ${TRACKER_PLAID_OUTPUT_SUBDIRECTORY:-plaid}
       # Optional: default AWS credential chain for SES / SNS / S3 inside the container (omit if using another mechanism).
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}

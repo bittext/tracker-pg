@@ -22,6 +22,10 @@ import {
   BankingInstitutionDto,
   BankingLedgerDto,
   BankingLedgerRange,
+  BankingPlaidLinkTokenResponseDto,
+  BankingPlaidStatusDto,
+  BankingPlaidSyncRequestDto,
+  BankingPlaidSyncResponseDto,
 } from '../models/finance.models';
 
 export type FinancePeriod = 'all' | 'year' | 'month';
@@ -33,6 +37,7 @@ export class FinanceApiService {
   private readonly tax1040Root = `${environment.apiBaseUrl}/api/finance/tax/1040`;
   private readonly adminNotificationsRoot = `${environment.apiBaseUrl}/api/admin/finance/notifications`;
   private readonly bankingRoot = `${environment.apiBaseUrl}/api/finance/banking`;
+  private readonly bankingPlaidRoot = `${environment.apiBaseUrl}/api/finance/banking/plaid`;
 
   /**
    * Rows from configured Robinhood table with optional period filter (year / year+month query params).
@@ -229,5 +234,28 @@ export class FinanceApiService {
 
   deleteBankingImportFile(id: number) {
     return this.http.delete<void>(`${this.bankingRoot}/files/${id}`);
+  }
+
+  bankingPlaidStatus(institutionId: number) {
+    return this.http.get<BankingPlaidStatusDto>(`${this.bankingPlaidRoot}/status`, {
+      params: { institutionId: String(institutionId) },
+    });
+  }
+
+  bankingPlaidLinkToken(institutionId: number) {
+    return this.http.post<BankingPlaidLinkTokenResponseDto>(`${this.bankingPlaidRoot}/link-token`, null, {
+      params: { institutionId: String(institutionId) },
+    });
+  }
+
+  bankingPlaidExchange(institutionId: number, publicToken: string) {
+    return this.http.post<void>(`${this.bankingPlaidRoot}/exchange`, {
+      institutionId,
+      publicToken,
+    });
+  }
+
+  bankingPlaidSync(body: BankingPlaidSyncRequestDto) {
+    return this.http.post<BankingPlaidSyncResponseDto>(`${this.bankingPlaidRoot}/sync`, body);
   }
 }

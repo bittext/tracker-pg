@@ -3,6 +3,7 @@ package com.svp.tracker;
 import com.svp.tracker.auth.config.AuthProperties;
 import com.svp.tracker.auth.config.SmsProperties;
 import com.svp.tracker.config.BankingImportProperties;
+import com.svp.tracker.config.BankingPlaidProperties;
 import com.svp.tracker.config.FeedbackProperties;
 import com.svp.tracker.config.GithubProperties;
 import com.svp.tracker.config.FinanceAlertProperties;
@@ -20,6 +21,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableConfigurationProperties({
     FinanceProperties.class,
     BankingImportProperties.class,
+    BankingPlaidProperties.class,
     FeedbackProperties.class,
     GithubProperties.class,
     FinanceAlertProperties.class,

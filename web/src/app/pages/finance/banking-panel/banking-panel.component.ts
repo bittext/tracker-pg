@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, Input, OnInit, inject } from '@angular/core';
+import { Component, Input, NgZone, OnInit, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -16,10 +16,12 @@ import {
   BankingInstitutionDto,
   BankingLedgerDto,
   BankingLedgerRange,
+  BankingPlaidStatusDto,
   BankingTransactionDto,
 } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
+import { firstValueFrom } from 'rxjs';
 
 @Component({
   selector: 'app-banking-panel',
@@ -44,6 +46,7 @@ import { formatHttpErrorDetail } from '../../../util/http-error';
 export class BankingPanelComponent implements OnInit {
   private readonly api = inject(FinanceApiService);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly ngZone = inject(NgZone);
 
   /**
    * {@code imports}: institutions + file upload (Admin → Finance → Banking).
@@ -73,6 +76,17 @@ export class BankingPanelComponent implements OnInit {
 
   /** Single text box: matches any displayed transaction column (whitespace = multiple terms, all must match). */
   txnSearchText = '';
+
+  /** Plaid Link + sync (same APIs as documented in README). */
+  plaidStatus: BankingPlaidStatusDto | null = null;
+  plaidStatusLoading = false;
+  plaidLinkOpening = false;
+  plaidSyncBusy = false;
+  /** Ledger tab: institution for Plaid status + sync. */
+  plaidLedgerInstitutionId: number | null = null;
+  plaidSyncStart = '';
+  plaidSyncEnd = '';
+  private plaidScriptPromise: Promise<void> | null = null;
 
   readonly txnColumns: string[] = [
     'txnDate',
@@ -109,10 +123,24 @@ export class BankingPanelComponent implements OnInit {
   ];
 
   ngOnInit(): void {
+    this.initPlaidDefaultDates();
     this.reloadInstitutions();
     if (this.segment === 'ledger') {
       this.loadLedger();
     }
+  }
+
+  private initPlaidDefaultDates(): void {
+    const t = new Date();
+    const y = t.getFullYear();
+    const m = String(t.getMonth() + 1).padStart(2, '0');
+    const d = String(t.getDate()).padStart(2, '0');
+    this.plaidSyncEnd = `${y}-${m}-${d}`;
+    const start = new Date(t.getFullYear(), t.getMonth(), 1);
+    const sy = start.getFullYear();
+    const sm = String(start.getMonth() + 1).padStart(2, '0');
+    const sd = String(start.getDate()).padStart(2, '0');
+    this.plaidSyncStart = `${sy}-${sm}-${sd}`;
   }
 
   reloadInstitutions(): void {
@@ -124,6 +152,13 @@ export class BankingPanelComponent implements OnInit {
         if (this.uploadInstitutionId == null && rows.length) {
           this.uploadInstitutionId = rows[0].id;
         }
+        if (this.segment === 'ledger' && rows.length) {
+          if (this.plaidLedgerInstitutionId == null) {
+            const fid = this.filterInstitutionId ? Number(this.filterInstitutionId) : NaN;
+            this.plaidLedgerInstitutionId = Number.isFinite(fid) && fid > 0 ? fid : rows[0].id;
+          }
+        }
+        this.refreshPlaidStatus();
       },
       error: (e) => {
         this.institutionsLoading = false;
@@ -182,6 +217,15 @@ export class BankingPanelComponent implements OnInit {
         this.snackBar.open(`Upload failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 5000 });
       },
     });
+  }
+
+  onLedgerFilterChange(): void {
+    this.loadLedger();
+    const fid = this.filterInstitutionId ? Number(this.filterInstitutionId) : NaN;
+    if (Number.isFinite(fid) && fid > 0) {
+      this.plaidLedgerInstitutionId = fid;
+    }
+    this.refreshPlaidStatus();
   }
 
   loadLedger(): void {
@@ -306,5 +350,142 @@ export class BankingPanelComponent implements OnInit {
       return `${(n / 1024).toFixed(1)} KB`;
     }
     return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  institutionName(id: number | null): string {
+    if (id == null) {
+      return '';
+    }
+    return this.institutions.find((i) => i.id === id)?.name ?? '';
+  }
+
+  refreshPlaidStatus(): void {
+    const id = this.plaidTargetInstitutionId();
+    if (id == null) {
+      this.plaidStatus = null;
+      return;
+    }
+    this.plaidStatusLoading = true;
+    this.api.bankingPlaidStatus(id).subscribe({
+      next: (s) => {
+        this.plaidStatus = s;
+        this.plaidStatusLoading = false;
+      },
+      error: () => {
+        this.plaidStatus = null;
+        this.plaidStatusLoading = false;
+      },
+    });
+  }
+
+  private plaidTargetInstitutionId(): number | null {
+    if (this.segment === 'imports') {
+      return this.uploadInstitutionId;
+    }
+    return this.plaidLedgerInstitutionId;
+  }
+
+  private ensurePlaidScript(): Promise<void> {
+    if (typeof window === 'undefined') {
+      return Promise.reject(new Error('No window'));
+    }
+    if (window.Plaid) {
+      return Promise.resolve();
+    }
+    if (this.plaidScriptPromise) {
+      return this.plaidScriptPromise;
+    }
+    this.plaidScriptPromise = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.plaid.com/link/v2/stable/link-initialize.js';
+      s.async = true;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('Could not load Plaid Link script'));
+      document.head.appendChild(s);
+    });
+    return this.plaidScriptPromise;
+  }
+
+  async openPlaidLink(): Promise<void> {
+    const inst = this.plaidTargetInstitutionId();
+    if (inst == null) {
+      return;
+    }
+    this.plaidLinkOpening = true;
+    try {
+      await this.ensurePlaidScript();
+      if (!window.Plaid) {
+        throw new Error('Plaid global missing after script load');
+      }
+      const { linkToken } = await firstValueFrom(this.api.bankingPlaidLinkToken(inst));
+      const handler = window.Plaid.create({
+        token: linkToken,
+        onSuccess: (publicToken) => {
+          this.ngZone.run(() => {
+            this.api.bankingPlaidExchange(inst, publicToken).subscribe({
+              next: () => {
+                this.plaidLinkOpening = false;
+                this.snackBar.open('Bank linked with Plaid.', undefined, { duration: 5000 });
+                this.refreshPlaidStatus();
+              },
+              error: (e) => {
+                this.plaidLinkOpening = false;
+                this.snackBar.open(`Plaid exchange failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 8000 });
+              },
+            });
+          });
+        },
+        onExit: () => {
+          this.ngZone.run(() => {
+            this.plaidLinkOpening = false;
+          });
+        },
+      });
+      handler.open();
+    } catch (e) {
+      this.plaidLinkOpening = false;
+      const msg = e instanceof Error ? e.message : String(e);
+      this.snackBar.open(`Plaid Link could not start — ${msg}`, undefined, { duration: 8000 });
+    }
+  }
+
+  runPlaidSync(): void {
+    const id = this.plaidTargetInstitutionId();
+    if (id == null) {
+      this.snackBar.open('Select a banking institution first.', undefined, { duration: 4000 });
+      return;
+    }
+    if (!this.plaidSyncStart || !this.plaidSyncEnd) {
+      return;
+    }
+    this.plaidSyncBusy = true;
+    this.api
+      .bankingPlaidSync({
+        institutionId: id,
+        startDate: this.plaidSyncStart,
+        endDate: this.plaidSyncEnd,
+        accountIds: [],
+      })
+      .subscribe({
+        next: (r) => {
+          this.plaidSyncBusy = false;
+          const f = r.importResult.file;
+          const parts = [
+            `Plaid: ${r.transactionsFetchedFromPlaid} transaction(s)`,
+            r.importResult.message,
+          ];
+          if (f) {
+            parts.push(`inserted ${f.rowsInserted}, skipped dupes ${f.rowsSkippedDuplicate}`);
+          }
+          this.snackBar.open(parts.join(' · '), undefined, { duration: 9000 });
+          if (this.segment === 'ledger') {
+            this.loadLedger();
+          }
+        },
+        error: (e) => {
+          this.plaidSyncBusy = false;
+          this.snackBar.open(`Plaid sync failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 8000 });
+        },
+      });
   }
 }

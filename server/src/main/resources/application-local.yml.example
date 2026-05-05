@@ -46,6 +46,13 @@ tracker:
     banking:
       # Banking uploads (CSV, QFX, QIF, QBO, Excel, PDF). Default when unset: ~/imports/banking.
       import-directory: "/absolute/path/to/imports/banking"
+      # Optional Plaid (Link + /transactions → QFX under import-directory/output-subdirectory).
+      plaid:
+        enabled: false
+        client-id: ""
+        secret: ""
+        environment: sandbox
+        output-subdirectory: plaid
     alerts:
       # When true + email-from + aws-region, SES also sends transactional account emails (first profile, password change).
       # Set true only after SES/SNS + aws-region + AWS credentials are configured for local tests.

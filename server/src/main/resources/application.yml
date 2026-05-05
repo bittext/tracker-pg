@@ -114,6 +114,15 @@ tracker:
       # Host default ~/imports/banking; in Docker set TRACKER_BANKING_IMPORT_DIRECTORY to a mounted volume.
       import-directory: ${TRACKER_BANKING_IMPORT_DIRECTORY:${user.home}/imports/banking}
       max-upload-bytes: ${TRACKER_BANKING_MAX_UPLOAD_BYTES:20971520}
+      # Plaid Link + /transactions pull → QFX written under import-directory/output-subdirectory, then same dedupe import as manual files.
+      plaid:
+        enabled: ${TRACKER_PLAID_ENABLED:false}
+        client-id: ${TRACKER_PLAID_CLIENT_ID:}
+        secret: ${TRACKER_PLAID_SECRET:}
+        # sandbox | development (uses sandbox host) | production
+        environment: ${TRACKER_PLAID_ENVIRONMENT:sandbox}
+        # e.g. import-directory=/home/ubuntu/imports/banking and output-subdirectory=plaid → .../imports/banking/plaid/{user}/{institution}/...
+        output-subdirectory: ${TRACKER_PLAID_OUTPUT_SUBDIRECTORY:plaid}
     news-enabled: true
     news-max-items: 10
     news-timeout-ms: 8000

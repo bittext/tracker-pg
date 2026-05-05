@@ -13,4 +13,6 @@ public record BankingImportFileDto(
         int rowsInserted,
         int rowsSkippedDuplicate,
         String parseNote,
+        /** Path relative to {@code tracker.finance.banking.import-directory}. */
+        String storedRelativePath,
         String createdAt) {}

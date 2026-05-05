@@ -1,4 +1,4 @@
-package com.svp.tracker.finance.service;
+    package com.svp.tracker.finance.service;
 
 import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.BankingImportProperties;
@@ -87,22 +87,60 @@ public class BankingService {
         BankingInstitution inst = institutionRepository
                 .findByIdAndOwnerUserId(institutionId, uid)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Institution not found"));
+        if (multipart == null || multipart.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Empty file");
+        }
+        byte[] raw = multipart.getBytes();
+        String originalName = Optional.ofNullable(multipart.getOriginalFilename()).orElse("upload");
+        return importBytesInternal(inst, originalName, multipart.getContentType(), raw, "", null);
+    }
+
+    /**
+     * Saves bytes under the banking import tree (optional {@code subdirectoryPrefix}, e.g. {@code plaid}) and runs the
+     * same parse + dedupe path as multipart upload.
+     *
+     * @param extraParseNote optional second line appended to {@code parse_note} (e.g. Plaid sync summary).
+     */
+    @Transactional
+    public BankingImportResultDto importBytes(
+            long institutionId,
+            String originalFilename,
+            String contentType,
+            byte[] raw,
+            String subdirectoryPrefix,
+            String extraParseNote)
+            throws IOException {
+        long uid = currentUserService.requireUserId();
+        BankingInstitution inst = institutionRepository
+                .findByIdAndOwnerUserId(institutionId, uid)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Institution not found"));
+        return importBytesInternal(inst, originalFilename, contentType, raw, subdirectoryPrefix, extraParseNote);
+    }
+
+    private BankingImportResultDto importBytesInternal(
+            BankingInstitution inst,
+            String originalName,
+            String contentType,
+            byte[] raw,
+            String subdirectoryPrefix,
+            String extraParseNote)
+            throws IOException {
+        long uid = inst.getOwnerUserId();
+        long institutionId = inst.getId();
         String importRoot = bankingProps.importDirectory();
         if (importRoot.isBlank()) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "Banking import directory is not configured (tracker.finance.banking.import-directory)");
         }
-        if (multipart == null || multipart.isEmpty()) {
+        if (raw == null || raw.length == 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Empty file");
         }
-        byte[] raw = multipart.getBytes();
         if (raw.length > bankingProps.maxUploadBytes()) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "File exceeds tracker.finance.banking.max-upload-bytes=" + bankingProps.maxUploadBytes());
         }
-        String originalName = Optional.ofNullable(multipart.getOriginalFilename()).orElse("upload");
         String sha = BankingHashUtil.sha256Hex(raw);
         if (importFileRepository.existsByOwnerUserIdAndInstitutionIdAndSha256Hex(uid, institutionId, sha)) {
             return new BankingImportResultDto(
@@ -126,9 +164,10 @@ public class BankingService {
         boolean isPdf = "pdf".equals(ext);
         BankingFileKind kind = isPdf ? BankingFileKind.PDF : BankingFileKind.DATA;
 
+        String sub = subdirectoryPrefix == null ? "" : subdirectoryPrefix.trim();
         String relative;
         try {
-            relative = writeToImportTree(root, uid, institutionId, originalName, raw);
+            relative = writeToImportTree(root, sub, uid, institutionId, originalName, raw);
         } catch (IOException e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to save upload", e);
         }
@@ -140,7 +179,7 @@ public class BankingService {
         fileEntity.setInstitution(inst);
         fileEntity.setFileKind(kind);
         fileEntity.setOriginalFilename(originalName);
-        fileEntity.setContentType(multipart.getContentType());
+        fileEntity.setContentType(contentType);
         fileEntity.setSha256Hex(sha);
         fileEntity.setStoredRelativePath(relative);
         fileEntity.setSizeBytes(raw.length);
@@ -195,6 +234,13 @@ public class BankingService {
             if (note.isEmpty()) {
                 note.append("PDF stored.");
             }
+        }
+
+        if (extraParseNote != null && !extraParseNote.isBlank()) {
+            if (!note.isEmpty()) {
+                note.append(' ');
+            }
+            note.append(extraParseNote.trim());
         }
 
         fileEntity.setRowsInserted(inserted);
@@ -343,9 +389,18 @@ public class BankingService {
         return out;
     }
 
-    private static String writeToImportTree(Path root, long userId, long institutionId, String originalName, byte[] raw)
+    /**
+     * @param subdirectoryPrefix optional first segment under {@code root} (e.g. {@code plaid}); empty for normal
+     *     uploads.
+     */
+    private static String writeToImportTree(
+            Path root, String subdirectoryPrefix, long userId, long institutionId, String originalName, byte[] raw)
             throws IOException {
-        Path userDir = root.resolve(Long.toString(userId)).resolve(Long.toString(institutionId));
+        Path base = root;
+        if (subdirectoryPrefix != null && !subdirectoryPrefix.isBlank()) {
+            base = base.resolve(subdirectoryPrefix.trim());
+        }
+        Path userDir = base.resolve(Long.toString(userId)).resolve(Long.toString(institutionId));
         Files.createDirectories(userDir);
         String safe = sanitizeFilename(originalName);
         String unique = UUID.randomUUID() + "_" + safe;
@@ -392,6 +447,7 @@ public class BankingService {
                 f.getRowsInserted(),
                 f.getRowsSkippedDuplicate(),
                 f.getParseNote(),
+                f.getStoredRelativePath(),
                 f.getCreatedAt().toString());
     }
 

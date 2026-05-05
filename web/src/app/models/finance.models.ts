@@ -396,6 +396,8 @@ export interface BankingImportFileDto {
   rowsInserted: number;
   rowsSkippedDuplicate: number;
   parseNote: string | null;
+  /** Relative path under the configured banking import root (e.g. `plaid/1/2/uuid_file.qfx`). */
+  storedRelativePath?: string | null;
   createdAt: string;
 }
 
@@ -427,4 +429,31 @@ export interface BankingImportResultDto {
   skippedDuplicateFile: boolean;
   file: BankingImportFileDto | null;
   message: string;
+}
+
+export interface BankingPlaidLinkTokenResponseDto {
+  linkToken: string;
+  expiration: string;
+}
+
+export interface BankingPlaidStatusDto {
+  plaidConfigured: boolean;
+  linked: boolean;
+  itemIdSuffix: string;
+}
+
+export interface BankingPlaidSyncRequestDto {
+  institutionId: number;
+  /** Inclusive ISO date (yyyy-MM-dd). */
+  startDate: string;
+  endDate: string;
+  accountIds?: string[] | null;
+}
+
+export interface BankingPlaidSyncResponseDto {
+  transactionsFetchedFromPlaid: number;
+  ofxStatementRows: number;
+  storedRelativePath: string;
+  absoluteDirectoryUnderImportRoot: string;
+  importResult: BankingImportResultDto;
 }

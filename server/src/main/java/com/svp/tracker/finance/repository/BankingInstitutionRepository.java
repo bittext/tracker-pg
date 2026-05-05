@@ -11,6 +11,8 @@ public interface BankingInstitutionRepository extends JpaRepository<BankingInsti
 
     Optional<BankingInstitution> findByIdAndOwnerUserId(long id, long ownerUserId);
 
+    boolean existsByIdAndOwnerUserId(long id, long ownerUserId);
+
     boolean existsByOwnerUserIdAndNameIgnoreCase(long ownerUserId, String name);
 
     Optional<BankingInstitution> findByOwnerUserIdAndNameIgnoreCase(long ownerUserId, String name);
