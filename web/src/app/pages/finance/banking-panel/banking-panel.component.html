@@ -86,7 +86,7 @@
           @if (plaidStatus?.linked) {
             <span> · Linked</span>
             @if (plaidStatus?.itemIdSuffix) {
-              <span> · Item <code>{{ plaidStatus.itemIdSuffix }}</code></span>
+              <span> · Item <code>{{ plaidStatus?.itemIdSuffix }}</code></span>
             }
           } @else {
             <span> · Not linked — choose <strong>Connect with Plaid</strong>.</span>
@@ -213,9 +213,9 @@
             <span class="muted">Plaid not configured on server.</span>
           } @else if (plaidStatus) {
             <span class="muted">
-              @if (plaidStatus.linked) {
-                Linked @if (plaidStatus.itemIdSuffix) {
-                  <code>{{ plaidStatus.itemIdSuffix }}</code>
+              @if (plaidStatus?.linked) {
+                Linked @if (plaidStatus?.itemIdSuffix) {
+                  <code>{{ plaidStatus?.itemIdSuffix }}</code>
                 }
               } @else {
                 Not linked for this institution.
