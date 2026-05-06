@@ -896,13 +896,15 @@ export class ManagementComponent implements OnInit {
   }
 
   get repCalEntriesHeading(): string {
+    const n = this.repCalDisplayedEntries.length;
+    const eLabel = n === 1 ? 'Entry' : 'Entries';
     if (this.repCalFocusedDayIso) {
-      return `Entries for ${this.formatRepCalRowDate(this.repCalFocusedDayIso)}`;
+      return `${n} ${eLabel} for ${this.formatRepCalRowDate(this.repCalFocusedDayIso)}`;
     }
     if (this.repCalView === 'year' && this.repCalFocusedMonthKey) {
-      return `Entries in ${this.repCalFocusedMonthKey}`;
+      return `${n} ${eLabel} in ${this.repCalFocusedMonthKey}`;
     }
-    return 'Entries in this period';
+    return `${n} ${eLabel} in this period`;
   }
 
   get repCalTableColumnsForList(): string[] {
