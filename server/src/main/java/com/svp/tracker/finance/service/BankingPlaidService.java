@@ -13,8 +13,6 @@ import com.plaid.client.model.TransactionsGetRequest;
 import com.plaid.client.model.TransactionsGetRequestOptions;
 import com.plaid.client.model.TransactionsGetResponse;
 import com.plaid.client.request.PlaidApi;
-import com.svp.tracker.auth.domain.AppUser;
-import com.svp.tracker.auth.repository.AppUserRepository;
 import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.BankingImportProperties;
 import com.svp.tracker.config.BankingPlaidProperties;
@@ -28,8 +26,6 @@ import com.svp.tracker.finance.dto.BankingPlaidSyncRequestDto;
 import com.svp.tracker.finance.dto.BankingPlaidSyncResponseDto;
 import com.svp.tracker.finance.repository.BankingInstitutionRepository;
 import com.svp.tracker.finance.repository.BankingPlaidItemRepository;
-import com.svp.tracker.member.domain.MemberProfile;
-import com.svp.tracker.member.repository.MemberProfileRepository;
 import com.svp.tracker.finance.service.banking.BankingPlaidOfxWriter;
 import com.svp.tracker.finance.service.banking.BankingPlaidOfxWriter.PlaidOfxRow;
 import java.io.IOException;
@@ -62,8 +58,6 @@ public class BankingPlaidService {
     private final BankingPlaidProperties plaidProps;
     private final BankingImportProperties bankingImportProperties;
     private final CurrentUserService currentUserService;
-    private final AppUserRepository appUserRepository;
-    private final MemberProfileRepository memberProfileRepository;
     private final BankingInstitutionRepository institutionRepository;
     private final BankingPlaidItemRepository plaidItemRepository;
     private final BankingService bankingService;
@@ -92,22 +86,9 @@ public class BankingPlaidService {
                 .findByIdAndOwnerUserId(institutionId, uid)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Institution not found"));
 
-        AppUser authUser =
-                appUserRepository.findById(uid).orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED));
-        MemberProfile profile = memberProfileRepository.findByUserId(uid).orElse(null);
-        String phoneForPlaid = PlaidLinkPhone.resolveOrNull(authUser, profile);
-        // Link uses US-only country codes; sending a non-US E.164 often yields INVALID_PHONE_NUMBER from Plaid.
-        if (phoneForPlaid != null && !phoneForPlaid.startsWith("+1")) {
-            log.debug("Plaid link token: omitting non-US phone_number for user {}", uid);
-            phoneForPlaid = null;
-        }
-
+        // Omit user.phoneNumber: prefilling can trigger failed verify-SMS flows in Link (bad UX / placeholder bugs).
         LinkTokenCreateRequestUser user =
                 new LinkTokenCreateRequestUser().clientUserId("tracker-" + uid + "-inst-" + inst.getId());
-        if (phoneForPlaid != null) {
-            user.phoneNumber(phoneForPlaid);
-            log.debug("Plaid link token: including phone_number for user {}", uid);
-        }
         LinkTokenCreateRequest req = new LinkTokenCreateRequest()
                 .clientId(plaidProps.clientId())
                 .secret(plaidProps.secret())
