@@ -30,6 +30,18 @@
     width: 7rem;
     min-width: 7rem;
   }
+
+  &.plaid-date-field {
+    flex: 1 1 14rem;
+    min-width: 12rem;
+    width: auto;
+    max-width: 100%;
+  }
+}
+
+.banking-plaid-date-toolbar {
+  align-items: flex-end;
+  width: 100%;
 }
 
 .banking-file-input {
@@ -81,7 +93,7 @@
   border: 1px solid color-mix(in srgb, var(--mat-sys-outline-variant, #ccc) 80%, transparent);
   border-radius: 0.5rem;
   background: color-mix(in srgb, var(--mat-sys-surface-container-low, #f8f8f8) 90%, transparent);
-  max-width: 52rem;
+  max-width: min(100%, 64rem);
 }
 
 .banking-plaid-intro {

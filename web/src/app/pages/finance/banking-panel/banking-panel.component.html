@@ -121,14 +121,23 @@
             Refresh status
           </button>
         </div>
-        <div class="banking-toolbar wrap">
-          <mat-form-field appearance="outline" class="banking-field narrow">
+        <div class="banking-toolbar wrap banking-plaid-date-toolbar">
+          <mat-form-field appearance="outline" class="banking-field plaid-date-field">
             <mat-label>From</mat-label>
-            <input matInput type="date" name="plaidStartImp" [(ngModel)]="plaidSyncStart" />
+            <input
+              matInput
+              name="plaidStartImp"
+              [matDatepicker]="plaidStartImpPk"
+              [(ngModel)]="plaidSyncStartDate"
+            />
+            <mat-datepicker-toggle matIconSuffix [for]="plaidStartImpPk" />
+            <mat-datepicker #plaidStartImpPk />
           </mat-form-field>
-          <mat-form-field appearance="outline" class="banking-field narrow">
+          <mat-form-field appearance="outline" class="banking-field plaid-date-field">
             <mat-label>To</mat-label>
-            <input matInput type="date" name="plaidEndImp" [(ngModel)]="plaidSyncEnd" />
+            <input matInput name="plaidEndImp" [matDatepicker]="plaidEndImpPk" [(ngModel)]="plaidSyncEndDate" />
+            <mat-datepicker-toggle matIconSuffix [for]="plaidEndImpPk" />
+            <mat-datepicker #plaidEndImpPk />
           </mat-form-field>
           <button
             mat-flat-button
@@ -161,7 +170,7 @@
       <mat-form-field appearance="outline" class="banking-field grow">
         <mat-label>Institution</mat-label>
         <mat-select [(ngModel)]="importsHistoryInstitutionId" name="impHistInst">
-          <mat-option [value]="''">All</mat-option>
+          <mat-option [value]="null">All</mat-option>
           @for (i of institutions; track i.id) {
             <mat-option [value]="i.id">{{ i.name }}</mat-option>
           }
@@ -336,14 +345,23 @@
             }
           </ul>
         }
-        <div class="banking-toolbar wrap">
-          <mat-form-field appearance="outline" class="banking-field narrow">
+        <div class="banking-toolbar wrap banking-plaid-date-toolbar">
+          <mat-form-field appearance="outline" class="banking-field plaid-date-field">
             <mat-label>From</mat-label>
-            <input matInput type="date" name="plaidStartLed" [(ngModel)]="plaidSyncStart" />
+            <input
+              matInput
+              name="plaidStartLed"
+              [matDatepicker]="plaidStartLedPk"
+              [(ngModel)]="plaidSyncStartDate"
+            />
+            <mat-datepicker-toggle matIconSuffix [for]="plaidStartLedPk" />
+            <mat-datepicker #plaidStartLedPk />
           </mat-form-field>
-          <mat-form-field appearance="outline" class="banking-field narrow">
+          <mat-form-field appearance="outline" class="banking-field plaid-date-field">
             <mat-label>To</mat-label>
-            <input matInput type="date" name="plaidEndLed" [(ngModel)]="plaidSyncEnd" />
+            <input matInput name="plaidEndLed" [matDatepicker]="plaidEndLedPk" [(ngModel)]="plaidSyncEndDate" />
+            <mat-datepicker-toggle matIconSuffix [for]="plaidEndLedPk" />
+            <mat-datepicker #plaidEndLedPk />
           </mat-form-field>
           <button
             mat-flat-button
@@ -450,8 +468,8 @@
 
       <h4 class="banking-table-title">Uploaded files (including PDFs)</h4>
       <p class="muted banking-txns-hint">
-        Downloads only on this screen. To remove a file and its ledger rows, use
-        <a routerLink="/admin">Admin → Finance → Banking</a> → Import history.
+        Download here or remove an upload below — removal deletes the stored file when possible and
+        <strong>all transactions</strong> imported from it (same as Admin → Finance → Banking).
       </p>
       <div class="table-wrap">
         <table mat-table [dataSource]="ledger.importFiles" class="mat-elevation-z0 banking-table">
@@ -487,6 +505,19 @@
             <th mat-header-cell *matHeaderCellDef></th>
             <td mat-cell *matCellDef="let row">
               <button mat-button type="button" (click)="download(row)">Download</button>
+              <button
+                mat-button
+                type="button"
+                color="warn"
+                [disabled]="deletingFileId === row.id"
+                (click)="confirmRemoveAdminImport(row)"
+              >
+                @if (deletingFileId === row.id) {
+                  Removing…
+                } @else {
+                  Remove
+                }
+              </button>
               @if (row.parseNote) {
                 <span class="muted parse-note" [attr.title]="row.parseNote">Note</span>
               }

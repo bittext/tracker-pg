@@ -4,6 +4,8 @@ import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { MatNativeDateModule } from '@angular/material/core';
+import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -38,6 +40,8 @@ import { firstValueFrom } from 'rxjs';
     MatButtonToggleModule,
     MatFormFieldModule,
     MatInputModule,
+    MatDatepickerModule,
+    MatNativeDateModule,
     MatSelectModule,
     MatTableModule,
     MatSnackBarModule,
@@ -89,14 +93,16 @@ export class BankingPanelComponent implements OnInit {
   plaidSyncBusy = false;
   /** Ledger tab: institution for Plaid status + sync. */
   plaidLedgerInstitutionId: number | null = null;
-  plaidSyncStart = '';
-  plaidSyncEnd = '';
+  /** Plaid sync range; Material datepicker — avoids clipped native `type="date"` and missing calendar in some browsers. */
+  plaidSyncStartDate: Date | null = null;
+  plaidSyncEndDate: Date | null = null;
   private plaidScriptPromise: Promise<void> | null = null;
 
   /** Admin imports: broader listing than ledger period. */
   importsHistoryFromYear = new Date().getFullYear() - 5;
   importsHistoryToYear = new Date().getFullYear();
-  importsHistoryInstitutionId: number | '' = '';
+  /** Import history filter; null = all institutions. */
+  importsHistoryInstitutionId: number | null = null;
   importsHistoryLoading = false;
   importsHistoryRows: BankingImportFileDto[] = [];
 
@@ -147,15 +153,19 @@ export class BankingPanelComponent implements OnInit {
 
   private initPlaidDefaultDates(): void {
     const t = new Date();
-    const y = t.getFullYear();
-    const m = String(t.getMonth() + 1).padStart(2, '0');
-    const d = String(t.getDate()).padStart(2, '0');
-    this.plaidSyncEnd = `${y}-${m}-${d}`;
-    const start = new Date(t.getFullYear(), t.getMonth(), 1);
-    const sy = start.getFullYear();
-    const sm = String(start.getMonth() + 1).padStart(2, '0');
-    const sd = String(start.getDate()).padStart(2, '0');
-    this.plaidSyncStart = `${sy}-${sm}-${sd}`;
+    this.plaidSyncEndDate = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+    this.plaidSyncStartDate = new Date(t.getFullYear(), t.getMonth(), 1);
+  }
+
+  /** Local calendar `yyyy-MM-dd` for Plaid API (no UTC shift). */
+  private plaidIsoDate(d: Date | null): string {
+    if (!d) {
+      return '';
+    }
+    const y = d.getFullYear();
+    const m = `${d.getMonth() + 1}`.padStart(2, '0');
+    const day = `${d.getDate()}`.padStart(2, '0');
+    return `${y}-${m}-${day}`;
   }
 
   reloadInstitutions(): void {
@@ -280,8 +290,7 @@ export class BankingPanelComponent implements OnInit {
     const from = `${fy}-01-01`;
     const to = `${ty}-12-31`;
     const sel = this.importsHistoryInstitutionId;
-    const oid = sel === '' ? NaN : typeof sel === 'number' ? sel : Number(sel);
-    const inst = Number.isFinite(oid) && oid > 0 ? oid : null;
+    const inst = sel != null && typeof sel === 'number' && sel > 0 ? sel : null;
     this.importsHistoryLoading = true;
     this.api.bankingImportFiles(from, to, inst).subscribe({
       next: (rows) => {
@@ -354,7 +363,24 @@ export class BankingPanelComponent implements OnInit {
     this.api.deleteBankingImportFile(row.id).subscribe({
       next: () => {
         this.deletingFileId = null;
+        this.importsHistoryRows = this.importsHistoryRows.filter((r) => r.id !== row.id);
+        if (this.ledger?.importFiles?.length) {
+          this.ledger = {
+            ...this.ledger,
+            importFiles: this.ledger.importFiles.filter((r) => r.id !== row.id),
+          };
+        }
+        if (this.ledger?.transactions?.length) {
+          this.ledger = {
+            ...this.ledger,
+            transactions: this.ledger.transactions.filter((t) => t.importFileId !== row.id),
+          };
+        }
         this.snackBar.open('Import removed', undefined, { duration: 3000 });
+        if (this.segment === 'imports') {
+          this.importsHistoryInstitutionId = null;
+          this.selectedUploadFile = null;
+        }
         if (this.segment === 'ledger') {
           this.loadLedger();
         }
@@ -483,9 +509,13 @@ export class BankingPanelComponent implements OnInit {
             this.api.bankingPlaidExchange(inst, publicToken).subscribe({
               next: (ex) => {
                 this.plaidLinkOpening = false;
+                const linked = ex.linkedInstitutionIds?.filter((id) => Number.isFinite(id) && id > 0) ?? [];
                 let msg = 'Bank linked with Plaid.';
                 if (ex.institutionRenamedFromPlaid && ex.institutionName) {
                   msg += ` Institution name set to “${ex.institutionName}”.`;
+                }
+                if (linked.length > 1) {
+                  msg += ` ${linked.length} institutions were added (one per account); pick one below to sync and import separately.`;
                 }
                 this.snackBar.open(msg, undefined, { duration: 7000 });
                 this.uploadInstitutionId = ex.institutionId;
@@ -553,15 +583,18 @@ export class BankingPanelComponent implements OnInit {
       this.snackBar.open('Select a banking institution first.', undefined, { duration: 4000 });
       return;
     }
-    if (!this.plaidSyncStart || !this.plaidSyncEnd) {
+    const startDate = this.plaidIsoDate(this.plaidSyncStartDate);
+    const endDate = this.plaidIsoDate(this.plaidSyncEndDate);
+    if (!startDate || !endDate) {
+      this.snackBar.open('Choose both From and To dates.', undefined, { duration: 4000 });
       return;
     }
     this.plaidSyncBusy = true;
     this.api
       .bankingPlaidSync({
         institutionId: id,
-        startDate: this.plaidSyncStart,
-        endDate: this.plaidSyncEnd,
+        startDate,
+        endDate,
         accountIds: [],
       })
       .subscribe({

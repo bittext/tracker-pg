@@ -51,4 +51,8 @@ public class BankingPlaidItem {
     /** JSON array of human-readable account/connection lines for the UI */
     @Column(name = "connection_summary", columnDefinition = "TEXT")
     private String connectionSummary;
+
+    /** When set, Plaid transactions sync is limited to this account_id within the Item */
+    @Column(name = "plaid_account_id", columnDefinition = "TEXT")
+    private String plaidAccountId;
 }
