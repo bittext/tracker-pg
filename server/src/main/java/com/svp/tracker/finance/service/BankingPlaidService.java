@@ -13,11 +13,13 @@ import com.plaid.client.model.ItemPublicTokenExchangeResponse;
 import com.plaid.client.model.LinkTokenCreateRequest;
 import com.plaid.client.model.LinkTokenCreateRequestUser;
 import com.plaid.client.model.LinkTokenCreateResponse;
+import com.plaid.client.model.LinkTokenTransactions;
 import com.plaid.client.model.Products;
 import com.plaid.client.model.Transaction;
-import com.plaid.client.model.TransactionsGetRequest;
-import com.plaid.client.model.TransactionsGetRequestOptions;
-import com.plaid.client.model.TransactionsGetResponse;
+import com.plaid.client.model.TransactionsSyncRequest;
+import com.plaid.client.model.TransactionsSyncRequestOptions;
+import com.plaid.client.model.TransactionsSyncResponse;
+import com.plaid.client.model.TransactionsUpdateStatus;
 import com.plaid.client.request.PlaidApi;
 import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.BankingImportProperties;
@@ -41,12 +43,15 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Optional;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -62,6 +67,9 @@ import retrofit2.Response;
 public class BankingPlaidService {
 
     private static final int PLAID_PAGE = 500;
+    /** Plaid allows up to 730 days on the first /transactions/sync for an Item. */
+    private static final int PLAID_SYNC_MAX_DAYS = 730;
+    private static final int PLAID_SYNC_MAX_PAGES = 200;
     private static final DateTimeFormatter FILE_TS = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss", Locale.ROOT);
 
     private final BankingPlaidProperties plaidProps;
@@ -106,7 +114,9 @@ public class BankingPlaidService {
                 .language("en")
                 .countryCodes(List.of(CountryCode.US))
                 .user(user)
-                .products(List.of(Products.TRANSACTIONS));
+                .products(List.of(Products.TRANSACTIONS))
+                // Request max history at Link; sync cannot extend this after the Item is initialized (Plaid API rule).
+                .transactions(new LinkTokenTransactions().daysRequested(PLAID_SYNC_MAX_DAYS));
 
         LinkTokenCreateResponse body = execute(plaidApi().linkTokenCreate(req));
         if (body.getLinkToken() == null || body.getLinkToken().isBlank()) {
@@ -265,8 +275,27 @@ public class BankingPlaidService {
             effectiveAccountFilter = List.of(link.getPlaidAccountId().trim());
         }
 
+        String subdir = plaidProps.outputSubdirectory();
+        String importRoot = bankingImportProperties.importDirectory();
+        String absDir = "";
+        if (!importRoot.isBlank()) {
+            Path root = Path.of(importRoot).toAbsolutePath().normalize();
+            absDir = root.resolve(subdir).resolve(Long.toString(uid)).resolve(Long.toString(inst.getId())).toString();
+        }
+
         List<Transaction> fetched =
                 fetchAllTransactions(link.getAccessToken(), start, end, effectiveAccountFilter);
+
+        if (fetched.isEmpty()) {
+            String msg =
+                    "Plaid returned no transactions between "
+                            + start
+                            + " and "
+                            + end
+                            + ". Try a wider range, wait 1–2 minutes after linking (first-time sync), or confirm this institution matches the linked account.";
+            BankingImportResultDto emptyResult = new BankingImportResultDto(true, false, null, msg);
+            return new BankingPlaidSyncResponseDto(0, 0, "", absDir, emptyResult);
+        }
 
         List<PlaidOfxRow> ofxRows = new ArrayList<>();
         for (Transaction t : fetched) {
@@ -275,15 +304,6 @@ public class BankingPlaidService {
         byte[] qfx = BankingPlaidOfxWriter.toQfxBytes(inst.getName(), ofxRows);
         String filename =
                 "plaid_" + inst.getId() + "_" + FILE_TS.format(java.time.LocalDateTime.now()) + ".qfx";
-
-        String subdir = plaidProps.outputSubdirectory();
-
-        String importRoot = bankingImportProperties.importDirectory();
-        String absDir = "";
-        if (!importRoot.isBlank()) {
-            Path root = Path.of(importRoot).toAbsolutePath().normalize();
-            absDir = root.resolve(subdir).resolve(Long.toString(uid)).resolve(Long.toString(inst.getId())).toString();
-        }
 
         String extraNote = "Plaid: fetched "
                 + fetched.size()
@@ -303,7 +323,10 @@ public class BankingPlaidService {
     }
 
     private PlaidOfxRow toOfxRow(Transaction t) {
-        LocalDate d = t.getDate() != null ? t.getDate() : LocalDate.now();
+        LocalDate d = plaidTxnEffectiveDate(t);
+        if (d == null) {
+            d = LocalDate.now();
+        }
         double plaidAmt = t.getAmount() != null ? t.getAmount() : 0d;
         // Plaid: positive amount = outflow (debit). Tracker banking: positive = credit (inflow).
         BigDecimal trnAmt = BigDecimal.valueOf(plaidAmt).negate();
@@ -334,35 +357,101 @@ public class BankingPlaidService {
         return fallback;
     }
 
+    /**
+     * Uses Plaid's recommended {@code /transactions/sync} endpoint (with date filter client-side). Legacy
+     * {@code /transactions/get} often returns empty for newly linked Items or misses history without {@code days_requested}.
+     */
     private List<Transaction> fetchAllTransactions(
             String accessToken, LocalDate start, LocalDate end, List<String> accountIds) {
-        List<Transaction> all = new ArrayList<>();
-        int offset = 0;
-        while (true) {
-            TransactionsGetRequest req = new TransactionsGetRequest()
+        Map<String, Transaction> byId = new LinkedHashMap<>();
+        String cursor = null;
+        boolean firstPage = true;
+        for (int page = 0; page < PLAID_SYNC_MAX_PAGES; page++) {
+            TransactionsSyncRequest req = new TransactionsSyncRequest()
                     .clientId(plaidProps.clientId())
                     .secret(plaidProps.secret())
                     .accessToken(accessToken)
-                    .startDate(start)
-                    .endDate(end);
-            TransactionsGetRequestOptions opts =
-                    new TransactionsGetRequestOptions().count(PLAID_PAGE).offset(offset);
-            if (!accountIds.isEmpty()) {
-                opts.setAccountIds(accountIds);
+                    .count(PLAID_PAGE);
+            if (cursor != null && !cursor.isBlank()) {
+                req.setCursor(cursor);
+            } else {
+                TransactionsSyncRequestOptions opts =
+                        new TransactionsSyncRequestOptions().daysRequested(plaidDaysRequestedForRangeStart(start));
+                if (accountIds.size() == 1) {
+                    opts.setAccountId(accountIds.get(0).trim());
+                }
+                req.setOptions(opts);
             }
-            req.setOptions(opts);
-            TransactionsGetResponse body = execute(plaidApi().transactionsGet(req));
-            List<Transaction> batch = body.getTransactions() == null ? List.of() : body.getTransactions();
-            if (batch.isEmpty()) {
-                break;
+            TransactionsSyncResponse body = execute(plaidApi().transactionsSync(req));
+            if (firstPage) {
+                firstPage = false;
+                if (TransactionsUpdateStatus.NOT_READY.equals(body.getTransactionsUpdateStatus())) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Plaid is still loading transactions for this bank. Wait 30–90 seconds after linking, then run Sync again.");
+                }
             }
-            all.addAll(batch);
-            if (batch.size() < PLAID_PAGE) {
-                break;
+            ingestSyncBatch(byId, body.getAdded());
+            ingestSyncBatch(byId, body.getModified());
+            if (Boolean.TRUE.equals(body.getHasMore())) {
+                String next = body.getNextCursor();
+                if (next != null && !next.isBlank()) {
+                    cursor = next;
+                    continue;
+                }
             }
-            offset += PLAID_PAGE;
+            break;
         }
-        return all;
+
+        List<Transaction> filtered = new ArrayList<>();
+        for (Transaction t : byId.values()) {
+            LocalDate d = plaidTxnEffectiveDate(t);
+            if (d != null && !d.isBefore(start) && !d.isAfter(end)) {
+                filtered.add(t);
+            }
+        }
+        filtered.sort(Comparator.comparing(BankingPlaidService::plaidTxnEffectiveDate, Comparator.nullsLast(Comparator.naturalOrder())));
+        if (filtered.isEmpty() && !byId.isEmpty()) {
+            log.info(
+                    "Plaid transactions/sync returned {} transaction(s) for item history but none in requested range {}..{}",
+                    byId.size(),
+                    start,
+                    end);
+        }
+        return filtered;
+    }
+
+    private static void ingestSyncBatch(Map<String, Transaction> byId, List<Transaction> batch) {
+        if (batch == null) {
+            return;
+        }
+        for (Transaction t : batch) {
+            String id = t.getTransactionId();
+            if (id != null && !id.isBlank()) {
+                byId.put(id.trim(), t);
+            }
+        }
+    }
+
+    private static int plaidDaysRequestedForRangeStart(LocalDate rangeStart) {
+        long days = ChronoUnit.DAYS.between(rangeStart, LocalDate.now());
+        if (days < 0) {
+            days = 0;
+        }
+        return (int) Math.min(PLAID_SYNC_MAX_DAYS, Math.max(1, days + 1));
+    }
+
+    private static LocalDate plaidTxnEffectiveDate(Transaction t) {
+        if (t.getDate() != null) {
+            return t.getDate();
+        }
+        if (t.getAuthorizedDate() != null) {
+            return t.getAuthorizedDate();
+        }
+        if (t.getDatetime() != null) {
+            return t.getDatetime().toLocalDate();
+        }
+        return null;
     }
 
     private void requirePlaidApi() {
