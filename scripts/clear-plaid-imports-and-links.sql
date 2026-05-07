@@ -12,7 +12,7 @@ WITH plaid_files AS (
     SELECT f.id
     FROM banking_import_files f
     WHERE f.stored_relative_path ILIKE 'plaid/%'
-       OR f.original_filename ILIKE 'plaid\_%' ESCAPE '\\'
+       OR f.original_filename ~* '^plaid_'
        OR f.parse_note ILIKE 'Plaid:%'
 )
 DELETE FROM banking_transactions t
@@ -22,7 +22,7 @@ WITH plaid_files AS (
     SELECT f.id
     FROM banking_import_files f
     WHERE f.stored_relative_path ILIKE 'plaid/%'
-       OR f.original_filename ILIKE 'plaid\_%' ESCAPE '\\'
+       OR f.original_filename ~* '^plaid_'
        OR f.parse_note ILIKE 'Plaid:%'
 )
 DELETE FROM banking_import_files f
