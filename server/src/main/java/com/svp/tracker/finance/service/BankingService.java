@@ -1,4 +1,4 @@
-    package com.svp.tracker.finance.service;
+package com.svp.tracker.finance.service;
 
 import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.BankingImportProperties;
