@@ -14,8 +14,8 @@
 
 BEGIN;
 
--- CASCADE truncates banking_transactions first (FK targets banking_import_files). Multi-table
--- TRUNCATE without CASCADE still errors on some Postgres builds when import_files is touched second.
-TRUNCATE banking_import_files CASCADE RESTART IDENTITY;
+-- Postgres grammar: RESTART IDENTITY before CASCADE (not CASCADE ... RESTART).
+-- CASCADE pulls in banking_transactions (FK → banking_import_files).
+TRUNCATE banking_import_files RESTART IDENTITY CASCADE;
 
 COMMIT;
