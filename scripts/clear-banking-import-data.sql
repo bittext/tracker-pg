@@ -14,8 +14,8 @@
 
 BEGIN;
 
-TRUNCATE banking_transactions RESTART IDENTITY;
-
-TRUNCATE banking_import_files RESTART IDENTITY;
+-- One statement: Postgres will not truncate banking_import_files alone while banking_transactions
+-- has an FK to it (even when empty); listing both satisfies ordering.
+TRUNCATE banking_transactions, banking_import_files RESTART IDENTITY;
 
 COMMIT;
