@@ -138,7 +138,11 @@ public class BankingPlaidService {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Plaid returned an empty item_id");
         }
 
+        // Remove stale rows: (1) same item_id across institutions from a prior exchange, and (2) any prior link on
+        // this anchor institution — uq_banking_plaid_item_owner_institution allows only one row per institution, and
+        // delete-by-item_id alone misses rows left from a *different* item_id on the same institution.
         plaidItemRepository.deleteAllByOwnerUserIdAndItemId(uid, resp.getItemId());
+        plaidItemRepository.deleteAllByOwnerUserIdAndInstitutionId(uid, inst.getId());
 
         PlaidConnectionSnapshot snap = fetchPlaidConnectionSnapshot(resp.getAccessToken());
         String plaidInstitutionalIdStored = snap.plaidInstitutionId();

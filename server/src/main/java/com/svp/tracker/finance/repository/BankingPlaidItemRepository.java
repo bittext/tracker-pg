@@ -11,7 +11,13 @@ public interface BankingPlaidItemRepository extends JpaRepository<BankingPlaidIt
 
     Optional<BankingPlaidItem> findByOwnerUserIdAndInstitution_Id(long ownerUserId, long institutionId);
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("delete from BankingPlaidItem b where b.ownerUserId = :ownerUserId and b.itemId = :itemId")
     void deleteAllByOwnerUserIdAndItemId(@Param("ownerUserId") long ownerUserId, @Param("itemId") String itemId);
+
+    /** Clears any prior Plaid link on this institution (possibly a different Plaid item_id than the new exchange). */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("delete from BankingPlaidItem b where b.ownerUserId = :ownerUserId and b.institution.id = :institutionId")
+    void deleteAllByOwnerUserIdAndInstitutionId(
+            @Param("ownerUserId") long ownerUserId, @Param("institutionId") long institutionId);
 }
