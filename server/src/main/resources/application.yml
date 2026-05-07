@@ -111,7 +111,7 @@ tracker:
     robinhood-csv-uploaded-directory: ""
     max-directory-import-files: 500
     banking:
-      # Host default ~/imports/banking; in Docker set TRACKER_BANKING_IMPORT_DIRECTORY to a mounted volume.
+      # Host default ~/imports/banking. Production VMs often use TRACKER_BANKING_IMPORT_DIRECTORY=/home/ubuntu/imports/banking (0700).
       import-directory: ${TRACKER_BANKING_IMPORT_DIRECTORY:${user.home}/imports/banking}
       max-upload-bytes: ${TRACKER_BANKING_MAX_UPLOAD_BYTES:20971520}
       # Plaid Link + /transactions pull → QFX written under import-directory/output-subdirectory, then same dedupe import as manual files.

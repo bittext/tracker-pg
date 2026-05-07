@@ -4,9 +4,11 @@
       Create an <strong>institution</strong> (bank or brokerage), then upload <strong>CSV</strong>, <strong>QFX</strong>,
       <strong>QIF</strong>, <strong>QBO</strong>, <strong>OFX</strong>, <strong>Excel</strong>, or <strong>PDF</strong>,
       or use <strong>Plaid</strong> below to connect and sync. Duplicate files (same content hash) and duplicate
-      transactions are skipped. Imports are stored under the server directory configured in
-      <code>tracker.finance.banking.import-directory</code> (default <code>~/imports/banking</code>). All data is scoped
-      to your account. View transactions and downloads under <a routerLink="/finance">Finance → Banking</a>.
+      transactions are skipped. Imports are stored under
+      <code>TRACKER_BANKING_IMPORT_DIRECTORY</code> (e.g. <code>/home/ubuntu/imports/banking</code> on a typical server).
+      All data is scoped to your account. View the ledger under <a routerLink="/finance">Finance → Banking</a>.
+      <strong>Removing an import here</strong> deletes the stored file (when possible) and <strong>all transactions</strong>
+      tied to that upload.
     </p>
 
     <div class="banking-toolbar">
@@ -92,6 +94,13 @@
             <span> · Not linked — choose <strong>Connect with Plaid</strong>.</span>
           }
         </p>
+        @if (plaidStatus?.linked && (plaidStatus?.connectionSummary ?? []).length > 0) {
+          <ul class="banking-plaid-accounts">
+            @for (line of plaidStatus?.connectionSummary ?? []; track line) {
+              <li>{{ line }}</li>
+            }
+          </ul>
+        }
         <div class="banking-toolbar wrap">
           <button
             mat-stroked-button
@@ -130,13 +139,106 @@
         </div>
       }
     </div>
+
+    <h3 class="banking-subtitle">Import history</h3>
+    <p class="muted">
+      Every manual upload and each Plaid sync file appears here for the calendar years you choose. Removing a row deletes
+      the stored file when possible and <strong>all transactions</strong> imported from it — you will confirm in a dialog.
+    </p>
+    <div class="banking-toolbar wrap">
+      <mat-form-field appearance="outline" class="banking-field narrow">
+        <mat-label>From year</mat-label>
+        <input matInput type="number" [(ngModel)]="importsHistoryFromYear" name="impFromY" />
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="banking-field narrow">
+        <mat-label>To year</mat-label>
+        <input matInput type="number" [(ngModel)]="importsHistoryToYear" name="impToY" />
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="banking-field grow">
+        <mat-label>Institution</mat-label>
+        <mat-select [(ngModel)]="importsHistoryInstitutionId" name="impHistInst">
+          <mat-option [value]="''">All</mat-option>
+          @for (i of institutions; track i.id) {
+            <mat-option [value]="i.id">{{ i.name }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      <button mat-stroked-button type="button" (click)="loadImportsHistory()" [disabled]="importsHistoryLoading">
+        <mat-icon>refresh</mat-icon>
+        Load
+      </button>
+    </div>
+    @if (importsHistoryLoading) {
+      <div class="banking-spinner banking-spinner--inline">
+        <mat-progress-spinner diameter="28" mode="indeterminate" />
+      </div>
+    }
+    <div class="table-wrap">
+      <table mat-table [dataSource]="importsHistoryRows" class="mat-elevation-z0 banking-table">
+        <ng-container matColumnDef="createdAt">
+          <th mat-header-cell *matHeaderCellDef>Uploaded</th>
+          <td mat-cell *matCellDef="let row">{{ row.createdAt | slice: 0:19 }}</td>
+        </ng-container>
+        <ng-container matColumnDef="institutionName">
+          <th mat-header-cell *matHeaderCellDef>Institution</th>
+          <td mat-cell *matCellDef="let row">{{ row.institutionName }}</td>
+        </ng-container>
+        <ng-container matColumnDef="fileKind">
+          <th mat-header-cell *matHeaderCellDef>Kind</th>
+          <td mat-cell *matCellDef="let row">{{ row.fileKind }}</td>
+        </ng-container>
+        <ng-container matColumnDef="originalFilename">
+          <th mat-header-cell *matHeaderCellDef>File</th>
+          <td mat-cell *matCellDef="let row">{{ row.originalFilename }}</td>
+        </ng-container>
+        <ng-container matColumnDef="sizeBytes">
+          <th mat-header-cell *matHeaderCellDef>Size</th>
+          <td mat-cell *matCellDef="let row">{{ formatBytes(row.sizeBytes) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="rowsInserted">
+          <th mat-header-cell *matHeaderCellDef>Rows in</th>
+          <td mat-cell *matCellDef="let row">{{ row.rowsInserted }}</td>
+        </ng-container>
+        <ng-container matColumnDef="rowsSkippedDuplicate">
+          <th mat-header-cell *matHeaderCellDef>Dup skip</th>
+          <td mat-cell *matCellDef="let row">{{ row.rowsSkippedDuplicate }}</td>
+        </ng-container>
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef></th>
+          <td mat-cell *matCellDef="let row">
+            <button mat-button type="button" (click)="download(row)">Download</button>
+            <button
+              mat-button
+              type="button"
+              color="warn"
+              [disabled]="deletingFileId === row.id"
+              (click)="confirmRemoveAdminImport(row)"
+            >
+              @if (deletingFileId === row.id) {
+                Removing…
+              } @else {
+                Remove
+              }
+            </button>
+            @if (row.parseNote) {
+              <span class="muted parse-note" [attr.title]="row.parseNote">Note</span>
+            }
+          </td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="fileColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: fileColumns"></tr>
+      </table>
+      @if (!importsHistoryLoading && !importsHistoryRows.length) {
+        <p class="muted empty-hint">No imports in this range.</p>
+      }
+    </div>
   }
 
   @if (segment === 'ledger') {
     <p class="muted banking-intro">
-      Review imported <strong>transactions</strong> and <strong>uploaded files</strong> (including PDFs) by month,
-      quarter, or year. To add institutions, upload files, or <strong>connect Plaid</strong>, use
-      <strong>Admin → Finance → Banking</strong> (requires an admin account). If this institution is already linked, you
+      Review imported <strong>transactions</strong> and <strong>files for this period</strong> (including PDFs) by month,
+      quarter, or year. To add institutions, upload files, connect Plaid, or <strong>remove an import</strong> (which
+      deletes its transactions), use <strong>Admin → Finance → Banking</strong>. If this institution is already linked, you
       can <strong>Sync from Plaid</strong> here without re-opening Link.
     </p>
 
@@ -223,6 +325,13 @@
             </span>
           }
         </div>
+        @if (plaidStatus?.linked && (plaidStatus?.connectionSummary ?? []).length > 0) {
+          <ul class="banking-plaid-accounts">
+            @for (line of plaidStatus?.connectionSummary ?? []; track line) {
+              <li>{{ line }}</li>
+            }
+          </ul>
+        }
         <div class="banking-toolbar wrap">
           <mat-form-field appearance="outline" class="banking-field narrow">
             <mat-label>From</mat-label>
@@ -336,6 +445,10 @@
       </div>
 
       <h4 class="banking-table-title">Uploaded files (including PDFs)</h4>
+      <p class="muted banking-txns-hint">
+        Downloads only on this screen. To remove a file and its ledger rows, use
+        <a routerLink="/admin">Admin → Finance → Banking</a> → Import history.
+      </p>
       <div class="table-wrap">
         <table mat-table [dataSource]="ledger.importFiles" class="mat-elevation-z0 banking-table">
           <ng-container matColumnDef="createdAt">
@@ -370,19 +483,6 @@
             <th mat-header-cell *matHeaderCellDef></th>
             <td mat-cell *matCellDef="let row">
               <button mat-button type="button" (click)="download(row)">Download</button>
-              <button
-                mat-button
-                type="button"
-                color="warn"
-                [disabled]="deletingFileId === row.id"
-                (click)="deleteImportFile(row)"
-              >
-                @if (deletingFileId === row.id) {
-                  Removing…
-                } @else {
-                  Remove
-                }
-              </button>
               @if (row.parseNote) {
                 <span class="muted parse-note" [attr.title]="row.parseNote">Note</span>
               }

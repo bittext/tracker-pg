@@ -11,6 +11,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
+import { MatDialog } from '@angular/material/dialog';
 import {
   BankingImportFileDto,
   BankingInstitutionDto,
@@ -21,6 +22,9 @@ import {
 } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
+import {
+  BankingDeleteImportDialogComponent,
+} from './banking-delete-import-dialog.component';
 import { firstValueFrom } from 'rxjs';
 
 @Component({
@@ -47,6 +51,7 @@ export class BankingPanelComponent implements OnInit {
   private readonly api = inject(FinanceApiService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly ngZone = inject(NgZone);
+  private readonly dialog = inject(MatDialog);
 
   /**
    * {@code imports}: institutions + file upload (Admin → Finance → Banking).
@@ -88,6 +93,13 @@ export class BankingPanelComponent implements OnInit {
   plaidSyncEnd = '';
   private plaidScriptPromise: Promise<void> | null = null;
 
+  /** Admin imports: broader listing than ledger period. */
+  importsHistoryFromYear = new Date().getFullYear() - 5;
+  importsHistoryToYear = new Date().getFullYear();
+  importsHistoryInstitutionId: number | '' = '';
+  importsHistoryLoading = false;
+  importsHistoryRows: BankingImportFileDto[] = [];
+
   readonly txnColumns: string[] = [
     'txnDate',
     'institutionName',
@@ -127,6 +139,9 @@ export class BankingPanelComponent implements OnInit {
     this.reloadInstitutions();
     if (this.segment === 'ledger') {
       this.loadLedger();
+    }
+    if (this.segment === 'imports') {
+      this.loadImportsHistory();
     }
   }
 
@@ -211,6 +226,9 @@ export class BankingPanelComponent implements OnInit {
         if (this.segment === 'ledger') {
           this.loadLedger();
         }
+        if (this.segment === 'imports') {
+          this.loadImportsHistory();
+        }
       },
       error: (e) => {
         this.uploadBusy = false;
@@ -253,6 +271,32 @@ export class BankingPanelComponent implements OnInit {
       });
   }
 
+  loadImportsHistory(): void {
+    if (this.segment !== 'imports') {
+      return;
+    }
+    const fy = Math.min(this.importsHistoryFromYear, this.importsHistoryToYear);
+    const ty = Math.max(this.importsHistoryFromYear, this.importsHistoryToYear);
+    const from = `${fy}-01-01`;
+    const to = `${ty}-12-31`;
+    const sel = this.importsHistoryInstitutionId;
+    const oid = sel === '' ? NaN : typeof sel === 'number' ? sel : Number(sel);
+    const inst = Number.isFinite(oid) && oid > 0 ? oid : null;
+    this.importsHistoryLoading = true;
+    this.api.bankingImportFiles(from, to, inst).subscribe({
+      next: (rows) => {
+        this.importsHistoryRows = rows;
+        this.importsHistoryLoading = false;
+      },
+      error: (e) => {
+        this.importsHistoryLoading = false;
+        this.snackBar.open(`Could not load import history — ${formatHttpErrorDetail(e)}`, undefined, {
+          duration: 6000,
+        });
+      },
+    });
+  }
+
   /** Rows in the current ledger range after {@link txnSearchText} is applied. */
   get filteredLedgerTransactions(): BankingTransactionDto[] {
     const all = this.ledger?.transactions;
@@ -289,17 +333,34 @@ export class BankingPanelComponent implements OnInit {
     ];
   }
 
-  deleteImportFile(row: BankingImportFileDto): void {
-    const msg = `Remove import “${row.originalFilename}” from ${row.institutionName}? All transactions from this file will be deleted and you can upload the same file again.`;
-    if (!window.confirm(msg)) {
-      return;
-    }
+  confirmRemoveAdminImport(row: BankingImportFileDto): void {
+    const ref = this.dialog.open(BankingDeleteImportDialogComponent, {
+      width: '560px',
+      data: {
+        filename: row.originalFilename,
+        rowsInserted: row.rowsInserted ?? 0,
+        fileKind: row.fileKind,
+      },
+    });
+    ref.afterClosed().subscribe((ok: unknown) => {
+      if (ok === true) {
+        this.performDeleteImportFile(row);
+      }
+    });
+  }
+
+  private performDeleteImportFile(row: BankingImportFileDto): void {
     this.deletingFileId = row.id;
     this.api.deleteBankingImportFile(row.id).subscribe({
       next: () => {
         this.deletingFileId = null;
         this.snackBar.open('Import removed', undefined, { duration: 3000 });
-        this.loadLedger();
+        if (this.segment === 'ledger') {
+          this.loadLedger();
+        }
+        if (this.segment === 'imports') {
+          this.loadImportsHistory();
+        }
       },
       error: (e) => {
         this.deletingFileId = null;
@@ -423,10 +484,18 @@ export class BankingPanelComponent implements OnInit {
         onSuccess: (publicToken) => {
           this.ngZone.run(() => {
             this.api.bankingPlaidExchange(inst, publicToken).subscribe({
-              next: () => {
+              next: (ex) => {
                 this.plaidLinkOpening = false;
-                this.snackBar.open('Bank linked with Plaid.', undefined, { duration: 5000 });
+                let msg = 'Bank linked with Plaid.';
+                if (ex.institutionRenamedFromPlaid && ex.institutionName) {
+                  msg += ` Institution name set to “${ex.institutionName}”.`;
+                }
+                this.snackBar.open(msg, undefined, { duration: 7000 });
+                this.reloadInstitutions();
                 this.refreshPlaidStatus();
+                if (this.segment === 'imports') {
+                  this.loadImportsHistory();
+                }
               },
               error: (e) => {
                 this.plaidLinkOpening = false;
@@ -480,6 +549,9 @@ export class BankingPanelComponent implements OnInit {
           this.snackBar.open(parts.join(' · '), undefined, { duration: 9000 });
           if (this.segment === 'ledger') {
             this.loadLedger();
+          }
+          if (this.segment === 'imports') {
+            this.loadImportsHistory();
           }
         },
         error: (e) => {

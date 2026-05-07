@@ -1,6 +1,7 @@
 package com.svp.tracker.finance.controller;
 
 import com.svp.tracker.finance.dto.BankingCreateInstitutionRequestDto;
+import com.svp.tracker.finance.dto.BankingImportFileDto;
 import com.svp.tracker.finance.dto.BankingImportResultDto;
 import com.svp.tracker.finance.dto.BankingInstitutionDto;
 import com.svp.tracker.finance.dto.BankingLedgerDto;
@@ -10,6 +11,7 @@ import com.svp.tracker.finance.service.BankingService.BankingFileContent;
 import jakarta.validation.Valid;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +26,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -70,6 +73,15 @@ public class BankingController {
             @RequestParam(name = "institutionId", required = false) Long institutionId) {
         validateLedgerParams(range, year, month, quarter);
         return bankingService.ledger(range, year, month, quarter, institutionId);
+    }
+
+    /** Admin-style listing of uploads across a date span (same owner scope as ledger import files). */
+    @GetMapping("/import-files")
+    public List<BankingImportFileDto> importFiles(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(name = "institutionId", required = false) Long institutionId) {
+        return bankingService.listImportFilesInRange(from, to, institutionId);
     }
 
     @DeleteMapping("/files/{id}")

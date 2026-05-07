@@ -1,6 +1,7 @@
 package com.svp.tracker.finance.controller;
 
 import com.svp.tracker.finance.dto.BankingPlaidExchangeRequestDto;
+import com.svp.tracker.finance.dto.BankingPlaidExchangeResponseDto;
 import com.svp.tracker.finance.dto.BankingPlaidLinkTokenResponseDto;
 import com.svp.tracker.finance.dto.BankingPlaidStatusDto;
 import com.svp.tracker.finance.dto.BankingPlaidSyncRequestDto;
@@ -10,13 +11,11 @@ import jakarta.validation.Valid;
 import java.io.IOException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -43,9 +42,8 @@ public class BankingPlaidController {
 
     /** Exchange Link {@code public_token} for an access token and persist it against the banking institution. */
     @PostMapping("/exchange")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void exchange(@Valid @RequestBody BankingPlaidExchangeRequestDto body) {
-        bankingPlaidService.exchangePublicToken(body);
+    public BankingPlaidExchangeResponseDto exchange(@Valid @RequestBody BankingPlaidExchangeRequestDto body) {
+        return bankingPlaidService.exchangePublicToken(body);
     }
 
     /**

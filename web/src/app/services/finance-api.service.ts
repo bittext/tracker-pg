@@ -22,10 +22,12 @@ import {
   BankingInstitutionDto,
   BankingLedgerDto,
   BankingLedgerRange,
+  BankingPlaidExchangeResponseDto,
   BankingPlaidLinkTokenResponseDto,
   BankingPlaidStatusDto,
   BankingPlaidSyncRequestDto,
   BankingPlaidSyncResponseDto,
+  BankingImportFileDto,
 } from '../models/finance.models';
 
 export type FinancePeriod = 'all' | 'year' | 'month';
@@ -198,6 +200,15 @@ export class FinanceApiService {
     return this.http.post<BankingInstitutionDto>(`${this.bankingRoot}/institutions`, { name });
   }
 
+  /** Imports in a calendar date span (Admin); same owner scope as ledger. */
+  bankingImportFiles(fromIsoDate: string, toIsoDate: string, institutionId?: number | null) {
+    let params = new HttpParams().set('from', fromIsoDate).set('to', toIsoDate);
+    if (institutionId != null && institutionId > 0) {
+      params = params.set('institutionId', String(institutionId));
+    }
+    return this.http.get<BankingImportFileDto[]>(`${this.bankingRoot}/import-files`, { params });
+  }
+
   bankingLedger(
     range: BankingLedgerRange,
     year: number,
@@ -249,7 +260,7 @@ export class FinanceApiService {
   }
 
   bankingPlaidExchange(institutionId: number, publicToken: string) {
-    return this.http.post<void>(`${this.bankingPlaidRoot}/exchange`, {
+    return this.http.post<BankingPlaidExchangeResponseDto>(`${this.bankingPlaidRoot}/exchange`, {
       institutionId,
       publicToken,
     });

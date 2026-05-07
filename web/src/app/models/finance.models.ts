@@ -440,6 +440,15 @@ export interface BankingPlaidStatusDto {
   plaidConfigured: boolean;
   linked: boolean;
   itemIdSuffix: string;
+  /** Human-readable linked accounts from Plaid (after exchange). */
+  connectionSummary?: string[] | null;
+}
+
+export interface BankingPlaidExchangeResponseDto {
+  institutionId: number;
+  institutionName: string;
+  institutionRenamedFromPlaid: boolean;
+  connectionSummary: string[];
 }
 
 export interface BankingPlaidSyncRequestDto {

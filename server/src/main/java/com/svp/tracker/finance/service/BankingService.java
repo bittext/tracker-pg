@@ -28,6 +28,7 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -321,6 +322,27 @@ public class BankingService {
                 institutions,
                 txnDtos,
                 fileDtos);
+    }
+
+    /**
+     * Import file rows uploaded in [{@code fromInclusive}, {@code toInclusive}] (inclusive calendar dates, UTC midnight
+     * boundaries). Used for Admin “all imports” view; destructive delete remains {@link #deleteImportFile(long)}.
+     */
+    @Transactional(readOnly = true)
+    public List<BankingImportFileDto> listImportFilesInRange(
+            LocalDate fromInclusive, LocalDate toInclusive, Long institutionId) {
+        long uid = currentUserService.requireUserId();
+        if (toInclusive.isBefore(fromInclusive)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "to before from");
+        }
+        if (ChronoUnit.DAYS.between(fromInclusive, toInclusive) > 3660L) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "date range too large (max ~10 years)");
+        }
+        Instant fromInst = fromInclusive.atStartOfDay(ZoneOffset.UTC).toInstant();
+        Instant toEx = toInclusive.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
+        List<BankingImportFile> files =
+                importFileRepository.listUploadedInRange(uid, fromInst, toEx, institutionId);
+        return files.stream().map(BankingService::toFileDto).toList();
     }
 
     @Transactional

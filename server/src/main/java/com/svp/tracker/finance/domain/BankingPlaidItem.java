@@ -43,4 +43,12 @@ public class BankingPlaidItem {
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
+
+    /** Plaid institution id from Item (e.g. ins_...) */
+    @Column(name = "plaid_institution_id", columnDefinition = "TEXT")
+    private String plaidInstitutionId;
+
+    /** JSON array of human-readable account/connection lines for the UI */
+    @Column(name = "connection_summary", columnDefinition = "TEXT")
+    private String connectionSummary;
 }

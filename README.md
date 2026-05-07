@@ -135,14 +135,16 @@ Finance reads/writes the `robinhood_transactions` table created by Flyway (`V1__
 
 ### Banking uploads and Plaid (QFX)
 
-Manual **Finance → Banking** uploads (CSV, QFX, etc.) save under **`tracker.finance.banking.import-directory`** (Docker: **`TRACKER_BANKING_IMPORT_DIRECTORY`**, e.g. `/home/ubuntu/imports/banking` on the host when mounted).
+Manual **Admin → Finance → Banking** uploads (CSV, QFX, etc.) save under **`tracker.finance.banking.import-directory`** (Docker: **`TRACKER_BANKING_IMPORT_DIRECTORY`**, e.g. `/home/ubuntu/imports/banking` on the host when mounted).
 
 **Plaid** (optional): set **`TRACKER_PLAID_ENABLED=true`**, **`TRACKER_PLAID_CLIENT_ID`**, **`TRACKER_PLAID_SECRET`**, and **`TRACKER_PLAID_ENVIRONMENT`** (`sandbox`, `development`, or `production`). Authenticated API flow:
 
-1. Create a **banking institution** in the UI (name it e.g. “Bank of America”).
+1. Create a **banking institution** in the UI (placeholders are fine — after Link, the server may **rename** it from Plaid’s institution + account masks).
 2. **`POST /api/finance/banking/plaid/link-token?institutionId=`** — use the returned **`link_token`** in [Plaid Link](https://plaid.com/docs/link/) in a browser to connect BoA (or any supported institution).
-3. **`POST /api/finance/banking/plaid/exchange`** with JSON **`{ "institutionId", "publicToken" }`** from Link’s `onSuccess` — the server stores the Plaid **Item** access token (see Flyway **`V27__banking_plaid_items.sql`**).
+3. **`POST /api/finance/banking/plaid/exchange`** with JSON **`{ "institutionId", "publicToken" }`** from Link’s `onSuccess` — returns **`institutionName`**, **`institutionRenamedFromPlaid`**, and **`connectionSummary`** (account lines). The server stores the Plaid **Item** access token and connection metadata (see Flyway **`V27`**, **`V28`**).
 4. **`POST /api/finance/banking/plaid/sync`** with body like **`scripts/plaid-request.example.json`** — the server pulls **`/transactions`** for the date range, writes a **`.qfx`** file under **`import-directory` / `TRACKER_PLAID_OUTPUT_SUBDIRECTORY`** (default **`plaid`** → e.g. **`/home/ubuntu/imports/banking/plaid/{userId}/{institutionId}/`**), then runs the **same import + dedupe** as a manual upload (`rows_skipped_duplicate` on the import file row, `parse_note` includes a Plaid summary).
+
+Optional: **`GET /api/finance/banking/import-files?from=yyyy-MM-dd&to=yyyy-MM-dd&institutionId=`** lists stored imports in a calendar range (same owner scope).
 
 Re-syncing overlapping dates **skips duplicate transactions** (same owner + date + amount + description hash) and duplicate **files** with identical SHA-256.
 

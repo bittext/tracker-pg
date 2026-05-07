@@ -1,7 +1,15 @@
 package com.svp.tracker.finance.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.plaid.client.ApiClient;
+import com.plaid.client.model.AccountBase;
+import com.plaid.client.model.AccountsGetRequest;
+import com.plaid.client.model.AccountsGetResponse;
 import com.plaid.client.model.CountryCode;
+import com.plaid.client.model.InstitutionsGetByIdRequest;
+import com.plaid.client.model.InstitutionsGetByIdResponse;
+import com.plaid.client.model.Item;
 import com.plaid.client.model.ItemPublicTokenExchangeRequest;
 import com.plaid.client.model.ItemPublicTokenExchangeResponse;
 import com.plaid.client.model.LinkTokenCreateRequest;
@@ -20,6 +28,7 @@ import com.svp.tracker.finance.domain.BankingInstitution;
 import com.svp.tracker.finance.domain.BankingPlaidItem;
 import com.svp.tracker.finance.dto.BankingImportResultDto;
 import com.svp.tracker.finance.dto.BankingPlaidExchangeRequestDto;
+import com.svp.tracker.finance.dto.BankingPlaidExchangeResponseDto;
 import com.svp.tracker.finance.dto.BankingPlaidLinkTokenResponseDto;
 import com.svp.tracker.finance.dto.BankingPlaidStatusDto;
 import com.svp.tracker.finance.dto.BankingPlaidSyncRequestDto;
@@ -35,8 +44,10 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.Locale;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
@@ -61,6 +72,7 @@ public class BankingPlaidService {
     private final BankingInstitutionRepository institutionRepository;
     private final BankingPlaidItemRepository plaidItemRepository;
     private final BankingService bankingService;
+    private final ObjectMapper objectMapper;
 
     private volatile PlaidApi plaidApi;
 
@@ -71,12 +83,13 @@ public class BankingPlaidService {
         }
         boolean configured = plaidProps.apiConfigured();
         if (!configured) {
-            return new BankingPlaidStatusDto(false, false, "");
+            return new BankingPlaidStatusDto(false, false, "", List.of());
         }
         return plaidItemRepository
                 .findByOwnerUserIdAndInstitution_Id(uid, institutionId)
-                .map(item -> new BankingPlaidStatusDto(true, true, maskItemId(item.getItemId())))
-                .orElseGet(() -> new BankingPlaidStatusDto(true, false, ""));
+                .map(item ->
+                        new BankingPlaidStatusDto(true, true, maskItemId(item.getItemId()), parseConnectionLines(item)))
+                .orElseGet(() -> new BankingPlaidStatusDto(true, false, "", List.of()));
     }
 
     public BankingPlaidLinkTokenResponseDto createLinkToken(long institutionId) {
@@ -107,7 +120,7 @@ public class BankingPlaidService {
     }
 
     @Transactional
-    public void exchangePublicToken(BankingPlaidExchangeRequestDto body) {
+    public BankingPlaidExchangeResponseDto exchangePublicToken(BankingPlaidExchangeRequestDto body) {
         requirePlaidApi();
         long uid = currentUserService.requireUserId();
         BankingInstitution inst = institutionRepository
@@ -139,7 +152,36 @@ public class BankingPlaidService {
             row.setCreatedAt(Instant.now());
         }
         plaidItemRepository.save(row);
-        log.info("Plaid Item linked user={} institution={} itemId={}", uid, inst.getId(), maskItemId(resp.getItemId()));
+
+        PlaidConnectionSnapshot snap = fetchPlaidConnectionSnapshot(resp.getAccessToken());
+        row.setPlaidInstitutionId(snap.plaidInstitutionId());
+        try {
+            row.setConnectionSummary(objectMapper.writeValueAsString(snap.summaryLines()));
+        } catch (IOException e) {
+            log.warn("serialize connection_summary: {}", e.getMessage());
+            row.setConnectionSummary("[]");
+        }
+        plaidItemRepository.save(row);
+
+        boolean renamed = false;
+        String suggestion = suggestedInstitutionName(snap.bankDisplayName(), snap.accounts());
+        if (!suggestion.isBlank()) {
+            String resolved = distinctInstitutionName(uid, inst.getId(), suggestion);
+            if (resolved != null && !resolved.equals(inst.getName())) {
+                inst.setName(resolved);
+                institutionRepository.save(inst);
+                renamed = true;
+            }
+        }
+
+        log.info(
+                "Plaid Item linked user={} institution={} itemId={} renamed={}",
+                uid,
+                inst.getId(),
+                maskItemId(resp.getItemId()),
+                renamed);
+
+        return new BankingPlaidExchangeResponseDto(inst.getId(), inst.getName(), renamed, snap.summaryLines());
     }
 
     @Transactional
@@ -315,6 +357,149 @@ public class BankingPlaidService {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Plaid request failed: " + e.getMessage(), e);
         }
     }
+
+    private List<String> parseConnectionLines(BankingPlaidItem item) {
+        if (item == null || item.getConnectionSummary() == null || item.getConnectionSummary().isBlank()) {
+            return List.of();
+        }
+        try {
+            List<String> lines = objectMapper.readValue(item.getConnectionSummary(), new TypeReference<>() {});
+            return lines == null ? List.of() : List.copyOf(lines);
+        } catch (Exception e) {
+            log.debug("parse connection_summary: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    private PlaidConnectionSnapshot fetchPlaidConnectionSnapshot(String accessToken) {
+        try {
+            AccountsGetRequest rq = new AccountsGetRequest()
+                    .clientId(plaidProps.clientId())
+                    .secret(plaidProps.secret())
+                    .accessToken(accessToken);
+            AccountsGetResponse agr = execute(plaidApi().accountsGet(rq));
+            List<AccountBase> accountsRaw = agr.getAccounts() == null ? List.of() : agr.getAccounts();
+            Item itemMeta = agr.getItem();
+            String instId =
+                    itemMeta != null && itemMeta.getInstitutionId() != null
+                            ? itemMeta.getInstitutionId().trim()
+                            : "";
+            String bank =
+                    itemMeta != null && itemMeta.getInstitutionName() != null && !itemMeta.getInstitutionName().isBlank()
+                            ? itemMeta.getInstitutionName().trim()
+                            : "";
+            if (bank.isEmpty() && !instId.isEmpty()) {
+                try {
+                    InstitutionsGetByIdRequest irq = new InstitutionsGetByIdRequest()
+                            .clientId(plaidProps.clientId())
+                            .secret(plaidProps.secret())
+                            .institutionId(instId)
+                            .countryCodes(List.of(CountryCode.US));
+                    InstitutionsGetByIdResponse igr = execute(plaidApi().institutionsGetById(irq));
+                    if (igr.getInstitution() != null
+                            && igr.getInstitution().getName() != null
+                            && !igr.getInstitution().getName().isBlank()) {
+                        bank = igr.getInstitution().getName().trim();
+                    }
+                } catch (Exception e) {
+                    log.debug("Plaid institutions/get_by_id: {}", e.getMessage());
+                }
+            }
+            if (bank.isEmpty()) {
+                bank = "Linked bank";
+            }
+            List<String> lines = buildAccountSummaryLines(accountsRaw);
+            List<AccountBase> accountsCopy = List.copyOf(accountsRaw);
+            return new PlaidConnectionSnapshot(instId.isEmpty() ? null : instId, bank, accountsCopy, lines);
+        } catch (Exception e) {
+            log.warn("Plaid accounts/get after link failed: {}", e.toString());
+            return new PlaidConnectionSnapshot(null, "Linked bank", List.of(), List.of());
+        }
+    }
+
+    private List<String> buildAccountSummaryLines(List<AccountBase> accounts) {
+        List<AccountBase> sorted = new ArrayList<>(accounts);
+        sorted.sort(Comparator.comparing(a -> plaidAccountSortKey(a)));
+        List<String> lines = new ArrayList<>();
+        for (AccountBase a : sorted) {
+            String nm = plaidFirstNonBlankName(a.getOfficialName(), a.getName());
+            String sub = "";
+            if (a.getSubtype() != null) {
+                sub = a.getSubtype().name();
+            } else if (a.getType() != null) {
+                sub = a.getType().name();
+            }
+            StringBuilder sb = new StringBuilder(nm);
+            if (!sub.isBlank()) {
+                sb.append(" (").append(sub.replace('_', ' ')).append(')');
+            }
+            if (a.getMask() != null && !a.getMask().isBlank()) {
+                sb.append(" · …").append(a.getMask().trim());
+            }
+            lines.add(sb.toString());
+        }
+        return lines;
+    }
+
+    private static String plaidAccountSortKey(AccountBase a) {
+        String m = a.getMask();
+        String n = plaidFirstNonBlankName(a.getOfficialName(), a.getName());
+        return (m == null ? "" : m) + "\0" + n;
+    }
+
+    private static String plaidFirstNonBlankName(String primary, String secondary) {
+        if (primary != null && !primary.isBlank()) {
+            return primary.trim();
+        }
+        if (secondary != null && !secondary.isBlank()) {
+            return secondary.trim();
+        }
+        return "Account";
+    }
+
+    private static String suggestedInstitutionName(String bankDisplayName, List<AccountBase> accounts) {
+        String bank =
+                bankDisplayName == null || bankDisplayName.isBlank() ? "Linked bank" : bankDisplayName.trim();
+        if (accounts.isEmpty()) {
+            return bank;
+        }
+        if (accounts.size() == 1) {
+            AccountBase a = accounts.get(0);
+            if (a.getMask() != null && !a.getMask().isBlank()) {
+                return bank + " · …" + a.getMask().trim();
+            }
+            return bank + " · " + plaidFirstNonBlankName(a.getOfficialName(), a.getName());
+        }
+        return bank + " · " + accounts.size() + " accounts";
+    }
+
+    private String distinctInstitutionName(long ownerUserId, long institutionId, String desired) {
+        String trimmed = desired.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        if (trimmed.length() > 240) {
+            trimmed = trimmed.substring(0, 240);
+        }
+        for (int i = 0; i < 100; i++) {
+            String candidate = i == 0 ? trimmed : trimmed + " (" + i + ")";
+            Optional<BankingInstitution> existing =
+                    institutionRepository.findByOwnerUserIdAndNameIgnoreCase(ownerUserId, candidate);
+            if (existing.isEmpty()) {
+                return candidate;
+            }
+            if (existing.get().getId().equals(institutionId)) {
+                return candidate;
+            }
+        }
+        return trimmed + " #" + institutionId;
+    }
+
+    private record PlaidConnectionSnapshot(
+            String plaidInstitutionId,
+            String bankDisplayName,
+            List<AccountBase> accounts,
+            List<String> summaryLines) {}
 
     private static String maskItemId(String itemId) {
         if (itemId == null || itemId.length() < 8) {
