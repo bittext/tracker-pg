@@ -82,19 +82,23 @@
         </div>
       } @else if (plaidStatus && !plaidStatus.plaidConfigured) {
         <p class="muted">Plaid is not enabled on the server (<code>TRACKER_PLAID_ENABLED</code> and credentials).</p>
-      } @else if (uploadInstitutionId != null) {
+      } @else {
         <p class="muted banking-plaid-status-line">
-          <strong>{{ institutionName(uploadInstitutionId) }}</strong>
-          @if (plaidStatus?.linked) {
+          @if (uploadInstitutionId != null) {
+            <strong>{{ institutionName(uploadInstitutionId) }}</strong>
+          } @else {
+            <strong>No institution selected yet</strong>
+          }
+          @if (uploadInstitutionId != null && plaidStatus?.linked) {
             <span> · Linked</span>
             @if (plaidStatus?.itemIdSuffix) {
               <span> · Item <code>{{ plaidStatus?.itemIdSuffix }}</code></span>
             }
           } @else {
-            <span> · Not linked — choose <strong>Connect with Plaid</strong>.</span>
+            <span> · Choose <strong>Connect with Plaid</strong> (an institution will be created if needed).</span>
           }
         </p>
-        @if (plaidStatus?.linked && (plaidStatus?.connectionSummary ?? []).length > 0) {
+        @if (uploadInstitutionId != null && plaidStatus?.linked && (plaidStatus?.connectionSummary ?? []).length > 0) {
           <ul class="banking-plaid-accounts">
             @for (line of plaidStatus?.connectionSummary ?? []; track line) {
               <li>{{ line }}</li>
@@ -131,7 +135,7 @@
             color="primary"
             type="button"
             (click)="runPlaidSync()"
-            [disabled]="plaidSyncBusy || !plaidStatus?.linked || (plaidStatus && !plaidStatus.plaidConfigured)"
+            [disabled]="uploadInstitutionId == null || plaidSyncBusy || !plaidStatus?.linked || (plaidStatus && !plaidStatus.plaidConfigured)"
           >
             <mat-icon>sync</mat-icon>
             Sync from Plaid

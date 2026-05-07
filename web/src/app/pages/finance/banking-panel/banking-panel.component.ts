@@ -468,12 +468,9 @@ export class BankingPanelComponent implements OnInit {
   }
 
   async openPlaidLink(): Promise<void> {
-    const inst = this.plaidTargetInstitutionId();
-    if (inst == null) {
-      return;
-    }
     this.plaidLinkOpening = true;
     try {
+      const inst = await this.ensurePlaidInstitutionForConnect();
       await this.ensurePlaidScript();
       if (!window.Plaid) {
         throw new Error('Plaid global missing after script load');
@@ -491,6 +488,10 @@ export class BankingPanelComponent implements OnInit {
                   msg += ` Institution name set to “${ex.institutionName}”.`;
                 }
                 this.snackBar.open(msg, undefined, { duration: 7000 });
+                this.uploadInstitutionId = ex.institutionId;
+                if (this.segment === 'ledger') {
+                  this.plaidLedgerInstitutionId = ex.institutionId;
+                }
                 this.reloadInstitutions();
                 this.refreshPlaidStatus();
                 if (this.segment === 'imports') {
@@ -516,6 +517,34 @@ export class BankingPanelComponent implements OnInit {
       const msg = e instanceof Error ? e.message : String(e);
       this.snackBar.open(`Plaid Link could not start — ${msg}`, undefined, { duration: 8000 });
     }
+  }
+
+  /**
+   * Plaid connect should be available by default. If no institution exists yet, create one now so
+   * Link can proceed; exchange may then rename it to the bank/account-derived name.
+   */
+  private async ensurePlaidInstitutionForConnect(): Promise<number> {
+    const existing = this.plaidTargetInstitutionId();
+    if (existing != null) {
+      return existing;
+    }
+    const seedBase = 'Plaid connection';
+    let created: BankingInstitutionDto;
+    try {
+      created = await firstValueFrom(this.api.createBankingInstitution(seedBase));
+    } catch {
+      // In case that seed already exists (or race), retry with timestamp suffix.
+      const suffix = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
+      created = await firstValueFrom(this.api.createBankingInstitution(`${seedBase} ${suffix}`));
+    }
+    this.institutions = [...this.institutions, created].sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+    );
+    this.uploadInstitutionId = created.id;
+    if (this.segment === 'ledger') {
+      this.plaidLedgerInstitutionId = created.id;
+    }
+    return created.id;
   }
 
   runPlaidSync(): void {
