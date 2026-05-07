@@ -1,7 +1,5 @@
 package com.svp.tracker.finance.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.plaid.client.ApiClient;
 import com.plaid.client.model.AccountBase;
 import com.plaid.client.model.AccountsGetRequest;
@@ -72,7 +70,6 @@ public class BankingPlaidService {
     private final BankingInstitutionRepository institutionRepository;
     private final BankingPlaidItemRepository plaidItemRepository;
     private final BankingService bankingService;
-    private final ObjectMapper objectMapper;
 
     private volatile PlaidApi plaidApi;
 
@@ -155,12 +152,7 @@ public class BankingPlaidService {
 
         PlaidConnectionSnapshot snap = fetchPlaidConnectionSnapshot(resp.getAccessToken());
         row.setPlaidInstitutionId(snap.plaidInstitutionId());
-        try {
-            row.setConnectionSummary(objectMapper.writeValueAsString(snap.summaryLines()));
-        } catch (IOException e) {
-            log.warn("serialize connection_summary: {}", e.getMessage());
-            row.setConnectionSummary("[]");
-        }
+        row.setConnectionSummary(encodeConnectionLines(snap.summaryLines()));
         plaidItemRepository.save(row);
 
         boolean renamed = false;
@@ -362,13 +354,43 @@ public class BankingPlaidService {
         if (item == null || item.getConnectionSummary() == null || item.getConnectionSummary().isBlank()) {
             return List.of();
         }
-        try {
-            List<String> lines = objectMapper.readValue(item.getConnectionSummary(), new TypeReference<>() {});
-            return lines == null ? List.of() : List.copyOf(lines);
-        } catch (Exception e) {
-            log.debug("parse connection_summary: {}", e.getMessage());
+        return decodeConnectionLines(item.getConnectionSummary());
+    }
+
+    /**
+     * Persist summary lines as a single text value without requiring a Jackson ObjectMapper bean.
+     * Format: one sanitized line per row, joined by '\n'.
+     */
+    private static String encodeConnectionLines(List<String> lines) {
+        if (lines == null || lines.isEmpty()) {
+            return "";
+        }
+        List<String> cleaned = new ArrayList<>();
+        for (String line : lines) {
+            if (line == null) {
+                continue;
+            }
+            String t = line.replace('\n', ' ').replace('\r', ' ').trim();
+            if (!t.isEmpty()) {
+                cleaned.add(t);
+            }
+        }
+        return String.join("\n", cleaned);
+    }
+
+    private static List<String> decodeConnectionLines(String raw) {
+        if (raw == null || raw.isBlank()) {
             return List.of();
         }
+        String[] parts = raw.split("\\R");
+        List<String> out = new ArrayList<>();
+        for (String p : parts) {
+            String t = p == null ? "" : p.trim();
+            if (!t.isEmpty()) {
+                out.add(t);
+            }
+        }
+        return out;
     }
 
     private PlaidConnectionSnapshot fetchPlaidConnectionSnapshot(String accessToken) {
