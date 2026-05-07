@@ -14,8 +14,8 @@
 
 BEGIN;
 
--- One statement: Postgres will not truncate banking_import_files alone while banking_transactions
--- has an FK to it (even when empty); listing both satisfies ordering.
-TRUNCATE banking_transactions, banking_import_files RESTART IDENTITY;
+-- CASCADE truncates banking_transactions first (FK targets banking_import_files). Multi-table
+-- TRUNCATE without CASCADE still errors on some Postgres builds when import_files is touched second.
+TRUNCATE banking_import_files CASCADE RESTART IDENTITY;
 
 COMMIT;
