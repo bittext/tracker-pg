@@ -195,26 +195,39 @@ public class BankingService {
 
         if (!isPdf) {
             List<BankingParsedRow> rows = parse.rows();
-            List<String> hashes = new ArrayList<>(rows.size());
+            List<String> lookupHashes = new ArrayList<>(rows.size() * 2);
+            List<String> primaryHashes = new ArrayList<>(rows.size());
+            List<String> legacyHashes = new ArrayList<>(rows.size());
             for (BankingParsedRow r : rows) {
-                hashes.add(BankingHashUtil.transactionDedupeHex(
-                        uid, institutionId, r.date(), r.amount(), r.description()));
+                String legacy = BankingHashUtil.transactionDedupeHex(
+                        uid, institutionId, r.date(), r.amount(), r.description());
+                legacyHashes.add(legacy);
+                lookupHashes.add(legacy);
+                String fit = r.ofxFitId();
+                if (fit != null && !fit.isBlank()) {
+                    String primary = BankingHashUtil.transactionDedupeHexForOfxFit(uid, institutionId, fit);
+                    primaryHashes.add(primary);
+                    lookupHashes.add(primary);
+                } else {
+                    primaryHashes.add(legacy);
+                }
             }
-            Set<String> existingDb = lookupExistingHashes(uid, hashes);
-            Set<String> seen = new HashSet<>();
+            Set<String> existingDb = lookupExistingHashes(uid, lookupHashes);
+            Set<String> seenPrimary = new HashSet<>();
             fileEntity = importFileRepository.save(fileEntity);
             for (int i = 0; i < rows.size(); i++) {
                 BankingParsedRow r = rows.get(i);
-                String h = hashes.get(i);
-                if (seen.contains(h)) {
+                String primary = primaryHashes.get(i);
+                String legacy = legacyHashes.get(i);
+                if (seenPrimary.contains(primary)) {
                     skippedDup++;
                     continue;
                 }
-                seen.add(h);
-                if (existingDb.contains(h)) {
+                if (existingDb.contains(primary) || existingDb.contains(legacy)) {
                     skippedDup++;
                     continue;
                 }
+                seenPrimary.add(primary);
                 BankingTransaction t = new BankingTransaction();
                 t.setOwnerUserId(uid);
                 t.setInstitution(inst);
@@ -222,9 +235,12 @@ public class BankingService {
                 t.setTxnDate(r.date());
                 t.setAmount(r.amount());
                 t.setDescription(r.description() == null ? "" : r.description());
-                t.setDedupeHash(h);
+                t.setDedupeHash(primary);
                 transactionRepository.save(t);
-                existingDb.add(h);
+                existingDb.add(primary);
+                if (!primary.equals(legacy)) {
+                    existingDb.add(legacy);
+                }
                 inserted++;
             }
             if (rows.isEmpty() && note.isEmpty()) {

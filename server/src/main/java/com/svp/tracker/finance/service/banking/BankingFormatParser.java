@@ -32,6 +32,7 @@ public final class BankingFormatParser {
     private static final Pattern OFX_AMT = Pattern.compile("<TRNAMT>\\s*([^<\\s]+)", Pattern.CASE_INSENSITIVE);
     private static final Pattern OFX_NAME = Pattern.compile("<NAME>\\s*([^<]*)", Pattern.CASE_INSENSITIVE);
     private static final Pattern OFX_MEMO = Pattern.compile("<MEMO>\\s*([^<]*)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern OFX_FITID = Pattern.compile("<FITID>\\s*([^<\\n\\r]*)", Pattern.CASE_INSENSITIVE);
 
     private BankingFormatParser() {}
 
@@ -108,7 +109,7 @@ public final class BankingFormatParser {
                     amt = cred.subtract(deb);
                 }
                 String desc = descIdx != null ? cellAt(cells, descIdx) : "";
-                out.add(new BankingParsedRow(d, amt, desc == null ? "" : desc.trim()));
+                out.add(new BankingParsedRow(d, amt, desc == null ? "" : desc.trim(), null));
             } catch (RuntimeException ex) {
                 skipped++;
             }
@@ -139,7 +140,7 @@ public final class BankingFormatParser {
                     if (desc.isEmpty() && memo.length() > 0) {
                         desc = memo.toString().trim();
                     }
-                    out.add(new BankingParsedRow(curDate, curAmt, desc));
+                    out.add(new BankingParsedRow(curDate, curAmt, desc, null));
                 }
                 curDate = null;
                 curAmt = null;
@@ -166,7 +167,7 @@ public final class BankingFormatParser {
             if (desc.isEmpty() && memo.length() > 0) {
                 desc = memo.toString().trim();
             }
-            out.add(new BankingParsedRow(curDate, curAmt, desc));
+            out.add(new BankingParsedRow(curDate, curAmt, desc, null));
         }
         return new BankingParseOutcome(out, "");
     }
@@ -191,7 +192,9 @@ public final class BankingFormatParser {
                 String name = nz(first(OFX_NAME, block));
                 String memo = nz(first(OFX_MEMO, block));
                 String desc = (name + " " + memo).trim();
-                rows.add(new BankingParsedRow(d, a, desc));
+                String fitRaw = nz(first(OFX_FITID, block));
+                String fitId = fitRaw.isEmpty() ? null : fitRaw.trim();
+                rows.add(new BankingParsedRow(d, a, desc, fitId));
             } catch (RuntimeException ignored) {
                 // skip bad block
             }
@@ -268,7 +271,7 @@ public final class BankingFormatParser {
                         amt = cred.subtract(deb);
                     }
                     String desc = descIdx != null ? fmt.formatCellValue(row.getCell(descIdx)).trim() : "";
-                    out.add(new BankingParsedRow(d, amt, desc));
+                    out.add(new BankingParsedRow(d, amt, desc, null));
                 } catch (RuntimeException ex) {
                     skipped++;
                 }

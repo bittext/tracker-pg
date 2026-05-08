@@ -183,24 +183,69 @@ export class BankingPanelComponent implements OnInit {
     this.institutionsLoading = true;
     this.api.listBankingInstitutions().subscribe({
       next: (rows) => {
-        this.institutions = rows;
         this.institutionsLoading = false;
-        if (this.uploadInstitutionId == null && rows.length) {
-          this.uploadInstitutionId = rows[0].id;
-        }
-        if (this.segment === 'ledger' && rows.length) {
-          if (this.plaidLedgerInstitutionId == null) {
-            const fid = this.filterInstitutionId ? Number(this.filterInstitutionId) : NaN;
-            this.plaidLedgerInstitutionId = Number.isFinite(fid) && fid > 0 ? fid : rows[0].id;
-          }
-        }
-        this.refreshPlaidStatus();
+        this.applyInstitutionListFromServer(rows);
       },
       error: (e) => {
         this.institutionsLoading = false;
         this.snackBar.open(`Could not load institutions — ${formatHttpErrorDetail(e)}`, undefined, { duration: 5000 });
       },
     });
+  }
+
+  /** Defensive: same id twice (race / merge) would duplicate mat-select options. */
+  private dedupeInstitutionsById(rows: BankingInstitutionDto[]): BankingInstitutionDto[] {
+    const seen = new Set<number>();
+    const out: BankingInstitutionDto[] = [];
+    for (const r of rows) {
+      if (!seen.has(r.id)) {
+        seen.add(r.id);
+        out.push(r);
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Applies a fresh institution list from the API: dedupe, sort, fix invalid mat-select targets, refresh Plaid status.
+   */
+  private applyInstitutionListFromServer(rows: BankingInstitutionDto[]): void {
+    const sorted = this.dedupeInstitutionsById(rows).sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+    );
+    this.institutions = sorted;
+    const ids = new Set(sorted.map((r) => r.id));
+
+    if (this.uploadInstitutionId != null && !ids.has(this.uploadInstitutionId)) {
+      this.uploadInstitutionId = null;
+    }
+    if (this.uploadInstitutionId == null && sorted.length) {
+      this.uploadInstitutionId = sorted[0].id;
+    }
+
+    if (this.segment === 'ledger') {
+      if (this.plaidLedgerInstitutionId != null && !ids.has(this.plaidLedgerInstitutionId)) {
+        this.plaidLedgerInstitutionId = null;
+      }
+      if (sorted.length) {
+        if (this.plaidLedgerInstitutionId == null) {
+          const fid = this.filterInstitutionId ? Number(this.filterInstitutionId) : NaN;
+          this.plaidLedgerInstitutionId =
+              Number.isFinite(fid) && fid > 0 && ids.has(fid) ? fid : sorted[0].id;
+        }
+      } else {
+        this.plaidLedgerInstitutionId = null;
+      }
+    }
+
+    this.refreshPlaidStatus();
+  }
+
+  private mergeInstitutionRow(row: BankingInstitutionDto): void {
+    const merged = [...this.institutions.filter((i) => i.id !== row.id), row];
+    this.institutions = merged.sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+    );
   }
 
   createInstitution(): void {
@@ -213,9 +258,7 @@ export class BankingPanelComponent implements OnInit {
       next: (row) => {
         this.createBusy = false;
         this.newInstitutionName = '';
-        this.institutions = [...this.institutions, row].sort((a, b) =>
-          a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
-        );
+        this.mergeInstitutionRow(row);
         this.uploadInstitutionId = row.id;
         this.snackBar.open('Institution created', undefined, { duration: 2500 });
       },
@@ -644,10 +687,35 @@ export class BankingPanelComponent implements OnInit {
    * Link can proceed; exchange may then rename it to the bank/account-derived name.
    */
   private async ensurePlaidInstitutionForConnect(): Promise<number> {
-    const existing = this.plaidTargetInstitutionId();
+    let existing = this.plaidTargetInstitutionId();
     if (existing != null) {
       return existing;
     }
+
+    // Avoid racing ngOnInit's list: opening Link before the first load finishes could append a new institution
+    // while the in-flight GET returns the same rows again, producing duplicate mat-options. Always reconcile from server
+    // before auto-creating.
+    const rows = await firstValueFrom(this.api.listBankingInstitutions());
+    this.applyInstitutionListFromServer(rows);
+
+    existing = this.plaidTargetInstitutionId();
+    if (existing != null) {
+      return existing;
+    }
+
+    if (this.institutions.length > 0) {
+      const pick = this.plaidTargetInstitutionId();
+      if (pick != null) {
+        return pick;
+      }
+      if (this.segment === 'imports') {
+        this.uploadInstitutionId = this.institutions[0].id;
+        return this.institutions[0].id;
+      }
+      this.plaidLedgerInstitutionId = this.institutions[0].id;
+      return this.institutions[0].id;
+    }
+
     const seedBase = 'Plaid connection';
     let created: BankingInstitutionDto;
     try {
@@ -657,10 +725,8 @@ export class BankingPanelComponent implements OnInit {
       const suffix = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-');
       created = await firstValueFrom(this.api.createBankingInstitution(`${seedBase} ${suffix}`));
     }
-    this.institutions = [...this.institutions, created].sort((a, b) =>
-      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
-    );
-    this.uploadInstitutionId = created.id;
+    this.mergeInstitutionRow(created);
+    this.uploadInstitutionId = this.segment === 'imports' ? created.id : this.uploadInstitutionId;
     if (this.segment === 'ledger') {
       this.plaidLedgerInstitutionId = created.id;
     }
