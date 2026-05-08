@@ -53,6 +53,8 @@ tracker:
         secret: ""
         environment: sandbox
         output-subdirectory: plaid
+        # Optional: seals Plaid access_token in DB (same as TRACKER_PLAID_ACCESS_TOKEN_ENCRYPTION_KEY).
+        # access-token-encryption-key: ""
     alerts:
       # When true + email-from + aws-region, SES also sends transactional account emails (first profile, password change).
       # Set true only after SES/SNS + aws-region + AWS credentials are configured for local tests.

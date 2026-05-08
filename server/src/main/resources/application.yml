@@ -123,6 +123,8 @@ tracker:
         environment: ${TRACKER_PLAID_ENVIRONMENT:sandbox}
         # e.g. import-directory=/home/ubuntu/imports/banking and output-subdirectory=plaid → .../imports/banking/plaid/{user}/{institution}/...
         output-subdirectory: ${TRACKER_PLAID_OUTPUT_SUBDIRECTORY:plaid}
+        # AES-256-GCM sealing for access_token in DB (passphrase or Base64 32-byte key). Empty = store plaintext (dev only).
+        access-token-encryption-key: ${TRACKER_PLAID_ACCESS_TOKEN_ENCRYPTION_KEY:}
     news-enabled: true
     news-max-items: 10
     news-timeout-ms: 8000

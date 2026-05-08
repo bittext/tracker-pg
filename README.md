@@ -137,7 +137,7 @@ Finance reads/writes the `robinhood_transactions` table created by Flyway (`V1__
 
 Manual **Admin → Finance → Banking** uploads (CSV, QFX, etc.) save under **`tracker.finance.banking.import-directory`** (Docker: **`TRACKER_BANKING_IMPORT_DIRECTORY`**, e.g. `/home/ubuntu/imports/banking` on the host when mounted).
 
-**Plaid** (optional): set **`TRACKER_PLAID_ENABLED=true`**, **`TRACKER_PLAID_CLIENT_ID`**, **`TRACKER_PLAID_SECRET`**, and **`TRACKER_PLAID_ENVIRONMENT`** (`sandbox`, `development`, or `production`). Authenticated API flow:
+**Plaid** (optional): set **`TRACKER_PLAID_ENABLED=true`**, **`TRACKER_PLAID_CLIENT_ID`**, **`TRACKER_PLAID_SECRET`**, and **`TRACKER_PLAID_ENVIRONMENT`** (`sandbox`, `development`, or `production`). For **encryption at rest** of stored Plaid access tokens, set **`TRACKER_PLAID_ACCESS_TOKEN_ENCRYPTION_KEY`** to a long random secret (or Base64-encoded 32 raw bytes); when unset, tokens remain plaintext in Postgres (development only). Authenticated API flow:
 
 1. Create a **banking institution** in the UI (placeholders are fine — after Link, the server may **rename** it from Plaid’s institution + account masks).
 2. **`POST /api/finance/banking/plaid/link-token?institutionId=`** — use the returned **`link_token`** in [Plaid Link](https://plaid.com/docs/link/) in a browser to connect BoA (or any supported institution).

@@ -79,6 +79,7 @@ public class BankingPlaidService {
     private final BankingInstitutionRepository institutionRepository;
     private final BankingPlaidItemRepository plaidItemRepository;
     private final BankingService bankingService;
+    private final PlaidAccessTokenCrypto plaidAccessTokenCrypto;
 
     private volatile PlaidApi plaidApi;
 
@@ -285,7 +286,7 @@ public class BankingPlaidService {
         }
 
         List<Transaction> fetched =
-                fetchAllTransactions(link.getAccessToken(), start, end, effectiveAccountFilter);
+                fetchAllTransactions(requirePlainAccessToken(link), start, end, effectiveAccountFilter);
 
         if (fetched.isEmpty()) {
             String msg =
@@ -639,6 +640,27 @@ public class BankingPlaidService {
         return id.trim();
     }
 
+    /**
+     * Returns the Plaid access token for API calls. When sealing is enabled and the row still holds a legacy plaintext
+     * token, persists a sealed copy then returns the plaintext for this request.
+     */
+    private String requirePlainAccessToken(BankingPlaidItem link) {
+        String stored = link.getAccessToken();
+        if (stored == null || stored.isBlank()) {
+            return stored;
+        }
+        if (!plaidAccessTokenCrypto.isEnabled()) {
+            return stored;
+        }
+        if (stored.startsWith(PlaidAccessTokenCrypto.SEAL_PREFIX)) {
+            return plaidAccessTokenCrypto.open(stored);
+        }
+        String sealed = plaidAccessTokenCrypto.seal(stored);
+        link.setAccessToken(sealed);
+        plaidItemRepository.save(link);
+        return stored;
+    }
+
     private void persistPlaidItemRow(
             long uid,
             BankingInstitution institution,
@@ -652,7 +674,7 @@ public class BankingPlaidService {
         row.setOwnerUserId(uid);
         row.setInstitution(institution);
         row.setItemId(itemId);
-        row.setAccessToken(accessToken);
+        row.setAccessToken(plaidAccessTokenCrypto.seal(accessToken));
         row.setUpdatedAt(touchedAt);
         row.setCreatedAt(touchedAt);
         row.setPlaidInstitutionId(plaidInstitutionId == null ? null : plaidInstitutionId.trim());

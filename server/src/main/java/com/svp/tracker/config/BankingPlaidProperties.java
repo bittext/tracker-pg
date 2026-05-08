@@ -16,7 +16,13 @@ public record BankingPlaidProperties(
          * written (e.g. {@code plaid} → {@code .../imports/banking/plaid/...} on the host when import-directory is
          * {@code .../imports/banking}).
          */
-        String outputSubdirectory) {
+        String outputSubdirectory,
+        /**
+         * When non-blank, Plaid Item {@code access_token} values are sealed at rest with AES-256-GCM. Use a long
+         * random passphrase (SHA-256–derived key) or Base64-encoded 32 raw bytes. Leave blank only for local/dev
+         * where plaintext at rest is acceptable.
+         */
+        String accessTokenEncryptionKey) {
 
     public BankingPlaidProperties {
         if (clientId == null) {
@@ -41,6 +47,11 @@ public record BankingPlaidProperties(
             if (outputSubdirectory.isBlank()) {
                 outputSubdirectory = "plaid";
             }
+        }
+        if (accessTokenEncryptionKey == null) {
+            accessTokenEncryptionKey = "";
+        } else {
+            accessTokenEncryptionKey = accessTokenEncryptionKey.trim();
         }
     }
 

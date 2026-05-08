@@ -18,6 +18,8 @@ The program includes:
 - Data protection and secrets management
 - Risk assessment and remediation tracking
 
+When **`TRACKER_PLAID_ACCESS_TOKEN_ENCRYPTION_KEY`** is set, Plaid Item access tokens are sealed in the database with **AES-256-GCM** (application-level encryption at rest). Legacy plaintext rows are re-sealed on the next successful sync.
+
 ## Plaid questionnaire evidence
 
 For a questionnaire-friendly **theme-to-evidence** mapping (no source paths or filenames—suitable alongside public policy text), see:

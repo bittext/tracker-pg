@@ -74,7 +74,8 @@
         <strong>Connect with Plaid</strong> opens Plaid Link in this browser. After linking, <strong>Sync from Plaid</strong>
         downloads transactions for the date range, writes a QFX file under the server’s
         <code>plaid/</code> subdirectory, and imports rows (skipping duplicates already in the ledger). Configure
-        <code>TRACKER_PLAID_*</code> and <code>TRACKER_BANKING_IMPORT_DIRECTORY</code> on the API.
+        <code>TRACKER_PLAID_*</code>, optional <code>TRACKER_PLAID_ACCESS_TOKEN_ENCRYPTION_KEY</code> (at-rest token sealing),
+        and <code>TRACKER_BANKING_IMPORT_DIRECTORY</code> on the API.
       </p>
       @if (plaidStatusLoading) {
         <div class="banking-spinner banking-spinner--inline">
