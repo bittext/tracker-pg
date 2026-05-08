@@ -1,6 +1,6 @@
-# Tracker (PostgreSQL)
+# Tracker (PostgreSQL) — **Health Tracker & PFM**
 
-Full **Tracker** REST API (auth, fitness, management, finance, logs, OpenAPI) backed by **PostgreSQL** with **Flyway** migrations. This project sits next to the Oracle **tracker** app (same parent folder) on port **9091** so it can run alongside the Oracle-backed server on **9090**.
+Full **Health Tracker & PFM (Personal Financial Management)** REST API (auth, fitness, management, finance, logs, OpenAPI) backed by **PostgreSQL** with **Flyway** migrations. This project sits next to the Oracle **tracker** app (same parent folder) on port **9091** so it can run alongside the Oracle-backed server on **9090**.
 
 ## Prerequisites
 
@@ -246,7 +246,7 @@ After the database exists and is populated, use the **Routine stack redeploy** c
 
 ## Web UI (Angular)
 
-This repo includes a copy of the Tracker Angular app under **`web/`**. Dev server **`web/proxy.conf.json`** forwards `/api` to **`http://127.0.0.1:9091`** (the tracker-pg API).
+This repo includes a copy of the Health Tracker & PFM Angular app under **`web/`**. Dev server **`web/proxy.conf.json`** forwards `/api` to **`http://127.0.0.1:9091`** (the tracker-pg API).
 
 ```bash
 cd web

@@ -9,5 +9,5 @@ public record BankingPlaidExchangeResponseDto(
         boolean institutionRenamedFromPlaid,
         /** One line per linked account / connection detail. */
         List<String> connectionSummary,
-        /** All Tracker banking institution ids created or updated for this Plaid Item (anchor first). */
+        /** All banking institution ids created or updated for this Plaid Item (anchor first). */
         List<Long> linkedInstitutionIds) {}

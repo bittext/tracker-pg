@@ -22,6 +22,7 @@ import com.plaid.client.model.TransactionsSyncResponse;
 import com.plaid.client.model.TransactionsUpdateStatus;
 import com.plaid.client.request.PlaidApi;
 import com.svp.tracker.auth.security.CurrentUserService;
+import com.svp.tracker.config.ApplicationBranding;
 import com.svp.tracker.config.BankingImportProperties;
 import com.svp.tracker.config.BankingPlaidProperties;
 import com.svp.tracker.finance.domain.BankingInstitution;
@@ -110,7 +111,7 @@ public class BankingPlaidService {
         LinkTokenCreateRequest req = new LinkTokenCreateRequest()
                 .clientId(plaidProps.clientId())
                 .secret(plaidProps.secret())
-                .clientName("Tracker PG")
+                .clientName(ApplicationBranding.SHORT_NAME)
                 .language("en")
                 .countryCodes(List.of(CountryCode.US))
                 .user(user)

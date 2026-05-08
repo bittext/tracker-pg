@@ -1,6 +1,7 @@
 package com.svp.tracker.finance.service;
 
 import com.svp.tracker.auth.security.CurrentUserService;
+import com.svp.tracker.config.ApplicationBranding;
 import com.svp.tracker.config.FinanceAlertProperties;
 import com.svp.tracker.finance.domain.FinanceAlertDeliveryStatus;
 import com.svp.tracker.finance.domain.FinanceAlertEvent;
@@ -127,14 +128,14 @@ public class FinanceAlertEvaluationService {
     }
 
     private static String subject(FinanceStockAlert alert, YahooExtendedQuoteDto q) {
-        return "Tracker alert: " + alert.getSymbol() + " reached " + alert.getThresholdValue();
+        return ApplicationBranding.SHORT_NAME + " alert: " + alert.getSymbol() + " reached " + alert.getThresholdValue();
     }
 
     private static String body(FinanceStockAlert alert, YahooExtendedQuoteDto q, Instant now) {
         String observed = alert.getTriggerType() == FinanceStockAlertTriggerType.PRICE_AT_OR_ABOVE
                 ? "price $" + fmt(q.regularMarketPrice())
                 : "session change " + fmt(q.regularMarketChangePercent()) + "%";
-        return "Tracker finance alert fired at "
+        return ApplicationBranding.SHORT_NAME + " finance alert fired at "
                 + now
                 + "\nSymbol: "
                 + alert.getSymbol()

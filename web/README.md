@@ -1,4 +1,4 @@
-# Tracker (PostgreSQL) — Web UI
+# Health Tracker & PFM (Personal Financial Management) — Web UI
 
 Angular front end for the **tracker-pg** API. Same features as the Oracle `tracker/web` app; dev proxy targets **port 9091** (`proxy.conf.json`).
 

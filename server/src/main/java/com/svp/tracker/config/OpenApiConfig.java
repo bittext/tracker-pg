@@ -16,11 +16,12 @@ public class OpenApiConfig {
         return new OpenAPI()
                 .info(
                         new Info()
-                                .title("Tracker API")
+                                .title("Health Tracker & PFM API")
                                 .description(
-                                        "REST API for exercise, finance, and admin diagnostics in Project Tracker.")
+                                        "REST API for exercise, finance, and admin diagnostics — Health Tracker & PFM"
+                                                + " (Personal Financial Management).")
                                 .version("v1")
-                                .contact(new Contact().name("Tracker Team"))
+                                .contact(new Contact().name(ApplicationBranding.DISPLAY_NAME))
                                 .license(new License().name("Proprietary")));
     }
 }

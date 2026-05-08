@@ -449,7 +449,7 @@ export interface BankingPlaidExchangeResponseDto {
   institutionName: string;
   institutionRenamedFromPlaid: boolean;
   connectionSummary: string[];
-  /** Tracker institution ids created or updated for this Plaid Item (anchor first). */
+  /** Banking institution ids created or updated for this Plaid Item (anchor first). */
   linkedInstitutionIds?: number[];
 }
 

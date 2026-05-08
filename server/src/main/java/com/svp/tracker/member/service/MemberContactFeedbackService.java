@@ -64,7 +64,7 @@ public class MemberContactFeedbackService {
         Long memberPublicId = sender.getMemberPublicId();
         String body =
                 """
-                Tracker — member feedback
+                Health Tracker & PFM — member feedback
                 ---------------------------
 
                 From (member-chosen name): %s
@@ -91,7 +91,7 @@ public class MemberContactFeedbackService {
                                 userId,
                                 memberPublicId != null ? memberPublicId.toString() : "(not assigned yet)",
                                 replyToEmail);
-        String subject = "[Tracker feedback] " + trimSubject(req.subject());
+        String subject = "[Health Tracker & PFM feedback] " + trimSubject(req.subject());
         if (!memberTransactionalEmailService.sendFeedbackToAdmins(recipients, subject, body, replyToEmail)) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_GATEWAY, "Email delivery failed. Please try again later or contact support another way.");

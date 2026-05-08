@@ -82,8 +82,8 @@ public class FinanceAlertDispatchService {
         return sendEmail(
                 pseudo,
                 emailAddress,
-                "Tracker finance alert test",
-                "This is a Tracker finance alert test email. Your alert email channel is configured.");
+                "Health Tracker & PFM finance alert test",
+                "This is a Health Tracker & PFM finance alert test email. Your alert email channel is configured.");
     }
 
     public FinanceAlertEvent testSms(long ownerUserId, String mobileE164) {
@@ -99,7 +99,7 @@ public class FinanceAlertDispatchService {
         return sendSms(
                 pseudo,
                 mobileE164,
-                "Tracker finance alert test: your SMS channel is configured.");
+                "Health Tracker & PFM finance alert test: your SMS channel is configured.");
     }
 
     private FinanceAlertEvent sendEmail(FinanceStockAlert alert, String to, String subject, String body) {

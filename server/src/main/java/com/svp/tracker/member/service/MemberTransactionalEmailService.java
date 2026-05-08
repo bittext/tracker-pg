@@ -1,5 +1,6 @@
 package com.svp.tracker.member.service;
 
+import com.svp.tracker.config.ApplicationBranding;
 import com.svp.tracker.config.FinanceAlertProperties;
 import com.svp.tracker.config.WebProperties;
 import jakarta.annotation.PreDestroy;
@@ -47,7 +48,7 @@ public class MemberTransactionalEmailService {
                 """
                 Hello,
 
-                Your Tracker member profile has been saved for the first time. Please keep these details for your records:
+                Your Health Tracker & PFM member profile has been saved for the first time. Please keep these details for your records:
 
                 Sign-in name (username): %s
                 Member ID (public): %d
@@ -58,10 +59,10 @@ public class MemberTransactionalEmailService {
 
                 If you did not create this profile, contact your administrator immediately.
 
-                — Tracker
+                — %s
                 """
-                        .formatted(username, memberPublicId, internalUserId, signIn);
-        send(toEmail.trim(), "Your Tracker member ID and sign-in link", body);
+                        .formatted(username, memberPublicId, internalUserId, signIn, ApplicationBranding.DISPLAY_NAME);
+        send(toEmail.trim(), "Your Health Tracker & PFM member ID and sign-in link", body);
     }
 
     /**
@@ -81,7 +82,7 @@ public class MemberTransactionalEmailService {
                 """
                 Hello,
 
-                An administrator created a Tracker account for you.
+                An administrator created a Health Tracker & PFM account for you.
 
                 Sign-in name (username): %s
                 Role: %s
@@ -92,10 +93,10 @@ public class MemberTransactionalEmailService {
 
                 If you were not expecting this account, contact your administrator.
 
-                — Tracker
+                — %s
                 """
-                        .formatted(username, roleName, signIn);
-        send(toEmail.trim(), "Your Tracker account is ready", body);
+                        .formatted(username, roleName, signIn, ApplicationBranding.DISPLAY_NAME);
+        send(toEmail.trim(), "Your Health Tracker & PFM account is ready", body);
     }
 
     public void sendPasswordChangedNotice(String toEmail, String username) {
@@ -111,17 +112,17 @@ public class MemberTransactionalEmailService {
                 """
                 Hello,
 
-                The password for Tracker account "%s" was just changed.
+                The password for Health Tracker & PFM account "%s" was just changed.
 
                 Sign in again here:
                 %s
 
                 If you did not change your password, sign in if you can and change it again, then contact your administrator.
 
-                — Tracker
+                — %s
                 """
-                        .formatted(username, signIn);
-        send(toEmail.trim(), "Your Tracker password was changed", body);
+                        .formatted(username, signIn, ApplicationBranding.DISPLAY_NAME);
+        send(toEmail.trim(), "Your Health Tracker & PFM password was changed", body);
     }
 
     /**

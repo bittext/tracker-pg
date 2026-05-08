@@ -39,7 +39,7 @@ public class SnsAuthSmsSender implements SmsSender {
                     SERVICE_UNAVAILABLE, "SNS SMS is not fully configured (set tracker.auth.sms.enabled, aws-region)");
         }
         SnsClient client = client();
-        String text = "Your Tracker verification code is " + code + ".";
+        String text = "Your Health Tracker & PFM verification code is " + code + ".";
         try {
             Map<String, MessageAttributeValue> attrs = new HashMap<>();
             attrs.put(

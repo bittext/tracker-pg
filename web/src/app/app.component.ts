@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnInit, inject } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTabsModule } from '@angular/material/tabs';
@@ -8,6 +9,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { catchError, filter, of } from 'rxjs';
 import { environment } from '../environments/environment';
 import { WEB_RELEASE_VERSION } from './release-version';
+import { APP_DISPLAY_NAME, APP_SHORT_NAME } from './app-branding';
 import { AuthService } from './services/auth.service';
 
 /** Response from GET /api/version (Spring Boot build-info when packaged). */
@@ -37,7 +39,9 @@ export class AppComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
   private readonly http = inject(HttpClient);
-  readonly title = 'Tracker';
+  private readonly documentTitle = inject(Title);
+  /** Shown in the top bar; full name sets the browser tab title. */
+  readonly brandTitle = APP_SHORT_NAME;
   readonly webReleaseVersion = WEB_RELEASE_VERSION;
   /** Populated from API after startup (null if unreachable). */
   apiRelease: ApiVersionPayload | null = null;
@@ -56,6 +60,7 @@ export class AppComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.documentTitle.setTitle(APP_DISPLAY_NAME);
     const base = environment.apiBaseUrl || '';
     this.http
       .get<ApiVersionPayload>(`${base}/api/version`)
