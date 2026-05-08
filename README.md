@@ -244,6 +244,11 @@ After the database exists and is populated, use the **Routine stack redeploy** c
 
 **Security:** the stack binds Postgres to **127.0.0.1** on the VM only. Use a strong `POSTGRES_PASSWORD`, never add a public firewall rule for Postgres, and keep `TRACKER_AUTH_*` secrets long and random.
 
+Security documentation and evidence index:
+
+- `SECURITY.md`
+- `docs/security/plaid-evidence-index.md`
+
 ## Web UI (Angular)
 
 This repo includes a copy of the Health Tracker & PFM Angular app under **`web/`**. Dev server **`web/proxy.conf.json`** forwards `/api` to **`http://127.0.0.1:9091`** (the tracker-pg API).
