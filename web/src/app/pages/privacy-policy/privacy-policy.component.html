@@ -34,8 +34,11 @@
       </p>
 
       <p class="privacy-back">
-        <a *ngIf="!authenticated" mat-stroked-button color="primary" routerLink="/login">Back to sign in</a>
-        <a *ngIf="authenticated" mat-stroked-button color="primary" routerLink="/welcome">Back to the app</a>
+        <span class="privacy-back-actions">
+          <a *ngIf="!authenticated" mat-stroked-button color="primary" routerLink="/login">Back to sign in</a>
+          <a *ngIf="authenticated" mat-stroked-button color="primary" routerLink="/welcome">Back to the app</a>
+          <a mat-button color="primary" routerLink="/security">Information security</a>
+        </span>
       </p>
     </mat-card-content>
   </mat-card>

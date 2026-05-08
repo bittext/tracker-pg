@@ -2,6 +2,8 @@
 
 This repository includes operational security controls and documentation for **Health Tracker & PFM (Personal Financial Management)**.
 
+The same **information security** policy and procedures summary is published in the web application at **`/security`** (reachable from the main tab bar when signed in and from the sign-in page before authentication).
+
 ## Security program statement
 
 We maintain documented information security policies and procedures that are operationalized to identify, mitigate, and monitor information security risks relevant to our business.
@@ -18,7 +20,7 @@ The program includes:
 
 ## Plaid questionnaire evidence
 
-For a questionnaire-friendly evidence mapping, see:
+For a questionnaire-friendly **theme-to-evidence** mapping (no source paths or filenames—suitable alongside public policy text), see:
 
 - `docs/security/plaid-evidence-index.md`
 

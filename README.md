@@ -247,7 +247,8 @@ After the database exists and is populated, use the **Routine stack redeploy** c
 Security documentation and evidence index:
 
 - `SECURITY.md`
-- `docs/security/plaid-evidence-index.md`
+- `docs/security/plaid-evidence-index.md` (questionnaire themes only—no source paths or filenames)
+- In the web UI, the **Information security** program is published at **`/security`** (also linked from the sign-in page and the main tab bar when signed in).
 
 ## Web UI (Angular)
 
@@ -265,11 +266,14 @@ Then open `http://localhost:4200/`. You can still use the Oracle app’s `tracke
 
 The top navigation includes dedicated sections for:
 
+- Welcome
 - Exercise
 - Finance
 - Management (tasks/calendar)
 - Journal (Markdown entries, calendar heatmap, tags, attachments)
 - Reports
+- Security (information security policy and procedures; route **`/security`**)
+- Contact Us (feedback to administrators; route **`/contact`**)
 - Admin (including **Sign-in log**: stored login / MFA / logout events from `auth_login_events`)
 - Logs (admin only)
 

@@ -1,0 +1,81 @@
+<article class="security-page" aria-labelledby="security-title">
+  <div class="page-head">
+    <h1 id="security-title" class="page-title">Information security</h1>
+    <p class="muted">
+      Documented information security policy and procedures for Health Tracker &amp; PFM (Personal Financial Management).
+      This page describes how we identify, mitigate, and monitor information security risks relevant to operating the
+      service and handling your data.
+    </p>
+  </div>
+
+  <mat-card class="security-card" appearance="outlined">
+    <mat-card-content>
+      <h2 class="policy-section-title">Policy statement</h2>
+      <p>
+        We maintain documented information security policies and procedures that are operationalized to identify,
+        mitigate, and monitor information security risks relevant to our business and to your use of this application.
+      </p>
+      <p>
+        The program is owned and updated as the product and integrations evolve. Controls are applied in design,
+        deployment, and day-to-day operations—not only on paper.
+      </p>
+
+      <h3 class="policy-subtitle">Program scope</h3>
+      <p>The security program covers at least:</p>
+      <ul>
+        <li>Governance and policy ownership</li>
+        <li>Access control and authentication</li>
+        <li>Secure configuration and hardening</li>
+        <li>Logging, monitoring, and incident handling</li>
+        <li>Change management and deployment control</li>
+        <li>Data protection and secrets management</li>
+        <li>Risk assessment and remediation tracking</li>
+      </ul>
+
+      <h2 class="policy-section-title">Operational procedures</h2>
+
+      <h3 class="policy-subtitle">Identify risks</h3>
+      <p>We use a combination of practices to surface security risks early and on an ongoing basis:</p>
+      <ul>
+        <li>Review architecture and data flows when features change (including third-party integrations).</li>
+        <li>Track known issues and remediation in internal change and release processes.</li>
+        <li>Rely on secure defaults (transport security, authentication, authorization, and safe error handling).</li>
+        <li>Align operational evidence with partner and regulatory expectations where applicable.</li>
+      </ul>
+
+      <h3 class="policy-subtitle">Mitigate risks</h3>
+      <p>Identified risks are addressed with layered controls, including:</p>
+      <ul>
+        <li>Authenticated access to application features and APIs; role-based restrictions for administrative functions.</li>
+        <li>Strong password handling (one-way hashing with per-user salt and server-side secret material).</li>
+        <li>HTTP security headers and TLS for data in transit.</li>
+        <li>Controlled uploads and import paths with size and validation limits.</li>
+        <li>Secrets and environment-specific configuration supplied only through secure deployment channels.</li>
+        <li>Database changes applied through controlled, reviewed migration processes in production.</li>
+      </ul>
+
+      <h3 class="policy-subtitle">Monitor and respond</h3>
+      <p>We support ongoing assurance through:</p>
+      <ul>
+        <li>Request and error logging with redaction appropriate for authentication and sensitive payloads.</li>
+        <li>Deployment automation and repeatable release processes.</li>
+        <li>Incident handling expectations: report suspected vulnerabilities through private channels; do not post exploit details in public forums.</li>
+      </ul>
+
+      <h2 class="policy-section-title">Responsible disclosure</h2>
+      <p>
+        If you discover a security issue, report it privately to the maintainers through your existing support or security
+        channel. Do <strong>not</strong> open a public issue with exploit details.
+      </p>
+
+      <p class="security-back">
+        <span class="security-back-actions">
+          <a *ngIf="!authenticated" mat-stroked-button color="primary" routerLink="/login">Back to sign in</a>
+          <a *ngIf="authenticated" mat-stroked-button color="primary" routerLink="/welcome">Back to the app</a>
+          <a mat-button color="primary" routerLink="/privacy">Privacy policy</a>
+          <a *ngIf="authenticated" mat-button color="primary" routerLink="/contact">Contact Us</a>
+        </span>
+      </p>
+    </mat-card-content>
+  </mat-card>
+</article>

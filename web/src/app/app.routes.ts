@@ -26,6 +26,11 @@ export const routes: Routes = [
   },
   { path: 'privacy-policy', redirectTo: 'privacy', pathMatch: 'full' },
   {
+    path: 'security',
+    loadComponent: () =>
+      import('./pages/security-program/security-program.component').then((m) => m.SecurityProgramComponent),
+  },
+  {
     path: 'onboarding/credentials',
     canActivate: [authGuard, onboardingCredentialsGuard],
     loadComponent: () =>

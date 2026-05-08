@@ -1,9 +1,9 @@
-.privacy-page {
-  max-width: 40rem;
+.security-page {
+  max-width: 42rem;
   margin: 0 auto;
 }
 
-.privacy-card {
+.security-card {
   margin-top: 0.5rem;
 }
 
@@ -17,7 +17,7 @@
 }
 
 .policy-subtitle {
-  margin: 0 0 0.5rem;
+  margin: 1.25rem 0 0.5rem;
   font-size: 0.9rem;
   font-weight: 600;
   text-transform: none;
@@ -25,20 +25,34 @@
   color: var(--app-text);
 }
 
-.privacy-card mat-card-content p {
-  margin: 0 0 0.9rem;
+.policy-subtitle:first-of-type {
+  margin-top: 0;
+}
+
+.security-card mat-card-content p,
+.security-card mat-card-content li {
+  margin: 0 0 0.65rem;
   line-height: 1.6;
   color: var(--app-text);
   font-size: 0.9375rem;
 }
 
-.privacy-back {
+.security-card mat-card-content ul {
+  margin: 0 0 0.9rem;
+  padding-left: 1.25rem;
+}
+
+.security-card mat-card-content li {
+  margin-bottom: 0.35rem;
+}
+
+.security-back {
   margin: 1.5rem 0 0;
   padding-top: 0.5rem;
   border-top: 1px solid var(--app-border);
 }
 
-.privacy-back-actions {
+.security-back-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;

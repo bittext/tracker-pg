@@ -63,3 +63,9 @@ button[type='submit'] {
   text-decoration: underline;
 }
 
+.login-privacy-sep {
+  margin: 0 0.35rem;
+  color: var(--app-text-muted, #64748b);
+  user-select: none;
+}
+
