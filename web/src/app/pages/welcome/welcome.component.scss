@@ -39,6 +39,17 @@
   max-width: 40rem;
 }
 
+.welcome-hero__logo {
+  display: block;
+  width: 4.5rem;
+  height: 4.5rem;
+  margin: 0 0 0.75rem;
+  border-radius: 14px;
+  box-shadow:
+    0 4px 10px rgba(15, 23, 42, 0.25),
+    0 0 0 1px rgba(255, 255, 255, 0.3);
+}
+
 .welcome-hero__eyebrow {
   margin: 0 0 0.5rem;
   font-size: 0.75rem;
