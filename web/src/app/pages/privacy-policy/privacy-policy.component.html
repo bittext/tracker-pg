@@ -2,35 +2,155 @@
   <div class="page-head">
     <h1 id="privacy-title" class="page-title">Privacy policy</h1>
     <p class="muted">
-      Privacy policy and terms for email and SMS use. This application treats contact data as confidential and does not
-      share it with third parties for marketing.
+      How Health Tracker &amp; PFM (Personal Financial Management) handles personal information, including when you connect
+      financial accounts through Plaid. Contact data is treated as confidential and is not sold or rented for marketing.
     </p>
   </div>
 
   <mat-card class="privacy-card">
     <mat-card-content>
-      <h2 class="policy-section-title">Privacy policy or terms and conditions</h2>
+      <h2 class="policy-section-title">Who we are</h2>
+      <p>
+        This policy describes the Health Tracker &amp; PFM application you sign into (“the application”, “we”, “us”). It is a
+        personal productivity and finance companion; operators control deployment and support channels for your
+        environment.
+      </p>
+
+      <h2 class="policy-section-title">Information we collect</h2>
+      <p>Depending on how you use the application, we may process categories such as:</p>
+      <ul class="privacy-list">
+        <li>
+          <strong>Account and profile data:</strong> username, password (stored only as a one-way hash), optional profile
+          fields you enter (for example name, date of birth, contact email or phone where configured), and sign-in related
+          events where logging is enabled.
+        </li>
+        <li>
+          <strong>Application content:</strong> health/exercise logs, journal entries, tasks, calendar data, uploaded files
+          you attach, and finance workspace content you create or import.
+        </li>
+        <li>
+          <strong>Banking and finance imports:</strong> transaction rows and metadata extracted from files you upload or
+          from synchronized feeds described below (including account masks/names surfaced by those feeds).
+        </li>
+        <li>
+          <strong>Communications:</strong> if you use email or SMS features, addresses or numbers you provide for outbound
+          messages from the application.
+        </li>
+      </ul>
+
+      <h2 id="plaid-financial-data" class="policy-section-title anchor-target">
+        Financial data &amp; Plaid (third-party services)
+      </h2>
+      <p>
+        If your deployment enables <strong>Plaid</strong>, you may connect financial institutions using <strong>Plaid Link</strong>.
+        Plaid is a separate company; their privacy notice applies when you use Link.
+      </p>
+      <p>When you connect through Plaid, subject to what Plaid returns for your institution:</p>
+      <ul class="privacy-list">
+        <li>
+          We may receive identifiers such as Item identifiers (shown in abbreviated form in the UI), institution identifiers,
+          and tokens needed for ongoing synchronization — stored according to deployment configuration (including optional
+          application-level encryption of sensitive tokens).
+        </li>
+        <li>
+          We may retrieve transaction history over HTTPS from Plaid and convert it into the same kind of structured banking
+          data as manual imports (for example via imported ledger rows).
+        </li>
+        <li>
+          Generated interchange files (such as QFX/OFX-style payloads written under the server import directory) may be
+          retained on disk as part of normal import processing unless operators configure retention or cleanup separately.
+        </li>
+      </ul>
+      <p>
+        <strong>Consent &amp; acknowledgment:</strong> Before starting Plaid Link for the first time in this application,
+        you must acknowledge this section (Financial data &amp; Plaid) so we can record your consent to our collection,
+        processing, and storage of financial connection data as described here and in any deployment-specific notices your
+        administrator provides. Plaid Link itself includes additional disclosures from Plaid and your financial institution.
+      </p>
+      <p>
+        <strong>Disconnecting:</strong> You may disconnect Plaid for a banking institution from the Finance → Banking (Admin)
+        tools where offered; that removes our stored Plaid Item credentials for that institution from the application
+        database. It does not automatically delete transactions already imported into your ledger or delete historical import
+        files — use import history removal where available if you want those records deleted.
+      </p>
+
+      <h2 class="policy-section-title">How we use information</h2>
+      <p>We use personal information to operate features you choose to use: authentication, storing your content, computing
+        summaries and reports you view, sending transactional communications when channels are enabled, and imports or sync
+        you initiate.</p>
+      <p>We do not sell personal information or rent contact lists for advertising.</p>
+
+      <h2 class="policy-section-title">Legal bases &amp; regional references</h2>
+      <p>
+        Where regulations such as the EU/UK <strong>GDPR</strong> or the California <strong>CCPA/CPRA</strong> apply,
+        different categories of processing may rely on consent (for example optional marketing or messages), contract
+        performance (providing the service you requested), or legitimate interests balanced against your rights — consistent
+        with how your operator documents processing for your tenant.
+      </p>
+
+      <h2 class="policy-section-title">Retention</h2>
+      <p>
+        Data is kept while your account exists and as needed to provide features you use. Operators may configure backups,
+        logs, and infrastructure retention separately. Banking import files and ledger rows persist until you or an
+        administrator deletes them using in-application tools where supported.
+      </p>
+
+      <h2 class="policy-section-title">Your choices</h2>
+      <ul class="privacy-list">
+        <li>
+          <strong>Email &amp; SMS:</strong> Where email or SMS is used for application communications, you may withdraw
+          consent by removing stored credentials or disabling related features under Admin where applicable.
+        </li>
+        <li>
+          <strong>Plaid:</strong> Disconnect institutions as described above; clear imported data using banking import
+          management where available.
+        </li>
+        <li>
+          <strong>Profile:</strong> Update profile fields under Admin → My profile subject to any locked contact fields your
+          deployment uses for authentication recovery.
+        </li>
+      </ul>
+
+      <h2 class="policy-section-title">Security</h2>
+      <p>
+        We use industry-standard practices appropriate to the deployment: HTTPS for browser traffic to the API where
+        configured, authenticated APIs, role-based admin boundaries, and documented security operations. See the in-app
+        <a routerLink="/security">Information security</a> page for our security program summary.
+      </p>
+
+      <h2 class="policy-section-title">Children</h2>
+      <p>The application is not directed at children and is intended for adults who operate their own accounts.</p>
+
+      <h2 class="policy-section-title">Changes</h2>
+      <p>
+        Operators may update this notice when features change (including Plaid or banking capabilities). Material changes are
+        typically communicated through the application or your administrator; continued use after acknowledgment may apply for
+        optional integrations.
+      </p>
+
+      <h2 class="policy-section-title">Contact</h2>
+      <p>
+        Questions about this policy for your account should go through your administrator’s support channel. Signed-in users
+        may also use <a routerLink="/contact">Contact Us</a> where enabled.
+      </p>
 
       <h3 class="policy-subtitle">Email and SMS communications</h3>
       <p>
-        The application may use email and SMS functionality to communicate with users. Any personal data collected for
-        this purpose, including email addresses and phone numbers, is processed solely for application-related
+        The application may use email and SMS functionality to communicate with users. Any personal data collected for this
+        purpose, including email addresses and phone numbers, is processed solely for application-related communications.
+      </p>
+      <p>
+        Such data is treated as confidential and is not sold, rented, or shared with third parties for marketing, except
+        where required by law or necessary to provide the service in compliance with applicable regulations referenced above.
+      </p>
+      <p>
+        Users may exercise their right to withdraw consent for these channels by logging into their account, navigating to the
+        Admin section, and removing the stored email or SMS credentials. Upon removal, the application will cease related
         communications.
       </p>
       <p>
-        Such data is treated as confidential and is not sold, rented, or shared with third parties, except where
-        required by law or necessary to provide the service in compliance with applicable regulations, including the
-        General Data Protection Regulation (GDPR) and the California Consumer Privacy Act (CCPA).
-      </p>
-      <p>
-        Users may exercise their right to withdraw consent at any time by logging into their account, navigating to the
-        Admin section, and removing the stored email or SMS credentials. Upon removal, the application will cease all
-        related communications.
-      </p>
-      <p>
         The application does not charge users for its services. Any charges incurred for SMS messages or emails are
-        determined by the user’s telecommunications or service provider. The application bears no responsibility or
-        liability for such charges.
+        determined by the user’s telecommunications or service provider.
       </p>
 
       <p class="privacy-back">

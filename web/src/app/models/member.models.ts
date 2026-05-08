@@ -37,6 +37,8 @@ export interface MeMemberProfileResponseDto {
   contactPhoneLockedFromAuth: boolean;
   /** When phone is locked, full E.164 for read-only display; otherwise null. */
   accountPhoneE164: string | null;
+  /** ISO timestamp when member acknowledged Privacy policy (financial data & Plaid); required before Plaid Link. */
+  plaidFinancialDataNoticeAcceptedAt?: string | null;
 }
 
 export interface UsPostalPlaceDto {

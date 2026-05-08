@@ -96,10 +96,40 @@
   max-width: min(100%, 64rem);
 }
 
+.banking-plaid-privacy {
+  max-width: 48rem;
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+}
+
+.banking-plaid-privacy-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  max-width: 48rem;
+  margin-bottom: 0.75rem;
+}
+
+.banking-plaid-privacy-label {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--app-text-muted, rgba(0, 0, 0, 0.65));
+}
+
+.banking-plaid-privacy-label a {
+  font-weight: 600;
+  color: var(--app-accent, #0f6d73);
+}
+
 .banking-plaid-intro {
   max-width: 48rem;
   margin-bottom: 0.75rem;
   font-size: 0.9rem;
+}
+
+.banking-plaid-intro a {
+  font-weight: 600;
+  color: var(--app-accent, #0f6d73);
 }
 
 .banking-plaid-status-line {

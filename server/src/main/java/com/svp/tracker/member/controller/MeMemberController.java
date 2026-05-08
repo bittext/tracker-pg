@@ -59,6 +59,15 @@ public class MeMemberController {
         return memberOnboardingService.saveProfile(requirePrincipal().id(), body);
     }
 
+    /**
+     * Records in-app acknowledgment of Privacy policy (financial data & Plaid). Required before Plaid Link token /
+     * exchange when enforcement is enabled.
+     */
+    @PostMapping("/privacy/plaid-financial-data-notice")
+    public MeMemberProfileResponseDto acceptPlaidFinancialDataNotice() {
+        return memberOnboardingService.acceptPlaidFinancialDataNotice(requirePrincipal().id());
+    }
+
     @PostMapping("/password")
     public AuthTokenDto changePassword(@Valid @RequestBody MePasswordChangeRequestDto body) {
         return memberOnboardingService.changePassword(requirePrincipal().id(), body);

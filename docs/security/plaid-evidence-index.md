@@ -46,6 +46,7 @@ This document maps common Plaid security questionnaire themes to **categories of
 - Banking/Plaid integration logic with account and item scoping appropriate to the product.
 - Plaid-related settings and secrets provided only through environment and secure configuration.
 - When configured, Plaid Item **access tokens** stored for sync are **application-level encrypted at rest** (AES-256-GCM with a deployment secret); legacy plaintext rows are re-sealed on next use.
+- **Privacy policy** in the web app describes financial data and Plaid; members record acknowledgment before Link; they may **disconnect** per institution (stored credentials removed; imported ledger data managed separately).
 
 ## Operational documents to provide outside the repo
 

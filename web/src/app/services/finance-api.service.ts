@@ -269,4 +269,11 @@ export class FinanceApiService {
   bankingPlaidSync(body: BankingPlaidSyncRequestDto) {
     return this.http.post<BankingPlaidSyncResponseDto>(`${this.bankingPlaidRoot}/sync`, body);
   }
+
+  /** Removes stored Plaid Item credentials for this institution (does not delete imported ledger rows). */
+  bankingPlaidUnlink(institutionId: number) {
+    return this.http.delete<void>(`${this.bankingPlaidRoot}/link`, {
+      params: { institutionId: String(institutionId) },
+    });
+  }
 }

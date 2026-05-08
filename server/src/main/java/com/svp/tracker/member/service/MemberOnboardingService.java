@@ -347,7 +347,8 @@ public class MemberOnboardingService {
                 user.getMemberPublicId(),
                 emailLocked,
                 phoneLocked,
-                accountPhoneE164);
+                accountPhoneE164,
+                null);
     }
 
     private static MeMemberProfileResponseDto toDto(MemberProfile p, AppUser user) {
@@ -388,7 +389,26 @@ public class MemberOnboardingService {
                 user.getMemberPublicId(),
                 emailLocked,
                 phoneLocked,
-                accountPhoneE164);
+                accountPhoneE164,
+                p.getPlaidFinancialDataNoticeAcceptedAt());
+    }
+
+    /**
+     * Records acknowledgment of the Privacy policy sections covering financial data and Plaid (required server-side
+     * before Link token / public-token exchange).
+     */
+    @Transactional
+    public MeMemberProfileResponseDto acceptPlaidFinancialDataNotice(long userId) {
+        AppUser user = loadUser(userId);
+        if (user.getOnboardingCompletedAt() == null && user.getCredentialsStepCompletedAt() == null) {
+            throw new ResponseStatusException(BAD_REQUEST, "Complete account setup before recording privacy acknowledgment.");
+        }
+        MemberProfile profile = memberProfileRepository
+                .findByUserId(userId)
+                .orElseThrow(() -> new ResponseStatusException(BAD_REQUEST, "Save your member profile first."));
+        profile.setPlaidFinancialDataNoticeAcceptedAt(Instant.now());
+        memberProfileRepository.save(profile);
+        return toDto(profile, user);
     }
 
     private record ParsedE164Phone(String countryWithPlus, String nationalDigits) {}

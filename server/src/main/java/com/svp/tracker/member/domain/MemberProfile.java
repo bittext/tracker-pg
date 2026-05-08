@@ -96,6 +96,10 @@ public class MemberProfile {
     @Column(name = "marketing_sms_opt_in", nullable = false)
     private boolean marketingSmsOptIn = false;
 
+    /** When set, member acknowledged Privacy policy (financial data & Plaid) before connecting via Link. */
+    @Column(name = "plaid_financial_data_notice_accepted_at")
+    private Instant plaidFinancialDataNoticeAcceptedAt;
+
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 

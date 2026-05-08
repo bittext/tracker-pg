@@ -3,6 +3,7 @@ import { Component, Input, NgZone, OnInit, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatDatepickerModule } from '@angular/material/datepicker';
@@ -23,6 +24,7 @@ import {
   BankingTransactionDto,
 } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
+import { MeMemberApiService } from '../../../services/me-member-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
 import {
   BankingDeleteImportDialogComponent,
@@ -47,12 +49,14 @@ import { firstValueFrom } from 'rxjs';
     MatSnackBarModule,
     MatProgressSpinnerModule,
     MatIconModule,
+    MatCheckboxModule,
   ],
   templateUrl: './banking-panel.component.html',
   styleUrl: './banking-panel.component.scss',
 })
 export class BankingPanelComponent implements OnInit {
   private readonly api = inject(FinanceApiService);
+  private readonly meApi = inject(MeMemberApiService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly ngZone = inject(NgZone);
   private readonly dialog = inject(MatDialog);
@@ -98,6 +102,12 @@ export class BankingPanelComponent implements OnInit {
   plaidSyncEndDate: Date | null = null;
   private plaidScriptPromise: Promise<void> | null = null;
 
+  /** Server-recorded Privacy acknowledgment for Financial data & Plaid (ISO string). */
+  plaidFinancialDataNoticeAcceptedAt: string | null = null;
+  /** Checkbox before first Link when acknowledgment not yet recorded. */
+  plaidPrivacyCheckboxAck = false;
+  plaidUnlinkBusy = false;
+
   /** Admin imports: broader listing than ledger period. */
   importsHistoryFromYear = new Date().getFullYear() - 5;
   importsHistoryToYear = new Date().getFullYear();
@@ -142,6 +152,7 @@ export class BankingPanelComponent implements OnInit {
 
   ngOnInit(): void {
     this.initPlaidDefaultDates();
+    this.loadMemberPrivacyForPlaid();
     this.reloadInstitutions();
     if (this.segment === 'ledger') {
       this.loadLedger();
@@ -446,6 +457,80 @@ export class BankingPanelComponent implements OnInit {
     return this.institutions.find((i) => i.id === id)?.name ?? '';
   }
 
+  formatPlaidAcknowledgedAt(iso: string | null): string {
+    if (!iso) {
+      return '';
+    }
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) {
+      return iso;
+    }
+    return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  }
+
+  unlinkPlaid(): void {
+    const id = this.plaidTargetInstitutionId();
+    if (id == null || !this.plaidStatus?.linked) {
+      return;
+    }
+    const confirmed = confirm(
+      'Disconnect Plaid for this institution? This removes stored connection credentials from the app. Imported transactions and import files are not deleted.',
+    );
+    if (!confirmed) {
+      return;
+    }
+    this.plaidUnlinkBusy = true;
+    this.api.bankingPlaidUnlink(id).subscribe({
+      next: () => {
+        this.plaidUnlinkBusy = false;
+        this.snackBar.open('Plaid disconnected for this institution.', undefined, { duration: 5000 });
+        this.refreshPlaidStatus();
+      },
+      error: (e) => {
+        this.plaidUnlinkBusy = false;
+        this.snackBar.open(`Disconnect failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 8000 });
+      },
+    });
+  }
+
+  private loadMemberPrivacyForPlaid(): void {
+    this.meApi.getMemberProfile().subscribe({
+      next: (p) => {
+        this.plaidFinancialDataNoticeAcceptedAt = p.plaidFinancialDataNoticeAcceptedAt ?? null;
+      },
+      error: () => {
+        this.plaidFinancialDataNoticeAcceptedAt = null;
+      },
+    });
+  }
+
+  /**
+   * Ensures server-side acknowledgment exists before Plaid Link (posts checkbox consent if needed).
+   */
+  private async ensurePlaidFinancialPrivacyAcknowledgment(): Promise<boolean> {
+    if (this.plaidFinancialDataNoticeAcceptedAt) {
+      return true;
+    }
+    if (!this.plaidPrivacyCheckboxAck) {
+      this.snackBar.open(
+        'Confirm you have read the Financial data & Plaid section of the Privacy policy before connecting.',
+        undefined,
+        { duration: 7500 },
+      );
+      return false;
+    }
+    try {
+      const p = await firstValueFrom(this.meApi.acceptPlaidFinancialDataNotice());
+      this.plaidFinancialDataNoticeAcceptedAt = p.plaidFinancialDataNoticeAcceptedAt ?? null;
+      return true;
+    } catch (e) {
+      this.snackBar.open(`Could not record acknowledgment — ${formatHttpErrorDetail(e)}`, undefined, {
+        duration: 8000,
+      });
+      return false;
+    }
+  }
+
   refreshPlaidStatus(): void {
     const id = this.plaidTargetInstitutionId();
     if (id == null) {
@@ -497,6 +582,11 @@ export class BankingPanelComponent implements OnInit {
     this.plaidLinkOpening = true;
     try {
       const inst = await this.ensurePlaidInstitutionForConnect();
+      const acked = await this.ensurePlaidFinancialPrivacyAcknowledgment();
+      if (!acked) {
+        this.plaidLinkOpening = false;
+        return;
+      }
       await this.ensurePlaidScript();
       if (!window.Plaid) {
         throw new Error('Plaid global missing after script load');

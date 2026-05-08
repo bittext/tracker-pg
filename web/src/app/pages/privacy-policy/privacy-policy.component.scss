@@ -32,6 +32,32 @@
   font-size: 0.9375rem;
 }
 
+.privacy-list {
+  margin: 0 0 1rem;
+  padding-left: 1.25rem;
+  color: var(--app-text);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+}
+
+.privacy-list li {
+  margin-bottom: 0.5rem;
+}
+
+.privacy-card mat-card-content a {
+  color: var(--app-accent, #0f6d73);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.privacy-card mat-card-content a:hover {
+  text-decoration: underline;
+}
+
+.anchor-target {
+  scroll-margin-top: 5rem;
+}
+
 .privacy-back {
   margin: 1.5rem 0 0;
   padding-top: 0.5rem;

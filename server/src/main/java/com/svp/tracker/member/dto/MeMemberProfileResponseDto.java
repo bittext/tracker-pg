@@ -1,6 +1,7 @@
 package com.svp.tracker.member.dto;
 
 import com.svp.tracker.member.domain.MemberGender;
+import java.time.Instant;
 import java.time.LocalDate;
 
 public record MeMemberProfileResponseDto(
@@ -33,4 +34,6 @@ public record MeMemberProfileResponseDto(
          * When {@code contactPhoneLockedFromAuth}, the E.164 value shown as a single read-only line (all formats). Null
          * when the phone is not locked.
          */
-        String accountPhoneE164) {}
+        String accountPhoneE164,
+        /** When non-null, member recorded acknowledgment of Privacy policy (financial data & Plaid) before Plaid Link. */
+        Instant plaidFinancialDataNoticeAcceptedAt) {}

@@ -54,6 +54,11 @@ export class MeMemberApiService {
     return this.http.get<MeMemberProfileResponseDto>(`${this.root}/member-profile`);
   }
 
+  /** Records acknowledgment of Privacy policy (financial data & Plaid) before connecting via Plaid Link. */
+  acceptPlaidFinancialDataNotice() {
+    return this.http.post<MeMemberProfileResponseDto>(`${this.root}/privacy/plaid-financial-data-notice`, {});
+  }
+
   saveMemberProfile(body: MeMemberProfileSaveRequest) {
     return this.http.put<MeMemberProfileResponseDto>(`${this.root}/member-profile`, body);
   }

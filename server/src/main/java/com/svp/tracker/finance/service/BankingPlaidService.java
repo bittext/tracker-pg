@@ -34,6 +34,8 @@ import com.svp.tracker.finance.dto.BankingPlaidLinkTokenResponseDto;
 import com.svp.tracker.finance.dto.BankingPlaidStatusDto;
 import com.svp.tracker.finance.dto.BankingPlaidSyncRequestDto;
 import com.svp.tracker.finance.dto.BankingPlaidSyncResponseDto;
+import com.svp.tracker.member.domain.MemberProfile;
+import com.svp.tracker.member.repository.MemberProfileRepository;
 import com.svp.tracker.finance.repository.BankingInstitutionRepository;
 import com.svp.tracker.finance.repository.BankingPlaidItemRepository;
 import com.svp.tracker.finance.service.banking.BankingPlaidOfxWriter;
@@ -80,6 +82,7 @@ public class BankingPlaidService {
     private final BankingPlaidItemRepository plaidItemRepository;
     private final BankingService bankingService;
     private final PlaidAccessTokenCrypto plaidAccessTokenCrypto;
+    private final MemberProfileRepository memberProfileRepository;
 
     private volatile PlaidApi plaidApi;
 
@@ -102,6 +105,7 @@ public class BankingPlaidService {
     public BankingPlaidLinkTokenResponseDto createLinkToken(long institutionId) {
         requirePlaidApi();
         long uid = currentUserService.requireUserId();
+        requirePlaidFinancialDataPrivacyAck(uid);
         BankingInstitution inst = institutionRepository
                 .findByIdAndOwnerUserId(institutionId, uid)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Institution not found"));
@@ -132,6 +136,7 @@ public class BankingPlaidService {
     public BankingPlaidExchangeResponseDto exchangePublicToken(BankingPlaidExchangeRequestDto body) {
         requirePlaidApi();
         long uid = currentUserService.requireUserId();
+        requirePlaidFinancialDataPrivacyAck(uid);
         BankingInstitution inst = institutionRepository
                 .findByIdAndOwnerUserId(body.institutionId(), uid)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Institution not found"));
@@ -644,6 +649,34 @@ public class BankingPlaidService {
      * Returns the Plaid access token for API calls. When sealing is enabled and the row still holds a legacy plaintext
      * token, persists a sealed copy then returns the plaintext for this request.
      */
+    /**
+     * Removes the stored Plaid Item row for this institution (access token and metadata). Does not delete imported
+     * transactions or QFX files; use banking import file removal if needed.
+     */
+    @Transactional
+    public void unlink(long institutionId) {
+        long uid = currentUserService.requireUserId();
+        if (!institutionRepository.existsByIdAndOwnerUserId(institutionId, uid)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Institution not found");
+        }
+        plaidItemRepository.deleteAllByOwnerUserIdAndInstitutionId(uid, institutionId);
+        log.info("Plaid Item unlinked user={} institution={}", uid, institutionId);
+    }
+
+    private void requirePlaidFinancialDataPrivacyAck(long userId) {
+        MemberProfile profile = memberProfileRepository
+                .findByUserId(userId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Save your member profile before connecting a bank with Plaid."));
+        if (profile.getPlaidFinancialDataNoticeAcceptedAt() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Acknowledge the Privacy policy (Financial data & Plaid) before connecting a bank. "
+                            + "Open Privacy policy from the sign-in page or Finance → Banking, then record your acknowledgment.");
+        }
+    }
+
     private String requirePlainAccessToken(BankingPlaidItem link) {
         String stored = link.getAccessToken();
         if (stored == null || stored.isBlank()) {
