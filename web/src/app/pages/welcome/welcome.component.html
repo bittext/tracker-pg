@@ -2,6 +2,21 @@
   <header class="welcome-hero" aria-labelledby="welcome-title">
     <div class="welcome-hero__glow" aria-hidden="true"></div>
     <div class="welcome-hero__inner">
+      <div class="welcome-hero__main">
+        <p class="welcome-hero__eyebrow">
+          Health Tracker &amp; PFM <span class="muted">(Personal Financial Management)</span>
+        </p>
+        <h1 id="welcome-title" class="welcome-hero__title">Welcome back, {{ displayName }}</h1>
+        <p class="welcome-hero__lead">
+          Your personal hub for workouts, money, planning, and notes—organized in one place with a calm, focused layout.
+        </p>
+        <div class="welcome-hero__actions">
+          <a mat-flat-button color="primary" routerLink="/exercise" class="welcome-hero__cta">Get started → Exercise</a>
+          <a mat-stroked-button routerLink="/management" class="welcome-hero__cta welcome-hero__cta--alt"
+            >Plan with Management</a
+          >
+        </div>
+      </div>
       <img
         class="welcome-hero__logo"
         src="/tracker-app-icon-192.png"
@@ -9,19 +24,6 @@
         width="72"
         height="72"
       />
-      <p class="welcome-hero__eyebrow">
-        Health Tracker &amp; PFM <span class="muted">(Personal Financial Management)</span>
-      </p>
-      <h1 id="welcome-title" class="welcome-hero__title">Welcome back, {{ displayName }}</h1>
-      <p class="welcome-hero__lead">
-        Your personal hub for workouts, money, planning, and notes—organized in one place with a calm, focused layout.
-      </p>
-      <div class="welcome-hero__actions">
-        <a mat-flat-button color="primary" routerLink="/exercise" class="welcome-hero__cta">Get started → Exercise</a>
-        <a mat-stroked-button routerLink="/management" class="welcome-hero__cta welcome-hero__cta--alt"
-          >Plan with Management</a
-        >
-      </div>
     </div>
   </header>
 
