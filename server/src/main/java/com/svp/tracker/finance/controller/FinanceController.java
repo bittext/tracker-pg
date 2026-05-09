@@ -3,6 +3,7 @@ package com.svp.tracker.finance.controller;
 import com.svp.tracker.config.FinanceProperties;
 import com.svp.tracker.finance.dto.BreakoutCandidatesDto;
 import com.svp.tracker.finance.dto.FinanceCrawlSnapshotDto;
+import com.svp.tracker.finance.dto.MarketOverviewDto;
 import com.svp.tracker.finance.dto.RobinhoodCsvDirectoryImportDto;
 import com.svp.tracker.finance.dto.RobinhoodCsvImportResultDto;
 import com.svp.tracker.finance.dto.RobinhoodCsvSavedImportDto;
@@ -13,6 +14,7 @@ import com.svp.tracker.finance.dto.StockNewsDto;
 import com.svp.tracker.finance.dto.Surge52WeekHighsDto;
 import com.svp.tracker.finance.service.BreakoutScanService;
 import com.svp.tracker.finance.service.FinanceCrawlService;
+import com.svp.tracker.finance.service.MarketOverviewService;
 import com.svp.tracker.finance.service.RobinhoodCsvImportService;
 import com.svp.tracker.finance.service.RobinhoodFinanceService;
 import com.svp.tracker.finance.service.StockNewsService;
@@ -42,6 +44,7 @@ public class FinanceController {
     private final Surge52WeekHighsService surge52WeekHighsService;
     private final FinanceCrawlService financeCrawlService;
     private final BreakoutScanService breakoutScanService;
+    private final MarketOverviewService marketOverviewService;
     private final FinanceProperties financeProperties;
 
     /**
@@ -233,6 +236,21 @@ public class FinanceController {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, e.getMessage(), e);
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Finance → Market tab: global + US futures, exchange composites, headline indexes, with day / MTD / YTD context
+     * from Yahoo Finance (can be delayed). Not investment advice.
+     */
+    @GetMapping("/market-overview")
+    public MarketOverviewDto marketOverview() {
+        log.info("GET /api/finance/robinhood/market-overview");
+        try {
+            return marketOverviewService.load();
+        } catch (Exception e) {
+            log.warn("market-overview failed", e);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Could not load market overview", e);
         }
     }
 

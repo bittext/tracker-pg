@@ -468,3 +468,39 @@ export interface BankingPlaidSyncResponseDto {
   absoluteDirectoryUnderImportRoot: string;
   importResult: BankingImportResultDto;
 }
+
+/** GET /api/finance/robinhood/market-overview */
+export interface MarketOverviewDto {
+  source: string;
+  fetchedAt: string;
+  note: string;
+  warnings: string[];
+  summary: MarketOverviewSummaryDto;
+  sections: MarketOverviewSectionDto[];
+}
+
+export interface MarketOverviewSummaryDto {
+  narrative: string;
+  vixLevel: number | null;
+  vixChangePercentDay: number | null;
+  sp500ChangePercentDay: number | null;
+  nasdaqCompositeChangePercentDay: number | null;
+  dowChangePercentDay: number | null;
+  russell2000ChangePercentDay: number | null;
+}
+
+export interface MarketOverviewSectionDto {
+  title: string;
+  subtitle: string;
+  rows: MarketOverviewInstrumentDto[];
+}
+
+export interface MarketOverviewInstrumentDto {
+  symbol: string;
+  displayName: string;
+  regularMarketPrice: number | null;
+  changePercentDay: number | null;
+  changePercentMonthToDate: number | null;
+  changePercentYearToDate: number | null;
+  quoteUrl: string;
+}

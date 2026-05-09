@@ -30,6 +30,7 @@ import { FinanceApiService, FinancePeriod } from '../../services/finance-api.ser
 import { formatHttpErrorDetail } from '../../util/http-error';
 import { BankingPanelComponent } from './banking-panel/banking-panel.component';
 import { FinanceTax1040PanelComponent } from './finance-tax-1040-panel/finance-tax-1040-panel.component';
+import { MarketOverviewPanelComponent } from './market-overview-panel/market-overview-panel.component';
 
 @Component({
   selector: 'app-finance',
@@ -48,6 +49,7 @@ import { FinanceTax1040PanelComponent } from './finance-tax-1040-panel/finance-t
     MatTableModule,
     FinanceTax1040PanelComponent,
     BankingPanelComponent,
+    MarketOverviewPanelComponent,
   ],
   templateUrl: './finance.component.html',
   styleUrl: './finance.component.scss',

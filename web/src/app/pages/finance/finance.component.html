@@ -37,9 +37,10 @@
       </mat-tab>
 
       <mat-tab label="Market">
-        <div class="finance-panel finance-category-placeholder">
-          <h2>Market</h2>
-          <p class="muted">Group broad market dashboards, indexes, and market watchlists here.</p>
+        <div class="finance-panel">
+          @if (financeCategoryTabIndex === 3) {
+            <app-market-overview-panel />
+          }
         </div>
       </mat-tab>
 

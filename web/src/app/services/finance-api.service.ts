@@ -11,6 +11,7 @@ import {
   FinanceStockAlertDto,
   FinanceStockAlertRequestDto,
   FinanceTax1040ReturnDto,
+  MarketOverviewDto,
   RobinhoodStocksSummaryDto,
   RobinhoodTransactionsDto,
   StockNewsDto,
@@ -95,6 +96,11 @@ export class FinanceApiService {
   /** Finance “Crawler” tab: topic news + watchlist + index marks. */
   financeCrawlSnapshot() {
     return this.http.get<FinanceCrawlSnapshotDto>(`${this.root}/crawl-snapshot`);
+  }
+
+  /** Finance → Market: global + US futures, composites, headline indexes (day / MTD / YTD). */
+  financeMarketOverview() {
+    return this.http.get<MarketOverviewDto>(`${this.root}/market-overview`);
   }
 
   /** Recent 52w-high names that have climbed through the year. */

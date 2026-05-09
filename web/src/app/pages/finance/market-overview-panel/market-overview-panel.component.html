@@ -1,0 +1,134 @@
+<div class="market-overview">
+  <div class="market-overview-toolbar">
+    <p class="muted market-overview-lead">
+      Session, month-to-date, and year-to-date context for major futures, US composites, headline indexes, and a global
+      set. Data is pulled from Yahoo Finance and can be delayed.
+    </p>
+    <button type="button" mat-stroked-button color="primary" (click)="load()" [disabled]="loading">
+      @if (loading) {
+        <mat-spinner diameter="18" />
+      } @else {
+        <mat-icon>refresh</mat-icon>
+      }
+      Refresh
+    </button>
+  </div>
+
+  @if (overview) {
+    @if (overview.warnings.length) {
+      <ul class="market-warnings">
+        @for (w of overview.warnings; track w) {
+          <li>{{ w }}</li>
+        }
+      </ul>
+    }
+    <section class="market-summary card-like">
+      <h2 class="market-h2">At a glance</h2>
+      <p class="market-summary-narrative">{{ overview.summary.narrative }}</p>
+      <div class="market-summary-grid">
+        <div>
+          <span class="lbl">VIX</span>
+          <span class="val"
+            >{{
+              overview.summary.vixLevel != null ? (overview.summary.vixLevel | number: '1.2-2') : '—'
+            }}</span
+          >
+          <span class="chg" [ngClass]="chgClass(overview.summary.vixChangePercentDay)">{{
+            overview.summary.vixChangePercentDay != null
+              ? (overview.summary.vixChangePercentDay | number: '1.2-2') + '%'
+              : '—'
+          }}</span>
+        </div>
+        <div>
+          <span class="lbl">S&amp;P 500 day</span>
+          <span class="chg" [ngClass]="chgClass(overview.summary.sp500ChangePercentDay)">{{
+            overview.summary.sp500ChangePercentDay != null
+              ? (overview.summary.sp500ChangePercentDay | number: '1.2-2') + '%'
+              : '—'
+          }}</span>
+        </div>
+        <div>
+          <span class="lbl">Nasdaq Comp day</span>
+          <span class="chg" [ngClass]="chgClass(overview.summary.nasdaqCompositeChangePercentDay)">{{
+            overview.summary.nasdaqCompositeChangePercentDay != null
+              ? (overview.summary.nasdaqCompositeChangePercentDay | number: '1.2-2') + '%'
+              : '—'
+          }}</span>
+        </div>
+        <div>
+          <span class="lbl">Dow day</span>
+          <span class="chg" [ngClass]="chgClass(overview.summary.dowChangePercentDay)">{{
+            overview.summary.dowChangePercentDay != null
+              ? (overview.summary.dowChangePercentDay | number: '1.2-2') + '%'
+              : '—'
+          }}</span>
+        </div>
+        <div>
+          <span class="lbl">Russell 2000 day</span>
+          <span class="chg" [ngClass]="chgClass(overview.summary.russell2000ChangePercentDay)">{{
+            overview.summary.russell2000ChangePercentDay != null
+              ? (overview.summary.russell2000ChangePercentDay | number: '1.2-2') + '%'
+              : '—'
+          }}</span>
+        </div>
+      </div>
+      <p class="muted tiny">{{ overview.source }}</p>
+    </section>
+
+    @for (sec of overview.sections; track sec.title) {
+      <section class="market-section card-like">
+        <h2 class="market-h2">{{ sec.title }}</h2>
+        <p class="muted section-sub">{{ sec.subtitle }}</p>
+        <table mat-table [dataSource]="sec.rows" class="market-table">
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef>Name</th>
+            <td mat-cell *matCellDef="let row">
+              <span class="sym">{{ row.symbol }}</span>
+              <span class="nm">{{ row.displayName }}</span>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="price">
+            <th mat-header-cell *matHeaderCellDef class="num">Last</th>
+            <td mat-cell *matCellDef="let row" class="num">{{
+              row.regularMarketPrice != null ? (row.regularMarketPrice | number: '1.2-2') : '—'
+            }}</td>
+          </ng-container>
+          <ng-container matColumnDef="day">
+            <th mat-header-cell *matHeaderCellDef class="num">Day</th>
+            <td mat-cell *matCellDef="let row" class="num" [ngClass]="chgClass(row.changePercentDay)">{{
+              row.changePercentDay != null ? (row.changePercentDay | number: '1.2-2') + '%' : '—'
+            }}</td>
+          </ng-container>
+          <ng-container matColumnDef="mtd">
+            <th mat-header-cell *matHeaderCellDef class="num">MTD</th>
+            <td mat-cell *matCellDef="let row" class="num" [ngClass]="chgClass(row.changePercentMonthToDate)">{{
+              row.changePercentMonthToDate != null
+                ? (row.changePercentMonthToDate | number: '1.2-2') + '%'
+                : '—'
+            }}</td>
+          </ng-container>
+          <ng-container matColumnDef="ytd">
+            <th mat-header-cell *matHeaderCellDef class="num">YTD</th>
+            <td mat-cell *matCellDef="let row" class="num" [ngClass]="chgClass(row.changePercentYearToDate)">{{
+              row.changePercentYearToDate != null
+                ? (row.changePercentYearToDate | number: '1.2-2') + '%'
+                : '—'
+            }}</td>
+          </ng-container>
+          <ng-container matColumnDef="link">
+            <th mat-header-cell *matHeaderCellDef></th>
+            <td mat-cell *matCellDef="let row" class="link-cell">
+              <a [href]="row.quoteUrl" target="_blank" rel="noopener noreferrer">Yahoo</a>
+            </td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+        </table>
+      </section>
+    }
+
+    <p class="muted tiny footnote">{{ overview.note }}</p>
+  } @else if (!loading) {
+    <p class="muted">Press refresh to load market data.</p>
+  }
+</div>
