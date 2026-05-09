@@ -175,13 +175,9 @@
               </div>
             </div>
           </section>
-        </div>
-      </mat-tab>
-    }
 
-    <mat-tab label="My profile">
-      <div class="tab-panel">
-        @if (isAppAdmin) {
+          <mat-divider class="admin-create-user-divider" />
+
           <section class="admin-section admin-member-profile-browser">
             <h2 class="section-title">Member profiles (read-only)</h2>
             <p class="muted">
@@ -213,13 +209,17 @@
               }
             }
           </section>
-          <mat-divider class="admin-my-profile-divider" />
-        }
+        </div>
+      </mat-tab>
+    }
+
+    <mat-tab label="My profile">
+      <div class="tab-panel">
         <section class="admin-section">
-          <h2 class="section-title">Your member details</h2>
+          <h2 class="section-title">Member details</h2>
           <p class="muted">
-            Your name, birth date, contact information, and mailing address. This is stored with your account and used as
-            the basis for future communications when those features are turned on.
+            Your name, birth date, contact information, and mailing address. This is stored with your account and used
+            as the basis for future communications when those features are turned on.
           </p>
           <app-member-profile-panel />
         </section>

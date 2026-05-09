@@ -145,7 +145,7 @@ export class AdminComponent implements OnInit {
     active: true,
   };
 
-  /** Admin → My profile: members who saved a profile (browse read-only). */
+  /** Admin → Create user tab: members who saved a profile (browse read-only). */
   adminMemberProfileList: AdminMemberProfileListItemDto[] = [];
   adminMemberProfileListLoading = false;
   adminSelectedMemberUserId: number | null = null;
