@@ -1,5 +1,7 @@
 package com.svp.tracker.config;
 
+import jakarta.mail.internet.AddressException;
+import jakarta.mail.internet.InternetAddress;
 import java.util.Locale;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -70,9 +72,34 @@ public record FinanceAlertProperties(
         return "smtp".equals(emailTransport);
     }
 
-    /** SMTP login: explicit username or fallback to {@link #emailFrom}. */
+    /** SMTP login: explicit username, or mailbox parsed from {@link #emailFrom} (including {@code Name <a@b>} forms). */
     public String effectiveSmtpUsername() {
-        return smtpUsername.isBlank() ? emailFrom : smtpUsername;
+        if (!smtpUsername.isBlank()) {
+            return smtpUsername;
+        }
+        return mailboxFromFromHeader(emailFrom);
+    }
+
+    /**
+     * SMTP AUTH username must be the mailbox (e.g. {@code user@gmail.com}). If {@code email-from} uses a display name,
+     * extract the address so providers like Gmail do not reject login.
+     */
+    private static String mailboxFromFromHeader(String fromHeaderValue) {
+        if (fromHeaderValue.isBlank()) {
+            return "";
+        }
+        try {
+            InternetAddress[] parsed = InternetAddress.parse(fromHeaderValue, false);
+            if (parsed.length > 0) {
+                String addr = parsed[0].getAddress();
+                if (addr != null && !addr.isBlank()) {
+                    return addr.trim();
+                }
+            }
+        } catch (AddressException ignored) {
+            // fall through
+        }
+        return fromHeaderValue;
     }
 
     public boolean emailProviderConfigured() {

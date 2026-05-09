@@ -54,8 +54,16 @@ public class OutboundEmailConfiguration {
         Properties p = sender.getJavaMailProperties();
         p.put("mail.transport.protocol", "smtp");
         p.put("mail.smtp.auth", "true");
-        p.put("mail.smtp.starttls.enable", "true");
-        p.put("mail.smtp.starttls.required", "true");
+        int port = props.smtpPort();
+        if (port == 465) {
+            // Implicit TLS (SMTPS); STARTTLS is for submission port 587.
+            p.put("mail.smtp.ssl.enable", "true");
+            p.put("mail.smtp.starttls.enable", "false");
+            p.put("mail.smtp.starttls.required", "false");
+        } else {
+            p.put("mail.smtp.starttls.enable", "true");
+            p.put("mail.smtp.starttls.required", "true");
+        }
         return sender;
     }
 }
