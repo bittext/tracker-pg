@@ -19,6 +19,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -217,7 +218,8 @@ public class MarketOverviewService {
 
         int n = 0;
         double sum = 0.0;
-        for (Double x : List.of(sp, nd, dj, ru)) {
+        // Arrays.asList allows null elements; List.of rejects null (NPE).
+        for (Double x : Arrays.asList(sp, nd, dj, ru)) {
             if (x != null && !Double.isNaN(x)) {
                 sum += x;
                 n++;
