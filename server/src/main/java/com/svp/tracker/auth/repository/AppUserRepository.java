@@ -10,6 +10,9 @@ import org.springframework.data.repository.query.Param;
 
 public interface AppUserRepository extends JpaRepository<AppUser, Long> {
 
+    /** Users who saved the member profile at least once (public member id minted). */
+    List<AppUser> findAllByMemberPublicIdIsNotNullOrderByUsernameAsc();
+
     List<AppUser> findByRole(AppUserRole role);
 
     Optional<AppUser> findByUsernameIgnoreCase(String username);

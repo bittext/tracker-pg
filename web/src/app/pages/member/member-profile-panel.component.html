@@ -1,16 +1,23 @@
 <section class="member-profile">
-  <p class="muted intro">
-    Your legal-style name, optional nickname for social use, contact details, and mailing address. US ZIP codes can be
-    checked against a public lookup service; you may keep your entered city/state or adopt the suggested values.
-    @if (contactEmailLockedFromAuth || contactPhoneLockedFromAuth) {
-      <span>
-        Email and/or phone may be <strong>managed on your account</strong> (from sign-up or an administrator); those
-        fields are read-only here.
-      </span>
-    }
-  </p>
+  @if (readOnlyView) {
+    <p class="muted intro intro--admin-readonly">
+      <strong>Read-only</strong> member profile for <strong>{{ viewedUsername }}</strong> (user id {{ viewUserId }}).
+      Password, save, and ZIP validation are hidden for administrators viewing another account.
+    </p>
+  } @else {
+    <p class="muted intro">
+      Your legal-style name, optional nickname for social use, contact details, and mailing address. US ZIP codes can be
+      checked against a public lookup service; you may keep your entered city/state or adopt the suggested values.
+      @if (contactEmailLockedFromAuth || contactPhoneLockedFromAuth) {
+        <span>
+          Email and/or phone may be <strong>managed on your account</strong> (from sign-up or an administrator); those
+          fields are read-only here.
+        </span>
+      }
+    </p>
+  }
 
-  @if (onboardingComplete) {
+  @if (onboardingComplete && !readOnlyView) {
     <mat-card class="pwd-card" appearance="outlined">
       <mat-card-title class="pwd-card-title">Change sign-in password</mat-card-title>
       <mat-card-content>
@@ -84,6 +91,7 @@
     </mat-card>
   }
 
+  <fieldset class="mp-fieldset" [disabled]="readOnlyView">
   <div class="form-grid">
     <mat-form-field appearance="outline">
       <mat-label>First name</mat-label>
@@ -185,18 +193,20 @@
       <mat-label>ZIP / postal</mat-label>
       <input matInput name="mpZip" [(ngModel)]="form.postalCode" required autocomplete="postal-code" />
     </mat-form-field>
-    <div class="zip-actions">
-      <button mat-stroked-button type="button" color="primary" (click)="validateZip()" [disabled]="validatingZip">
-        @if (validatingZip) {
-          <span>Checking…</span>
-        } @else {
-          <span>Validate US ZIP</span>
-        }
-      </button>
-    </div>
+    @if (!readOnlyView) {
+      <div class="zip-actions">
+        <button mat-stroked-button type="button" color="primary" (click)="validateZip()" [disabled]="validatingZip">
+          @if (validatingZip) {
+            <span>Checking…</span>
+          } @else {
+            <span>Validate US ZIP</span>
+          }
+        </button>
+      </div>
+    }
   </div>
 
-  @if (zipLookup && zipLookup.places.length) {
+  @if (!readOnlyView && zipLookup && zipLookup.places.length) {
     <mat-card class="suggest-card" appearance="outlined">
       <mat-card-title class="suggest-title">ZIP lookup suggestion</mat-card-title>
       <mat-card-content>
@@ -211,7 +221,7 @@
         </mat-radio-group>
       </mat-card-content>
     </mat-card>
-  } @else if (zipLookup && zipLookup.message) {
+  } @else if (!readOnlyView && zipLookup && zipLookup.message) {
     <p class="muted small zip-msg">{{ zipLookup.message }}</p>
   }
 
@@ -223,10 +233,13 @@
       >Send me SMS notifications from Health Tracker &amp; PFM (alerts and product messages)</mat-checkbox
     >
   </div>
+  </fieldset>
 
-  <div class="actions">
-    <button mat-flat-button color="primary" type="button" (click)="save()" [disabled]="saving">
-      {{ saving ? 'Saving…' : 'Save profile' }}
-    </button>
-  </div>
+  @if (!readOnlyView) {
+    <div class="actions">
+      <button mat-flat-button color="primary" type="button" (click)="save()" [disabled]="saving">
+        {{ saving ? 'Saving…' : 'Save profile' }}
+      </button>
+    </div>
+  }
 </section>

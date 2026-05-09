@@ -181,11 +181,45 @@
 
     <mat-tab label="My profile">
       <div class="tab-panel">
+        @if (isAppAdmin) {
+          <section class="admin-section admin-member-profile-browser">
+            <h2 class="section-title">Member profiles (read-only)</h2>
+            <p class="muted">
+              Every account that has <strong>saved a member profile</strong> (member public id assigned) appears here.
+              Choose one to view their details; you cannot edit their profile or password from this screen.
+            </p>
+            @if (adminMemberProfileListLoading) {
+              <div class="admin-member-profile-loading">
+                <mat-progress-spinner mode="indeterminate" diameter="36" />
+              </div>
+            } @else if (!adminMemberProfileList.length) {
+              <p class="muted">No members with a saved profile yet.</p>
+            } @else {
+              <mat-form-field appearance="outline" class="admin-member-profile-select">
+                <mat-label>View member profile</mat-label>
+                <mat-select
+                  [(ngModel)]="adminSelectedMemberUserId"
+                  name="adminMemberProfilePick"
+                  [compareWith]="compareAdminMemberUserId"
+                >
+                  <mat-option [value]="null">Choose a member…</mat-option>
+                  @for (u of adminMemberProfileList; track u.userId) {
+                    <mat-option [value]="u.userId">{{ adminMemberProfileOptionLabel(u) }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+              @if (adminSelectedMemberUserId != null) {
+                <app-member-profile-panel [viewUserId]="adminSelectedMemberUserId" />
+              }
+            }
+          </section>
+          <mat-divider class="admin-my-profile-divider" />
+        }
         <section class="admin-section">
-          <h2 class="section-title">Member details</h2>
+          <h2 class="section-title">Your member details</h2>
           <p class="muted">
-            Your name, birth date, contact information, and mailing address. This is stored with your account and used
-            as the basis for future communications when those features are turned on.
+            Your name, birth date, contact information, and mailing address. This is stored with your account and used as
+            the basis for future communications when those features are turned on.
           </p>
           <app-member-profile-panel />
         </section>

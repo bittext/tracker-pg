@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, Input, OnChanges, OnInit, SimpleChanges, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
@@ -14,6 +14,7 @@ import { MatRadioModule } from '@angular/material/radio';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MeMemberProfileResponseDto, MemberGender, UsPostalValidationResponseDto } from '../../models/member.models';
 import { AuthService } from '../../services/auth.service';
+import { AdminMemberProfilesApiService } from '../../services/admin-member-profiles-api.service';
 import { MeMemberApiService } from '../../services/me-member-api.service';
 import { formatHttpErrorDetail } from '../../util/http-error';
 
@@ -37,11 +38,20 @@ import { formatHttpErrorDetail } from '../../util/http-error';
   templateUrl: './member-profile-panel.component.html',
   styleUrl: './member-profile-panel.component.scss',
 })
-export class MemberProfilePanelComponent implements OnInit {
+export class MemberProfilePanelComponent implements OnInit, OnChanges {
   private readonly api = inject(MeMemberApiService);
+  private readonly adminProfilesApi = inject(AdminMemberProfilesApiService);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly snackBar = inject(MatSnackBar);
+
+  /**
+   * When set, load that user's profile via admin API (read-only). Omit for the signed-in member's own profile.
+   */
+  @Input() viewUserId: number | null = null;
+
+  /** Username for the read-only banner when {@link #viewUserId} is set. */
+  viewedUsername = '';
 
   /** When true, show change-password (account setup finished). */
   onboardingComplete = false;
@@ -84,12 +94,39 @@ export class MemberProfilePanelComponent implements OnInit {
   pwdMaskConfirm = true;
   pwdSaving = false;
 
+  get readOnlyView(): boolean {
+    return this.viewUserId != null && this.viewUserId > 0;
+  }
+
   ngOnInit(): void {
+    this.loadProfile();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['viewUserId'] && !changes['viewUserId'].firstChange) {
+      this.zipLookup = null;
+      this.loadProfile();
+    }
+  }
+
+  private loadProfile(): void {
+    if (this.readOnlyView) {
+      this.adminProfilesApi.getMemberProfile(this.viewUserId!).subscribe({
+        next: (d) => {
+          this.viewedUsername = d.username;
+          this.onboardingComplete = false;
+          this.patchFromDto(d.profile);
+        },
+        error: (e) => this.err('Could not load member profile', e),
+      });
+      return;
+    }
     forkJoin({
       profile: this.api.getMemberProfile(),
       status: this.api.getOnboardingStatus(),
     }).subscribe({
       next: ({ profile, status }) => {
+        this.viewedUsername = '';
         this.patchFromDto(profile);
         this.onboardingComplete = status.onboardingCompleted;
       },
@@ -98,6 +135,9 @@ export class MemberProfilePanelComponent implements OnInit {
   }
 
   changePassword(): void {
+    if (this.readOnlyView) {
+      return;
+    }
     if (!this.pwdCurrent || !this.pwdNew) {
       this.snackBar.open('Enter your current password and a new password.', undefined, { duration: 4000 });
       return;
@@ -128,6 +168,9 @@ export class MemberProfilePanelComponent implements OnInit {
   }
 
   validateZip(): void {
+    if (this.readOnlyView) {
+      return;
+    }
     const z = this.form.postalCode.trim();
     if (!z) {
       this.snackBar.open('Enter a ZIP code first.', undefined, { duration: 3500 });
@@ -153,6 +196,9 @@ export class MemberProfilePanelComponent implements OnInit {
   }
 
   save(): void {
+    if (this.readOnlyView) {
+      return;
+    }
     if (!this.form.firstName.trim() || !this.form.lastName.trim() || !this.form.dateOfBirth) {
       this.snackBar.open('First name, last name, and date of birth are required.', undefined, { duration: 4000 });
       return;
@@ -217,11 +263,24 @@ export class MemberProfilePanelComponent implements OnInit {
   }
 
   private patchFromDto(p: MeMemberProfileResponseDto): void {
+    const dobRaw = p.dateOfBirth as unknown;
+    const dobStr =
+      typeof dobRaw === 'string'
+        ? dobRaw.slice(0, 10)
+        : dobRaw != null && typeof dobRaw === 'object' && 'year' in (dobRaw as object)
+          ? (() => {
+              const o = dobRaw as { year: number; monthValue?: number; dayOfMonth?: number };
+              const mo = String(o.monthValue ?? 1).padStart(2, '0');
+              const da = String(o.dayOfMonth ?? 1).padStart(2, '0');
+              return `${o.year}-${mo}-${da}`;
+            })()
+          : '';
+
     this.form.firstName = p.firstName ?? '';
     this.form.middleName = p.middleName ?? '';
     this.form.lastName = p.lastName ?? '';
     this.form.nickname = p.nickname ?? '';
-    this.form.dateOfBirth = p.dateOfBirth ?? '';
+    this.form.dateOfBirth = dobStr;
     this.form.gender = (p.gender as MemberGender | null | undefined) ?? '';
     this.form.email = p.email ?? '';
     this.contactEmailLockedFromAuth = p.contactEmailLockedFromAuth ?? false;
@@ -242,6 +301,7 @@ export class MemberProfilePanelComponent implements OnInit {
     this.form.marketingEmailOptIn = p.marketingEmailOptIn;
     this.form.marketingSmsOptIn = p.marketingSmsOptIn;
     this.addressChoice = p.addressUseValidatedSuggestion ? 'validated' : 'mine';
+    this.zipLookup = null;
     if (p.validatedPostalCode || p.validatedCity) {
       this.zipLookup = {
         postalCode: p.validatedPostalCode ?? '',

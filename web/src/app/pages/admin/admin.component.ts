@@ -12,6 +12,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatTabChangeEvent, MatTabsModule } from '@angular/material/tabs';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatDividerModule } from '@angular/material/divider';
 import { MatOption, MatSelectModule } from '@angular/material/select';
 import { Exercise } from '../../models/fitness.models';
 import { FinanceNotificationSettingsDto, FinanceNotificationSettingsRequestDto } from '../../models/finance.models';
@@ -31,8 +32,13 @@ import { AuthService } from '../../services/auth.service';
 import { formatHttpErrorDetail } from '../../util/http-error';
 import { GithubRepositoryInsightsDto } from '../../models/github-insights.models';
 import { MemberProfilePanelComponent } from '../member/member-profile-panel.component';
+import { AdminMemberProfilesApiService } from '../../services/admin-member-profiles-api.service';
 import { AdminUsersApiService } from '../../services/admin-users-api.service';
-import { AdminCreateUserRequest, AdminProvisionRole } from '../../models/admin-users.models';
+import {
+  AdminCreateUserRequest,
+  AdminMemberProfileListItemDto,
+  AdminProvisionRole,
+} from '../../models/admin-users.models';
 
 @Component({
   selector: 'app-admin',
@@ -49,6 +55,7 @@ import { AdminCreateUserRequest, AdminProvisionRole } from '../../models/admin-u
     MatSnackBarModule,
     MatTabsModule,
     MatProgressSpinnerModule,
+    MatDividerModule,
     MatSelectModule,
     MatOption,
     RouterLink,
@@ -79,6 +86,7 @@ export class AdminComponent implements OnInit {
   private readonly adminAuthAuditApi = inject(AdminAuthAuditApiService);
   private readonly adminGithubApi = inject(AdminGithubApiService);
   private readonly adminUsersApi = inject(AdminUsersApiService);
+  private readonly adminMemberProfilesApi = inject(AdminMemberProfilesApiService);
   private readonly meSignInLogApi = inject(MeSignInLogApiService);
   private readonly snackBar = inject(MatSnackBar);
 
@@ -136,6 +144,11 @@ export class AdminComponent implements OnInit {
     active: true,
   };
 
+  /** Admin → My profile: members who saved a profile (browse read-only). */
+  adminMemberProfileList: AdminMemberProfileListItemDto[] = [];
+  adminMemberProfileListLoading = false;
+  adminSelectedMemberUserId: number | null = null;
+
   githubInsights: GithubRepositoryInsightsDto | null = null;
   githubLoading = false;
   readonly githubCommitColumns = ['shaShort', 'messageFirstLine', 'authorLogin', 'committedAt', 'link'];
@@ -191,6 +204,37 @@ export class AdminComponent implements OnInit {
     this.reloadJournalTags();
     this.loadFinanceNotificationSettings();
     this.loadLoginEvents();
+    if (this.isAppAdmin) {
+      this.loadAdminMemberProfileList();
+    }
+  }
+
+  loadAdminMemberProfileList(): void {
+    if (!this.isAppAdmin) {
+      return;
+    }
+    this.adminMemberProfileListLoading = true;
+    this.adminMemberProfilesApi.listWithSavedProfile().subscribe({
+      next: (rows) => {
+        this.adminMemberProfileListLoading = false;
+        this.adminMemberProfileList = rows;
+      },
+      error: (e) => {
+        this.adminMemberProfileListLoading = false;
+        this.adminMemberProfileList = [];
+        this.err('Could not load member profile list', e);
+      },
+    });
+  }
+
+  adminMemberProfileOptionLabel(u: AdminMemberProfileListItemDto): string {
+    const name = (u.displayName || '').trim();
+    const left = name ? `${name} · ${u.username}` : u.username;
+    return `${left} · ID ${u.memberPublicId}${u.onboardingCompleted ? '' : ' · onboarding open'}`;
+  }
+
+  compareAdminMemberUserId(a: number | null | undefined, b: number | null | undefined): boolean {
+    return (a ?? null) === (b ?? null);
   }
 
   private err(msg: string, e: unknown): void {
