@@ -10,7 +10,7 @@
 #   or: PGHOST PGPORT PGUSER PGPASSWORD PGDATABASE
 #
 # Remote / SSH:
-#   export LIGHTSAIL_HOST="203.0.113.50"
+#   export LIGHTSAIL_HOST="3.140.203.121"
 #   export LIGHTSAIL_SSH_KEY="$HOME/.ssh/LightsailDefaultKey-us-east-1.pem"
 #   optional: LIGHTSAIL_USER (default ubuntu), LIGHTSAIL_REPO_DIR (default /home/ubuntu/apps/tracker-pg)
 #   optional: REMOTE_POSTGRES_USER REMOTE_POSTGRES_DB (default tracker / tracker)

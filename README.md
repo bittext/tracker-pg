@@ -302,6 +302,8 @@ Set these in **GitHub → Repo → Settings → Secrets and variables → Action
 
 If your repo is cloned elsewhere on the instance (example `/home/ubuntu/tracker-pg`), set `LIGHTSAIL_REPO_DIR` to that exact path.
 
+When **Lightsail gives you a new public IPv4** (or you replace the instance), update the **`LIGHTSAIL_HOST`** Action secret to that IP or to your stable DNS name. If you use a domain for **HTTPS (Caddy)**, point the DNS **A record** at the new IP. SSH may warn about `known_hosts`; remove the old host line or accept the new host key after you confirm the fingerprint.
+
 ## Tests
 
 ```bash
