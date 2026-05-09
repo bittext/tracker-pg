@@ -1,6 +1,8 @@
 package com.svp.tracker.admin.github;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.svp.tracker.admin.github.dto.GithubCommitSummaryDto;
 import com.svp.tracker.admin.github.dto.GithubContributorDto;
 import com.svp.tracker.admin.github.dto.GithubRepoSummaryDto;
@@ -35,6 +37,7 @@ public class GithubRepositoryInsightsService {
 
     private final GithubProperties githubProperties;
     private final ClientHttpRequestFactory outboundHttpRequestFactory;
+    private final ObjectMapper objectMapper;
 
     public GithubRepositoryInsightsDto loadInsights() {
         if (!githubProperties.configured()) {
@@ -102,12 +105,21 @@ public class GithubRepositoryInsightsService {
                     .defaultHeader(HttpHeaders.ACCEPT, "application/vnd.github+json")
                     .defaultHeader(HttpHeaders.USER_AGENT, "TrackerPgServer/5.1.3")
                     .build();
-            JsonNode body = client.get()
+            // Jackson 3 + RestClient: cannot deserialize directly into abstract JsonNode.class — read String then parse.
+            String raw = client.get()
                     .uri(path)
                     .headers(this::applyAuth)
                     .retrieve()
-                    .body(JsonNode.class);
-            return Optional.ofNullable(body);
+                    .body(String.class);
+            if (raw == null || raw.isBlank()) {
+                return Optional.empty();
+            }
+            JsonNode body = objectMapper.readTree(raw);
+            return Optional.of(body);
+        } catch (JsonProcessingException e) {
+            log.warn("GitHub JSON parse failed: {}", path, e);
+            warnings.add("GitHub " + path + ": invalid JSON response");
+            return Optional.empty();
         } catch (RestClientResponseException e) {
             int code = e.getStatusCode().value();
             if (code == 404 || code == 403 || code == 401) {
