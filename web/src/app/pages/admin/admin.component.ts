@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
@@ -151,6 +152,8 @@ export class AdminComponent implements OnInit {
 
   githubInsights: GithubRepositoryInsightsDto | null = null;
   githubLoading = false;
+  /** Set when the API returns 503 (integration disabled or owner/repo unset). */
+  githubNotConfigured = false;
   readonly githubCommitColumns = ['shaShort', 'messageFirstLine', 'authorLogin', 'committedAt', 'link'];
   readonly githubContributorColumns = ['login', 'contributions', 'gh'];
 
@@ -177,6 +180,7 @@ export class AdminComponent implements OnInit {
       return;
     }
     this.githubInsights = null;
+    this.githubNotConfigured = false;
     this.loadGithubInsights();
   }
 
@@ -188,11 +192,17 @@ export class AdminComponent implements OnInit {
     this.adminGithubApi.getRepositoryInsights().subscribe({
       next: (d) => {
         this.githubLoading = false;
+        this.githubNotConfigured = false;
         this.githubInsights = d;
       },
       error: (e) => {
         this.githubLoading = false;
         this.githubInsights = null;
+        if (this.isGithubIntegrationUnavailable(e)) {
+          this.githubNotConfigured = true;
+          return;
+        }
+        this.githubNotConfigured = false;
         this.err('Could not load GitHub insights', e);
       },
     });
@@ -235,6 +245,21 @@ export class AdminComponent implements OnInit {
 
   compareAdminMemberUserId(a: number | null | undefined, b: number | null | undefined): boolean {
     return (a ?? null) === (b ?? null);
+  }
+
+  /** 503 from Spring when tracker.github is off or owner/repo unset; avoid noisy snackbar — show inline help instead. */
+  private isGithubIntegrationUnavailable(e: unknown): boolean {
+    if (e instanceof HttpErrorResponse && e.status === 503) {
+      return true;
+    }
+    if (typeof e === 'object' && e !== null && 'status' in e) {
+      const s = (e as { status?: number }).status;
+      if (s === 503) {
+        return true;
+      }
+    }
+    const detail = formatHttpErrorDetail(e);
+    return detail.includes('GitHub is disabled') || detail.includes('owner/repo is not set');
   }
 
   private err(msg: string, e: unknown): void {

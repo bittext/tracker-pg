@@ -162,6 +162,8 @@ The API is exposed on **9091**. Do not run this at the same time as `mvn spring-
 
 Use **`docker-compose.stack.yml`** for **Postgres + API + Angular** in Docker. **Postgres** is mapped to **`127.0.0.1:${POSTGRES_HOST_PORT:-5433}`** on the host (not reachable from the internet on the instance’s public IP). **API** and **web** use **`API_PORT`** and **`WEB_PORT_BIND`** (a Docker port spec such as `9080:80` or `127.0.0.1:9080:80`). Inside the stack the API listens on **9091**; nginx proxies **`/api`** to `http://api:9091`.
 
+**Admin → Repository (GitHub)** needs **`TRACKER_GITHUB_ENABLED=true`** plus **`TRACKER_GITHUB_OWNER`** and **`TRACKER_GITHUB_REPO`** in **`.env.stack`** (optional **`TRACKER_GITHUB_TOKEN`**). Those variables are forwarded into the **`api`** service by the stack file; restart **`api`** after editing, then refresh the GitHub tab.
+
 If **`docker compose up`** (dev Postgres on **5433**) is already running, set **`POSTGRES_HOST_PORT=5434`** in `.env.stack` for the stack to avoid a port bind conflict.
 
 ### Lightsail (Ubuntu), port 80, DBeaver from your laptop

@@ -789,6 +789,26 @@
               }
             } @else if (githubLoading) {
               <p class="muted">Loading GitHub data…</p>
+            } @else if (githubNotConfigured) {
+              <div class="github-not-configured">
+                <p>
+                  <strong>GitHub insights are turned off</strong> for this server, or <code>owner</code> /
+                  <code>repo</code> are not set. The API returns HTTP 503 until the integration is configured.
+                </p>
+                <p class="muted small">
+                  In <strong>.env.stack</strong> (or your API environment), set for example:
+                </p>
+                <pre class="github-env-hint"><code>TRACKER_GITHUB_ENABLED=true
+TRACKER_GITHUB_OWNER=your-org-or-user
+TRACKER_GITHUB_REPO=your-repo
+# Optional: classic PAT or fine-grained token (private repos; higher rate limits; traffic/views need push on repo)
+# TRACKER_GITHUB_TOKEN=ghp_...</code></pre>
+                <p class="muted small">
+                  With Docker Compose, these variables are passed through from <code>.env.stack</code> into the
+                  <code>api</code> service (see <code>docker-compose.stack.yml</code>). Restart the API container after
+                  changing them, then use <strong>Refresh from GitHub</strong> again.
+                </p>
+              </div>
             } @else {
               <p class="muted">Use “Refresh from GitHub” after configuring <code>tracker.github</code> on the server.</p>
             }

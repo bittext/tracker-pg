@@ -241,3 +241,30 @@
 .admin-my-profile-divider {
   margin: 1.25rem 0 1.5rem;
 }
+
+.github-not-configured {
+  margin-top: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
+  border-radius: var(--app-radius-sm, 10px);
+  background: var(--app-surface-muted, #f8fafc);
+
+  p {
+    margin: 0 0 0.65rem;
+    line-height: 1.45;
+  }
+
+  p:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.github-env-hint {
+  margin: 0.35rem 0 0.65rem;
+  padding: 0.65rem 0.85rem;
+  font-size: 0.82rem;
+  overflow-x: auto;
+  border-radius: 8px;
+  background: var(--app-surface, #fff);
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+}

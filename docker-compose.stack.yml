@@ -84,6 +84,11 @@ services:
       TRACKER_PLAID_ENVIRONMENT: ${TRACKER_PLAID_ENVIRONMENT:-sandbox}
       TRACKER_PLAID_OUTPUT_SUBDIRECTORY: ${TRACKER_PLAID_OUTPUT_SUBDIRECTORY:-plaid}
       TRACKER_PLAID_ACCESS_TOKEN_ENCRYPTION_KEY: ${TRACKER_PLAID_ACCESS_TOKEN_ENCRYPTION_KEY:-}
+      # Admin → Repository (GitHub): set enabled + owner + repo in .env.stack (optional token for private repo / traffic).
+      TRACKER_GITHUB_ENABLED: ${TRACKER_GITHUB_ENABLED:-false}
+      TRACKER_GITHUB_OWNER: ${TRACKER_GITHUB_OWNER:-}
+      TRACKER_GITHUB_REPO: ${TRACKER_GITHUB_REPO:-}
+      TRACKER_GITHUB_TOKEN: ${TRACKER_GITHUB_TOKEN:-}
       # Optional: default AWS credential chain for SES / SNS / S3 inside the container (omit if using another mechanism).
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
