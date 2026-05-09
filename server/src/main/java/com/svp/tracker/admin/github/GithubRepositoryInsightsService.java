@@ -37,7 +37,9 @@ public class GithubRepositoryInsightsService {
 
     private final GithubProperties githubProperties;
     private final ClientHttpRequestFactory outboundHttpRequestFactory;
-    private final ObjectMapper objectMapper;
+
+    /** Local mapper: Spring Boot 4 may not register an {@link ObjectMapper} bean; GitHub JSON parsing only. */
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public GithubRepositoryInsightsDto loadInsights() {
         if (!githubProperties.configured()) {
