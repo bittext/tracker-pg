@@ -219,7 +219,24 @@ For **`mvn spring-boot:run`** on your Mac, use the **`local`** profile and set `
 
 **Finance stock alerts:** users create alert rules in **Finance → Alerts** (target price or session % rise, one-time or repeat with cooldown). Recipient provisioning lives in **Admin → Finance**. Outbound provider secrets stay in environment / `.env.stack`, not in the UI:
 
-- Email (Amazon SES): set **`TRACKER_FINANCE_ALERTS_EMAIL_ENABLED=true`**, **`TRACKER_FINANCE_ALERTS_EMAIL_FROM`** (verified identity in SES), and **`TRACKER_FINANCE_ALERTS_AWS_REGION`** (for example `us-east-1`). The API uses the default AWS credential chain (instance role, environment keys, or profile).
+- **Email** — set **`TRACKER_FINANCE_ALERTS_EMAIL_ENABLED=true`** and **`TRACKER_FINANCE_ALERTS_EMAIL_FROM`**. Choose transport with **`TRACKER_FINANCE_ALERTS_EMAIL_TRANSPORT`** (`ses`, default) or **`smtp`**.
+  - **Amazon SES** (`email-transport` omitted or `ses`): **`TRACKER_FINANCE_ALERTS_AWS_REGION`** must match the region of your verified SES identity. Sending uses AWS SDK **SES v2** and the default credential chain (instance role, environment keys, or profile).
+  - **SMTP / Gmail** (`TRACKER_FINANCE_ALERTS_EMAIL_TRANSPORT=smtp`): no SES IAM needed. Set **`TRACKER_FINANCE_ALERTS_SMTP_HOST`** (e.g. `smtp.gmail.com`), **`TRACKER_FINANCE_ALERTS_SMTP_PORT`** (usually `587`), **`TRACKER_FINANCE_ALERTS_SMTP_PASSWORD`** (Google **App Password** if 2FA is on), and optionally **`TRACKER_FINANCE_ALERTS_SMTP_USERNAME`** if it differs from **`EMAIL_FROM`**. Consumer Gmail has low daily send limits compared to SES.
+  - **IAM (SES only):** the principal assumed by the API (Lightsail role, EC2 instance profile, or `AWS_ACCESS_KEY_ID` user) needs **`ses:SendEmail`** (and typically **`ses:SendRawEmail`**) on that identity. A minimal policy scopes the resource to your verified sender ARN, for example:
+    ```json
+    {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": ["ses:SendEmail", "ses:SendRawEmail"],
+          "Resource": "arn:aws:ses:REGION:ACCOUNT_ID:identity/your-verified-sender@example.com"
+        }
+      ]
+    }
+    ```
+    Replace region, account ID, and email with yours; or use `"Resource": "*"` only if your security model allows it. If you see **`User ... is not authorized to perform ses:SendEmail on resource ... identity/...`**, attach a statement like the above to that IAM user or role (journal/S3-only keys are a common cause — they also need SES send permission).
+  - **SES sandbox:** until SES production access is granted, both **From** and **To** addresses must be verified in SES.
 - SMS (Amazon SNS): set **`TRACKER_FINANCE_ALERTS_SMS_ENABLED=true`** and the same **`TRACKER_FINANCE_ALERTS_AWS_REGION`**. Ensure SNS SMS is allowed for your account and destination countries; optional **`TRACKER_FINANCE_ALERTS_SMS_SMS_TYPE`** (`TRANSACTIONAL` or `PROMOTIONAL`) and **`TRACKER_FINANCE_ALERTS_SMS_SENDER_ID`** where supported.
 - Polling is controlled by **`TRACKER_FINANCE_ALERTS_EVALUATION_ENABLED`** and **`TRACKER_FINANCE_ALERTS_POLL_FIXED_DELAY_MS`**. Quotes are Yahoo best-effort and may be delayed.
 

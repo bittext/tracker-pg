@@ -1,5 +1,6 @@
 package com.svp.tracker.config;
 
+import java.util.Locale;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "tracker.finance.alerts")
@@ -12,9 +13,21 @@ public record FinanceAlertProperties(
         boolean emailEnabled,
         boolean smsEnabled,
         /**
+         * Outbound email transport: {@code ses} (Amazon SES, default) or {@code smtp} (Spring JavaMail).
+         */
+        String emailTransport,
+        /** SMTP host when {@code email-transport=smtp} (e.g. {@code smtp.gmail.com}). */
+        String smtpHost,
+        /** SMTP port when using SMTP (default 587). */
+        int smtpPort,
+        /** SMTP auth username; if blank, {@link #emailFrom} is used. */
+        String smtpUsername,
+        /** SMTP password or app password (never commit; use env). */
+        String smtpPassword,
+        /**
          * AWS region for Amazon SES and SNS (for example {@code us-east-1}). Required on the server when the
          * corresponding channel is enabled; credentials use the default AWS provider chain (env keys, profile,
-         * container/instance role).
+         * container/instance role). Not required when email uses SMTP only.
          */
         String awsRegion,
         /**
@@ -40,13 +53,47 @@ public record FinanceAlertProperties(
             maxEventsReturned = 500;
         }
         emailFrom = clean(emailFrom);
+        emailTransport = normalizeEmailTransport(emailTransport);
+        smtpHost = clean(smtpHost);
+        if (smtpPort <= 0 || smtpPort > 65535) {
+            smtpPort = 587;
+        }
+        smtpUsername = clean(smtpUsername);
+        smtpPassword = clean(smtpPassword);
         awsRegion = clean(awsRegion);
         smsSmsType = normalizeSmsType(smsSmsType);
         smsSenderId = clean(smsSenderId);
     }
 
+    /** True when outbound email uses Spring SMTP instead of Amazon SES. */
+    public boolean usesSmtpTransport() {
+        return "smtp".equals(emailTransport);
+    }
+
+    /** SMTP login: explicit username or fallback to {@link #emailFrom}. */
+    public String effectiveSmtpUsername() {
+        return smtpUsername.isBlank() ? emailFrom : smtpUsername;
+    }
+
     public boolean emailProviderConfigured() {
-        return emailEnabled && !emailFrom.isBlank() && !awsRegion.isBlank();
+        if (!emailEnabled || emailFrom.isBlank()) {
+            return false;
+        }
+        if (usesSmtpTransport()) {
+            return !smtpHost.isBlank() && !smtpPassword.isBlank() && !effectiveSmtpUsername().isBlank();
+        }
+        return !awsRegion.isBlank();
+    }
+
+    private static String normalizeEmailTransport(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return "ses";
+        }
+        String t = raw.trim().toLowerCase(Locale.ROOT);
+        if ("smtp".equals(t)) {
+            return "smtp";
+        }
+        return "ses";
     }
 
     public boolean smsProviderConfigured() {

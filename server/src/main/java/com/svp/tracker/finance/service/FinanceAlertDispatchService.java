@@ -8,6 +8,7 @@ import com.svp.tracker.finance.domain.FinanceNotificationSettings;
 import com.svp.tracker.finance.domain.FinanceStockAlert;
 import com.svp.tracker.finance.repository.FinanceAlertEventRepository;
 import com.svp.tracker.member.domain.MemberProfile;
+import com.svp.tracker.mail.OutboundEmailSender;
 import com.svp.tracker.member.repository.MemberProfileRepository;
 import jakarta.annotation.PreDestroy;
 import java.util.ArrayList;
@@ -22,13 +23,6 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sns.SnsClient;
 import software.amazon.awssdk.services.sns.model.MessageAttributeValue;
 import software.amazon.awssdk.services.sns.model.PublishRequest;
-import software.amazon.awssdk.services.sesv2.SesV2Client;
-import software.amazon.awssdk.services.sesv2.model.Body;
-import software.amazon.awssdk.services.sesv2.model.Content;
-import software.amazon.awssdk.services.sesv2.model.Destination;
-import software.amazon.awssdk.services.sesv2.model.EmailContent;
-import software.amazon.awssdk.services.sesv2.model.Message;
-import software.amazon.awssdk.services.sesv2.model.SendEmailRequest;
 
 @Service
 @RequiredArgsConstructor
@@ -36,12 +30,12 @@ import software.amazon.awssdk.services.sesv2.model.SendEmailRequest;
 public class FinanceAlertDispatchService {
 
     private final FinanceAlertProperties props;
+    private final OutboundEmailSender outboundEmailSender;
     private final FinanceAlertEventRepository eventRepository;
     private final MemberProfileRepository memberProfileRepository;
 
     private final Object clientLock = new Object();
     private volatile SnsClient snsClient;
-    private volatile SesV2Client sesClient;
 
     public List<FinanceAlertEvent> dispatchTriggeredAlert(
             FinanceStockAlert alert,
@@ -107,56 +101,34 @@ public class FinanceAlertDispatchService {
             return save(systemEvent(alert, FinanceAlertDeliveryChannel.EMAIL, FinanceAlertDeliveryStatus.SKIPPED, "Email address is blank", ""));
         }
         if (!props.emailProviderConfigured()) {
+            String hint = props.usesSmtpTransport()
+                    ? "Configure SMTP: email-from, smtp-host, smtp-password (and smtp-username if different)."
+                    : "Configure SES: email-from, aws-region, and IAM credentials with ses:SendEmail.";
             return save(systemEvent(
                     alert,
                     FinanceAlertDeliveryChannel.EMAIL,
                     FinanceAlertDeliveryStatus.FAILED,
-                    "AWS SES is not configured (enable finance emails, set email-from, aws-region, and IAM/credentials)",
+                    "Outbound email is not configured (" + hint + ")",
                     ""));
         }
-        SesV2Client client = sesClient();
-        if (client == null) {
-            return save(systemEvent(alert, FinanceAlertDeliveryChannel.EMAIL, FinanceAlertDeliveryStatus.FAILED, "SES client is not available", ""));
-        }
-        try {
-            SendEmailRequest req = SendEmailRequest.builder()
-                    .fromEmailAddress(props.emailFrom())
-                    .destination(Destination.builder().toAddresses(to.trim()).build())
-                    .content(EmailContent.builder()
-                            .simple(Message.builder()
-                                    .subject(Content.builder()
-                                            .data(subject)
-                                            .charset("UTF-8")
-                                            .build())
-                                    .body(Body.builder()
-                                            .text(Content.builder()
-                                                    .data(body)
-                                                    .charset("UTF-8")
-                                                    .build())
-                                            .build())
-                                    .build())
-                            .build())
-                    .build();
-            var resp = client.sendEmail(req);
-            String mid = resp.messageId() != null ? resp.messageId() : "";
-            return save(systemEvent(
-                    alert,
-                    FinanceAlertDeliveryChannel.EMAIL,
-                    FinanceAlertDeliveryStatus.SENT,
-                    "Email sent to " + to.trim() + " via SES",
-                    mid));
-        } catch (AwsServiceException e) {
-            log.warn("Finance alert SES email failed", e);
+        OutboundEmailSender.SendOutcome outcome = outboundEmailSender.sendPlainText(
+                props.emailFrom(), List.of(to.trim()), subject, body, null);
+        if (!outcome.success()) {
+            log.warn("Finance alert email failed: {}", outcome.errorDetail());
             return save(systemEvent(
                     alert,
                     FinanceAlertDeliveryChannel.EMAIL,
                     FinanceAlertDeliveryStatus.FAILED,
-                    "SES email failed: " + clean(e.awsErrorDetails() != null ? e.awsErrorDetails().errorMessage() : e.getMessage()),
+                    "Email failed: " + clean(outcome.errorDetail()),
                     ""));
-        } catch (Exception e) {
-            log.warn("Finance alert SES email failed", e);
-            return save(systemEvent(alert, FinanceAlertDeliveryChannel.EMAIL, FinanceAlertDeliveryStatus.FAILED, "Email failed: " + clean(e.getMessage()), ""));
         }
+        String mid = outcome.providerMessageId() != null ? outcome.providerMessageId() : "";
+        return save(systemEvent(
+                alert,
+                FinanceAlertDeliveryChannel.EMAIL,
+                FinanceAlertDeliveryStatus.SENT,
+                "Email sent to " + to.trim(),
+                mid));
     }
 
     private FinanceAlertEvent sendSms(FinanceStockAlert alert, String to, String body) {
@@ -218,21 +190,6 @@ public class FinanceAlertDispatchService {
         }
     }
 
-    private SesV2Client sesClient() {
-        if (!props.emailProviderConfigured()) {
-            return null;
-        }
-        if (sesClient != null) {
-            return sesClient;
-        }
-        synchronized (clientLock) {
-            if (sesClient == null) {
-                sesClient = SesV2Client.builder().region(Region.of(props.awsRegion())).build();
-            }
-            return sesClient;
-        }
-    }
-
     private SnsClient snsClient() {
         if (!props.smsProviderConfigured()) {
             return null;
@@ -254,10 +211,6 @@ public class FinanceAlertDispatchService {
             if (snsClient != null) {
                 snsClient.close();
                 snsClient = null;
-            }
-            if (sesClient != null) {
-                sesClient.close();
-                sesClient = null;
             }
         }
     }

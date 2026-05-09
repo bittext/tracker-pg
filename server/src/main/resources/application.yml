@@ -139,8 +139,14 @@ tracker:
       max-events-returned: ${TRACKER_FINANCE_ALERTS_MAX_EVENTS_RETURNED:50}
       email-enabled: ${TRACKER_FINANCE_ALERTS_EMAIL_ENABLED:false}
       email-from: ${TRACKER_FINANCE_ALERTS_EMAIL_FROM:}
+      # ses (Amazon SES, default) | smtp (Spring JavaMail — set smtp-host, smtp-password; aws-region not required for email)
+      email-transport: ${TRACKER_FINANCE_ALERTS_EMAIL_TRANSPORT:ses}
+      smtp-host: ${TRACKER_FINANCE_ALERTS_SMTP_HOST:}
+      smtp-port: ${TRACKER_FINANCE_ALERTS_SMTP_PORT:587}
+      smtp-username: ${TRACKER_FINANCE_ALERTS_SMTP_USERNAME:}
+      smtp-password: ${TRACKER_FINANCE_ALERTS_SMTP_PASSWORD:}
       sms-enabled: ${TRACKER_FINANCE_ALERTS_SMS_ENABLED:false}
-      # Amazon SES + SNS (default AWS credential chain; verify SES identity for email-from).
+      # Amazon SES + SNS (default AWS credential chain; verify SES identity for email-from). SMS still needs region.
       aws-region: ${TRACKER_FINANCE_ALERTS_AWS_REGION:}
       sms-sms-type: ${TRACKER_FINANCE_ALERTS_SMS_SMS_TYPE:TRANSACTIONAL}
       sms-sender-id: ${TRACKER_FINANCE_ALERTS_SMS_SENDER_ID:}

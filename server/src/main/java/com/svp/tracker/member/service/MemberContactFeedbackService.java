@@ -34,7 +34,8 @@ public class MemberContactFeedbackService {
         if (!financeAlertProperties.emailProviderConfigured()) {
             throw new ResponseStatusException(
                     HttpStatus.SERVICE_UNAVAILABLE,
-                    "The server is not configured to send email (SES). Set tracker.finance.alerts email-from, email-enabled, and aws-region.");
+                    "The server is not configured to send email. For SES set email-from, email-enabled, aws-region, and IAM send permission; "
+                            + "for SMTP set email-transport=smtp, smtp-host, smtp-password, and email-from.");
         }
         List<String> recipients = resolveAdminEmails();
         if (recipients.isEmpty()) {
