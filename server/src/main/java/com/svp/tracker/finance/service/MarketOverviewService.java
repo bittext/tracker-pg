@@ -45,8 +45,8 @@ import org.springframework.stereotype.Service;
 public class MarketOverviewService {
 
     private static final String SOURCE =
-            "Yahoo Finance v8/chart (2y daily): day % from latest vs prior daily adjusted close; last price from quote meta "
-                    + "when available else last bar close; MTD/YTD from same series.";
+            "Yahoo Finance v8/chart (2y daily): day % from latest vs prior daily bar (adjusted close for cash; raw quote "
+                    + "close for continuous futures); last price from meta when available else last bar; MTD/YTD from adj series.";
 
     /** Yahoo frequently returns 401 for programmatic clients unless the UA looks like a normal browser. */
     private static final String YAHOO_USER_AGENT =
@@ -141,10 +141,9 @@ public class MarketOverviewService {
 
         MarketOverviewSummaryDto summary = buildSummary(quotes, warnings);
         String note =
-                "Day % for cash indexes and ETFs uses the latest two daily closes in the series (session-to-session); "
-                        + "continuous futures prefer Yahoo meta first because daily adjusted closes can jump on rolls. "
-                        + "MTD / YTD use the first US trading session close of the calendar month and year vs the latest "
-                        + "daily close (non-US markets may look slightly off vs local calendars).";
+                "Day % uses the latest two daily bars in the chart: adjusted closes for indexes/ETFs, and raw settlement-style "
+                        + "closes for continuous futures (avoids roll artifacts from adjusted series). Falls back to Yahoo meta "
+                        + "if the series is incomplete. MTD / YTD still use the adjusted series vs US calendar month/year anchors.";
 
         return new MarketOverviewDto(
                 SOURCE,
@@ -297,22 +296,28 @@ public class MarketOverviewService {
         String key = sym.toUpperCase(Locale.ROOT);
         Double price = dbl(meta.get("regularMarketPrice"));
         if (price == null || price <= 0.0) {
-            price = lastValidCloseFromSeries(r0);
+            price = lastValidCloseFromSeries(r0, requestedSymbol.contains("="));
         }
-        boolean futuresContract = requestedSymbol.contains("=");
-        Double chg =
-                futuresContract ? dayChangePctFromMeta(meta) : dayChangePctFromDailySeries(r0);
+        boolean continuousFuture = requestedSymbol.contains("=");
+        Double chg = dayChangePctFromDailySeries(r0, continuousFuture);
         if (chg == null) {
-            chg = futuresContract ? dayChangePctFromDailySeries(r0) : dayChangePctFromMeta(meta);
+            chg = dayChangePctFromMeta(meta);
         }
         String sn = text(meta.get("shortName"));
         String ln = text(meta.get("longName"));
         return new QuoteRow(key, sn, ln, price, chg);
     }
 
-    /** Session move from last vs prior daily bar (matches how MTD/YTD use the same close series). */
-    private static Double dayChangePctFromDailySeries(JsonNode resultNode) {
-        double[] closes = extractAdjCloseSeries(resultNode);
+    /**
+     * Session move from last vs prior daily bar. Futures use raw {@code quote.close} first so continuous-contract rolls do
+     * not distort day % in adjusted-close space; cash symbols use adjusted closes.
+     */
+    private static Double dayChangePctFromDailySeries(JsonNode resultNode, boolean continuousFuture) {
+        double[] closes =
+                continuousFuture ? extractQuoteCloseSeries(resultNode) : extractAdjCloseSeries(resultNode);
+        if (closes.length < 2 && continuousFuture) {
+            closes = extractAdjCloseSeries(resultNode);
+        }
         if (closes.length < 2) {
             return null;
         }
@@ -338,14 +343,27 @@ public class MarketOverviewService {
         return 100.0 * (last / prev - 1.0);
     }
 
-    private static Double lastValidCloseFromSeries(JsonNode resultNode) {
-        double[] closes = extractAdjCloseSeries(resultNode);
+    private static Double lastValidCloseFromSeries(JsonNode resultNode, boolean continuousFuture) {
+        double[] closes =
+                continuousFuture ? extractQuoteCloseSeries(resultNode) : extractAdjCloseSeries(resultNode);
+        if (closes.length == 0 && continuousFuture) {
+            closes = extractAdjCloseSeries(resultNode);
+        }
         for (int i = closes.length - 1; i >= 0; i--) {
             if (closes[i] > 0 && !Double.isNaN(closes[i])) {
                 return closes[i];
             }
         }
         return null;
+    }
+
+    /** Daily closes from quote only (no adjclose), preferred for continuous futures day-over-day. */
+    private static double[] extractQuoteCloseSeries(JsonNode resultNode) {
+        JsonNode quote = resultNode.path("indicators").path("quote");
+        if (quote.isArray() && !quote.isEmpty() && quote.get(0) != null) {
+            return forwardFillPositivePrice(quote.get(0).get("close"));
+        }
+        return new double[0];
     }
 
     private static Double dayChangePctFromMeta(JsonNode meta) {
