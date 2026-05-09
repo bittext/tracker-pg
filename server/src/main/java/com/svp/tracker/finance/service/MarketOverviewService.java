@@ -19,6 +19,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -33,8 +34,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * Finance → Market tab: Yahoo Finance v7 batch quotes plus v8 daily charts for month-to-date and year-to-date returns.
- * Uses the same public Yahoo endpoints as other finance services; data can be delayed. Not investment advice.
+ * Finance → Market tab: Yahoo Finance v8/chart only (v7/quote is often HTTP 401 for server clients). Each symbol loads
+ * one 2y daily chart: meta supplies session price and day % vs previous close; the same series drives MTD/YTD. Not
+ * investment advice.
  */
 @Service
 @RequiredArgsConstructor
@@ -42,11 +44,13 @@ import org.springframework.stereotype.Service;
 public class MarketOverviewService {
 
     private static final String SOURCE =
-            "Yahoo Finance v7/quote (session fields) + v8/chart (2y daily adj. close for MTD and YTD).";
+            "Yahoo Finance v8/chart (2y daily): meta for session price and day % vs prior close; same series for MTD and YTD.";
+
+    /** Yahoo frequently returns 401 for programmatic clients unless the UA looks like a normal browser. */
+    private static final String YAHOO_USER_AGENT =
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
     private static final ZoneId NY = ZoneId.of("America/New_York");
-    private static final int QUOTE_BATCH = 42;
-    private static final String V7_QUOTE = "https://query1.finance.yahoo.com/v7/finance/quote?symbols=";
     private static final String CHART_2Y =
             "https://query1.finance.yahoo.com/v8/finance/chart/%s"
                     + "?range=2y&interval=1d&includeAdjustedClose=true";
@@ -95,7 +99,7 @@ public class MarketOverviewService {
 
     public MarketOverviewDto load() {
         Instant started = Instant.now();
-        List<String> warnings = new ArrayList<>();
+        List<String> warnings = Collections.synchronizedList(new ArrayList<>());
         Set<String> allSyms = new LinkedHashSet<>();
         for (SectionDef s : SECTIONS) {
             for (RowDef r : s.rows()) {
@@ -103,8 +107,9 @@ public class MarketOverviewService {
             }
         }
         List<String> symbolList = new ArrayList<>(allSyms);
-        Map<String, QuoteRow> quotes = fetchQuotesBatched(symbolList, warnings);
-        Map<String, PeriodReturns> periods = fetchPeriodReturnsParallel(symbolList, warnings);
+        Map<String, QuoteRow> quotes = new LinkedHashMap<>();
+        Map<String, PeriodReturns> periods = new LinkedHashMap<>();
+        fetchChartsParallel(symbolList, quotes, periods, warnings);
 
         List<MarketOverviewSectionDto> sections = new ArrayList<>();
         for (SectionDef s : SECTIONS) {
@@ -132,8 +137,8 @@ public class MarketOverviewService {
 
         MarketOverviewSummaryDto summary = buildSummary(quotes, warnings);
         String note =
-                "Day % uses Yahoo regular session fields when present. MTD / YTD use the first US trading session "
-                        + "close of the calendar month and year vs the latest daily close in the chart (can lag live "
+                "Day % is from chart meta (regular price vs previous close). MTD / YTD use the first US trading session "
+                        + "close of the calendar month and year vs the latest daily close in the series (can lag live "
                         + "quotes slightly). Futures follow the continuous contract series.";
 
         return new MarketOverviewDto(
@@ -143,6 +148,57 @@ public class MarketOverviewService {
                 List.copyOf(warnings),
                 summary,
                 List.copyOf(sections));
+    }
+
+    private void fetchChartsParallel(
+            List<String> symbols,
+            Map<String, QuoteRow> quotesOut,
+            Map<String, PeriodReturns> periodsOut,
+            List<String> warnings) {
+        if (symbols.isEmpty()) {
+            return;
+        }
+        int timeoutMs = Math.max(props.newsTimeoutMs(), 25_000);
+        try (ExecutorService ex = Executors.newVirtualThreadPerTaskExecutor()) {
+            Map<String, CompletableFuture<Void>> futs = new LinkedHashMap<>();
+            for (String sym : symbols) {
+                futs.put(
+                        sym,
+                        CompletableFuture.runAsync(
+                                () -> {
+                                    try {
+                                        JsonNode root = fetchChart(sym, timeoutMs);
+                                        JsonNode err = root.path("chart").path("error");
+                                        if (!err.isMissingNode() && err.isObject() && !err.isEmpty()) {
+                                            warnings.add(sym + ": Yahoo chart error " + err.toString());
+                                            return;
+                                        }
+                                        QuoteRow q = parseQuoteFromChart(root, sym);
+                                        PeriodReturns pr = computeMtdYtd(root);
+                                        synchronized (quotesOut) {
+                                            if (q != null) {
+                                                quotesOut.put(sym, q);
+                                            }
+                                            if (pr != null) {
+                                                periodsOut.put(sym, pr);
+                                            }
+                                        }
+                                    } catch (Exception e) {
+                                        log.warn("Yahoo chart failed for {}", sym, e);
+                                        warnings.add("Chart failed for " + sym + ": " + e.getMessage());
+                                    }
+                                },
+                                ex));
+            }
+            for (Map.Entry<String, CompletableFuture<Void>> e : futs.entrySet()) {
+                try {
+                    e.getValue().join();
+                } catch (Exception exn) {
+                    log.warn("chart task join failed for {}", e.getKey(), exn);
+                    warnings.add("Chart task failed for " + e.getKey() + ".");
+                }
+            }
+        }
     }
 
     private static MarketOverviewSummaryDto buildSummary(Map<String, QuoteRow> quotes, List<String> warnings) {
@@ -203,54 +259,15 @@ public class MarketOverviewService {
         return r.symbol();
     }
 
-    private Map<String, PeriodReturns> fetchPeriodReturnsParallel(List<String> symbols, List<String> warnings) {
-        Map<String, PeriodReturns> out = new LinkedHashMap<>();
-        if (symbols.isEmpty()) {
-            return out;
-        }
-        try (ExecutorService ex = Executors.newVirtualThreadPerTaskExecutor()) {
-            Map<String, CompletableFuture<PeriodReturns>> futs = new LinkedHashMap<>();
-            for (String sym : symbols) {
-                futs.put(
-                        sym,
-                        CompletableFuture.supplyAsync(() -> chartReturns(sym, warnings), ex));
-            }
-            for (Map.Entry<String, CompletableFuture<PeriodReturns>> e : futs.entrySet()) {
-                try {
-                    PeriodReturns pr = e.getValue().join();
-                    if (pr != null) {
-                        out.put(e.getKey(), pr);
-                    }
-                } catch (Exception exn) {
-                    log.debug("chart join failed for {}", e.getKey(), exn);
-                    warnings.add("Chart failed for " + e.getKey() + ".");
-                }
-            }
-        }
-        return out;
-    }
-
-    private PeriodReturns chartReturns(String symbol, List<String> warnings) {
-        try {
-            JsonNode root = fetchChart(symbol);
-            return computeMtdYtd(root);
-        } catch (Exception e) {
-            log.debug("chart fetch failed for {}: {}", symbol, e.getMessage());
-            warnings.add("Could not load daily history for " + symbol + ".");
-            return null;
-        }
-    }
-
-    private JsonNode fetchChart(String symbol) throws Exception {
+    private JsonNode fetchChart(String symbol, int timeoutMs) throws Exception {
         String enc = URLEncoder.encode(symbol, StandardCharsets.UTF_8).replace("+", "%20");
         String url = String.format(Locale.ROOT, CHART_2Y, enc);
-        HttpClient client =
-                HttpClient.newBuilder().connectTimeout(Duration.ofMillis(props.newsTimeoutMs())).build();
+        HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofMillis(timeoutMs)).build();
         HttpRequest request = HttpRequest.newBuilder(URI.create(url))
                 .GET()
-                .timeout(Duration.ofMillis(props.newsTimeoutMs()))
+                .timeout(Duration.ofMillis(timeoutMs))
                 .header("Accept", "application/json")
-                .header("User-Agent", "tracker-server/1.0")
+                .header("User-Agent", YAHOO_USER_AGENT)
                 .build();
         HttpResponse<String> resp =
                 client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
@@ -258,6 +275,31 @@ public class MarketOverviewService {
             throw new IllegalStateException("HTTP " + resp.statusCode());
         }
         return objectMapper.readTree(resp.body());
+    }
+
+    private static QuoteRow parseQuoteFromChart(JsonNode root, String requestedSymbol) {
+        JsonNode result = root.path("chart").path("result");
+        if (!result.isArray() || result.isEmpty()) {
+            return null;
+        }
+        JsonNode meta = result.get(0).path("meta");
+        String sym = meta.path("symbol").asText("").trim();
+        if (sym.isEmpty()) {
+            sym = requestedSymbol;
+        }
+        String key = sym.toUpperCase(Locale.ROOT);
+        Double price = dbl(meta.get("regularMarketPrice"));
+        Double prev = dbl(meta.get("previousClose"));
+        if (prev == null) {
+            prev = dbl(meta.get("chartPreviousClose"));
+        }
+        Double chg = null;
+        if (price != null && prev != null && prev > 0.0) {
+            chg = (price / prev - 1.0) * 100.0;
+        }
+        String sn = text(meta.get("shortName"));
+        String ln = text(meta.get("longName"));
+        return new QuoteRow(key, sn, ln, price, chg);
     }
 
     private static PeriodReturns computeMtdYtd(JsonNode root) {
@@ -377,74 +419,8 @@ public class MarketOverviewService {
         return raw;
     }
 
-    private Map<String, QuoteRow> fetchQuotesBatched(List<String> symbols, List<String> warnings) {
-        Map<String, QuoteRow> out = new LinkedHashMap<>();
-        if (symbols.isEmpty()) {
-            return out;
-        }
-        for (int i = 0; i < symbols.size(); i += QUOTE_BATCH) {
-            int to = Math.min(symbols.size(), i + QUOTE_BATCH);
-            List<String> batch = symbols.subList(i, to);
-            String joined = String.join(",", batch.stream().map(MarketOverviewService::encSymbol).toList());
-            String url = V7_QUOTE + joined;
-            try {
-                HttpClient client =
-                        HttpClient.newBuilder().connectTimeout(Duration.ofMillis(props.newsTimeoutMs())).build();
-                HttpRequest request = HttpRequest.newBuilder(URI.create(url))
-                        .GET()
-                        .timeout(Duration.ofMillis(props.newsTimeoutMs()))
-                        .header("Accept", "application/json")
-                        .header("User-Agent", "tracker-server/1.0")
-                        .build();
-                HttpResponse<String> resp =
-                        client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-                if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
-                    warnings.add("Yahoo quote HTTP " + resp.statusCode() + " for batch starting " + batch.get(0));
-                    continue;
-                }
-                JsonNode root = objectMapper.readTree(resp.body());
-                JsonNode res = root.path("quoteResponse").path("result");
-                if (!res.isArray()) {
-                    JsonNode err = root.path("quoteResponse").path("error");
-                    if (!err.isNull() && !err.asText("").isBlank()) {
-                        warnings.add("Yahoo quote error: " + err.asText());
-                    } else {
-                        warnings.add("Yahoo quote returned no result array.");
-                    }
-                    continue;
-                }
-                for (JsonNode q : res) {
-                    QuoteRow row = parseQuoteRow(q);
-                    if (row != null) {
-                        out.put(row.symbol(), row);
-                    }
-                }
-            } catch (Exception e) {
-                log.warn("Yahoo v7 quote batch failed", e);
-                warnings.add("Quote batch failed: " + e.getMessage());
-            }
-        }
-        return out;
-    }
-
     private static String encSymbol(String s) {
         return URLEncoder.encode(s, StandardCharsets.UTF_8).replace("+", "%20");
-    }
-
-    private static QuoteRow parseQuoteRow(JsonNode q) {
-        if (q == null || !q.isObject()) {
-            return null;
-        }
-        String sym = text(q.get("symbol"));
-        if (sym.isBlank()) {
-            return null;
-        }
-        String key = sym.toUpperCase(Locale.ROOT);
-        Double price = dbl(q.get("regularMarketPrice"));
-        Double chg = dbl(q.get("regularMarketChangePercent"));
-        String sn = text(q.get("shortName"));
-        String ln = text(q.get("longName"));
-        return new QuoteRow(key, sn, ln, price, chg);
     }
 
     private static String text(JsonNode n) {
