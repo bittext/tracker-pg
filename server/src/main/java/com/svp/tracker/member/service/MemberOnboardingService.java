@@ -90,6 +90,23 @@ public class MemberOnboardingService {
     }
 
     /**
+     * Marks the onboarding credentials step complete without changing username or password. Members may optionally
+     * still use {@link #updateCredentials} later during onboarding if they open the credentials screen.
+     */
+    @Transactional
+    public void skipCredentialsStep(long userId) {
+        AppUser user = loadUser(userId);
+        if (user.getOnboardingCompletedAt() != null) {
+            throw new ResponseStatusException(BAD_REQUEST, "Onboarding is already complete for this account.");
+        }
+        if (user.getCredentialsStepCompletedAt() != null) {
+            return;
+        }
+        user.setCredentialsStepCompletedAt(Instant.now());
+        appUserRepository.save(user);
+    }
+
+    /**
      * For signed-in members who have finished onboarding: verify the current password and set a new one. Returns a
      * fresh JWT so the session stays valid with the same username.
      */

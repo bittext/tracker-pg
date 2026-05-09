@@ -3,7 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { switchMap } from 'rxjs';
+import { catchError, of, switchMap } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -59,7 +59,18 @@ export class LoginComponent {
     const { username, password } = this.form.getRawValue();
     this.auth
       .login(username.trim(), password)
-      .pipe(switchMap(() => this.meMemberApi.getOnboardingStatus()))
+      .pipe(
+        switchMap(() => this.meMemberApi.getOnboardingStatus()),
+        switchMap((status) => {
+          if (!status.onboardingCompleted && !status.credentialsStepCompleted) {
+            return this.meMemberApi.skipCredentialsStep().pipe(
+              switchMap(() => this.meMemberApi.getOnboardingStatus()),
+              catchError(() => of(status)),
+            );
+          }
+          return of(status);
+        }),
+      )
       .subscribe({
         next: (status) => {
           this.form.patchValue({ password: '' });

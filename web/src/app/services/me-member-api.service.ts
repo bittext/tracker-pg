@@ -46,6 +46,11 @@ export class MeMemberApiService {
     });
   }
 
+  /** Marks the credentials onboarding step done without changing username or password. */
+  skipCredentialsStep() {
+    return this.http.post<void>(`${this.root}/onboarding/skip-credentials`, {});
+  }
+
   completeOnboarding() {
     return this.http.post<void>(`${this.root}/onboarding/complete`, {});
   }

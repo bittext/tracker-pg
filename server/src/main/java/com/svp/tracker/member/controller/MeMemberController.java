@@ -44,6 +44,12 @@ public class MeMemberController {
         return memberOnboardingService.updateCredentials(requirePrincipal().id(), body);
     }
 
+    @PostMapping("/onboarding/skip-credentials")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void skipCredentialsStep() {
+        memberOnboardingService.skipCredentialsStep(requirePrincipal().id());
+    }
+
     @PostMapping("/onboarding/complete")
     public void completeOnboarding() {
         memberOnboardingService.finishOnboarding(requirePrincipal().id());

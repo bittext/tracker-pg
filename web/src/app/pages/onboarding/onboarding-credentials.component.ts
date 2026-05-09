@@ -43,12 +43,30 @@ export class OnboardingCredentialsComponent {
   });
 
   submitting = false;
+  skipBusy = false;
   maskCurrentPassword = true;
   maskNewPassword = true;
   maskConfirmPassword = true;
 
+  skip(): void {
+    if (this.skipBusy || this.submitting) {
+      return;
+    }
+    this.skipBusy = true;
+    this.api.skipCredentialsStep().subscribe({
+      next: () => {
+        this.skipBusy = false;
+        this.router.navigate(['/admin'], { queryParams: { onboardingProfile: '1' } });
+      },
+      error: (e) => {
+        this.skipBusy = false;
+        this.snackBar.open(`Could not continue: ${formatHttpErrorDetail(e)}`, 'Dismiss', { duration: 9000 });
+      },
+    });
+  }
+
   submit(): void {
-    if (this.form.invalid || this.submitting) {
+    if (this.form.invalid || this.submitting || this.skipBusy) {
       this.form.markAllAsTouched();
       return;
     }
