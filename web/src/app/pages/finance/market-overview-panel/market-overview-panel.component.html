@@ -1,8 +1,8 @@
 <div class="market-overview">
   <div class="market-overview-toolbar">
     <p class="muted market-overview-lead">
-      Session, month-to-date, and year-to-date context for major futures, US composites, headline indexes, and a global
-      set. Data is pulled from Yahoo Finance and can be delayed.
+      Session day moves (from daily closes), plus month-to-date and year-to-date context for major futures, US composites,
+      headline indexes, and global benchmarks including India (NSE Nifty 50, BSE Sensex). Yahoo Finance data can be delayed.
     </p>
     <button type="button" mat-stroked-button color="primary" (click)="load()" [disabled]="loading">
       @if (loading) {

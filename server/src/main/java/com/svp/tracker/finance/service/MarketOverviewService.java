@@ -45,7 +45,8 @@ import org.springframework.stereotype.Service;
 public class MarketOverviewService {
 
     private static final String SOURCE =
-            "Yahoo Finance v8/chart (2y daily): meta for session price and day % vs prior close; same series for MTD and YTD.";
+            "Yahoo Finance v8/chart (2y daily): day % from latest vs prior daily adjusted close; last price from quote meta "
+                    + "when available else last bar close; MTD/YTD from same series.";
 
     /** Yahoo frequently returns 401 for programmatic clients unless the UA looks like a normal browser. */
     private static final String YAHOO_USER_AGENT =
@@ -85,10 +86,12 @@ public class MarketOverviewService {
                                     new RowDef("^VIX", "CBOE Volatility Index"))),
                     new SectionDef(
                             "Global indexes",
-                            "Major non-US cash indexes and a broad emerging-markets ETF.",
+                            "Major non-US cash indexes (incl. India NSE/BSE benchmarks) and a broad emerging-markets ETF.",
                             List.of(
                                     new RowDef("^N225", "Nikkei 225"),
                                     new RowDef("^HSI", "Hang Seng"),
+                                    new RowDef("^NSEI", "Nifty 50 (NSE)"),
+                                    new RowDef("^BSESN", "S&P BSE Sensex"),
                                     new RowDef("^FTSE", "FTSE 100"),
                                     new RowDef("^GDAXI", "DAX"),
                                     new RowDef("^FCHI", "CAC 40"),
@@ -138,9 +141,10 @@ public class MarketOverviewService {
 
         MarketOverviewSummaryDto summary = buildSummary(quotes, warnings);
         String note =
-                "Day % is from chart meta (regular price vs previous close). MTD / YTD use the first US trading session "
-                        + "close of the calendar month and year vs the latest daily close in the series (can lag live "
-                        + "quotes slightly). Futures follow the continuous contract series.";
+                "Day % for cash indexes and ETFs uses the latest two daily closes in the series (session-to-session); "
+                        + "continuous futures prefer Yahoo meta first because daily adjusted closes can jump on rolls. "
+                        + "MTD / YTD use the first US trading session close of the calendar month and year vs the latest "
+                        + "daily close (non-US markets may look slightly off vs local calendars).";
 
         return new MarketOverviewDto(
                 SOURCE,
@@ -284,24 +288,80 @@ public class MarketOverviewService {
         if (!result.isArray() || result.isEmpty()) {
             return null;
         }
-        JsonNode meta = result.get(0).path("meta");
+        JsonNode r0 = result.get(0);
+        JsonNode meta = r0.path("meta");
         String sym = meta.path("symbol").asText("").trim();
         if (sym.isEmpty()) {
             sym = requestedSymbol;
         }
         String key = sym.toUpperCase(Locale.ROOT);
         Double price = dbl(meta.get("regularMarketPrice"));
-        Double prev = dbl(meta.get("previousClose"));
-        if (prev == null) {
-            prev = dbl(meta.get("chartPreviousClose"));
+        if (price == null || price <= 0.0) {
+            price = lastValidCloseFromSeries(r0);
         }
-        Double chg = null;
-        if (price != null && prev != null && prev > 0.0) {
-            chg = (price / prev - 1.0) * 100.0;
+        boolean futuresContract = requestedSymbol.contains("=");
+        Double chg =
+                futuresContract ? dayChangePctFromMeta(meta) : dayChangePctFromDailySeries(r0);
+        if (chg == null) {
+            chg = futuresContract ? dayChangePctFromDailySeries(r0) : dayChangePctFromMeta(meta);
         }
         String sn = text(meta.get("shortName"));
         String ln = text(meta.get("longName"));
         return new QuoteRow(key, sn, ln, price, chg);
+    }
+
+    /** Session move from last vs prior daily bar (matches how MTD/YTD use the same close series). */
+    private static Double dayChangePctFromDailySeries(JsonNode resultNode) {
+        double[] closes = extractAdjCloseSeries(resultNode);
+        if (closes.length < 2) {
+            return null;
+        }
+        int i = closes.length - 1;
+        while (i >= 0 && (closes[i] <= 0 || Double.isNaN(closes[i]))) {
+            i--;
+        }
+        if (i <= 0) {
+            return null;
+        }
+        int j = i - 1;
+        while (j >= 0 && (closes[j] <= 0 || Double.isNaN(closes[j]))) {
+            j--;
+        }
+        if (j < 0) {
+            return null;
+        }
+        double last = closes[i];
+        double prev = closes[j];
+        if (prev <= 0.0) {
+            return null;
+        }
+        return 100.0 * (last / prev - 1.0);
+    }
+
+    private static Double lastValidCloseFromSeries(JsonNode resultNode) {
+        double[] closes = extractAdjCloseSeries(resultNode);
+        for (int i = closes.length - 1; i >= 0; i--) {
+            if (closes[i] > 0 && !Double.isNaN(closes[i])) {
+                return closes[i];
+            }
+        }
+        return null;
+    }
+
+    private static Double dayChangePctFromMeta(JsonNode meta) {
+        Double pct = dbl(meta.get("regularMarketChangePercent"));
+        if (pct != null && !Double.isNaN(pct)) {
+            return pct;
+        }
+        Double price = dbl(meta.get("regularMarketPrice"));
+        Double prev = dbl(meta.get("previousClose"));
+        if (prev == null) {
+            prev = dbl(meta.get("chartPreviousClose"));
+        }
+        if (price != null && prev != null && prev > 0.0) {
+            return (price / prev - 1.0) * 100.0;
+        }
+        return null;
     }
 
     private static PeriodReturns computeMtdYtd(JsonNode root) {
