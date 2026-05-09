@@ -27,6 +27,10 @@ public record FinanceAlertProperties(
         /** SMTP password or app password (never commit; use env). */
         String smtpPassword,
         /**
+         * When true, enables Jakarta Mail trace logging for SMTP (very verbose; troubleshooting auth/TLS only).
+         */
+        boolean smtpDebug,
+        /**
          * AWS region for Amazon SES and SNS (for example {@code us-east-1}). Required on the server when the
          * corresponding channel is enabled; credentials use the default AWS provider chain (env keys, profile,
          * container/instance role). Not required when email uses SMTP only.

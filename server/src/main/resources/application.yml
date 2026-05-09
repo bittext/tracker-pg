@@ -145,6 +145,7 @@ tracker:
       smtp-port: ${TRACKER_FINANCE_ALERTS_SMTP_PORT:587}
       smtp-username: ${TRACKER_FINANCE_ALERTS_SMTP_USERNAME:}
       smtp-password: ${TRACKER_FINANCE_ALERTS_SMTP_PASSWORD:}
+      smtp-debug: ${TRACKER_FINANCE_ALERTS_SMTP_DEBUG:false}
       sms-enabled: ${TRACKER_FINANCE_ALERTS_SMS_ENABLED:false}
       # Amazon SES + SNS (default AWS credential chain; verify SES identity for email-from). SMS still needs region.
       aws-region: ${TRACKER_FINANCE_ALERTS_AWS_REGION:}

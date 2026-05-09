@@ -64,6 +64,10 @@ public class OutboundEmailConfiguration {
             p.put("mail.smtp.starttls.enable", "true");
             p.put("mail.smtp.starttls.required", "true");
         }
+        p.put("mail.smtp.ssl.protocols", "TLSv1.2 TLSv1.3");
+        if (props.smtpDebug()) {
+            p.put("mail.debug", "true");
+        }
         return sender;
     }
 }
