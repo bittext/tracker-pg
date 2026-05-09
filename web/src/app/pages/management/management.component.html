@@ -852,16 +852,31 @@
                     <mat-label>Subject</mat-label>
                     <input matInput name="nnSubject" [(ngModel)]="noteDraft.subject" required placeholder="Short title" />
                   </mat-form-field>
-                  <mat-form-field appearance="outline" class="full-width-field notes-body-field">
-                    <mat-label>Note body (Markdown)</mat-label>
-                    <textarea
-                      matInput
-                      name="nnBody"
-                      rows="12"
-                      [(ngModel)]="noteDraft.body"
-                      placeholder="Markdown: # Heading, **bold**, - lists, [links](https://example.com), `inline code`"
-                    ></textarea>
-                  </mat-form-field>
+                  <div class="notes-body-composer">
+                    <mat-form-field appearance="outline" class="full-width-field notes-body-field">
+                      <mat-label>Note body (Markdown)</mat-label>
+                      <textarea
+                        matInput
+                        name="nnBody"
+                        rows="20"
+                        [(ngModel)]="noteDraft.body"
+                        placeholder="Markdown: # Heading, **bold**, - lists, [links](https://example.com), `inline code`"
+                      ></textarea>
+                    </mat-form-field>
+                    <section class="notes-live-preview" aria-label="Live Markdown preview">
+                      <div class="notes-live-preview-head">
+                        <span class="notes-live-preview-title">Live preview</span>
+                        <span class="muted notes-live-preview-hint">Same formatting as in your saved notes below</span>
+                      </div>
+                      <div class="notes-live-preview-inner">
+                        @if ((noteDraft.body || '').trim()) {
+                          <div class="markdown-body notes-entry-body" [innerHTML]="noteDraft.body | safeMarkdown"></div>
+                        } @else {
+                          <p class="muted notes-live-preview-empty">Preview appears here as you type Markdown in the note body field.</p>
+                        }
+                      </div>
+                    </section>
+                  </div>
                   <div class="form-actions">
                     <button mat-flat-button color="primary" type="button" (click)="saveMonthNote()">
                       {{ noteEditingId != null ? 'Save changes' : 'Save note' }}

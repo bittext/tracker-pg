@@ -236,7 +236,7 @@ app-management .notes-list-card {
 }
 @media (min-width: 960px) {
   app-management .notes-layout {
-    grid-template-columns: minmax(22rem, min(42vw, 40rem)) minmax(0, 1fr);
+    grid-template-columns: minmax(24rem, min(48vw, 44rem)) minmax(0, 1fr);
   }
 }
 app-management .notes-entry-list {
@@ -269,16 +269,16 @@ app-management .notes-entry-meta {
   color: var(--app-text-muted, #64748b);
 }
 app-management .notes-body-field textarea.mat-mdc-input-element {
-  min-height: 16rem;
+  min-height: min(48vh, 30rem);
   resize: vertical;
-  line-height: 1.45;
+  line-height: 1.5;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-  font-size: 0.88rem;
+  font-size: 0.9rem;
 }
 app-management .notes-entry-body {
   margin: 0 0 0.65rem;
-  line-height: 1.5;
-  font-size: 0.92rem;
+  line-height: 1.55;
+  font-size: 0.95rem;
   color: var(--app-text, #0f172a);
 }
 app-management .notes-entry-body--empty {
