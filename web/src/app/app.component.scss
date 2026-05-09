@@ -38,6 +38,30 @@
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset;
 }
 
+.app-brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  text-decoration: none;
+  color: inherit;
+  flex-shrink: 0;
+}
+
+a.app-brand-lockup:focus-visible {
+  outline: 2px solid var(--app-accent, #2563eb);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+
+.app-brand-icon {
+  display: block;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+  flex-shrink: 0;
+}
+
 .brand {
   font-family: var(--app-font-display, 'Plus Jakarta Sans', sans-serif);
   font-weight: 700;

@@ -113,12 +113,21 @@
 @media (max-width: 420px) {
   .welcome-hero__inner {
     flex-direction: column;
-    align-items: stretch;
+    align-items: center;
+    text-align: center;
+  }
+
+  .welcome-hero__main {
+    align-items: center;
+  }
+
+  .welcome-hero__actions {
+    justify-content: center;
   }
 
   .welcome-hero__logo {
-    align-self: flex-end;
-    margin-top: 0.25rem;
+    align-self: center;
+    margin-bottom: 0.25rem;
   }
 }
 
@@ -153,15 +162,29 @@
   gap: 1rem;
 }
 
+.welcome-feature-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  border-radius: var(--app-radius, 12px);
+  outline-offset: 2px;
+}
+
+.welcome-feature-link:focus-visible {
+  outline: 2px solid var(--app-accent, #2563eb);
+}
+
 .welcome-card {
   border-radius: var(--app-radius, 12px) !important;
   border-width: 1px !important;
   background: rgba(255, 255, 255, 0.92) !important;
   backdrop-filter: blur(8px);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  height: 100%;
 }
 
-.welcome-card:hover {
+.welcome-feature-link:hover .welcome-card,
+.welcome-feature-link:focus-visible .welcome-card {
   transform: translateY(-2px);
   box-shadow: var(--app-shadow-md, 0 8px 24px rgba(15, 23, 42, 0.08));
 }

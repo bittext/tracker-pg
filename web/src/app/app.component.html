@@ -1,5 +1,28 @@
 <mat-toolbar class="app-top-bar">
-  <span class="brand">{{ brandTitle }}</span>
+  @if (authenticated) {
+    <a routerLink="/welcome" class="app-brand-lockup" aria-label="Home — Welcome">
+      <img
+        class="app-brand-icon"
+        src="/tracker-app-icon-192.png"
+        width="32"
+        height="32"
+        alt=""
+      />
+      <span class="brand">{{ brandTitle }}</span>
+    </a>
+  } @else {
+    <span class="app-brand-lockup">
+      <img
+        class="app-brand-icon"
+        src="/tracker-app-icon-192.png"
+        width="32"
+        height="32"
+        alt=""
+        aria-hidden="true"
+      />
+      <span class="brand">{{ brandTitle }}</span>
+    </span>
+  }
   <span class="spacer"></span>
   <span class="app-release-hint" [attr.title]="releaseHintTooltip" tabindex="-1" aria-hidden="true"
     >v{{ webReleaseVersion }}</span>

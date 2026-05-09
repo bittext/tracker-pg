@@ -2,6 +2,13 @@
   <header class="welcome-hero" aria-labelledby="welcome-title">
     <div class="welcome-hero__glow" aria-hidden="true"></div>
     <div class="welcome-hero__inner">
+      <img
+        class="welcome-hero__logo"
+        src="/tracker-app-icon-192.png"
+        alt=""
+        width="72"
+        height="72"
+      />
       <div class="welcome-hero__main">
         <p class="welcome-hero__eyebrow">
           Health Tracker &amp; PFM <span class="muted">(Personal Financial Management)</span>
@@ -17,13 +24,6 @@
           >
         </div>
       </div>
-      <img
-        class="welcome-hero__logo"
-        src="/tracker-app-icon-192.png"
-        alt="Health Tracker & PFM logo"
-        width="72"
-        height="72"
-      />
     </div>
   </header>
 
@@ -33,67 +33,79 @@
       Each top tab is a workspace. Use them in any order—data is saved as you go.
     </p>
     <div class="welcome-features">
-      <mat-card class="welcome-card welcome-card--indigo" appearance="outlined">
-        <mat-card-header>
-          <div mat-card-avatar class="welcome-card__avatar"><mat-icon>fitness_center</mat-icon></div>
-          <mat-card-title>Exercise</mat-card-title>
-          <mat-card-subtitle>Training log &amp; catalog</mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-content>
-          <p>Pick exercises, log sets and days, and follow strength or weight work over time.</p>
-        </mat-card-content>
-      </mat-card>
-      <mat-card class="welcome-card welcome-card--emerald" appearance="outlined">
-        <mat-card-header>
-          <div mat-card-avatar class="welcome-card__avatar"><mat-icon>account_balance_wallet</mat-icon></div>
-          <mat-card-title>Finance</mat-card-title>
-          <mat-card-subtitle>Holdings &amp; money tools</mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-content>
-          <p>Review positions, tax helpers, banking imports, and optional alerts when configured.</p>
-        </mat-card-content>
-      </mat-card>
-      <mat-card class="welcome-card welcome-card--amber" appearance="outlined">
-        <mat-card-header>
-          <div mat-card-avatar class="welcome-card__avatar"><mat-icon>task_alt</mat-icon></div>
-          <mat-card-title>Management</mat-card-title>
-          <mat-card-subtitle>Tasks &amp; balance</mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-content>
-          <p>Balance categories, calendar, utilities vault, month notes, and long-form write-ups—scoped to you.</p>
-        </mat-card-content>
-      </mat-card>
-      <mat-card class="welcome-card welcome-card--violet" appearance="outlined">
-        <mat-card-header>
-          <div mat-card-avatar class="welcome-card__avatar"><mat-icon>menu_book</mat-icon></div>
-          <mat-card-title>Journal</mat-card-title>
-          <mat-card-subtitle>Entries &amp; tags</mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-content>
-          <p>Capture thoughts with tags and browse your history when you need context.</p>
-        </mat-card-content>
-      </mat-card>
-      <mat-card class="welcome-card welcome-card--rose" appearance="outlined">
-        <mat-card-header>
-          <div mat-card-avatar class="welcome-card__avatar"><mat-icon>analytics</mat-icon></div>
-          <mat-card-title>Reports</mat-card-title>
-          <mat-card-subtitle>Summaries &amp; exports</mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-content>
-          <p>Pull together exercise and journal views to see patterns at a glance.</p>
-        </mat-card-content>
-      </mat-card>
-      <mat-card class="welcome-card welcome-card--cyan" appearance="outlined">
-        <mat-card-header>
-          <div mat-card-avatar class="welcome-card__avatar"><mat-icon>tune</mat-icon></div>
-          <mat-card-title>Admin</mat-card-title>
-          <mat-card-subtitle>Settings &amp; monitoring</mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-content>
-          <p>Per-user configuration, your member profile, sign-in history for your account (and full audit if you are an
-            admin), and finance admin tools when available.</p>
-        </mat-card-content>
-      </mat-card>
+      <a routerLink="/exercise" class="welcome-feature-link">
+        <mat-card class="welcome-card welcome-card--indigo" appearance="outlined">
+          <mat-card-header>
+            <div mat-card-avatar class="welcome-card__avatar"><mat-icon>fitness_center</mat-icon></div>
+            <mat-card-title>Exercise</mat-card-title>
+            <mat-card-subtitle>Training log &amp; catalog</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <p>Pick exercises, log sets and days, and follow strength or weight work over time.</p>
+          </mat-card-content>
+        </mat-card>
+      </a>
+      <a routerLink="/finance" class="welcome-feature-link">
+        <mat-card class="welcome-card welcome-card--emerald" appearance="outlined">
+          <mat-card-header>
+            <div mat-card-avatar class="welcome-card__avatar"><mat-icon>account_balance_wallet</mat-icon></div>
+            <mat-card-title>Finance</mat-card-title>
+            <mat-card-subtitle>Holdings &amp; money tools</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <p>Review positions, tax helpers, banking imports, and optional alerts when configured.</p>
+          </mat-card-content>
+        </mat-card>
+      </a>
+      <a routerLink="/management" class="welcome-feature-link">
+        <mat-card class="welcome-card welcome-card--amber" appearance="outlined">
+          <mat-card-header>
+            <div mat-card-avatar class="welcome-card__avatar"><mat-icon>task_alt</mat-icon></div>
+            <mat-card-title>Management</mat-card-title>
+            <mat-card-subtitle>Tasks &amp; balance</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <p>Balance categories, calendar, utilities vault, month notes, and long-form write-ups—scoped to you.</p>
+          </mat-card-content>
+        </mat-card>
+      </a>
+      <a routerLink="/journal" class="welcome-feature-link">
+        <mat-card class="welcome-card welcome-card--violet" appearance="outlined">
+          <mat-card-header>
+            <div mat-card-avatar class="welcome-card__avatar"><mat-icon>menu_book</mat-icon></div>
+            <mat-card-title>Journal</mat-card-title>
+            <mat-card-subtitle>Entries &amp; tags</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <p>Capture thoughts with tags and browse your history when you need context.</p>
+          </mat-card-content>
+        </mat-card>
+      </a>
+      <a routerLink="/reports" class="welcome-feature-link">
+        <mat-card class="welcome-card welcome-card--rose" appearance="outlined">
+          <mat-card-header>
+            <div mat-card-avatar class="welcome-card__avatar"><mat-icon>analytics</mat-icon></div>
+            <mat-card-title>Reports</mat-card-title>
+            <mat-card-subtitle>Summaries &amp; exports</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <p>Pull together exercise and journal views to see patterns at a glance.</p>
+          </mat-card-content>
+        </mat-card>
+      </a>
+      <a routerLink="/admin" class="welcome-feature-link">
+        <mat-card class="welcome-card welcome-card--cyan" appearance="outlined">
+          <mat-card-header>
+            <div mat-card-avatar class="welcome-card__avatar"><mat-icon>tune</mat-icon></div>
+            <mat-card-title>Admin</mat-card-title>
+            <mat-card-subtitle>Settings &amp; monitoring</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <p>Per-user configuration, your member profile, sign-in history for your account (and full audit if you are an
+              admin), and finance admin tools when available.</p>
+          </mat-card-content>
+        </mat-card>
+      </a>
     </div>
   </section>
 
