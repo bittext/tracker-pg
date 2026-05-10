@@ -224,6 +224,22 @@ public class FinanceController {
     }
 
     /**
+     * Trading screeners: NASDAQ-listed names in a conventional USD mid-cap band (~$2B–$10B) from merged Yahoo screeners +
+     * quote filters. Not investment advice.
+     */
+    @GetMapping("/nasdaq-mid-cap-screener")
+    public Surge52WeekHighsDto nasdaqMidCapScreener(@RequestParam(name = "limit", required = false) Integer limit) {
+        log.info("GET /api/finance/robinhood/nasdaq-mid-cap-screener limit={}", limit);
+        try {
+            return surge52WeekHighsService.fetchNasdaqMidCapScreen(limit);
+        } catch (IllegalStateException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, e.getMessage(), e);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
+        }
+    }
+
+    /**
      * Heuristic scan for stocks showing a technical “breakout setup” (resistance proximity, volume vs baseline, ATR
      * contraction, trend). Yahoo screeners + daily chart; not investment advice.
      */

@@ -1,0 +1,280 @@
+<p class="muted intro">
+  Lead with a <strong>NASDAQ mid-cap</strong> view (~USD <strong>$2B–$10B</strong> market cap on the Yahoo quote), then
+  momentum near 52-week highs, breakout-style setups, and an optional <strong>watchlist news sweep</strong>.
+  <strong>Not investment advice</strong>; exchange and cap fields can be missing or stale.
+</p>
+
+<div class="finance-toolbar">
+  <button
+    mat-flat-button
+    color="primary"
+    type="button"
+    (click)="refreshBuiltinScans()"
+    [disabled]="nasdaqMidCapLoading || rising52wLoading || breakoutLoading"
+  >
+    <mat-icon>refresh</mat-icon>
+    Refresh scans
+  </button>
+</div>
+
+<section class="screener-section screener-section--primary" aria-labelledby="screeners-nasdaq-mid-heading">
+  <h2 id="screeners-nasdaq-mid-heading" class="section-title">NASDAQ — mid-cap focus</h2>
+  <p class="muted section-note">
+    Symbols from merged Yahoo liquid lists, enriched like <strong>52w High Risers</strong>, then kept only when the quote
+    looks <strong>NASDAQ-listed</strong> and <strong>market cap</strong> falls in the mid-cap band above. Sorted by proximity
+    to the 52-week high quote.
+  </p>
+
+  @if (nasdaqMidCapLoading) {
+    <p class="muted">Loading NASDAQ mid-cap screen…</p>
+  }
+
+  @if (nasdaqMidCap && !nasdaqMidCapLoading) {
+    <p class="muted finance-meta">
+      <strong>{{ nasdaqMidCap.returned }}</strong> stock(s) · {{ nasdaqMidCap.source }} ·
+      {{ nasdaqMidCap.fetchedAt | slice: 0 : 19 }}
+    </p>
+    @if (nasdaqMidCap.note) {
+      <p class="muted stocks-news-note">{{ nasdaqMidCap.note }}</p>
+    }
+
+    @if (nasdaqMidCap.rows.length === 0) {
+      <div class="finance-empty-report" role="status">
+        <p class="finance-empty-title">No NASDAQ mid-cap matches in this pass</p>
+        <p class="muted finance-empty-detail">
+          Yahoo may not have cap/exchange on every candidate, or none of the merged screeners hit the band right now. Try
+          refreshing later.
+        </p>
+      </div>
+    } @else {
+      <div class="table-wrap rh-txn-wrap">
+        <table class="rh-txn-data-table full-width nasdaq-mid-table">
+          <thead>
+            <tr>
+              <th scope="col">Symbol</th>
+              <th scope="col">Name</th>
+              <th scope="col">Market cap</th>
+              <th scope="col">Exchange</th>
+              <th scope="col">Price</th>
+              <th scope="col">Session %</th>
+              <th scope="col">% of 52w high</th>
+              <th scope="col">Outlook</th>
+              <th scope="col">Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of nasdaqMidCap.rows; track nasdaqTrack($index, row)) {
+              <tr>
+                <td>
+                  <a class="rh-symbol-link" [href]="row.externalDetailUrl" target="_blank" rel="noopener noreferrer">
+                    <strong>{{ row.symbol }}</strong>
+                  </a>
+                </td>
+                <td class="rising-52w-name">{{ row.shortName }}</td>
+                <td>{{ formatMarketCapUsd(row.marketCap) }}</td>
+                <td>{{ exchangeLabel(row) }}</td>
+                <td>{{ formatUsd(row.regularMarketPrice) }}</td>
+                <td>{{ formatPct(row.regularMarketChangePercent) }}</td>
+                <td>{{ row.percentOf52WeekHigh | number: '1.1-1' }}%</td>
+                <td>{{ row.growthOutlookLabel }}</td>
+                <td>
+                  <a [href]="row.externalDetailUrl" target="_blank" rel="noopener noreferrer">Open</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+</section>
+
+<section class="screener-section" aria-labelledby="screeners-momentum-heading">
+  <h2 id="screeners-momentum-heading" class="section-title">Momentum — names near 52-week highs</h2>
+  <p class="muted section-note">
+    Short list from the same risers pipeline as <strong>Trading → 52w High Risers</strong> (limit
+    {{ rising52w?.returned ?? '—' }} shown here).
+  </p>
+
+  @if (rising52wLoading) {
+    <p class="muted">Loading…</p>
+  }
+
+  @if (rising52w && !rising52wLoading) {
+    <p class="muted finance-meta">
+      <strong>{{ rising52w.returned }}</strong> stock(s) · {{ rising52w.source }} · {{ rising52w.fetchedAt | slice: 0 : 19 }}
+    </p>
+    @if (rising52w.note) {
+      <p class="muted stocks-news-note">{{ rising52w.note }}</p>
+    }
+
+    @if (rising52w.rows.length === 0) {
+      <div class="finance-empty-report" role="status">
+        <p class="finance-empty-title">No qualifying names right now</p>
+        <p class="muted finance-empty-detail">Try again later or open the full tab for a longer cap.</p>
+      </div>
+    } @else {
+      <div class="table-wrap rh-txn-wrap">
+        <table class="rh-txn-data-table full-width rising-52w-table">
+          <thead>
+            <tr>
+              <th scope="col">Symbol</th>
+              <th scope="col">Name</th>
+              <th scope="col">52w return</th>
+              <th scope="col">Price</th>
+              <th scope="col">% of 52w high</th>
+              <th scope="col">Outlook</th>
+              <th scope="col">Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of rising52w.rows; track risingTrack($index, row)) {
+              <tr>
+                <td>
+                  <a class="rh-symbol-link" [href]="row.externalDetailUrl" target="_blank" rel="noopener noreferrer">
+                    <strong>{{ row.symbol }}</strong>
+                  </a>
+                </td>
+                <td class="rising-52w-name">{{ row.shortName }}</td>
+                <td>{{ row.fiftyTwoWeekGainPercent != null ? (row.fiftyTwoWeekGainPercent | number: '1.1-1') + '%' : '—' }}</td>
+                <td>{{ formatUsd(row.regularMarketPrice) }}</td>
+                <td>{{ row.percentOf52WeekHigh | number: '1.1-1' }}%</td>
+                <td>{{ row.growthOutlookLabel }}</td>
+                <td>
+                  <a [href]="row.externalDetailUrl" target="_blank" rel="noopener noreferrer">Open</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+</section>
+
+<section class="screener-section" aria-labelledby="screeners-breakout-heading">
+  <h2 id="screeners-breakout-heading" class="section-title">Setups — breakout-style scan</h2>
+  <p class="muted section-note">
+    Same heuristic as <strong>Trading → Break outs</strong> (resistance, volume, ATR contraction). Limit
+    {{ breakouts?.returned ?? '—' }} rows here.
+  </p>
+
+  @if (breakoutLoading) {
+    <p class="muted">Scanning…</p>
+  }
+
+  @if (breakouts && !breakoutLoading) {
+    <p class="muted finance-meta">
+      <strong>{{ breakouts.returned }}</strong> name(s) · {{ breakouts.source }} · {{ breakouts.fetchedAt | slice: 0 : 19 }}
+    </p>
+    @if (breakouts.note) {
+      <p class="muted stocks-news-note">{{ breakouts.note }}</p>
+    }
+
+    @if (breakouts.rows.length === 0) {
+      <div class="finance-empty-report" role="status">
+        <p class="finance-empty-title">No qualifying setups right now</p>
+        <p class="muted finance-empty-detail">Thresholds require several signals to align; try the Break outs tab for rationale text.</p>
+      </div>
+    } @else {
+      <div class="table-wrap rh-txn-wrap">
+        <table class="rh-txn-data-table full-width breakout-candidates-table">
+          <thead>
+            <tr>
+              <th scope="col">Symbol</th>
+              <th scope="col">Name</th>
+              <th scope="col">Score</th>
+              <th scope="col">Pattern</th>
+              <th scope="col">Price</th>
+              <th scope="col">Session %</th>
+              <th scope="col">Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of breakouts.rows; track breakoutTrack($index, row)) {
+              <tr>
+                <td>
+                  <a class="rh-symbol-link" [href]="row.externalDetailUrl" target="_blank" rel="noopener noreferrer">
+                    <strong>{{ row.symbol }}</strong>
+                  </a>
+                </td>
+                <td class="rising-52w-name">{{ row.shortName }}</td>
+                <td>{{ row.breakoutScore | number: '1.0-0' }}</td>
+                <td>{{ row.patternLabel }}</td>
+                <td>{{ formatUsd(row.regularMarketPrice) }}</td>
+                <td>{{ formatPct(row.regularMarketChangePercent) }}</td>
+                <td>
+                  <a [href]="row.externalDetailUrl" target="_blank" rel="noopener noreferrer">Open</a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+</section>
+
+<section class="screener-section watchlist-section" aria-labelledby="screeners-watch-heading">
+  <h2 id="screeners-watch-heading" class="section-title">Watchlist — news &amp; sentiment sweep</h2>
+  <p class="muted section-note">
+    Paste up to <strong>12</strong> tickers (commas, spaces, or lines). Each symbol calls the same news+NLP endpoint as
+    <strong>Trading → News</strong> (small headline sample per symbol).
+  </p>
+
+  <mat-form-field appearance="outline" class="watchlist-field">
+    <mat-label>Symbols to screen</mat-label>
+    <textarea
+      matInput
+      rows="4"
+      name="watchlistInput"
+      [(ngModel)]="watchlistInput"
+      placeholder="e.g. NVDA, MSFT, AAPL"
+    ></textarea>
+  </mat-form-field>
+
+  <div class="watchlist-actions">
+    <button mat-flat-button color="primary" type="button" (click)="runWatchlistNewsSweep()" [disabled]="watchlistLoading">
+      <mat-icon>travel_explore</mat-icon>
+      Run news sweep
+    </button>
+    @if (watchlistLoading) {
+      <span class="muted">Fetching headlines…</span>
+    }
+  </div>
+
+  @if (watchlistRows.length > 0 && !watchlistLoading) {
+    <div class="table-wrap rh-txn-wrap">
+      <table class="rh-txn-data-table full-width watchlist-table">
+        <thead>
+          <tr>
+            <th scope="col">Symbol</th>
+            <th scope="col">Sentiment</th>
+            <th scope="col">Growth label</th>
+            <th scope="col">Stress</th>
+            <th scope="col">Articles</th>
+            <th scope="col">Note</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of watchlistRows; track watchTrack($index, row)) {
+            <tr>
+              <td>
+                <strong>{{ row.symbol }}</strong>
+              </td>
+              @if (row.ok) {
+                <td>{{ row.data.analysis.overallSentiment }}</td>
+                <td>{{ row.data.analysis.projectedGrowthLabel }}</td>
+                <td>{{ row.data.analysis.stressSignals.emphasis }}</td>
+                <td>{{ row.data.returned }}</td>
+                <td class="watch-note">{{ row.data.note || '—' }}</td>
+              } @else {
+                <td colspan="5" class="watch-error">{{ row.error }}</td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>

@@ -322,6 +322,10 @@ export interface Surge52WeekRowDto {
   growthOutlookLabel: string;
   growthProspectsSummary: string;
   externalDetailUrl: string;
+  /** Yahoo quote exchange code when present (e.g. NMS). */
+  exchangeId?: string | null;
+  /** Yahoo full exchange name when present (e.g. NasdaqGS). */
+  fullExchangeName?: string | null;
 }
 
 /** Parsed summary from Form 1040 PDF text (best effort; server may re-parse on each read). */

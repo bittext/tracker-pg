@@ -33,4 +33,8 @@ public record Surge52WeekRowDto(
         /** Plain-language growth / risk view from rules on available metrics. */
         String growthProspectsSummary,
         /** External quote page (Yahoo Finance). */
-        String externalDetailUrl) {}
+        String externalDetailUrl,
+        /** Yahoo quote exchange code when present (e.g. NMS, NGM). */
+        String exchangeId,
+        /** Yahoo quote full exchange name when present (e.g. NasdaqGS). */
+        String fullExchangeName) {}

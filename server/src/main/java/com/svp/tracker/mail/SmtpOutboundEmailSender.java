@@ -96,7 +96,10 @@ public final class SmtpOutboundEmailSender implements OutboundEmailSender {
         return false;
     }
 
-    /** Gmail often returns 535-5.7.8 and/or this phrase; avoids blaming Google for every SMTP auth failure. */
+    /**
+     * Gmail uses several SMTP codes/phrases (e.g. 535-5.7.8 wrong password, 534-5.7.9 app password required); match those
+     * so we suggest App Passwords instead of generic env-quoting advice.
+     */
     private static boolean looksLikeGoogleSmtpRefusal(Throwable e) {
         for (Throwable t = e; t != null; t = t.getCause()) {
             String m = t.getMessage();
@@ -104,7 +107,11 @@ public final class SmtpOutboundEmailSender implements OutboundEmailSender {
                 continue;
             }
             String low = m.toLowerCase(Locale.ROOT);
-            if (low.contains("535-5.7.8") || low.contains("username and password not accepted")) {
+            if (low.contains("535-5.7.8")
+                    || low.contains("534-5.7.9")
+                    || low.contains("username and password not accepted")
+                    || low.contains("application-specific password required")
+                    || low.contains("invalidsecondfactor")) {
                 return true;
             }
         }

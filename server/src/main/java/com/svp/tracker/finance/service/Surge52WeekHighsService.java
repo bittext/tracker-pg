@@ -414,6 +414,8 @@ public class Surge52WeekHighsService {
             fwdPe = dbl(fundamentals, "forwardPe");
         }
         String url = externalQuoteUrl(symbol);
+        String exchangeId = text(fundamentals, "exchange");
+        String fullExchangeName = text(fundamentals, "fullExchangeName");
         Double gain = p.fiftyTwoWeekGainPercent();
         String outlook =
                 growthOutlookLabel(p, pctOfHigh, chgPct, trailPe, fwdPe, repeatedStay, gain);
@@ -455,7 +457,101 @@ public class Surge52WeekHighsService {
                 fwdPe,
                 outlook,
                 summary,
-                url);
+                url,
+                exchangeId,
+                fullExchangeName);
+    }
+
+    /**
+     * Liquid US equity screeners merged from Yahoo, enriched with charts, then filtered to NASDAQ-listed names whose
+     * Yahoo {@code marketCap} falls in a conventional mid-cap band (USD). Not investment advice.
+     */
+    public Surge52WeekHighsDto fetchNasdaqMidCapScreen(Integer limitRaw) {
+        int limit = sanitizeLimit(limitRaw);
+        int perScreener = 120;
+        int maxSymbolUnion = Math.min(420, Math.max(240, limit * 28));
+        int maxIterationsPerScreener = 100;
+
+        JsonNode dayGainers = fetchScreenerJson("day_gainers", perScreener);
+        JsonNode mostActives = fetchScreenerJsonOptional("most_actives", perScreener);
+        JsonNode undervaluedGrowth = fetchScreenerJsonOptional("undervalued_growth_stocks", 100);
+        JsonNode smallCapGainers = fetchScreenerJsonOptional("small_cap_gainers", 100);
+        JsonNode aggressiveSmallCaps = fetchScreenerJsonOptional("aggressive_small_caps", 100);
+        JsonNode mostShorted = fetchScreenerJsonOptional("most_shorted_stocks", 80);
+
+        JsonNode[] roots = {
+            dayGainers,
+            mostActives,
+            undervaluedGrowth,
+            smallCapGainers,
+            aggressiveSmallCaps,
+            mostShorted
+        };
+
+        Map<String, JsonNode> quoteBySymbol = mergeQuotesOrdered(roots);
+        List<String> symbols = unionSymbolsFair(maxIterationsPerScreener, maxSymbolUnion, roots);
+
+        List<Surge52WeekRowDto> enriched = enrichWithPersistence(symbols, quoteBySymbol);
+
+        List<Surge52WeekRowDto> midNasdaq = new ArrayList<>();
+        for (Surge52WeekRowDto r : enriched) {
+            if (isNasdaqListed(r.exchangeId(), r.fullExchangeName()) && isMidCapUsd(r.marketCap())) {
+                midNasdaq.add(r);
+            }
+        }
+
+        midNasdaq.sort(
+                Comparator.comparingDouble(Surge52WeekRowDto::percentOf52WeekHigh)
+                        .reversed()
+                        .thenComparing(
+                                Surge52WeekRowDto::fiftyTwoWeekGainPercent,
+                                Comparator.nullsLast(Double::compareTo))
+                        .reversed());
+
+        if (midNasdaq.size() > limit) {
+            midNasdaq = new ArrayList<>(midNasdaq.subList(0, limit));
+        }
+
+        String note =
+                "Merged Yahoo screeners (day_gainers, most_actives, undervalued_growth_stocks, small_cap_gainers, "
+                        + "aggressive_small_caps, most_shorted_stocks — optional lists skipped if unavailable), enriched "
+                        + "with ~1y adjusted closes, then kept rows where the quote exchange looks NASDAQ and "
+                        + "market cap is about USD $2B–$10B (mid-cap). Caps and exchange strings come from Yahoo; "
+                        + "some symbols lack fields and are omitted. Heuristic, not investment advice.";
+
+        return new Surge52WeekHighsDto(
+                "NASDAQ mid-cap (Yahoo quote filters)",
+                Instant.now().toString(),
+                midNasdaq.size(),
+                note,
+                midNasdaq);
+    }
+
+    private static boolean isNasdaqListed(String exchangeId, String fullExchangeName) {
+        if (fullExchangeName != null && !fullExchangeName.isBlank()) {
+            String f = fullExchangeName.toLowerCase(Locale.ROOT);
+            if (f.contains("nasdaq")) {
+                return true;
+            }
+        }
+        if (exchangeId == null || exchangeId.isBlank()) {
+            return false;
+        }
+        String e = exchangeId.trim().toUpperCase(Locale.ROOT);
+        return switch (e) {
+            case "NMS", "NGM", "NCM", "NASDAQ", "NAS" -> true;
+            default -> false;
+        };
+    }
+
+    /** Conventional USD mid-cap band (exclusive upper bound). */
+    private static boolean isMidCapUsd(Double marketCap) {
+        if (marketCap == null || !Double.isFinite(marketCap)) {
+            return false;
+        }
+        double lo = 2_000_000_000d;
+        double hi = 10_000_000_000d;
+        return marketCap >= lo && marketCap < hi;
     }
 
     private static String externalQuoteUrl(String symbol) {

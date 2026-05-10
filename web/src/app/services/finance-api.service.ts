@@ -112,6 +112,15 @@ export class FinanceApiService {
     return this.http.get<Surge52WeekHighsDto>(`${this.root}/rising-52w-highs`, { params });
   }
 
+  /** NASDAQ-listed mid-cap (~$2B–$10B USD) names from merged Yahoo screeners + quote filters. */
+  robinhoodNasdaqMidCapScreener(limit?: number) {
+    let params = new HttpParams();
+    if (limit != null && Number.isFinite(limit) && limit > 0) {
+      params = params.set('limit', String(Math.floor(limit)));
+    }
+    return this.http.get<Surge52WeekHighsDto>(`${this.root}/nasdaq-mid-cap-screener`, { params });
+  }
+
   /** Trading “Break outs”: heuristic resistance + volume + volatility contraction scan. */
   robinhoodBreakoutCandidates(limit?: number) {
     let params = new HttpParams();
