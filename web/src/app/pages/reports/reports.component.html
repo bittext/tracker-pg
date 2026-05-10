@@ -91,7 +91,7 @@
                 </div>
 
                 @if (monthlyReport && monthCal) {
-                  <div class="ex-kpi-strip" role="group" aria-label="Month summary figures">
+                  <div class="ex-kpi-strip ex-kpi-strip--month" role="group" aria-label="Month summary figures">
                     <div class="ex-kpi">
                       <span class="ex-kpi-label">Exercise days</span>
                       <span class="ex-kpi-value">{{ monthlyReport.workoutDays }}</span>
@@ -108,7 +108,9 @@
                     </div>
                     <div class="ex-kpi">
                       <span class="ex-kpi-label">Exercise time</span>
-                      <span class="ex-kpi-value">{{ formatCalendarExerciseMinutes(monthExerciseMinutes()) }}</span>
+                      <span class="ex-kpi-value ex-kpi-value--duration">{{
+                        formatCalendarExerciseMinutes(monthExerciseMinutes())
+                      }}</span>
                     </div>
                     <div class="ex-kpi">
                       <span class="ex-kpi-label">Active (weight)</span>
@@ -159,7 +161,9 @@
                   <div class="ex-kpi-strip ex-kpi-strip--day" role="group" aria-label="Day summary">
                     <div class="ex-kpi">
                       <span class="ex-kpi-label">Exercise time</span>
-                      <span class="ex-kpi-value">{{ formatCalendarExerciseMinutes(selectedDayExerciseMinutes()) }}</span>
+                      <span class="ex-kpi-value ex-kpi-value--duration">{{
+                        formatCalendarExerciseMinutes(selectedDayExerciseMinutes())
+                      }}</span>
                     </div>
                     <div class="ex-kpi">
                       <span class="ex-kpi-label">Log lines</span>

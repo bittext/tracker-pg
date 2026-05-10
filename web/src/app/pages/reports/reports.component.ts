@@ -208,7 +208,7 @@ export class ReportsComponent implements OnInit {
     const h = Math.floor(mins / 60);
     const m = mins % 60;
     if (h > 0 && m > 0) {
-      return `${h}h ${m}m`;
+      return `${h}h ${String(m).padStart(2, '0')}m`;
     }
     if (h > 0) {
       return `${h}h`;
