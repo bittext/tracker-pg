@@ -32,7 +32,8 @@ public class TravelGeocodeService {
     public TravelGeocodeService(
             ClientHttpRequestFactory trackerOutboundHttpRequestFactory,
             ObjectMapper objectMapper,
-            @Value("${tracker.management.travel.geocode-user-agent:tracker-pg (https://github.com/bittext/tracker-pg; travel geocode)}")
+            @Value(
+                    "${tracker.management.travel.geocode-user-agent:tracker-pg/6.0.0 (github.com/bittext/tracker-pg; travel geocode)}")
                     String userAgent) {
         this.objectMapper = objectMapper;
         this.userAgent = userAgent;
