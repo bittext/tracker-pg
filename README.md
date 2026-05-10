@@ -259,6 +259,15 @@ After the database exists and is populated, use the **Routine stack redeploy** c
 
 4. To reach services from the **public internet**, allow the chosen TCP ports through your **OS firewall** and usually **home router port forwarding**. Prefer **HTTPS** in front (Caddy, Traefik, or nginx) and tighten **`CORS_PATTERN`** when browsers hit the API from another origin instead of going through the bundled nginx UI. **Do not forward the Postgres port** to the internet unless you fully understand the risk; use VPN or SSH tunnel for remote DBeaver access.
 
+**Troubleshooting: desktop browser shows 403 or “Failed to load resource” while mobile works**
+
+1. In the desktop browser, open **Developer Tools → Network**, find the failing request, and note the **exact URL** (host + path).
+2. **`/api/...` with HTTP 401:** the session token is missing or expired for **this origin** (JWT is stored in `localStorage`). Sign in again. Common causes: opened the site as **`https://www.example.com`** on one device and **`https://example.com`** on another (different storage); private/incognito on desktop only; or an extension blocking storage.
+3. **`/api/...` with HTTP 403 and JSON `{"error":"forbidden"}`:** you are signed in but the operation is not allowed for your account (for example **ADMIN-only** routes).
+4. **Cross-origin API** (SPA on one host, API on another): ensure **`CORS_PATTERN`** in `.env.stack` matches the browser origin (see compose `TRACKER_WEB_CORS_ALLOWED_ORIGIN_PATTERNS_0`). Preflight **`OPTIONS`** must succeed.
+5. **Third-party URLs** (map style, tiles, fonts): **Management → Travel** uses a configurable MapLibre style URL (`travelMapStyleUrl` in Angular environments); the default demo host may refuse some clients. Point production builds at your own style/tiles if you see 403 on those URLs only.
+6. After a deploy, do a **hard refresh** (cache-busted `index.html`) so the browser does not request removed hashed `.js` chunks.
+
 **Journal attachments:** by default, uploaded files are stored on disk (see `TRACKER_JOURNAL_STORAGE_DIR` / tmp). For production, set **`TRACKER_JOURNAL_S3_BUCKET=tracker-pg-journal`** (and optionally **`TRACKER_JOURNAL_S3_REGION`**) in **`.env.stack`** so the API uses **Amazon S3** with the [default AWS credential chain](https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/credentials.html) (e.g. Lightsail/EC2 instance role, or `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` on the host). Create the bucket and grant the API `s3:PutObject`, `s3:GetObject`, and `s3:DeleteObject` on that bucket. Metadata stays in PostgreSQL; object keys in the `journal_attachments` table are either the legacy on-disk filename or S3 object keys of the form `journal/{userId}/{entryId}/{uuid}`.
 
 **Security:** the stack binds Postgres to **127.0.0.1** on the VM only. Use a strong `POSTGRES_PASSWORD`, never add a public firewall rule for Postgres, and keep `TRACKER_AUTH_*` secrets long and random.

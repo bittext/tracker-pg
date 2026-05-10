@@ -2,8 +2,13 @@ package com.svp.tracker.auth.config;
 
 import com.svp.tracker.auth.security.JwtAuthenticationFilter;
 import com.svp.tracker.config.SecurityProperties;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -36,7 +41,9 @@ public class SecurityConfig {
                     }
                 })
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth.requestMatchers(
+                .authorizeHttpRequests(auth -> auth.requestMatchers(HttpMethod.OPTIONS, "/**")
+                                .permitAll()
+                                .requestMatchers(
                                         "/api/auth/**",
                                         "/api/version",
                                         "/swagger-ui/**",
@@ -49,7 +56,28 @@ public class SecurityConfig {
                                 .authenticated()
                                 .anyRequest()
                                 .permitAll())
+                .exceptionHandling(ex -> ex.authenticationEntryPoint((request, response, authException) -> {
+                            if (!request.getRequestURI().startsWith("/api/")) {
+                                response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+                                return;
+                            }
+                            writeJson(response, HttpServletResponse.SC_UNAUTHORIZED, "{\"error\":\"unauthorized\"}");
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            if (!request.getRequestURI().startsWith("/api/")) {
+                                response.sendError(HttpServletResponse.SC_FORBIDDEN);
+                                return;
+                            }
+                            writeJson(response, HttpServletResponse.SC_FORBIDDEN, "{\"error\":\"forbidden\"}");
+                        }))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
+    }
+
+    private static void writeJson(HttpServletResponse response, int status, String body) throws IOException {
+        response.setStatus(status);
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        response.getWriter().write(body);
     }
 }
