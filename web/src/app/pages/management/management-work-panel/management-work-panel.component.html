@@ -1,0 +1,351 @@
+<div class="mw-panel">
+  <section class="mw-section" aria-labelledby="mw-work-tasks-heading">
+    <h2 id="mw-work-tasks-heading" class="mw-h2">Work tasks</h2>
+    <p class="muted mw-lead">
+      Tasks are filtered to the <strong>Work</strong> balance category (name match, case-insensitive). Create that category
+      under <a routerLink="/admin">Admin</a> → <strong>Management</strong> if you do not have it yet. Use the main
+      <strong>Tasks</strong> tab to edit titles in depth; here you can complete, delete, and quick-add work items.
+    </p>
+
+    @if (workCategoryId == null && categories.length > 0) {
+      <p class="mw-warn" role="status">
+        No category named <strong>Work</strong> found — tasks are matched by category name only until you add one.
+      </p>
+    }
+
+    <div class="mw-layout">
+      <mat-card appearance="outlined" class="mw-card">
+        <mat-card-header>
+          <mat-card-title>Month</mat-card-title>
+          <mat-card-subtitle>Due dates for work tasks only</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="mw-cal-toolbar">
+            <button mat-icon-button type="button" (click)="prevTaskMonth()" aria-label="Previous month">
+              <mat-icon>chevron_left</mat-icon>
+            </button>
+            <h3 class="mw-cal-title">{{ taskCalendarTitle() }}</h3>
+            <button mat-icon-button type="button" (click)="nextTaskMonth()" aria-label="Next month">
+              <mat-icon>chevron_right</mat-icon>
+            </button>
+          </div>
+          <div class="mw-cal-shell">
+            <div class="mw-cal-weekdays">
+              @for (wd of weekDays; track wd) {
+                <span class="mw-cal-wd">{{ wd }}</span>
+              }
+            </div>
+            @for (row of taskCalendarRows(); track $index) {
+              <div class="mw-cal-week">
+                @for (cell of row; track cell.trackKey) {
+                  @if (cell.type === 'pad') {
+                    <div class="mw-cal-slot mw-cal-slot--pad" aria-hidden="true"></div>
+                  } @else {
+                    <button
+                      type="button"
+                      class="mw-cal-slot mw-cal-day"
+                      [class.mw-cal-day--selected]="cell.iso && isTaskDaySelected(cell.iso)"
+                      [attr.aria-pressed]="cell.iso && isTaskDaySelected(cell.iso)"
+                      (click)="cell.iso && selectTaskDay(cell.iso)"
+                    >
+                      <span class="mw-cal-day-num">{{ cell.label }}</span>
+                      @if (cell.iso && taskCountOnDay(cell.iso) > 0) {
+                        <span class="mw-cal-badge">{{ taskCountOnDay(cell.iso) }}</span>
+                      }
+                    </button>
+                  }
+                }
+              </div>
+            }
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card appearance="outlined" class="mw-card">
+        <mat-card-header>
+          <mat-card-title>{{ taskSelectedIso || 'Pick a day' }}</mat-card-title>
+          <mat-card-subtitle>{{ workTasksForSelectedDay().length }} work task(s) due</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="table-wrap">
+            <table mat-table [dataSource]="workTasksForSelectedDay()" class="full-width">
+              <ng-container matColumnDef="title">
+                <th mat-header-cell *matHeaderCellDef>Title</th>
+                <td mat-cell *matCellDef="let row">{{ row.title }}</td>
+              </ng-container>
+              <ng-container matColumnDef="urgency">
+                <th mat-header-cell *matHeaderCellDef>Urgency</th>
+                <td mat-cell *matCellDef="let row">
+                  <span class="urgency-pill" [ngClass]="urgencyClass(row.urgency)">{{ row.urgency }}</span>
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="type">
+                <th mat-header-cell *matHeaderCellDef>Type</th>
+                <td mat-cell *matCellDef="let row">{{ row.taskTypeName || '—' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="due">
+                <th mat-header-cell *matHeaderCellDef>Due</th>
+                <td mat-cell *matCellDef="let row">{{ row.dueDate || '—' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="done">
+                <th mat-header-cell *matHeaderCellDef>Done</th>
+                <td mat-cell *matCellDef="let row">
+                  <mat-checkbox
+                    [checked]="row.completed"
+                    (change)="toggleWorkTaskDone(row, $event.checked)"
+                    aria-label="Mark complete"
+                  />
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef></th>
+                <td mat-cell *matCellDef="let row">
+                  <button mat-icon-button type="button" color="warn" (click)="deleteWorkTask(row)" aria-label="Delete task">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="taskColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: taskColumns" [ngClass]="taskDueRowClass(row)"></tr>
+            </table>
+            @if (!workTasksForSelectedDay().length) {
+              <p class="muted empty-hint">No work tasks on this day.</p>
+            }
+          </div>
+
+          <h3 class="mw-subh">Quick add work task</h3>
+          <div class="mw-form-row">
+            <mat-form-field appearance="outline" class="mw-grow">
+              <mat-label>Title</mat-label>
+              <input matInput name="mwqTitle" [(ngModel)]="quickTask.title" placeholder="What needs doing?" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Urgency</mat-label>
+              <mat-select name="mwqUrg" [(ngModel)]="quickTask.urgency">
+                @for (u of urgencies; track u) {
+                  <mat-option [value]="u">{{ u }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          </div>
+          <div class="mw-form-row">
+            <mat-form-field appearance="outline" class="mw-grow">
+              <mat-label>Task type</mat-label>
+              <mat-select name="mwqType" [(ngModel)]="quickTask.taskTypeId">
+                <mat-option [value]="null">None</mat-option>
+                @for (t of taskTypes; track t.id) {
+                  <mat-option [value]="t.id">{{ t.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="mw-grow">
+              <mat-label>Due date</mat-label>
+              <input matInput [matDatepicker]="mwDuePick" [(ngModel)]="quickTask.dueDate" name="mwqDue" />
+              <mat-datepicker-toggle matIconSuffix [for]="mwDuePick" />
+              <mat-datepicker #mwDuePick />
+            </mat-form-field>
+            <button mat-flat-button color="primary" type="button" (click)="saveQuickWorkTask()">Add</button>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
+    <h3 class="mw-subh">Unscheduled work</h3>
+    <div class="table-wrap">
+      <table mat-table [dataSource]="workUnscheduled()" class="full-width">
+        <ng-container matColumnDef="title">
+          <th mat-header-cell *matHeaderCellDef>Title</th>
+          <td mat-cell *matCellDef="let row">{{ row.title }}</td>
+        </ng-container>
+        <ng-container matColumnDef="urgency">
+          <th mat-header-cell *matHeaderCellDef>Urgency</th>
+          <td mat-cell *matCellDef="let row">
+            <span class="urgency-pill" [ngClass]="urgencyClass(row.urgency)">{{ row.urgency }}</span>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="type">
+          <th mat-header-cell *matHeaderCellDef>Type</th>
+          <td mat-cell *matCellDef="let row">{{ row.taskTypeName || '—' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="due">
+          <th mat-header-cell *matHeaderCellDef>Due</th>
+          <td mat-cell *matCellDef="let row">—</td>
+        </ng-container>
+        <ng-container matColumnDef="done">
+          <th mat-header-cell *matHeaderCellDef>Done</th>
+          <td mat-cell *matCellDef="let row">
+            <mat-checkbox
+              [checked]="row.completed"
+              (change)="toggleWorkTaskDone(row, $event.checked)"
+              aria-label="Mark complete"
+            />
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef></th>
+          <td mat-cell *matCellDef="let row">
+            <button mat-icon-button type="button" color="warn" (click)="deleteWorkTask(row)" aria-label="Delete task">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="taskColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: taskColumns" [ngClass]="taskDueRowClass(row)"></tr>
+      </table>
+      @if (!workUnscheduled().length) {
+        <p class="muted empty-hint">No unscheduled work tasks.</p>
+      }
+    </div>
+  </section>
+
+  <section class="mw-section" aria-labelledby="mw-log-heading">
+    <h2 id="mw-log-heading" class="mw-h2">Work log (daily)</h2>
+    <p class="muted mw-lead">
+      On-the-job notes with Markdown. Separate words in the filter box — each word must appear in the subject or body.
+      Month grid shows entry counts for {{ logYear }}.
+    </p>
+
+    <div class="mw-log-toolbar">
+      <button mat-stroked-button type="button" (click)="setLogView('day')" [class.mw-active]="logView === 'day'">Day</button>
+      <button mat-stroked-button type="button" (click)="setLogView('month')" [class.mw-active]="logView === 'month'">
+        Month
+      </button>
+      <button mat-stroked-button type="button" (click)="setLogView('year')" [class.mw-active]="logView === 'year'">Year</button>
+      <span class="mw-spacer"></span>
+      <div class="mw-year-nav">
+        <button mat-icon-button type="button" (click)="prevLogYear()" aria-label="Previous year">
+          <mat-icon>chevron_left</mat-icon>
+        </button>
+        <span class="mw-year-label">{{ logYear }}</span>
+        <button mat-icon-button type="button" (click)="nextLogYear()" aria-label="Next year">
+          <mat-icon>chevron_right</mat-icon>
+        </button>
+      </div>
+    </div>
+
+    @if (logView === 'day') {
+      <mat-form-field appearance="outline" class="mw-date-field">
+        <mat-label>Day</mat-label>
+        <input
+          matInput
+          type="date"
+          name="mwLogDay"
+          [(ngModel)]="logSelectedDayIso"
+          (ngModelChange)="onLogDayPicked()"
+        />
+      </mat-form-field>
+    }
+
+    @if (logView === 'month') {
+      <mat-form-field appearance="outline" class="mw-narrow-field">
+        <mat-label>Month</mat-label>
+        <mat-select name="mwLogMonth" [(ngModel)]="logMonth" (selectionChange)="reloadLogEntries()">
+          @for (m of logMonthOptions; track m) {
+            <mat-option [value]="m">{{ monthName(m) }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    }
+
+    <div class="mw-month-strip" role="group" aria-label="Work log entries per month">
+      @for (cell of logMonthCells(); track cell.month) {
+        <button
+          type="button"
+          class="mw-month-cell"
+          [class.mw-month-cell--active]="logView === 'month' && logMonth === cell.month"
+          (click)="selectLogMonth(cell.month); setLogView('month')"
+        >
+          <span class="mw-month-lbl">{{ shortMonthName(cell.month) }}</span>
+          <span class="mw-month-cnt">{{ cell.count }}</span>
+        </button>
+      }
+    </div>
+
+    <mat-form-field appearance="outline" class="mw-search-field">
+      <mat-label>Filter words</mat-label>
+      <input matInput name="mwLogSearch" [(ngModel)]="logSearch" placeholder="e.g. standup acme" />
+    </mat-form-field>
+
+    <div class="mw-log-layout">
+      <mat-card appearance="outlined" class="mw-card mw-card--form">
+        <mat-card-header>
+          <mat-card-title>{{ logEditingId != null ? 'Edit log entry' : 'New log entry' }}</mat-card-title>
+          <mat-card-subtitle>Subject + Markdown body</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <mat-form-field appearance="outline" class="full-width-field">
+            <mat-label>Entry date</mat-label>
+            <input matInput type="date" name="mwLogEntryDate" [(ngModel)]="logDraft.entryDate" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="full-width-field">
+            <mat-label>Subject</mat-label>
+            <input matInput name="mwLogSubj" [(ngModel)]="logDraft.subject" placeholder="Short title" />
+          </mat-form-field>
+          <div class="mw-body-composer">
+            <mat-form-field appearance="outline" class="full-width-field mw-body-field">
+              <mat-label>Body (Markdown)</mat-label>
+              <textarea matInput name="mwLogBody" rows="12" [(ngModel)]="logDraft.body"></textarea>
+            </mat-form-field>
+            <div class="mw-preview" aria-label="Preview">
+              <div class="mw-preview-head">Preview</div>
+              <div class="mw-preview-inner">
+                @if ((logDraft.body || '').trim()) {
+                  <div class="markdown-body notes-entry-body" [innerHTML]="logDraft.body | safeMarkdown"></div>
+                } @else {
+                  <p class="muted">Preview appears as you type.</p>
+                }
+              </div>
+            </div>
+          </div>
+          <div class="mw-form-actions">
+            <button mat-flat-button color="primary" type="button" (click)="saveLogEntry()">
+              {{ logEditingId != null ? 'Save changes' : 'Save entry' }}
+            </button>
+            @if (logEditingId != null) {
+              <button mat-button type="button" (click)="cancelLogEdit()">Cancel edit</button>
+            }
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card appearance="outlined" class="mw-card">
+        <mat-card-header>
+          <mat-card-title>Entries</mat-card-title>
+          <mat-card-subtitle>
+            @if (logLoading) {
+              Loading…
+            } @else {
+              {{ displayedLogEntries().length }} shown
+            }
+          </mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          @if (!logLoading && !displayedLogEntries().length) {
+            <p class="muted empty-hint">No entries for this view (or filter).</p>
+          }
+          <div class="mw-entry-list">
+            @for (e of displayedLogEntries(); track e.id) {
+              <article class="mw-entry" [class.mw-entry--editing]="logEditingId === e.id">
+                <h3 class="mw-entry-subj">{{ e.subject || '(no subject)' }}</h3>
+                <p class="muted mw-entry-meta">
+                  {{ e.entryDate }} · logged {{ e.loggedAt | date: 'short' }} · updated {{ e.updatedAt | date: 'short' }}
+                </p>
+                @if ((e.body || '').trim()) {
+                  <div class="markdown-body notes-entry-body mw-entry-body" [innerHTML]="e.body | safeMarkdown"></div>
+                }
+                <div class="mw-entry-actions">
+                  <button mat-stroked-button type="button" color="primary" (click)="startEditLogEntry(e)">Edit</button>
+                  <button mat-button type="button" color="warn" (click)="deleteLogEntry(e)">Delete</button>
+                </div>
+              </article>
+            }
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
+    <p class="muted mw-footnote">
+      For month-scoped notes without a day, use Management → <strong>Notes</strong>.
+    </p>
+  </section>
+</div>

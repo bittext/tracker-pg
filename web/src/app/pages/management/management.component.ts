@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -48,6 +48,7 @@ import {
   ReportCalendarEntryDialogComponent,
   ReportCalendarEntryDialogData,
 } from '../reports/report-calendar-entry-dialog.component';
+import { ManagementWorkPanelComponent } from './management-work-panel/management-work-panel.component';
 
 interface CalendarCell {
   type: 'pad' | 'day';
@@ -101,6 +102,7 @@ interface UtilityEntry {
     MatDatepickerModule,
     MatNativeDateModule,
     MatCheckboxModule,
+    ManagementWorkPanelComponent,
   ],
   templateUrl: './management.component.html',
   styleUrl: './management.component.scss',
@@ -180,9 +182,12 @@ export class ManagementComponent implements OnInit {
 
   readonly utilityTableColumns: string[] = ['folder', 'itemName', 'username', 'actions'];
 
-  /** 0 Tasks, 1 Calendar, 2 Utilities, 3 Notes, 4 Write-up */
-  private readonly MGMT_TAB_NOTES = 3;
-  private readonly MGMT_TAB_WRITEUP = 4;
+  /** 0 Tasks, 1 Work, 2 Calendar, 3 Utilities, 4 Notes, 5 Write-up */
+  private readonly MGMT_TAB_WORK = 1;
+  private readonly MGMT_TAB_NOTES = 4;
+  private readonly MGMT_TAB_WRITEUP = 5;
+
+  private readonly workPanel = viewChild(ManagementWorkPanelComponent);
 
   noteYear = new Date().getFullYear();
   /** When set, list is limited to that month; when null, all months in the year. Default: current month (1–12). */
@@ -1081,6 +1086,9 @@ export class ManagementComponent implements OnInit {
   }
 
   onManagementTabIndexChange(index: number): void {
+    if (index === this.MGMT_TAB_WORK) {
+      this.workPanel()?.refreshAll();
+    }
     if (index === this.MGMT_TAB_NOTES) {
       this.noteDraft.year = this.noteYear;
       if (this.noteFilterMonth != null) {

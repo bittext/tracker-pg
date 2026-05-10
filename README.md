@@ -288,7 +288,7 @@ The top navigation includes dedicated sections for:
 - Welcome
 - Exercise
 - Finance
-- Management (tasks/calendar)
+- Management (tasks, Work tab with work-category tasks and a persisted daily work log, calendar, month notes)
 - Journal (Markdown entries, calendar heatmap, tags, attachments)
 - Reports
 - Security (information security policy and procedures; route **`/security`**)

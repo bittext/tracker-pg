@@ -13,6 +13,9 @@ import {
   ManagementWriteupAttachmentDto,
   ManagementWriteupDto,
   ManagementWriteupWriteBody,
+  ManagementWorkLogCalendarDto,
+  ManagementWorkLogEntryDto,
+  ManagementWorkLogEntryWriteBody,
   TaskMonthCalendarDto,
 } from '../models/management.models';
 
@@ -159,5 +162,41 @@ export class ManagementApiService {
       responseType: 'blob',
       params: { disposition },
     });
+  }
+
+  private readonly workLogRoot = `${this.root}/work-log`;
+
+  workLogListBetween(fromIsoDate: string, toIsoDate: string) {
+    return this.http.get<ManagementWorkLogEntryDto[]>(`${this.workLogRoot}/entries`, {
+      params: { from: fromIsoDate, to: toIsoDate },
+    });
+  }
+
+  workLogListForDay(dateIso: string) {
+    return this.http.get<ManagementWorkLogEntryDto[]>(`${this.workLogRoot}/entries/day`, {
+      params: { date: dateIso },
+    });
+  }
+
+  workLogCalendar(year: number) {
+    return this.http.get<ManagementWorkLogCalendarDto>(`${this.workLogRoot}/calendar`, {
+      params: { year: String(year) },
+    });
+  }
+
+  getWorkLogEntry(id: number) {
+    return this.http.get<ManagementWorkLogEntryDto>(`${this.workLogRoot}/entries/${id}`);
+  }
+
+  createWorkLogEntry(body: ManagementWorkLogEntryWriteBody) {
+    return this.http.post<ManagementWorkLogEntryDto>(`${this.workLogRoot}/entries`, body);
+  }
+
+  updateWorkLogEntry(id: number, body: ManagementWorkLogEntryWriteBody) {
+    return this.http.put<ManagementWorkLogEntryDto>(`${this.workLogRoot}/entries/${id}`, body);
+  }
+
+  deleteWorkLogEntry(id: number) {
+    return this.http.delete<void>(`${this.workLogRoot}/entries/${id}`);
   }
 }

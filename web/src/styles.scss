@@ -275,13 +275,15 @@ app-management .notes-body-field textarea.mat-mdc-input-element {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
   font-size: 0.9rem;
 }
-app-management .notes-entry-body {
+app-management .notes-entry-body,
+app-management-work-panel .notes-entry-body {
   margin: 0 0 0.65rem;
   line-height: 1.55;
   font-size: 0.95rem;
   color: var(--app-text, #0f172a);
 }
-app-management .notes-entry-body--empty {
+app-management .notes-entry-body--empty,
+app-management-work-panel .notes-entry-body--empty {
   margin: 0 0 0.65rem;
 }
 app-management .markdown-body.notes-entry-body h1,
@@ -289,27 +291,38 @@ app-management .markdown-body.notes-entry-body h2,
 app-management .markdown-body.notes-entry-body h3,
 app-management .markdown-body.notes-entry-body h4,
 app-management .markdown-body.notes-entry-body h5,
-app-management .markdown-body.notes-entry-body h6 {
+app-management .markdown-body.notes-entry-body h6,
+app-management-work-panel .markdown-body.notes-entry-body h1,
+app-management-work-panel .markdown-body.notes-entry-body h2,
+app-management-work-panel .markdown-body.notes-entry-body h3,
+app-management-work-panel .markdown-body.notes-entry-body h4,
+app-management-work-panel .markdown-body.notes-entry-body h5,
+app-management-work-panel .markdown-body.notes-entry-body h6 {
   margin: 0.5rem 0 0.25rem;
   font-weight: 700;
   line-height: 1.3;
   color: var(--app-text, #0f172a);
 }
-app-management .markdown-body.notes-entry-body h1 {
+app-management .markdown-body.notes-entry-body h1,
+app-management-work-panel .markdown-body.notes-entry-body h1 {
   font-size: 1.25rem;
 }
-app-management .markdown-body.notes-entry-body h2 {
+app-management .markdown-body.notes-entry-body h2,
+app-management-work-panel .markdown-body.notes-entry-body h2 {
   font-size: 1.1rem;
 }
-app-management .markdown-body.notes-entry-body p {
+app-management .markdown-body.notes-entry-body p,
+app-management-work-panel .markdown-body.notes-entry-body p {
   margin: 0.4rem 0;
 }
-app-management .markdown-body.notes-entry-body a {
+app-management .markdown-body.notes-entry-body a,
+app-management-work-panel .markdown-body.notes-entry-body a {
   color: var(--app-accent, #2563eb);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
-app-management .markdown-body.notes-entry-body pre {
+app-management .markdown-body.notes-entry-body pre,
+app-management-work-panel .markdown-body.notes-entry-body pre {
   margin: 0.45rem 0;
   padding: 0.6rem 0.75rem;
   border-radius: 8px;
@@ -317,34 +330,41 @@ app-management .markdown-body.notes-entry-body pre {
   overflow: auto;
   font-size: 0.82rem;
 }
-app-management .markdown-body.notes-entry-body code {
+app-management .markdown-body.notes-entry-body code,
+app-management-work-panel .markdown-body.notes-entry-body code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
   font-size: 0.85em;
   background: #f1f5f9;
   padding: 0.1rem 0.3rem;
   border-radius: 4px;
 }
-app-management .markdown-body.notes-entry-body pre code {
+app-management .markdown-body.notes-entry-body pre code,
+app-management-work-panel .markdown-body.notes-entry-body pre code {
   background: none;
   padding: 0;
 }
 app-management .markdown-body.notes-entry-body ul,
-app-management .markdown-body.notes-entry-body ol {
+app-management .markdown-body.notes-entry-body ol,
+app-management-work-panel .markdown-body.notes-entry-body ul,
+app-management-work-panel .markdown-body.notes-entry-body ol {
   margin: 0.35rem 0 0.35rem 1.2rem;
   padding: 0;
 }
-app-management .markdown-body.notes-entry-body blockquote {
+app-management .markdown-body.notes-entry-body blockquote,
+app-management-work-panel .markdown-body.notes-entry-body blockquote {
   margin: 0.4rem 0;
   padding: 0.25rem 0 0.25rem 0.75rem;
   border-left: 3px solid rgba(37, 99, 235, 0.35);
   color: var(--app-text-muted, #475569);
 }
-app-management .markdown-body.notes-entry-body hr {
+app-management .markdown-body.notes-entry-body hr,
+app-management-work-panel .markdown-body.notes-entry-body hr {
   margin: 0.75rem 0;
   border: 0;
   border-top: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
 }
-app-management .markdown-body.notes-entry-body table {
+app-management .markdown-body.notes-entry-body table,
+app-management-work-panel .markdown-body.notes-entry-body table {
   border-collapse: collapse;
   width: 100%;
   max-width: 100%;
@@ -352,15 +372,19 @@ app-management .markdown-body.notes-entry-body table {
   font-size: 0.88rem;
 }
 app-management .markdown-body.notes-entry-body th,
-app-management .markdown-body.notes-entry-body td {
+app-management .markdown-body.notes-entry-body td,
+app-management-work-panel .markdown-body.notes-entry-body th,
+app-management-work-panel .markdown-body.notes-entry-body td {
   border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
   padding: 0.35rem 0.5rem;
 }
-app-management .markdown-body.notes-entry-body th {
+app-management .markdown-body.notes-entry-body th,
+app-management-work-panel .markdown-body.notes-entry-body th {
   background: #f8fafc;
   font-weight: 600;
 }
-app-management .markdown-body.notes-entry-body img {
+app-management .markdown-body.notes-entry-body img,
+app-management-work-panel .markdown-body.notes-entry-body img {
   max-width: 100%;
   height: auto;
 }
@@ -666,37 +690,44 @@ app-management .wu-pick-files {
 }
 
 app-management tr.mat-mdc-row.mgmt-due-row--completed,
-app-reports tr.mat-mdc-row.mgmt-due-row--completed {
+app-reports tr.mat-mdc-row.mgmt-due-row--completed,
+app-management-work-panel tr.mat-mdc-row.mgmt-due-row--completed {
   @include mgmt-due-row-accent(#22c55e, rgba(34, 197, 94, 0.06));
 }
 
 app-management tr.mat-mdc-row.mgmt-due-row--open_no_due,
-app-reports tr.mat-mdc-row.mgmt-due-row--open_no_due {
+app-reports tr.mat-mdc-row.mgmt-due-row--open_no_due,
+app-management-work-panel tr.mat-mdc-row.mgmt-due-row--open_no_due {
   box-shadow: inset 4px 0 0 rgba(100, 116, 139, 0.45);
 }
 
 app-management tr.mat-mdc-row.mgmt-due-row--open_due_future,
-app-reports tr.mat-mdc-row.mgmt-due-row--open_due_future {
+app-reports tr.mat-mdc-row.mgmt-due-row--open_due_future,
+app-management-work-panel tr.mat-mdc-row.mgmt-due-row--open_due_future {
   @include mgmt-due-row-accent(#3b82f6, rgba(59, 130, 246, 0.06));
 }
 
 app-management tr.mat-mdc-row.mgmt-due-row--open_due_today,
-app-reports tr.mat-mdc-row.mgmt-due-row--open_due_today {
+app-reports tr.mat-mdc-row.mgmt-due-row--open_due_today,
+app-management-work-panel tr.mat-mdc-row.mgmt-due-row--open_due_today {
   @include mgmt-due-row-accent(#ca8a04, rgba(250, 204, 21, 0.08));
 }
 
 app-management tr.mat-mdc-row.mgmt-due-row--overdue_1_7,
-app-reports tr.mat-mdc-row.mgmt-due-row--overdue_1_7 {
+app-reports tr.mat-mdc-row.mgmt-due-row--overdue_1_7,
+app-management-work-panel tr.mat-mdc-row.mgmt-due-row--overdue_1_7 {
   @include mgmt-due-row-accent(#d97706, rgba(251, 191, 36, 0.08));
 }
 
 app-management tr.mat-mdc-row.mgmt-due-row--overdue_8_30,
-app-reports tr.mat-mdc-row.mgmt-due-row--overdue_8_30 {
+app-reports tr.mat-mdc-row.mgmt-due-row--overdue_8_30,
+app-management-work-panel tr.mat-mdc-row.mgmt-due-row--overdue_8_30 {
   @include mgmt-due-row-accent(#ea580c, rgba(254, 215, 170, 0.22));
 }
 
 app-management tr.mat-mdc-row.mgmt-due-row--overdue_31_plus,
-app-reports tr.mat-mdc-row.mgmt-due-row--overdue_31_plus {
+app-reports tr.mat-mdc-row.mgmt-due-row--overdue_31_plus,
+app-management-work-panel tr.mat-mdc-row.mgmt-due-row--overdue_31_plus {
   @include mgmt-due-row-accent(#dc2626, rgba(252, 165, 165, 0.12));
 }
 

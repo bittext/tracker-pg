@@ -105,3 +105,26 @@ export interface ManagementWriteupWriteBody {
   highlight?: string | null;
   body: string;
 }
+
+/** Management → Work tab: day-scoped work log (Markdown body). */
+export interface ManagementWorkLogEntryDto {
+  id: number;
+  ownerUserId: number;
+  entryDate: string;
+  loggedAt: string;
+  subject: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ManagementWorkLogEntryWriteBody {
+  entryDate: string;
+  subject: string;
+  body: string;
+}
+
+export interface ManagementWorkLogCalendarDto {
+  year: number;
+  days: { date: string; count: number }[];
+}
