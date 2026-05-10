@@ -1,9 +1,12 @@
 package com.svp.tracker.finance.controller;
 
 import com.svp.tracker.finance.dto.BankingCreateInstitutionRequestDto;
+import com.svp.tracker.finance.dto.BankingCreateInstitutionTypeRequestDto;
 import com.svp.tracker.finance.dto.BankingImportFileDto;
 import com.svp.tracker.finance.dto.BankingImportResultDto;
 import com.svp.tracker.finance.dto.BankingInstitutionDto;
+import com.svp.tracker.finance.dto.BankingInstitutionTypeDto;
+import com.svp.tracker.finance.dto.BankingPutInstitutionRequestDto;
 import com.svp.tracker.finance.dto.BankingLedgerDto;
 import com.svp.tracker.finance.dto.BankingLedgerRange;
 import com.svp.tracker.finance.service.BankingService;
@@ -24,6 +27,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -52,6 +56,30 @@ public class BankingController {
         return bankingService.createInstitution(body);
     }
 
+    @PutMapping("/institutions/{id}")
+    public BankingInstitutionDto updateInstitution(
+            @PathVariable long id, @Valid @RequestBody BankingPutInstitutionRequestDto body) {
+        return bankingService.updateInstitution(id, body);
+    }
+
+    @GetMapping("/institution-types")
+    public List<BankingInstitutionTypeDto> institutionTypes() {
+        return bankingService.listInstitutionTypes();
+    }
+
+    @PostMapping("/institution-types")
+    @ResponseStatus(HttpStatus.CREATED)
+    public BankingInstitutionTypeDto createInstitutionType(
+            @Valid @RequestBody BankingCreateInstitutionTypeRequestDto body) {
+        return bankingService.createInstitutionType(body);
+    }
+
+    @DeleteMapping("/institution-types/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteInstitutionType(@PathVariable long id) {
+        bankingService.deleteInstitutionType(id);
+    }
+
     @PostMapping(value = "/imports", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public BankingImportResultDto importUpload(
             @RequestParam("institutionId") long institutionId, @RequestParam("file") MultipartFile file)
@@ -70,9 +98,10 @@ public class BankingController {
             @RequestParam int year,
             @RequestParam(name = "month", required = false) Integer month,
             @RequestParam(name = "quarter", required = false) Integer quarter,
-            @RequestParam(name = "institutionId", required = false) Long institutionId) {
+            @RequestParam(name = "institutionId", required = false) Long institutionId,
+            @RequestParam(name = "institutionTypeId", required = false) Long institutionTypeId) {
         validateLedgerParams(range, year, month, quarter);
-        return bankingService.ledger(range, year, month, quarter, institutionId);
+        return bankingService.ledger(range, year, month, quarter, institutionId, institutionTypeId);
     }
 
     /** Admin-style listing of uploads across a date span (same owner scope as ledger import files). */
@@ -80,8 +109,9 @@ public class BankingController {
     public List<BankingImportFileDto> importFiles(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-            @RequestParam(name = "institutionId", required = false) Long institutionId) {
-        return bankingService.listImportFilesInRange(from, to, institutionId);
+            @RequestParam(name = "institutionId", required = false) Long institutionId,
+            @RequestParam(name = "institutionTypeId", required = false) Long institutionTypeId) {
+        return bankingService.listImportFilesInRange(from, to, institutionId, institutionTypeId);
     }
 
     @DeleteMapping("/files/{id}")

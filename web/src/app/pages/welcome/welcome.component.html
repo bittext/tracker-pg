@@ -15,10 +15,14 @@
         </p>
         <h1 id="welcome-title" class="welcome-hero__title">Welcome back, {{ displayName }}</h1>
         <p class="welcome-hero__lead">
-          Your hub for training, money, planning, and notes. <strong>Finance → Trading → Screeners</strong> adds stock
-          screening (NASDAQ mid-cap focus, 52-week momentum, breakout-style scans, watchlist news sweep) next to banking,
-          market overview, and alerts. Outbound mail for alerts and transactional email supports <strong>Amazon SES</strong>
-          or <strong>SMTP</strong> when the server is configured (see README for env vars).
+          Your hub for training, money, planning, and notes. <strong>Finance → Banking</strong> covers imports and
+          ledger views; under <strong>Admin → Finance → Banking</strong> you can define <strong>institution types</strong>
+          (e.g. checking vs. brokerage), link each institution to a type, and use those types in
+          <strong>Reports → Finance → Banking</strong> roll-ups and optional ledger filters. <strong>Finance → Trading → Screeners</strong>
+          adds stock screening (NASDAQ mid-cap focus, 52-week momentum, breakout-style scans, watchlist news sweep) next to
+          market overview and alerts. In <strong>Management → Travel</strong>, plan trips on a map with places and photos.
+          Outbound mail for alerts and transactional email supports <strong>Amazon SES</strong> or <strong>SMTP</strong>
+          when the server is configured (see README for env vars).
         </p>
         <div class="welcome-hero__actions">
           <a mat-flat-button color="primary" routerLink="/exercise" class="welcome-hero__cta">Get started → Exercise</a>
@@ -58,8 +62,9 @@
           </mat-card-header>
           <mat-card-content>
             <p>
-              <strong>Banking</strong> for institutions, imports, and ledger views. Under <strong>Trading</strong>, use
-              <strong>Screeners</strong> for NASDAQ mid-cap names, names near 52-week highs, breakout-style setups, and a
+              <strong>Banking</strong> for institutions, file imports, Plaid, and ledger views—with filters by institution
+              or by <strong>institution type</strong> when you have configured types in Admin. Under <strong>Trading</strong>,
+              use <strong>Screeners</strong> for NASDAQ mid-cap names, names near 52-week highs, breakout-style setups, and a
               quick watchlist headline sweep—alongside news, alerts, Robinhood summaries, and the market overview tab.
             </p>
           </mat-card-content>
@@ -70,10 +75,14 @@
           <mat-card-header>
             <div mat-card-avatar class="welcome-card__avatar"><mat-icon>task_alt</mat-icon></div>
             <mat-card-title>Management</mat-card-title>
-            <mat-card-subtitle>Tasks &amp; balance</mat-card-subtitle>
+            <mat-card-subtitle>Tasks, work, travel &amp; balance</mat-card-subtitle>
           </mat-card-header>
           <mat-card-content>
-            <p>Balance categories, calendar, utilities vault, month notes, and long-form write-ups—scoped to you.</p>
+            <p>
+              Balance categories, calendar, utilities vault, month notes, and long-form write-ups—plus
+              <strong>Work</strong> (tasks and daily log) and <strong>Travel</strong> (trips, map, places, and optional
+              geocode)—all scoped to you.
+            </p>
           </mat-card-content>
         </mat-card>
       </a>
@@ -97,7 +106,11 @@
             <mat-card-subtitle>Summaries &amp; exports</mat-card-subtitle>
           </mat-card-header>
           <mat-card-content>
-            <p>Pull together exercise and journal views to see patterns at a glance.</p>
+            <p>
+              Pull together exercise and journal views. On this page, open the <strong>Finance</strong> tab and
+              <strong>Banking</strong> for yearly money-flow summaries—including roll-ups <strong>by institution type</strong>
+              when your institutions are tagged in Admin → Finance → Banking.
+            </p>
           </mat-card-content>
         </mat-card>
       </a>
@@ -111,8 +124,9 @@
           <mat-card-content>
             <p>
               Per-user configuration, your member profile, sign-in history for your account (and full audit if you are an
-              admin). Admins can tune finance notifications: stock-alert email and SMS can use the default AWS path, and
-              outbound mail may use <strong>SES</strong> or <strong>SMTP</strong> depending on server settings.
+              admin). Under <strong>Finance → Banking</strong>, manage <strong>institution types</strong>, link institutions,
+              uploads, and Plaid. Admins can tune finance notifications: stock-alert email and SMS can use the default AWS
+              path, and outbound mail may use <strong>SES</strong> or <strong>SMTP</strong> depending on server settings.
             </p>
           </mat-card-content>
         </mat-card>
@@ -148,8 +162,9 @@
         <div class="welcome-step__body">
           <h3 class="welcome-step__title">Shape your week</h3>
           <p>
-            In <a routerLink="/management">Management</a>, create tasks with balance categories and due dates, then use
-            the calendar to see what needs attention.
+            In <a routerLink="/management">Management</a>, create tasks with balance categories and due dates, use the
+            calendar to see what needs attention, and try <strong>Travel</strong> for trip planning on the map when you
+            want it.
           </p>
         </div>
       </li>
@@ -158,10 +173,12 @@
         <div class="welcome-step__body">
           <h3 class="welcome-step__title">Optional: Finance, screeners &amp; journal</h3>
           <p>
-            Open <a routerLink="/finance">Finance</a> for banking, tax helpers, and the <strong>Trading</strong> tab—try
-            <strong>Screeners</strong> for curated Yahoo-backed lists (including a NASDAQ mid-cap band) and tooling next
-            to news and alerts. Use <a routerLink="/journal">Journal</a> for dated entries and
-            <a routerLink="/reports">Reports</a> for rollups.
+            Open <a routerLink="/finance">Finance</a> for banking (ledger and filters by institution or type), tax helpers,
+            and the <strong>Trading</strong> tab—try <strong>Screeners</strong> for curated Yahoo-backed lists (including a
+            NASDAQ mid-cap band) and tooling next to news and alerts. Configure banking <strong>institution types</strong>
+            under <a routerLink="/admin">Admin</a> → Finance → Banking. Use <a routerLink="/journal">Journal</a> for dated
+            entries and <a routerLink="/reports">Reports</a> for rollups—including <strong>Finance → Banking</strong>
+            summaries by type.
           </p>
         </div>
       </li>

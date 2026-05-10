@@ -4,7 +4,7 @@
     Summaries are built from <strong>imported</strong> banking transactions (CSV, QFX, QIF, QBO, OFX, Excel) for the
     selected calendar year. <strong>Credits</strong> are inflows (positive amounts); <strong>debits</strong> are outflows
     (absolute value of negative amounts). Upload new files under
-    <a routerLink="/admin">Admin</a> → Finance → Banking; line-level detail under
+    <a routerLink="/admin">Admin</a> → Finance → Banking (institution types and links); line-level detail under
     <a routerLink="/finance">Finance</a> → Banking.
   </p>
 
@@ -24,10 +24,19 @@
     </mat-form-field>
     <mat-form-field appearance="outline" class="br-field grow">
       <mat-label>Institution</mat-label>
-      <mat-select [(ngModel)]="filterInstitutionId" name="brInst" (selectionChange)="loadReport()">
+      <mat-select [(ngModel)]="filterInstitutionId" name="brInst" (selectionChange)="onReportInstitutionChange()">
         <mat-option value="">All institutions</mat-option>
         @for (i of institutions; track i.id) {
           <mat-option [value]="'' + i.id">{{ i.name }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="br-field grow">
+      <mat-label>Institution type</mat-label>
+      <mat-select [(ngModel)]="filterInstitutionTypeId" name="brInstType" (selectionChange)="onReportTypeChange()">
+        <mat-option value="">All types</mat-option>
+        @for (t of institutionTypes; track t.id) {
+          <mat-option [value]="'' + t.id">{{ t.name }}</mat-option>
         }
       </mat-select>
     </mat-form-field>
@@ -109,6 +118,44 @@
             <tr mat-row *matRowDef="let row; columns: instColumns"></tr>
           </table>
           @if (!byInstitution.length) {
+            <p class="muted empty-hint">No transactions in this year for this filter.</p>
+          }
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card appearance="outlined" class="br-card">
+      <mat-card-header>
+        <mat-card-title>By institution type</mat-card-title>
+        <mat-card-subtitle>Roll-up by the type linked to each institution (untagged institutions appear as Untyped)</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="table-wrap">
+          <table mat-table [dataSource]="byType" class="full-width">
+            <ng-container matColumnDef="typeLabel">
+              <th mat-header-cell *matHeaderCellDef>Type</th>
+              <td mat-cell *matCellDef="let row">{{ row.typeLabel }}</td>
+            </ng-container>
+            <ng-container matColumnDef="creditTotal">
+              <th mat-header-cell *matHeaderCellDef>Credits</th>
+              <td mat-cell *matCellDef="let row">{{ row.creditTotal | number: '1.2-2' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="debitTotal">
+              <th mat-header-cell *matHeaderCellDef>Debits</th>
+              <td mat-cell *matCellDef="let row">{{ row.debitTotal | number: '1.2-2' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="net">
+              <th mat-header-cell *matHeaderCellDef>Net</th>
+              <td mat-cell *matCellDef="let row">{{ row.net | number: '1.2-2' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="txnCount">
+              <th mat-header-cell *matHeaderCellDef>Txns</th>
+              <td mat-cell *matCellDef="let row">{{ row.txnCount }}</td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="typeColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: typeColumns"></tr>
+          </table>
+          @if (!byType.length) {
             <p class="muted empty-hint">No transactions in this year for this filter.</p>
           }
         </div>

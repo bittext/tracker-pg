@@ -105,7 +105,7 @@ public class GithubRepositoryInsightsService {
                     .requestFactory(outboundHttpRequestFactory)
                     .baseUrl(BASE)
                     .defaultHeader(HttpHeaders.ACCEPT, "application/vnd.github+json")
-                    .defaultHeader(HttpHeaders.USER_AGENT, "TrackerPgServer/6.0.0")
+                    .defaultHeader(HttpHeaders.USER_AGENT, "TrackerPgServer/6.1.0")
                     .build();
             // Jackson 3 + RestClient: cannot deserialize directly into abstract JsonNode.class — read String then parse.
             String raw = client.get()

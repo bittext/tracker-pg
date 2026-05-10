@@ -18,6 +18,7 @@ import { MatDialog } from '@angular/material/dialog';
 import {
   BankingImportFileDto,
   BankingInstitutionDto,
+  BankingInstitutionTypeDto,
   BankingLedgerDto,
   BankingLedgerRange,
   BankingPlaidStatusDto,
@@ -30,6 +31,12 @@ import {
   BankingDeleteImportDialogComponent,
 } from './banking-delete-import-dialog.component';
 import { firstValueFrom } from 'rxjs';
+
+interface BankingInstitutionEditRow {
+  id: number;
+  name: string;
+  institutionTypeId: number | null;
+}
 
 @Component({
   selector: 'app-banking-panel',
@@ -68,9 +75,19 @@ export class BankingPanelComponent implements OnInit {
   @Input() segment: 'imports' | 'ledger' = 'ledger';
 
   institutions: BankingInstitutionDto[] = [];
+  institutionTypes: BankingInstitutionTypeDto[] = [];
+  institutionTypesLoading = false;
+  institutionEditRows: BankingInstitutionEditRow[] = [];
+  savingInstitutionId: number | null = null;
+  newTypeName = '';
+  newTypeSortOrder: number | null = null;
+  typeCreateBusy = false;
+  deletingTypeId: number | null = null;
   institutionsLoading = false;
   uploadInstitutionId: number | null = null;
   newInstitutionName = '';
+  /** Optional type when creating an institution (Admin imports). */
+  newInstitutionTypeId: number | null = null;
   createBusy = false;
   selectedUploadFile: File | null = null;
   uploadBusy = false;
@@ -81,6 +98,8 @@ export class BankingPanelComponent implements OnInit {
   ledgerQuarter = Math.floor(new Date().getMonth() / 3) + 1;
   /** Ledger filter: empty string = all institutions. */
   filterInstitutionId = '';
+  /** Ledger filter: empty string = all types (mutually exclusive with {@link filterInstitutionId}). */
+  filterInstitutionTypeId = '';
 
   ledger: BankingLedgerDto | null = null;
   ledgerLoading = false;
@@ -119,11 +138,15 @@ export class BankingPanelComponent implements OnInit {
   readonly txnColumns: string[] = [
     'txnDate',
     'institutionName',
+    'institutionTypeName',
     'sourceFormat',
     'debitCredit',
     'amount',
     'description',
   ];
+  readonly typeAdminColumns: string[] = ['name', 'sortOrder', 'actions'];
+  readonly institutionEditColumns: string[] = ['editName', 'editType', 'editSave'];
+
   readonly fileColumns: string[] = [
     'createdAt',
     'institutionName',
@@ -153,6 +176,7 @@ export class BankingPanelComponent implements OnInit {
   ngOnInit(): void {
     this.initPlaidDefaultDates();
     this.loadMemberPrivacyForPlaid();
+    this.loadInstitutionTypes();
     this.reloadInstitutions();
     if (this.segment === 'ledger') {
       this.loadLedger();
@@ -177,6 +201,102 @@ export class BankingPanelComponent implements OnInit {
     const m = `${d.getMonth() + 1}`.padStart(2, '0');
     const day = `${d.getDate()}`.padStart(2, '0');
     return `${y}-${m}-${day}`;
+  }
+
+  loadInstitutionTypes(): void {
+    this.institutionTypesLoading = true;
+    this.api.listBankingInstitutionTypes().subscribe({
+      next: (rows) => {
+        this.institutionTypesLoading = false;
+        this.institutionTypes = rows ?? [];
+      },
+      error: (e) => {
+        this.institutionTypesLoading = false;
+        this.snackBar.open(`Could not load institution types — ${formatHttpErrorDetail(e)}`, undefined, {
+          duration: 5000,
+        });
+      },
+    });
+  }
+
+  createInstitutionType(): void {
+    const n = this.newTypeName.trim();
+    if (!n) {
+      return;
+    }
+    this.typeCreateBusy = true;
+    const body: { name: string; sortOrder?: number | null } = { name: n };
+    if (this.newTypeSortOrder != null && Number.isFinite(this.newTypeSortOrder)) {
+      body.sortOrder = this.newTypeSortOrder;
+    }
+    this.api.createBankingInstitutionType(body).subscribe({
+      next: (row) => {
+        this.typeCreateBusy = false;
+        this.newTypeName = '';
+        this.newTypeSortOrder = null;
+        this.institutionTypes = [...this.institutionTypes, row].sort((a, b) => {
+          if (a.sortOrder !== b.sortOrder) {
+            return a.sortOrder - b.sortOrder;
+          }
+          return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+        });
+        this.snackBar.open('Institution type created', undefined, { duration: 2500 });
+      },
+      error: (e) => {
+        this.typeCreateBusy = false;
+        this.snackBar.open(`Create type failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 5000 });
+      },
+    });
+  }
+
+  deleteInstitutionType(id: number): void {
+    this.deletingTypeId = id;
+    this.api.deleteBankingInstitutionType(id).subscribe({
+      next: () => {
+        this.deletingTypeId = null;
+        this.institutionTypes = this.institutionTypes.filter((t) => t.id !== id);
+        for (const row of this.institutionEditRows) {
+          if (row.institutionTypeId === id) {
+            row.institutionTypeId = null;
+          }
+        }
+        if (this.newInstitutionTypeId === id) {
+          this.newInstitutionTypeId = null;
+        }
+        if (this.filterInstitutionTypeId === String(id)) {
+          this.filterInstitutionTypeId = '';
+          this.loadLedger();
+        }
+        this.reloadInstitutions();
+        this.snackBar.open('Institution type removed', undefined, { duration: 2500 });
+      },
+      error: (e) => {
+        this.deletingTypeId = null;
+        this.snackBar.open(`Delete type failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 5000 });
+      },
+    });
+  }
+
+  saveInstitutionRow(row: BankingInstitutionEditRow): void {
+    const name = row.name.trim();
+    if (!name) {
+      this.snackBar.open('Institution name is required', undefined, { duration: 3000 });
+      return;
+    }
+    this.savingInstitutionId = row.id;
+    this.api
+      .updateBankingInstitution(row.id, { name, institutionTypeId: row.institutionTypeId })
+      .subscribe({
+        next: (updated) => {
+          this.savingInstitutionId = null;
+          this.mergeInstitutionRow(updated);
+          this.snackBar.open('Institution saved', undefined, { duration: 2500 });
+        },
+        error: (e) => {
+          this.savingInstitutionId = null;
+          this.snackBar.open(`Save failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 5000 });
+        },
+      });
   }
 
   reloadInstitutions(): void {
@@ -239,6 +359,19 @@ export class BankingPanelComponent implements OnInit {
     }
 
     this.refreshPlaidStatus();
+    this.rebuildInstitutionEditRows();
+  }
+
+  private rebuildInstitutionEditRows(): void {
+    if (this.segment !== 'imports') {
+      this.institutionEditRows = [];
+      return;
+    }
+    this.institutionEditRows = this.institutions.map((i) => ({
+      id: i.id,
+      name: i.name,
+      institutionTypeId: i.institutionTypeId ?? null,
+    }));
   }
 
   private mergeInstitutionRow(row: BankingInstitutionDto): void {
@@ -246,6 +379,7 @@ export class BankingPanelComponent implements OnInit {
     this.institutions = merged.sort((a, b) =>
       a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
     );
+    this.rebuildInstitutionEditRows();
   }
 
   createInstitution(): void {
@@ -254,10 +388,11 @@ export class BankingPanelComponent implements OnInit {
       return;
     }
     this.createBusy = true;
-    this.api.createBankingInstitution(n).subscribe({
+    this.api.createBankingInstitution(n, this.newInstitutionTypeId).subscribe({
       next: (row) => {
         this.createBusy = false;
         this.newInstitutionName = '';
+        this.newInstitutionTypeId = null;
         this.mergeInstitutionRow(row);
         this.uploadInstitutionId = row.id;
         this.snackBar.open('Institution created', undefined, { duration: 2500 });
@@ -302,6 +437,7 @@ export class BankingPanelComponent implements OnInit {
   }
 
   onLedgerFilterChange(): void {
+    this.filterInstitutionTypeId = '';
     this.loadLedger();
     const fid = this.filterInstitutionId ? Number(this.filterInstitutionId) : NaN;
     if (Number.isFinite(fid) && fid > 0) {
@@ -310,9 +446,16 @@ export class BankingPanelComponent implements OnInit {
     this.refreshPlaidStatus();
   }
 
+  onLedgerTypeFilterChange(): void {
+    this.filterInstitutionId = '';
+    this.loadLedger();
+    this.refreshPlaidStatus();
+  }
+
   loadLedger(): void {
     this.ledgerLoading = true;
     const inst = this.filterInstitutionId ? Number(this.filterInstitutionId) : null;
+    const typ = this.filterInstitutionTypeId ? Number(this.filterInstitutionTypeId) : null;
     this.api
       .bankingLedger(
         this.ledgerRange,
@@ -320,6 +463,7 @@ export class BankingPanelComponent implements OnInit {
         this.ledgerRange === 'MONTH' ? this.ledgerMonth : null,
         this.ledgerRange === 'QUARTER' ? this.ledgerQuarter : null,
         inst,
+        typ,
       )
       .subscribe({
         next: (dto) => {
@@ -387,6 +531,7 @@ export class BankingPanelComponent implements OnInit {
     return [
       (row.txnDate ?? '').toString().toLowerCase(),
       (row.institutionName ?? '').toLowerCase(),
+      (row.institutionTypeName ?? '').toLowerCase(),
       (row.sourceFormat ?? '').toLowerCase(),
       dc.toLowerCase(),
       dcLabel,

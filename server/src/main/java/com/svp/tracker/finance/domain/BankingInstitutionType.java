@@ -2,12 +2,9 @@ package com.svp.tracker.finance.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
@@ -17,12 +14,12 @@ import lombok.Setter;
 
 @Entity
 @Table(
-        name = "banking_institutions",
+        name = "banking_institution_types",
         uniqueConstraints = @UniqueConstraint(columnNames = {"owner_user_id", "name"}))
 @Getter
 @Setter
 @NoArgsConstructor
-public class BankingInstitution {
+public class BankingInstitutionType {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -34,9 +31,8 @@ public class BankingInstitution {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String name = "";
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "institution_type_id")
-    private BankingInstitutionType institutionType;
+    @Column(name = "sort_order", nullable = false)
+    private int sortOrder;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();

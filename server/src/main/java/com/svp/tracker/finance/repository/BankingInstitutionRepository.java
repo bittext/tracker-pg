@@ -4,12 +4,27 @@ import com.svp.tracker.finance.domain.BankingInstitution;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface BankingInstitutionRepository extends JpaRepository<BankingInstitution, Long> {
 
-    List<BankingInstitution> findByOwnerUserIdOrderByNameAsc(long ownerUserId);
+    @Query(
+            """
+            SELECT i FROM BankingInstitution i
+            LEFT JOIN FETCH i.institutionType
+            WHERE i.ownerUserId = :ownerUserId
+            ORDER BY i.name ASC
+            """)
+    List<BankingInstitution> findByOwnerUserIdOrderByNameAsc(@Param("ownerUserId") long ownerUserId);
 
-    Optional<BankingInstitution> findByIdAndOwnerUserId(long id, long ownerUserId);
+    @Query(
+            """
+            SELECT i FROM BankingInstitution i
+            LEFT JOIN FETCH i.institutionType
+            WHERE i.id = :id AND i.ownerUserId = :ownerUserId
+            """)
+    Optional<BankingInstitution> findByIdAndOwnerUserId(@Param("id") long id, @Param("ownerUserId") long ownerUserId);
 
     boolean existsByIdAndOwnerUserId(long id, long ownerUserId);
 

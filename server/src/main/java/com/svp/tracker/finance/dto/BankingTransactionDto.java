@@ -6,6 +6,8 @@ public record BankingTransactionDto(
         long id,
         long institutionId,
         String institutionName,
+        Long institutionTypeId,
+        String institutionTypeName,
         long importFileId,
         String txnDate,
         BigDecimal amount,

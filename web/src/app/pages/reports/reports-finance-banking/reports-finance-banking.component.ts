@@ -14,6 +14,7 @@ import { MatTableModule } from '@angular/material/table';
 import {
   BankingImportFileDto,
   BankingInstitutionDto,
+  BankingInstitutionTypeDto,
   BankingLedgerDto,
   BankingTransactionDto,
 } from '../../../models/finance.models';
@@ -46,6 +47,15 @@ export interface BankingFlowBySourceRow {
   txnCount: number;
 }
 
+export interface BankingFlowByTypeRow {
+  institutionTypeId: number | null;
+  typeLabel: string;
+  creditTotal: number;
+  debitTotal: number;
+  net: number;
+  txnCount: number;
+}
+
 @Component({
   selector: 'app-reports-finance-banking',
   standalone: true,
@@ -72,12 +82,16 @@ export class ReportsFinanceBankingComponent implements OnInit {
 
   reportYear = new Date().getFullYear();
   filterInstitutionId = '';
+  /** Mutually exclusive with {@link filterInstitutionId} for the ledger API. */
+  filterInstitutionTypeId = '';
   institutions: BankingInstitutionDto[] = [];
+  institutionTypes: BankingInstitutionTypeDto[] = [];
 
   ledger: BankingLedgerDto | null = null;
   loading = false;
 
   byInstitution: BankingFlowByInstitutionRow[] = [];
+  byType: BankingFlowByTypeRow[] = [];
   byMonth: BankingFlowByMonthRow[] = [];
   bySource: BankingFlowBySourceRow[] = [];
 
@@ -88,6 +102,7 @@ export class ReportsFinanceBankingComponent implements OnInit {
   yearTxnCount = 0;
 
   readonly instColumns = ['institutionName', 'creditTotal', 'debitTotal', 'net', 'txnCount'];
+  readonly typeColumns = ['typeLabel', 'creditTotal', 'debitTotal', 'net', 'txnCount'];
   readonly monthColumns = ['monthLabel', 'creditTotal', 'debitTotal', 'net', 'txnCount'];
   readonly sourceColumns = ['sourceFormat', 'creditTotal', 'debitTotal', 'net', 'txnCount'];
   readonly fileColumns = ['createdAt', 'institutionName', 'fileKind', 'originalFilename', 'rowsInserted', 'rowsSkippedDuplicate'];
@@ -100,13 +115,32 @@ export class ReportsFinanceBankingComponent implements OnInit {
       error: (e) =>
         this.snackBar.open(`Could not load institutions — ${formatHttpErrorDetail(e)}`, undefined, { duration: 6000 }),
     });
+    this.financeApi.listBankingInstitutionTypes().subscribe({
+      next: (rows) => {
+        this.institutionTypes = rows ?? [];
+      },
+      error: () => {
+        /* optional for report; types table may be empty */
+      },
+    });
+    this.loadReport();
+  }
+
+  onReportInstitutionChange(): void {
+    this.filterInstitutionTypeId = '';
+    this.loadReport();
+  }
+
+  onReportTypeChange(): void {
+    this.filterInstitutionId = '';
     this.loadReport();
   }
 
   loadReport(): void {
     this.loading = true;
     const inst = this.filterInstitutionId ? Number(this.filterInstitutionId) : null;
-    this.financeApi.bankingLedger('YEAR', this.reportYear, null, null, inst).subscribe({
+    const typ = this.filterInstitutionTypeId ? Number(this.filterInstitutionTypeId) : null;
+    this.financeApi.bankingLedger('YEAR', this.reportYear, null, null, inst, typ).subscribe({
       next: (dto) => {
         this.ledger = dto;
         this.loading = false;
@@ -141,6 +175,7 @@ export class ReportsFinanceBankingComponent implements OnInit {
     this.yearTxnCount = txns.length;
 
     this.byInstitution = this.buildByInstitution(txns);
+    this.byType = this.buildByType(txns);
     this.byMonth = this.buildByMonth(txns);
     this.bySource = this.buildBySource(txns);
   }
@@ -174,6 +209,48 @@ export class ReportsFinanceBankingComponent implements OnInit {
         txnCount: v.n,
       }))
       .sort((a, b) => a.institutionName.localeCompare(b.institutionName, undefined, { sensitivity: 'base' }));
+  }
+
+  private buildByType(txns: BankingTransactionDto[]): BankingFlowByTypeRow[] {
+    const m = new Map<number | null, { label: string; credit: number; debit: number; n: number }>();
+    for (const t of txns) {
+      const tid = t.institutionTypeId != null && Number.isFinite(t.institutionTypeId) ? t.institutionTypeId : null;
+      const label =
+          tid != null && (t.institutionTypeName ?? '').trim()
+              ? (t.institutionTypeName as string).trim()
+              : 'Untyped';
+      const a = Number(t.amount);
+      if (!Number.isFinite(a)) {
+        continue;
+      }
+      const cur = m.get(tid) ?? { label, credit: 0, debit: 0, n: 0 };
+      cur.label = label;
+      if (a > 0) {
+        cur.credit += a;
+      } else if (a < 0) {
+        cur.debit += -a;
+      }
+      cur.n += 1;
+      m.set(tid, cur);
+    }
+    return [...m.entries()]
+      .map(([institutionTypeId, v]) => ({
+        institutionTypeId,
+        typeLabel: v.label,
+        creditTotal: v.credit,
+        debitTotal: v.debit,
+        net: v.credit - v.debit,
+        txnCount: v.n,
+      }))
+      .sort((a, b) => {
+        if (a.institutionTypeId == null) {
+          return 1;
+        }
+        if (b.institutionTypeId == null) {
+          return -1;
+        }
+        return a.typeLabel.localeCompare(b.typeLabel, undefined, { sensitivity: 'base' });
+      });
   }
 
   private buildByMonth(txns: BankingTransactionDto[]): BankingFlowByMonthRow[] {

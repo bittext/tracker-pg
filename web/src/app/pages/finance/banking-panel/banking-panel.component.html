@@ -11,10 +11,142 @@
       tied to that upload.
     </p>
 
+    <h3 class="banking-subtitle">Institution types</h3>
+    <p class="muted banking-types-hint">
+      Create types (for example <em>Checking</em>, <em>Brokerage</em>, <em>Credit card</em>), then assign each institution
+      to a type below. Types drive the <strong>Reports → Banking</strong> roll-up and optional ledger filters on
+      Finance → Banking.
+    </p>
+    @if (institutionTypesLoading) {
+      <div class="banking-spinner banking-spinner--inline">
+        <mat-progress-spinner diameter="28" mode="indeterminate" />
+      </div>
+    }
+    <div class="banking-toolbar wrap">
+      <mat-form-field appearance="outline" class="banking-field grow">
+        <mat-label>New type name</mat-label>
+        <input matInput [(ngModel)]="newTypeName" name="bankNewTypeName" placeholder="e.g. Brokerage" />
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="banking-field narrow">
+        <mat-label>Sort order</mat-label>
+        <input
+          matInput
+          type="number"
+          [(ngModel)]="newTypeSortOrder"
+          name="bankNewTypeSort"
+          placeholder="0"
+        />
+      </mat-form-field>
+      <button
+        mat-flat-button
+        color="primary"
+        type="button"
+        (click)="createInstitutionType()"
+        [disabled]="typeCreateBusy || !newTypeName.trim()"
+      >
+        <mat-icon>category</mat-icon>
+        Add type
+      </button>
+    </div>
+    <div class="table-wrap banking-types-table-wrap">
+      <table mat-table [dataSource]="institutionTypes" class="mat-elevation-z0 banking-table">
+        <ng-container matColumnDef="name">
+          <th mat-header-cell *matHeaderCellDef>Name</th>
+          <td mat-cell *matCellDef="let row">{{ row.name }}</td>
+        </ng-container>
+        <ng-container matColumnDef="sortOrder">
+          <th mat-header-cell *matHeaderCellDef>Sort</th>
+          <td mat-cell *matCellDef="let row">{{ row.sortOrder }}</td>
+        </ng-container>
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef></th>
+          <td mat-cell *matCellDef="let row">
+            <button
+              mat-button
+              type="button"
+              color="warn"
+              [disabled]="deletingTypeId === row.id"
+              (click)="deleteInstitutionType(row.id)"
+            >
+              @if (deletingTypeId === row.id) {
+                Removing…
+              } @else {
+                Remove
+              }
+            </button>
+          </td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="typeAdminColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: typeAdminColumns"></tr>
+      </table>
+      @if (!institutionTypesLoading && !institutionTypes.length) {
+        <p class="muted empty-hint">No types yet — add one above.</p>
+      }
+    </div>
+
+    <h3 class="banking-subtitle">Institutions and types</h3>
+    <p class="muted">Update the display name or the type for each institution. Removing a type clears it from any institution using it.</p>
+    <div class="table-wrap">
+      <table mat-table [dataSource]="institutionEditRows" class="mat-elevation-z0 banking-table">
+        <ng-container matColumnDef="editName">
+          <th mat-header-cell *matHeaderCellDef>Institution</th>
+          <td mat-cell *matCellDef="let row">
+            <input class="banking-inline-name-input" [(ngModel)]="row.name" [name]="'bankInstName' + row.id" />
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="editType">
+          <th mat-header-cell *matHeaderCellDef>Type</th>
+          <td mat-cell *matCellDef="let row">
+            <mat-form-field appearance="outline" class="banking-field banking-field--dense">
+              <mat-label>Type</mat-label>
+              <mat-select [(ngModel)]="row.institutionTypeId" [name]="'bankInstType' + row.id">
+                <mat-option [value]="null">None</mat-option>
+                @for (t of institutionTypes; track t.id) {
+                  <mat-option [value]="t.id">{{ t.name }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="editSave">
+          <th mat-header-cell *matHeaderCellDef></th>
+          <td mat-cell *matCellDef="let row">
+            <button
+              mat-stroked-button
+              type="button"
+              color="primary"
+              (click)="saveInstitutionRow(row)"
+              [disabled]="savingInstitutionId === row.id"
+            >
+              @if (savingInstitutionId === row.id) {
+                Saving…
+              } @else {
+                Save
+              }
+            </button>
+          </td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="institutionEditColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: institutionEditColumns"></tr>
+      </table>
+      @if (!institutionEditRows.length) {
+        <p class="muted empty-hint">No institutions yet — create one below.</p>
+      }
+    </div>
+
     <div class="banking-toolbar">
       <mat-form-field appearance="outline" class="banking-field grow">
         <mat-label>New institution</mat-label>
         <input matInput [(ngModel)]="newInstitutionName" name="bankNewInst" placeholder="e.g. Chase checking" />
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="banking-field grow">
+        <mat-label>Type (optional)</mat-label>
+        <mat-select [(ngModel)]="newInstitutionTypeId" name="bankNewInstType">
+          <mat-option [value]="null">None</mat-option>
+          @for (t of institutionTypes; track t.id) {
+            <mat-option [value]="t.id">{{ t.name }}</mat-option>
+          }
+        </mat-select>
       </mat-form-field>
       <button
         mat-flat-button
@@ -326,6 +458,19 @@
           }
         </mat-select>
       </mat-form-field>
+      <mat-form-field appearance="outline" class="banking-field grow">
+        <mat-label>Filter by institution type</mat-label>
+        <mat-select
+          [(ngModel)]="filterInstitutionTypeId"
+          name="bankFilterInstType"
+          (selectionChange)="onLedgerTypeFilterChange()"
+        >
+          <mat-option value="">All types</mat-option>
+          @for (t of institutionTypes; track t.id) {
+            <mat-option [value]="'' + t.id">{{ t.name }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
       <button mat-stroked-button type="button" (click)="loadLedger()" [disabled]="ledgerLoading">
         <mat-icon>refresh</mat-icon>
         Reload
@@ -449,7 +594,7 @@
             matInput
             [(ngModel)]="txnSearchText"
             name="bankTxnSearch"
-            placeholder="Search date, institution, file type, debit/credit, amount, description…"
+            placeholder="Search date, institution, type, file type, debit/credit, amount, description…"
             autocomplete="off"
           />
           @if (txnSearchText.trim()) {
@@ -480,6 +625,10 @@
           <ng-container matColumnDef="institutionName">
             <th mat-header-cell *matHeaderCellDef>Institution</th>
             <td mat-cell *matCellDef="let row">{{ row.institutionName }}</td>
+          </ng-container>
+          <ng-container matColumnDef="institutionTypeName">
+            <th mat-header-cell *matHeaderCellDef>Type</th>
+            <td mat-cell *matCellDef="let row">{{ row.institutionTypeName || '—' }}</td>
           </ng-container>
           <ng-container matColumnDef="sourceFormat">
             <th mat-header-cell *matHeaderCellDef>From file</th>

@@ -22,15 +22,19 @@ public interface BankingImportFileRepository extends JpaRepository<BankingImport
             """
             SELECT f FROM BankingImportFile f
             JOIN FETCH f.institution inst
+            LEFT JOIN FETCH inst.institutionType
             WHERE f.ownerUserId = :ownerId
             AND f.createdAt >= :fromInclusive
             AND f.createdAt < :toExclusive
             AND (:institutionId IS NULL OR f.institution.id = :institutionId)
+            AND (:institutionTypeId IS NULL OR (inst.institutionType IS NOT NULL
+                AND inst.institutionType.id = :institutionTypeId))
             ORDER BY f.createdAt DESC
             """)
     List<BankingImportFile> listUploadedInRange(
             @Param("ownerId") long ownerId,
             @Param("fromInclusive") Instant fromInclusive,
             @Param("toExclusive") Instant toExclusive,
-            @Param("institutionId") Long institutionId);
+            @Param("institutionId") Long institutionId,
+            @Param("institutionTypeId") Long institutionTypeId);
 }

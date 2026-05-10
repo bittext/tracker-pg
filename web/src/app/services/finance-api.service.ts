@@ -21,6 +21,7 @@ import {
   RobinhoodCsvUploadStatusDto,
   BankingImportResultDto,
   BankingInstitutionDto,
+  BankingInstitutionTypeDto,
   BankingLedgerDto,
   BankingLedgerRange,
   BankingPlaidExchangeResponseDto,
@@ -211,15 +212,45 @@ export class FinanceApiService {
     return this.http.get<BankingInstitutionDto[]>(`${this.bankingRoot}/institutions`);
   }
 
-  createBankingInstitution(name: string) {
-    return this.http.post<BankingInstitutionDto>(`${this.bankingRoot}/institutions`, { name });
+  listBankingInstitutionTypes() {
+    return this.http.get<BankingInstitutionTypeDto[]>(`${this.bankingRoot}/institution-types`);
+  }
+
+  createBankingInstitutionType(body: { name: string; sortOrder?: number | null }) {
+    return this.http.post<BankingInstitutionTypeDto>(`${this.bankingRoot}/institution-types`, body);
+  }
+
+  deleteBankingInstitutionType(id: number) {
+    return this.http.delete<void>(`${this.bankingRoot}/institution-types/${id}`);
+  }
+
+  createBankingInstitution(name: string, institutionTypeId?: number | null) {
+    return this.http.post<BankingInstitutionDto>(`${this.bankingRoot}/institutions`, {
+      name,
+      institutionTypeId: institutionTypeId ?? null,
+    });
+  }
+
+  updateBankingInstitution(id: number, body: { name: string; institutionTypeId?: number | null }) {
+    return this.http.put<BankingInstitutionDto>(`${this.bankingRoot}/institutions/${id}`, {
+      name: body.name,
+      institutionTypeId: body.institutionTypeId ?? null,
+    });
   }
 
   /** Imports in a calendar date span (Admin); same owner scope as ledger. */
-  bankingImportFiles(fromIsoDate: string, toIsoDate: string, institutionId?: number | null) {
+  bankingImportFiles(
+    fromIsoDate: string,
+    toIsoDate: string,
+    institutionId?: number | null,
+    institutionTypeId?: number | null,
+  ) {
     let params = new HttpParams().set('from', fromIsoDate).set('to', toIsoDate);
     if (institutionId != null && institutionId > 0) {
       params = params.set('institutionId', String(institutionId));
+    }
+    if (institutionTypeId != null && institutionTypeId > 0) {
+      params = params.set('institutionTypeId', String(institutionTypeId));
     }
     return this.http.get<BankingImportFileDto[]>(`${this.bankingRoot}/import-files`, { params });
   }
@@ -230,6 +261,7 @@ export class FinanceApiService {
     month?: number | null,
     quarter?: number | null,
     institutionId?: number | null,
+    institutionTypeId?: number | null,
   ) {
     let params = new HttpParams().set('range', range).set('year', String(year));
     if (month != null) {
@@ -240,6 +272,9 @@ export class FinanceApiService {
     }
     if (institutionId != null && institutionId > 0) {
       params = params.set('institutionId', String(institutionId));
+    }
+    if (institutionTypeId != null && institutionTypeId > 0) {
+      params = params.set('institutionTypeId', String(institutionTypeId));
     }
     return this.http.get<BankingLedgerDto>(`${this.bankingRoot}/ledger`, { params });
   }

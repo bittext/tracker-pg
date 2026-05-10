@@ -382,9 +382,17 @@ export interface FinanceTax1040ReturnDto {
 /** Banking imports (CSV, QFX, QIF, QBO, Excel, PDF) scoped to the logged-in user. */
 export type BankingLedgerRange = 'MONTH' | 'QUARTER' | 'YEAR';
 
+export interface BankingInstitutionTypeDto {
+  id: number;
+  name: string;
+  sortOrder: number;
+}
+
 export interface BankingInstitutionDto {
   id: number;
   name: string;
+  institutionTypeId?: number | null;
+  institutionTypeName?: string | null;
 }
 
 export interface BankingImportFileDto {
@@ -409,6 +417,8 @@ export interface BankingTransactionDto {
   id: number;
   institutionId: number;
   institutionName: string;
+  institutionTypeId?: number | null;
+  institutionTypeName?: string | null;
   importFileId: number;
   txnDate: string;
   amount: number;

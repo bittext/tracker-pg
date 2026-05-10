@@ -5,16 +5,21 @@ import com.svp.tracker.config.BankingImportProperties;
 import com.svp.tracker.finance.domain.BankingFileKind;
 import com.svp.tracker.finance.domain.BankingImportFile;
 import com.svp.tracker.finance.domain.BankingInstitution;
+import com.svp.tracker.finance.domain.BankingInstitutionType;
 import com.svp.tracker.finance.domain.BankingTransaction;
 import com.svp.tracker.finance.dto.BankingCreateInstitutionRequestDto;
+import com.svp.tracker.finance.dto.BankingCreateInstitutionTypeRequestDto;
 import com.svp.tracker.finance.dto.BankingImportFileDto;
 import com.svp.tracker.finance.dto.BankingImportResultDto;
 import com.svp.tracker.finance.dto.BankingInstitutionDto;
+import com.svp.tracker.finance.dto.BankingInstitutionTypeDto;
+import com.svp.tracker.finance.dto.BankingPutInstitutionRequestDto;
 import com.svp.tracker.finance.dto.BankingLedgerDto;
 import com.svp.tracker.finance.dto.BankingLedgerRange;
 import com.svp.tracker.finance.dto.BankingTransactionDto;
 import com.svp.tracker.finance.repository.BankingImportFileRepository;
 import com.svp.tracker.finance.repository.BankingInstitutionRepository;
+import com.svp.tracker.finance.repository.BankingInstitutionTypeRepository;
 import com.svp.tracker.finance.repository.BankingTransactionRepository;
 import com.svp.tracker.finance.service.banking.BankingFormatParser;
 import com.svp.tracker.finance.service.banking.BankingHashUtil;
@@ -55,6 +60,7 @@ public class BankingService {
     private final BankingImportProperties bankingProps;
     private final CurrentUserService currentUserService;
     private final BankingInstitutionRepository institutionRepository;
+    private final BankingInstitutionTypeRepository institutionTypeRepository;
     private final BankingImportFileRepository importFileRepository;
     private final BankingTransactionRepository transactionRepository;
 
@@ -63,6 +69,42 @@ public class BankingService {
         return institutionRepository.findByOwnerUserIdOrderByNameAsc(uid).stream()
                 .map(BankingService::toInstitutionDto)
                 .toList();
+    }
+
+    public List<BankingInstitutionTypeDto> listInstitutionTypes() {
+        long uid = currentUserService.requireUserId();
+        return institutionTypeRepository.findByOwnerUserIdOrderBySortOrderAscNameAsc(uid).stream()
+                .map(BankingService::toInstitutionTypeDto)
+                .toList();
+    }
+
+    @Transactional
+    public BankingInstitutionTypeDto createInstitutionType(BankingCreateInstitutionTypeRequestDto req) {
+        long uid = currentUserService.requireUserId();
+        String name = req.name().trim();
+        if (name.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Type name is required");
+        }
+        if (institutionTypeRepository.existsByOwnerUserIdAndNameIgnoreCase(uid, name)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "An institution type with that name already exists");
+        }
+        BankingInstitutionType t = new BankingInstitutionType();
+        t.setOwnerUserId(uid);
+        t.setName(name);
+        int order = req.sortOrder() != null ? req.sortOrder() : 0;
+        t.setSortOrder(order);
+        t.setCreatedAt(Instant.now());
+        t = institutionTypeRepository.save(t);
+        return toInstitutionTypeDto(t);
+    }
+
+    @Transactional
+    public void deleteInstitutionType(long typeId) {
+        long uid = currentUserService.requireUserId();
+        BankingInstitutionType t = institutionTypeRepository
+                .findByIdAndOwnerUserId(typeId, uid)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Institution type not found"));
+        institutionTypeRepository.delete(t);
     }
 
     @Transactional
@@ -78,6 +120,27 @@ public class BankingService {
         BankingInstitution e = new BankingInstitution();
         e.setOwnerUserId(uid);
         e.setName(name);
+        e.setInstitutionType(resolveInstitutionType(uid, req.institutionTypeId()));
+        e = institutionRepository.save(e);
+        return toInstitutionDto(e);
+    }
+
+    @Transactional
+    public BankingInstitutionDto updateInstitution(long institutionId, BankingPutInstitutionRequestDto req) {
+        long uid = currentUserService.requireUserId();
+        BankingInstitution e = institutionRepository
+                .findByIdAndOwnerUserId(institutionId, uid)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Institution not found"));
+        String name = req.name().trim();
+        if (name.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Institution name is required");
+        }
+        if (!name.equalsIgnoreCase(e.getName())
+                && institutionRepository.existsByOwnerUserIdAndNameIgnoreCase(uid, name)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "An institution with that name already exists");
+        }
+        e.setName(name);
+        e.setInstitutionType(resolveInstitutionType(uid, req.institutionTypeId()));
         e = institutionRepository.save(e);
         return toInstitutionDto(e);
     }
@@ -279,8 +342,18 @@ public class BankingService {
     }
 
     @Transactional(readOnly = true)
-    public BankingLedgerDto ledger(BankingLedgerRange range, int year, Integer month, Integer quarter, Long institutionId) {
+    public BankingLedgerDto ledger(
+            BankingLedgerRange range,
+            int year,
+            Integer month,
+            Integer quarter,
+            Long institutionId,
+            Long institutionTypeId) {
         long uid = currentUserService.requireUserId();
+        if (institutionId != null && institutionTypeId != null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Use either institutionId or institutionTypeId, not both");
+        }
         String importRoot = bankingProps.importDirectory();
         boolean configured = !importRoot.isBlank();
         LocalDate from;
@@ -324,11 +397,11 @@ public class BankingService {
                         .toList();
 
         List<BankingTransaction> txns =
-                transactionRepository.listInRange(uid, from, to, institutionId);
+                transactionRepository.listInRange(uid, from, to, institutionId, institutionTypeId);
         List<BankingTransactionDto> txnDtos = txns.stream().map(BankingService::toTxnDto).toList();
 
         List<BankingImportFile> files =
-                importFileRepository.listUploadedInRange(uid, fromInst, toExclusive, institutionId);
+                importFileRepository.listUploadedInRange(uid, fromInst, toExclusive, institutionId, institutionTypeId);
         List<BankingImportFileDto> fileDtos = files.stream().map(BankingService::toFileDto).toList();
 
         return new BankingLedgerDto(
@@ -346,8 +419,12 @@ public class BankingService {
      */
     @Transactional(readOnly = true)
     public List<BankingImportFileDto> listImportFilesInRange(
-            LocalDate fromInclusive, LocalDate toInclusive, Long institutionId) {
+            LocalDate fromInclusive, LocalDate toInclusive, Long institutionId, Long institutionTypeId) {
         long uid = currentUserService.requireUserId();
+        if (institutionId != null && institutionTypeId != null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Use either institutionId or institutionTypeId, not both");
+        }
         if (toInclusive.isBefore(fromInclusive)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "to before from");
         }
@@ -357,7 +434,7 @@ public class BankingService {
         Instant fromInst = fromInclusive.atStartOfDay(ZoneOffset.UTC).toInstant();
         Instant toEx = toInclusive.plusDays(1).atStartOfDay(ZoneOffset.UTC).toInstant();
         List<BankingImportFile> files =
-                importFileRepository.listUploadedInRange(uid, fromInst, toEx, institutionId);
+                importFileRepository.listUploadedInRange(uid, fromInst, toEx, institutionId, institutionTypeId);
         return files.stream().map(BankingService::toFileDto).toList();
     }
 
@@ -466,8 +543,24 @@ public class BankingService {
         return cleaned;
     }
 
+    private BankingInstitutionType resolveInstitutionType(long ownerUserId, Long typeId) {
+        if (typeId == null) {
+            return null;
+        }
+        return institutionTypeRepository
+                .findByIdAndOwnerUserId(typeId, ownerUserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown institution type"));
+    }
+
+    private static BankingInstitutionTypeDto toInstitutionTypeDto(BankingInstitutionType t) {
+        return new BankingInstitutionTypeDto(t.getId(), t.getName(), t.getSortOrder());
+    }
+
     private static BankingInstitutionDto toInstitutionDto(BankingInstitution e) {
-        return new BankingInstitutionDto(e.getId(), e.getName());
+        BankingInstitutionType ty = e.getInstitutionType();
+        Long tid = ty != null ? ty.getId() : null;
+        String tname = ty != null ? ty.getName() : null;
+        return new BankingInstitutionDto(e.getId(), e.getName(), tid, tname);
     }
 
     private static BankingImportFileDto toFileDto(BankingImportFile f) {
@@ -509,10 +602,16 @@ public class BankingService {
         String fn = t.getImportFile().getOriginalFilename();
         String ext = BankingFormatParser.extension(fn == null ? "" : fn);
         String sourceFormat = SOURCE_FORMAT_LABELS.getOrDefault(ext, ext.isEmpty() ? "" : ext.toUpperCase(Locale.ROOT));
+        var inst = t.getInstitution();
+        var ty = inst.getInstitutionType();
+        Long tid = ty != null ? ty.getId() : null;
+        String tname = ty != null ? ty.getName() : null;
         return new BankingTransactionDto(
                 t.getId(),
-                t.getInstitution().getId(),
-                t.getInstitution().getName(),
+                inst.getId(),
+                inst.getName(),
+                tid,
+                tname,
                 t.getImportFile().getId(),
                 t.getTxnDate().toString(),
                 amt,

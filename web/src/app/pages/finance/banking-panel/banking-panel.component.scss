@@ -157,3 +157,27 @@
 .warn {
   color: var(--mat-sys-error, #b00020);
 }
+
+.banking-types-hint {
+  max-width: 52rem;
+}
+
+.banking-types-table-wrap {
+  margin-bottom: 1.25rem;
+}
+
+.banking-inline-name-input {
+  width: 100%;
+  max-width: 22rem;
+  box-sizing: border-box;
+  padding: 0.45rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid var(--mat-sys-outline-variant, rgba(0, 0, 0, 0.22));
+  font: inherit;
+}
+
+.banking-field--dense {
+  width: 100%;
+  min-width: 0;
+  margin-bottom: -0.5rem;
+}
