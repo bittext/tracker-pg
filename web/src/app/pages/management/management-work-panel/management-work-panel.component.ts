@@ -313,6 +313,9 @@ export class ManagementWorkPanelComponent implements OnInit {
 
   setLogView(v: 'day' | 'month' | 'year'): void {
     this.logView = v;
+    if (v === 'day') {
+      this.syncLogSelectedDayIsoToLogYear();
+    }
     this.reloadLogEntries();
   }
 
@@ -333,17 +336,29 @@ export class ManagementWorkPanelComponent implements OnInit {
 
   prevLogYear(): void {
     this.logYear -= 1;
+    if (this.logView === 'day') {
+      this.syncLogSelectedDayIsoToLogYear();
+    }
     this.reloadLogCalendar();
     this.reloadLogEntries();
   }
 
   nextLogYear(): void {
     this.logYear += 1;
+    if (this.logView === 'day') {
+      this.syncLogSelectedDayIsoToLogYear();
+    }
     this.reloadLogCalendar();
     this.reloadLogEntries();
   }
 
   onLogDayPicked(): void {
+    const parsed = this.parseDayIso(this.logSelectedDayIso);
+    if (parsed) {
+      this.logYear = parsed.y;
+      this.logMonth = parsed.m;
+      this.reloadLogCalendar();
+    }
     if (this.logView === 'day') {
       this.reloadLogEntries();
     }
@@ -522,6 +537,53 @@ export class ManagementWorkPanelComponent implements OnInit {
     const m = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
+  }
+
+  /** Parse `yyyy-MM-dd`; returns null if invalid or incomplete. */
+  private parseDayIso(iso: string): { y: number; m: number; d: number } | null {
+    const s = (iso || '').trim();
+    if (s.length < 10) {
+      return null;
+    }
+    const y = Number(s.slice(0, 4));
+    const m = Number(s.slice(5, 7));
+    const d = Number(s.slice(8, 10));
+    if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
+      return null;
+    }
+    if (m < 1 || m > 12 || d < 1 || d > 31) {
+      return null;
+    }
+    return { y, m, d };
+  }
+
+  /**
+   * In day view the entry list follows `logSelectedDayIso`, while the strip uses `logYear`.
+   * After changing year, move the selected calendar day into that year (same month/day, clamped).
+   */
+  private syncLogSelectedDayIsoToLogYear(): void {
+    const parsed = this.parseDayIso(this.logSelectedDayIso);
+    let m: number;
+    let d: number;
+    if (parsed) {
+      m = parsed.m;
+      d = parsed.d;
+    } else {
+      const today = new Date();
+      if (this.logYear === today.getFullYear()) {
+        m = today.getMonth() + 1;
+        d = today.getDate();
+      } else {
+        m = 1;
+        d = 1;
+      }
+    }
+    const last = new Date(this.logYear, m, 0).getDate();
+    const day = Math.min(d, last);
+    this.logSelectedDayIso = `${this.logYear}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    if (this.logEditingId == null) {
+      this.logDraft.entryDate = this.logSelectedDayIso;
+    }
   }
 
   private todayIso(): string {
