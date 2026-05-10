@@ -1,0 +1,306 @@
+<div class="mt-root">
+  <header class="mt-hero">
+    <h2 class="mt-title">Travel</h2>
+    <p class="muted mt-lead">
+      Trips and map pins for places you plan to visit or have visited. Choose a time lens, click the map to focus a pin,
+      and attach photos to places. Same private storage as other Management attachments.
+    </p>
+    <div class="mt-lens-bar">
+      <button mat-stroked-button type="button" (click)="setLens('overview')" [class.mt-lens--on]="lens === 'overview'">
+        Overview
+      </button>
+      <button mat-stroked-button type="button" (click)="setLens('day')" [class.mt-lens--on]="lens === 'day'">Day</button>
+      <button mat-stroked-button type="button" (click)="setLens('month')" [class.mt-lens--on]="lens === 'month'">
+        Month
+      </button>
+      <button mat-stroked-button type="button" (click)="setLens('year')" [class.mt-lens--on]="lens === 'year'">Year</button>
+      <span class="mt-lens-spacer"></span>
+      @if (lens === 'day') {
+        <mat-form-field appearance="outline" class="mt-lens-field">
+          <mat-label>Day</mat-label>
+          <input matInput type="date" name="mtLensDay" [(ngModel)]="lensDayIso" (ngModelChange)="reloadMapPlaces()" />
+        </mat-form-field>
+      }
+      @if (lens === 'month') {
+        <mat-form-field appearance="outline" class="mt-lens-field">
+          <mat-label>Year</mat-label>
+          <input matInput type="number" name="mtLensMY" [(ngModel)]="lensYear" (ngModelChange)="reloadMapPlaces()" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="mt-lens-field">
+          <mat-label>Month</mat-label>
+          <mat-select name="mtLensM" [(ngModel)]="lensMonth" (selectionChange)="reloadMapPlaces()">
+            @for (m of monthOptions; track m) {
+              <mat-option [value]="m">{{ monthName(m) }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      }
+      @if (lens === 'year') {
+        <mat-form-field appearance="outline" class="mt-lens-field">
+          <mat-label>Year</mat-label>
+          <input matInput type="number" name="mtLensY" [(ngModel)]="lensYear" (ngModelChange)="reloadMapPlaces()" />
+        </mat-form-field>
+      }
+    </div>
+  </header>
+
+  <div class="mt-grid">
+    <aside class="mt-rail">
+      <mat-card appearance="outlined" class="mt-card mt-card--trips">
+        <mat-card-header>
+          <mat-card-title>Trips</mat-card-title>
+          <mat-card-subtitle>{{ trips.length }} saved</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          @if (loadingTrips) {
+            <p class="muted">Loading…</p>
+          } @else if (!trips.length) {
+            <p class="muted">No trips yet — create one below.</p>
+          } @else {
+            <ul class="mt-trip-list">
+              @for (t of trips; track t.id) {
+                <li>
+                  <button
+                    type="button"
+                    class="mt-trip-pill"
+                    [class.mt-trip-pill--active]="selectedTripId === t.id"
+                    (click)="selectTrip(t.id)"
+                  >
+                    <span class="mt-trip-dot" [style.background]="t.colorHex || '#6366f1'"></span>
+                    <span class="mt-trip-pill-title">{{ t.title }}</span>
+                    <span class="muted mt-trip-pill-meta">{{ t.startDate | slice: 0:7 }} · {{ t.placeCount }} places</span>
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+          <button mat-button type="button" class="mt-linkish" (click)="clearTripSelection()">Map only</button>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card appearance="outlined" class="mt-card mt-card--new">
+        <mat-card-header>
+          <mat-card-title>New trip</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Title</mat-label>
+            <input matInput name="ntTitle" [(ngModel)]="newTrip.title" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Summary</mat-label>
+            <textarea matInput name="ntSum" rows="2" [(ngModel)]="newTrip.summary"></textarea>
+          </mat-form-field>
+          <div class="mt-two">
+            <mat-form-field appearance="outline" class="grow">
+              <mat-label>Start</mat-label>
+              <input matInput type="date" name="ntS" [(ngModel)]="newTrip.startDate" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="grow">
+              <mat-label>End</mat-label>
+              <input matInput type="date" name="ntE" [(ngModel)]="newTrip.endDate" />
+            </mat-form-field>
+          </div>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Status</mat-label>
+            <mat-select name="ntSt" [(ngModel)]="newTrip.status">
+              @for (s of tripStatuses; track s) {
+                <mat-option [value]="s">{{ s }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Accent</mat-label>
+            <input matInput type="color" name="ntC" [(ngModel)]="newTrip.colorHex" />
+          </mat-form-field>
+          <button mat-flat-button color="primary" type="button" (click)="saveNewTrip()">Create trip</button>
+        </mat-card-content>
+      </mat-card>
+    </aside>
+
+    <section class="mt-map-section">
+      <div class="mt-map-shell">
+        <div #mapHost class="mt-map-host"></div>
+        @if (loadingMap) {
+          <div class="mt-map-loading muted">Updating map…</div>
+        }
+      </div>
+      <p class="muted mt-map-legend">
+        <span class="mt-legend-swatch mt-legend-swatch--planned"></span> Planned
+        <span class="mt-legend-swatch mt-legend-swatch--visited"></span> Visited
+      </p>
+    </section>
+
+    <aside class="mt-detail">
+      @if (tripDetail) {
+        <mat-card appearance="outlined" class="mt-card mt-card--detail">
+          <mat-card-header>
+            <mat-card-title>{{ tripDetail.title }}</mat-card-title>
+            <mat-card-subtitle>{{ tripDetail.startDate }} → {{ tripDetail.endDate || 'open' }} · {{ tripDetail.status }}</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Title</mat-label>
+              <input matInput name="edTitle" [(ngModel)]="tripDetail.title" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Summary</mat-label>
+              <textarea matInput name="edSum" rows="2" [(ngModel)]="tripDetail.summary"></textarea>
+            </mat-form-field>
+            <div class="mt-two">
+              <mat-form-field appearance="outline" class="grow">
+                <mat-label>Start</mat-label>
+                <input matInput type="date" name="edS" [(ngModel)]="tripDetail.startDate" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="grow">
+                <mat-label>End</mat-label>
+                <input matInput type="date" name="edE" [(ngModel)]="tripDetail.endDate" />
+              </mat-form-field>
+            </div>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Status</mat-label>
+              <mat-select name="edSt" [(ngModel)]="tripDetail.status">
+                @for (s of tripStatuses; track s) {
+                  <mat-option [value]="s">{{ s }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Accent</mat-label>
+              <input matInput type="color" name="edC" [(ngModel)]="tripDetail.colorHex" />
+            </mat-form-field>
+            <div class="mt-actions">
+              <button mat-flat-button color="primary" type="button" (click)="saveTripMeta()">Save trip</button>
+              <button mat-button type="button" color="warn" (click)="deleteTrip()">Delete</button>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <mat-card appearance="outlined" class="mt-card">
+          <mat-card-header>
+            <mat-card-title>Add place</mat-card-title>
+            <mat-card-subtitle>Use map center for coordinates</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Name</mat-label>
+              <input matInput name="npN" [(ngModel)]="newPlace.name" />
+            </mat-form-field>
+            <div class="mt-two">
+              <mat-form-field appearance="outline" class="grow">
+                <mat-label>Latitude</mat-label>
+                <input matInput type="number" name="npLat" [(ngModel)]="newPlace.latitude" step="0.000001" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="grow">
+                <mat-label>Longitude</mat-label>
+                <input matInput type="number" name="npLng" [(ngModel)]="newPlace.longitude" step="0.000001" />
+              </mat-form-field>
+            </div>
+            <button mat-stroked-button type="button" (click)="useMapCenterForNewPlace()">Use map center</button>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Address</mat-label>
+              <input matInput name="npA" [(ngModel)]="newPlace.address" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Place status</mat-label>
+              <mat-select name="npPs" [(ngModel)]="newPlace.placeStatus">
+                @for (s of placeStatuses; track s) {
+                  <mat-option [value]="s">{{ s }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Visit date</mat-label>
+              <input matInput type="date" name="npV" [(ngModel)]="newPlace.visitDate" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Notes (Markdown)</mat-label>
+              <textarea matInput name="npNotes" rows="3" [(ngModel)]="newPlace.notes"></textarea>
+            </mat-form-field>
+            <button mat-flat-button color="primary" type="button" (click)="addPlace()">Add place</button>
+          </mat-card-content>
+        </mat-card>
+
+        <mat-card appearance="outlined" class="mt-card">
+          <mat-card-header>
+            <mat-card-title>Places on this trip</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            @for (p of tripDetail.places; track p.id) {
+              <div class="mt-place-block" [class.mt-place-block--sel]="selectedPlaceId === p.id">
+                <button type="button" class="mt-place-select" (click)="selectPlaceFromList(p.id)">
+                  {{ p.name }} · {{ p.placeStatus }}
+                </button>
+                @if (selectedPlaceId === p.id) {
+                  <div class="mt-place-editor">
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>Name</mat-label>
+                      <input matInput [(ngModel)]="p.name" [name]="'pn' + p.id" />
+                    </mat-form-field>
+                    <div class="mt-two">
+                      <mat-form-field appearance="outline" class="grow">
+                        <mat-label>Lat</mat-label>
+                        <input matInput type="number" [(ngModel)]="p.latitude" [name]="'plat' + p.id" step="0.000001" />
+                      </mat-form-field>
+                      <mat-form-field appearance="outline" class="grow">
+                        <mat-label>Lng</mat-label>
+                        <input matInput type="number" [(ngModel)]="p.longitude" [name]="'plng' + p.id" step="0.000001" />
+                      </mat-form-field>
+                    </div>
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>Status</mat-label>
+                      <mat-select [(ngModel)]="p.placeStatus" [name]="'pps' + p.id">
+                        @for (s of placeStatuses; track s) {
+                          <mat-option [value]="s">{{ s }}</mat-option>
+                        }
+                      </mat-select>
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>Visit date</mat-label>
+                      <input matInput type="date" [(ngModel)]="p.visitDate" [name]="'pvd' + p.id" />
+                    </mat-form-field>
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>Notes</mat-label>
+                      <textarea matInput rows="4" [(ngModel)]="p.notes" [name]="'pno' + p.id"></textarea>
+                    </mat-form-field>
+                    @if ((p.notes || '').trim()) {
+                      <div class="markdown-body notes-entry-body mt-md-preview" [innerHTML]="p.notes | safeMarkdown"></div>
+                    }
+                    <div class="mt-actions">
+                      <button mat-stroked-button type="button" color="primary" (click)="savePlace(p)">Save place</button>
+                      <button mat-button type="button" color="warn" (click)="deletePlace(p)">Remove</button>
+                    </div>
+                    <div class="notes-attach-row">
+                      <label class="notes-file-label">
+                        <input type="file" accept="image/*" (change)="onPlacePhotoSelected($event, p.id)" [disabled]="photoUploading" />
+                        <span class="notes-file-label-text">Add photo</span>
+                      </label>
+                    </div>
+                    @if (p.photos.length) {
+                      <ul class="notes-attachment-list">
+                        @for (ph of p.photos; track ph.id) {
+                          <li>
+                            <button type="button" class="notes-att-link" (click)="openPlacePhoto(ph.id)">{{ ph.originalFilename }}</button>
+                            <button mat-icon-button type="button" (click)="removePlacePhoto(ph.id)" aria-label="Remove photo">
+                              <mat-icon>close</mat-icon>
+                            </button>
+                          </li>
+                        }
+                      </ul>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </mat-card-content>
+        </mat-card>
+      } @else {
+        <mat-card appearance="outlined" class="mt-card mt-card--hint">
+          <mat-card-content>
+            <p class="muted">Select a trip to edit details and places, or stay in map-only mode to browse pins.</p>
+          </mat-card-content>
+        </mat-card>
+      }
+    </aside>
+  </div>
+</div>

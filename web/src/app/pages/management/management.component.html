@@ -3,8 +3,9 @@
   <p class="muted">
     Organize to-dos by <strong>balance area</strong> and <strong>urgency</strong>, then review them on the calendar. Define
     <strong>balance categories</strong> and <strong>task types</strong> under <strong>Admin → Management</strong> (per
-    login); use this page for tasks, the <strong>Work</strong> hub (work tasks + daily work log), calendar, utilities,
-    month notes, and year-scoped write-ups. Review sign-in activity under <strong>Admin</strong> →
+    login); use this page for tasks, the <strong>Work</strong> hub (work tasks + daily work log), <strong>Travel</strong>
+    (trips and map pins), calendar, utilities, month notes, and year-scoped write-ups. Review sign-in activity under
+    <strong>Admin</strong> →
     <strong>Sign-in log</strong>.
   </p>
 </div>
@@ -315,6 +316,12 @@
     <mat-tab label="Work">
       <div class="tab-panel">
         <app-management-work-panel />
+      </div>
+    </mat-tab>
+
+    <mat-tab label="Travel">
+      <div class="tab-panel">
+        <app-management-travel-panel />
       </div>
     </mat-tab>
 

@@ -5,4 +5,5 @@ export const environment = {
    * Set to `http://127.0.0.1:9091` only if you must bypass the proxy (requires CORS on the server).
    */
   apiBaseUrl: 'http://127.0.0.1:9091',
+  travelMapStyleUrl: 'https://demotiles.maplibre.org/style.json',
 };

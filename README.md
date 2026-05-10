@@ -288,7 +288,7 @@ The top navigation includes dedicated sections for:
 - Welcome
 - Exercise
 - Finance
-- Management (tasks, Work tab with work-category tasks, daily work log with file attachments and inline audio playback, calendar, month notes)
+- Management (tasks; Work tab with work-category tasks, daily work log with file attachments and inline audio playback; Travel tab with MapLibre map, trips/places, optional place photos; calendar; utilities; month notes; write-ups)
 - Journal (Markdown entries, calendar heatmap, tags, attachments)
 - Reports
 - Security (information security policy and procedures; route **`/security`**)

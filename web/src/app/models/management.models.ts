@@ -138,3 +138,90 @@ export interface ManagementWorkLogCalendarDto {
   year: number;
   days: { date: string; count: number }[];
 }
+
+/** Management → Travel tab */
+export type TravelTripStatus = 'PLANNING' | 'ACTIVE' | 'COMPLETED';
+export type TravelPlaceStatus = 'PLANNED' | 'VISITED';
+
+export interface TravelTripSummaryDto {
+  id: number;
+  title: string;
+  startDate: string;
+  endDate: string | null;
+  status: TravelTripStatus;
+  colorHex: string | null;
+  placeCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TravelPlacePhotoDto {
+  id: number;
+  originalFilename: string;
+  contentType: string | null;
+  sizeBytes: number;
+  downloadPath: string;
+}
+
+export interface TravelPlaceDto {
+  id: number;
+  tripId: number;
+  tripTitle: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  address: string | null;
+  placeStatus: TravelPlaceStatus;
+  visitDate: string | null;
+  notes: string;
+  sortOrder: number;
+  photos: TravelPlacePhotoDto[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TravelTripDetailDto {
+  id: number;
+  ownerUserId: number;
+  title: string;
+  summary: string;
+  startDate: string;
+  endDate: string | null;
+  status: TravelTripStatus;
+  colorHex: string | null;
+  places: TravelPlaceDto[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TravelTripWriteBody {
+  title: string;
+  summary?: string;
+  startDate: string;
+  endDate?: string | null;
+  status: TravelTripStatus;
+  colorHex?: string | null;
+}
+
+export interface TravelPlaceWriteBody {
+  name: string;
+  latitude: number;
+  longitude: number;
+  address?: string | null;
+  placeStatus: TravelPlaceStatus;
+  visitDate?: string | null;
+  notes?: string;
+  sortOrder: number;
+}
+
+export interface TravelPlaceMapDto {
+  id: number;
+  tripId: number;
+  tripTitle: string;
+  tripColorHex: string | null;
+  name: string;
+  latitude: number;
+  longitude: number;
+  placeStatus: TravelPlaceStatus;
+  visitDate: string | null;
+}

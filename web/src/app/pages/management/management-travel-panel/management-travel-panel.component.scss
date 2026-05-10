@@ -1,0 +1,263 @@
+.mt-root {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding-bottom: 2rem;
+}
+
+.mt-hero {
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(14, 165, 233, 0.06));
+  border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.mt-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.mt-lead {
+  margin: 0 0 1rem;
+  max-width: 72ch;
+  line-height: 1.55;
+}
+
+.mt-lens-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.mt-lens--on {
+  border-color: #6366f1 !important;
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.mt-lens-spacer {
+  flex: 1 1 0;
+  min-width: 0.5rem;
+}
+
+.mt-lens-field {
+  width: min(100%, 11rem);
+}
+
+.mt-grid {
+  display: grid;
+  grid-template-columns: minmax(14rem, 18rem) minmax(0, 1fr) minmax(16rem, 22rem);
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 1100px) {
+  .mt-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mt-rail,
+.mt-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.mt-card {
+  border-radius: 12px;
+}
+
+.mt-card--trips .mat-mdc-card-content {
+  padding-top: 0.25rem;
+}
+
+.mt-trip-list {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: min(40vh, 22rem);
+  overflow: auto;
+}
+
+.mt-trip-pill {
+  width: 100%;
+  text-align: left;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+  background: var(--mat-sys-surface, #fff);
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  gap: 0.15rem 0.5rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.mt-trip-pill:hover {
+  border-color: rgba(99, 102, 241, 0.45);
+}
+
+.mt-trip-pill--active {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.25);
+}
+
+.mt-trip-dot {
+  grid-row: 1 / span 2;
+  align-self: center;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.mt-trip-pill-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.mt-trip-pill-meta {
+  font-size: 0.75rem;
+  grid-column: 2;
+}
+
+.mt-linkish {
+  padding-left: 0;
+}
+
+.mt-map-section {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mt-map-shell {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  min-height: min(52vh, 520px);
+  background: #0f172a;
+}
+
+.mt-map-host {
+  width: 100%;
+  height: min(52vh, 520px);
+}
+
+.mt-map-loading {
+  position: absolute;
+  inset: auto 0.75rem 0.75rem auto;
+  padding: 0.35rem 0.65rem;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.85);
+  color: #e2e8f8;
+  font-size: 0.8rem;
+}
+
+.mt-map-legend {
+  margin: 0;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.mt-legend-swatch {
+  display: inline-block;
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  margin-right: 0.25rem;
+  vertical-align: middle;
+}
+
+.mt-legend-swatch--planned {
+  background: #6366f1;
+}
+
+.mt-legend-swatch--visited {
+  background: #16a34a;
+}
+
+.mt-two {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.mt-two .grow {
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+
+.mt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.mt-place-block {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  padding: 0.35rem;
+  margin-bottom: 0.5rem;
+}
+
+.mt-place-block--sel {
+  border-color: rgba(245, 158, 11, 0.55);
+  background: rgba(245, 158, 11, 0.06);
+}
+
+.mt-place-select {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  font-weight: 600;
+  padding: 0.35rem 0.4rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.mt-place-select:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.mt-place-editor {
+  padding: 0.35rem 0.25rem 0.5rem;
+}
+
+.mt-md-preview {
+  margin: 0.5rem 0;
+  max-height: 12rem;
+  overflow: auto;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.mt-card--hint .mat-mdc-card-content {
+  padding: 1rem 1.25rem;
+}
+
+.full-width {
+  width: 100%;
+}
+
+/* Reuse notes attachment patterns from parent page */
+.notes-attach-row,
+.notes-attachment-list,
+.notes-file-label,
+.notes-att-link {
+  font-size: 0.875rem;
+}

@@ -18,6 +18,12 @@ import {
   ManagementWorkLogEntryDto,
   ManagementWorkLogEntryWriteBody,
   TaskMonthCalendarDto,
+  TravelPlaceMapDto,
+  TravelPlacePhotoDto,
+  TravelPlaceWriteBody,
+  TravelTripDetailDto,
+  TravelTripSummaryDto,
+  TravelTripWriteBody,
 } from '../models/management.models';
 
 @Injectable({ providedIn: 'root' })
@@ -213,6 +219,68 @@ export class ManagementApiService {
 
   getWorkLogAttachmentBlob(attachmentId: number, disposition: 'inline' | 'attachment' = 'inline') {
     return this.http.get(`${this.workLogRoot}/attachments/${attachmentId}/file`, {
+      responseType: 'blob',
+      params: { disposition },
+    });
+  }
+
+  private readonly travelRoot = `${this.root}/travel`;
+
+  listTravelTrips() {
+    return this.http.get<TravelTripSummaryDto[]>(`${this.travelRoot}/trips`);
+  }
+
+  getTravelTrip(id: number) {
+    return this.http.get<TravelTripDetailDto>(`${this.travelRoot}/trips/${id}`);
+  }
+
+  createTravelTrip(body: TravelTripWriteBody) {
+    return this.http.post<TravelTripDetailDto>(`${this.travelRoot}/trips`, body);
+  }
+
+  updateTravelTrip(id: number, body: TravelTripWriteBody) {
+    return this.http.put<TravelTripDetailDto>(`${this.travelRoot}/trips/${id}`, body);
+  }
+
+  deleteTravelTrip(id: number) {
+    return this.http.delete<void>(`${this.travelRoot}/trips/${id}`);
+  }
+
+  travelPlacesForMap(fromIso?: string | null, toIso?: string | null) {
+    const params: Record<string, string> = {};
+    if (fromIso) {
+      params['from'] = fromIso;
+    }
+    if (toIso) {
+      params['to'] = toIso;
+    }
+    return this.http.get<TravelPlaceMapDto[]>(`${this.travelRoot}/places`, { params });
+  }
+
+  addTravelPlace(tripId: number, body: TravelPlaceWriteBody) {
+    return this.http.post<TravelTripDetailDto>(`${this.travelRoot}/trips/${tripId}/places`, body);
+  }
+
+  updateTravelPlace(placeId: number, body: TravelPlaceWriteBody) {
+    return this.http.put<TravelTripDetailDto>(`${this.travelRoot}/places/${placeId}`, body);
+  }
+
+  deleteTravelPlace(placeId: number) {
+    return this.http.delete<void>(`${this.travelRoot}/places/${placeId}`);
+  }
+
+  uploadTravelPlacePhoto(placeId: number, file: File) {
+    const fd = new FormData();
+    fd.append('file', file, file.name);
+    return this.http.post<TravelPlacePhotoDto>(`${this.travelRoot}/places/${placeId}/photos`, fd);
+  }
+
+  deleteTravelPlacePhoto(photoId: number) {
+    return this.http.delete<void>(`${this.travelRoot}/photos/${photoId}`);
+  }
+
+  getTravelPlacePhotoBlob(photoId: number, disposition: 'inline' | 'attachment' = 'inline') {
+    return this.http.get(`${this.travelRoot}/photos/${photoId}/file`, {
       responseType: 'blob',
       params: { disposition },
     });
