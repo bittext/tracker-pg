@@ -201,8 +201,9 @@
   <section class="mw-section" aria-labelledby="mw-log-heading">
     <h2 id="mw-log-heading" class="mw-h2">Work log (daily)</h2>
     <p class="muted mw-lead">
-      On-the-job notes with Markdown. Separate words in the filter box — each word must appear in the subject or body.
-      Month grid shows entry counts for {{ logYear }}.
+      On-the-job notes with Markdown. Add files per saved entry (documents or audio recordings — supported formats get an
+      inline player). Separate words in the filter box — each word must appear in the subject, body, or attachment file
+      names. Month grid shows entry counts for {{ logYear }}.
     </p>
 
     <div class="mw-log-toolbar">
@@ -337,6 +338,44 @@
                   <button mat-stroked-button type="button" color="primary" (click)="startEditLogEntry(e)">Edit</button>
                   <button mat-button type="button" color="warn" (click)="deleteLogEntry(e)">Delete</button>
                 </div>
+                <div class="notes-attach-row">
+                  <label class="notes-file-label">
+                    <input
+                      type="file"
+                      multiple
+                      (change)="onWorkLogFilesSelected($event, e.id)"
+                      [disabled]="logUploading"
+                    />
+                    <span class="notes-file-label-text">Add attachment(s)</span>
+                  </label>
+                </div>
+                @if (e.attachments.length) {
+                  <ul class="notes-attachment-list">
+                    @for (a of e.attachments; track a.id) {
+                      <li class="mw-att-li">
+                        @if (isAudioAttachment(a)) {
+                          <div class="mw-att-audio-wrap">
+                            <app-work-log-audio-player [attachmentId]="a.id" />
+                          </div>
+                        }
+                        <div class="mw-att-line">
+                          <button type="button" class="notes-att-link" (click)="openWorkLogAttachment(a)">
+                            {{ a.originalFilename }}
+                          </button>
+                          <span class="muted">({{ (a.sizeBytes / 1024) | number: '1.0-0' }} KB)</span>
+                          <button
+                            mat-icon-button
+                            type="button"
+                            (click)="removeWorkLogAttachment(e.id, a.id)"
+                            aria-label="Remove attachment"
+                          >
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        </div>
+                      </li>
+                    }
+                  </ul>
+                }
               </article>
             }
           </div>

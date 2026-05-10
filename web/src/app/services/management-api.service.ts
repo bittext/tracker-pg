@@ -13,6 +13,7 @@ import {
   ManagementWriteupAttachmentDto,
   ManagementWriteupDto,
   ManagementWriteupWriteBody,
+  ManagementWorkLogAttachmentDto,
   ManagementWorkLogCalendarDto,
   ManagementWorkLogEntryDto,
   ManagementWorkLogEntryWriteBody,
@@ -198,5 +199,22 @@ export class ManagementApiService {
 
   deleteWorkLogEntry(id: number) {
     return this.http.delete<void>(`${this.workLogRoot}/entries/${id}`);
+  }
+
+  uploadWorkLogAttachment(entryId: number, file: File) {
+    const fd = new FormData();
+    fd.append('file', file, file.name);
+    return this.http.post<ManagementWorkLogAttachmentDto>(`${this.workLogRoot}/entries/${entryId}/attachments`, fd);
+  }
+
+  deleteWorkLogAttachment(attachmentId: number) {
+    return this.http.delete<void>(`${this.workLogRoot}/attachments/${attachmentId}`);
+  }
+
+  getWorkLogAttachmentBlob(attachmentId: number, disposition: 'inline' | 'attachment' = 'inline') {
+    return this.http.get(`${this.workLogRoot}/attachments/${attachmentId}/file`, {
+      responseType: 'blob',
+      params: { disposition },
+    });
   }
 }

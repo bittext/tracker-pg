@@ -21,6 +21,7 @@ import {
   ManagementTaskDto,
   ManagementTaskType,
   ManagementTaskWriteBody,
+  ManagementWorkLogAttachmentDto,
   ManagementWorkLogCalendarDto,
   ManagementWorkLogEntryDto,
   TaskMonthCalendarDto,
@@ -29,6 +30,7 @@ import { ManagementApiService } from '../../../services/management-api.service';
 import { SafeMarkdownPipe } from '../../../pipes/safe-markdown.pipe';
 import { formatHttpErrorDetail } from '../../../util/http-error';
 import { mgmtTaskDueRowClass } from '../../../util/management-task-due';
+import { WorkLogAudioPlayerComponent } from './work-log-audio-player.component';
 
 @Component({
   selector: 'app-management-work-panel',
@@ -49,6 +51,7 @@ import { mgmtTaskDueRowClass } from '../../../util/management-task-due';
     MatSnackBarModule,
     MatTableModule,
     SafeMarkdownPipe,
+    WorkLogAudioPlayerComponent,
   ],
   templateUrl: './management-work-panel.component.html',
   styleUrl: './management-work-panel.component.scss',
@@ -86,6 +89,7 @@ export class ManagementWorkPanelComponent implements OnInit {
   logRawEntries: ManagementWorkLogEntryDto[] = [];
   logCalendar: ManagementWorkLogCalendarDto | null = null;
   logLoading = false;
+  logUploading = false;
   logEditingId: number | null = null;
   logDraft = {
     entryDate: this.toIsoDate(new Date()),
@@ -415,6 +419,74 @@ export class ManagementWorkPanelComponent implements OnInit {
     });
   }
 
+  isAudioAttachment(a: ManagementWorkLogAttachmentDto): boolean {
+    const ct = (a.contentType || '').toLowerCase();
+    if (ct.startsWith('audio/')) {
+      return true;
+    }
+    const fn = (a.originalFilename || '').toLowerCase();
+    return /\.(mp3|m4a|aac|wav|webm|ogg|flac|opus)$/.test(fn);
+  }
+
+  onWorkLogFilesSelected(event: Event, entryId: number): void {
+    const input = event.target as HTMLInputElement;
+    const files = input.files;
+    if (!files?.length) {
+      return;
+    }
+    this.logUploading = true;
+    const list = Array.from(files);
+    let i = 0;
+    const step = (): void => {
+      if (i >= list.length) {
+        this.logUploading = false;
+        input.value = '';
+        this.reloadLogEntries();
+        this.reloadLogCalendar();
+        this.snackBar.open('Attachment(s) uploaded', undefined, { duration: 2000 });
+        return;
+      }
+      this.api.uploadWorkLogAttachment(entryId, list[i]).subscribe({
+        next: () => {
+          i += 1;
+          step();
+        },
+        error: (e) => {
+          this.logUploading = false;
+          input.value = '';
+          this.err('Upload failed', e);
+        },
+      });
+    };
+    step();
+  }
+
+  openWorkLogAttachment(a: ManagementWorkLogAttachmentDto): void {
+    this.api.getWorkLogAttachmentBlob(a.id, 'inline').subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const w = window.open(url, '_blank', 'noopener');
+        if (!w) {
+          URL.revokeObjectURL(url);
+        } else {
+          w.addEventListener('beforeunload', () => URL.revokeObjectURL(url));
+        }
+      },
+      error: (e) => this.err('Could not open attachment', e),
+    });
+  }
+
+  removeWorkLogAttachment(_entryId: number, attachmentId: number): void {
+    this.api.deleteWorkLogAttachment(attachmentId).subscribe({
+      next: () => {
+        this.snackBar.open('Attachment removed', undefined, { duration: 2000 });
+        this.reloadLogEntries();
+        this.reloadLogCalendar();
+      },
+      error: (e) => this.err('Could not remove attachment', e),
+    });
+  }
+
   private resetLogForm(): void {
     this.logEditingId = null;
     this.logDraft = {
@@ -528,7 +600,8 @@ export class ManagementWorkPanelComponent implements OnInit {
   }
 
   private entryMatchesTokens(e: ManagementWorkLogEntryDto, tokens: string[]): boolean {
-    const hay = `${e.subject || ''} ${e.body || ''}`.toLowerCase();
+    const attNames = (e.attachments ?? []).map((a) => a.originalFilename || '').join(' ');
+    const hay = `${e.subject || ''} ${e.body || ''} ${attNames}`.toLowerCase();
     return tokens.every((t) => hay.includes(t));
   }
 

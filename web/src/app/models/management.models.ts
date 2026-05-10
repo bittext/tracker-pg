@@ -106,6 +106,15 @@ export interface ManagementWriteupWriteBody {
   body: string;
 }
 
+/** Management → Work tab: file attached to a work log entry (same storage as month notes). */
+export interface ManagementWorkLogAttachmentDto {
+  id: number;
+  originalFilename: string;
+  contentType: string | null;
+  sizeBytes: number;
+  downloadPath: string;
+}
+
 /** Management → Work tab: day-scoped work log (Markdown body). */
 export interface ManagementWorkLogEntryDto {
   id: number;
@@ -116,6 +125,7 @@ export interface ManagementWorkLogEntryDto {
   body: string;
   createdAt: string;
   updatedAt: string;
+  attachments: ManagementWorkLogAttachmentDto[];
 }
 
 export interface ManagementWorkLogEntryWriteBody {

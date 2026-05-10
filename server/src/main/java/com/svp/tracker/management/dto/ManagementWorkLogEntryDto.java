@@ -2,6 +2,7 @@ package com.svp.tracker.management.dto;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 
 public record ManagementWorkLogEntryDto(
         long id,
@@ -11,4 +12,5 @@ public record ManagementWorkLogEntryDto(
         String subject,
         String body,
         Instant createdAt,
-        Instant updatedAt) {}
+        Instant updatedAt,
+        List<ManagementWorkLogAttachmentDto> attachments) {}

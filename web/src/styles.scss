@@ -394,10 +394,12 @@ app-management .notes-entry-actions {
   gap: 0.35rem;
   margin-bottom: 0.5rem;
 }
-app-management .notes-attach-row {
+app-management .notes-attach-row,
+app-management-work-panel .notes-attach-row {
   margin: 0.15rem 0 0.35rem;
 }
-app-management .notes-file-label {
+app-management .notes-file-label,
+app-management-work-panel .notes-file-label {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -405,26 +407,31 @@ app-management .notes-file-label {
   font-size: 0.86rem;
   color: var(--app-accent, #2563eb);
 }
-app-management .notes-file-label input[type='file'] {
+app-management .notes-file-label input[type='file'],
+app-management-work-panel .notes-file-label input[type='file'] {
   max-width: 9rem;
   font-size: 0.8rem;
 }
-app-management .notes-file-label-text {
+app-management .notes-file-label-text,
+app-management-work-panel .notes-file-label-text {
   font-weight: 500;
 }
-app-management .notes-attachment-list {
+app-management .notes-attachment-list,
+app-management-work-panel .notes-attachment-list {
   margin: 0.25rem 0 0;
   padding-left: 1.1rem;
   font-size: 0.88rem;
 }
-app-management .notes-attachment-list li {
+app-management .notes-attachment-list li,
+app-management-work-panel .notes-attachment-list li {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.25rem 0.35rem;
   margin-bottom: 0.2rem;
 }
-app-management .notes-att-link {
+app-management .notes-att-link,
+app-management-work-panel .notes-att-link {
   background: none;
   border: none;
   padding: 0;
