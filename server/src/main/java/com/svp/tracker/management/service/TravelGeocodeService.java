@@ -25,17 +25,17 @@ public class TravelGeocodeService {
     private static final int MIN_QUERY_LEN = 3;
     private static final int MAX_QUERY_LEN = 300;
 
+    /** Spring Boot 4 does not expose a {@code com.fasterxml.jackson.databind.ObjectMapper} bean; local mapper for Nominatim JSON only. */
+    private static final ObjectMapper JSON = new ObjectMapper();
+
     private final RestClient nominatim;
-    private final ObjectMapper objectMapper;
     private final String userAgent;
 
     public TravelGeocodeService(
             ClientHttpRequestFactory trackerOutboundHttpRequestFactory,
-            ObjectMapper objectMapper,
             @Value(
                     "${tracker.management.travel.geocode-user-agent:tracker-pg/6.0.0 (github.com/bittext/tracker-pg; travel geocode)}")
                     String userAgent) {
-        this.objectMapper = objectMapper;
         this.userAgent = userAgent;
         this.nominatim = RestClient.builder()
                 .requestFactory(trackerOutboundHttpRequestFactory)
@@ -79,7 +79,7 @@ public class TravelGeocodeService {
         }
         JsonNode root;
         try {
-            root = objectMapper.readTree(body);
+            root = JSON.readTree(body);
         } catch (IOException e) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Could not parse geocoding response", e);
         }
