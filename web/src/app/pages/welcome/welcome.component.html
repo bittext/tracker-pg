@@ -15,10 +15,14 @@
         </p>
         <h1 id="welcome-title" class="welcome-hero__title">Welcome back, {{ displayName }}</h1>
         <p class="welcome-hero__lead">
-          Your personal hub for workouts, money, planning, and notes—organized in one place with a calm, focused layout.
+          Your hub for training, money, planning, and notes. <strong>Finance → Trading → Screeners</strong> adds stock
+          screening (NASDAQ mid-cap focus, 52-week momentum, breakout-style scans, watchlist news sweep) next to banking,
+          market overview, and alerts. Outbound mail for alerts and transactional email supports <strong>Amazon SES</strong>
+          or <strong>SMTP</strong> when the server is configured (see README for env vars).
         </p>
         <div class="welcome-hero__actions">
           <a mat-flat-button color="primary" routerLink="/exercise" class="welcome-hero__cta">Get started → Exercise</a>
+          <a mat-stroked-button routerLink="/finance" class="welcome-hero__cta welcome-hero__cta--alt">Open Finance</a>
           <a mat-stroked-button routerLink="/management" class="welcome-hero__cta welcome-hero__cta--alt"
             >Plan with Management</a
           >
@@ -50,10 +54,14 @@
           <mat-card-header>
             <div mat-card-avatar class="welcome-card__avatar"><mat-icon>account_balance_wallet</mat-icon></div>
             <mat-card-title>Finance</mat-card-title>
-            <mat-card-subtitle>Holdings &amp; money tools</mat-card-subtitle>
+            <mat-card-subtitle>Banking, trading, taxes &amp; alerts</mat-card-subtitle>
           </mat-card-header>
           <mat-card-content>
-            <p>Review positions, tax helpers, banking imports, and optional alerts when configured.</p>
+            <p>
+              <strong>Banking</strong> for institutions, imports, and ledger views. Under <strong>Trading</strong>, use
+              <strong>Screeners</strong> for NASDAQ mid-cap names, names near 52-week highs, breakout-style setups, and a
+              quick watchlist headline sweep—alongside news, alerts, Robinhood summaries, and the market overview tab.
+            </p>
           </mat-card-content>
         </mat-card>
       </a>
@@ -101,8 +109,11 @@
             <mat-card-subtitle>Settings &amp; monitoring</mat-card-subtitle>
           </mat-card-header>
           <mat-card-content>
-            <p>Per-user configuration, your member profile, sign-in history for your account (and full audit if you are an
-              admin), and finance admin tools when available.</p>
+            <p>
+              Per-user configuration, your member profile, sign-in history for your account (and full audit if you are an
+              admin). Admins can tune finance notifications: stock-alert email and SMS can use the default AWS path, and
+              outbound mail may use <strong>SES</strong> or <strong>SMTP</strong> depending on server settings.
+            </p>
           </mat-card-content>
         </mat-card>
       </a>
@@ -145,10 +156,12 @@
       <li class="welcome-step">
         <span class="welcome-step__num" aria-hidden="true">4</span>
         <div class="welcome-step__body">
-          <h3 class="welcome-step__title">Optional: Finance &amp; Journal</h3>
+          <h3 class="welcome-step__title">Optional: Finance, screeners &amp; journal</h3>
           <p>
-            Connect money tracking under <a routerLink="/finance">Finance</a> when you need it. Use
-            <a routerLink="/journal">Journal</a> for dated entries and <a routerLink="/reports">Reports</a> for rollups.
+            Open <a routerLink="/finance">Finance</a> for banking, tax helpers, and the <strong>Trading</strong> tab—try
+            <strong>Screeners</strong> for curated Yahoo-backed lists (including a NASDAQ mid-cap band) and tooling next
+            to news and alerts. Use <a routerLink="/journal">Journal</a> for dated entries and
+            <a routerLink="/reports">Reports</a> for rollups.
           </p>
         </div>
       </li>
