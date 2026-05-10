@@ -2,8 +2,9 @@
   <header class="mt-hero">
     <h2 class="mt-title">Travel</h2>
     <p class="muted mt-lead">
-      Trips and map pins for places you plan to visit or have visited. Choose a time lens, click the map to focus a pin,
-      and attach photos to places. Same private storage as other Management attachments.
+      Trips and map pins for places you plan to visit or have visited. Type an address and use <strong>Look up on map</strong>
+      to resolve it to coordinates (OpenStreetMap data, like consumer map apps). Choose a time lens, click the map to
+      focus a pin, and attach photos to places. Same private storage as other Management attachments.
     </p>
     <div class="mt-lens-bar">
       <button mat-stroked-button type="button" (click)="setLens('overview')" [class.mt-lens--on]="lens === 'overview'">
@@ -42,6 +43,12 @@
         </mat-form-field>
       }
     </div>
+    @if (lens !== 'overview') {
+      <p class="muted mt-lens-hint">
+        <strong>Visited</strong> pins follow each place’s visit date when set. <strong>Planned</strong> pins follow the
+        trip’s start/end dates so the whole itinerary stays on the map for any month or day the trip touches.
+      </p>
+    }
   </header>
 
   <div class="mt-grid">
@@ -179,13 +186,40 @@
         <mat-card appearance="outlined" class="mt-card">
           <mat-card-header>
             <mat-card-title>Add place</mat-card-title>
-            <mat-card-subtitle>Use map center for coordinates</mat-card-subtitle>
+            <mat-card-subtitle>
+              Search by address to place a pin (same idea as map apps—powered by OpenStreetMap). You can still set
+              coordinates from the map or type them.
+            </mat-card-subtitle>
           </mat-card-header>
           <mat-card-content>
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Name</mat-label>
               <input matInput name="npN" [(ngModel)]="newPlace.name" />
             </mat-form-field>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Address or place</mat-label>
+              <input
+                matInput
+                name="npA"
+                [(ngModel)]="newPlace.address"
+                placeholder="e.g. 10 Downing St, London or Eiffel Tower"
+              />
+            </mat-form-field>
+            <div class="mt-geocode-row">
+              <button
+                mat-stroked-button
+                color="primary"
+                type="button"
+                (click)="lookUpNewPlaceAddress()"
+                [disabled]="geocodeBusy"
+              >
+                <mat-icon class="mt-geocode-icon" aria-hidden="true">travel_explore</mat-icon>
+                {{ geocodeBusy ? 'Looking up…' : 'Look up on map' }}
+              </button>
+            </div>
+            @if (newPlaceGeocodeHint) {
+              <p class="muted mt-geocode-hint">{{ newPlaceGeocodeHint }}</p>
+            }
             <div class="mt-two">
               <mat-form-field appearance="outline" class="grow">
                 <mat-label>Latitude</mat-label>
@@ -197,10 +231,6 @@
               </mat-form-field>
             </div>
             <button mat-stroked-button type="button" (click)="useMapCenterForNewPlace()">Use map center</button>
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Address</mat-label>
-              <input matInput name="npA" [(ngModel)]="newPlace.address" />
-            </mat-form-field>
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Place status</mat-label>
               <mat-select name="npPs" [(ngModel)]="newPlace.placeStatus">
@@ -237,6 +267,30 @@
                       <mat-label>Name</mat-label>
                       <input matInput [(ngModel)]="p.name" [name]="'pn' + p.id" />
                     </mat-form-field>
+                    <mat-form-field appearance="outline" class="full-width">
+                      <mat-label>Address or place</mat-label>
+                      <input
+                        matInput
+                        [(ngModel)]="p.address"
+                        [name]="'pa' + p.id"
+                        placeholder="Search to move the pin…"
+                      />
+                    </mat-form-field>
+                    <div class="mt-geocode-row">
+                      <button
+                        mat-stroked-button
+                        color="primary"
+                        type="button"
+                        (click)="lookUpPlaceAddress(p)"
+                        [disabled]="geocodeBusy"
+                      >
+                        <mat-icon class="mt-geocode-icon" aria-hidden="true">travel_explore</mat-icon>
+                        {{ geocodeBusy ? 'Looking up…' : 'Look up on map' }}
+                      </button>
+                    </div>
+                    @if (editPlaceGeocodeHint) {
+                      <p class="muted mt-geocode-hint">{{ editPlaceGeocodeHint }}</p>
+                    }
                     <div class="mt-two">
                       <mat-form-field appearance="outline" class="grow">
                         <mat-label>Lat</mat-label>

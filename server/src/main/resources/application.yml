@@ -72,6 +72,10 @@ tracker:
       - "http://localhost:*"
       - "http://127.0.0.1:*"
       - "http://[::1]:*"
+  management:
+    travel:
+      # User-Agent for OpenStreetMap Nominatim (https://operations.osmfoundation.org/policies/nominatim/). Set a value that identifies your deployment.
+      geocode-user-agent: ${TRACKER_TRAVEL_GEOCODE_USER_AGENT:tracker-pg (https://github.com/bittext/tracker-pg; travel geocode)}
   auth:
     jwt-secret: ${TRACKER_AUTH_JWT_SECRET:dev-secret-change-me-dev-secret-change-me-dev-secret-change-me}
     jwt-ttl-seconds: ${TRACKER_AUTH_JWT_TTL_SECONDS:43200}

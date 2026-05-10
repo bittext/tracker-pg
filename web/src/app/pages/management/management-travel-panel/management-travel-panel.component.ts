@@ -19,6 +19,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import maplibregl, { GeoJSONSource, MapLayerMouseEvent } from 'maplibre-gl';
 import type { FeatureCollection } from 'geojson';
 import {
+  TravelGeocodeResultDto,
   TravelPlaceDto,
   TravelPlaceMapDto,
   TravelPlaceStatus,
@@ -66,6 +67,11 @@ export class ManagementTravelPanelComponent implements OnInit, AfterViewInit, On
   loadingTrips = false;
   loadingMap = false;
   photoUploading = false;
+  geocodeBusy = false;
+  /** Shown after a successful address search for the “Add place” form. */
+  newPlaceGeocodeHint = '';
+  /** Shown after a successful address search in the place editor. */
+  editPlaceGeocodeHint = '';
 
   lens: TravelLens = 'overview';
   lensDayIso = this.toIsoDate(new Date());
@@ -139,6 +145,8 @@ export class ManagementTravelPanelComponent implements OnInit, AfterViewInit, On
   selectTrip(id: number): void {
     this.selectedTripId = id;
     this.selectedPlaceId = null;
+    this.newPlaceGeocodeHint = '';
+    this.editPlaceGeocodeHint = '';
     this.api.getTravelTrip(id).subscribe({
       next: (d) => {
         this.tripDetail = d;
@@ -151,6 +159,8 @@ export class ManagementTravelPanelComponent implements OnInit, AfterViewInit, On
     this.selectedTripId = null;
     this.tripDetail = null;
     this.selectedPlaceId = null;
+    this.newPlaceGeocodeHint = '';
+    this.editPlaceGeocodeHint = '';
   }
 
   setLens(v: TravelLens): void {
@@ -397,10 +407,83 @@ export class ManagementTravelPanelComponent implements OnInit, AfterViewInit, On
     }
     this.newPlace.longitude = Math.round(c.lng * 1e6) / 1e6;
     this.newPlace.latitude = Math.round(c.lat * 1e6) / 1e6;
+    this.newPlaceGeocodeHint = '';
+  }
+
+  lookUpNewPlaceAddress(): void {
+    const q = (this.newPlace.address || '').trim();
+    if (!q) {
+      this.snackBar.open('Enter an address, city, or place name to look up.', undefined, { duration: 3500 });
+      return;
+    }
+    this.runGeocode(q, (r) => {
+      this.newPlace.latitude = this.roundCoord(r.latitude);
+      this.newPlace.longitude = this.roundCoord(r.longitude);
+      this.newPlace.address = r.displayName || this.newPlace.address;
+      if (!(this.newPlace.name || '').trim()) {
+        const guess = (r.locality || '').trim() || (r.displayName || '').split(',')[0]?.trim() || '';
+        if (guess) {
+          this.newPlace.name = guess;
+        }
+      }
+      this.newPlaceGeocodeHint = this.formatGeocodeSummary(r);
+      this.flyMapTo(r.longitude, r.latitude, 12);
+    });
+  }
+
+  lookUpPlaceAddress(p: TravelPlaceDto): void {
+    const q = (p.address || '').trim() || (p.name || '').trim();
+    if (!q) {
+      this.snackBar.open('Enter an address in the field above, or a name to search.', undefined, { duration: 3500 });
+      return;
+    }
+    this.runGeocode(q, (r) => {
+      p.latitude = this.roundCoord(r.latitude);
+      p.longitude = this.roundCoord(r.longitude);
+      p.address = r.displayName || p.address;
+      this.editPlaceGeocodeHint = this.formatGeocodeSummary(r);
+      this.flyMapTo(r.longitude, r.latitude, 12);
+    });
+  }
+
+  private runGeocode(q: string, onOk: (r: TravelGeocodeResultDto) => void): void {
+    this.geocodeBusy = true;
+    this.api.travelGeocode(q).subscribe({
+      next: (r) => {
+        this.geocodeBusy = false;
+        onOk(r);
+        this.snackBar.open('Location found on map', undefined, { duration: 2200 });
+      },
+      error: (e) => {
+        this.geocodeBusy = false;
+        this.err('Address lookup failed', e);
+      },
+    });
+  }
+
+  private formatGeocodeSummary(r: TravelGeocodeResultDto): string {
+    const parts = [r.locality, r.region, r.country].filter((x) => (x || '').trim().length > 0);
+    return parts.length > 0 ? parts.join(' · ') : (r.displayName || 'Matched location');
+  }
+
+  private roundCoord(n: number): number {
+    return Math.round(n * 1e6) / 1e6;
+  }
+
+  private flyMapTo(lng: number, lat: number, zoom: number): void {
+    if (!this.map) {
+      return;
+    }
+    this.map.flyTo({
+      center: [lng, lat],
+      zoom: Math.max(this.map.getZoom(), zoom),
+      essential: true,
+    });
   }
 
   selectPlaceFromList(id: number): void {
     this.selectedPlaceId = id;
+    this.editPlaceGeocodeHint = '';
     const p = this.mapPlaces.find((x) => x.id === id);
     if (p && this.map) {
       this.map.flyTo({ center: [p.longitude, p.latitude], zoom: Math.max(this.map.getZoom(), 10), essential: true });
@@ -426,13 +509,15 @@ export class ManagementTravelPanelComponent implements OnInit, AfterViewInit, On
     if (this.lens === 'day') {
       return { from: this.lensDayIso, to: this.lensDayIso };
     }
+    const y = Math.trunc(Number(this.lensYear)) || new Date().getFullYear();
+    const mo = Math.min(12, Math.max(1, Math.trunc(Number(this.lensMonth)) || 1));
     if (this.lens === 'month') {
-      const from = `${this.lensYear}-${String(this.lensMonth).padStart(2, '0')}-01`;
-      const last = new Date(this.lensYear, this.lensMonth, 0).getDate();
-      const to = `${this.lensYear}-${String(this.lensMonth).padStart(2, '0')}-${String(last).padStart(2, '0')}`;
+      const from = `${y}-${String(mo).padStart(2, '0')}-01`;
+      const last = new Date(y, mo, 0).getDate();
+      const to = `${y}-${String(mo).padStart(2, '0')}-${String(last).padStart(2, '0')}`;
       return { from, to };
     }
-    return { from: `${this.lensYear}-01-01`, to: `${this.lensYear}-12-31` };
+    return { from: `${y}-01-01`, to: `${y}-12-31` };
   }
 
   private initMapWhenReady(): void {

@@ -5,6 +5,7 @@ import com.svp.tracker.config.JournalProperties;
 import com.svp.tracker.fitness.exception.NotFoundException;
 import com.svp.tracker.journal.service.JournalBlobStore;
 import com.svp.tracker.management.domain.TravelPlace;
+import com.svp.tracker.management.domain.TravelPlaceStatus;
 import com.svp.tracker.management.domain.TravelPlacePhoto;
 import com.svp.tracker.management.domain.TravelTrip;
 import com.svp.tracker.management.dto.TravelPlaceDto;
@@ -71,7 +72,8 @@ public class ManagementTravelService {
             if (to.isBefore(from)) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "to must be on or after from");
             }
-            rows = placeRepository.findForOwnerInDateRangeWithTrip(owner, from, to);
+            rows = placeRepository.findForOwnerInDateRangeWithTrip(
+                    owner, from, to, TravelPlaceStatus.VISITED, TravelPlaceStatus.PLANNED);
         }
         return rows.stream().map(this::toMapDto).toList();
     }

@@ -64,3 +64,8 @@ tracker:
       aws-region: ""
       sms-sms-type: TRANSACTIONAL
       sms-sender-id: ""
+
+  # Management → Travel: address search uses OpenStreetMap Nominatim; set geocode-user-agent to identify your app (OSM policy).
+  # management:
+  #   travel:
+  #     geocode-user-agent: "MyApp/1.0 (https://example.com/contact)"

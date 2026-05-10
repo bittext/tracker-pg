@@ -1,5 +1,6 @@
 package com.svp.tracker.management.controller;
 
+import com.svp.tracker.management.dto.TravelGeocodeResultDto;
 import com.svp.tracker.management.dto.TravelPlaceMapDto;
 import com.svp.tracker.management.dto.TravelPlacePhotoDto;
 import com.svp.tracker.management.dto.TravelPlaceWriteRequest;
@@ -7,6 +8,7 @@ import com.svp.tracker.management.dto.TravelTripDetailDto;
 import com.svp.tracker.management.dto.TravelTripSummaryDto;
 import com.svp.tracker.management.dto.TravelTripWriteRequest;
 import com.svp.tracker.management.service.ManagementTravelService;
+import com.svp.tracker.management.service.TravelGeocodeService;
 import com.svp.tracker.management.service.ManagementTravelService.PhotoFile;
 import jakarta.validation.Valid;
 import java.nio.charset.StandardCharsets;
@@ -38,6 +40,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class ManagementTravelController {
 
     private final ManagementTravelService service;
+    private final TravelGeocodeService geocodeService;
 
     @GetMapping("/trips")
     public List<TravelTripSummaryDto> listTrips() {
@@ -64,6 +67,15 @@ public class ManagementTravelController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteTrip(@PathVariable long id) {
         service.deleteTrip(id);
+    }
+
+    /**
+     * Forward-geocode a postal address or place name to coordinates (OpenStreetMap Nominatim via server; suitable
+     * User-Agent is sent per OSM policy).
+     */
+    @GetMapping("/geocode")
+    public TravelGeocodeResultDto geocode(@RequestParam("q") String q) {
+        return geocodeService.geocode(q);
     }
 
     @GetMapping("/places")

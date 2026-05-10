@@ -225,3 +225,13 @@ export interface TravelPlaceMapDto {
   placeStatus: TravelPlaceStatus;
   visitDate: string | null;
 }
+
+/** Forward-geocode result (OpenStreetMap Nominatim via API). */
+export interface TravelGeocodeResultDto {
+  latitude: number;
+  longitude: number;
+  displayName: string;
+  country: string;
+  region: string;
+  locality: string;
+}

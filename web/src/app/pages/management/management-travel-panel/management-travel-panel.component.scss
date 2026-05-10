@@ -42,6 +42,13 @@
   min-width: 0.5rem;
 }
 
+.mt-lens-hint {
+  margin: 0.35rem 0 0;
+  max-width: 70ch;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
 .mt-lens-field {
   width: min(100%, 11rem);
 }
@@ -186,6 +193,24 @@
 
 .mt-legend-swatch--visited {
   background: #16a34a;
+}
+
+.mt-geocode-row {
+  margin: 0.15rem 0 0.5rem;
+}
+
+.mt-geocode-icon {
+  font-size: 1.1rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  margin-right: 0.35rem;
+  vertical-align: middle;
+}
+
+.mt-geocode-hint {
+  margin: 0 0 0.65rem;
+  font-size: 0.85rem;
+  line-height: 1.4;
 }
 
 .mt-two {

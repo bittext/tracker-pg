@@ -18,6 +18,7 @@ import {
   ManagementWorkLogEntryDto,
   ManagementWorkLogEntryWriteBody,
   TaskMonthCalendarDto,
+  TravelGeocodeResultDto,
   TravelPlaceMapDto,
   TravelPlacePhotoDto,
   TravelPlaceWriteBody,
@@ -225,6 +226,12 @@ export class ManagementApiService {
   }
 
   private readonly travelRoot = `${this.root}/travel`;
+
+  travelGeocode(q: string) {
+    return this.http.get<TravelGeocodeResultDto>(`${this.travelRoot}/geocode`, {
+      params: { q },
+    });
+  }
 
   listTravelTrips() {
     return this.http.get<TravelTripSummaryDto[]>(`${this.travelRoot}/trips`);
