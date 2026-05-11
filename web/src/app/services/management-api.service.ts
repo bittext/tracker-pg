@@ -268,6 +268,12 @@ export class ManagementApiService {
     return this.http.post<TravelTripDetailDto>(`${this.travelRoot}/trips/${tripId}/places`, body);
   }
 
+  reorderTravelPlaces(tripId: number, orderedPlaceIds: number[]) {
+    return this.http.put<TravelTripDetailDto>(`${this.travelRoot}/trips/${tripId}/places/order`, {
+      orderedPlaceIds,
+    });
+  }
+
   updateTravelPlace(placeId: number, body: TravelPlaceWriteBody) {
     return this.http.put<TravelTripDetailDto>(`${this.travelRoot}/places/${placeId}`, body);
   }

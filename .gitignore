@@ -1,4 +1,5 @@
 .env.stack
+.cursor/
 target/
 .idea/
 *.iml

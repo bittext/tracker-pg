@@ -3,6 +3,7 @@ package com.svp.tracker.management.controller;
 import com.svp.tracker.management.dto.TravelGeocodeResultDto;
 import com.svp.tracker.management.dto.TravelPlaceMapDto;
 import com.svp.tracker.management.dto.TravelPlacePhotoDto;
+import com.svp.tracker.management.dto.TravelPlacesReorderRequest;
 import com.svp.tracker.management.dto.TravelPlaceWriteRequest;
 import com.svp.tracker.management.dto.TravelTripDetailDto;
 import com.svp.tracker.management.dto.TravelTripSummaryDto;
@@ -88,6 +89,12 @@ public class ManagementTravelController {
     @PostMapping("/trips/{tripId}/places")
     public TravelTripDetailDto addPlace(@PathVariable long tripId, @Valid @RequestBody TravelPlaceWriteRequest body) {
         return service.addPlace(tripId, body);
+    }
+
+    @PutMapping("/trips/{tripId}/places/order")
+    public TravelTripDetailDto reorderPlaces(
+            @PathVariable long tripId, @Valid @RequestBody TravelPlacesReorderRequest body) {
+        return service.reorderPlaces(tripId, body);
     }
 
     @PutMapping("/places/{placeId}")

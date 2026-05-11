@@ -254,13 +254,37 @@
         <mat-card appearance="outlined" class="mt-card">
           <mat-card-header>
             <mat-card-title>Places on this trip</mat-card-title>
+            <mat-card-subtitle>Drag the grip to arrange stops in any order.</mat-card-subtitle>
           </mat-card-header>
           <mat-card-content>
+            <div
+              cdkDropList
+              class="mt-place-drop-list"
+              [cdkDropListDisabled]="reorderPlacesBusy || tripDetail.places.length < 2"
+              (cdkDropListDropped)="onPlacesReorderDrop($event)"
+            >
             @for (p of tripDetail.places; track p.id) {
-              <div class="mt-place-block" [class.mt-place-block--sel]="selectedPlaceId === p.id">
-                <button type="button" class="mt-place-select" (click)="selectPlaceFromList(p.id)">
-                  {{ p.name }} · {{ p.placeStatus }}
-                </button>
+              <div
+                cdkDrag
+                class="mt-place-block"
+                [class.mt-place-block--sel]="selectedPlaceId === p.id"
+                [cdkDragDisabled]="reorderPlacesBusy"
+              >
+                <div class="mt-place-row-head">
+                  <button
+                    mat-icon-button
+                    type="button"
+                    cdkDragHandle
+                    class="mt-place-drag-handle"
+                    [disabled]="reorderPlacesBusy"
+                    aria-label="Drag to reorder places"
+                  >
+                    <mat-icon>drag_indicator</mat-icon>
+                  </button>
+                  <button type="button" class="mt-place-select" (click)="selectPlaceFromList(p.id)">
+                    {{ p.name }} · {{ p.placeStatus }}
+                  </button>
+                </div>
                 @if (selectedPlaceId === p.id) {
                   <div class="mt-place-editor">
                     <mat-form-field appearance="outline" class="full-width">
@@ -346,6 +370,7 @@
                 }
               </div>
             }
+            </div>
           </mat-card-content>
         </mat-card>
       } @else {

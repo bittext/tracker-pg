@@ -11,6 +11,7 @@ import com.svp.tracker.management.domain.TravelTrip;
 import com.svp.tracker.management.dto.TravelPlaceDto;
 import com.svp.tracker.management.dto.TravelPlaceMapDto;
 import com.svp.tracker.management.dto.TravelPlacePhotoDto;
+import com.svp.tracker.management.dto.TravelPlacesReorderRequest;
 import com.svp.tracker.management.dto.TravelPlaceWriteRequest;
 import com.svp.tracker.management.dto.TravelTripDetailDto;
 import com.svp.tracker.management.dto.TravelTripSummaryDto;
@@ -24,8 +25,13 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -149,6 +155,46 @@ public class ManagementTravelService {
         trip.getPlaces().add(p);
         placeRepository.save(p);
         trip.setUpdatedAt(Instant.now());
+        tripRepository.save(trip);
+        return getTrip(tripId);
+    }
+
+    /**
+     * Sets {@code sortOrder} on each place to match {@code orderedPlaceIds} (0-based index). The list must include
+     * every place on the trip exactly once.
+     */
+    @Transactional
+    public TravelTripDetailDto reorderPlaces(long tripId, TravelPlacesReorderRequest req) {
+        long owner = currentUser.requireUserId();
+        TravelTrip trip = tripRepository
+                .findByIdAndOwnerUserId(tripId, owner)
+                .orElseThrow(() -> new NotFoundException("Trip not found: " + tripId));
+        List<Long> ordered = req.orderedPlaceIds();
+        List<TravelPlace> places = placeRepository.findByTripIdWithPhotos(tripId);
+        if (places.isEmpty()) {
+            if (!ordered.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Trip has no places to reorder");
+            }
+            return getTrip(tripId);
+        }
+        Set<Long> existing = places.stream().map(TravelPlace::getId).collect(Collectors.toSet());
+        if (ordered.size() != existing.size()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "orderedPlaceIds must list every place on this trip exactly once");
+        }
+        if (!new HashSet<>(ordered).equals(existing)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "orderedPlaceIds must list every place on this trip exactly once");
+        }
+        Map<Long, TravelPlace> byId = places.stream().collect(Collectors.toMap(TravelPlace::getId, Function.identity()));
+        Instant now = Instant.now();
+        for (int i = 0; i < ordered.size(); i++) {
+            TravelPlace p = byId.get(ordered.get(i));
+            p.setSortOrder(i);
+            p.setUpdatedAt(now);
+        }
+        placeRepository.saveAll(places);
+        trip.setUpdatedAt(now);
         tripRepository.save(trip);
         return getTrip(tripId);
     }

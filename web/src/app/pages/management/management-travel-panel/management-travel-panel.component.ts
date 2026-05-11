@@ -16,6 +16,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import maplibregl, { GeoJSONSource, MapLayerMouseEvent } from 'maplibre-gl';
 import type { FeatureCollection } from 'geojson';
 import {
@@ -47,6 +48,7 @@ type TravelLens = 'day' | 'month' | 'year' | 'overview';
     MatSelectModule,
     MatIconModule,
     MatSnackBarModule,
+    DragDropModule,
     SafeMarkdownPipe,
   ],
   templateUrl: './management-travel-panel.component.html',
@@ -67,6 +69,8 @@ export class ManagementTravelPanelComponent implements OnInit, AfterViewInit, On
   loadingTrips = false;
   loadingMap = false;
   photoUploading = false;
+  /** Saving place order after drag-and-drop. */
+  reorderPlacesBusy = false;
   geocodeBusy = false;
   /** Shown after a successful address search for the “Add place” form. */
   newPlaceGeocodeHint = '';
@@ -302,6 +306,32 @@ export class ManagementTravelPanelComponent implements OnInit, AfterViewInit, On
         },
         error: (e) => this.err('Could not add place', e),
       });
+  }
+
+  onPlacesReorderDrop(event: CdkDragDrop<void>): void {
+    if (!this.tripDetail || event.previousIndex === event.currentIndex) {
+      return;
+    }
+    const tripId = this.tripDetail.id;
+    const places = [...this.tripDetail.places];
+    moveItemInArray(places, event.previousIndex, event.currentIndex);
+    const orderedIds = places.map((p) => p.id);
+    this.tripDetail = { ...this.tripDetail, places };
+    this.reorderPlacesBusy = true;
+    this.api.reorderTravelPlaces(tripId, orderedIds).subscribe({
+      next: (d) => {
+        this.reorderPlacesBusy = false;
+        this.tripDetail = d;
+        this.snackBar.open('Place order saved', undefined, { duration: 2000 });
+        this.reloadTrips();
+        this.reloadMapPlaces();
+      },
+      error: (e) => {
+        this.reorderPlacesBusy = false;
+        this.err('Could not save place order', e);
+        this.selectTrip(tripId);
+      },
+    });
   }
 
   savePlace(p: TravelPlaceDto): void {
