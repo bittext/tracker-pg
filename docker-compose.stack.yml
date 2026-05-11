@@ -80,6 +80,8 @@ services:
       TRACKER_FINANCE_ALERTS_SMS_SENDER_ID: ${TRACKER_FINANCE_ALERTS_SMS_SENDER_ID:-}
       # Browser clients from other hosts / origins (override in .env.stack if needed)
       TRACKER_WEB_CORS_ALLOWED_ORIGIN_PATTERNS_0: ${CORS_PATTERN:-*}
+      # Management → Account: AES-256-GCM seal of password + authenticator key at rest (empty = plaintext, dev only).
+      TRACKER_MANAGEMENT_ACCOUNTS_ENCRYPTION_KEY: ${TRACKER_MANAGEMENT_ACCOUNTS_ENCRYPTION_KEY:-}
       # Journal attachments: leave empty for local disk (TRACKER_JOURNAL_STORAGE_DIR); set bucket for S3.
       TRACKER_JOURNAL_S3_BUCKET: ${TRACKER_JOURNAL_S3_BUCKET:-}
       TRACKER_JOURNAL_S3_REGION: ${TRACKER_JOURNAL_S3_REGION:-us-east-1}

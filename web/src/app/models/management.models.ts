@@ -235,3 +235,33 @@ export interface TravelGeocodeResultDto {
   region: string;
   locality: string;
 }
+
+/** Management → Account: server-backed vault row (one per item). */
+export interface ManagementAccountDto {
+  id: number;
+  itemName: string;
+  folder: string;
+  username: string;
+  password: string;
+  authenticatorKey: string;
+  website: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ManagementAccountWriteBody {
+  itemName: string;
+  folder?: string;
+  username?: string;
+  password?: string;
+  authenticatorKey?: string;
+  website?: string;
+  notes?: string;
+}
+
+export interface ManagementAccountImportResultDto {
+  submitted: number;
+  inserted: number;
+  skippedDuplicates: number;
+}

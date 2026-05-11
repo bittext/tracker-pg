@@ -540,78 +540,78 @@
   padding-left: 0.25rem !important;
 }
 
-.mgmt-utilities-panel {
+.mgmt-accounts-panel {
   max-width: min(100%, 80rem);
 }
 
-.utilities-layout {
+.accounts-layout {
   @media (min-width: 960px) {
     grid-template-columns: minmax(19rem, 34rem) minmax(0, 1fr);
   }
 }
 
-.utilities-list-column {
+.accounts-list-column {
   min-width: 0;
 }
 
-.utilities-list-card mat-card-content {
+.accounts-list-card mat-card-content {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
 }
 
-.utilities-search-field {
+.accounts-search-field {
   margin-bottom: 0.25rem;
 }
 
-.utilities-table-wrap {
+.accounts-table-wrap {
   overflow: auto;
   border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
   border-radius: var(--app-radius-sm, 10px);
   background: #fff;
 }
 
-.utilities-table {
+.accounts-table {
   width: 100%;
   min-width: 22rem;
 }
 
-.utilities-table-row {
+.accounts-table-row {
   cursor: pointer;
 }
 
-.utilities-table-row:hover {
+.accounts-table-row:hover {
   background: rgba(15, 23, 42, 0.04);
 }
 
-.utilities-table-row--selected {
+.accounts-table-row--selected {
   background: rgba(37, 99, 235, 0.08);
 }
 
-.utilities-table-row--selected:hover {
+.accounts-table-row--selected:hover {
   background: rgba(37, 99, 235, 0.1);
 }
 
-.utilities-username-cell {
+.accounts-username-cell {
   max-width: 12rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.utilities-actions-header,
-.utilities-actions-cell {
+.accounts-actions-header,
+.accounts-actions-cell {
   width: 6.5rem;
   text-align: right;
   white-space: nowrap;
 }
 
-.utilities-password-field .mat-mdc-form-field-icon-suffix {
+.accounts-password-field .mat-mdc-form-field-icon-suffix {
   display: flex;
   align-items: center;
 }
 
-.utilities-detail {
+.accounts-detail {
   margin-top: 0.5rem;
   padding: 0.85rem 1rem;
   border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
@@ -619,13 +619,13 @@
   background: var(--app-surface-muted, #f8fafc);
 }
 
-.utilities-detail-title {
+.accounts-detail-title {
   margin: 0 0 0.65rem;
   font-size: 1rem;
   font-weight: 600;
 }
 
-.utilities-detail-dl {
+.accounts-detail-dl {
   margin: 0;
   display: grid;
   grid-template-columns: minmax(7rem, 9rem) 1fr;
@@ -633,40 +633,40 @@
   font-size: 0.9rem;
 }
 
-.utilities-detail-dl dt {
+.accounts-detail-dl dt {
   margin: 0;
   color: var(--app-text-muted, #64748b);
   font-weight: 500;
 }
 
-.utilities-detail-dl dd {
+.accounts-detail-dl dd {
   margin: 0;
   overflow-wrap: anywhere;
 }
 
-.utilities-detail-password {
+.accounts-detail-password {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
 }
 
-.utilities-reveal-btn {
+.accounts-reveal-btn {
   flex-shrink: 0;
 }
 
-.utilities-mask {
+.accounts-mask {
   letter-spacing: 0.08em;
   user-select: none;
 }
 
-.utilities-secret,
-.utilities-secret-wrap {
+.accounts-secret,
+.accounts-secret-wrap {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.88rem;
 }
 
-.utilities-detail-actions {
+.accounts-detail-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
@@ -675,33 +675,33 @@
   border-top: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
 }
 
-.utilities-select-hint {
+.accounts-select-hint {
   margin: 0;
   font-size: 0.9rem;
 }
 
-.utilities-site-row {
+.accounts-site-row {
   display: flex;
   align-items: center;
   gap: 0.15rem;
   flex-wrap: wrap;
   max-width: 100%;
 }
-.utilities-site-open-row {
+.accounts-site-open-row {
   display: flex;
   align-items: center;
   gap: 0.15rem;
   flex-wrap: wrap;
   max-width: 100%;
 }
-.utilities-website-dd {
+.accounts-website-dd {
   margin: 0;
 }
-.utilities-site-hint {
+.accounts-site-hint {
   margin: 0.25rem 0 0;
   font-size: 0.8rem;
 }
-.utilities-site-link {
+.accounts-site-link {
   flex: 1 1 auto;
   min-width: 0;
   text-align: left;
@@ -716,16 +716,16 @@
   font-size: 0.88rem;
   overflow-wrap: anywhere;
 }
-.utilities-site-link:hover {
+.accounts-site-link:hover {
   color: #1d4ed8;
 }
-.utilities-meta {
+.accounts-meta {
   margin: 0 0 0.35rem;
   font-size: 0.82rem;
   color: var(--app-text-muted, #64748b);
 }
 
-.utilities-notes {
+.accounts-notes {
   white-space: pre-wrap;
 }
 

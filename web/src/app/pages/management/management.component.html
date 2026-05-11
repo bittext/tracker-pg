@@ -4,7 +4,7 @@
     Organize to-dos by <strong>balance area</strong> and <strong>urgency</strong>, then review them on the calendar. Define
     <strong>balance categories</strong> and <strong>task types</strong> under <strong>Admin → Management</strong> (per
     login); use this page for tasks, the <strong>Work</strong> hub (work tasks + daily work log), <strong>Travel</strong>
-    (trips and map pins), calendar, utilities, month notes, and year-scoped write-ups. Review sign-in activity under
+    (trips and map pins), calendar, accounts, month notes, and year-scoped write-ups. Review sign-in activity under
     <strong>Admin</strong> →
     <strong>Sign-in log</strong>.
   </p>
@@ -506,23 +506,23 @@
       </div>
     </mat-tab>
 
-    <mat-tab label="Utilities">
-      <div class="tab-panel mgmt-utilities-panel">
-        <section aria-labelledby="utilities-heading">
-          <h2 id="utilities-heading" class="subsection-title">Utilities</h2>
+    <mat-tab label="Account">
+      <div class="tab-panel mgmt-accounts-panel">
+        <section aria-labelledby="accounts-heading">
+          <h2 id="accounts-heading" class="subsection-title">Account</h2>
           <p class="muted">
-            Store utility logins in this browser (local storage), per your app login. Passwords stay hidden until you show
+            Store account logins on the server (encrypted at rest when configured), per your app login. Passwords stay hidden until you show
             them; you can copy a
             password without revealing it. Each
             entry has one optional website — click it in details to open in a new browser tab. Search by folder, item name,
             username, or website.
           </p>
 
-          <div class="mgmt-layout utilities-layout">
-            <section class="mgmt-column" aria-label="Utilities entry form">
+          <div class="mgmt-layout accounts-layout">
+            <section class="mgmt-column" aria-label="Account entry form">
               <mat-card appearance="outlined" class="mgmt-nested-card">
                 <mat-card-header>
-                  <mat-card-title>{{ utilityEditingId != null ? 'Edit utility' : 'Add utility' }}</mat-card-title>
+                  <mat-card-title>{{ accountEditingId != null ? 'Edit account' : 'Add account' }}</mat-card-title>
                   <mat-card-subtitle>Item details, credentials, website, and notes</mat-card-subtitle>
                 </mat-card-header>
                 <mat-card-content>
@@ -533,7 +533,7 @@
                       <input
                         matInput
                         name="uItemName"
-                        [(ngModel)]="utilityEntryDraft.itemName"
+                        [(ngModel)]="accountEntryDraft.itemName"
                         required
                         placeholder="e.g. Work email vault"
                         autocomplete="off"
@@ -544,7 +544,7 @@
                       <input
                         matInput
                         name="uFolder"
-                        [(ngModel)]="utilityEntryDraft.folder"
+                        [(ngModel)]="accountEntryDraft.folder"
                         placeholder="e.g. Personal / Work"
                         autocomplete="off"
                       />
@@ -555,31 +555,31 @@
                   <div class="form-row wrap">
                     <mat-form-field appearance="outline" class="grow">
                       <mat-label>Username</mat-label>
-                      <input matInput name="uUsername" [(ngModel)]="utilityEntryDraft.username" autocomplete="username" />
+                      <input matInput name="uUsername" [(ngModel)]="accountEntryDraft.username" autocomplete="username" />
                     </mat-form-field>
-                    <mat-form-field appearance="outline" class="grow utilities-password-field">
+                    <mat-form-field appearance="outline" class="grow accounts-password-field">
                       <mat-label>Password</mat-label>
                       <input
                         matInput
-                        [type]="utilityFormPasswordVisible ? 'text' : 'password'"
+                        [type]="accountFormPasswordVisible ? 'text' : 'password'"
                         name="uPassword"
-                        [(ngModel)]="utilityEntryDraft.password"
+                        [(ngModel)]="accountEntryDraft.password"
                         autocomplete="new-password"
                       />
                       <button
                         mat-icon-button
                         matSuffix
                         type="button"
-                        (click)="utilityFormPasswordVisible = !utilityFormPasswordVisible"
-                        [attr.aria-label]="utilityFormPasswordVisible ? 'Hide password' : 'Show password'"
+                        (click)="accountFormPasswordVisible = !accountFormPasswordVisible"
+                        [attr.aria-label]="accountFormPasswordVisible ? 'Hide password' : 'Show password'"
                       >
-                        <mat-icon>{{ utilityFormPasswordVisible ? 'visibility_off' : 'visibility' }}</mat-icon>
+                        <mat-icon>{{ accountFormPasswordVisible ? 'visibility_off' : 'visibility' }}</mat-icon>
                       </button>
                     </mat-form-field>
                   </div>
                   <mat-form-field appearance="outline" class="full-width-field">
                     <mat-label>Authenticator key</mat-label>
-                    <input matInput name="uAuthKey" [(ngModel)]="utilityEntryDraft.authenticatorKey" autocomplete="off" />
+                    <input matInput name="uAuthKey" [(ngModel)]="accountEntryDraft.authenticatorKey" autocomplete="off" />
                   </mat-form-field>
 
                   <h3 class="form-section-title">Website</h3>
@@ -588,7 +588,7 @@
                     <input
                       matInput
                       name="uWebsite"
-                      [(ngModel)]="utilityEntryDraft.website"
+                      [(ngModel)]="accountEntryDraft.website"
                       placeholder="https://example.com/login"
                       autocomplete="off"
                     />
@@ -601,56 +601,67 @@
                       matInput
                       rows="4"
                       name="uNotes"
-                      [(ngModel)]="utilityEntryDraft.notes"
-                      placeholder="Add any notes for this utility item"
+                      [(ngModel)]="accountEntryDraft.notes"
+                      placeholder="Add any notes for this account"
                     ></textarea>
                   </mat-form-field>
 
                   <div class="form-actions">
-                    <button mat-flat-button color="primary" type="button" (click)="saveUtilityEntry()">
-                      {{ utilityEditingId != null ? 'Save changes' : 'Save utility item' }}
+                    <button
+                      mat-flat-button
+                      color="primary"
+                      type="button"
+                      (click)="saveAccountEntry()"
+                      [disabled]="accountsSaving"
+                    >
+                      {{ accountEditingId != null ? 'Save changes' : 'Save account' }}
                     </button>
-                    @if (utilityEditingId != null) {
-                      <button mat-button type="button" (click)="cancelUtilityEdit()">Cancel edit</button>
+                    @if (accountEditingId != null) {
+                      <button mat-button type="button" (click)="cancelAccountEdit()" [disabled]="accountsSaving">
+                        Cancel edit
+                      </button>
                     } @else {
-                      <button mat-button type="button" (click)="resetUtilityForm()">Clear</button>
+                      <button mat-button type="button" (click)="resetAccountForm()" [disabled]="accountsSaving">
+                        Clear
+                      </button>
                     }
                   </div>
                 </mat-card-content>
               </mat-card>
             </section>
 
-            <section class="mgmt-column utilities-list-column" aria-label="Saved utilities list and details">
-              <mat-card appearance="outlined" class="mgmt-nested-card utilities-list-card">
+            <section class="mgmt-column accounts-list-column" aria-label="Saved accounts list and details">
+              <mat-card appearance="outlined" class="mgmt-nested-card accounts-list-card">
                 <mat-card-header>
-                  <mat-card-title>Saved utilities</mat-card-title>
+                  <mat-card-title>Saved accounts</mat-card-title>
                   <mat-card-subtitle
-                    >{{ utilityEntries.length }} total
-                    @if (utilitySearchQuery.trim() && filteredUtilityEntries.length !== utilityEntries.length) {
-                      · {{ filteredUtilityEntries.length }} match
+                    >@if (accountsLoading) { Loading… · }{{ accountEntries.length }} total
+                    @if (accountSearchQuery.trim() && filteredAccountEntries.length !== accountEntries.length) {
+                      · {{ filteredAccountEntries.length }} match
                     }
+                    · stored on the server (encrypted at rest when configured)
                   </mat-card-subtitle>
                 </mat-card-header>
                 <mat-card-content>
-                  <mat-form-field appearance="outline" class="full-width-field utilities-search-field">
+                  <mat-form-field appearance="outline" class="full-width-field accounts-search-field">
                     <mat-label>Search</mat-label>
                     <input
                       matInput
                       name="uSearch"
-                      [(ngModel)]="utilitySearchQuery"
+                      [(ngModel)]="accountSearchQuery"
                       placeholder="Folder, item name, username, or website"
                       autocomplete="off"
                     />
                     <mat-icon matPrefix>search</mat-icon>
                   </mat-form-field>
 
-                  @if (!utilityEntries.length) {
-                    <p class="muted empty-hint">No utility information captured yet.</p>
-                  } @else if (!filteredUtilityEntries.length) {
+                  @if (!accountEntries.length) {
+                    <p class="muted empty-hint">No accounts captured yet.</p>
+                  } @else if (!filteredAccountEntries.length) {
                     <p class="muted empty-hint">No entries match your search.</p>
                   } @else {
-                    <div class="utilities-table-wrap">
-                      <table mat-table [dataSource]="filteredUtilityEntries" class="utilities-table">
+                    <div class="accounts-table-wrap">
+                      <table mat-table [dataSource]="filteredAccountEntries" class="accounts-table">
                         <ng-container matColumnDef="folder">
                           <th mat-header-cell *matHeaderCellDef>Folder</th>
                           <td mat-cell *matCellDef="let entry">{{ entry.folder || '—' }}</td>
@@ -661,15 +672,15 @@
                         </ng-container>
                         <ng-container matColumnDef="username">
                           <th mat-header-cell *matHeaderCellDef>Username</th>
-                          <td mat-cell *matCellDef="let entry" class="utilities-username-cell">{{ entry.username || '—' }}</td>
+                          <td mat-cell *matCellDef="let entry" class="accounts-username-cell">{{ entry.username || '—' }}</td>
                         </ng-container>
                         <ng-container matColumnDef="actions">
-                          <th mat-header-cell *matHeaderCellDef class="utilities-actions-header"></th>
-                          <td mat-cell *matCellDef="let entry" (click)="$event.stopPropagation()" class="utilities-actions-cell">
+                          <th mat-header-cell *matHeaderCellDef class="accounts-actions-header"></th>
+                          <td mat-cell *matCellDef="let entry" (click)="$event.stopPropagation()" class="accounts-actions-cell">
                             <button
                               mat-icon-button
                               type="button"
-                              (click)="startEditUtilityEntry(entry, $event)"
+                              (click)="startEditAccountEntry(entry, $event)"
                               aria-label="Edit entry"
                             >
                               <mat-icon>edit</mat-icon>
@@ -678,57 +689,57 @@
                               mat-icon-button
                               type="button"
                               color="warn"
-                              (click)="deleteUtilityEntry(entry.id, $event)"
+                              (click)="deleteAccountEntry(entry.id, $event)"
                               aria-label="Delete entry"
                             >
                               <mat-icon>delete</mat-icon>
                             </button>
                           </td>
                         </ng-container>
-                        <tr mat-header-row *matHeaderRowDef="utilityTableColumns"></tr>
+                        <tr mat-header-row *matHeaderRowDef="accountTableColumns"></tr>
                         <tr
                           mat-row
-                          *matRowDef="let entry; columns: utilityTableColumns; trackBy: trackByUtilityId"
-                          class="utilities-table-row"
-                          [class.utilities-table-row--selected]="isUtilityRowSelected(entry)"
-                          (click)="selectUtilityEntry(entry)"
+                          *matRowDef="let entry; columns: accountTableColumns; trackBy: trackByAccountId"
+                          class="accounts-table-row"
+                          [class.accounts-table-row--selected]="isAccountRowSelected(entry)"
+                          (click)="selectAccountEntry(entry)"
                         ></tr>
                       </table>
                     </div>
                   }
 
-                  @if (selectedUtilityEntry) {
-                    <div class="utilities-detail" aria-live="polite">
-                      <h3 class="utilities-detail-title">Details</h3>
-                      <dl class="utilities-detail-dl">
+                  @if (selectedAccountEntry) {
+                    <div class="accounts-detail" aria-live="polite">
+                      <h3 class="accounts-detail-title">Details</h3>
+                      <dl class="accounts-detail-dl">
                         <dt>Item name</dt>
-                        <dd>{{ selectedUtilityEntry.itemName }}</dd>
+                        <dd>{{ selectedAccountEntry.itemName }}</dd>
                         <dt>Folder</dt>
-                        <dd>{{ selectedUtilityEntry.folder || '—' }}</dd>
+                        <dd>{{ selectedAccountEntry.folder || '—' }}</dd>
                         <dt>Username</dt>
-                        <dd>{{ selectedUtilityEntry.username || '—' }}</dd>
+                        <dd>{{ selectedAccountEntry.username || '—' }}</dd>
                         <dt>Password</dt>
-                        <dd class="utilities-detail-password">
-                          @if (!selectedUtilityEntry.password) {
+                        <dd class="accounts-detail-password">
+                          @if (!selectedAccountEntry.password) {
                             <span class="muted">—</span>
                           } @else {
-                            @if (utilityDetailPasswordVisible) {
-                              <span class="utilities-secret">{{ selectedUtilityEntry.password }}</span>
+                            @if (accountDetailPasswordVisible) {
+                              <span class="accounts-secret">{{ selectedAccountEntry.password }}</span>
                               <button
                                 mat-stroked-button
                                 type="button"
-                                class="utilities-reveal-btn"
-                                (click)="utilityDetailPasswordVisible = false"
+                                class="accounts-reveal-btn"
+                                (click)="accountDetailPasswordVisible = false"
                               >
                                 Hide
                               </button>
                             } @else {
-                              <span class="utilities-mask" aria-hidden="true">••••••••</span>
+                              <span class="accounts-mask" aria-hidden="true">••••••••</span>
                               <button
                                 mat-stroked-button
                                 type="button"
-                                class="utilities-reveal-btn"
-                                (click)="utilityDetailPasswordVisible = true"
+                                class="accounts-reveal-btn"
+                                (click)="accountDetailPasswordVisible = true"
                               >
                                 Show
                               </button>
@@ -736,7 +747,7 @@
                             <button
                               mat-icon-button
                               type="button"
-                              (click)="copyUtilityPasswordToClipboard(selectedUtilityEntry.password); $event.stopPropagation()"
+                              (click)="copyAccountPasswordToClipboard(selectedAccountEntry.password); $event.stopPropagation()"
                               aria-label="Copy password"
                             >
                               <mat-icon>content_copy</mat-icon>
@@ -744,50 +755,50 @@
                           }
                         </dd>
                         <dt>Authenticator key</dt>
-                        <dd class="utilities-secret-wrap">{{ selectedUtilityEntry.authenticatorKey || '—' }}</dd>
+                        <dd class="accounts-secret-wrap">{{ selectedAccountEntry.authenticatorKey || '—' }}</dd>
                         <dt>Website</dt>
-                        <dd (click)="$event.stopPropagation()" class="utilities-website-dd">
-                          @if (!(selectedUtilityEntry.website || '').trim()) {
+                        <dd (click)="$event.stopPropagation()" class="accounts-website-dd">
+                          @if (!(selectedAccountEntry.website || '').trim()) {
                             <span class="muted">—</span>
                           } @else {
-                            <div class="utilities-site-open-row">
+                            <div class="accounts-site-open-row">
                               <button
                                 type="button"
-                                class="utilities-site-link"
-                                (click)="openUtilityWebsiteInNewTab(selectedUtilityEntry.website, $event)"
+                                class="accounts-site-link"
+                                (click)="openAccountWebsiteInNewTab(selectedAccountEntry.website, $event)"
                               >
-                                {{ selectedUtilityEntry.website }}
+                                {{ selectedAccountEntry.website }}
                               </button>
                               <button
                                 mat-icon-button
                                 type="button"
-                                (click)="copyUtilityUrlToClipboard(selectedUtilityEntry.website); $event.stopPropagation()"
+                                (click)="copyAccountUrlToClipboard(selectedAccountEntry.website); $event.stopPropagation()"
                                 aria-label="Copy website URL"
                               >
                                 <mat-icon>content_copy</mat-icon>
                               </button>
                             </div>
-                            <p class="muted utilities-site-hint">Opens in a new tab</p>
+                            <p class="muted accounts-site-hint">Opens in a new tab</p>
                           }
                         </dd>
                         <dt>Notes</dt>
-                        <dd class="utilities-notes">{{ selectedUtilityEntry.notes || '—' }}</dd>
+                        <dd class="accounts-notes">{{ selectedAccountEntry.notes || '—' }}</dd>
                         <dt>Created</dt>
-                        <dd class="utilities-meta">{{ selectedUtilityEntry.createdAt || '—' }}</dd>
-                        @if (selectedUtilityEntry.updatedAt) {
+                        <dd class="accounts-meta">{{ selectedAccountEntry.createdAt || '—' }}</dd>
+                        @if (selectedAccountEntry.updatedAt) {
                           <dt>Updated</dt>
-                          <dd class="utilities-meta">{{ selectedUtilityEntry.updatedAt }}</dd>
+                          <dd class="accounts-meta">{{ selectedAccountEntry.updatedAt }}</dd>
                         }
                       </dl>
-                      <div class="utilities-detail-actions">
-                        <button mat-stroked-button type="button" (click)="startEditUtilityEntry(selectedUtilityEntry)">Edit</button>
-                        <button mat-button type="button" color="warn" (click)="deleteUtilityEntry(selectedUtilityEntry.id)">
+                      <div class="accounts-detail-actions">
+                        <button mat-stroked-button type="button" (click)="startEditAccountEntry(selectedAccountEntry)">Edit</button>
+                        <button mat-button type="button" color="warn" (click)="deleteAccountEntry(selectedAccountEntry.id)">
                           Delete
                         </button>
                       </div>
                     </div>
-                  } @else if (utilityEntries.length) {
-                    <p class="muted utilities-select-hint">Select a row to view full details.</p>
+                  } @else if (accountEntries.length) {
+                    <p class="muted accounts-select-hint">Select a row to view full details.</p>
                   }
                 </mat-card-content>
               </mat-card>

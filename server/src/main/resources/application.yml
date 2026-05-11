@@ -77,6 +77,10 @@ tracker:
       # User-Agent for OpenStreetMap Nominatim (see OSM usage policy). No literal "https:" in the ${…:default} here —
       # Spring treats the first colon as the default separator. Override in production with TRACKER_TRAVEL_GEOCODE_USER_AGENT.
       geocode-user-agent: ${TRACKER_TRAVEL_GEOCODE_USER_AGENT:tracker-pg/6.0.0 (github.com/bittext/tracker-pg; travel geocode)}
+    accounts:
+      # AES-256-GCM sealing for Account password + authenticator key at rest (passphrase or Base64 32-byte key).
+      # Empty = store plaintext (dev only); production deployments MUST set TRACKER_MANAGEMENT_ACCOUNTS_ENCRYPTION_KEY.
+      encryption-key: ${TRACKER_MANAGEMENT_ACCOUNTS_ENCRYPTION_KEY:}
   auth:
     jwt-secret: ${TRACKER_AUTH_JWT_SECRET:dev-secret-change-me-dev-secret-change-me-dev-secret-change-me}
     jwt-ttl-seconds: ${TRACKER_AUTH_JWT_TTL_SECONDS:43200}

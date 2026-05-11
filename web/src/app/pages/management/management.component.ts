@@ -18,6 +18,8 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { catchError, forkJoin, of } from 'rxjs';
 import {
   BalanceUrgency,
+  ManagementAccountDto,
+  ManagementAccountWriteBody,
   ManagementMonthNoteCalendarDto,
   ManagementMonthNoteDto,
   ManagementWriteupAttachmentDto,
@@ -69,7 +71,7 @@ interface ReportCalCell {
   trackKey: string;
 }
 
-interface UtilityEntry {
+interface AccountEntry {
   id: number;
   itemName: string;
   folder: string;
@@ -110,8 +112,11 @@ interface UtilityEntry {
   styleUrl: './management.component.scss',
 })
 export class ManagementComponent implements OnInit {
-  /** Legacy unscoped key (pre–per-user storage). Migrated to the `spulickal` user key when they sign in. */
-  private static readonly UTILITIES_STORAGE_KEY_BASE = 'management.utilities.entries.v1';
+  /**
+   * Legacy unscoped key (pre–per-user storage). The string is kept verbatim so prior installs can still be detected
+   * and migrated to the server vault on first login. Do not rename the string value.
+   */
+  private static readonly LEGACY_LOCAL_STORAGE_KEY_BASE = 'management.utilities.entries.v1';
   private readonly auth = inject(AuthService);
   private readonly api = inject(ManagementApiService);
   private readonly reportCalApi = inject(ReportCalendarApiService);
@@ -161,7 +166,7 @@ export class ManagementComponent implements OnInit {
   readonly yearMonthIndex = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
   readonly reportCalendarTypeLabel = reportCalendarTypeLabel;
 
-  utilityEntryDraft = {
+  accountEntryDraft = {
     itemName: '',
     folder: '',
     username: '',
@@ -171,20 +176,24 @@ export class ManagementComponent implements OnInit {
     notes: '',
   };
   /** When set, the form is editing an existing record. */
-  utilityEditingId: number | null = null;
+  accountEditingId: number | null = null;
   /** Selected row for the details panel. */
-  selectedUtilityEntryId: number | null = null;
+  selectedAccountEntryId: number | null = null;
   /** Single search string across folder, item name, username, and website. */
-  utilitySearchQuery = '';
+  accountSearchQuery = '';
   /** Password field in add/edit form: hidden until toggled. */
-  utilityFormPasswordVisible = false;
+  accountFormPasswordVisible = false;
   /** Reveal password in the details panel. */
-  utilityDetailPasswordVisible = false;
-  utilityEntries: UtilityEntry[] = [];
+  accountDetailPasswordVisible = false;
+  accountEntries: AccountEntry[] = [];
+  /** True while the initial list is being fetched from the server. */
+  accountsLoading = false;
+  /** True while a create/update/delete call is in flight. */
+  accountsSaving = false;
 
-  readonly utilityTableColumns: string[] = ['folder', 'itemName', 'username', 'actions'];
+  readonly accountTableColumns: string[] = ['folder', 'itemName', 'username', 'actions'];
 
-  /** 0 Tasks, 1 Work, 2 Travel, 3 Calendar, 4 Utilities, 5 Notes, 6 Write-up */
+  /** 0 Tasks, 1 Work, 2 Travel, 3 Calendar, 4 Account, 5 Notes, 6 Write-up */
   private readonly MGMT_TAB_WORK = 1;
   private readonly MGMT_TAB_TRAVEL = 2;
   private readonly MGMT_TAB_NOTES = 5;
@@ -233,15 +242,15 @@ export class ManagementComponent implements OnInit {
     this.resetForm();
     this.reloadRefsAndCalendar();
     this.loadReportCalendar();
-    this.loadUtilitiesFromStorage();
+    this.loadAccountsFromServer();
   }
 
-  get filteredUtilityEntries(): UtilityEntry[] {
-    const q = this.utilitySearchQuery.trim().toLowerCase();
+  get filteredAccountEntries(): AccountEntry[] {
+    const q = this.accountSearchQuery.trim().toLowerCase();
     if (!q) {
-      return this.utilityEntries;
+      return this.accountEntries;
     }
-    return this.utilityEntries.filter((e) => {
+    return this.accountEntries.filter((e) => {
       const folder = (e.folder || '').toLowerCase();
       const name = (e.itemName || '').toLowerCase();
       const user = (e.username || '').toLowerCase();
@@ -250,29 +259,29 @@ export class ManagementComponent implements OnInit {
     });
   }
 
-  get selectedUtilityEntry(): UtilityEntry | null {
-    if (this.selectedUtilityEntryId == null) {
+  get selectedAccountEntry(): AccountEntry | null {
+    if (this.selectedAccountEntryId == null) {
       return null;
     }
-    return this.utilityEntries.find((e) => e.id === this.selectedUtilityEntryId) ?? null;
+    return this.accountEntries.find((e) => e.id === this.selectedAccountEntryId) ?? null;
   }
 
-  selectUtilityEntry(entry: UtilityEntry): void {
-    this.selectedUtilityEntryId = entry.id;
-    this.utilityDetailPasswordVisible = false;
+  selectAccountEntry(entry: AccountEntry): void {
+    this.selectedAccountEntryId = entry.id;
+    this.accountDetailPasswordVisible = false;
   }
 
-  trackByUtilityId = (_: number, e: UtilityEntry) => e.id;
+  trackByAccountId = (_: number, e: AccountEntry) => e.id;
 
-  isUtilityRowSelected(entry: UtilityEntry): boolean {
-    return this.selectedUtilityEntryId === entry.id;
+  isAccountRowSelected(entry: AccountEntry): boolean {
+    return this.selectedAccountEntryId === entry.id;
   }
 
-  startEditUtilityEntry(entry: UtilityEntry, ev?: Event): void {
+  startEditAccountEntry(entry: AccountEntry, ev?: Event): void {
     ev?.stopPropagation();
-    this.utilityEditingId = entry.id;
-    this.utilityFormPasswordVisible = false;
-    this.utilityEntryDraft = {
+    this.accountEditingId = entry.id;
+    this.accountFormPasswordVisible = false;
+    this.accountEntryDraft = {
       itemName: entry.itemName,
       folder: entry.folder,
       username: entry.username,
@@ -283,76 +292,93 @@ export class ManagementComponent implements OnInit {
     };
   }
 
-  saveUtilityEntry(): void {
-    const itemName = this.utilityEntryDraft.itemName.trim();
+  saveAccountEntry(): void {
+    const itemName = this.accountEntryDraft.itemName.trim();
     if (!itemName) {
       this.snackBar.open('Item name is required', undefined, { duration: 2500 });
       return;
     }
-    const now = new Date().toISOString();
-    const base = {
+    if (this.accountsSaving) {
+      return;
+    }
+    const body: ManagementAccountWriteBody = {
       itemName,
-      folder: this.utilityEntryDraft.folder.trim(),
-      username: this.utilityEntryDraft.username.trim(),
-      password: this.utilityEntryDraft.password.trim(),
-      authenticatorKey: this.utilityEntryDraft.authenticatorKey.trim(),
-      website: this.utilityEntryDraft.website.trim(),
-      notes: this.utilityEntryDraft.notes.trim(),
+      folder: this.accountEntryDraft.folder.trim(),
+      username: this.accountEntryDraft.username.trim(),
+      password: this.accountEntryDraft.password.trim(),
+      authenticatorKey: this.accountEntryDraft.authenticatorKey.trim(),
+      website: this.accountEntryDraft.website.trim(),
+      notes: this.accountEntryDraft.notes.trim(),
     };
 
-    if (this.utilityEditingId != null) {
-      const id = this.utilityEditingId;
-      const prev = this.utilityEntries.find((e) => e.id === id);
-      if (!prev) {
-        this.snackBar.open('Entry no longer exists', undefined, { duration: 2500 });
-        this.resetUtilityForm();
-        return;
-      }
-      const updated: UtilityEntry = {
-        ...base,
-        id: prev.id,
-        createdAt: prev.createdAt,
-        updatedAt: now,
-      };
-      this.utilityEntries = this.utilityEntries.map((e) => (e.id === id ? updated : e));
-      this.persistUtilitiesToStorage();
-      this.resetUtilityForm();
-      this.snackBar.open('Utility item updated', undefined, { duration: 2500 });
+    if (this.accountEditingId != null) {
+      const id = this.accountEditingId;
+      this.accountsSaving = true;
+      this.api.updateAccount(id, body).subscribe({
+        next: (dto) => {
+          this.accountsSaving = false;
+          const updated = this.toUiEntry(dto);
+          this.accountEntries = this.accountEntries.map((e) => (e.id === id ? updated : e));
+          this.resetAccountForm();
+          this.snackBar.open('Account updated', undefined, { duration: 2500 });
+        },
+        error: (e) => {
+          this.accountsSaving = false;
+          this.err('Could not update account', e);
+        },
+      });
       return;
     }
 
-    const entry: UtilityEntry = {
-      ...base,
-      id: Date.now(),
-      createdAt: now,
-    };
-    this.utilityEntries = [entry, ...this.utilityEntries];
-    this.persistUtilitiesToStorage();
-    this.resetUtilityForm();
-    this.selectedUtilityEntryId = entry.id;
-    this.snackBar.open('Utility item saved', undefined, { duration: 2500 });
+    this.accountsSaving = true;
+    this.api.createAccount(body).subscribe({
+      next: (dto) => {
+        this.accountsSaving = false;
+        const entry = this.toUiEntry(dto);
+        this.accountEntries = [entry, ...this.accountEntries];
+        this.resetAccountForm();
+        this.selectedAccountEntryId = entry.id;
+        this.snackBar.open('Account saved', undefined, { duration: 2500 });
+      },
+      error: (e) => {
+        this.accountsSaving = false;
+        this.err('Could not save account', e);
+      },
+    });
   }
 
-  deleteUtilityEntry(id: number, ev?: Event): void {
+  deleteAccountEntry(id: number, ev?: Event): void {
     ev?.stopPropagation();
-    if (!window.confirm('Delete this utility entry? This cannot be undone.')) {
+    if (!window.confirm('Delete this account? This cannot be undone.')) {
       return;
     }
-    this.utilityEntries = this.utilityEntries.filter((e) => e.id !== id);
-    if (this.selectedUtilityEntryId === id) {
-      this.selectedUtilityEntryId = null;
+    if (this.accountsSaving) {
+      return;
     }
-    if (this.utilityEditingId === id) {
-      this.resetUtilityForm();
-    }
-    this.persistUtilitiesToStorage();
-    this.snackBar.open('Utility item removed', undefined, { duration: 2500 });
+    this.accountsSaving = true;
+    this.api.deleteAccount(id).subscribe({
+      next: () => {
+        this.accountsSaving = false;
+        this.accountEntries = this.accountEntries.filter((e) => e.id !== id);
+        if (this.selectedAccountEntryId === id) {
+          this.selectedAccountEntryId = null;
+        }
+        if (this.accountEditingId === id) {
+          this.resetAccountForm();
+        }
+        this.snackBar.open('Account removed', undefined, { duration: 2500 });
+      },
+      error: (e) => {
+        this.accountsSaving = false;
+        this.err('Could not remove account', e);
+      },
+    });
   }
 
-  resetUtilityForm(): void {
-    this.utilityEditingId = null;
-    this.utilityFormPasswordVisible = false;
-    this.utilityEntryDraft = {
+  resetAccountForm(): void {
+    this.accountEditingId = null;
+    this.accountFormPasswordVisible = false;
+    this.accountEntryDraft = {
       itemName: '',
       folder: '',
       username: '',
@@ -363,12 +389,12 @@ export class ManagementComponent implements OnInit {
     };
   }
 
-  cancelUtilityEdit(): void {
-    this.resetUtilityForm();
+  cancelAccountEdit(): void {
+    this.resetAccountForm();
   }
 
   /** Normalize to http(s) URL or return null if invalid. */
-  normalizeUtilityUrl(raw: string): string | null {
+  normalizeAccountUrl(raw: string): string | null {
     const t = raw.trim();
     if (!t) {
       return null;
@@ -389,10 +415,10 @@ export class ManagementComponent implements OnInit {
   }
 
   /** Open saved website in a new browser tab. */
-  openUtilityWebsiteInNewTab(raw: string, ev?: Event): void {
+  openAccountWebsiteInNewTab(raw: string, ev?: Event): void {
     ev?.preventDefault();
     ev?.stopPropagation();
-    const url = this.normalizeUtilityUrl(raw);
+    const url = this.normalizeAccountUrl(raw);
     if (!url) {
       this.snackBar.open('Invalid or empty URL', undefined, { duration: 2500 });
       return;
@@ -400,8 +426,8 @@ export class ManagementComponent implements OnInit {
     window.open(url, '_blank', 'noopener,noreferrer');
   }
 
-  copyUtilityUrlToClipboard(raw: string): void {
-    const normalized = this.normalizeUtilityUrl(raw);
+  copyAccountUrlToClipboard(raw: string): void {
+    const normalized = this.normalizeAccountUrl(raw);
     const text = normalized ?? raw.trim();
     if (!text) {
       return;
@@ -416,7 +442,7 @@ export class ManagementComponent implements OnInit {
     );
   }
 
-  copyUtilityPasswordToClipboard(raw: string): void {
+  copyAccountPasswordToClipboard(raw: string): void {
     const text = raw.trim();
     if (!text) {
       return;
@@ -1519,105 +1545,178 @@ export class ManagementComponent implements OnInit {
     this.snackBar.open(`${msg}: ${formatHttpErrorDetail(e)}`, 'Dismiss', { duration: 8000 });
   }
 
-  /** `localStorage` key for the signed-in app user; not the “site username” field on each entry. */
-  private utilitiesStorageKey(): string | null {
+  /** `localStorage` key for the signed-in app user; preserved only for one-time migration to the server vault. */
+  private accountsStorageKey(): string | null {
     const u = this.auth.username?.trim();
     if (!u) {
       return null;
     }
-    return `${ManagementComponent.UTILITIES_STORAGE_KEY_BASE}.user.${u.toLowerCase()}`;
+    return `${ManagementComponent.LEGACY_LOCAL_STORAGE_KEY_BASE}.user.${u.toLowerCase()}`;
+  }
+
+  /** Server DTO → UI entry. UI keeps the same shape it had under localStorage so the template doesn't need changes. */
+  private toUiEntry(dto: ManagementAccountDto): AccountEntry {
+    return {
+      id: dto.id,
+      itemName: dto.itemName ?? '',
+      folder: dto.folder ?? '',
+      username: dto.username ?? '',
+      password: dto.password ?? '',
+      authenticatorKey: dto.authenticatorKey ?? '',
+      website: dto.website ?? '',
+      notes: dto.notes ?? '',
+      createdAt: dto.createdAt ?? '',
+      updatedAt: dto.updatedAt && dto.updatedAt.trim() !== '' ? dto.updatedAt : undefined,
+    };
   }
 
   /**
-   * One-time: data stored under the legacy unscoped key is assigned to the `spulickal` app account.
+   * Initial load: pull entries from the server. If the server is empty for this owner and the browser still has
+   * legacy localStorage entries (per-user key or the unscoped pre-multi-user key), bulk-import them once and clear
+   * the local copies so the server becomes the single source of truth.
    */
-  private migrateLegacyUtilitiesToSpulickalIfNeeded(userKey: string): void {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    if (this.auth.username?.trim().toLowerCase() !== 'spulickal') {
-      return;
-    }
-    const current = window.localStorage.getItem(userKey);
-    if (current) {
-      try {
-        const parsed = JSON.parse(current) as unknown;
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return;
+  private loadAccountsFromServer(): void {
+    this.accountsLoading = true;
+    this.api.listAccounts().subscribe({
+      next: (dtos) => {
+        this.accountEntries = (dtos ?? []).map((d) => this.toUiEntry(d));
+        if (this.accountEntries.length === 0) {
+          this.tryMigrateLocalStorageToServer();
+        } else {
+          // Server already has data — drop any leftover local copies so they can't drift.
+          this.clearLegacyLocalStorage();
+          this.accountsLoading = false;
         }
-      } catch {
-        // fall through: migrate from legacy
-      }
-    }
-    const legacy = window.localStorage.getItem(ManagementComponent.UTILITIES_STORAGE_KEY_BASE);
-    if (!legacy) {
-      return;
-    }
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(legacy);
-    } catch {
-      return;
-    }
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      return;
-    }
-    window.localStorage.setItem(userKey, legacy);
-    window.localStorage.removeItem(ManagementComponent.UTILITIES_STORAGE_KEY_BASE);
+      },
+      error: (e) => {
+        this.accountsLoading = false;
+        this.accountEntries = [];
+        this.err('Could not load accounts', e);
+      },
+    });
   }
 
-  private loadUtilitiesFromStorage(): void {
+  /** Look for legacy localStorage entries and POST them to the server bulk-import endpoint. Idempotent on retry. */
+  private tryMigrateLocalStorageToServer(): void {
+    const legacy = this.readLegacyLocalStorageEntries();
+    if (legacy.length === 0) {
+      this.accountsLoading = false;
+      return;
+    }
+    const bodies: ManagementAccountWriteBody[] = legacy.map((e) => ({
+      itemName: e.itemName,
+      folder: e.folder,
+      username: e.username,
+      password: e.password,
+      authenticatorKey: e.authenticatorKey,
+      website: e.website,
+      notes: e.notes,
+    }));
+    this.api.bulkImportAccounts(bodies).subscribe({
+      next: (res) => {
+        this.api.listAccounts().subscribe({
+          next: (dtos) => {
+            this.accountEntries = (dtos ?? []).map((d) => this.toUiEntry(d));
+            this.accountsLoading = false;
+            this.clearLegacyLocalStorage();
+            const msg =
+              res.inserted > 0
+                ? `Migrated ${res.inserted} account${res.inserted === 1 ? '' : 's'} to your server vault`
+                : 'No new accounts to migrate';
+            this.snackBar.open(msg, undefined, { duration: 4000 });
+          },
+          error: (e) => {
+            this.accountsLoading = false;
+            this.err('Migrated accounts but failed to reload', e);
+          },
+        });
+      },
+      error: (e) => {
+        this.accountsLoading = false;
+        this.err('Could not migrate local accounts to server', e);
+      },
+    });
+  }
+
+  private readLegacyLocalStorageEntries(): AccountEntry[] {
     if (typeof window === 'undefined') {
-      return;
+      return [];
     }
-    const storageKey = this.utilitiesStorageKey();
-    if (!storageKey) {
-      this.utilityEntries = [];
-      return;
-    }
-    this.migrateLegacyUtilitiesToSpulickalIfNeeded(storageKey);
-    try {
-      const raw = window.localStorage.getItem(storageKey);
+    const out: AccountEntry[] = [];
+    const seenIds = new Set<number>();
+    const keys = [this.accountsStorageKey(), ManagementComponent.LEGACY_LOCAL_STORAGE_KEY_BASE].filter(
+      (k): k is string => !!k,
+    );
+    for (const key of keys) {
+      let raw: string | null = null;
+      try {
+        raw = window.localStorage.getItem(key);
+      } catch {
+        continue;
+      }
       if (!raw) {
-        return;
+        continue;
       }
-      const parsed = JSON.parse(raw);
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        continue;
+      }
       if (!Array.isArray(parsed)) {
-        return;
+        continue;
       }
-      this.utilityEntries = parsed.filter((v) => v && typeof v === 'object').map((v) => {
-        const o = v as Record<string, unknown> & Partial<UtilityEntry> & { websites?: unknown[] };
-        let website = String(o.website ?? '');
+      for (const v of parsed) {
+        if (!v || typeof v !== 'object') {
+          continue;
+        }
+        const o = v as Record<string, unknown> & { websites?: unknown[] };
+        let website = String(o['website'] ?? '');
         if (!website && Array.isArray(o.websites) && o.websites.length > 0) {
           website = String(o.websites[0]);
         }
-        return {
-          id: Number(o.id) || Date.now(),
-          itemName: String(o.itemName ?? ''),
-          folder: String(o.folder ?? ''),
-          username: String(o.username ?? ''),
-          password: String(o.password ?? ''),
-          authenticatorKey: String(o.authenticatorKey ?? ''),
+        const id = Number(o['id']) || Date.now();
+        if (seenIds.has(id)) {
+          continue;
+        }
+        seenIds.add(id);
+        const itemName = String(o['itemName'] ?? '').trim();
+        if (!itemName) {
+          continue;
+        }
+        out.push({
+          id,
+          itemName,
+          folder: String(o['folder'] ?? ''),
+          username: String(o['username'] ?? ''),
+          password: String(o['password'] ?? ''),
+          authenticatorKey: String(o['authenticatorKey'] ?? ''),
           website,
-          notes: String(o.notes ?? ''),
-          createdAt: String(o.createdAt ?? ''),
+          notes: String(o['notes'] ?? ''),
+          createdAt: String(o['createdAt'] ?? ''),
           updatedAt:
-            o.updatedAt != null && String(o.updatedAt).trim() !== '' ? String(o.updatedAt) : undefined,
-        };
-      });
-    } catch {
-      this.utilityEntries = [];
+            o['updatedAt'] != null && String(o['updatedAt']).trim() !== ''
+              ? String(o['updatedAt'])
+              : undefined,
+        });
+      }
     }
+    return out;
   }
 
-  private persistUtilitiesToStorage(): void {
+  private clearLegacyLocalStorage(): void {
     if (typeof window === 'undefined') {
       return;
     }
-    const storageKey = this.utilitiesStorageKey();
-    if (!storageKey) {
-      return;
+    const keys = [this.accountsStorageKey(), ManagementComponent.LEGACY_LOCAL_STORAGE_KEY_BASE].filter(
+      (k): k is string => !!k,
+    );
+    for (const key of keys) {
+      try {
+        window.localStorage.removeItem(key);
+      } catch {
+        // best-effort cleanup
+      }
     }
-    window.localStorage.setItem(storageKey, JSON.stringify(this.utilityEntries));
   }
 }

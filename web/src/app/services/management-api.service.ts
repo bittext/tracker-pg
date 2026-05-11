@@ -10,6 +10,9 @@ import {
   ManagementTaskWriteBody,
   ManagementMonthNoteWriteBody,
   ManagementMonthNoteAttachmentDto,
+  ManagementAccountDto,
+  ManagementAccountImportResultDto,
+  ManagementAccountWriteBody,
   ManagementWriteupAttachmentDto,
   ManagementWriteupDto,
   ManagementWriteupWriteBody,
@@ -297,5 +300,28 @@ export class ManagementApiService {
       responseType: 'blob',
       params: { disposition },
     });
+  }
+
+  private readonly accountsRoot = `${this.root}/accounts`;
+
+  listAccounts() {
+    return this.http.get<ManagementAccountDto[]>(this.accountsRoot);
+  }
+
+  createAccount(body: ManagementAccountWriteBody) {
+    return this.http.post<ManagementAccountDto>(this.accountsRoot, body);
+  }
+
+  updateAccount(id: number, body: ManagementAccountWriteBody) {
+    return this.http.put<ManagementAccountDto>(`${this.accountsRoot}/${id}`, body);
+  }
+
+  deleteAccount(id: number) {
+    return this.http.delete<void>(`${this.accountsRoot}/${id}`);
+  }
+
+  /** One-time import: pushes legacy localStorage entries to the server. Returns inserted / skipped counts. */
+  bulkImportAccounts(entries: ManagementAccountWriteBody[]) {
+    return this.http.post<ManagementAccountImportResultDto>(`${this.accountsRoot}/bulk-import`, { entries });
   }
 }
