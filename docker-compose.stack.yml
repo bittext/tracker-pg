@@ -102,9 +102,35 @@ services:
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
+      # Finance → Trading → Predicts (StockTwits ingestion + FinBERT sentiment).
+      TRACKER_FINANCE_PREDICTS_ENABLED: ${TRACKER_FINANCE_PREDICTS_ENABLED:-true}
+      TRACKER_FINANCE_PREDICTS_STOCKTWITS_ENABLED: ${TRACKER_FINANCE_PREDICTS_STOCKTWITS_ENABLED:-true}
+      TRACKER_FINANCE_PREDICTS_REDDIT_ENABLED: ${TRACKER_FINANCE_PREDICTS_REDDIT_ENABLED:-false}
+      TRACKER_FINANCE_PREDICTS_X_ENABLED: ${TRACKER_FINANCE_PREDICTS_X_ENABLED:-false}
+      TRACKER_FINANCE_PREDICTS_FINBERT_ENABLED: ${TRACKER_FINANCE_PREDICTS_FINBERT_ENABLED:-true}
+      TRACKER_FINANCE_PREDICTS_FINBERT_BASE_URL: ${TRACKER_FINANCE_PREDICTS_FINBERT_BASE_URL:-http://finbert:8000}
+      TRACKER_FINANCE_PREDICTS_TRACKED_TICKER_QUOTA_PER_USER: ${TRACKER_FINANCE_PREDICTS_TRACKED_TICKER_QUOTA_PER_USER:-25}
+      TRACKER_FINANCE_PREDICTS_BASELINE_WINDOW_DAYS: ${TRACKER_FINANCE_PREDICTS_BASELINE_WINDOW_DAYS:-30}
+      TRACKER_FINANCE_PREDICTS_RETENTION_MENTIONS_DAYS: ${TRACKER_FINANCE_PREDICTS_RETENTION_MENTIONS_DAYS:-60}
     ports:
       # Host:container — API always listens on 9091 inside the container.
       - "${API_PORT:-9091}:9091"
+
+  finbert:
+    # FinBERT sentiment sidecar for Predicts (Python FastAPI + transformers).
+    # Disabled implicitly when TRACKER_FINANCE_PREDICTS_FINBERT_ENABLED=false (Spring uses heuristic fallback).
+    build:
+      context: ./finbert-svc
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      FINBERT_MODEL: ${FINBERT_MODEL:-ProsusAI/finbert}
+      FINBERT_MAX_BATCH: ${FINBERT_MAX_BATCH:-64}
+      FINBERT_MAX_TOKENS: ${FINBERT_MAX_TOKENS:-256}
+      FINBERT_DEVICE: ${FINBERT_DEVICE:-cpu}
+    volumes:
+      - tracker_pg_stack_finbert_cache:/cache/huggingface
+    # Not published on the host by default — only the api container needs it via the internal network.
 
   web:
     build:
@@ -119,3 +145,5 @@ services:
 volumes:
   # Survives `docker compose down`. Avoid `docker compose down -v` if you need to keep data.
   tracker_pg_stack_data:
+  # Hugging Face model cache for finbert-svc — avoids re-downloading ~440 MB on every container rebuild.
+  tracker_pg_stack_finbert_cache:

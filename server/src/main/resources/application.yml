@@ -141,6 +141,37 @@ tracker:
     alpha-vantage-enabled: ${TRACKER_FINANCE_ALPHA_VANTAGE_ENABLED:false}
     alpha-vantage-api-key: ${TRACKER_FINANCE_ALPHA_VANTAGE_API_KEY:}
     alpha-vantage-base-url: ${TRACKER_FINANCE_ALPHA_VANTAGE_BASE_URL:https://www.alphavantage.co/query}
+    predicts:
+      # Finance → Trading → Predicts: community sentiment + attention analytics.
+      enabled: ${TRACKER_FINANCE_PREDICTS_ENABLED:true}
+      tracked-ticker-quota-per-user: ${TRACKER_FINANCE_PREDICTS_TRACKED_TICKER_QUOTA_PER_USER:25}
+      baseline-window-days: ${TRACKER_FINANCE_PREDICTS_BASELINE_WINDOW_DAYS:30}
+      retention:
+        mentions-days: ${TRACKER_FINANCE_PREDICTS_RETENTION_MENTIONS_DAYS:60}
+      stocktwits:
+        # Public REST: https://api.stocktwits.com/api/2/streams/symbol/{ticker}.json (rate-limited to ~200/hr).
+        enabled: ${TRACKER_FINANCE_PREDICTS_STOCKTWITS_ENABLED:true}
+        max-messages-per-symbol: ${TRACKER_FINANCE_PREDICTS_STOCKTWITS_MAX_MESSAGES:30}
+        poll-interval-seconds: ${TRACKER_FINANCE_PREDICTS_STOCKTWITS_POLL_SECONDS:1500}
+        base-url: ${TRACKER_FINANCE_PREDICTS_STOCKTWITS_BASE_URL:https://api.stocktwits.com/api/2}
+      reddit:
+        # OAuth app (type: script). Required to ingest r/wallstreetbets, r/stocks, r/investing, r/options.
+        enabled: ${TRACKER_FINANCE_PREDICTS_REDDIT_ENABLED:false}
+        client-id: ${TRACKER_FINANCE_PREDICTS_REDDIT_CLIENT_ID:}
+        client-secret: ${TRACKER_FINANCE_PREDICTS_REDDIT_CLIENT_SECRET:}
+        user-agent: ${TRACKER_FINANCE_PREDICTS_REDDIT_USER_AGENT:tracker-pg/finance-predicts}
+        base-url: ${TRACKER_FINANCE_PREDICTS_REDDIT_BASE_URL:https://oauth.reddit.com}
+      x:
+        # X / Twitter v2 (paid tier required as of 2024+).
+        enabled: ${TRACKER_FINANCE_PREDICTS_X_ENABLED:false}
+        bearer-token: ${TRACKER_FINANCE_PREDICTS_X_BEARER_TOKEN:}
+        base-url: ${TRACKER_FINANCE_PREDICTS_X_BASE_URL:https://api.twitter.com/2}
+      finbert:
+        # Python sidecar (ProsusAI/finbert) reachable over the internal docker network.
+        enabled: ${TRACKER_FINANCE_PREDICTS_FINBERT_ENABLED:true}
+        base-url: ${TRACKER_FINANCE_PREDICTS_FINBERT_BASE_URL:http://finbert:8000}
+        max-batch-size: ${TRACKER_FINANCE_PREDICTS_FINBERT_MAX_BATCH:64}
+        timeout-ms: ${TRACKER_FINANCE_PREDICTS_FINBERT_TIMEOUT_MS:3500}
     alerts:
       evaluation-enabled: ${TRACKER_FINANCE_ALERTS_EVALUATION_ENABLED:true}
       poll-fixed-delay-ms: ${TRACKER_FINANCE_ALERTS_POLL_FIXED_DELAY_MS:3600000}

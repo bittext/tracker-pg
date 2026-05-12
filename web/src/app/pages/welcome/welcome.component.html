@@ -19,8 +19,10 @@
           ledger views; under <strong>Admin → Finance → Banking</strong> you can define <strong>institution types</strong>
           (e.g. checking vs. brokerage), link each institution to a type, and use those types in
           <strong>Reports → Finance → Banking</strong> roll-ups and optional ledger filters. <strong>Finance → Trading → Screeners</strong>
-          adds stock screening (NASDAQ mid-cap focus, 52-week momentum, breakout-style scans, watchlist news sweep) next to
-          market overview and alerts. In <strong>Management → Travel</strong>, plan trips on a map with places and photos.
+          adds stock screening (NASDAQ mid-cap focus, 52-week momentum, breakout-style scans, watchlist news sweep), and
+          the new <strong>Predicts</strong> sub-tab ingests StockTwits community chatter for each of your tracked tickers,
+          scores it with a FinBERT sentiment model, and ranks the universe by positivity, attention spikes, and surge in
+          unique authors. In <strong>Management → Travel</strong>, plan trips on a map with places and photos.
           Outbound mail for alerts and transactional email supports <strong>Amazon SES</strong> or <strong>SMTP</strong>
           when the server is configured (see README for env vars).
         </p>
@@ -65,7 +67,8 @@
               <strong>Banking</strong> for institutions, file imports, Plaid, and ledger views—with filters by institution
               or by <strong>institution type</strong> when you have configured types in Admin. Under <strong>Trading</strong>,
               use <strong>Screeners</strong> for NASDAQ mid-cap names, names near 52-week highs, breakout-style setups, and a
-              quick watchlist headline sweep—alongside news, alerts, Robinhood summaries, and the market overview tab.
+              quick watchlist headline sweep, plus the new <strong>Predicts</strong> tab for community sentiment and attention
+              spikes powered by StockTwits + FinBERT—alongside news, alerts, Robinhood summaries, and the market overview tab.
             </p>
           </mat-card-content>
         </mat-card>
@@ -171,14 +174,15 @@
       <li class="welcome-step">
         <span class="welcome-step__num" aria-hidden="true">4</span>
         <div class="welcome-step__body">
-          <h3 class="welcome-step__title">Optional: Finance, screeners &amp; journal</h3>
+          <h3 class="welcome-step__title">Optional: Finance, screeners, predicts &amp; journal</h3>
           <p>
             Open <a routerLink="/finance">Finance</a> for banking (ledger and filters by institution or type), tax helpers,
             and the <strong>Trading</strong> tab—try <strong>Screeners</strong> for curated Yahoo-backed lists (including a
-            NASDAQ mid-cap band) and tooling next to news and alerts. Configure banking <strong>institution types</strong>
-            under <a routerLink="/admin">Admin</a> → Finance → Banking. Use <a routerLink="/journal">Journal</a> for dated
-            entries and <a routerLink="/reports">Reports</a> for rollups—including <strong>Finance → Banking</strong>
-            summaries by type.
+            NASDAQ mid-cap band) and <strong>Predicts</strong> for community sentiment (StockTwits + FinBERT) and attention
+            spikes against per-ticker baselines. Configure banking <strong>institution types</strong> under
+            <a routerLink="/admin">Admin</a> → Finance → Banking. Use <a routerLink="/journal">Journal</a> for dated entries
+            and <a routerLink="/reports">Reports</a> for rollups—including <strong>Finance → Banking</strong> summaries by
+            type.
           </p>
         </div>
       </li>

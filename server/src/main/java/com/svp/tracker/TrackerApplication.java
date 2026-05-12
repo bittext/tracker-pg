@@ -11,6 +11,7 @@ import com.svp.tracker.config.FinanceProperties;
 import com.svp.tracker.config.JournalProperties;
 import com.svp.tracker.config.SecurityProperties;
 import com.svp.tracker.config.WebProperties;
+import com.svp.tracker.finance.predicts.config.FinancePredictsProperties;
 import com.svp.tracker.management.config.ManagementAccountsProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -31,7 +32,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
     WebProperties.class,
     JournalProperties.class,
     SecurityProperties.class,
-    ManagementAccountsProperties.class
+    ManagementAccountsProperties.class,
+    FinancePredictsProperties.class
 })
 public class TrackerApplication {
 

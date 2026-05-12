@@ -31,6 +31,7 @@ import { formatHttpErrorDetail } from '../../util/http-error';
 import { BankingPanelComponent } from './banking-panel/banking-panel.component';
 import { FinanceTax1040PanelComponent } from './finance-tax-1040-panel/finance-tax-1040-panel.component';
 import { MarketOverviewPanelComponent } from './market-overview-panel/market-overview-panel.component';
+import { PredictsPanelComponent } from './predicts-panel/predicts-panel.component';
 import { TradingScreenersPanelComponent } from './trading-screeners-panel/trading-screeners-panel.component';
 
 @Component({
@@ -51,6 +52,7 @@ import { TradingScreenersPanelComponent } from './trading-screeners-panel/tradin
     FinanceTax1040PanelComponent,
     BankingPanelComponent,
     MarketOverviewPanelComponent,
+    PredictsPanelComponent,
     TradingScreenersPanelComponent,
   ],
   templateUrl: './finance.component.html',
@@ -67,7 +69,7 @@ export class FinanceComponent implements OnInit {
 
   /** Finance category tabs: 0=banking, 1=investments, 2=loans, 3=market, 4=money, 5=credit, 6=trading, 7=insurance, 8=taxes. */
   financeCategoryTabIndex = 0;
-  /** Trading tabs: 0=news, 1=crawler, 2=52w high risers, 3=break outs, 4=alerts, 5=transactions, 6=by symbol, 7=screeners, 8=summary. */
+  /** Trading tabs: 0=news, 1=crawler, 2=52w high risers, 3=break outs, 4=alerts, 5=transactions, 6=by symbol, 7=screeners, 8=summary, 9=predicts. */
   financeSubTabIndex = 0;
 
   stockSymbols: string[] = [];

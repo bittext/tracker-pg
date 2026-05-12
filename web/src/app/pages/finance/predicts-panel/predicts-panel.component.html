@@ -1,0 +1,376 @@
+<div class="predicts">
+  <header class="predicts__head">
+    <div>
+      <h2 class="predicts__title">Predicts — community sentiment &amp; attention</h2>
+      <p class="predicts__lead">
+        Polls StockTwits for every ticker you track (auto‑seeded from your Robinhood holdings, plus anything you add
+        below), batch‑scores posts with FinBERT in the sidecar service, and surfaces two signals: <strong>positive
+        sentiment</strong> (polarity rolled across the last 24h) and <strong>attention spikes</strong> (z‑score of the
+        current hour's mention count against a per‑ticker baseline).
+      </p>
+    </div>
+    <div class="predicts__head-actions">
+      <button mat-flat-button color="primary" (click)="refreshTop()" [disabled]="loadingTop()">
+        <mat-icon>refresh</mat-icon>
+        Refresh
+      </button>
+    </div>
+  </header>
+
+  @if (loadingTop()) {
+    <mat-progress-bar mode="indeterminate" class="predicts__progress" />
+  }
+
+  @if (errorMessage()) {
+    <p class="predicts__error" role="alert">{{ errorMessage() }}</p>
+  }
+
+  <!-- Source health strip -->
+  <section class="predicts__row predicts__sources" aria-label="Source health">
+    @for (source of sources(); track source.source) {
+      <mat-card class="source-card" [class.source-card--disabled]="!source.enabled">
+        <mat-card-content>
+          <div class="source-card__head">
+            <span class="source-card__chip" [style.background]="sourceColor(source.source)">
+              {{ source.source }}
+            </span>
+            <span class="source-card__status">
+              @if (source.enabled) {
+                <mat-icon
+                  [class.source-card__status-icon--healthy]="source.consecutiveFailures === 0"
+                  [class.source-card__status-icon--err]="source.consecutiveFailures > 0"
+                  >{{ source.consecutiveFailures > 0 ? 'error_outline' : 'check_circle' }}</mat-icon
+                >
+              } @else {
+                <mat-icon class="source-card__status-icon--disabled">block</mat-icon>
+              }
+            </span>
+          </div>
+          <p class="source-card__label">Mentions ingested (24h)</p>
+          <p class="source-card__value">{{ formatNumber(source.mentionsIngested24h) }}</p>
+          <p class="source-card__sub">
+            Last fetch <strong>{{ formatTimestamp(source.lastSuccessAt) }}</strong>
+            @if (source.consecutiveFailures > 0) {
+              · <span class="source-card__warn">{{ source.consecutiveFailures }} consecutive failure(s)</span>
+            }
+          </p>
+          @if (source.lastErrorMessage) {
+            <p class="source-card__error" [matTooltip]="source.lastErrorMessage">
+              {{ source.lastErrorMessage }}
+            </p>
+          }
+        </mat-card-content>
+      </mat-card>
+    }
+  </section>
+
+  <!-- Leaderboards -->
+  <section class="predicts__row predicts__row--three" aria-label="Leaderboards">
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>🔥 Hot now</mat-card-title>
+        <mat-card-subtitle>Top by spike × positivity</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        @if (!hotBoard() || hotBoard()!.entries.length === 0) {
+          <p class="muted">No mentions yet in the last 24h.</p>
+        } @else {
+          <ol class="leaderboard">
+            @for (entry of hotBoard()!.entries; track entry.symbol) {
+              <li class="leaderboard__row">
+                <button class="leaderboard__symbol" mat-button (click)="selectSymbolFromBoard(entry)">
+                  <span class="leaderboard__rank">{{ entry.rank }}</span>
+                  <span class="leaderboard__ticker">{{ entry.symbol }}</span>
+                </button>
+                <span class="leaderboard__metric" [class]="spikeClass(entry.spikeZ)">{{ formatZ(entry.spikeZ) }}</span>
+                <span class="leaderboard__metric" [class]="positivityClass(entry.positivityPct)">{{
+                  formatPct(entry.positivityPct)
+                }}</span>
+              </li>
+            }
+          </ol>
+        }
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>⬆️ Most positive</mat-card-title>
+        <mat-card-subtitle>Top by rolling 24h sentiment</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        @if (!positiveBoard() || positiveBoard()!.entries.length === 0) {
+          <p class="muted">No mentions yet in the last 24h.</p>
+        } @else {
+          <ol class="leaderboard">
+            @for (entry of positiveBoard()!.entries; track entry.symbol) {
+              <li class="leaderboard__row">
+                <button class="leaderboard__symbol" mat-button (click)="selectSymbolFromBoard(entry)">
+                  <span class="leaderboard__rank">{{ entry.rank }}</span>
+                  <span class="leaderboard__ticker">{{ entry.symbol }}</span>
+                </button>
+                <span class="leaderboard__metric" [class]="positivityClass(entry.positivityPct)">{{
+                  formatPct(entry.positivityPct)
+                }}</span>
+                <span class="leaderboard__metric muted">{{ formatNumber(entry.mentions24h) }} mentions</span>
+              </li>
+            }
+          </ol>
+        }
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>🚨 Surge</mat-card-title>
+        <mat-card-subtitle>Top by unique authors (24h)</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        @if (!surgeBoard() || surgeBoard()!.entries.length === 0) {
+          <p class="muted">No mentions yet in the last 24h.</p>
+        } @else {
+          <ol class="leaderboard">
+            @for (entry of surgeBoard()!.entries; track entry.symbol) {
+              <li class="leaderboard__row">
+                <button class="leaderboard__symbol" mat-button (click)="selectSymbolFromBoard(entry)">
+                  <span class="leaderboard__rank">{{ entry.rank }}</span>
+                  <span class="leaderboard__ticker">{{ entry.symbol }}</span>
+                </button>
+                <span class="leaderboard__metric">{{ formatNumber(entry.uniqueAuthors24h) }} authors</span>
+                <span class="leaderboard__metric muted">{{ formatNumber(entry.mentions24h) }} mentions</span>
+              </li>
+            }
+          </ol>
+        }
+      </mat-card-content>
+    </mat-card>
+  </section>
+
+  <!-- Tracked tickers + add box -->
+  <section class="predicts__row predicts__tracked" aria-label="Tracked tickers">
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>Tracked tickers</mat-card-title>
+        <mat-card-subtitle>
+          Auto‑seeded from your Robinhood holdings + anything you add manually.
+        </mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="tracked__add">
+          <mat-form-field appearance="outline" class="tracked__field">
+            <mat-label>Add ticker</mat-label>
+            <input
+              matInput
+              [ngModel]="addSymbolInput()"
+              (ngModelChange)="addSymbolInput.set($event)"
+              placeholder="e.g. NVDA"
+              (keydown.enter)="addTrackedTicker()"
+            />
+          </mat-form-field>
+          <button
+            mat-flat-button
+            color="primary"
+            (click)="addTrackedTicker()"
+            [disabled]="addingTicker() || !addSymbolInput().trim()"
+          >
+            <mat-icon>add</mat-icon>
+            Track
+          </button>
+        </div>
+        <div class="tracked__list">
+          @for (t of tickers(); track t.id) {
+            <mat-chip class="tracked__chip" [class.tracked__chip--auto]="t.autoSeeded">
+              <button
+                mat-icon-button
+                class="tracked__chip-btn"
+                [matTooltip]="t.autoSeeded ? 'Auto‑seeded from Robinhood' : 'Manual'"
+                (click)="selectedSymbol.set(t.symbol); refreshDrilldown()"
+              >
+                {{ t.symbol }}
+              </button>
+              <button mat-icon-button matTooltip="Remove" (click)="removeTracked(t)">
+                <mat-icon>close</mat-icon>
+              </button>
+            </mat-chip>
+          }
+          @if (tickers().length === 0) {
+            <p class="muted">No tickers tracked yet — add one above, or import Robinhood data to auto‑seed.</p>
+          }
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </section>
+
+  <!-- Drilldown -->
+  <section class="predicts__row predicts__drilldown" aria-label="Drilldown">
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>
+          @if (selectedSymbol()) {
+            {{ selectedSymbol() }} — community signal
+          } @else {
+            Select a ticker
+          }
+        </mat-card-title>
+        <mat-card-subtitle>
+          @if (selectedSymbol()) {
+            Choose a window and a source to drill in.
+          } @else {
+            Pick from the leaderboard or your tracked chips.
+          }
+        </mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        @if (selectedSymbol()) {
+          <div class="drilldown__controls">
+            <mat-button-toggle-group
+              hideSingleSelectionIndicator="true"
+              [value]="selectedWindow()"
+              (change)="onWindowChange($event.value)"
+            >
+              <mat-button-toggle value="5m">5m</mat-button-toggle>
+              <mat-button-toggle value="15m">15m</mat-button-toggle>
+              <mat-button-toggle value="1h">1h</mat-button-toggle>
+              <mat-button-toggle value="1d">1d</mat-button-toggle>
+            </mat-button-toggle-group>
+            <mat-form-field appearance="outline" class="drilldown__days">
+              <mat-label>Days back</mat-label>
+              <input
+                matInput
+                type="number"
+                min="1"
+                max="60"
+                [ngModel]="selectedDays()"
+                (ngModelChange)="onDaysChange($event)"
+              />
+            </mat-form-field>
+            <div class="drilldown__sources">
+              @for (chip of sourceChips(); track chip) {
+                <button
+                  mat-stroked-button
+                  class="drilldown__source-chip"
+                  [class.drilldown__source-chip--active]="selectedSource() === chip"
+                  (click)="onSourceChipClick(chip)"
+                >
+                  {{ chip }}
+                </button>
+              }
+            </div>
+          </div>
+
+          @if (loadingDrilldown()) {
+            <mat-progress-bar mode="indeterminate" class="drilldown__progress" />
+          }
+
+          @if (summary(); as s) {
+            <div class="drilldown__kpis">
+              <mat-card class="kpi">
+                <mat-card-content>
+                  <p class="kpi__label">Positivity (24h)</p>
+                  <p class="kpi__value" [class]="positivityClass(s.overallPositivityPct)">
+                    {{ formatPct(s.overallPositivityPct) }}
+                  </p>
+                </mat-card-content>
+              </mat-card>
+              <mat-card class="kpi">
+                <mat-card-content>
+                  <p class="kpi__label">Attention spike (1h vs baseline)</p>
+                  <p class="kpi__value" [class]="spikeClass(s.overallSpikeZ)">{{ formatZ(s.overallSpikeZ) }}</p>
+                </mat-card-content>
+              </mat-card>
+              <mat-card class="kpi">
+                <mat-card-content>
+                  <p class="kpi__label">Mentions (24h)</p>
+                  <p class="kpi__value">{{ formatNumber(s.mentions24h) }}</p>
+                </mat-card-content>
+              </mat-card>
+              <mat-card class="kpi">
+                <mat-card-content>
+                  <p class="kpi__label">Unique authors (24h)</p>
+                  <p class="kpi__value">{{ formatNumber(s.uniqueAuthors24h) }}</p>
+                </mat-card-content>
+              </mat-card>
+            </div>
+
+            <div class="drilldown__per-source">
+              @for (row of s.sources; track row.source) {
+                <div class="per-source">
+                  <span class="per-source__chip" [style.background]="sourceColor(row.source)">{{ row.source }}</span>
+                  <span class="per-source__metric">{{ formatNumber(row.mentions24h) }} mentions</span>
+                  <span class="per-source__metric" [class]="positivityClass(row.positivityPct)">
+                    {{ formatPct(row.positivityPct) }}
+                  </span>
+                  <span class="per-source__metric" [class]="spikeClass(row.spikeZ)">
+                    spike {{ formatZ(row.spikeZ) }}
+                  </span>
+                </div>
+              }
+            </div>
+          }
+
+          @if (timeseries() && timeseries()!.points.length > 0) {
+            <div class="drilldown__chart">
+              <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="drilldown__chart-svg">
+                <!-- Zero line for sentiment polyline -->
+                <line x1="0" y1="50" x2="100" y2="50" class="drilldown__axis" />
+                <!-- Mention count bars -->
+                @for (bar of chartBars(); track bar.bucketStart + bar.source) {
+                  <rect
+                    [attr.x]="bar.x"
+                    [attr.y]="100 - bar.height"
+                    [attr.width]="chartBarWidth()"
+                    [attr.height]="bar.height"
+                    [attr.fill]="sourceColor(bar.source)"
+                    fill-opacity="0.55"
+                  >
+                    <title>{{ formatTimestamp(bar.bucketStart) }} · {{ bar.source }} · {{ bar.count }} mentions</title>
+                  </rect>
+                }
+                <!-- Sentiment line (rolling avg, -1..+1) -->
+                @if (sentimentPath()) {
+                  <path
+                    [attr.d]="sentimentPath()"
+                    class="drilldown__chart-line"
+                    fill="none"
+                  />
+                }
+              </svg>
+              <p class="drilldown__chart-legend muted">
+                Bars: <strong>mention count per bucket</strong>, color = source · Line: <strong>rolling avg
+                sentiment</strong> ({{ '-1..+1' }}, zero line at 50%).
+              </p>
+            </div>
+          } @else if (!loadingDrilldown() && summary()) {
+            <p class="muted">No buckets in the last {{ selectedDays() }} day(s) for this window.</p>
+          }
+
+          @if (mentions().length > 0) {
+            <div class="drilldown__mentions">
+              <h3 class="drilldown__mentions-title">Recent mentions</h3>
+              <ul class="mentions">
+                @for (m of mentions(); track m.id) {
+                  <li class="mentions__row">
+                    <div class="mentions__head">
+                      <span class="mentions__chip" [style.background]="sourceColor(m.source)">{{ m.source }}</span>
+                      <span class="mentions__time">{{ formatTimestamp(m.postedAt) }}</span>
+                      @if (m.engagementScore > 0) {
+                        <span class="mentions__engagement">♥ {{ m.engagementScore }}</span>
+                      }
+                      <span class="mentions__label" [class]="positivityClass((m.sentimentScore ?? 0) * 100)">
+                        {{ m.sentimentLabel ?? 'neutral' }}
+                      </span>
+                    </div>
+                    <p class="mentions__body">{{ m.bodyPreview }}</p>
+                    @if (m.url) {
+                      <a class="mentions__link" [href]="m.url" target="_blank" rel="noopener">Open</a>
+                    }
+                  </li>
+                }
+              </ul>
+            </div>
+          }
+        }
+      </mat-card-content>
+    </mat-card>
+  </section>
+</div>
