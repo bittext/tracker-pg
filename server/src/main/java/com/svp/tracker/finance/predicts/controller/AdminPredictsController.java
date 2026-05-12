@@ -4,6 +4,7 @@ import com.svp.tracker.finance.predicts.dto.PredictsSourceHealthDto;
 import com.svp.tracker.finance.predicts.dto.admin.PredictsActionResultDto;
 import com.svp.tracker.finance.predicts.dto.admin.PredictsAdminStatsDto;
 import com.svp.tracker.finance.predicts.dto.admin.PredictsConfigDto;
+import com.svp.tracker.finance.predicts.dto.admin.PredictsStocktwitsProbeDto;
 import com.svp.tracker.finance.predicts.service.AdminPredictsService;
 import com.svp.tracker.finance.predicts.service.PredictsService;
 import java.util.List;
@@ -12,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -72,5 +74,15 @@ public class AdminPredictsController {
     public PredictsActionResultDto autoSeed() {
         log.info("Admin manual: auto-seed");
         return adminService.runAutoSeed();
+    }
+
+    /**
+     * Diagnostic probe of the StockTwits public stream endpoint. Returns the raw response shape
+     * (status, body head, elapsed ms) so admins can determine whether a 404 from inside the
+     * container is an unindexed symbol or an IP-level block on the egress.
+     */
+    @GetMapping("/diag/stocktwits")
+    public PredictsStocktwitsProbeDto diagStocktwits(@RequestParam(defaultValue = "AAPL") String symbol) {
+        return adminService.probeStocktwits(symbol);
     }
 }

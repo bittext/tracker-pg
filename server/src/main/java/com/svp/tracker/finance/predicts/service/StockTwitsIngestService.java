@@ -6,6 +6,7 @@ import com.svp.tracker.finance.predicts.config.FinancePredictsProperties;
 import com.svp.tracker.finance.predicts.domain.PredictsMention;
 import com.svp.tracker.finance.predicts.domain.PredictsSource;
 import com.svp.tracker.finance.predicts.domain.PredictsTicker;
+import com.svp.tracker.finance.predicts.dto.admin.PredictsStocktwitsProbeDto;
 import com.svp.tracker.finance.predicts.repository.PredictsMentionRepository;
 import com.svp.tracker.finance.predicts.repository.PredictsTickerRepository;
 import java.math.BigDecimal;
@@ -43,6 +44,18 @@ import org.springframework.transaction.annotation.Transactional;
 public class StockTwitsIngestService {
 
     private static final int MAX_BODY_PREVIEW = 240;
+    private static final int PROBE_BODY_PREVIEW = 400;
+    private static final int NOT_INDEXED_SAMPLE_CAP = 5;
+    private static final String USER_AGENT =
+            "tracker-pg/finance-predicts (+github.com/bittext/tracker-pg)";
+
+    /**
+     * Per-symbol poll result. {@code notIndexed} means the upstream returned 404 — almost always
+     * because StockTwits doesn't index that ticker. We classify this as a benign condition because
+     * one stale auto-seeded ticker (e.g. an OTC, foreign listing, or de-listed symbol) shouldn't
+     * poison the entire source-health row. Real errors (5xx, 429, network) still throw.
+     */
+    private record PollOutcome(int ingested, boolean notIndexed) {}
 
     private final FinancePredictsProperties props;
     private final PredictsTickerRepository tickerRepository;
@@ -77,10 +90,20 @@ public class StockTwitsIngestService {
         log.info("StockTwits poll cycle starting for {} symbol(s)", symbols.size());
         int totalIngested = 0;
         int totalErrors = 0;
+        int totalNotIndexed = 0;
+        List<String> notIndexedSample = new ArrayList<>();
+        String lastErrorSymbol = null;
+        String lastErrorMessage = null;
         for (String symbol : symbols) {
             try {
-                int ingested = pollSymbol(symbol);
-                totalIngested += ingested;
+                PollOutcome outcome = pollSymbol(symbol);
+                totalIngested += outcome.ingested();
+                if (outcome.notIndexed()) {
+                    totalNotIndexed++;
+                    if (notIndexedSample.size() < NOT_INDEXED_SAMPLE_CAP) {
+                        notIndexedSample.add(symbol);
+                    }
+                }
                 // Small pause between symbols to spread out API calls.
                 Thread.sleep(150);
             } catch (InterruptedException e) {
@@ -88,18 +111,59 @@ public class StockTwitsIngestService {
                 break;
             } catch (Exception e) {
                 totalErrors++;
+                lastErrorSymbol = symbol;
+                lastErrorMessage = e.getMessage();
                 log.warn("StockTwits poll failed for {}: {}", symbol, e.getMessage());
-                sourceHealth.recordFailure(PredictsSource.STOCKTWITS, e.getMessage());
             }
         }
-        if (totalErrors == 0) {
-            sourceHealth.recordSuccess(PredictsSource.STOCKTWITS, totalIngested);
-        }
+        recordCycleHealth(symbols.size(), totalIngested, totalErrors, totalNotIndexed, notIndexedSample, lastErrorSymbol, lastErrorMessage);
         log.info(
-                "StockTwits poll cycle complete: symbols={} ingested={} errors={}",
+                "StockTwits poll cycle complete: symbols={} ingested={} notIndexed={} errors={}",
                 symbols.size(),
                 totalIngested,
+                totalNotIndexed,
                 totalErrors);
+    }
+
+    private void recordCycleHealth(
+            int totalSymbols,
+            int totalIngested,
+            int totalErrors,
+            int totalNotIndexed,
+            List<String> notIndexedSample,
+            String lastErrorSymbol,
+            String lastErrorMessage) {
+        // Real transport / non-404 HTTP errors take precedence: include the most recent symbol in the
+        // message so the admin can correlate UI text to logs.
+        if (totalErrors > 0) {
+            String msg = (lastErrorSymbol == null ? "" : "[" + lastErrorSymbol + "] ") + lastErrorMessage;
+            sourceHealth.recordFailure(PredictsSource.STOCKTWITS, msg);
+            return;
+        }
+        // Whole-cycle 404 means the upstream is reachable but rejecting every symbol. That's almost
+        // always either a stale ticker set (rare) or — far more common in production — an IP-level
+        // block on the egress (AWS / datacentre fingerprinting). Surface that distinctly.
+        if (totalSymbols > 0 && totalNotIndexed == totalSymbols) {
+            String sample = String.join(",", notIndexedSample);
+            String msg = String.format(
+                    Locale.ROOT,
+                    "All %d tracked symbol(s) returned 404 from StockTwits — likely IP block (e.g. AWS egress) "
+                            + "or all tracked tickers unindexed. Sample: %s. Run the admin Probe to confirm.",
+                    totalSymbols,
+                    sample);
+            sourceHealth.recordFailure(PredictsSource.STOCKTWITS, msg);
+            return;
+        }
+        // Mixed cycle (some 404, some 200) is healthy: the 404 symbols are simply unindexed. We
+        // still log them so the admin can prune the ticker set if they want.
+        if (totalNotIndexed > 0) {
+            log.info(
+                    "StockTwits poll: {}/{} symbol(s) returned 404 (treated as unindexed). Sample: {}",
+                    totalNotIndexed,
+                    totalSymbols,
+                    notIndexedSample);
+        }
+        sourceHealth.recordSuccess(PredictsSource.STOCKTWITS, totalIngested);
     }
 
     private List<String> distinctTrackedSymbols() {
@@ -117,12 +181,11 @@ public class StockTwitsIngestService {
     }
 
     @Transactional
-    public int pollSymbol(String symbol) throws Exception {
-        String base = stripTrailingSlash(props.stocktwits().baseUrl());
-        URI uri = URI.create(base + "/streams/symbol/" + symbol + ".json");
+    public PollOutcome pollSymbol(String symbol) throws Exception {
+        URI uri = symbolUri(symbol);
         HttpRequest req = HttpRequest.newBuilder(uri)
                 .timeout(Duration.ofSeconds(8))
-                .header("User-Agent", "tracker-pg/finance-predicts (+github.com/bittext/tracker-pg)")
+                .header("User-Agent", USER_AGENT)
                 .GET()
                 .build();
         HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
@@ -130,13 +193,17 @@ public class StockTwitsIngestService {
         if (status == 429) {
             throw new IllegalStateException("rate-limited by StockTwits (429)");
         }
+        if (status == 404) {
+            // Per-symbol "not indexed" — benign, no source-wide health impact.
+            return new PollOutcome(0, true);
+        }
         if (status / 100 != 2) {
             throw new IllegalStateException("StockTwits status " + status);
         }
         JsonNode root = objectMapper.readTree(resp.body());
         JsonNode messages = root.get("messages");
         if (messages == null || !messages.isArray() || messages.isEmpty()) {
-            return 0;
+            return new PollOutcome(0, false);
         }
 
         int cap = Math.max(1, props.stocktwits().maxMessagesPerSymbol());
@@ -189,13 +256,86 @@ public class StockTwitsIngestService {
             texts.add(body);
         }
         if (fresh.isEmpty()) {
-            return 0;
+            return new PollOutcome(0, false);
         }
         List<SentimentScore> scores = sentimentScorer.score(texts);
         applyScores(fresh, scores);
         mentionRepository.saveAll(fresh);
         bucketWriter.fold(symbol, PredictsSource.STOCKTWITS.wire(), fresh);
-        return fresh.size();
+        return new PollOutcome(fresh.size(), false);
+    }
+
+    /**
+     * Admin-only diagnostic call: performs a single direct request to the StockTwits stream endpoint
+     * for {@code symbol} using the same client / URL / User-Agent that {@link #pollSymbol} uses, and
+     * returns a structured snapshot of the outcome. Does not write to the database and does not
+     * update source-health. Used to disambiguate "endpoint deprecated" vs "IP blocked" vs "symbol
+     * unknown" without tailing server logs.
+     */
+    public PredictsStocktwitsProbeDto probe(String symbol) {
+        String normalized = symbol == null ? "" : symbol.trim().toUpperCase(Locale.ROOT);
+        if (normalized.isEmpty()) {
+            return new PredictsStocktwitsProbeDto(
+                    symbol, null, USER_AGENT, 0, 0L, null, null, false, "symbol is required");
+        }
+        URI uri = symbolUri(normalized);
+        long started = System.nanoTime();
+        try {
+            HttpRequest req = HttpRequest.newBuilder(uri)
+                    .timeout(Duration.ofSeconds(8))
+                    .header("User-Agent", USER_AGENT)
+                    .GET()
+                    .build();
+            HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+            long elapsedMs = Duration.ofNanos(System.nanoTime() - started).toMillis();
+            int status = resp.statusCode();
+            String body = resp.body() == null ? "" : resp.body();
+            String preview = truncate(body, PROBE_BODY_PREVIEW);
+            Integer messageCount = null;
+            String errorMessage = null;
+            if (status / 100 == 2) {
+                try {
+                    JsonNode root = objectMapper.readTree(body);
+                    JsonNode messages = root.get("messages");
+                    messageCount = messages == null || !messages.isArray() ? 0 : messages.size();
+                } catch (Exception parseError) {
+                    errorMessage = "200 OK but body did not parse as StockTwits JSON: " + parseError.getMessage();
+                }
+            } else if (status == 404) {
+                errorMessage = "404 Not Found — symbol unindexed at StockTwits, or IP-level block (AWS egress is commonly 404'd).";
+            } else if (status == 429) {
+                errorMessage = "429 Rate Limited — back off or use an authenticated key.";
+            } else {
+                errorMessage = "StockTwits status " + status;
+            }
+            return new PredictsStocktwitsProbeDto(
+                    normalized,
+                    uri.toString(),
+                    USER_AGENT,
+                    status,
+                    elapsedMs,
+                    preview,
+                    messageCount,
+                    false,
+                    errorMessage);
+        } catch (Exception e) {
+            long elapsedMs = Duration.ofNanos(System.nanoTime() - started).toMillis();
+            return new PredictsStocktwitsProbeDto(
+                    normalized,
+                    uri.toString(),
+                    USER_AGENT,
+                    0,
+                    elapsedMs,
+                    null,
+                    null,
+                    true,
+                    "Transport error: " + e.getClass().getSimpleName() + ": " + e.getMessage());
+        }
+    }
+
+    private URI symbolUri(String symbol) {
+        String base = stripTrailingSlash(props.stocktwits().baseUrl());
+        return URI.create(base + "/streams/symbol/" + symbol + ".json");
     }
 
     private static void applyScores(List<PredictsMention> fresh, List<SentimentScore> scores) {

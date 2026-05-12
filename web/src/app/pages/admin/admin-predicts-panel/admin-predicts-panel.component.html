@@ -152,6 +152,80 @@
     </mat-card>
   </section>
 
+  <!-- Diagnostics -->
+  <section class="admin-predicts__row" aria-label="Diagnostics">
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>Diagnostics</mat-card-title>
+        <mat-card-subtitle>
+          One‑shot probe of the StockTwits public stream endpoint from inside this API container. A 200 with
+          messages confirms the egress is healthy; a 404 on a known‑good symbol (AAPL) indicates an IP‑level block.
+        </mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="probe">
+          <div class="probe__row">
+            <label class="probe__field">
+              <span class="probe__field-label">Symbol</span>
+              <input
+                type="text"
+                class="probe__input"
+                [(ngModel)]="probeSymbol"
+                maxlength="32"
+                spellcheck="false"
+                autocomplete="off"
+                (keyup.enter)="runProbe()"
+              />
+            </label>
+            <button mat-flat-button color="primary" class="probe__btn" [disabled]="probing()" (click)="runProbe()">
+              <mat-icon>science</mat-icon>
+              Probe StockTwits
+            </button>
+          </div>
+          @if (probing()) {
+            <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+          }
+          @if (probeResult(); as r) {
+            <div class="probe__result" [ngClass]="probeResultClass()">
+              <div class="probe__grid">
+                <div>
+                  <span class="probe__label">Symbol</span>
+                  <span><code>{{ r.symbol }}</code></span>
+                </div>
+                <div>
+                  <span class="probe__label">HTTP status</span>
+                  <span>{{ r.status === 0 ? '— transport error' : r.status }}</span>
+                </div>
+                <div>
+                  <span class="probe__label">Elapsed</span>
+                  <span>{{ r.elapsedMs }}ms</span>
+                </div>
+                <div>
+                  <span class="probe__label">Messages parsed</span>
+                  <span>{{ r.messageCount == null ? '–' : r.messageCount }}</span>
+                </div>
+              </div>
+              <div class="probe__line">
+                <span class="probe__label">URL</span>
+                <code>{{ r.url }}</code>
+              </div>
+              <div class="probe__line">
+                <span class="probe__label">User‑Agent</span>
+                <code>{{ r.userAgent }}</code>
+              </div>
+              @if (r.errorMessage) {
+                <p class="probe__error">{{ r.errorMessage }}</p>
+              }
+              @if (r.bodyPreview) {
+                <pre class="probe__body">{{ r.bodyPreview }}</pre>
+              }
+            </div>
+          }
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </section>
+
   <!-- Manual actions -->
   <section class="admin-predicts__row" aria-label="Manual actions">
     <mat-card>

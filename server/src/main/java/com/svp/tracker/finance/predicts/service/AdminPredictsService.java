@@ -4,6 +4,7 @@ import com.svp.tracker.finance.predicts.config.FinancePredictsProperties;
 import com.svp.tracker.finance.predicts.dto.admin.PredictsActionResultDto;
 import com.svp.tracker.finance.predicts.dto.admin.PredictsAdminStatsDto;
 import com.svp.tracker.finance.predicts.dto.admin.PredictsConfigDto;
+import com.svp.tracker.finance.predicts.dto.admin.PredictsStocktwitsProbeDto;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -175,6 +176,17 @@ public class AdminPredictsService {
             log.warn("Manual mention purge failed: {}", e.getMessage());
             return PredictsActionResultDto.failed("purge-mentions", e.getMessage());
         }
+    }
+
+    /**
+     * Direct one-shot probe of the StockTwits stream endpoint from the running container. Used to
+     * diagnose "is the source-health 404 due to a stale symbol or an IP-level block?" — the two
+     * have identical UI symptoms but very different fixes.
+     */
+    public PredictsStocktwitsProbeDto probeStocktwits(String symbol) {
+        String s = symbol == null || symbol.isBlank() ? "AAPL" : symbol;
+        log.info("Admin diag: probe StockTwits symbol={}", s);
+        return stocktwitsIngest.probe(s);
     }
 
     public PredictsActionResultDto runAutoSeed() {

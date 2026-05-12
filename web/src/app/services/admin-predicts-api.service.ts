@@ -5,6 +5,7 @@ import {
   AdminPredictsActionResultDto,
   AdminPredictsConfigDto,
   AdminPredictsStatsDto,
+  AdminPredictsStocktwitsProbeDto,
 } from '../models/admin-predicts.models';
 import { PredictsSourceHealthDto } from '../models/finance-predicts.models';
 
@@ -47,5 +48,10 @@ export class AdminPredictsApiService {
 
   autoSeed() {
     return this.http.post<AdminPredictsActionResultDto>(`${this.root}/actions/auto-seed`, {});
+  }
+
+  probeStocktwits(symbol: string) {
+    const params = symbol ? { symbol } : undefined;
+    return this.http.get<AdminPredictsStocktwitsProbeDto>(`${this.root}/diag/stocktwits`, { params });
   }
 }

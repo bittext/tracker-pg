@@ -67,3 +67,20 @@ export interface AdminPredictsActionResultDto {
   count: number;
   ranAt: string;
 }
+
+/**
+ * Result of GET /api/admin/finance/predicts/diag/stocktwits — captures the raw shape of a
+ * one-shot call against the StockTwits public stream so admins can distinguish unindexed
+ * symbols from IP-level blocks at the egress.
+ */
+export interface AdminPredictsStocktwitsProbeDto {
+  symbol: string;
+  url: string | null;
+  userAgent: string;
+  status: number;
+  elapsedMs: number;
+  bodyPreview: string | null;
+  messageCount: number | null;
+  transportError: boolean;
+  errorMessage: string | null;
+}

@@ -16,6 +16,7 @@ import {
   AdminPredictsConfigDto,
   AdminPredictsPerSourceStat,
   AdminPredictsStatsDto,
+  AdminPredictsStocktwitsProbeDto,
 } from '../../../models/admin-predicts.models';
 import { PredictsSourceHealthDto } from '../../../models/finance-predicts.models';
 import { AdminPredictsApiService } from '../../../services/admin-predicts-api.service';
@@ -66,6 +67,11 @@ export class AdminPredictsPanelComponent implements OnInit {
   readonly loading = signal<boolean>(false);
   readonly busyAction = signal<ActionId | null>(null);
   readonly errorMessage = signal<string | null>(null);
+
+  /** Bound to the probe input. Defaults to AAPL because it is reliably indexed across vendors. */
+  probeSymbol = 'AAPL';
+  readonly probing = signal<boolean>(false);
+  readonly probeResult = signal<AdminPredictsStocktwitsProbeDto | null>(null);
 
   /** Display columns for the per-source mini table. */
   readonly perSourceColumns = ['source', 'mentions24h', 'mentionsTotal', 'uniqueSymbols24h', 'lastMentionAt'];
@@ -197,6 +203,47 @@ export class AdminPredictsPanelComponent implements OnInit {
     this.snackBar.open(`${variant}: ${result.message}`, 'Dismiss', { duration: 5000 });
     // Refresh stats + sources after an action so the panel reflects the new counts.
     this.refresh();
+  }
+
+  /**
+   * Calls the admin diag endpoint, which performs a single direct GET against StockTwits from
+   * inside the API container. The result distinguishes between "symbol unindexed" (404 from a
+   * working egress) and "IP block" (every symbol returns 404 — but a known-good ticker like AAPL
+   * also returns 404 here, which is the giveaway).
+   */
+  runProbe(): void {
+    const symbol = (this.probeSymbol || 'AAPL').trim().toUpperCase();
+    if (this.probing()) {
+      return;
+    }
+    this.probing.set(true);
+    this.probeResult.set(null);
+    this.api.probeStocktwits(symbol).subscribe({
+      next: (result) => {
+        this.probeResult.set(result);
+        this.probing.set(false);
+      },
+      error: (err) => {
+        this.probing.set(false);
+        this.snackBar.open(
+          formatHttpErrorDetail(err) ?? 'Probe failed',
+          'Dismiss',
+          { duration: 5000 },
+        );
+      },
+    });
+  }
+
+  /** Convenience for the template: green when 200 OK with messages, red otherwise. */
+  probeResultClass(): string {
+    const r = this.probeResult();
+    if (!r) {
+      return '';
+    }
+    if (r.transportError || r.status !== 200) {
+      return 'probe__result--bad';
+    }
+    return 'probe__result--ok';
   }
 
   /** Disable an action button when it requires the source to be enabled and it isn't. */
