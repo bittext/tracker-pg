@@ -32,7 +32,7 @@ public class PredictsMention {
     @Column(name = "source_msg_id", length = 128)
     private String sourceMsgId;
 
-    @Column(name = "text_hash", length = 64, columnDefinition = "char(64)")
+    @Column(name = "text_hash", length = 64)
     private String textHash;
 
     @Column(nullable = false, columnDefinition = "text")
@@ -41,7 +41,7 @@ public class PredictsMention {
     @Column(name = "body_preview", length = 240)
     private String bodyPreview;
 
-    @Column(name = "author_hash", length = 64, columnDefinition = "char(64)")
+    @Column(name = "author_hash", length = 64)
     private String authorHash;
 
     @Column(name = "engagement_score", nullable = false)
