@@ -32,7 +32,15 @@ public record FinancePredictsProperties(
             stocktwits = new Stocktwits(true, 30, 1500, "https://api.stocktwits.com/api/2");
         }
         if (reddit == null) {
-            reddit = new Reddit(false, "", "", "tracker-pg/finance-predicts", "https://oauth.reddit.com");
+            reddit = new Reddit(
+                    false,
+                    "",
+                    "",
+                    "tracker-pg/finance-predicts",
+                    "https://oauth.reddit.com",
+                    "wallstreetbets,stocks,investing,options",
+                    100,
+                    900);
         }
         if (x == null) {
             x = new X(false, "", "https://api.twitter.com/2");
@@ -65,8 +73,37 @@ public record FinancePredictsProperties(
      * @param clientSecret Reddit app client secret
      * @param userAgent must include a contact identifier per Reddit API rules
      * @param baseUrl OAuth-authenticated host (default https://oauth.reddit.com)
+     * @param subreddits comma-separated subreddits scanned each poll cycle (no leading r/)
+     * @param postsPerSubreddit cap per /new.json request (Reddit hard-caps at 100)
+     * @param pollIntervalSeconds gap between full passes
      */
-    public record Reddit(boolean enabled, String clientId, String clientSecret, String userAgent, String baseUrl) {}
+    public record Reddit(
+            boolean enabled,
+            String clientId,
+            String clientSecret,
+            String userAgent,
+            String baseUrl,
+            String subreddits,
+            int postsPerSubreddit,
+            int pollIntervalSeconds) {
+
+        public java.util.List<String> subredditList() {
+            if (subreddits == null || subreddits.isBlank()) {
+                return java.util.List.of();
+            }
+            java.util.List<String> out = new java.util.ArrayList<>();
+            for (String token : subreddits.split(",")) {
+                String t = token == null ? "" : token.trim();
+                if (t.startsWith("r/") || t.startsWith("R/")) {
+                    t = t.substring(2);
+                }
+                if (!t.isEmpty() && !out.contains(t)) {
+                    out.add(t);
+                }
+            }
+            return out;
+        }
+    }
 
     /**
      * @param enabled poll X / Twitter v2 (paid tier)

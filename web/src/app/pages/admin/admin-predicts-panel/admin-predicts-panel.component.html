@@ -1,0 +1,300 @@
+<div class="admin-predicts">
+  <header class="admin-predicts__head">
+    <div>
+      <h2 class="admin-predicts__title">Finance → Predicts (admin)</h2>
+      <p class="admin-predicts__lead">
+        Read‑only view of the active configuration plus manual triggers for the scheduled jobs (StockTwits poll,
+        Reddit poll, baseline recompute, retention sweep, Robinhood auto‑seed). Configuration is driven by
+        <code>TRACKER_FINANCE_PREDICTS_*</code> environment variables — restart the API to change them.
+      </p>
+    </div>
+    <div class="admin-predicts__head-actions">
+      <button mat-flat-button color="primary" (click)="refresh()" [disabled]="loading()">
+        <mat-icon>refresh</mat-icon>
+        Refresh
+      </button>
+    </div>
+  </header>
+
+  @if (loading()) {
+    <mat-progress-bar mode="indeterminate" class="admin-predicts__progress" />
+  }
+
+  @if (errorMessage()) {
+    <p class="admin-predicts__error" role="alert">{{ errorMessage() }}</p>
+  }
+
+  <!-- KPIs -->
+  @if (stats(); as s) {
+    <section class="admin-predicts__kpis" aria-label="Volume KPIs">
+      <mat-card class="kpi">
+        <mat-card-content>
+          <p class="kpi__label">Mentions (total / 24h)</p>
+          <p class="kpi__value">{{ formatNumber(s.mentionsTotal) }}</p>
+          <p class="kpi__sub">{{ formatNumber(s.mentions24h) }} in the last 24h</p>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="kpi">
+        <mat-card-content>
+          <p class="kpi__label">Unique symbols / authors (24h)</p>
+          <p class="kpi__value">{{ formatNumber(s.uniqueSymbols) }}</p>
+          <p class="kpi__sub">{{ formatNumber(s.uniqueAuthors24h) }} distinct authors</p>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="kpi">
+        <mat-card-content>
+          <p class="kpi__label">Buckets / baselines</p>
+          <p class="kpi__value">{{ formatNumber(s.bucketsTotal) }}</p>
+          <p class="kpi__sub">{{ formatNumber(s.baselinesTotal) }} baseline rows</p>
+        </mat-card-content>
+      </mat-card>
+      <mat-card class="kpi">
+        <mat-card-content>
+          <p class="kpi__label">Tracked tickers</p>
+          <p class="kpi__value">{{ formatNumber(s.trackedTickersTotal) }}</p>
+          <p class="kpi__sub">{{ formatNumber(s.trackedTickersAutoSeeded) }} auto‑seeded</p>
+        </mat-card-content>
+      </mat-card>
+    </section>
+  }
+
+  <!-- Per-source table -->
+  <section class="admin-predicts__row" aria-label="Per‑source volume">
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>Per‑source ingestion</mat-card-title>
+        <mat-card-subtitle>Counts since the source first started ingesting.</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        @if (perSourceRows().length > 0) {
+          <table mat-table [dataSource]="perSourceRows()" class="mat-elevation-z1 full-width">
+            <ng-container matColumnDef="source">
+              <th mat-header-cell *matHeaderCellDef>Source</th>
+              <td mat-cell *matCellDef="let row">
+                <span class="src-chip" [style.background]="sourceColor(row.source)">{{ row.source }}</span>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="mentions24h">
+              <th mat-header-cell *matHeaderCellDef>Mentions (24h)</th>
+              <td mat-cell *matCellDef="let row">{{ formatNumber(row.mentions24h) }}</td>
+            </ng-container>
+            <ng-container matColumnDef="mentionsTotal">
+              <th mat-header-cell *matHeaderCellDef>Mentions (total)</th>
+              <td mat-cell *matCellDef="let row">{{ formatNumber(row.mentionsTotal) }}</td>
+            </ng-container>
+            <ng-container matColumnDef="uniqueSymbols24h">
+              <th mat-header-cell *matHeaderCellDef>Unique symbols (24h)</th>
+              <td mat-cell *matCellDef="let row">{{ formatNumber(row.uniqueSymbols24h) }}</td>
+            </ng-container>
+            <ng-container matColumnDef="lastMentionAt">
+              <th mat-header-cell *matHeaderCellDef>Last mention</th>
+              <td mat-cell *matCellDef="let row">{{ formatTimestamp(row.lastMentionAt) }}</td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="perSourceColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: perSourceColumns"></tr>
+          </table>
+        }
+      </mat-card-content>
+    </mat-card>
+  </section>
+
+  <!-- Source health (detailed) -->
+  <section class="admin-predicts__row" aria-label="Source health">
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>Source health</mat-card-title>
+        <mat-card-subtitle>Last attempt, success, and full error text per ingest source.</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="src-health">
+          @for (src of sources(); track src.source) {
+            <div class="src-health__row">
+              <div class="src-health__head">
+                <span class="src-chip" [style.background]="sourceColor(src.source)">{{ src.source }}</span>
+                @if (src.enabled) {
+                  @if (src.consecutiveFailures > 0) {
+                    <span class="src-health__bad"
+                      ><mat-icon>error_outline</mat-icon>
+                      {{ src.consecutiveFailures }} consecutive failure(s)</span
+                    >
+                  } @else {
+                    <span class="src-health__good"><mat-icon>check_circle</mat-icon> healthy</span>
+                  }
+                } @else {
+                  <span class="src-health__disabled"><mat-icon>block</mat-icon> disabled</span>
+                }
+              </div>
+              <div class="src-health__grid">
+                <div>
+                  <span class="src-health__label">Last attempt</span>
+                  <span>{{ formatTimestamp(src.lastAttemptAt) }}</span>
+                </div>
+                <div>
+                  <span class="src-health__label">Last success</span>
+                  <span>{{ formatTimestamp(src.lastSuccessAt) }}</span>
+                </div>
+                <div>
+                  <span class="src-health__label">Last error</span>
+                  <span>{{ formatTimestamp(src.lastErrorAt) }}</span>
+                </div>
+                <div>
+                  <span class="src-health__label">Ingested (24h)</span>
+                  <span>{{ formatNumber(src.mentionsIngested24h) }}</span>
+                </div>
+              </div>
+              @if (src.lastErrorMessage) {
+                <p class="src-health__msg">{{ src.lastErrorMessage }}</p>
+              }
+            </div>
+          }
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </section>
+
+  <!-- Manual actions -->
+  <section class="admin-predicts__row" aria-label="Manual actions">
+    <mat-card>
+      <mat-card-header>
+        <mat-card-title>Manual triggers</mat-card-title>
+        <mat-card-subtitle
+          >Runs the scheduled jobs immediately. Each invocation is logged on the server.</mat-card-subtitle
+        >
+      </mat-card-header>
+      <mat-card-content>
+        <div class="actions">
+          @for (action of actions; track action.id) {
+            <div class="action">
+              <button
+                mat-stroked-button
+                color="primary"
+                class="action__btn"
+                [disabled]="isActionDisabled(action)"
+                (click)="runAction(action)"
+              >
+                <mat-icon>{{ action.icon }}</mat-icon>
+                {{ action.label }}
+              </button>
+              <p class="action__desc">{{ action.description }}</p>
+              @if (busyAction() === action.id) {
+                <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+              }
+              @if (action.requiresEnabled && config() && !config()!.reddit.enabled) {
+                <p class="action__hint">
+                  Reddit is disabled. Set <code>TRACKER_FINANCE_PREDICTS_REDDIT_ENABLED=true</code> and provide OAuth
+                  credentials to use this action.
+                </p>
+              }
+            </div>
+          }
+        </div>
+      </mat-card-content>
+    </mat-card>
+  </section>
+
+  <!-- Config snapshot -->
+  @if (config(); as c) {
+    <section class="admin-predicts__row" aria-label="Active configuration">
+      <mat-card>
+        <mat-card-header>
+          <mat-card-title>Active configuration</mat-card-title>
+          <mat-card-subtitle>Mirror of <code>tracker.finance.predicts.*</code>. Secrets are never shown.</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="cfg">
+            <div class="cfg__group">
+              <h3>Global</h3>
+              <dl>
+                <div><dt>Enabled</dt><dd>{{ c.enabled ? 'true' : 'false' }}</dd></div>
+                <div>
+                  <dt>Tracked ticker quota / user</dt>
+                  <dd>{{ c.trackedTickerQuotaPerUser }}</dd>
+                </div>
+                <div>
+                  <dt>Baseline window</dt>
+                  <dd>{{ c.baselineWindowDays }} days</dd>
+                </div>
+                <div>
+                  <dt>Mentions retention</dt>
+                  <dd>{{ c.retentionMentionsDays }} days</dd>
+                </div>
+              </dl>
+            </div>
+            <div class="cfg__group">
+              <h3>StockTwits</h3>
+              <dl>
+                <div><dt>Enabled</dt><dd>{{ c.stocktwits.enabled ? 'true' : 'false' }}</dd></div>
+                <div><dt>Base URL</dt><dd><code>{{ c.stocktwits.baseUrl }}</code></dd></div>
+                <div><dt>Max messages / symbol</dt><dd>{{ c.stocktwits.maxMessagesPerSymbol }}</dd></div>
+                <div><dt>Poll interval</dt><dd>{{ c.stocktwits.pollIntervalSeconds }}s</dd></div>
+              </dl>
+            </div>
+            <div class="cfg__group">
+              <h3>Reddit</h3>
+              <dl>
+                <div>
+                  <dt>Enabled</dt>
+                  <dd>{{ c.reddit.enabled ? 'true' : 'false' }}</dd>
+                </div>
+                <div>
+                  <dt>Credentials</dt>
+                  <dd>
+                    @if (c.reddit.credentialsConfigured) {
+                      configured
+                    } @else {
+                      <span class="cfg__warn">missing</span>
+                    }
+                  </dd>
+                </div>
+                <div><dt>User‑Agent</dt><dd><code>{{ c.reddit.userAgent }}</code></dd></div>
+                <div><dt>Base URL</dt><dd><code>{{ c.reddit.baseUrl }}</code></dd></div>
+                <div>
+                  <dt>Subreddits</dt>
+                  <dd>
+                    @if (c.reddit.subreddits.length === 0) {
+                      <span class="cfg__warn">none</span>
+                    } @else {
+                      <div class="cfg__chips">
+                        @for (sub of c.reddit.subreddits; track sub) {
+                          <span class="cfg__chip">r/{{ sub }}</span>
+                        }
+                      </div>
+                    }
+                  </dd>
+                </div>
+                <div><dt>Posts / subreddit</dt><dd>{{ c.reddit.postsPerSubreddit }}</dd></div>
+                <div><dt>Poll interval</dt><dd>{{ c.reddit.pollIntervalSeconds }}s</dd></div>
+              </dl>
+            </div>
+            <div class="cfg__group">
+              <h3>X (Twitter)</h3>
+              <dl>
+                <div><dt>Enabled</dt><dd>{{ c.x.enabled ? 'true' : 'false' }}</dd></div>
+                <div>
+                  <dt>Credentials</dt>
+                  <dd>
+                    @if (c.x.credentialsConfigured) {
+                      configured
+                    } @else {
+                      <span class="cfg__warn">missing</span>
+                    }
+                  </dd>
+                </div>
+                <div><dt>Base URL</dt><dd><code>{{ c.x.baseUrl }}</code></dd></div>
+              </dl>
+            </div>
+            <div class="cfg__group">
+              <h3>FinBERT sidecar</h3>
+              <dl>
+                <div><dt>Enabled</dt><dd>{{ c.finbert.enabled ? 'true' : 'false' }}</dd></div>
+                <div><dt>Base URL</dt><dd><code>{{ c.finbert.baseUrl }}</code></dd></div>
+                <div><dt>Max batch</dt><dd>{{ c.finbert.maxBatchSize }}</dd></div>
+                <div><dt>Timeout</dt><dd>{{ c.finbert.timeoutMs }}ms</dd></div>
+              </dl>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </section>
+  }
+</div>

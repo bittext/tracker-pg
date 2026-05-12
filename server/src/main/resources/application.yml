@@ -159,8 +159,13 @@ tracker:
         enabled: ${TRACKER_FINANCE_PREDICTS_REDDIT_ENABLED:false}
         client-id: ${TRACKER_FINANCE_PREDICTS_REDDIT_CLIENT_ID:}
         client-secret: ${TRACKER_FINANCE_PREDICTS_REDDIT_CLIENT_SECRET:}
-        user-agent: ${TRACKER_FINANCE_PREDICTS_REDDIT_USER_AGENT:tracker-pg/finance-predicts}
+        # Reddit requires a unique User-Agent; including a contact identifier is recommended (their API rules).
+        user-agent: ${TRACKER_FINANCE_PREDICTS_REDDIT_USER_AGENT:tracker-pg/6.2.0 (github.com/bittext/tracker-pg; finance-predicts)}
         base-url: ${TRACKER_FINANCE_PREDICTS_REDDIT_BASE_URL:https://oauth.reddit.com}
+        # Comma-separated subreddits to scan each cycle (no leading r/).
+        subreddits: ${TRACKER_FINANCE_PREDICTS_REDDIT_SUBREDDITS:wallstreetbets,stocks,investing,options}
+        posts-per-subreddit: ${TRACKER_FINANCE_PREDICTS_REDDIT_POSTS_PER_SUBREDDIT:100}
+        poll-interval-seconds: ${TRACKER_FINANCE_PREDICTS_REDDIT_POLL_SECONDS:900}
       x:
         # X / Twitter v2 (paid tier required as of 2024+).
         enabled: ${TRACKER_FINANCE_PREDICTS_X_ENABLED:false}

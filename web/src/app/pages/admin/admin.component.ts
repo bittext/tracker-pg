@@ -21,6 +21,7 @@ import { AuthLoginEventDto } from '../../models/auth-audit.models';
 import { JournalTagDefDto } from '../../models/journal.models';
 import { ManagementTaskCategory, ManagementTaskType } from '../../models/management.models';
 import { AdminFinanceRobinhoodCsvComponent } from './admin-finance-robinhood-csv/admin-finance-robinhood-csv.component';
+import { AdminPredictsPanelComponent } from './admin-predicts-panel/admin-predicts-panel.component';
 import { AdminUsagePanelComponent } from './admin-usage-panel/admin-usage-panel.component';
 import { BankingPanelComponent } from '../finance/banking-panel/banking-panel.component';
 import { AdminAuthAuditApiService } from '../../services/admin-auth-audit-api.service';
@@ -63,6 +64,7 @@ import {
     RouterLink,
     BankingPanelComponent,
     AdminFinanceRobinhoodCsvComponent,
+    AdminPredictsPanelComponent,
     AdminUsagePanelComponent,
     MemberProfilePanelComponent,
   ],
