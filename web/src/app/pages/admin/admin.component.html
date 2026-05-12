@@ -585,6 +585,12 @@
     </mat-tab>
 
     @if (isAppAdmin) {
+      <mat-tab label="Usage">
+        <div class="tab-panel">
+          <app-admin-usage-panel></app-admin-usage-panel>
+        </div>
+      </mat-tab>
+
       <mat-tab label="Repository (GitHub)">
         <div class="tab-panel">
           <section class="admin-section">

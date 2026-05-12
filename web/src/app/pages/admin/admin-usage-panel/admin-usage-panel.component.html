@@ -1,0 +1,275 @@
+<section class="admin-usage" aria-labelledby="adminUsageHeading">
+  <header class="admin-usage__head">
+    <div>
+      <h2 id="adminUsageHeading" class="admin-usage__title">Application usage</h2>
+      <p class="admin-usage__lead">
+        Overall adoption and activity across the system — by yourself and by every member. Drill into which features
+        are most popular and how engagement evolves over the selected window.
+      </p>
+    </div>
+    <div class="admin-usage__controls">
+      <mat-button-toggle-group
+        [value]="windowDays()"
+        (change)="setWindow($any($event.value))"
+        aria-label="Time window"
+      >
+        <mat-button-toggle [value]="7">7 days</mat-button-toggle>
+        <mat-button-toggle [value]="30">30 days</mat-button-toggle>
+        <mat-button-toggle [value]="90">90 days</mat-button-toggle>
+      </mat-button-toggle-group>
+      <button mat-stroked-button type="button" (click)="reload()" [disabled]="loading()">
+        <mat-icon>refresh</mat-icon>
+        Refresh
+      </button>
+    </div>
+  </header>
+
+  @if (loading()) {
+    <mat-progress-bar mode="indeterminate" class="admin-usage__progress"></mat-progress-bar>
+  }
+  @if (errorMessage()) {
+    <p class="admin-usage__error" role="alert">{{ errorMessage() }}</p>
+  }
+
+  @if (summary(); as s) {
+    <section class="admin-usage__kpis" aria-label="Headline numbers">
+      <mat-card appearance="outlined" class="kpi">
+        <mat-card-content>
+          <div class="kpi__label">Total users</div>
+          <div class="kpi__value">{{ s.totalUsers }}</div>
+          <div class="kpi__sub">{{ s.activeUsers }} active · {{ s.adminUsers }} admin · {{ s.memberProfilesCount }} member profiles</div>
+        </mat-card-content>
+      </mat-card>
+      <mat-card appearance="outlined" class="kpi">
+        <mat-card-content>
+          <div class="kpi__label">Active users · {{ windowDays() }}d</div>
+          <div class="kpi__value">{{ windowDays() === 7 ? s.activeUsers7d : s.activeUsers30d }}</div>
+          <div class="kpi__sub">7d {{ s.activeUsers7d }} · 30d {{ s.activeUsers30d }}</div>
+        </mat-card-content>
+      </mat-card>
+      <mat-card appearance="outlined" class="kpi">
+        <mat-card-content>
+          <div class="kpi__label">Sign-ins · 30d</div>
+          <div class="kpi__value">{{ s.signInsSuccess30d }}</div>
+          <div class="kpi__sub">
+            <span class="muted">success</span> · {{ s.signInsFailed30d }} failed
+          </div>
+        </mat-card-content>
+      </mat-card>
+      <mat-card appearance="outlined" class="kpi">
+        <mat-card-content>
+          <div class="kpi__label">Items created · {{ windowDays() }}d</div>
+          <div class="kpi__value">{{ windowDays() === 7 ? s.itemsCreated7d : s.itemsCreated30d }}</div>
+          <div class="kpi__sub">7d {{ s.itemsCreated7d }} · 30d {{ s.itemsCreated30d }}</div>
+        </mat-card-content>
+      </mat-card>
+      <mat-card appearance="outlined" class="kpi kpi--wide">
+        <mat-card-content>
+          <div class="kpi__label">Last activity</div>
+          <div class="kpi__value kpi__value--small">{{ shortInstant(s.lastActivityAt) }}</div>
+          <div class="kpi__sub">across every feature</div>
+        </mat-card-content>
+      </mat-card>
+    </section>
+  }
+
+  <section class="admin-usage__row admin-usage__row--two">
+    <mat-card appearance="outlined" class="chart-card">
+      <mat-card-header>
+        <mat-card-title>Daily activity</mat-card-title>
+        <mat-card-subtitle>Items created per day across every feature · last {{ windowDays() }} days</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        @if (activityLine().length === 0) {
+          <p class="muted">No data in this window.</p>
+        } @else {
+          <div class="chart-wrap chart-wrap--line" aria-hidden="true">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="chart-svg chart-svg--line">
+              <defs>
+                <linearGradient id="activityFill" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stop-color="var(--activity-color, #4f46e5)" stop-opacity="0.35" />
+                  <stop offset="100%" stop-color="var(--activity-color, #4f46e5)" stop-opacity="0.02" />
+                </linearGradient>
+              </defs>
+              <line x1="0" x2="100" y1="100" y2="100" class="chart-axis"></line>
+              <line x1="0" x2="100" y1="50" y2="50" class="chart-grid"></line>
+              <line x1="0" x2="100" y1="25" y2="25" class="chart-grid"></line>
+              <path [attr.d]="activityAreaPath()" class="chart-area"></path>
+              <path [attr.d]="activityLinePath()" class="chart-line"></path>
+              @for (p of activityLine(); track p.day) {
+                @if (p.count > 0) {
+                  <circle [attr.cx]="p.x" [attr.cy]="p.y" r="0.9" class="chart-dot">
+                    <title>{{ p.day }} · {{ p.count }} item(s)</title>
+                  </circle>
+                }
+              }
+            </svg>
+          </div>
+          <div class="chart-axis-labels">
+            @for (p of activityLine(); track p.day; let i = $index) {
+              <span [class.chart-axis-labels__tick--shown]="i === 0 || i === activityLine().length - 1 || (i % activityTickStep()) === 0">
+                {{ shortDay(p.day) }}
+              </span>
+            }
+          </div>
+        }
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card appearance="outlined" class="chart-card">
+      <mat-card-header>
+        <mat-card-title>Sign-in events</mat-card-title>
+        <mat-card-subtitle>Stacked by event type · last {{ windowDays() }} days</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        @if (signInBars().length === 0 || signInMaxTotal() === 0) {
+          <p class="muted">No sign-in events in this window.</p>
+        } @else {
+          <div class="signin-chart" [style.--bar-count]="signInBars().length">
+            @for (b of signInBars(); track b.day) {
+              <div class="signin-bar" [attr.title]="b.day + ' · ' + b.total + ' event(s)'">
+                <div class="signin-bar__stack">
+                  @if (b.success > 0) {
+                    <div
+                      class="signin-bar__seg signin-bar__seg--success"
+                      [style.height.%]="(b.success / signInMaxTotal()) * 100"
+                      [attr.title]="'Success: ' + b.success"
+                    ></div>
+                  }
+                  @if (b.mfaRequired > 0) {
+                    <div
+                      class="signin-bar__seg signin-bar__seg--mfa"
+                      [style.height.%]="(b.mfaRequired / signInMaxTotal()) * 100"
+                      [attr.title]="'MFA required: ' + b.mfaRequired"
+                    ></div>
+                  }
+                  @if (b.failed > 0) {
+                    <div
+                      class="signin-bar__seg signin-bar__seg--failed"
+                      [style.height.%]="(b.failed / signInMaxTotal()) * 100"
+                      [attr.title]="'Login failed: ' + b.failed"
+                    ></div>
+                  }
+                  @if (b.mfaFailed > 0) {
+                    <div
+                      class="signin-bar__seg signin-bar__seg--mfa-failed"
+                      [style.height.%]="(b.mfaFailed / signInMaxTotal()) * 100"
+                      [attr.title]="'MFA failed: ' + b.mfaFailed"
+                    ></div>
+                  }
+                  @if (b.logout > 0) {
+                    <div
+                      class="signin-bar__seg signin-bar__seg--logout"
+                      [style.height.%]="(b.logout / signInMaxTotal()) * 100"
+                      [attr.title]="'Logout: ' + b.logout"
+                    ></div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+          <div class="signin-legend">
+            <span class="legend-chip legend-chip--success">Success</span>
+            <span class="legend-chip legend-chip--mfa">MFA required</span>
+            <span class="legend-chip legend-chip--failed">Login failed</span>
+            <span class="legend-chip legend-chip--mfa-failed">MFA failed</span>
+            <span class="legend-chip legend-chip--logout">Logout</span>
+          </div>
+        }
+      </mat-card-content>
+    </mat-card>
+  </section>
+
+  <mat-card appearance="outlined" class="chart-card">
+    <mat-card-header>
+      <mat-card-title>Feature popularity</mat-card-title>
+      <mat-card-subtitle>
+        Rows created in the last {{ windowDays() }} days, sorted by volume. Distinct active users per feature
+        in that window is shown on the right.
+      </mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      @if (featureBars().length === 0) {
+        <p class="muted">No data.</p>
+      } @else {
+        <ul class="feature-bars">
+          @for (bar of featureBars(); track bar.feature) {
+            <li class="feature-bars__row">
+              <span class="feature-bars__name">{{ bar.feature }}</span>
+              <span class="feature-bars__track">
+                <span
+                  class="feature-bars__fill"
+                  [style.width.%]="bar.pct"
+                  [attr.aria-label]="bar.feature + ': ' + bar.totalCount"
+                ></span>
+                <span class="feature-bars__value">{{ bar.totalCount }}</span>
+              </span>
+              <span class="feature-bars__meta">
+                <span class="feature-bars__users">{{ bar.activeUsers }} user(s)</span>
+                <span class="feature-bars__total muted">all-time {{ bar.allTimeCount }}</span>
+              </span>
+            </li>
+          }
+        </ul>
+      }
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card appearance="outlined" class="chart-card">
+    <mat-card-header>
+      <mat-card-title>Members</mat-card-title>
+      <mat-card-subtitle>
+        Each account's adoption. "Items" sums every per-feature counter; "Top features" lists the three most-used
+        categories for that user across all time.
+      </mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      @if (members().length === 0) {
+        <p class="muted">No users found.</p>
+      } @else {
+        <div class="members-table-wrap">
+          <table mat-table [dataSource]="members()" class="members-table">
+            <ng-container matColumnDef="user">
+              <th mat-header-cell *matHeaderCellDef>User</th>
+              <td mat-cell *matCellDef="let m">
+                <div class="members-table__user">
+                  <span class="members-table__username">{{ m.username }}</span>
+                  @if (m.displayName) {
+                    <span class="members-table__display muted">{{ m.displayName }}</span>
+                  }
+                </div>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="role">
+              <th mat-header-cell *matHeaderCellDef>Role</th>
+              <td mat-cell *matCellDef="let m">
+                <span class="role-chip" [class.role-chip--admin]="m.role === 'ADMIN'">{{ m.role }}</span>
+                @if (!m.active) {
+                  <span class="role-chip role-chip--inactive">inactive</span>
+                }
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="last">
+              <th mat-header-cell *matHeaderCellDef>Last sign-in</th>
+              <td mat-cell *matCellDef="let m">{{ shortInstant(m.lastLoginAt) }}</td>
+            </ng-container>
+            <ng-container matColumnDef="signIns">
+              <th mat-header-cell *matHeaderCellDef class="num">Sign-ins · {{ windowDays() }}d</th>
+              <td mat-cell *matCellDef="let m" class="num">{{ m.signInsSuccess30d }}</td>
+            </ng-container>
+            <ng-container matColumnDef="items">
+              <th mat-header-cell *matHeaderCellDef class="num">Items (all-time)</th>
+              <td mat-cell *matCellDef="let m" class="num">{{ m.totalItems }}</td>
+            </ng-container>
+            <ng-container matColumnDef="top">
+              <th mat-header-cell *matHeaderCellDef>Top features</th>
+              <td mat-cell *matCellDef="let m">{{ topFeaturesFor(m) || '—' }}</td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="memberColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: memberColumns"></tr>
+          </table>
+        </div>
+      }
+    </mat-card-content>
+  </mat-card>
+</section>

@@ -21,6 +21,7 @@ import { AuthLoginEventDto } from '../../models/auth-audit.models';
 import { JournalTagDefDto } from '../../models/journal.models';
 import { ManagementTaskCategory, ManagementTaskType } from '../../models/management.models';
 import { AdminFinanceRobinhoodCsvComponent } from './admin-finance-robinhood-csv/admin-finance-robinhood-csv.component';
+import { AdminUsagePanelComponent } from './admin-usage-panel/admin-usage-panel.component';
 import { BankingPanelComponent } from '../finance/banking-panel/banking-panel.component';
 import { AdminAuthAuditApiService } from '../../services/admin-auth-audit-api.service';
 import { AdminGithubApiService } from '../../services/admin-github-api.service';
@@ -62,6 +63,7 @@ import {
     RouterLink,
     BankingPanelComponent,
     AdminFinanceRobinhoodCsvComponent,
+    AdminUsagePanelComponent,
     MemberProfilePanelComponent,
   ],
   templateUrl: './admin.component.html',
@@ -125,8 +127,12 @@ export class AdminComponent implements OnInit {
   /** Selected tab in Admin (0 = Sign-in log, …). */
   adminTabIndex = 0;
 
-  /** Last tab index when {@link #isAppAdmin}; GitHub is after Management. */
-  private static readonly GITHUB_TAB_INDEX = 7;
+  /**
+   * Tab indices when {@link #isAppAdmin}. Usage sits between Management and Repository (GitHub).
+   * 0 Sign-in log · 1 Create user · 2 My profile · 3 Exercise · 4 Journal · 5 Finance · 6 Management · 7 Usage · 8 Repository (GitHub)
+   */
+  private static readonly USAGE_TAB_INDEX = 7;
+  private static readonly GITHUB_TAB_INDEX = 8;
 
   createUserSaving = false;
   newProvisionedUser: {
