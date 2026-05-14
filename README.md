@@ -81,6 +81,8 @@ To reset another user, edit the `WHERE` clause in the printed SQL (or change `ad
 TRACKER_UPSERT_PASSWORD='your-secret' bash scripts/add-user.sh alice ADMIN false true
 ```
 
+If you pass the password as the second argument, **quote it** when it contains `!`, spaces, or `$` (bash/zsh history and expansion). Example: `bash scripts/add-user.sh demo 'DemoPass1234!' USER false true`.
+
 Requires **JDK + Maven** on the machine where you run the script (the API container image does not include Maven). Pepper is read from **`TRACKER_AUTH_PASSWORD_PEPPER`** or **`.env.stack`** so hashes match production.
 
 **Alternative (SQL only, no script):** use the offline Java helper and run the printed SQL in DBeaver or `psql`:

@@ -36,7 +36,8 @@ Usage:
   phone_e164:    optional; use "-" for blank (default "-")
 
 Password (pick one):
-  - Pass as the 2nd argument (discouraged: visible in process list / shell history), or
+  - Pass as the 2nd argument (discouraged: visible in process list / shell history). In bash/zsh,
+    quote passwords that contain ! or spaces, e.g.  'DemoPass1234!'  — otherwise history expansion breaks the command.
   - Set TRACKER_UPSERT_PASSWORD in the environment (recommended), or
   - Omit both: you will be prompted twice (hidden input).
 
@@ -206,12 +207,14 @@ if [[ ! -f "${server_pom}" ]]; then
 fi
 
 tmp_sql="$(mktemp)"
-trap 'rm -f "${tmp_sql}"; if [[ "${unset_pw_after:-0}" -eq 1 ]]; then unset TRACKER_UPSERT_PASSWORD || true; fi' EXIT
+mvn_log="$(mktemp)"
+trap 'rm -f "${tmp_sql}" "${mvn_log}"; if [[ "${unset_pw_after:-0}" -eq 1 ]]; then unset TRACKER_UPSERT_PASSWORD || true; fi' EXIT
 
 # Build exec.args: username role mfa active phone [pepper optional — let Java read pepper from env]
 exec_args="${username_lc} ${role_upper} ${mfa} ${active} ${phone}"
 
 echo "Generating upsert SQL via UserUpsertSqlCli (Maven) …" >&2
+set +e
 (
   cd "${repo_root}/server"
   export TRACKER_UPSERT_PASSWORD
@@ -226,14 +229,27 @@ echo "Generating upsert SQL via UserUpsertSqlCli (Maven) …" >&2
   if [[ -n "${bcrypt_from_env}" ]]; then
     export TRACKER_AUTH_BCRYPT_STRENGTH="${bcrypt_from_env}"
   fi
+  # Maven prints [ERROR] lines to stdout (not stderr) with -q; merge streams so failures are visible.
   mvn -q -B -f "${server_pom}" compile exec:java \
     -Dexec.mainClass=com.svp.tracker.auth.tool.UserUpsertSqlCli \
-    -D"exec.args=${exec_args}" >"${tmp_sql}" 2>/tmp/add-user-mvn.err || {
-    echo "Maven failed. stderr:" >&2
-    cat /tmp/add-user-mvn.err >&2
-    exit 1
-  }
+    -D"exec.args=${exec_args}" >"${mvn_log}" 2>&1
 )
+mvn_rc=$?
+set -e
+
+if [[ "${mvn_rc}" -ne 0 ]]; then
+  echo "Maven failed (exit ${mvn_rc}). Output (stdout+stderr):" >&2
+  cat "${mvn_log}" >&2
+  exit 1
+fi
+
+if ! grep -q "INSERT INTO auth_users" "${mvn_log}"; then
+  echo "Error: Maven produced no INSERT SQL. Output was:" >&2
+  cat "${mvn_log}" >&2
+  exit 1
+fi
+
+mv "${mvn_log}" "${tmp_sql}"
 
 if ! grep -q "INSERT INTO auth_users" "${tmp_sql}"; then
   echo "Error: generated SQL does not contain expected INSERT. Contents:" >&2
