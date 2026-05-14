@@ -3,8 +3,11 @@
 # as the running app (UserUpsertSqlCli). Safe to run repeatedly: re-runs refresh password_hash / salt
 # and other fields for that username.
 #
-# Requires: JDK + Maven on PATH (same machine you run this from). Reads TRACKER_AUTH_PASSWORD_PEPPER
-# from the environment or from .env.stack so hashes match production.
+# Requires: tracker-pg-server is built with Java 21 (see server/pom.xml <java.version>).
+#   - Default: JDK 21+ on PATH (or under JAVA_HOME) plus Maven, on the host.
+#   - Optional: TRACKER_ADD_USER_USE_DOCKER_MAVEN=1 runs Maven inside
+#     eclipse-temurin-21 (no host JDK 21). First run downloads deps (needs network).
+# Reads TRACKER_AUTH_PASSWORD_PEPPER from the environment or from .env.stack so hashes match production.
 #
 # Usage:
 #   bash scripts/add-user.sh --help
@@ -43,11 +46,17 @@ Password (pick one):
 
 Examples:
   TRACKER_UPSERT_PASSWORD='S3cure!' bash scripts/add-user.sh bob USER false true
+  TRACKER_ADD_USER_USE_DOCKER_MAVEN=1 TRACKER_UPSERT_PASSWORD='S3cure!' bash scripts/add-user.sh bob USER false true
   bash scripts/add-user.sh carol 'Tmp#Pass9' ADMIN false true -
   bash scripts/add-user.sh dana   # prompts for password
 
-Requires Maven + JDK. Pepper: export TRACKER_AUTH_PASSWORD_PEPPER or define it in .env.stack
-(TRACKER_AUTH_PASSWORD_PEPPER=...) so hashes match the API container.
+Requires Java 21 + Maven on the host, unless you set:
+  TRACKER_ADD_USER_USE_DOCKER_MAVEN=1   # runs mvn in a JDK-21 Docker image (needs Docker + network)
+
+Optional: TRACKER_ADD_USER_MAVEN_IMAGE (default: maven:3.9.9-eclipse-temurin-21)
+
+Pepper: export TRACKER_AUTH_PASSWORD_PEPPER or define it in .env.stack (TRACKER_AUTH_PASSWORD_PEPPER=...)
+so hashes match the API container.
 
 DB connection uses .env.stack when present (POSTGRES_*, POSTGRES_HOST, POSTGRES_HOST_PORT), or
 docker compose exec postgres when the stack is running; otherwise local psql to host:port.
@@ -195,15 +204,71 @@ case "$(printf '%s' "${active}" | tr '[:upper:]' '[:lower:]')" in
     ;;
 esac
 
-if ! command -v mvn >/dev/null 2>&1; then
-  echo "Error: mvn is not on PATH. Install Maven (or use a dev machine), then re-run this script." >&2
-  echo "The script itself is reusable; it invokes UserUpsertSqlCli to generate SQL matching PasswordHashService." >&2
-  exit 1
-fi
-
 if [[ ! -f "${server_pom}" ]]; then
   echo "Error: missing ${server_pom}" >&2
   exit 1
+fi
+
+required_java_major="$(
+  grep -E '^[[:space:]]*<java.version>[0-9]+</java.version>[[:space:]]*$' "${server_pom}" 2>/dev/null \
+    | head -1 | sed -E 's/.*<java.version>([0-9]+)<\/java.version>.*/\1/'
+)"
+[[ -n "${required_java_major}" ]] || required_java_major="21"
+
+java_bin_for_check() {
+  if [[ -n "${JAVA_HOME:-}" && -x "${JAVA_HOME}/bin/java" ]]; then
+    printf '%s' "${JAVA_HOME}/bin/java"
+  elif command -v java >/dev/null 2>&1; then
+    command -v java
+  else
+    return 1
+  fi
+}
+
+java_major_version() {
+  local java_exe="$1"
+  local line ver
+  line="$("${java_exe}" -version 2>&1 | head -n1)"
+  [[ "${line}" =~ version\ \"([^\"]+)\" ]] || return 1
+  ver="${BASH_REMATCH[1]}"
+  if [[ "${ver}" =~ ^1\.([0-9]+)\. ]]; then
+    printf '%s' "${BASH_REMATCH[1]}"
+  else
+    printf '%s' "${ver%%.*}"
+  fi
+}
+
+use_docker_maven() {
+  case "${TRACKER_ADD_USER_USE_DOCKER_MAVEN:-}" in
+    1|true|TRUE|yes|YES) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+if use_docker_maven; then
+  if ! command -v docker >/dev/null 2>&1; then
+    echo "Error: TRACKER_ADD_USER_USE_DOCKER_MAVEN=1 but docker is not on PATH." >&2
+    exit 1
+  fi
+else
+  if ! command -v mvn >/dev/null 2>&1; then
+    echo "Error: mvn is not on PATH. Install Maven and JDK ${required_java_major}+, or set TRACKER_ADD_USER_USE_DOCKER_MAVEN=1." >&2
+    exit 1
+  fi
+  if ! jb="$(java_bin_for_check)"; then
+    echo "Error: java not found. Install JDK ${required_java_major}+ or set JAVA_HOME, or use TRACKER_ADD_USER_USE_DOCKER_MAVEN=1." >&2
+    exit 1
+  fi
+  if ! jmaj="$(java_major_version "${jb}")"; then
+    echo "Error: could not parse java -version from: ${jb}" >&2
+    exit 1
+  fi
+  if ((jmaj < required_java_major)); then
+    echo "Error: this project requires Java ${required_java_major}+ for Maven compile (found Java ${jmaj} via: ${jb})." >&2
+    echo "Fix: install Temurin/OpenJDK ${required_java_major}, point JAVA_HOME at it, or run with:" >&2
+    echo "  TRACKER_ADD_USER_USE_DOCKER_MAVEN=1 bash scripts/add-user.sh ..." >&2
+    exit 1
+  fi
 fi
 
 tmp_sql="$(mktemp)"
@@ -213,15 +278,13 @@ trap 'rm -f "${tmp_sql}" "${mvn_log}"; if [[ "${unset_pw_after:-0}" -eq 1 ]]; th
 # Build exec.args: username role mfa active phone [pepper optional — let Java read pepper from env]
 exec_args="${username_lc} ${role_upper} ${mfa} ${active} ${phone}"
 
-echo "Generating upsert SQL via UserUpsertSqlCli (Maven) …" >&2
-set +e
-(
-  cd "${repo_root}/server"
+maven_image="${TRACKER_ADD_USER_MAVEN_IMAGE:-maven:3.9.9-eclipse-temurin-21}"
+
+run_maven_upsert_cli() {
   export TRACKER_UPSERT_PASSWORD
   if [[ -n "${pepper_effective}" ]]; then
     export TRACKER_AUTH_PASSWORD_PEPPER="${pepper_effective}"
   fi
-  # Optional: match API if you tune bcrypt strength in .env.stack
   bcrypt_from_env="${TRACKER_AUTH_BCRYPT_STRENGTH-}"
   if [[ -z "${bcrypt_from_env}" && -f "${dotenv_file}" ]]; then
     bcrypt_from_env="$(dotenv_get TRACKER_AUTH_BCRYPT_STRENGTH "")"
@@ -229,17 +292,58 @@ set +e
   if [[ -n "${bcrypt_from_env}" ]]; then
     export TRACKER_AUTH_BCRYPT_STRENGTH="${bcrypt_from_env}"
   fi
-  # Maven prints [ERROR] lines to stdout (not stderr) with -q; merge streams so failures are visible.
-  mvn -q -B -f "${server_pom}" compile exec:java \
-    -Dexec.mainClass=com.svp.tracker.auth.tool.UserUpsertSqlCli \
-    -D"exec.args=${exec_args}" >"${mvn_log}" 2>&1
-)
+
+  if use_docker_maven; then
+    if ! command -v docker >/dev/null 2>&1; then
+      echo "Error: TRACKER_ADD_USER_USE_DOCKER_MAVEN=1 but docker is not on PATH." >&2
+      return 1
+    fi
+    echo "Generating upsert SQL via UserUpsertSqlCli (Maven in Docker: ${maven_image}) …" >&2
+    # Named volume caches dependencies between runs; server/ is mounted RW for target/compile output.
+    docker run --rm \
+      -e TRACKER_UPSERT_PASSWORD \
+      -e TRACKER_AUTH_PASSWORD_PEPPER \
+      -e TRACKER_AUTH_BCRYPT_STRENGTH \
+      -v "${repo_root}/server:/workspace:rw" \
+      -v tracker_pg_add_user_m2:/root/.m2 \
+      -w /workspace \
+      "${maven_image}" \
+      mvn -q -B -f /workspace/pom.xml compile exec:java \
+        -Dexec.mainClass=com.svp.tracker.auth.tool.UserUpsertSqlCli \
+        -D"exec.args=${exec_args}" >"${mvn_log}" 2>&1
+  else
+    echo "Generating upsert SQL via UserUpsertSqlCli (Maven, host JDK) …" >&2
+    (
+      cd "${repo_root}/server"
+      export TRACKER_UPSERT_PASSWORD
+      if [[ -n "${pepper_effective}" ]]; then
+        export TRACKER_AUTH_PASSWORD_PEPPER="${pepper_effective}"
+      fi
+      if [[ -n "${bcrypt_from_env}" ]]; then
+        export TRACKER_AUTH_BCRYPT_STRENGTH="${bcrypt_from_env}"
+      fi
+      # Maven prints [ERROR] lines to stdout (not stderr) with -q; merge streams so failures are visible.
+      mvn -q -B -f "${server_pom}" compile exec:java \
+        -Dexec.mainClass=com.svp.tracker.auth.tool.UserUpsertSqlCli \
+        -D"exec.args=${exec_args}" >"${mvn_log}" 2>&1
+    )
+  fi
+}
+
+set +e
+run_maven_upsert_cli
 mvn_rc=$?
 set -e
 
 if [[ "${mvn_rc}" -ne 0 ]]; then
   echo "Maven failed (exit ${mvn_rc}). Output (stdout+stderr):" >&2
   cat "${mvn_log}" >&2
+  if grep -q "release version" "${mvn_log}" 2>/dev/null; then
+    echo "" >&2
+    echo "Hint: the JDK used by Maven is too old for this project (needs Java ${required_java_major})." >&2
+    echo "  Install JDK ${required_java_major} and set JAVA_HOME, or run with Docker Maven:" >&2
+    echo "  TRACKER_ADD_USER_USE_DOCKER_MAVEN=1 bash scripts/add-user.sh ..." >&2
+  fi
   exit 1
 fi
 
@@ -250,12 +354,6 @@ if ! grep -q "INSERT INTO auth_users" "${mvn_log}"; then
 fi
 
 mv "${mvn_log}" "${tmp_sql}"
-
-if ! grep -q "INSERT INTO auth_users" "${tmp_sql}"; then
-  echo "Error: generated SQL does not contain expected INSERT. Contents:" >&2
-  cat "${tmp_sql}" >&2
-  exit 1
-fi
 
 {
   echo "BEGIN;"
