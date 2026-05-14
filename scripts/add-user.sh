@@ -33,6 +33,11 @@ show_usage() {
 Usage:
   bash scripts/add-user.sh <username> [<password>] [role] [mfa_enabled] [active] [phone_e164]
 
+  With TRACKER_UPSERT_PASSWORD unset, you may put <role> first when it is ADMIN|USER and either:
+    - it is the only extra token (e.g. demo USER), or
+    - the next token is true|false (e.g. demo USER true false — then you are prompted for password).
+  Otherwise the first token after <username> is treated as the password.
+
   role:          ADMIN or USER (default USER)
   mfa_enabled:   true|false (default false)
   active:        true|false (default true)
@@ -46,9 +51,10 @@ Password (pick one):
 
 Examples:
   TRACKER_UPSERT_PASSWORD='S3cure!' bash scripts/add-user.sh bob USER false true
+  bash scripts/add-user.sh demo USER true false          # role-first; prompted password (no password in argv)
   TRACKER_ADD_USER_USE_DOCKER_MAVEN=1 TRACKER_UPSERT_PASSWORD='S3cure!' bash scripts/add-user.sh bob USER false true
   bash scripts/add-user.sh carol 'Tmp#Pass9' ADMIN false true -
-  bash scripts/add-user.sh dana   # prompts for password
+  bash scripts/add-user.sh dana   # prompts for password; defaults USER / false / true / -
 
 Requires Java 21 + Maven on the host, unless you set:
   TRACKER_ADD_USER_USE_DOCKER_MAVEN=1   # runs mvn in a JDK-21 Docker image (needs Docker + network)
@@ -125,19 +131,70 @@ if [[ -z "${pepper_effective}" && -f "${dotenv_file}" ]]; then
   pepper_effective="$(dotenv_get TRACKER_AUTH_PASSWORD_PEPPER "")"
 fi
 
+is_role_token() {
+  case "$(printf '%s' "${1:-}" | tr '[:lower:]' '[:upper:]')" in
+    ADMIN|USER) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+is_bool_token() {
+  case "$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')" in
+    true|false) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 # --- password into TRACKER_UPSERT_PASSWORD (never log it) ---
+# Remaining argv after <username>: either
+#   (a) [<password>] [role] [mfa] [active] [phone]   password required if env unset, or
+#   (b) <role> [mfa] [active] [phone]                when role is ADMIN|USER and (only role OR role then true|false)
+#        e.g. demo USER true false  →  prompt password; no password in argv.
 unset_pw_after=0
+role_from_argv=0
+
 if [[ -n "${TRACKER_UPSERT_PASSWORD:-}" ]]; then
   :
-elif [[ $# -ge 1 && "${1}" != "ADMIN" && "${1}" != "USER" && "${1}" != "admin" && "${1}" != "user" ]]; then
-  # First remaining token is the password (heuristic: not a role keyword).
+elif [[ $# -ge 1 ]] && is_role_token "$1" && { [[ $# -eq 1 ]] || { [[ $# -ge 2 ]] && is_bool_token "$2"; }; }; then
+  role="$1"
+  shift
+  role_from_argv=1
+  if [[ $# -ge 1 ]]; then
+    mfa="$1"
+    shift
+  fi
+  if [[ $# -ge 1 ]]; then
+    active="$1"
+    shift
+  fi
+  if [[ $# -ge 1 ]]; then
+    phone="$1"
+    shift
+  fi
+  if [[ $# -gt 0 ]]; then
+    echo "Unexpected extra arguments after role/mfa/active/phone: $*" >&2
+    exit 1
+  fi
+  p1=""
+  p2=""
+  read -rsp "Password for '${username_lc}': " p1
+  echo "" >&2
+  read -rsp "Confirm password: " p2
+  echo "" >&2
+  if [[ "${p1}" != "${p2}" ]]; then
+    echo "Passwords do not match." >&2
+    exit 1
+  fi
+  if [[ -z "${p1}" ]]; then
+    echo "Password cannot be empty." >&2
+    exit 1
+  fi
+  export TRACKER_UPSERT_PASSWORD="${p1}"
+  unset_pw_after=1
+elif [[ $# -ge 1 ]]; then
   export TRACKER_UPSERT_PASSWORD="$1"
   shift
   unset_pw_after=1
-elif [[ $# -ge 1 && ("${1}" == "ADMIN" || "${1}" == "USER" || "${1}" == "admin" || "${1}" == "user") ]]; then
-  echo "TRACKER_UPSERT_PASSWORD is not set and no password was given before role='${1}'." >&2
-  echo "Set TRACKER_UPSERT_PASSWORD, pass the password as the 2nd argument, or run without extra args to be prompted." >&2
-  exit 1
 else
   p1=""
   p2=""
@@ -157,22 +214,24 @@ else
   unset_pw_after=1
 fi
 
-# Remaining positional: role [mfa] [active] [phone]
-if [[ $# -ge 1 ]]; then
-  role="$1"
-  shift
-fi
-if [[ $# -ge 1 ]]; then
-  mfa="$1"
-  shift
-fi
-if [[ $# -ge 1 ]]; then
-  active="$1"
-  shift
-fi
-if [[ $# -ge 1 ]]; then
-  phone="$1"
-  shift
+# Remaining positional: role [mfa] [active] [phone] (skip if already consumed in role-first branch)
+if [[ "${role_from_argv}" -eq 0 ]]; then
+  if [[ $# -ge 1 ]]; then
+    role="$1"
+    shift
+  fi
+  if [[ $# -ge 1 ]]; then
+    mfa="$1"
+    shift
+  fi
+  if [[ $# -ge 1 ]]; then
+    active="$1"
+    shift
+  fi
+  if [[ $# -ge 1 ]]; then
+    phone="$1"
+    shift
+  fi
 fi
 if [[ $# -ge 1 ]]; then
   echo "Unexpected extra arguments: $*" >&2

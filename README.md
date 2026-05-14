@@ -83,6 +83,8 @@ TRACKER_UPSERT_PASSWORD='your-secret' bash scripts/add-user.sh alice ADMIN false
 
 If you pass the password as the second argument, **quote it** when it contains `!`, spaces, or `$` (bash/zsh history and expansion). Example: `bash scripts/add-user.sh demo 'DemoPass1234!' USER false true`.
 
+Without `TRACKER_UPSERT_PASSWORD`, you can put **role first** when the next token is `true` or `false` (or role is the only extra token), e.g. `bash scripts/add-user.sh demo USER true false` — you are then prompted for the password.
+
 The server module targets **Java 21** (`server/pom.xml`). Your machine must use JDK **21+** for host Maven (`java -version` / `JAVA_HOME`), or set **`TRACKER_ADD_USER_USE_DOCKER_MAVEN=1`** so the script runs Maven inside a JDK 21 image (Docker required; first run downloads dependencies).
 
 Requires **Maven on the host** unless `TRACKER_ADD_USER_USE_DOCKER_MAVEN=1` (then only Docker is required on the host). Pepper is read from **`TRACKER_AUTH_PASSWORD_PEPPER`** or **`.env.stack`** so hashes match production.
