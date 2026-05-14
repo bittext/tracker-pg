@@ -11,6 +11,9 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
  *
  * <p>Hashing matches PasswordHashService: BCrypt(password + "::" + salt + "::" + pepper).
  *
+ * <p>For a reusable shell entrypoint that generates this SQL and applies it via {@code psql}, see
+ * {@code scripts/add-user.sh} in the repository root.
+ *
  * <pre>
  * cd server
  * TRACKER_AUTH_PASSWORD_PEPPER='your-pepper' mvn -q compile exec:java \

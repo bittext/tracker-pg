@@ -73,9 +73,17 @@ TRACKER_AUTH_PASSWORD_PEPPER='your-pepper-from-env' mvn -q compile exec:java \
 
 To reset another user, edit the `WHERE` clause in the printed SQL (or change `admin` in the tool source if you prefer a one-off).
 
-## Create or update a user (SQL upsert)
+## Create or update a user
 
-Use the offline Java helper to print PostgreSQL `INSERT ... ON CONFLICT` SQL for `auth_users` (hashing matches the running app). Run the printed SQL in DBeaver or `psql`.
+**Recommended:** `scripts/add-user.sh` — generates `INSERT ... ON CONFLICT` via `UserUpsertSqlCli` (same BCrypt + pepper as the API) and applies it with `psql`. Safe to run many times; each run upserts the same username.
+
+```bash
+TRACKER_UPSERT_PASSWORD='your-secret' bash scripts/add-user.sh alice ADMIN false true
+```
+
+Requires **JDK + Maven** on the machine where you run the script (the API container image does not include Maven). Pepper is read from **`TRACKER_AUTH_PASSWORD_PEPPER`** or **`.env.stack`** so hashes match production.
+
+**Alternative (SQL only, no script):** use the offline Java helper and run the printed SQL in DBeaver or `psql`:
 
 ```bash
 cd server
