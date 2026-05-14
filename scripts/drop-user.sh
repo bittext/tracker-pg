@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Remove a login from auth_users (same Docker / .env.stack / psql wiring as create-demo-user.sh).
+# Remove a login from auth_users (same Docker / .env.stack / psql wiring as scripts/set-user-role.sh).
 # Clears auth_mfa_challenges and auth_trusted_locations for that user first so delete usually succeeds.
 #
 # Usage:

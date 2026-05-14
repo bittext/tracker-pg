@@ -55,7 +55,7 @@ public final class UserUpsertSqlCli {
                       active: true|false (default true)
                       phoneE164: optional, use '-' for blank
                       pepper: optional; else env TRACKER_AUTH_PASSWORD_PEPPER; if unset, same default as application.yml (tracker-dev-pepper)
-                    Or set %s for the password and pass only username and optional trailing args (see scripts/create-demo-user.sh).
+                    Or set %s for the password and pass only username and optional trailing args (see class javadoc above).
                     """
                             .formatted(UPSERT_PASSWORD_ENV));
             System.exit(1);

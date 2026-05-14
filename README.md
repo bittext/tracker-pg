@@ -73,28 +73,20 @@ TRACKER_AUTH_PASSWORD_PEPPER='your-pepper-from-env' mvn -q compile exec:java \
 
 To reset another user, edit the `WHERE` clause in the printed SQL (or change `admin` in the tool source if you prefer a one-off).
 
-## Create or update a user script
+## Create or update a user (SQL upsert)
 
-Use the helper script to create or update a login in PostgreSQL.
-
-```bash
-bash scripts/create-demo-user.sh
-```
-
-Defaults:
-
-- username: `demo`
-- password: `demo123`
-- role: `USER`
-- MFA: `false` (so login works without SMS setup)
-
-You can override values:
+Use the offline Java helper to print PostgreSQL `INSERT ... ON CONFLICT` SQL for `auth_users` (hashing matches the running app). Run the printed SQL in DBeaver or `psql`.
 
 ```bash
-bash scripts/create-demo-user.sh demo DemoPass123 USER false true
+cd server
+TRACKER_AUTH_PASSWORD_PEPPER='your-pepper-from-env' mvn -q compile exec:java \
+  -Dexec.mainClass=com.svp.tracker.auth.tool.UserUpsertSqlCli \
+  "-Dexec.args=demo demo123 USER false true"
 ```
 
-The script reads `.env.stack` when present for DB connection and `TRACKER_AUTH_PASSWORD_PEPPER`, then applies an upsert into `auth_users` keyed by username.
+To avoid putting the password on the command line, set `TRACKER_UPSERT_PASSWORD` and omit the password from `exec.args` (see `UserUpsertSqlCli` javadoc in the source).
+
+To change an existing user’s role only, use `bash scripts/set-user-role.sh`. To remove a user, use `bash scripts/drop-user.sh`.
 
 ## Local secrets (`application-local.yml`)
 
