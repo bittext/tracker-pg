@@ -265,3 +265,21 @@ export interface ManagementAccountImportResultDto {
   inserted: number;
   skippedDuplicates: number;
 }
+
+/** Management → Documents: member-scoped uploads (metadata + blob). */
+export interface ManagementDocumentDto {
+  id: number;
+  displayName: string;
+  docType: string;
+  originalFilename: string | null;
+  contentType: string | null;
+  byteSize: number;
+  downloadPath: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ManagementDocumentWriteBody {
+  displayName: string;
+  docType: string;
+}

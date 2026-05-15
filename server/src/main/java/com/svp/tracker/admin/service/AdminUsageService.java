@@ -39,6 +39,7 @@ public class AdminUsageService {
             entry("Write-ups", new FeatureSource("management_writeups", "owner_user_id", "created_at")),
             entry("Work log", new FeatureSource("management_work_log_entries", "owner_user_id", "created_at")),
             entry("Travel", new FeatureSource("management_travel_trips", "owner_user_id", "created_at")),
+            entry("Documents", new FeatureSource("management_documents", "owner_user_id", "created_at")),
             entry("Accounts", new FeatureSource("management_accounts", "owner_user_id", "created_at")),
             entry("Banking", new FeatureSource("banking_institutions", "owner_user_id", "created_at")),
             entry("Transactions", new FeatureSource("banking_transactions", "owner_user_id", "created_at")),

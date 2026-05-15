@@ -13,6 +13,8 @@ import {
   ManagementAccountDto,
   ManagementAccountImportResultDto,
   ManagementAccountWriteBody,
+  ManagementDocumentDto,
+  ManagementDocumentWriteBody,
   ManagementWriteupAttachmentDto,
   ManagementWriteupDto,
   ManagementWriteupWriteBody,
@@ -323,5 +325,34 @@ export class ManagementApiService {
   /** One-time import: pushes legacy localStorage entries to the server. Returns inserted / skipped counts. */
   bulkImportAccounts(entries: ManagementAccountWriteBody[]) {
     return this.http.post<ManagementAccountImportResultDto>(`${this.accountsRoot}/bulk-import`, { entries });
+  }
+
+  private readonly documentsRoot = `${this.root}/documents`;
+
+  listDocuments() {
+    return this.http.get<ManagementDocumentDto[]>(this.documentsRoot);
+  }
+
+  uploadDocument(file: File, displayName: string, docType: string) {
+    const fd = new FormData();
+    fd.append('file', file, file.name);
+    fd.append('displayName', displayName);
+    fd.append('docType', docType);
+    return this.http.post<ManagementDocumentDto>(this.documentsRoot, fd);
+  }
+
+  updateDocument(id: number, body: ManagementDocumentWriteBody) {
+    return this.http.put<ManagementDocumentDto>(`${this.documentsRoot}/${id}`, body);
+  }
+
+  deleteDocument(id: number) {
+    return this.http.delete<void>(`${this.documentsRoot}/${id}`);
+  }
+
+  getDocumentBlob(id: number, disposition: 'inline' | 'attachment' = 'inline') {
+    return this.http.get(`${this.documentsRoot}/${id}/file`, {
+      responseType: 'blob',
+      params: { disposition },
+    });
   }
 }

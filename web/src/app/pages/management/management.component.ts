@@ -52,6 +52,7 @@ import {
 } from '../reports/report-calendar-entry-dialog.component';
 import { ManagementWorkPanelComponent } from './management-work-panel/management-work-panel.component';
 import { ManagementTravelPanelComponent } from './management-travel-panel/management-travel-panel.component';
+import { ManagementDocumentsPanelComponent } from './management-documents-panel/management-documents-panel.component';
 
 interface CalendarCell {
   type: 'pad' | 'day';
@@ -107,6 +108,7 @@ interface AccountEntry {
     MatCheckboxModule,
     ManagementWorkPanelComponent,
     ManagementTravelPanelComponent,
+    ManagementDocumentsPanelComponent,
   ],
   templateUrl: './management.component.html',
   styleUrl: './management.component.scss',
@@ -193,14 +195,16 @@ export class ManagementComponent implements OnInit {
 
   readonly accountTableColumns: string[] = ['folder', 'itemName', 'username', 'actions'];
 
-  /** 0 Tasks, 1 Work, 2 Travel, 3 Calendar, 4 Account, 5 Notes, 6 Write-up */
+  /** 0 Tasks, 1 Work, 2 Travel, 3 Documents, 4 Calendar, 5 Account, 6 Notes, 7 Write-up */
   private readonly MGMT_TAB_WORK = 1;
   private readonly MGMT_TAB_TRAVEL = 2;
-  private readonly MGMT_TAB_NOTES = 5;
-  private readonly MGMT_TAB_WRITEUP = 6;
+  private readonly MGMT_TAB_DOCUMENTS = 3;
+  private readonly MGMT_TAB_NOTES = 6;
+  private readonly MGMT_TAB_WRITEUP = 7;
 
   private readonly workPanel = viewChild(ManagementWorkPanelComponent);
   private readonly travelPanel = viewChild(ManagementTravelPanelComponent);
+  private readonly documentsPanel = viewChild(ManagementDocumentsPanelComponent);
 
   noteYear = new Date().getFullYear();
   /** When set, list is limited to that month; when null, all months in the year. Default: current month (1–12). */
@@ -1121,6 +1125,9 @@ export class ManagementComponent implements OnInit {
     }
     if (index === this.MGMT_TAB_TRAVEL) {
       this.travelPanel()?.refreshAll();
+    }
+    if (index === this.MGMT_TAB_DOCUMENTS) {
+      this.documentsPanel()?.refreshAll();
     }
     if (index === this.MGMT_TAB_NOTES) {
       this.noteDraft.year = this.noteYear;

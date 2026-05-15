@@ -1,0 +1,229 @@
+<div class="doc-vault" aria-labelledby="doc-vault-heading">
+  <div class="doc-vault__aurora" aria-hidden="true"></div>
+
+  <header class="doc-vault__head">
+    <div class="doc-vault__title-wrap">
+      <span class="doc-vault__glyph" aria-hidden="true">✦</span>
+      <div>
+        <h2 id="doc-vault-heading" class="doc-vault__title">Document vault</h2>
+        <p class="muted doc-vault__lede">
+          A private shelf for your files—each upload is tied to <strong>your</strong> login only. Name and classify what
+          you store, then open or download whenever you need it.
+        </p>
+      </div>
+    </div>
+  </header>
+
+  <div class="doc-vault__grid">
+    <section class="doc-vault__col doc-vault__col--ingest" aria-label="Upload a document">
+      <mat-card class="doc-card doc-card--ingest" appearance="outlined">
+        <mat-card-header>
+          <mat-card-title>New scroll</mat-card-title>
+          <mat-card-subtitle>File + how you want it remembered</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content class="doc-ingest-fields">
+          <input
+            #filePick
+            type="file"
+            class="doc-file-input"
+            (change)="onFileSelected($event)"
+            [attr.aria-label]="'Choose file'"
+          />
+          <button mat-stroked-button type="button" color="primary" (click)="filePick.click()">
+            <mat-icon>upload_file</mat-icon>
+            Choose file
+          </button>
+          @if (fileInput) {
+            <p class="doc-file-pill">
+              <mat-icon inline>description</mat-icon>
+              {{ fileInput.name }} · {{ formatBytes(fileInput.size) }}
+            </p>
+          }
+
+          <mat-form-field appearance="outline" class="doc-field">
+            <mat-label>Display name</mat-label>
+            <input matInput [(ngModel)]="uploadDisplayName" name="uploadDisplayName" autocomplete="off" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="doc-field">
+            <mat-label>Type</mat-label>
+            <input
+              matInput
+              [(ngModel)]="uploadDocType"
+              name="uploadDocType"
+              list="doc-type-suggestions"
+              autocomplete="off"
+            />
+            <mat-hint>e.g. Receipt, Contract, Tax, Medical…</mat-hint>
+          </mat-form-field>
+          <datalist id="doc-type-suggestions">
+            <option value="Receipt"></option>
+            <option value="Contract"></option>
+            <option value="Insurance"></option>
+            <option value="Tax"></option>
+            <option value="Medical"></option>
+            <option value="Travel"></option>
+            <option value="Personal"></option>
+            <option value="Work"></option>
+            <option value="Other"></option>
+          </datalist>
+
+          <button
+            mat-flat-button
+            color="primary"
+            type="button"
+            class="doc-upload-btn"
+            (click)="upload()"
+            [disabled]="uploading || !fileInput"
+          >
+            @if (uploading) {
+              <mat-spinner diameter="20" />
+            } @else {
+              <mat-icon>auto_fix_high</mat-icon>
+            }
+            Seal into vault
+          </button>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="doc-card doc-card--search" appearance="outlined">
+        <mat-card-content>
+          <mat-form-field appearance="outline" class="doc-field doc-field--full">
+            <mat-label>Search your shelf</mat-label>
+            <input matInput [(ngModel)]="search" name="docSearch" autocomplete="off" />
+            <mat-icon matSuffix>search</mat-icon>
+          </mat-form-field>
+        </mat-card-content>
+      </mat-card>
+    </section>
+
+    <section class="doc-vault__col doc-vault__col--list" aria-label="Your documents">
+      <mat-card class="doc-card doc-card--list" appearance="outlined">
+        <mat-card-header>
+          <mat-card-title>Your collection</mat-card-title>
+          <mat-card-subtitle>{{ filteredDocuments.length }} entr{{ filteredDocuments.length === 1 ? 'y' : 'ies' }}</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          @if (loadingList) {
+            <div class="doc-list-loading">
+              <mat-spinner diameter="36" />
+            </div>
+          } @else if (!filteredDocuments.length) {
+            <p class="muted doc-empty">Nothing here yet—upload a file to begin.</p>
+          } @else {
+            <ul class="doc-list" role="list">
+              @for (d of filteredDocuments; track d.id) {
+                <li>
+                  <button
+                    type="button"
+                    class="doc-row"
+                    [class.doc-row--active]="selected?.id === d.id"
+                    (click)="select(d)"
+                  >
+                    <span class="doc-row__icon" aria-hidden="true">◇</span>
+                    <span class="doc-row__main">
+                      <span class="doc-row__name">{{ d.displayName }}</span>
+                      <span class="doc-row__meta">
+                        <span class="doc-chip">{{ d.docType }}</span>
+                        <span>{{ formatBytes(d.byteSize) }}</span>
+                      </span>
+                    </span>
+                    <mat-icon class="doc-row__chevron">chevron_right</mat-icon>
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </mat-card-content>
+      </mat-card>
+    </section>
+
+    <section class="doc-vault__col doc-vault__col--preview" aria-label="Preview and actions">
+      <mat-card class="doc-card doc-card--preview" appearance="outlined">
+        @if (!selected) {
+          <mat-card-content class="doc-preview-empty">
+            <div class="doc-preview-empty__ring" aria-hidden="true"></div>
+            <p class="muted">Select a document from your collection to open the reading orb.</p>
+          </mat-card-content>
+        } @else {
+          <mat-card-header>
+            <mat-card-title>{{ selected.displayName }}</mat-card-title>
+            <mat-card-subtitle>
+              {{ selected.docType }} · {{ selected.originalFilename || 'file' }} · {{ formatBytes(selected.byteSize) }}
+            </mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content class="doc-preview-body">
+            <div class="doc-preview-pane">
+              @if (previewKind === 'loading') {
+                <div class="doc-preview-loading">
+                  <mat-spinner diameter="40" />
+                </div>
+              } @else if (previewKind === 'image' && safeImageUrl) {
+                <img class="doc-preview-img" [src]="safeImageUrl" [alt]="selected.displayName" />
+              } @else if (previewKind === 'pdf' && safePdfUrl) {
+                <iframe class="doc-preview-frame" title="PDF preview" [src]="safePdfUrl"></iframe>
+              } @else if (previewKind === 'text') {
+                <pre class="doc-preview-text">{{ previewText }}</pre>
+              } @else {
+                <div class="doc-preview-fallback">
+                  <mat-icon>layers</mat-icon>
+                  <p class="muted">In-app preview is not available for this type. Download to open it locally.</p>
+                </div>
+              }
+            </div>
+
+            <mat-divider class="doc-divider" />
+
+            <div class="doc-meta-grid">
+              <mat-form-field appearance="outline" class="doc-field">
+                <mat-label>Name</mat-label>
+                <input matInput [(ngModel)]="editDisplayName" name="editDisplayName" autocomplete="off" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="doc-field">
+                <mat-label>Type</mat-label>
+                <input
+                  matInput
+                  [(ngModel)]="editDocType"
+                  name="editDocType"
+                  list="doc-type-suggestions-edit"
+                  autocomplete="off"
+                />
+              </mat-form-field>
+              <datalist id="doc-type-suggestions-edit">
+                <option value="Receipt"></option>
+                <option value="Contract"></option>
+                <option value="Insurance"></option>
+                <option value="Tax"></option>
+                <option value="Medical"></option>
+                <option value="Travel"></option>
+                <option value="Personal"></option>
+                <option value="Work"></option>
+                <option value="Other"></option>
+              </datalist>
+            </div>
+
+            <div class="doc-actions">
+              <button mat-stroked-button type="button" (click)="saveMetadata()" [disabled]="savingMeta">
+                @if (savingMeta) {
+                  <mat-spinner diameter="18" />
+                } @else {
+                  <mat-icon>edit_note</mat-icon>
+                }
+                Save details
+              </button>
+              <button mat-stroked-button type="button" (click)="downloadSelected()">
+                <mat-icon>download</mat-icon>
+                Download
+              </button>
+              <button mat-stroked-button type="button" color="warn" (click)="deleteSelected()" [disabled]="deleting">
+                <mat-icon>delete_forever</mat-icon>
+                Remove
+              </button>
+              <button mat-button type="button" (click)="clearSelection()">Close</button>
+            </div>
+          </mat-card-content>
+        }
+      </mat-card>
+    </section>
+  </div>
+</div>
