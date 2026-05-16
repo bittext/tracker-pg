@@ -92,7 +92,7 @@ a.app-brand-lockup:focus-visible {
   border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
   background: var(--app-surface, #ffffff);
   box-shadow: var(--app-shadow-md, 0 2px 8px rgba(15, 23, 42, 0.06));
-  overflow: hidden;
+  overflow: visible;
   min-height: calc(100vh - 56px - 3.5rem);
 }
 
@@ -152,6 +152,7 @@ a.app-brand-lockup:focus-visible {
 
 .tab-panel {
   display: block;
+  overflow: visible;
 }
 
 .main {
