@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { environment } from '../../environments/environment';
-import { GithubRepositoryInsightsDto } from '../models/github-insights.models';
+import { GithubFeatureHistoryDto, GithubRepositoryInsightsDto } from '../models/github-insights.models';
 
 @Injectable({ providedIn: 'root' })
 export class AdminGithubApiService {
@@ -10,5 +10,9 @@ export class AdminGithubApiService {
 
   getRepositoryInsights() {
     return this.http.get<GithubRepositoryInsightsDto>(`${this.root}/repository-insights`);
+  }
+
+  getFeatureHistory() {
+    return this.http.get<GithubFeatureHistoryDto>(`${this.root}/feature-history`);
   }
 }

@@ -28,6 +28,7 @@ import {
 import { AdminFinanceRobinhoodCsvComponent } from './admin-finance-robinhood-csv/admin-finance-robinhood-csv.component';
 import { AdminPredictsPanelComponent } from './admin-predicts-panel/admin-predicts-panel.component';
 import { AdminUsagePanelComponent } from './admin-usage-panel/admin-usage-panel.component';
+import { AdminFeaturesPanelComponent } from './admin-features-panel/admin-features-panel.component';
 import { BankingPanelComponent } from '../finance/banking-panel/banking-panel.component';
 import { AdminAuthAuditApiService } from '../../services/admin-auth-audit-api.service';
 import { AdminGithubApiService } from '../../services/admin-github-api.service';
@@ -71,6 +72,7 @@ import {
     AdminFinanceRobinhoodCsvComponent,
     AdminPredictsPanelComponent,
     AdminUsagePanelComponent,
+    AdminFeaturesPanelComponent,
     MemberProfilePanelComponent,
   ],
   templateUrl: './admin.component.html',
@@ -145,11 +147,12 @@ export class AdminComponent implements OnInit {
   adminTabIndex = 0;
 
   /**
-   * Tab indices when {@link #isAppAdmin}. Usage sits between Management and Repository (GitHub).
-   * 0 Sign-in log · 1 Create user · 2 My profile · 3 Exercise · 4 Journal · 5 Finance · 6 Management · 7 Usage · 8 Repository (GitHub)
+   * Tab indices when {@link #isAppAdmin}. Features and Repository (GitHub) are admin-only.
+   * 0 Sign-in log · 1 Create user · 2 My profile · 3 Exercise · 4 Journal · 5 Finance · 6 Management · 7 Usage · 8 Features · 9 Repository (GitHub)
    */
   private static readonly USAGE_TAB_INDEX = 7;
-  private static readonly GITHUB_TAB_INDEX = 8;
+  private static readonly FEATURES_TAB_INDEX = 8;
+  private static readonly GITHUB_TAB_INDEX = 9;
 
   createUserSaving = false;
   newProvisionedUser: {

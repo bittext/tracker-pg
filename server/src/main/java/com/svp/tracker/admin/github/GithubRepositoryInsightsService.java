@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.svp.tracker.admin.github.dto.GithubCommitSummaryDto;
 import com.svp.tracker.admin.github.dto.GithubContributorDto;
+import com.svp.tracker.admin.github.dto.GithubFeatureHistoryDto;
+import com.svp.tracker.admin.github.dto.GithubFeatureHistoryEntryDto;
 import com.svp.tracker.admin.github.dto.GithubRepoSummaryDto;
 import com.svp.tracker.admin.github.dto.GithubRepositoryInsightsDto;
 import com.svp.tracker.admin.github.dto.GithubTrafficDayDto;
@@ -97,6 +99,82 @@ public class GithubRepositoryInsightsService {
                 traffic,
                 trafficNote,
                 warnings);
+    }
+
+    /** Up to 100 recent non-merge commits, with humanized one-line feature summaries for Admin → Features. */
+    public GithubFeatureHistoryDto loadFeatureHistory() {
+        if (!githubProperties.configured()) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "GitHub is disabled or owner/repo is not set. Configure tracker.github.enabled, owner, and repo (optional api-token for higher limits).");
+        }
+        String owner = githubProperties.owner();
+        String repo = githubProperties.repo();
+        String basePath = "/repos/" + owner + "/" + repo;
+        List<String> warnings = new ArrayList<>();
+
+        JsonNode repoJson = getJson(basePath, warnings)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.BAD_GATEWAY,
+                        "Could not read repository from GitHub. Check owner/repo and network; use api-token if the repo is private."));
+
+        GithubRepoSummaryDto summary = parseRepo(repoJson);
+        List<GithubCommitSummaryDto> raw =
+                parseCommits(getJson(basePath + "/commits?per_page=100", warnings));
+
+        List<GithubFeatureHistoryEntryDto> entries = new ArrayList<>();
+        int mergesOmitted = 0;
+        for (GithubCommitSummaryDto c : raw) {
+            if (isMergeCommitMessage(c.messageFirstLine())) {
+                mergesOmitted++;
+                continue;
+            }
+            entries.add(new GithubFeatureHistoryEntryDto(
+                    c.shaShort(),
+                    toFeatureSummary(c.messageFirstLine()),
+                    c.messageFirstLine(),
+                    c.authorLogin(),
+                    c.authorName(),
+                    c.committedAt(),
+                    c.htmlUrl()));
+        }
+
+        String sourceNote =
+                "One line per commit on the default branch history (newest first). Merge commits are hidden; subject lines are cleaned for readability — open the commit on GitHub for the full message.";
+        return new GithubFeatureHistoryDto(summary, entries, mergesOmitted, sourceNote, warnings);
+    }
+
+    private static boolean isMergeCommitMessage(String firstLine) {
+        if (firstLine == null || firstLine.isBlank()) {
+            return false;
+        }
+        String lower = firstLine.strip().toLowerCase(Locale.ROOT);
+        return lower.startsWith("merge pull request")
+                || lower.startsWith("merge branch")
+                || lower.startsWith("merge remote-tracking")
+                || lower.equals("merge");
+    }
+
+    static String toFeatureSummary(String firstLine) {
+        if (firstLine == null || firstLine.isBlank()) {
+            return "Update";
+        }
+        String s = firstLine.strip();
+        s = s.replaceFirst(
+                "^(?i)(feat|fix|chore|docs|style|refactor|perf|test|build|ci|revert)(\\([^)]+\\))?!?:\\s*",
+                "");
+        s = s.replaceFirst("^(?i)(release|merge)\\s*:\\s*", "");
+        s = s.strip();
+        if (s.isEmpty()) {
+            s = firstLine.strip();
+        }
+        if (s.length() > 220) {
+            s = s.substring(0, 217) + "...";
+        }
+        if (!s.isEmpty()) {
+            s = Character.toUpperCase(s.charAt(0)) + s.substring(1);
+        }
+        return s.isEmpty() ? "Update" : s;
     }
 
     private Optional<JsonNode> getJson(String path, List<String> warnings) {

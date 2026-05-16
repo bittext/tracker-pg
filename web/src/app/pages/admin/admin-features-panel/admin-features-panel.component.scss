@@ -1,0 +1,128 @@
+.admin-features-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.admin-features-error {
+  margin: 0 0 1rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  color: var(--mat-sys-error, #b3261e);
+  background: color-mix(in srgb, var(--mat-sys-error, #b3261e) 8%, transparent);
+}
+
+.admin-features-meta {
+  margin: 0 0 0.5rem;
+}
+
+.admin-features-hint {
+  max-width: 42rem;
+}
+
+.features-timeline {
+  margin-top: 1rem;
+}
+
+.features-timeline__month {
+  margin-bottom: 1.5rem;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.features-timeline__month-title {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--app-text-muted, #64748b);
+}
+
+.features-timeline__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.features-timeline__item {
+  display: flex;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0 0 1rem;
+
+  &:last-child .features-timeline__line {
+    display: none;
+  }
+}
+
+.features-timeline__rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: 12px;
+  padding-top: 0.35rem;
+}
+
+.features-timeline__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--app-accent, #0f6d73);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-accent, #0f6d73) 18%, transparent);
+}
+
+.features-timeline__line {
+  flex: 1;
+  width: 2px;
+  min-height: 1rem;
+  margin-top: 4px;
+  background: var(--app-border, rgba(15, 23, 42, 0.12));
+}
+
+.features-timeline__card {
+  flex: 1;
+  min-width: 0;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--app-radius-sm, 10px);
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+  background: var(--app-surface, #fff);
+}
+
+.features-timeline__date {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--app-text-muted, #64748b);
+  margin-bottom: 0.25rem;
+}
+
+.features-timeline__title {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--app-text, #0f172a);
+}
+
+.features-timeline__raw {
+  margin: 0 0 0.35rem;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.features-timeline__meta {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+
+  code {
+    font-size: 0.85em;
+  }
+}

@@ -1,5 +1,6 @@
 package com.svp.tracker.admin.github;
 
+import com.svp.tracker.admin.github.dto.GithubFeatureHistoryDto;
 import com.svp.tracker.admin.github.dto.GithubRepositoryInsightsDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,5 +17,10 @@ public class AdminGithubController {
     @GetMapping("/repository-insights")
     public GithubRepositoryInsightsDto repositoryInsights() {
         return githubRepositoryInsightsService.loadInsights();
+    }
+
+    @GetMapping("/feature-history")
+    public GithubFeatureHistoryDto featureHistory() {
+        return githubRepositoryInsightsService.loadFeatureHistory();
     }
 }

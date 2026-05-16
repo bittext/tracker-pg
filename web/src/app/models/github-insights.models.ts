@@ -45,6 +45,24 @@ export interface GithubTrafficSummaryDto {
   days: GithubTrafficDayDto[];
 }
 
+export interface GithubFeatureHistoryEntryDto {
+  shaShort: string;
+  featureSummary: string;
+  messageFirstLine: string;
+  authorLogin: string;
+  authorName: string;
+  committedAt: string;
+  htmlUrl: string;
+}
+
+export interface GithubFeatureHistoryDto {
+  repository: GithubRepoSummaryDto;
+  entries: GithubFeatureHistoryEntryDto[];
+  mergeCommitsOmitted: number;
+  sourceNote: string;
+  warnings: string[];
+}
+
 export interface GithubRepositoryInsightsDto {
   repository: GithubRepoSummaryDto;
   contributors: GithubContributorDto[];

@@ -1,0 +1,89 @@
+<section class="admin-features" aria-labelledby="admin-features-heading">
+  <h2 id="admin-features-heading" class="section-title">Features</h2>
+  <p class="muted">
+    Timeline of what shipped in this application, built from the latest commits on the linked GitHub repository.
+    Each line is the commit subject, cleaned for readability — use the commit link for the full message and diff.
+  </p>
+
+  <div class="admin-features-toolbar">
+    <button mat-stroked-button type="button" (click)="refresh()" [disabled]="loading">
+      <mat-icon>refresh</mat-icon>
+      Refresh from GitHub
+    </button>
+    @if (loading) {
+      <mat-spinner diameter="28" aria-label="Loading feature history" />
+    }
+  </div>
+
+  @if (loadError) {
+    <p class="admin-features-error" role="alert">{{ loadError }}</p>
+  }
+
+  @if (notConfigured) {
+    <p class="muted admin-features-hint">
+      GitHub integration is not configured on the server. Set <code>tracker.github.enabled</code>,
+      <code>owner</code>, and <code>repo</code> (and optionally <code>api-token</code> for private repos or higher rate
+      limits), then restart the API.
+    </p>
+  }
+
+  @if (history; as h) {
+    <p class="muted admin-features-meta">
+      Repository:
+      <a [href]="h.repository.htmlUrl" target="_blank" rel="noopener noreferrer">{{ h.repository.fullName }}</a>
+      · {{ h.entries.length }} feature line(s)
+      @if (h.mergeCommitsOmitted > 0) {
+        <span> · {{ h.mergeCommitsOmitted }} merge commit(s) hidden</span>
+      }
+    </p>
+    <p class="muted small">{{ h.sourceNote }}</p>
+
+    @if (!h.entries.length) {
+      <p class="muted empty-hint">No commits returned. Check repository settings or try again later.</p>
+    } @else {
+      <div class="features-timeline">
+        @for (group of monthGroups; track group.monthKey) {
+          <section class="features-timeline__month" [attr.aria-label]="group.monthLabel">
+            <h3 class="features-timeline__month-title">{{ group.monthLabel }}</h3>
+            <ol class="features-timeline__list">
+              @for (row of group.entries; track row.shaShort + row.committedAt) {
+                <li class="features-timeline__item">
+                  <div class="features-timeline__rail" aria-hidden="true">
+                    <span class="features-timeline__dot"></span>
+                    <span class="features-timeline__line"></span>
+                  </div>
+                  <div class="features-timeline__card">
+                    <time class="features-timeline__date" [attr.datetime]="row.committedAt">{{
+                      row.committedAt | date: 'mediumDate'
+                    }}</time>
+                    <p class="features-timeline__title">{{ row.featureSummary }}</p>
+                    @if (row.messageFirstLine !== row.featureSummary) {
+                      <p class="muted features-timeline__raw">{{ row.messageFirstLine }}</p>
+                    }
+                    <p class="muted features-timeline__meta">
+                      <code>{{ row.shaShort }}</code>
+                      · {{ authorLabel(row) }}
+                      @if (row.htmlUrl) {
+                        ·
+                        <a [href]="row.htmlUrl" target="_blank" rel="noopener noreferrer">View commit</a>
+                      }
+                    </p>
+                  </div>
+                </li>
+              }
+            </ol>
+          </section>
+        }
+      </div>
+    }
+
+    @if (h.warnings.length) {
+      <h3 class="subsection-title">API notes</h3>
+      <ul class="muted small github-warnings">
+        @for (w of h.warnings; track w) {
+          <li>{{ w }}</li>
+        }
+      </ul>
+    }
+  }
+</section>
