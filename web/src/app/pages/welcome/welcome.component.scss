@@ -131,6 +131,75 @@
   }
 }
 
+.welcome-quote {
+  margin: -0.5rem 0 1.75rem;
+  padding: 0 0.25rem;
+}
+
+.welcome-quote__inner {
+  max-width: min(100%, 48rem);
+  margin: 0 auto;
+  padding: 1rem 1.15rem 1.1rem;
+  border-radius: var(--app-radius, 12px);
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--app-accent, #6366f1) 8%, var(--app-surface, #fff)) 0%,
+    var(--app-surface-muted, #f8fafc) 48%,
+    color-mix(in srgb, #0e7490 8%, var(--app-surface, #fff)) 100%
+  );
+  box-shadow: 0 10px 36px rgba(15, 23, 42, 0.06);
+}
+
+.welcome-quote__title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.65rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--app-text-muted, #64748b);
+}
+
+.welcome-quote__title-icon {
+  font-size: 1.15rem;
+  width: 1.15rem;
+  height: 1.15rem;
+  color: var(--app-accent, #6366f1);
+  transform: scaleX(-1);
+}
+
+.welcome-quote__blockquote {
+  margin: 0 0 0.85rem;
+  padding: 0;
+  border: none;
+}
+
+.welcome-quote__text {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+  line-height: 1.55;
+  font-style: italic;
+  color: var(--w-ink);
+}
+
+.welcome-quote__author {
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-style: normal;
+  color: var(--app-text-muted, #64748b);
+}
+
+.welcome-quote__shuffle mat-icon {
+  margin-right: 0.25rem;
+  vertical-align: middle;
+  font-size: 1.1rem;
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
 .welcome-section {
   margin-bottom: 2.5rem;
 }
