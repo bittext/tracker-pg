@@ -14,6 +14,26 @@
           Health Tracker &amp; PFM <span class="muted">(Personal Financial Management)</span>
         </p>
         <h1 id="welcome-title" class="welcome-hero__title">Welcome back, {{ displayName }}</h1>
+        <aside class="welcome-quote welcome-quote--in-hero" aria-labelledby="welcome-quote-heading">
+          <div class="welcome-quote__inner">
+            <h2 id="welcome-quote-heading" class="welcome-quote__title">
+              <mat-icon class="welcome-quote__title-icon" aria-hidden="true">format_quote</mat-icon>
+              Thought for today
+            </h2>
+            <blockquote class="welcome-quote__blockquote">
+              <p class="welcome-quote__text">“{{ dailyQuote().text }}”</p>
+              <footer class="welcome-quote__author">— {{ dailyQuote().author }}</footer>
+            </blockquote>
+            <button
+              type="button"
+              class="welcome-quote__shuffle"
+              (click)="refreshQuote()"
+            >
+              <mat-icon aria-hidden="true">autorenew</mat-icon>
+              Another quote
+            </button>
+          </div>
+        </aside>
         <p class="welcome-hero__lead">
           Your hub for training, money, planning, and notes. <strong>Finance → Banking</strong> covers imports and
           ledger views; under <strong>Admin → Finance → Banking</strong> you can define <strong>institution types</strong>
@@ -36,23 +56,6 @@
       </div>
     </div>
   </header>
-
-  <aside class="welcome-quote" aria-labelledby="welcome-quote-heading">
-    <div class="welcome-quote__inner">
-      <h2 id="welcome-quote-heading" class="welcome-quote__title">
-        <mat-icon class="welcome-quote__title-icon" aria-hidden="true">format_quote</mat-icon>
-        Thought for today
-      </h2>
-      <blockquote class="welcome-quote__blockquote">
-        <p class="welcome-quote__text">“{{ dailyQuote().text }}”</p>
-        <footer class="welcome-quote__author">— {{ dailyQuote().author }}</footer>
-      </blockquote>
-      <button mat-stroked-button type="button" class="welcome-quote__shuffle" (click)="refreshQuote()">
-        <mat-icon>autorenew</mat-icon>
-        Another quote
-      </button>
-    </div>
-  </aside>
 
   <section class="welcome-section" aria-labelledby="features-heading">
     <h2 id="features-heading" class="welcome-section__title">What you can do here</h2>
