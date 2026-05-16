@@ -31,6 +31,7 @@ public class PredictsBaselineService {
 
     /** Nightly at 03:17 UTC; jittered slightly so it doesn't collide with other midnight jobs. */
     @Scheduled(cron = "0 17 3 * * *", zone = "UTC")
+    @Transactional
     public void nightly() {
         if (!props.enabled()) {
             return;
