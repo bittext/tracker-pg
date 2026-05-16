@@ -1,0 +1,49 @@
+<section class="rep-now" aria-labelledby="rep-now-heading">
+  <h2 id="rep-now-heading" class="mgmt-report-title">Management → Now</h2>
+  <p class="muted mgmt-report-lead">
+    Same roadmap cards as <a routerLink="/management">Management</a> → <strong>Now</strong>, including lane and order
+    from this browser (local storage). Drag and reorder on the Management page; use the filter here to slice by card
+    type.
+  </p>
+  <p class="muted rep-now-meta">Narrative last updated: <strong>{{ meta.lastUpdatedLabel }}</strong></p>
+
+  @let repNowRows = filteredRows();
+
+  <div class="rep-now-toolbar">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="rep-now-filter">
+      <mat-label>Card type</mat-label>
+      <mat-select [(ngModel)]="typeFilter" name="repNowTypeFilter">
+        <mat-option value="all">All types</mat-option>
+        @for (t of cardTypes; track t) {
+          <mat-option [value]="t">{{ typeMeta[t].label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <span class="rep-now-count muted">{{ repNowRows.length }} card(s)</span>
+  </div>
+
+  <div class="rep-now-grid" role="list">
+    @for (row of repNowRows; track row.card.id) {
+      <mat-card class="rep-now-card" appearance="outlined" role="listitem">
+        <span class="rep-now-card__type" [style.color]="typeMeta[row.card.type].color">{{
+          typeMeta[row.card.type].badge
+        }}</span>
+        <div class="rep-now-card__lane" [attr.data-lane]="row.lane">{{ row.laneLabel }}</div>
+        <mat-card-header>
+          <mat-card-title>{{ row.card.title }}</mat-card-title>
+          @if (row.card.milestone) {
+            <mat-card-subtitle class="rep-now-card__milestone">{{ row.card.milestone }}</mat-card-subtitle>
+          }
+        </mat-card-header>
+        @if (row.card.body) {
+          <mat-card-content>
+            <p class="rep-now-card__body">{{ row.card.body }}</p>
+          </mat-card-content>
+        }
+      </mat-card>
+    }
+  </div>
+  @if (!repNowRows.length) {
+    <p class="muted empty-hint">No cards match this type filter.</p>
+  }
+</section>

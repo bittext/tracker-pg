@@ -19,83 +19,197 @@
     </div>
   </header>
 
+  <div class="now-toolbar">
+    <mat-form-field appearance="outline" subscriptSizing="dynamic" class="now-type-filter">
+      <mat-label>Card type</mat-label>
+      <mat-select [(ngModel)]="typeFilter" name="nowTypeFilter">
+        <mat-option value="all">All types</mat-option>
+        @for (t of cardTypes; track t) {
+          <mat-option [value]="t">{{ typeMeta[t].label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    @if (typeFilter !== 'all') {
+      <p class="now-toolbar__hint muted">Drag and drop is available when <strong>All types</strong> is selected.</p>
+    }
+  </div>
+
   <div class="now-board" role="region" aria-label="Roadmap by status">
     <section class="now-lane now-lane--planned" aria-labelledby="now-lane-planned">
       <div class="now-lane__head">
         <mat-icon class="now-lane__icon" aria-hidden="true">lightbulb</mat-icon>
         <h3 id="now-lane-planned" class="now-lane__title">Planned</h3>
-        <span class="now-lane__count">{{ planned.length }}</span>
+        <span class="now-lane__count">{{ idsForView(plannedIds).length }}</span>
       </div>
       <p class="muted now-lane__hint">Committed direction, not yet in active build.</p>
-      <div class="now-lane__cards">
-        @for (c of planned; track c.title) {
-          <mat-card class="now-card" appearance="outlined">
-            <mat-card-header>
-              <mat-card-title>{{ c.title }}</mat-card-title>
-              @if (c.milestone) {
-                <mat-card-subtitle class="now-card__milestone">{{ c.milestone }}</mat-card-subtitle>
-              }
-            </mat-card-header>
-            @if (c.body) {
-              <mat-card-content>
-                <p class="now-card__body">{{ c.body }}</p>
-              </mat-card-content>
+      @if (dragEnabled()) {
+        <div
+          class="now-lane__cards now-lane__cards--drag"
+          cdkDropList
+          id="now-drop-planned"
+          [cdkDropListData]="plannedIds"
+          [cdkDropListConnectedTo]="['now-drop-active', 'now-drop-done']"
+          (cdkDropListDropped)="onDrop($event)"
+        >
+          @for (id of plannedIds; track id) {
+            @if (card(id); as c) {
+              <mat-card class="now-card" appearance="outlined" cdkDrag>
+                <span class="now-card__type" [style.color]="typeMeta[c.type].color">{{ typeMeta[c.type].badge }}</span>
+                <mat-card-header>
+                  <mat-card-title>{{ c.title }}</mat-card-title>
+                  @if (c.milestone) {
+                    <mat-card-subtitle class="now-card__milestone">{{ c.milestone }}</mat-card-subtitle>
+                  }
+                </mat-card-header>
+                @if (c.body) {
+                  <mat-card-content>
+                    <p class="now-card__body">{{ c.body }}</p>
+                  </mat-card-content>
+                }
+              </mat-card>
             }
-          </mat-card>
-        }
-      </div>
+          }
+        </div>
+      } @else {
+        <div class="now-lane__cards">
+          @for (id of idsForView(plannedIds); track id) {
+            @if (card(id); as c) {
+              <mat-card class="now-card" appearance="outlined">
+                <span class="now-card__type" [style.color]="typeMeta[c.type].color">{{ typeMeta[c.type].badge }}</span>
+                <mat-card-header>
+                  <mat-card-title>{{ c.title }}</mat-card-title>
+                  @if (c.milestone) {
+                    <mat-card-subtitle class="now-card__milestone">{{ c.milestone }}</mat-card-subtitle>
+                  }
+                </mat-card-header>
+                @if (c.body) {
+                  <mat-card-content>
+                    <p class="now-card__body">{{ c.body }}</p>
+                  </mat-card-content>
+                }
+              </mat-card>
+            }
+          }
+        </div>
+      }
     </section>
 
     <section class="now-lane now-lane--active" aria-labelledby="now-lane-active">
       <div class="now-lane__head">
         <mat-icon class="now-lane__icon" aria-hidden="true">bolt</mat-icon>
         <h3 id="now-lane-active" class="now-lane__title">In progress</h3>
-        <span class="now-lane__count">{{ active.length }}</span>
+        <span class="now-lane__count">{{ idsForView(activeIds).length }}</span>
       </div>
       <p class="muted now-lane__hint">Where attention and releases are flowing today.</p>
-      <div class="now-lane__cards">
-        @for (c of active; track c.title) {
-          <mat-card class="now-card now-card--pulse" appearance="outlined">
-            <mat-card-header>
-              <mat-card-title>{{ c.title }}</mat-card-title>
-              @if (c.milestone) {
-                <mat-card-subtitle class="now-card__milestone">{{ c.milestone }}</mat-card-subtitle>
-              }
-            </mat-card-header>
-            @if (c.body) {
-              <mat-card-content>
-                <p class="now-card__body">{{ c.body }}</p>
-              </mat-card-content>
+      @if (dragEnabled()) {
+        <div
+          class="now-lane__cards now-lane__cards--drag"
+          cdkDropList
+          id="now-drop-active"
+          [cdkDropListData]="activeIds"
+          [cdkDropListConnectedTo]="['now-drop-planned', 'now-drop-done']"
+          (cdkDropListDropped)="onDrop($event)"
+        >
+          @for (id of activeIds; track id) {
+            @if (card(id); as c) {
+              <mat-card class="now-card now-card--pulse" appearance="outlined" cdkDrag>
+                <span class="now-card__type" [style.color]="typeMeta[c.type].color">{{ typeMeta[c.type].badge }}</span>
+                <mat-card-header>
+                  <mat-card-title>{{ c.title }}</mat-card-title>
+                  @if (c.milestone) {
+                    <mat-card-subtitle class="now-card__milestone">{{ c.milestone }}</mat-card-subtitle>
+                  }
+                </mat-card-header>
+                @if (c.body) {
+                  <mat-card-content>
+                    <p class="now-card__body">{{ c.body }}</p>
+                  </mat-card-content>
+                }
+              </mat-card>
             }
-          </mat-card>
-        }
-      </div>
+          }
+        </div>
+      } @else {
+        <div class="now-lane__cards">
+          @for (id of idsForView(activeIds); track id) {
+            @if (card(id); as c) {
+              <mat-card class="now-card now-card--pulse" appearance="outlined">
+                <span class="now-card__type" [style.color]="typeMeta[c.type].color">{{ typeMeta[c.type].badge }}</span>
+                <mat-card-header>
+                  <mat-card-title>{{ c.title }}</mat-card-title>
+                  @if (c.milestone) {
+                    <mat-card-subtitle class="now-card__milestone">{{ c.milestone }}</mat-card-subtitle>
+                  }
+                </mat-card-header>
+                @if (c.body) {
+                  <mat-card-content>
+                    <p class="now-card__body">{{ c.body }}</p>
+                  </mat-card-content>
+                }
+              </mat-card>
+            }
+          }
+        </div>
+      }
     </section>
 
     <section class="now-lane now-lane--done" aria-labelledby="now-lane-done">
       <div class="now-lane__head">
         <mat-icon class="now-lane__icon" aria-hidden="true">check_circle</mat-icon>
         <h3 id="now-lane-done" class="now-lane__title">Completed</h3>
-        <span class="now-lane__count">{{ done.length }}</span>
+        <span class="now-lane__count">{{ idsForView(doneIds).length }}</span>
       </div>
       <p class="muted now-lane__hint">Shipped work worth remembering—archive when this list gets long.</p>
-      <div class="now-lane__cards">
-        @for (c of done; track c.title) {
-          <mat-card class="now-card now-card--done" appearance="outlined">
-            <mat-card-header>
-              <mat-card-title>{{ c.title }}</mat-card-title>
-              @if (c.milestone) {
-                <mat-card-subtitle class="now-card__milestone">{{ c.milestone }}</mat-card-subtitle>
-              }
-            </mat-card-header>
-            @if (c.body) {
-              <mat-card-content>
-                <p class="now-card__body">{{ c.body }}</p>
-              </mat-card-content>
+      @if (dragEnabled()) {
+        <div
+          class="now-lane__cards now-lane__cards--drag"
+          cdkDropList
+          id="now-drop-done"
+          [cdkDropListData]="doneIds"
+          [cdkDropListConnectedTo]="['now-drop-planned', 'now-drop-active']"
+          (cdkDropListDropped)="onDrop($event)"
+        >
+          @for (id of doneIds; track id) {
+            @if (card(id); as c) {
+              <mat-card class="now-card now-card--done" appearance="outlined" cdkDrag>
+                <span class="now-card__type" [style.color]="typeMeta[c.type].color">{{ typeMeta[c.type].badge }}</span>
+                <mat-card-header>
+                  <mat-card-title>{{ c.title }}</mat-card-title>
+                  @if (c.milestone) {
+                    <mat-card-subtitle class="now-card__milestone">{{ c.milestone }}</mat-card-subtitle>
+                  }
+                </mat-card-header>
+                @if (c.body) {
+                  <mat-card-content>
+                    <p class="now-card__body">{{ c.body }}</p>
+                  </mat-card-content>
+                }
+              </mat-card>
             }
-          </mat-card>
-        }
-      </div>
+          }
+        </div>
+      } @else {
+        <div class="now-lane__cards">
+          @for (id of idsForView(doneIds); track id) {
+            @if (card(id); as c) {
+              <mat-card class="now-card now-card--done" appearance="outlined">
+                <span class="now-card__type" [style.color]="typeMeta[c.type].color">{{ typeMeta[c.type].badge }}</span>
+                <mat-card-header>
+                  <mat-card-title>{{ c.title }}</mat-card-title>
+                  @if (c.milestone) {
+                    <mat-card-subtitle class="now-card__milestone">{{ c.milestone }}</mat-card-subtitle>
+                  }
+                </mat-card-header>
+                @if (c.body) {
+                  <mat-card-content>
+                    <p class="now-card__body">{{ c.body }}</p>
+                  </mat-card-content>
+                }
+              </mat-card>
+            }
+          }
+        </div>
+      }
     </section>
   </div>
 </div>
