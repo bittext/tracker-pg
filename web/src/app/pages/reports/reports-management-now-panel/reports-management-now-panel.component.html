@@ -2,8 +2,10 @@
   <h2 id="rep-now-heading" class="mgmt-report-title">Management → Now</h2>
   <p class="muted mgmt-report-lead">
     Same roadmap cards as <a routerLink="/management">Management</a> → <strong>Now</strong>, including built-in cards,
-    <strong>cards you add</strong> with <em>Add card</em>, lane, and order from this browser (local storage). Drag and
-    reorder on the Management page; use the filter here to slice by card type.
+    <strong>cards you add</strong> with <em>Add card</em>, lane, and order from this browser (local storage). Card
+    <strong>types</strong> come from defaults plus any you define under
+    <a routerLink="/admin">Admin</a> → Management → <strong>Now</strong>. Drag and reorder on the Management page; use
+    the filter here to slice by card type.
   </p>
   <p class="muted rep-now-meta">Narrative last updated: <strong>{{ meta.lastUpdatedLabel }}</strong></p>
 
@@ -14,8 +16,8 @@
       <mat-label>Card type</mat-label>
       <mat-select [(ngModel)]="typeFilter" name="repNowTypeFilter">
         <mat-option value="all">All types</mat-option>
-        @for (t of cardTypes; track t) {
-          <mat-option [value]="t">{{ typeMeta[t].label }}</mat-option>
+        @for (slug of typeSlugsForFilter(); track slug) {
+          <mat-option [value]="slug">{{ typeMetaFor(slug).label }}</mat-option>
         }
       </mat-select>
     </mat-form-field>
@@ -25,8 +27,8 @@
   <div class="rep-now-grid" role="list">
     @for (row of repNowRows; track row.card.id) {
       <mat-card class="rep-now-card" appearance="outlined" role="listitem">
-        <span class="rep-now-card__type" [style.color]="typeMeta[row.card.type].color">{{
-          typeMeta[row.card.type].badge
+        <span class="rep-now-card__type" [style.color]="typeMetaFor(row.card.type).color">{{
+          typeMetaFor(row.card.type).badge
         }}</span>
         <div class="rep-now-card__lane" [attr.data-lane]="row.lane">{{ row.laneLabel }}</div>
         <mat-card-header>

@@ -19,7 +19,12 @@ import { Exercise } from '../../models/fitness.models';
 import { FinanceNotificationSettingsDto, FinanceNotificationSettingsRequestDto } from '../../models/finance.models';
 import { AuthLoginEventDto } from '../../models/auth-audit.models';
 import { JournalTagDefDto } from '../../models/journal.models';
-import { ManagementTaskCategory, ManagementTaskType } from '../../models/management.models';
+import {
+  ManagementNowCardType,
+  ManagementNowCardTypeWriteBody,
+  ManagementTaskCategory,
+  ManagementTaskType,
+} from '../../models/management.models';
 import { AdminFinanceRobinhoodCsvComponent } from './admin-finance-robinhood-csv/admin-finance-robinhood-csv.component';
 import { AdminPredictsPanelComponent } from './admin-predicts-panel/admin-predicts-panel.component';
 import { AdminUsagePanelComponent } from './admin-usage-panel/admin-usage-panel.component';
@@ -106,6 +111,16 @@ export class AdminComponent implements OnInit {
   taskTypes: ManagementTaskType[] = [];
   taskTypeColumns = ['ttName', 'ttNotes', 'ttActions'];
   newTaskType: Partial<ManagementTaskType> = { name: '', notes: '' };
+
+  nowCardTypes: ManagementNowCardType[] = [];
+  nowCardTypeColumns = ['ncSlug', 'ncLabel', 'ncBadge', 'ncColor', 'ncSort', 'ncActions'];
+  newNowCardType: {
+    slug: string;
+    label: string;
+    badge: string;
+    colorHex: string;
+    sortIndex: string;
+  } = { slug: '', label: '', badge: '', colorHex: '#6366f1', sortIndex: '' };
 
   journalTags: JournalTagDefDto[] = [];
   journalTagColumns = ['jName', 'jActions'];
@@ -336,6 +351,18 @@ export class AdminComponent implements OnInit {
       },
       error: (e) => this.err('Could not load task types', e),
     });
+    this.managementApi.listNowCardTypes().subscribe({
+      next: (rows) => {
+        this.nowCardTypes = [...rows].sort((a, b) => {
+          const si = (a.sortIndex ?? 0) - (b.sortIndex ?? 0);
+          if (si !== 0) {
+            return si;
+          }
+          return (a.slug || '').localeCompare(b.slug || '', undefined, { sensitivity: 'base' });
+        });
+      },
+      error: (e) => this.err('Could not load Now card types', e),
+    });
   }
 
   addCategory(): void {
@@ -401,6 +428,55 @@ export class AdminComponent implements OnInit {
         this.snackBar.open(`Removed task type “${row.name}”`, undefined, { duration: 2500 });
       },
       error: (e) => this.err('Could not delete task type', e),
+    });
+  }
+
+  addNowCardType(): void {
+    const slug = (this.newNowCardType.slug || '').trim().toLowerCase();
+    const label = (this.newNowCardType.label || '').trim();
+    const badge = (this.newNowCardType.badge || '').trim();
+    const colorHex = (this.newNowCardType.colorHex || '').trim();
+    if (!slug || !label || !badge || !colorHex) {
+      this.snackBar.open('Slug, label, badge, and color are required.', 'Dismiss', { duration: 5000 });
+      return;
+    }
+    const sortRaw = (this.newNowCardType.sortIndex || '').trim();
+    let sortIndex: number | null = null;
+    if (sortRaw !== '') {
+      const n = Number(sortRaw);
+      if (!Number.isFinite(n)) {
+        this.snackBar.open('Sort order must be a number.', 'Dismiss', { duration: 5000 });
+        return;
+      }
+      sortIndex = n;
+    }
+    const body: ManagementNowCardTypeWriteBody = {
+      slug,
+      label,
+      badge,
+      colorHex,
+      sortIndex,
+    };
+    this.managementApi.createNowCardType(body).subscribe({
+      next: () => {
+        this.newNowCardType = { slug: '', label: '', badge: '', colorHex: '#6366f1', sortIndex: '' };
+        this.reloadManagement();
+        this.snackBar.open('Now card type added', undefined, { duration: 2500 });
+      },
+      error: (e) => this.err('Could not add Now card type', e),
+    });
+  }
+
+  deleteNowCardType(row: ManagementNowCardType): void {
+    if (row.id == null) {
+      return;
+    }
+    this.managementApi.deleteNowCardType(row.id).subscribe({
+      next: () => {
+        this.reloadManagement();
+        this.snackBar.open(`Removed type “${row.slug}”`, undefined, { duration: 2500 });
+      },
+      error: (e) => this.err('Could not delete Now card type', e),
     });
   }
 

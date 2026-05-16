@@ -15,6 +15,25 @@ export interface ManagementTaskType {
   createdAt?: string;
 }
 
+/** Types for Management → Now roadmap cards (Admin → Management → Now). */
+export interface ManagementNowCardType {
+  id?: number;
+  slug: string;
+  label: string;
+  badge: string;
+  colorHex: string;
+  sortIndex: number;
+  createdAt?: string;
+}
+
+export interface ManagementNowCardTypeWriteBody {
+  slug: string;
+  label: string;
+  badge: string;
+  colorHex: string;
+  sortIndex?: number | null;
+}
+
 export interface ManagementTaskDto {
   id: number;
   title: string;

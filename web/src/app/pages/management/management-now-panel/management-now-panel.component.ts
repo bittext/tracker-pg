@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { CdkDragDrop, DragDropModule, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -9,6 +10,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import type { ManagementNowCardType } from '../../../models/management.models';
+import { ManagementApiService } from '../../../services/management-api.service';
 import {
   ManagementNowAddCardDialogComponent,
   ManagementNowAddCardDialogResult,
@@ -21,12 +24,16 @@ import {
   nowBoardWriteLanes,
 } from './management-now-board.storage';
 import {
-  NOW_CARD_TYPE_META,
-  NOW_ROADMAP_CARD_TYPES,
   NOW_ROADMAP_META,
   NowRoadmapCard,
-  NowRoadmapCardType,
+  type NowRoadmapCardType,
+  type NowRoadmapCardTypeMeta,
 } from './management-now-data';
+import {
+  mergeNowCardTypeMeta,
+  orderedNowCardTypeSlugs,
+  resolveNowCardTypeMeta,
+} from './management-now-type-meta';
 
 @Component({
   selector: 'app-management-now-panel',
@@ -41,16 +48,16 @@ import {
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
+    RouterLink,
   ],
   templateUrl: './management-now-panel.component.html',
   styleUrl: './management-now-panel.component.scss',
 })
 export class ManagementNowPanelComponent implements OnInit {
   private readonly dialog = inject(MatDialog);
+  private readonly managementApi = inject(ManagementApiService);
 
   readonly meta = NOW_ROADMAP_META;
-  readonly typeMeta = NOW_CARD_TYPE_META;
-  readonly cardTypes = NOW_ROADMAP_CARD_TYPES;
 
   /** When not `all`, lane lists are filtered for display only; drag is disabled. */
   typeFilter: 'all' | NowRoadmapCardType = 'all';
@@ -60,9 +67,21 @@ export class ManagementNowPanelComponent implements OnInit {
   doneIds: string[] = [];
 
   private catalogCache = nowBoardFullCatalog();
+  private nowCardTypesFromApi: ManagementNowCardType[] = [];
+  private typeMetaBySlug = mergeNowCardTypeMeta([]);
 
   ngOnInit(): void {
     this.reloadFromStorage();
+    this.managementApi.listNowCardTypes().subscribe({
+      next: (rows) => {
+        this.nowCardTypesFromApi = rows;
+        this.typeMetaBySlug = mergeNowCardTypeMeta(rows);
+      },
+      error: () => {
+        this.nowCardTypesFromApi = [];
+        this.typeMetaBySlug = mergeNowCardTypeMeta([]);
+      },
+    });
   }
 
   reloadFromStorage(): void {
@@ -79,6 +98,14 @@ export class ManagementNowPanelComponent implements OnInit {
 
   card(id: string): NowRoadmapCard | undefined {
     return this.catalogCache.get(id);
+  }
+
+  typeMetaFor(slug: string): NowRoadmapCardTypeMeta {
+    return resolveNowCardTypeMeta(this.typeMetaBySlug, slug);
+  }
+
+  typeSlugsForFilter(): string[] {
+    return orderedNowCardTypeSlugs(this.nowCardTypesFromApi);
   }
 
   idsForView(ids: readonly string[]): string[] {
@@ -112,11 +139,13 @@ export class ManagementNowPanelComponent implements OnInit {
   }
 
   openAddCard(): void {
+    const typeSlugs = orderedNowCardTypeSlugs(this.nowCardTypesFromApi);
+    const typeMetaRecord = Object.fromEntries(this.typeMetaBySlug);
     this.dialog
       .open(ManagementNowAddCardDialogComponent, {
         width: 'min(100vw - 32px, 440px)',
         autoFocus: 'input',
-        data: {},
+        data: { typeSlugs, typeMetaRecord },
       })
       .afterClosed()
       .subscribe((r: ManagementNowAddCardDialogResult | null | undefined) => {

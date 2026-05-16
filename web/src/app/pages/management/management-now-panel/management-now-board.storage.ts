@@ -4,8 +4,6 @@ import {
   NOW_ROADMAP_DONE,
   NOW_ROADMAP_PLANNED,
   NowRoadmapCard,
-  NowRoadmapCardType,
-  NOW_ROADMAP_CARD_TYPES,
   nowRoadmapDefaultLane,
   nowRoadmapStaticCardById,
 } from './management-now-data';
@@ -37,8 +35,12 @@ function isLaneArray(v: unknown): v is string[] {
   return Array.isArray(v) && v.every((x) => typeof x === 'string');
 }
 
-function isCardType(v: unknown): v is NowRoadmapCardType {
-  return typeof v === 'string' && (NOW_ROADMAP_CARD_TYPES as readonly string[]).includes(v);
+function isCardTypeSlug(v: unknown): v is string {
+  if (typeof v !== 'string') {
+    return false;
+  }
+  const s = v.trim();
+  return s.length > 0 && s.length <= 64 && /^[a-z][a-z0-9-]*$/.test(s);
 }
 
 function parseOneCustomCard(id: string, raw: unknown): NowRoadmapCard | null {
@@ -48,14 +50,15 @@ function parseOneCustomCard(id: string, raw: unknown): NowRoadmapCard | null {
   const o = raw as Record<string, unknown>;
   const title = o['title'];
   const type = o['type'];
-  if (typeof title !== 'string' || !title.trim() || !isCardType(type)) {
+  if (typeof title !== 'string' || !title.trim() || !isCardTypeSlug(type)) {
     return null;
   }
+  const typeSlug = (type as string).trim();
   const body = o['body'];
   const milestone = o['milestone'];
   return {
     id,
-    type,
+    type: typeSlug,
     title: title.trim(),
     ...(typeof body === 'string' && body.trim() ? { body: body.trim() } : {}),
     ...(typeof milestone === 'string' && milestone.trim() ? { milestone: milestone.trim() } : {}),

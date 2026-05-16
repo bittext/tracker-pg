@@ -4,6 +4,8 @@ import { environment } from '../../environments/environment';
 import {
   ManagementMonthNoteCalendarDto,
   ManagementMonthNoteDto,
+  ManagementNowCardType,
+  ManagementNowCardTypeWriteBody,
   ManagementTaskCategory,
   ManagementTaskDto,
   ManagementTaskType,
@@ -59,6 +61,18 @@ export class ManagementApiService {
 
   deleteTaskType(id: number) {
     return this.http.delete<void>(`${this.root}/task-types/${id}`);
+  }
+
+  listNowCardTypes() {
+    return this.http.get<ManagementNowCardType[]>(`${this.root}/now-card-types`);
+  }
+
+  createNowCardType(body: ManagementNowCardTypeWriteBody) {
+    return this.http.post<ManagementNowCardType>(`${this.root}/now-card-types`, body);
+  }
+
+  deleteNowCardType(id: number) {
+    return this.http.delete<void>(`${this.root}/now-card-types/${id}`);
   }
 
   listTasksReport() {

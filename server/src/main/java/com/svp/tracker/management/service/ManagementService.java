@@ -3,12 +3,15 @@ package com.svp.tracker.management.service;
 import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.fitness.exception.NotFoundException;
 import com.svp.tracker.management.domain.BalanceUrgency;
+import com.svp.tracker.management.domain.ManagementNowCardType;
 import com.svp.tracker.management.domain.ManagementTask;
 import com.svp.tracker.management.domain.ManagementTaskCategory;
 import com.svp.tracker.management.domain.ManagementTaskType;
+import com.svp.tracker.management.dto.ManagementNowCardTypeWriteRequest;
 import com.svp.tracker.management.dto.ManagementTaskDto;
 import com.svp.tracker.management.dto.ManagementTaskWriteRequest;
 import com.svp.tracker.management.dto.TaskMonthCalendarDto;
+import com.svp.tracker.management.repository.ManagementNowCardTypeRepository;
 import com.svp.tracker.management.repository.ManagementTaskCategoryRepository;
 import com.svp.tracker.management.repository.ManagementTaskRepository;
 import com.svp.tracker.management.repository.ManagementTaskTypeRepository;
@@ -19,10 +22,13 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Locale;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +36,7 @@ public class ManagementService {
 
     private final ManagementTaskCategoryRepository categoryRepository;
     private final ManagementTaskTypeRepository taskTypeRepository;
+    private final ManagementNowCardTypeRepository nowCardTypeRepository;
     private final ManagementTaskRepository taskRepository;
     private final CurrentUserService currentUser;
 
@@ -71,6 +78,36 @@ public class ManagementService {
         assertRowAccess(t.getOwnerUserId());
         taskRepository.clearTaskTypeByTypeId(id);
         taskTypeRepository.deleteById(id);
+    }
+
+    public List<ManagementNowCardType> listNowCardTypes() {
+        return nowCardTypeRepository.findByOwnerUserIdOrderBySortIndexAscIdAsc(currentUser.requireUserId());
+    }
+
+    @Transactional
+    public ManagementNowCardType createNowCardType(ManagementNowCardTypeWriteRequest req) {
+        String slug = req.getSlug().trim().toLowerCase(Locale.ROOT);
+        Long ownerId = currentUser.requireUserId();
+        if (nowCardTypeRepository.existsByOwnerUserIdAndSlug(ownerId, slug)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "A Now card type with that slug already exists");
+        }
+        ManagementNowCardType row = new ManagementNowCardType();
+        row.setOwnerUserId(ownerId);
+        row.setSlug(slug);
+        row.setLabel(req.getLabel().trim());
+        row.setBadge(req.getBadge().trim());
+        row.setColorHex(req.getColorHex().trim());
+        row.setSortIndex(req.getSortIndex() != null ? req.getSortIndex() : 0);
+        return nowCardTypeRepository.save(row);
+    }
+
+    @Transactional
+    public void deleteNowCardType(Long id) {
+        ManagementNowCardType row = nowCardTypeRepository
+                .findById(id)
+                .orElseThrow(() -> new NotFoundException("Now card type not found: " + id));
+        assertRowAccess(row.getOwnerUserId());
+        nowCardTypeRepository.deleteById(id);
     }
 
     public List<ManagementTaskDto> listTasksForReport() {

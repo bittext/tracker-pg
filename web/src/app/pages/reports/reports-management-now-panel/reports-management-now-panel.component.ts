@@ -1,19 +1,25 @@
 import { CommonModule } from '@angular/common';
-import { Component } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
+import type { ManagementNowCardType } from '../../../models/management.models';
+import { ManagementApiService } from '../../../services/management-api.service';
 import { nowBoardFullCatalog, nowBoardReadLanes } from '../../management/management-now-panel/management-now-board.storage';
 import {
-  NOW_CARD_TYPE_META,
-  NOW_ROADMAP_CARD_TYPES,
   NOW_ROADMAP_META,
   NowRoadmapCard,
-  NowRoadmapCardType,
-  NowRoadmapLane,
+  type NowRoadmapCardType,
+  type NowRoadmapCardTypeMeta,
+  type NowRoadmapLane,
 } from '../../management/management-now-panel/management-now-data';
+import {
+  mergeNowCardTypeMeta,
+  orderedNowCardTypeSlugs,
+  resolveNowCardTypeMeta,
+} from '../../management/management-now-panel/management-now-type-meta';
 
 export interface NowReportRow {
   readonly lane: NowRoadmapLane;
@@ -35,12 +41,36 @@ export interface NowReportRow {
   templateUrl: './reports-management-now-panel.component.html',
   styleUrl: './reports-management-now-panel.component.scss',
 })
-export class ReportsManagementNowPanelComponent {
+export class ReportsManagementNowPanelComponent implements OnInit {
+  private readonly managementApi = inject(ManagementApiService);
+
   readonly meta = NOW_ROADMAP_META;
-  readonly typeMeta = NOW_CARD_TYPE_META;
-  readonly cardTypes = NOW_ROADMAP_CARD_TYPES;
 
   typeFilter: 'all' | NowRoadmapCardType = 'all';
+
+  private nowCardTypesFromApi: ManagementNowCardType[] = [];
+  private typeMetaBySlug = mergeNowCardTypeMeta([]);
+
+  ngOnInit(): void {
+    this.managementApi.listNowCardTypes().subscribe({
+      next: (rows) => {
+        this.nowCardTypesFromApi = rows;
+        this.typeMetaBySlug = mergeNowCardTypeMeta(rows);
+      },
+      error: () => {
+        this.nowCardTypesFromApi = [];
+        this.typeMetaBySlug = mergeNowCardTypeMeta([]);
+      },
+    });
+  }
+
+  typeMetaFor(slug: string): NowRoadmapCardTypeMeta {
+    return resolveNowCardTypeMeta(this.typeMetaBySlug, slug);
+  }
+
+  typeSlugsForFilter(): string[] {
+    return orderedNowCardTypeSlugs(this.nowCardTypesFromApi);
+  }
 
   private laneLabel(lane: NowRoadmapLane): string {
     if (lane === 'planned') {

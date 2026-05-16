@@ -1,7 +1,9 @@
 package com.svp.tracker.management.controller;
 
+import com.svp.tracker.management.domain.ManagementNowCardType;
 import com.svp.tracker.management.domain.ManagementTaskCategory;
 import com.svp.tracker.management.domain.ManagementTaskType;
+import com.svp.tracker.management.dto.ManagementNowCardTypeWriteRequest;
 import com.svp.tracker.management.dto.ManagementTaskDto;
 import com.svp.tracker.management.dto.ManagementTaskWriteRequest;
 import com.svp.tracker.management.dto.TaskMonthCalendarDto;
@@ -60,6 +62,23 @@ public class ManagementController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteTaskType(@PathVariable Long id) {
         managementService.deleteTaskType(id);
+    }
+
+    @GetMapping("/now-card-types")
+    public List<ManagementNowCardType> listNowCardTypes() {
+        return managementService.listNowCardTypes();
+    }
+
+    @PostMapping("/now-card-types")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ManagementNowCardType createNowCardType(@Valid @RequestBody ManagementNowCardTypeWriteRequest body) {
+        return managementService.createNowCardType(body);
+    }
+
+    @DeleteMapping("/now-card-types/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteNowCardType(@PathVariable Long id) {
+        managementService.deleteNowCardType(id);
     }
 
     @GetMapping("/tasks/unscheduled")

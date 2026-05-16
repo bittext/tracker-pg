@@ -15,8 +15,8 @@
         <mat-icon inline class="now-updated__icon">update</mat-icon>
         Last narrative refresh: <strong>{{ meta.lastUpdatedLabel }}</strong>
         <span class="now-updated__hint"
-          >— Built-in cards: edit <code>management-now-data.ts</code>. Your cards: <strong>Add card</strong> (saved in
-          this browser).</span
+          >— Built-in cards: edit <code>management-now-data.ts</code>. Your cards: <strong>Add card</strong> (browser).
+          Types: defaults + <a routerLink="/admin">Admin</a> → Management → <strong>Now</strong>.</span
         >
       </p>
     </div>
@@ -31,8 +31,8 @@
       <mat-label>Card type</mat-label>
       <mat-select [(ngModel)]="typeFilter" name="nowTypeFilter">
         <mat-option value="all">All types</mat-option>
-        @for (t of cardTypes; track t) {
-          <mat-option [value]="t">{{ typeMeta[t].label }}</mat-option>
+        @for (slug of typeSlugsForFilter(); track slug) {
+          <mat-option [value]="slug">{{ typeMetaFor(slug).label }}</mat-option>
         }
       </mat-select>
     </mat-form-field>
@@ -61,7 +61,7 @@
           @for (id of plannedIds; track id) {
             @if (card(id); as c) {
               <mat-card class="now-card" appearance="outlined" cdkDrag>
-                <span class="now-card__type" [style.color]="typeMeta[c.type].color">{{ typeMeta[c.type].badge }}</span>
+                <span class="now-card__type" [style.color]="typeMetaFor(c.type).color">{{ typeMetaFor(c.type).badge }}</span>
                 <mat-card-header>
                   <mat-card-title>{{ c.title }}</mat-card-title>
                   @if (c.milestone) {
@@ -82,7 +82,7 @@
           @for (id of idsForView(plannedIds); track id) {
             @if (card(id); as c) {
               <mat-card class="now-card" appearance="outlined">
-                <span class="now-card__type" [style.color]="typeMeta[c.type].color">{{ typeMeta[c.type].badge }}</span>
+                <span class="now-card__type" [style.color]="typeMetaFor(c.type).color">{{ typeMetaFor(c.type).badge }}</span>
                 <mat-card-header>
                   <mat-card-title>{{ c.title }}</mat-card-title>
                   @if (c.milestone) {
@@ -120,7 +120,7 @@
           @for (id of activeIds; track id) {
             @if (card(id); as c) {
               <mat-card class="now-card now-card--pulse" appearance="outlined" cdkDrag>
-                <span class="now-card__type" [style.color]="typeMeta[c.type].color">{{ typeMeta[c.type].badge }}</span>
+                <span class="now-card__type" [style.color]="typeMetaFor(c.type).color">{{ typeMetaFor(c.type).badge }}</span>
                 <mat-card-header>
                   <mat-card-title>{{ c.title }}</mat-card-title>
                   @if (c.milestone) {
@@ -141,7 +141,7 @@
           @for (id of idsForView(activeIds); track id) {
             @if (card(id); as c) {
               <mat-card class="now-card now-card--pulse" appearance="outlined">
-                <span class="now-card__type" [style.color]="typeMeta[c.type].color">{{ typeMeta[c.type].badge }}</span>
+                <span class="now-card__type" [style.color]="typeMetaFor(c.type).color">{{ typeMetaFor(c.type).badge }}</span>
                 <mat-card-header>
                   <mat-card-title>{{ c.title }}</mat-card-title>
                   @if (c.milestone) {
@@ -179,7 +179,7 @@
           @for (id of doneIds; track id) {
             @if (card(id); as c) {
               <mat-card class="now-card now-card--done" appearance="outlined" cdkDrag>
-                <span class="now-card__type" [style.color]="typeMeta[c.type].color">{{ typeMeta[c.type].badge }}</span>
+                <span class="now-card__type" [style.color]="typeMetaFor(c.type).color">{{ typeMetaFor(c.type).badge }}</span>
                 <mat-card-header>
                   <mat-card-title>{{ c.title }}</mat-card-title>
                   @if (c.milestone) {
@@ -200,7 +200,7 @@
           @for (id of idsForView(doneIds); track id) {
             @if (card(id); as c) {
               <mat-card class="now-card now-card--done" appearance="outlined">
-                <span class="now-card__type" [style.color]="typeMeta[c.type].color">{{ typeMeta[c.type].badge }}</span>
+                <span class="now-card__type" [style.color]="typeMetaFor(c.type).color">{{ typeMetaFor(c.type).badge }}</span>
                 <mat-card-header>
                   <mat-card-title>{{ c.title }}</mat-card-title>
                   @if (c.milestone) {

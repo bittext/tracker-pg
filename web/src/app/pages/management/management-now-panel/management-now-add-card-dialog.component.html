@@ -21,8 +21,8 @@
   <mat-form-field appearance="outline" class="now-add-dialog__field">
     <mat-label>Card type</mat-label>
     <mat-select [(ngModel)]="type" name="nacType">
-      @for (t of cardTypes; track t) {
-        <mat-option [value]="t">{{ typeMeta[t].label }}</mat-option>
+      @for (slug of typeSlugs(); track slug) {
+        <mat-option [value]="slug">{{ typeMetaFor(slug).label }}</mat-option>
       }
     </mat-select>
   </mat-form-field>

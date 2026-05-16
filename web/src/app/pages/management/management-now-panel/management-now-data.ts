@@ -4,7 +4,8 @@
  * Card `id` values are stable keys for localStorage (order / lane); do not rename casually.
  */
 export const NOW_ROADMAP_CARD_TYPES = ['product', 'finance', 'platform', 'experience', 'content'] as const;
-export type NowRoadmapCardType = (typeof NOW_ROADMAP_CARD_TYPES)[number];
+/** Slug on each card; built-ins above plus any types you add under Admin → Management → Now. */
+export type NowRoadmapCardType = string;
 
 export interface NowRoadmapCardTypeMeta {
   readonly label: string;
@@ -14,7 +15,7 @@ export interface NowRoadmapCardTypeMeta {
   readonly color: string;
 }
 
-export const NOW_CARD_TYPE_META: Record<NowRoadmapCardType, NowRoadmapCardTypeMeta> = {
+export const NOW_CARD_TYPE_META: Record<string, NowRoadmapCardTypeMeta> = {
   product: { label: 'Product', badge: 'product', color: '#6366f1' },
   finance: { label: 'Finance', badge: 'finance', color: '#0d9488' },
   platform: { label: 'Platform', badge: 'platform', color: '#7c3aed' },
