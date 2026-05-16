@@ -5,7 +5,7 @@ import { RouterLink } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
-import { nowBoardReadLanes } from '../../management/management-now-panel/management-now-board.storage';
+import { nowBoardFullCatalog, nowBoardReadLanes } from '../../management/management-now-panel/management-now-board.storage';
 import {
   NOW_CARD_TYPE_META,
   NOW_ROADMAP_CARD_TYPES,
@@ -13,7 +13,6 @@ import {
   NowRoadmapCard,
   NowRoadmapCardType,
   NowRoadmapLane,
-  nowRoadmapCardById,
 } from '../../management/management-now-panel/management-now-data';
 
 export interface NowReportRow {
@@ -43,8 +42,6 @@ export class ReportsManagementNowPanelComponent {
 
   typeFilter: 'all' | NowRoadmapCardType = 'all';
 
-  private readonly catalog = nowRoadmapCardById();
-
   private laneLabel(lane: NowRoadmapLane): string {
     if (lane === 'planned') {
       return 'Planned';
@@ -56,12 +53,13 @@ export class ReportsManagementNowPanelComponent {
   }
 
   private flattenLanes(): NowReportRow[] {
+    const catalog = nowBoardFullCatalog();
     const lanes = nowBoardReadLanes();
     const out: NowReportRow[] = [];
     const push = (lane: NowRoadmapLane, ids: readonly string[]) => {
       const label = this.laneLabel(lane);
       for (const id of ids) {
-        const card = this.catalog.get(id);
+        const card = catalog.get(id);
         if (card) {
           out.push({ lane, laneLabel: label, card });
         }

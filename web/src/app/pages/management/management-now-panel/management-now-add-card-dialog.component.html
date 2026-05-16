@@ -1,0 +1,45 @@
+<h2 mat-dialog-title>Add roadmap card</h2>
+
+<mat-dialog-content class="now-add-dialog">
+  <p class="muted now-add-dialog__lead">Saved in this browser only (same storage as lane order).</p>
+
+  <mat-form-field appearance="outline" class="now-add-dialog__field">
+    <mat-label>Title</mat-label>
+    <input matInput [(ngModel)]="title" name="nacTitle" required maxlength="200" />
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" class="now-add-dialog__field">
+    <mat-label>Body</mat-label>
+    <textarea matInput [(ngModel)]="body" name="nacBody" rows="3" maxlength="2000"></textarea>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" class="now-add-dialog__field">
+    <mat-label>Milestone</mat-label>
+    <input matInput [(ngModel)]="milestone" name="nacMilestone" maxlength="120" placeholder="e.g. Q3 2026" />
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" class="now-add-dialog__field">
+    <mat-label>Card type</mat-label>
+    <mat-select [(ngModel)]="type" name="nacType">
+      @for (t of cardTypes; track t) {
+        <mat-option [value]="t">{{ typeMeta[t].label }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" class="now-add-dialog__field">
+    <mat-label>Lane</mat-label>
+    <mat-select [(ngModel)]="lane" name="nacLane">
+      <mat-option value="planned">Planned</mat-option>
+      <mat-option value="active">In progress</mat-option>
+      <mat-option value="done">Completed</mat-option>
+    </mat-select>
+  </mat-form-field>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" (click)="cancel()">Cancel</button>
+  <button mat-flat-button color="primary" type="button" [disabled]="!title.trim()" (click)="save()">
+    Add card
+  </button>
+</mat-dialog-actions>

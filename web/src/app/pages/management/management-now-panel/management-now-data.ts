@@ -143,7 +143,8 @@ export function nowRoadmapDefaultLane(cardId: string): NowRoadmapLane {
   return 'planned';
 }
 
-export function nowRoadmapCardById(): Map<string, NowRoadmapCard> {
+/** Built-in cards from source only (no browser-local custom cards). */
+export function nowRoadmapStaticCardById(): Map<string, NowRoadmapCard> {
   const m = new Map<string, NowRoadmapCard>();
   for (const c of NOW_ROADMAP_ALL) {
     m.set(c.id, c);

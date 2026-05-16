@@ -14,12 +14,19 @@
       <p class="now-updated">
         <mat-icon inline class="now-updated__icon">update</mat-icon>
         Last narrative refresh: <strong>{{ meta.lastUpdatedLabel }}</strong>
-        <span class="now-updated__hint">— edit <code>management-now-data.ts</code> to change cards.</span>
+        <span class="now-updated__hint"
+          >— Built-in cards: edit <code>management-now-data.ts</code>. Your cards: <strong>Add card</strong> (saved in
+          this browser).</span
+        >
       </p>
     </div>
   </header>
 
   <div class="now-toolbar">
+    <button mat-stroked-button type="button" class="now-add-card-btn" (click)="openAddCard()">
+      <mat-icon>add</mat-icon>
+      Add card
+    </button>
     <mat-form-field appearance="outline" subscriptSizing="dynamic" class="now-type-filter">
       <mat-label>Card type</mat-label>
       <mat-select [(ngModel)]="typeFilter" name="nowTypeFilter">
