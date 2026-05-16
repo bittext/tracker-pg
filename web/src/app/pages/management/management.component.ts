@@ -53,6 +53,7 @@ import {
 import { ManagementWorkPanelComponent } from './management-work-panel/management-work-panel.component';
 import { ManagementTravelPanelComponent } from './management-travel-panel/management-travel-panel.component';
 import { ManagementDocumentsPanelComponent } from './management-documents-panel/management-documents-panel.component';
+import { ManagementNowPanelComponent } from './management-now-panel/management-now-panel.component';
 
 interface CalendarCell {
   type: 'pad' | 'day';
@@ -109,6 +110,7 @@ interface AccountEntry {
     ManagementWorkPanelComponent,
     ManagementTravelPanelComponent,
     ManagementDocumentsPanelComponent,
+    ManagementNowPanelComponent,
   ],
   templateUrl: './management.component.html',
   styleUrl: './management.component.scss',
@@ -195,12 +197,12 @@ export class ManagementComponent implements OnInit {
 
   readonly accountTableColumns: string[] = ['folder', 'itemName', 'username', 'actions'];
 
-  /** 0 Tasks, 1 Work, 2 Travel, 3 Documents, 4 Calendar, 5 Account, 6 Notes, 7 Write-up */
+  /** 0 Tasks, 1 Work, 2 Travel, 3 Documents, 4 Now, 5 Calendar, 6 Account, 7 Notes, 8 Write-up */
   private readonly MGMT_TAB_WORK = 1;
   private readonly MGMT_TAB_TRAVEL = 2;
   private readonly MGMT_TAB_DOCUMENTS = 3;
-  private readonly MGMT_TAB_NOTES = 6;
-  private readonly MGMT_TAB_WRITEUP = 7;
+  private readonly MGMT_TAB_NOTES = 7;
+  private readonly MGMT_TAB_WRITEUP = 8;
 
   private readonly workPanel = viewChild(ManagementWorkPanelComponent);
   private readonly travelPanel = viewChild(ManagementTravelPanelComponent);

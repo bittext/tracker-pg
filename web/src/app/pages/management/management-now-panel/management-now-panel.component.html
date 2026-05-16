@@ -1,0 +1,101 @@
+<div class="now" aria-labelledby="now-heading">
+  <header class="now-hero">
+    <div class="now-hero__rail" aria-hidden="true">
+      <span class="now-hero__dot now-hero__dot--planned"></span>
+      <span class="now-hero__line"></span>
+      <span class="now-hero__dot now-hero__dot--active"></span>
+      <span class="now-hero__line"></span>
+      <span class="now-hero__dot now-hero__dot--done"></span>
+    </div>
+    <div class="now-hero__copy">
+      <p class="now-eyebrow">Living roadmap</p>
+      <h2 id="now-heading" class="now-title">Now</h2>
+      <p class="muted now-lead">{{ meta.tagline }}</p>
+      <p class="now-updated">
+        <mat-icon inline class="now-updated__icon">update</mat-icon>
+        Last narrative refresh: <strong>{{ meta.lastUpdatedLabel }}</strong>
+        <span class="now-updated__hint">— edit <code>management-now-data.ts</code> to change cards.</span>
+      </p>
+    </div>
+  </header>
+
+  <div class="now-board" role="region" aria-label="Roadmap by status">
+    <section class="now-lane now-lane--planned" aria-labelledby="now-lane-planned">
+      <div class="now-lane__head">
+        <mat-icon class="now-lane__icon" aria-hidden="true">lightbulb</mat-icon>
+        <h3 id="now-lane-planned" class="now-lane__title">Planned</h3>
+        <span class="now-lane__count">{{ planned.length }}</span>
+      </div>
+      <p class="muted now-lane__hint">Committed direction, not yet in active build.</p>
+      <div class="now-lane__cards">
+        @for (c of planned; track c.title) {
+          <mat-card class="now-card" appearance="outlined">
+            <mat-card-header>
+              <mat-card-title>{{ c.title }}</mat-card-title>
+              @if (c.milestone) {
+                <mat-card-subtitle class="now-card__milestone">{{ c.milestone }}</mat-card-subtitle>
+              }
+            </mat-card-header>
+            @if (c.body) {
+              <mat-card-content>
+                <p class="now-card__body">{{ c.body }}</p>
+              </mat-card-content>
+            }
+          </mat-card>
+        }
+      </div>
+    </section>
+
+    <section class="now-lane now-lane--active" aria-labelledby="now-lane-active">
+      <div class="now-lane__head">
+        <mat-icon class="now-lane__icon" aria-hidden="true">bolt</mat-icon>
+        <h3 id="now-lane-active" class="now-lane__title">In progress</h3>
+        <span class="now-lane__count">{{ active.length }}</span>
+      </div>
+      <p class="muted now-lane__hint">Where attention and releases are flowing today.</p>
+      <div class="now-lane__cards">
+        @for (c of active; track c.title) {
+          <mat-card class="now-card now-card--pulse" appearance="outlined">
+            <mat-card-header>
+              <mat-card-title>{{ c.title }}</mat-card-title>
+              @if (c.milestone) {
+                <mat-card-subtitle class="now-card__milestone">{{ c.milestone }}</mat-card-subtitle>
+              }
+            </mat-card-header>
+            @if (c.body) {
+              <mat-card-content>
+                <p class="now-card__body">{{ c.body }}</p>
+              </mat-card-content>
+            }
+          </mat-card>
+        }
+      </div>
+    </section>
+
+    <section class="now-lane now-lane--done" aria-labelledby="now-lane-done">
+      <div class="now-lane__head">
+        <mat-icon class="now-lane__icon" aria-hidden="true">check_circle</mat-icon>
+        <h3 id="now-lane-done" class="now-lane__title">Completed</h3>
+        <span class="now-lane__count">{{ done.length }}</span>
+      </div>
+      <p class="muted now-lane__hint">Shipped work worth remembering—archive when this list gets long.</p>
+      <div class="now-lane__cards">
+        @for (c of done; track c.title) {
+          <mat-card class="now-card now-card--done" appearance="outlined">
+            <mat-card-header>
+              <mat-card-title>{{ c.title }}</mat-card-title>
+              @if (c.milestone) {
+                <mat-card-subtitle class="now-card__milestone">{{ c.milestone }}</mat-card-subtitle>
+              }
+            </mat-card-header>
+            @if (c.body) {
+              <mat-card-content>
+                <p class="now-card__body">{{ c.body }}</p>
+              </mat-card-content>
+            }
+          </mat-card>
+        }
+      </div>
+    </section>
+  </div>
+</div>
