@@ -239,7 +239,7 @@ public class RobinhoodFinanceService {
         }
         sql.append(" LIMIT ?");
 
-        String sqlForLog = expandBindsForLog(sql.toString(), year, month, symbol, cap);
+        String sqlForLog = expandBindsForLog(sql.toString(), prefixBinds, year, month, symbol, cap);
         log.debug("Robinhood query: {}", sqlForLog);
 
         return jdbcTemplate.query(
@@ -695,8 +695,12 @@ public class RobinhoodFinanceService {
         return stockColumnTrimExpression(qualifiedSymbolCol) + " = ?";
     }
 
-    private String expandBindsForLog(String sql, Integer year, Integer month, String symbol, int cap) {
+    private String expandBindsForLog(
+            String sql, List<Object> prefixBinds, Integer year, Integer month, String symbol, int cap) {
         String s = sql;
+        for (Object o : prefixBinds) {
+            s = s.replaceFirst("\\?", formatBindForLog(o));
+        }
         if (year != null) {
             LocalDate start = filterStartInclusive(year, month);
             LocalDate endExclusive = filterEndExclusive(year, month);
@@ -713,6 +717,22 @@ public class RobinhoodFinanceService {
             s = s.replaceFirst("\\?", "'" + symbol.replace("'", "''") + "'");
         }
         return s.replaceFirst("\\?", Integer.toString(cap));
+    }
+
+    private static String formatBindForLog(Object o) {
+        if (o == null) {
+            return "NULL";
+        }
+        if (o instanceof Number n) {
+            return Long.toString(n.longValue());
+        }
+        if (o instanceof LocalDate d) {
+            return "'" + d + "'";
+        }
+        if (o instanceof Timestamp ts) {
+            return "'" + ts + "'";
+        }
+        return "'" + o.toString().replace("'", "''") + "'";
     }
 
     /**

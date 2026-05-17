@@ -122,17 +122,24 @@ public class RobinhoodPerformanceReportService {
         for (TradeEvent ev : events) {
             Deque<Lot> lots = books.computeIfAbsent(ev.positionKey(), k -> new ArrayDeque<>());
             if (ev.leg() == Leg.BUY) {
-                lots.addLast(new Lot(ev.quantity().abs(), ev.amount().abs(), ev.activityDate()));
+                BigDecimal buyQty = ev.quantity().abs();
+                if (buyQty.compareTo(PNL_EPSILON) > 0) {
+                    lots.addLast(new Lot(buyQty, ev.amount().abs(), ev.activityDate()));
+                }
                 continue;
             }
             BigDecimal sellQty = ev.quantity().abs();
             BigDecimal sellCash = ev.amount();
-            if (sellQty.compareTo(ZERO) <= 0 || ev.activityDate() == null) {
+            if (sellQty.compareTo(PNL_EPSILON) <= 0 || ev.activityDate() == null) {
                 continue;
             }
             BigDecimal remaining = sellQty;
-            while (remaining.compareTo(ZERO) > 0 && !lots.isEmpty()) {
+            while (remaining.compareTo(PNL_EPSILON) > 0 && !lots.isEmpty()) {
                 Lot lot = lots.peekFirst();
+                if (lot.quantity.compareTo(PNL_EPSILON) <= 0) {
+                    lots.removeFirst();
+                    continue;
+                }
                 BigDecimal take = remaining.min(lot.quantity);
                 BigDecimal proceeds = sellCash.multiply(take).divide(sellQty, 8, RoundingMode.HALF_UP);
                 BigDecimal cost = lot.costTotal.multiply(take).divide(lot.quantity, 8, RoundingMode.HALF_UP);
@@ -163,7 +170,7 @@ public class RobinhoodPerformanceReportService {
                                 take,
                                 realized));
             }
-            if (remaining.compareTo(PNL_EPSILON) > 0) {
+            if (remaining.compareTo(PNL_EPSILON) > 0 && sellQty.compareTo(PNL_EPSILON) > 0) {
                 BigDecimal proceeds = sellCash.multiply(remaining).divide(sellQty, 8, RoundingMode.HALF_UP);
                 recordClose(byDay, ev.activityDate(), proceeds);
                 int[] counts = classifyCloseMutable(proceeds);
