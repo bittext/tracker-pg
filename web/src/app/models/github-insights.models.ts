@@ -49,6 +49,7 @@ export interface GithubFeatureHistoryEntryDto {
   shaShort: string;
   featureSummary: string;
   messageFirstLine: string;
+  messageFull: string;
   authorLogin: string;
   authorName: string;
   committedAt: string;
@@ -58,7 +59,9 @@ export interface GithubFeatureHistoryEntryDto {
 export interface GithubFeatureHistoryDto {
   repository: GithubRepoSummaryDto;
   entries: GithubFeatureHistoryEntryDto[];
+  totalCommitsFetched: number;
   mergeCommitsOmitted: number;
+  moreCommitsAvailable: boolean;
   sourceNote: string;
   warnings: string[];
 }

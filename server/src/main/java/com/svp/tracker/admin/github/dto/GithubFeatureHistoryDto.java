@@ -6,6 +6,8 @@ import java.util.List;
 public record GithubFeatureHistoryDto(
         GithubRepoSummaryDto repository,
         List<GithubFeatureHistoryEntryDto> entries,
+        int totalCommitsFetched,
         int mergeCommitsOmitted,
+        boolean moreCommitsAvailable,
         String sourceNote,
         List<String> warnings) {}

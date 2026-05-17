@@ -5,6 +5,7 @@ public record GithubFeatureHistoryEntryDto(
         String shaShort,
         String featureSummary,
         String messageFirstLine,
+        String messageFull,
         String authorLogin,
         String authorName,
         String committedAt,

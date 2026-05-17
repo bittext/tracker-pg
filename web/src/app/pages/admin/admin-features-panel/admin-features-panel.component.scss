@@ -117,6 +117,21 @@
   line-height: 1.35;
 }
 
+.features-timeline__body {
+  margin: 0 0 0.35rem;
+  padding: 0;
+  font-family: inherit;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--app-text-muted, #64748b);
+}
+
+.admin-features-cap {
+  color: var(--mat-sys-error, #b3261e);
+}
+
 .features-timeline__meta {
   margin: 0;
   font-size: 0.78rem;

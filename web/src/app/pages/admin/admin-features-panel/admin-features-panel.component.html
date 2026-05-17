@@ -1,8 +1,8 @@
 <section class="admin-features" aria-labelledby="admin-features-heading">
   <h2 id="admin-features-heading" class="section-title">Features</h2>
   <p class="muted">
-    Timeline of what shipped in this application, built from the latest commits on the linked GitHub repository.
-    Each line is the commit subject, cleaned for readability — use the commit link for the full message and diff.
+    Timeline of what shipped in this application, built from commit history on the linked GitHub repository (default
+    branch, newest first). Merge commits are hidden; use the commit link for the diff on GitHub.
   </p>
 
   <div class="admin-features-toolbar">
@@ -32,8 +32,14 @@
       Repository:
       <a [href]="h.repository.htmlUrl" target="_blank" rel="noopener noreferrer">{{ h.repository.fullName }}</a>
       · {{ h.entries.length }} feature line(s)
+      @if (h.totalCommitsFetched > 0) {
+        <span> · {{ h.totalCommitsFetched }} commit(s) loaded from GitHub</span>
+      }
       @if (h.mergeCommitsOmitted > 0) {
         <span> · {{ h.mergeCommitsOmitted }} merge commit(s) hidden</span>
+      }
+      @if (h.moreCommitsAvailable) {
+        <span class="admin-features-cap"> · older history may exist beyond the load cap</span>
       }
     </p>
     <p class="muted small">{{ h.sourceNote }}</p>
@@ -57,7 +63,9 @@
                       row.committedAt | date: 'mediumDate'
                     }}</time>
                     <p class="features-timeline__title">{{ row.featureSummary }}</p>
-                    @if (row.messageFirstLine !== row.featureSummary) {
+                    @if (row.messageFull && row.messageFull.trim().length > 0) {
+                      <pre class="features-timeline__body">{{ row.messageFull }}</pre>
+                    } @else if (row.messageFirstLine !== row.featureSummary) {
                       <p class="muted features-timeline__raw">{{ row.messageFirstLine }}</p>
                     }
                     <p class="muted features-timeline__meta">

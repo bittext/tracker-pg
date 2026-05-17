@@ -36,6 +36,9 @@ import org.springframework.web.server.ResponseStatusException;
 public class GithubRepositoryInsightsService {
 
     private static final String BASE = "https://api.github.com";
+    private static final int FEATURE_HISTORY_PER_PAGE = 100;
+    /** Up to 10_000 raw commits from GitHub (100 pages × 100). */
+    private static final int FEATURE_HISTORY_MAX_PAGES = 100;
 
     private final GithubProperties githubProperties;
     private final ClientHttpRequestFactory outboundHttpRequestFactory;
@@ -101,7 +104,7 @@ public class GithubRepositoryInsightsService {
                 warnings);
     }
 
-    /** Up to 100 recent non-merge commits, with humanized one-line feature summaries for Admin → Features. */
+    /** Full default-branch commit history (paginated), with humanized summaries for Admin → Features. */
     public GithubFeatureHistoryDto loadFeatureHistory() {
         if (!githubProperties.configured()) {
             throw new ResponseStatusException(
@@ -119,8 +122,8 @@ public class GithubRepositoryInsightsService {
                         "Could not read repository from GitHub. Check owner/repo and network; use api-token if the repo is private."));
 
         GithubRepoSummaryDto summary = parseRepo(repoJson);
-        List<GithubCommitSummaryDto> raw =
-                parseCommits(getJson(basePath + "/commits?per_page=100", warnings));
+        CommitHistoryFetch fetch = fetchCommitHistory(basePath, warnings);
+        List<GithubCommitSummaryDto> raw = fetch.commits();
 
         List<GithubFeatureHistoryEntryDto> entries = new ArrayList<>();
         int mergesOmitted = 0;
@@ -133,6 +136,7 @@ public class GithubRepositoryInsightsService {
                     c.shaShort(),
                     toFeatureSummary(c.messageFirstLine()),
                     c.messageFirstLine(),
+                    c.messageFull(),
                     c.authorLogin(),
                     c.authorName(),
                     c.committedAt(),
@@ -140,8 +144,46 @@ public class GithubRepositoryInsightsService {
         }
 
         String sourceNote =
-                "One line per commit on the default branch history (newest first). Merge commits are hidden; subject lines are cleaned for readability — open the commit on GitHub for the full message.";
-        return new GithubFeatureHistoryDto(summary, entries, mergesOmitted, sourceNote, warnings);
+                "Commits on the default branch (newest first), loaded from GitHub in pages of "
+                        + FEATURE_HISTORY_PER_PAGE
+                        + ". Merge commits are hidden; subject lines are cleaned for readability.";
+        if (fetch.moreAvailable()) {
+            sourceNote +=
+                    " History was capped at "
+                            + (FEATURE_HISTORY_MAX_PAGES * FEATURE_HISTORY_PER_PAGE)
+                            + " commits — older commits may still exist on GitHub.";
+        }
+        return new GithubFeatureHistoryDto(
+                summary,
+                entries,
+                raw.size(),
+                mergesOmitted,
+                fetch.moreAvailable(),
+                sourceNote,
+                warnings);
+    }
+
+    private record CommitHistoryFetch(List<GithubCommitSummaryDto> commits, boolean moreAvailable) {}
+
+    private CommitHistoryFetch fetchCommitHistory(String basePath, List<String> warnings) {
+        List<GithubCommitSummaryDto> all = new ArrayList<>();
+        boolean moreAvailable = false;
+        for (int page = 1; page <= FEATURE_HISTORY_MAX_PAGES; page++) {
+            String path =
+                    basePath + "/commits?per_page=" + FEATURE_HISTORY_PER_PAGE + "&page=" + page;
+            List<GithubCommitSummaryDto> batch = parseCommits(getJson(path, warnings));
+            if (batch.isEmpty()) {
+                break;
+            }
+            all.addAll(batch);
+            if (batch.size() < FEATURE_HISTORY_PER_PAGE) {
+                break;
+            }
+            if (page == FEATURE_HISTORY_MAX_PAGES) {
+                moreAvailable = true;
+            }
+        }
+        return new CommitHistoryFetch(all, moreAvailable);
     }
 
     private static boolean isMergeCommitMessage(String firstLine) {
@@ -167,9 +209,6 @@ public class GithubRepositoryInsightsService {
         s = s.strip();
         if (s.isEmpty()) {
             s = firstLine.strip();
-        }
-        if (s.length() > 220) {
-            s = s.substring(0, 217) + "...";
         }
         if (!s.isEmpty()) {
             s = Character.toUpperCase(s.charAt(0)) + s.substring(1);
@@ -314,7 +353,7 @@ public class GithubRepositoryInsightsService {
                 login = text(ghAuthor, "login");
             }
             out.add(new GithubCommitSummaryDto(
-                    shaShort, first, login, name, date, text(n, "html_url")));
+                    shaShort, first, msg, login, name, date, text(n, "html_url")));
         }
         return out;
     }
