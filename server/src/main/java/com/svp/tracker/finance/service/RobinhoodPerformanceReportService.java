@@ -7,6 +7,8 @@ import com.svp.tracker.finance.dto.RobinhoodEquityCurvePointDto;
 import com.svp.tracker.finance.dto.RobinhoodInstrumentPerformanceDto;
 import com.svp.tracker.finance.dto.RobinhoodMonthlyPnLPointDto;
 import com.svp.tracker.finance.dto.RobinhoodOpenPositionDto;
+import com.svp.tracker.finance.dto.RobinhoodPortfolioOverviewDto;
+import com.svp.tracker.finance.dto.RobinhoodPortfolioPositionDto;
 import com.svp.tracker.finance.dto.RobinhoodPerformanceInsightsDto;
 import com.svp.tracker.finance.dto.RobinhoodPerformanceReportDto;
 import com.svp.tracker.finance.dto.RobinhoodPerformanceSummaryDto;
@@ -53,6 +55,7 @@ public class RobinhoodPerformanceReportService {
     private final RobinhoodFinanceService robinhoodFinanceService;
     private final FinanceProperties financeProperties;
     private final YahooBatchQuoteService yahooBatchQuoteService;
+    private final RobinhoodPortfolioSnapshotService robinhoodPortfolioSnapshotService;
 
     public RobinhoodPerformanceReportDto buildReport(int financialYear, String symbolFilter) {
         List<Map<String, Object>> rows = robinhoodFinanceService.loadYearTransactionRows(financialYear, symbolFilter);
@@ -92,6 +95,8 @@ public class RobinhoodPerformanceReportService {
                 fifo.closedTrades().stream().map(this::toClosedTradeDto).toList();
         RobinhoodUnrealizedSectionDto unrealized =
                 buildUnrealized(fifoOpen.openLots(), asOfDate, openTruncated);
+        RobinhoodPortfolioOverviewDto portfolio =
+                resolvePortfolio(financialYear, asOfDate, fifoOpen, unrealized, openTruncated);
         RobinhoodPerformanceInsightsDto insights = buildInsights(fifo.closedTrades(), financialYear);
         RobinhoodPerformanceTaxDto tax = buildTax(fifo.closedTrades(), financialYear);
 
@@ -113,9 +118,179 @@ public class RobinhoodPerformanceReportService {
                 monthly,
                 equity,
                 closedTrades,
+                portfolio,
                 unrealized,
                 insights,
                 tax);
+    }
+
+    private RobinhoodPortfolioOverviewDto resolvePortfolio(
+            int financialYear,
+            LocalDate asOfDate,
+            FifoResult fifoOpen,
+            RobinhoodUnrealizedSectionDto unrealized,
+            boolean openTruncated) {
+        RobinhoodPortfolioOverviewDto computed = buildComputedPortfolio(financialYear, asOfDate, fifoOpen, unrealized, openTruncated);
+        return robinhoodPortfolioSnapshotService
+                .loadSnapshot()
+                .filter(s -> s.asOfDate().getYear() == financialYear)
+                .map(
+                        snap -> {
+                            String note =
+                                    snap.note()
+                                            + " CSV-derived YTD realized: "
+                                            + formatMoneyShort(computed.ytdRealizedPnL())
+                                            + "; open unrealized (computed): "
+                                            + formatMoneyShort(computed.openUnrealizedPnL())
+                                            + ".";
+                            return new RobinhoodPortfolioOverviewDto(
+                                    snap.asOfDate(),
+                                    "snapshot",
+                                    snap.portfolioValue(),
+                                    snap.cash(),
+                                    snap.todayPnL(),
+                                    snap.todayPnLPercent(),
+                                    snap.ytdTotalPnL(),
+                                    snap.todayRealizedPnL(),
+                                    snap.ytdRealizedPnL(),
+                                    snap.openUnrealizedPnL(),
+                                    snap.positions(),
+                                    note);
+                        })
+                .orElse(computed);
+    }
+
+    private static String formatMoneyShort(BigDecimal v) {
+        if (v == null) {
+            return "—";
+        }
+        return v.setScale(2, RoundingMode.HALF_UP).toPlainString();
+    }
+
+    private RobinhoodPortfolioOverviewDto buildComputedPortfolio(
+            int financialYear,
+            LocalDate asOfDate,
+            FifoResult fifoOpen,
+            RobinhoodUnrealizedSectionDto unrealized,
+            boolean openTruncated) {
+        BigDecimal cash = parseConfiguredCash();
+        BigDecimal ytdRealized = ZERO;
+        BigDecimal todayRealized = ZERO;
+        for (ClosedTrade c : fifoOpen.closedTrades()) {
+            if (c.sellDate() == null) {
+                continue;
+            }
+            if (c.sellDate().getYear() == financialYear) {
+                ytdRealized = ytdRealized.add(c.realizedPnL());
+            }
+            if (c.sellDate().equals(asOfDate)) {
+                todayRealized = todayRealized.add(c.realizedPnL());
+            }
+        }
+        List<RobinhoodPortfolioPositionDto> positions = buildPortfolioPositionsFromOpen(unrealized.openPositions());
+        BigDecimal positionsMarket =
+                positions.stream()
+                        .map(RobinhoodPortfolioPositionDto::marketValue)
+                        .filter(Objects::nonNull)
+                        .reduce(ZERO, BigDecimal::add);
+        BigDecimal openUnrealized = unrealized.totalUnrealizedPnL() != null ? unrealized.totalUnrealizedPnL() : ZERO;
+        BigDecimal portfolioValue = cash.add(positionsMarket);
+        BigDecimal ytdTotal = ytdRealized.add(openUnrealized);
+        BigDecimal todayOpen =
+                positions.stream()
+                        .map(RobinhoodPortfolioPositionDto::dayOpenPnL)
+                        .filter(Objects::nonNull)
+                        .reduce(ZERO, BigDecimal::add);
+        BigDecimal todayPnL = todayRealized.add(todayOpen);
+        Double todayPct =
+                portfolioValue.compareTo(ZERO) > 0
+                        ? todayPnL.divide(portfolioValue, 6, RoundingMode.HALF_UP).doubleValue()
+                        : null;
+
+        String note =
+                "Computed from imported CSV (FIFO) and quotes through "
+                        + asOfDate
+                        + ". Update config/robinhood-portfolio-snapshot.json to match Robinhood app exactly.";
+        if (openTruncated) {
+            note += " Open-position history may be incomplete (row cap).";
+        }
+
+        return new RobinhoodPortfolioOverviewDto(
+                asOfDate,
+                "computed",
+                portfolioValue.setScale(2, RoundingMode.HALF_UP),
+                cash.setScale(2, RoundingMode.HALF_UP),
+                todayPnL.setScale(2, RoundingMode.HALF_UP),
+                todayPct,
+                ytdTotal.setScale(2, RoundingMode.HALF_UP),
+                todayRealized.setScale(2, RoundingMode.HALF_UP),
+                ytdRealized.setScale(2, RoundingMode.HALF_UP),
+                openUnrealized.setScale(2, RoundingMode.HALF_UP),
+                positions,
+                note);
+    }
+
+    private BigDecimal parseConfiguredCash() {
+        String raw = financeProperties.robinhoodCashBalance().trim();
+        if (raw.isEmpty()) {
+            return ZERO;
+        }
+        try {
+            return new BigDecimal(raw.replace(",", "")).setScale(2, RoundingMode.HALF_UP);
+        } catch (NumberFormatException e) {
+            return ZERO;
+        }
+    }
+
+    private List<RobinhoodPortfolioPositionDto> buildPortfolioPositionsFromOpen(
+            List<RobinhoodOpenPositionDto> openPositions) {
+        List<RobinhoodPortfolioPositionDto> out = new ArrayList<>();
+        for (RobinhoodOpenPositionDto p : openPositions) {
+            String asset =
+                    switch (p.strategy() != null ? p.strategy().toLowerCase(Locale.ROOT) : "") {
+                        case "option" -> "Option";
+                        case "stock" -> "Equity";
+                        default -> "Other";
+                    };
+            out.add(
+                    new RobinhoodPortfolioPositionDto(
+                            p.instrument(),
+                            p.instrument(),
+                            p.contract(),
+                            asset,
+                            p.quantity(),
+                            p.avgPrice(),
+                            p.marketPrice(),
+                            p.marketValue(),
+                            p.unrealizedPnL(),
+                            p.dayOpenPnL(),
+                            p.dayOpenPnLPercent()));
+        }
+        return out;
+    }
+
+    private static List<OpenLot> aggregateOpenLots(List<OpenLot> openLots) {
+        Map<String, MutableAgg> map = new LinkedHashMap<>();
+        for (OpenLot lot : openLots) {
+            String key = lot.instrument() + "\u0001" + lot.contract();
+            MutableAgg a =
+                    map.computeIfAbsent(
+                            key,
+                            k -> new MutableAgg(lot.instrument(), lot.contract(), lot.strategy(), lot.openedAt()));
+            a.quantity = a.quantity.add(lot.quantity());
+            a.costBasis = a.costBasis.add(lot.costBasis());
+            if (lot.openedAt() != null && (a.openedAt == null || lot.openedAt().isBefore(a.openedAt))) {
+                a.openedAt = lot.openedAt();
+            }
+        }
+        List<OpenLot> merged = new ArrayList<>();
+        for (MutableAgg a : map.values()) {
+            if (a.quantity.compareTo(PNL_EPSILON) <= 0) {
+                continue;
+            }
+            merged.add(new OpenLot(a.instrument, a.contract, a.strategy, a.openedAt, a.quantity, a.costBasis));
+        }
+        return merged;
     }
 
     private static LocalDate resolveAsOfDate(int financialYear) {
@@ -132,6 +307,7 @@ public class RobinhoodPerformanceReportService {
 
     private RobinhoodUnrealizedSectionDto buildUnrealized(
             List<OpenLot> openLots, LocalDate asOfDate, boolean truncated) {
+        openLots = aggregateOpenLots(openLots);
         Set<String> stockSymbols = new LinkedHashSet<>();
         for (OpenLot lot : openLots) {
             if (lot.strategy() == TradeStrategy.STOCK && lot.instrument() != null && !lot.instrument().isBlank()) {
@@ -155,9 +331,15 @@ public class RobinhoodPerformanceReportService {
             LocalDate opened = lot.openedAt() != null ? lot.openedAt() : asOfDate;
             int holdDays = (int) Math.max(0, ChronoUnit.DAYS.between(opened, asOfDate));
 
+            BigDecimal avgPrice =
+                    lot.quantity().compareTo(PNL_EPSILON) > 0
+                            ? lot.costBasis().divide(lot.quantity(), 4, RoundingMode.HALF_UP)
+                            : null;
             BigDecimal marketPrice = null;
             BigDecimal marketValue = null;
             BigDecimal unrealized = null;
+            BigDecimal dayOpenPnL = null;
+            Double dayOpenPnLPercent = null;
             boolean quoteAvailable = false;
 
             if (lot.strategy() == TradeStrategy.STOCK) {
@@ -169,6 +351,13 @@ public class RobinhoodPerformanceReportService {
                     marketValue =
                             marketPrice.multiply(lot.quantity()).setScale(2, RoundingMode.HALF_UP);
                     unrealized = marketValue.subtract(lot.costBasis()).setScale(2, RoundingMode.HALF_UP);
+                    if (q.regularMarketChangePercent() != null) {
+                        dayOpenPnLPercent = q.regularMarketChangePercent();
+                        dayOpenPnL =
+                                marketValue
+                                        .multiply(BigDecimal.valueOf(dayOpenPnLPercent))
+                                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                    }
                     quoteAvailable = true;
                     quoted++;
                     anyMarket = true;
@@ -185,10 +374,13 @@ public class RobinhoodPerformanceReportService {
                             opened,
                             holdDays,
                             lot.quantity(),
+                            avgPrice,
                             lot.costBasis().setScale(2, RoundingMode.HALF_UP),
                             marketPrice,
                             marketValue,
                             unrealized,
+                            dayOpenPnL,
+                            dayOpenPnLPercent,
                             quoteAvailable));
         }
 
@@ -639,6 +831,22 @@ public class RobinhoodPerformanceReportService {
             LocalDate openedAt,
             BigDecimal quantity,
             BigDecimal costBasis) {}
+
+    private static final class MutableAgg {
+        final String instrument;
+        final String contract;
+        final TradeStrategy strategy;
+        LocalDate openedAt;
+        BigDecimal quantity = ZERO;
+        BigDecimal costBasis = ZERO;
+
+        MutableAgg(String instrument, String contract, TradeStrategy strategy, LocalDate openedAt) {
+            this.instrument = instrument;
+            this.contract = contract;
+            this.strategy = strategy;
+            this.openedAt = openedAt;
+        }
+    }
 
     private record ClosedTrade(
             String instrument,

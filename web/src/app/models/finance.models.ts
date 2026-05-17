@@ -82,9 +82,39 @@ export interface RobinhoodPerformanceReportDto {
   monthlyPnL: RobinhoodMonthlyPnLPointDto[];
   equityCurve: RobinhoodEquityCurvePointDto[];
   closedTrades: RobinhoodClosedTradeDto[];
+  portfolio: RobinhoodPortfolioOverviewDto;
   unrealized: RobinhoodUnrealizedSectionDto;
   insights: RobinhoodPerformanceInsightsDto;
   tax: RobinhoodPerformanceTaxDto;
+}
+
+export interface RobinhoodPortfolioOverviewDto {
+  asOfDate: string;
+  source: string;
+  portfolioValue: number;
+  cash: number;
+  todayPnL: number;
+  todayPnLPercent: number | null;
+  ytdTotalPnL: number;
+  todayRealizedPnL: number;
+  ytdRealizedPnL: number;
+  openUnrealizedPnL: number;
+  positions: RobinhoodPortfolioPositionDto[];
+  note: string;
+}
+
+export interface RobinhoodPortfolioPositionDto {
+  instrument: string;
+  name: string;
+  contract: string | null;
+  assetClass: string;
+  quantity: number;
+  avgPrice: number | null;
+  marketPrice: number | null;
+  marketValue: number | null;
+  openPnL: number | null;
+  dayOpenPnL: number | null;
+  dayOpenPnLPercent: number | null;
 }
 
 export interface RobinhoodUnrealizedSectionDto {
@@ -106,6 +136,7 @@ export interface RobinhoodOpenPositionDto {
   openedDate: string;
   holdDaysAsOf: number;
   quantity: number;
+  avgPrice: number | null;
   costBasis: number;
   marketPrice: number | null;
   marketValue: number | null;

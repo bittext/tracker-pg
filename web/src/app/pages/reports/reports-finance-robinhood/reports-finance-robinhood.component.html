@@ -41,6 +41,109 @@
     </p>
     <p class="muted small">{{ r.note }}</p>
 
+    @if (r.portfolio; as port) {
+      <section class="rh-report__section rh-portfolio" aria-labelledby="rh-portfolio-heading">
+        <h3 id="rh-portfolio-heading" class="rh-report__section-title">Individual investing</h3>
+        <p class="muted small">
+          {{ portfolioSourceLabel(port.source) }} · as of {{ formatFullDate(port.asOfDate) }}
+        </p>
+        <div class="rh-portfolio__hero">
+          <div class="rh-portfolio__value">{{ formatMoney(port.portfolioValue) }}</div>
+          <div class="rh-portfolio__today" [class.rh-portfolio__today--neg]="port.todayPnL < 0">
+            {{ formatMoney(port.todayPnL) }}
+            @if (port.todayPnLPercent != null) {
+              <span> ({{ formatPctFromDecimal(port.todayPnLPercent) }})</span>
+            }
+            <span class="muted"> today</span>
+          </div>
+        </div>
+
+        <div class="rh-report__kpis rh-report__kpis--compact rh-portfolio__pnl">
+          <div class="rh-kpi">
+            <span class="rh-kpi__label">Cash</span>
+            <span class="rh-kpi__value">{{ formatMoney(port.cash) }}</span>
+          </div>
+          <div class="rh-kpi">
+            <span class="rh-kpi__label">YTD P&amp;L</span>
+            <span class="rh-kpi__value" [class.rh-kpi__value--neg]="port.ytdTotalPnL < 0">{{
+              formatMoney(port.ytdTotalPnL)
+            }}</span>
+          </div>
+          <div class="rh-kpi">
+            <span class="rh-kpi__label">YTD realized</span>
+            <span class="rh-kpi__value" [class.rh-kpi__value--neg]="port.ytdRealizedPnL < 0">{{
+              formatMoney(port.ytdRealizedPnL)
+            }}</span>
+          </div>
+          <div class="rh-kpi">
+            <span class="rh-kpi__label">Open (unrealized)</span>
+            <span class="rh-kpi__value" [class.rh-kpi__value--neg]="port.openUnrealizedPnL < 0">{{
+              formatMoney(port.openUnrealizedPnL)
+            }}</span>
+          </div>
+          <div class="rh-kpi">
+            <span class="rh-kpi__label">Day realized</span>
+            <span class="rh-kpi__value">{{ formatMoney(port.todayRealizedPnL) }}</span>
+          </div>
+        </div>
+
+        <p class="muted small">{{ port.note }}</p>
+
+        @if (port.positions.length) {
+          <h4 class="rh-portfolio__table-title">Positions</h4>
+          <div class="table-wrap">
+            <table mat-table [dataSource]="port.positions" class="full-width rh-compact-table rh-portfolio-table">
+              <ng-container matColumnDef="instrument">
+                <th mat-header-cell *matHeaderCellDef>Symbol</th>
+                <td mat-cell *matCellDef="let row">
+                  <span class="rh-portfolio-table__sym">{{ row.instrument }}</span>
+                  @if (row.contract && row.contract !== row.instrument) {
+                    <span class="muted small rh-portfolio-table__sub">{{ row.contract }}</span>
+                  } @else if (row.name && row.name !== row.instrument) {
+                    <span class="muted small rh-portfolio-table__sub">{{ row.name }}</span>
+                  }
+                  <span class="rh-portfolio-table__class muted">{{ row.assetClass }}</span>
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="quantity">
+                <th mat-header-cell *matHeaderCellDef>Qty</th>
+                <td mat-cell *matCellDef="let row">{{ row.quantity | number: '1.0-4' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="marketValue">
+                <th mat-header-cell *matHeaderCellDef>Mkt val</th>
+                <td mat-cell *matCellDef="let row">{{ formatMoney(row.marketValue) }}</td>
+              </ng-container>
+              <ng-container matColumnDef="avgPrice">
+                <th mat-header-cell *matHeaderCellDef>Avg</th>
+                <td mat-cell *matCellDef="let row">{{ formatMoney(row.avgPrice) }}</td>
+              </ng-container>
+              <ng-container matColumnDef="marketPrice">
+                <th mat-header-cell *matHeaderCellDef>Mark</th>
+                <td mat-cell *matCellDef="let row">{{ formatMoney(row.marketPrice) }}</td>
+              </ng-container>
+              <ng-container matColumnDef="openPnL">
+                <th mat-header-cell *matHeaderCellDef>Open P&amp;L</th>
+                <td mat-cell *matCellDef="let row" [class.rh-cell-pnl--neg]="(row.openPnL ?? 0) < 0">
+                  {{ formatMoney(row.openPnL) }}
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="dayOpenPnL">
+                <th mat-header-cell *matHeaderCellDef>1D open</th>
+                <td mat-cell *matCellDef="let row" [class.rh-cell-pnl--neg]="(row.dayOpenPnL ?? 0) < 0">
+                  {{ formatMoney(row.dayOpenPnL) }}
+                  @if (row.dayOpenPnLPercent != null) {
+                    <span class="muted small"> ({{ formatPctFromDecimal(row.dayOpenPnLPercent) }})</span>
+                  }
+                </td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="portfolioColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: portfolioColumns"></tr>
+            </table>
+          </div>
+        }
+      </section>
+    }
+
     <div class="rh-report__kpis" role="group" aria-label="Summary">
       <div class="rh-kpi">
         <span class="rh-kpi__label">Total realized P&amp;L</span>

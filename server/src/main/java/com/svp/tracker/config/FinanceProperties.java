@@ -88,6 +88,14 @@ public record FinanceProperties(
         String robinhoodNotebookServiceBaseUrl,
         /** HTTP timeout for notebook render requests (ms). */
         int robinhoodNotebookServiceTimeoutMs,
+        /**
+         * Optional path to Robinhood portfolio snapshot JSON (mobile/web app figures). When set, used for Reports →
+         * Robinhood portfolio overview for the snapshot's calendar year. Classpath {@code robinhood-portfolio-snapshot.json}
+         * and {@code config/robinhood-portfolio-snapshot.json} are fallbacks.
+         */
+        String robinhoodPortfolioSnapshotPath,
+        /** Optional cash / buying power for computed portfolio value (when not using snapshot). */
+        String robinhoodCashBalance,
         /** Enable/disable internet-backed stock news endpoint. */
         boolean newsEnabled,
         /** Max items returned by stock news endpoint. */
@@ -217,6 +225,16 @@ public record FinanceProperties(
         }
         if (robinhoodNotebookServiceTimeoutMs > 600_000) {
             robinhoodNotebookServiceTimeoutMs = 600_000;
+        }
+        if (robinhoodPortfolioSnapshotPath == null) {
+            robinhoodPortfolioSnapshotPath = "";
+        } else {
+            robinhoodPortfolioSnapshotPath = robinhoodPortfolioSnapshotPath.trim();
+        }
+        if (robinhoodCashBalance == null) {
+            robinhoodCashBalance = "";
+        } else {
+            robinhoodCashBalance = robinhoodCashBalance.trim();
         }
         if (newsMaxItems < 1) {
             newsMaxItems = 10;

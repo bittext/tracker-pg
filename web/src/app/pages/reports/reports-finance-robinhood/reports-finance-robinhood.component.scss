@@ -304,6 +304,53 @@
   font-size: 1rem;
 }
 
+.rh-portfolio__hero {
+  margin: 0.75rem 0 1rem;
+}
+
+.rh-portfolio__value {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.rh-portfolio__today {
+  margin-top: 0.35rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #0d9488;
+}
+
+.rh-portfolio__today--neg {
+  color: var(--mat-sys-error, #b3261e);
+}
+
+.rh-portfolio__pnl {
+  margin-bottom: 0.75rem;
+}
+
+.rh-portfolio__table-title {
+  margin: 1rem 0 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.rh-portfolio-table__sym {
+  font-weight: 700;
+  display: block;
+}
+
+.rh-portfolio-table__sub {
+  display: block;
+  line-height: 1.25;
+}
+
+.rh-portfolio-table__class {
+  display: block;
+  font-size: 0.72rem;
+  margin-top: 0.15rem;
+}
+
 .rh-open {
   margin-top: 0.5rem;
 }

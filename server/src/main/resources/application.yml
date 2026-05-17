@@ -126,6 +126,9 @@ tracker:
     robinhood-notebook-service-enabled: ${TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_ENABLED:false}
     robinhood-notebook-service-base-url: ${TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_BASE_URL:http://robinhood-notebook:8010}
     robinhood-notebook-service-timeout-ms: ${TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_TIMEOUT_MS:120000}
+    # Optional Robinhood app snapshot (portfolio value, cash, YTD P/L, positions). See config/robinhood-portfolio-snapshot.json.
+    robinhood-portfolio-snapshot-path: ${TRACKER_FINANCE_ROBINHOOD_PORTFOLIO_SNAPSHOT_PATH:}
+    robinhood-cash-balance: ${TRACKER_FINANCE_ROBINHOOD_CASH_BALANCE:}
     banking:
       # Host default ~/imports/banking. Production VMs often use TRACKER_BANKING_IMPORT_DIRECTORY=/home/ubuntu/imports/banking (0700).
       import-directory: ${TRACKER_BANKING_IMPORT_DIRECTORY:${user.home}/imports/banking}

@@ -105,6 +105,15 @@ export class ReportsFinanceRobinhoodComponent implements OnInit {
   readonly dailyColumns = ['date', 'realizedPnL', 'closedLots'];
   readonly bestStockColumns = ['instrument', 'totalRealizedPnL', 'closedLots', 'winCount', 'lossCount'];
   readonly worstTradeColumns = ['instrument', 'contract', 'strategy', 'sellDate', 'holdDays', 'realizedPnL'];
+  readonly portfolioColumns = [
+    'instrument',
+    'quantity',
+    'marketValue',
+    'avgPrice',
+    'marketPrice',
+    'openPnL',
+    'dayOpenPnL',
+  ];
   readonly closedTradeColumns = [
     'instrument',
     'buyDate',
@@ -403,6 +412,24 @@ export class ReportsFinanceRobinhoodComponent implements OnInit {
       return '—';
     }
     return `${(v * 100).toFixed(1)}%`;
+  }
+
+  formatPctFromDecimal(rate: number | null | undefined): string {
+    const v = Number(rate);
+    if (!Number.isFinite(v)) {
+      return '—';
+    }
+    return `${(v * 100).toFixed(2)}%`;
+  }
+
+  portfolioSourceLabel(source: string): string {
+    if (source === 'snapshot') {
+      return 'Robinhood app snapshot';
+    }
+    if (source === 'computed') {
+      return 'From CSV import';
+    }
+    return source;
   }
 
   formatDayLabel(iso: string): string {

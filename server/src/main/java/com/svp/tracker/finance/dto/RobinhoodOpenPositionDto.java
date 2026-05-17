@@ -11,9 +11,13 @@ public record RobinhoodOpenPositionDto(
         LocalDate openedDate,
         int holdDaysAsOf,
         BigDecimal quantity,
+        /** Weighted average cost per share/contract (cost basis ÷ quantity). */
+        BigDecimal avgPrice,
         BigDecimal costBasis,
         /** Last quote when available (stocks only). */
         BigDecimal marketPrice,
         BigDecimal marketValue,
         BigDecimal unrealizedPnL,
+        BigDecimal dayOpenPnL,
+        Double dayOpenPnLPercent,
         boolean quoteAvailable) {}
