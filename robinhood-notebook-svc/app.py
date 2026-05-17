@@ -56,15 +56,35 @@ def _bundle_from_payload(payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     return notebook, bundle
 
 
-async def _read_json_object(request: Request) -> dict[str, Any]:
+async def _read_raw_body(request: Request) -> bytes:
     raw_bytes = await request.body()
+    if raw_bytes:
+        return raw_bytes
+    cl = request.headers.get("content-length", "").strip()
+    expect = (request.headers.get("expect") or "").lower()
+    if (cl.isdigit() and int(cl) > 0) or expect == "100-continue":
+        chunks: list[bytes] = []
+        while True:
+            message = await request.receive()
+            if message["type"] != "http.request":
+                continue
+            part = message.get("body") or b""
+            if part:
+                chunks.append(part)
+            if not message.get("more_body", False):
+                break
+        raw_bytes = b"".join(chunks)
     if not raw_bytes:
-        cl = request.headers.get("content-length", "").strip()
-        if cl.isdigit() and int(cl) > 0:
-            chunks: list[bytes] = []
-            async for chunk in request.stream():
-                chunks.append(chunk)
-            raw_bytes = b"".join(chunks)
+        stream_chunks: list[bytes] = []
+        async for chunk in request.stream():
+            if chunk:
+                stream_chunks.append(chunk)
+        raw_bytes = b"".join(stream_chunks)
+    return raw_bytes
+
+
+async def _read_json_object(request: Request) -> dict[str, Any]:
+    raw_bytes = await _read_raw_body(request)
     if not raw_bytes:
         LOGGER.warning(
             "empty POST body method=%s path=%s content-type=%s content-length=%s expect=%s",
@@ -128,7 +148,7 @@ def health() -> dict:
         for key, name in NOTEBOOK_FILES.items()
     }
     ok = all(v["exists"] for v in notebooks.values())
-    return {"status": "ok" if ok else "degraded", "version": "1.3.0", "notebooks": notebooks}
+    return {"status": "ok" if ok else "degraded", "version": "1.4.0", "notebooks": notebooks}
 
 
 @app.post("/v1/render")

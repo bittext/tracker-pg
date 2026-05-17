@@ -10,13 +10,13 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.LinkedHashMap;
@@ -33,11 +33,6 @@ import org.springframework.stereotype.Service;
 public class RobinhoodNotebookService {
 
     private static final Set<String> NOTEBOOK_IDS = Set.of("performance", "risk");
-
-    static {
-        // Bundles are often >1KB; JDK otherwise sends Expect: 100-continue and some ASGI servers see an empty body.
-        System.setProperty("jdk.httpclient.enableExpectContinue", "false");
-    }
 
     /** Spring Boot 4 does not expose an {@link ObjectMapper} bean; local mapper for notebook sidecar JSON only. */
     private static final ObjectMapper JSON =
@@ -109,29 +104,14 @@ public class RobinhoodNotebookService {
             }
             String normalized = base.endsWith("/") ? base.substring(0, base.length() - 1) : base;
             int timeoutMs = financeProperties.robinhoodNotebookServiceTimeoutMs();
-            HttpClient httpClient =
-                    HttpClient.newBuilder()
-                            .connectTimeout(Duration.ofMillis(Math.min(timeoutMs, 30_000)))
-                            .build();
             String renderUrl =
                     normalized
                             + "/v1/render?notebook="
                             + URLEncoder.encode(notebook, StandardCharsets.UTF_8);
             URI renderUri = URI.create(renderUrl);
-            HttpRequest request =
-                    HttpRequest.newBuilder(renderUri)
-                            .timeout(Duration.ofMillis(timeoutMs))
-                            .header("Content-Type", "application/json; charset=utf-8")
-                            .header("Accept", "application/json")
-                            .POST(HttpRequest.BodyPublishers.ofByteArray(bodyBytes))
-                            .build();
             log.debug("notebook render POST {} bytes to {}", bodyBytes.length, renderUri);
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() / 100 != 2) {
-                throw new IllegalStateException(
-                        "status " + response.statusCode() + ": " + abbreviate(response.body(), 500));
-            }
-            RenderResponse body = JSON.readValue(response.body(), RenderResponse.class);
+            String responseJson = postJson(renderUri, bodyBytes, timeoutMs);
+            RenderResponse body = JSON.readValue(responseJson, RenderResponse.class);
             if (body == null || body.html() == null) {
                 return new RobinhoodNotebookRenderDto(year, "", "error", "Empty response from notebook service.");
             }
@@ -164,6 +144,36 @@ public class RobinhoodNotebookService {
             return "";
         }
         return s.length() <= max ? s : s.substring(0, max) + "…";
+    }
+
+    /**
+     * POST JSON using {@link HttpURLConnection} so large bundles are not sent with JDK {@code HttpClient}'s
+     * {@code Expect: 100-continue}, which some ASGI stacks mishandle (empty body → 422).
+     */
+    private static String postJson(URI uri, byte[] bodyBytes, int timeoutMs) throws IOException {
+        HttpURLConnection conn = (HttpURLConnection) uri.toURL().openConnection();
+        int connectTimeout = Math.min(timeoutMs, 30_000);
+        conn.setConnectTimeout(connectTimeout);
+        conn.setReadTimeout(timeoutMs);
+        conn.setRequestMethod("POST");
+        conn.setDoOutput(true);
+        conn.setInstanceFollowRedirects(false);
+        conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+        conn.setRequestProperty("Accept", "application/json");
+        conn.setFixedLengthStreamingMode(bodyBytes.length);
+        try (OutputStream os = conn.getOutputStream()) {
+            os.write(bodyBytes);
+        }
+        int status = conn.getResponseCode();
+        InputStream stream = status >= 400 ? conn.getErrorStream() : conn.getInputStream();
+        String responseBody = "";
+        if (stream != null) {
+            responseBody = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+        }
+        if (status / 100 != 2) {
+            throw new IOException("status " + status + ": " + abbreviate(responseBody, 500));
+        }
+        return responseBody;
     }
 
     private record RenderResponse(String html, String source, String note) {}

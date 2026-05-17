@@ -42,4 +42,4 @@ COPY --from=build /workspace/server/target/tracker-pg-server-*.jar /app/app.jar
 
 EXPOSE 9091
 
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-Djdk.httpclient.enableExpectContinue=false", "-jar", "/app/app.jar"]
