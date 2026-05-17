@@ -249,17 +249,41 @@
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1rem;
   margin-bottom: 1rem;
+
+  .rh-insights-card--full {
+    grid-column: 1 / -1;
+  }
+}
+
+.table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+  border-radius: var(--app-radius-sm, 10px);
+  background: var(--app-surface-muted, #f8fafc);
+}
+
+.rh-worst-trades-wrap .rh-compact-table {
+  min-width: 40rem;
 }
 
 .rh-compact-table {
   font-size: 0.85rem;
+
+  .mat-mdc-header-cell,
+  .mat-mdc-cell {
+    padding-inline: 0.65rem;
+  }
 }
 
 .rh-cell-contract {
-  max-width: 12rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  min-width: 12rem;
+  max-width: 32rem;
+  line-height: 1.35;
+  vertical-align: top;
 }
 
 .rh-bar-chart--quarterly {
