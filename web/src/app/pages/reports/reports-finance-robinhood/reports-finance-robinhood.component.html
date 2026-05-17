@@ -71,6 +71,142 @@
       </div>
     </div>
 
+    @if (r.closedTrades.length) {
+      <section class="rh-report__section rh-trades" aria-labelledby="rh-trades-heading">
+        <h3 id="rh-trades-heading" class="rh-report__section-title">Closed trades (FIFO)</h3>
+        <p class="muted small rh-trades__lead">
+          Each close matches shares bought on <strong>opened</strong> to shares sold on <strong>closed</strong> using
+          transaction dates from your import. Bars span {{ r.financialYear }} on the calendar.
+        </p>
+
+        <mat-tab-group class="rh-trades__tabs" dynamicHeight>
+          <mat-tab label="By symbol">
+            <mat-accordion class="rh-trades__accordion" multi>
+              @for (group of tradeGroupsByInstrument(); track group.instrument) {
+                <mat-expansion-panel>
+                  <mat-expansion-panel-header>
+                    <mat-panel-title class="rh-trade-group__title">
+                      <span class="rh-trade-group__symbol">{{ group.instrument }}</span>
+                      <span
+                        class="rh-trade-group__pnl"
+                        [class.rh-trade-group__pnl--neg]="group.totalPnL < 0"
+                        >{{ formatMoney(group.totalPnL) }}</span
+                      >
+                    </mat-panel-title>
+                    <mat-panel-description class="rh-trade-group__meta muted">
+                      {{ group.trades.length }} close{{ group.trades.length === 1 ? '' : 's' }} ·
+                      {{ group.winCount }}W / {{ group.lossCount }}L
+                      @if (group.breakevenCount) {
+                        / {{ group.breakevenCount }}BE
+                      }
+                    </mat-panel-description>
+                  </mat-expansion-panel-header>
+
+                  <div class="rh-trades__year-axis muted small" aria-hidden="true">
+                    <span>Jan {{ r.financialYear }}</span>
+                    <span>Dec {{ r.financialYear }}</span>
+                  </div>
+
+                  @for (t of group.trades; track trackTrade($index, t)) {
+                    <article class="rh-trade-row" [attr.aria-label]="group.instrument + ' trade'">
+                      <div class="rh-trade-row__timeline" aria-hidden="true">
+                        @let bar = tradeTimelineBar(t);
+                        <div class="rh-trade-row__track">
+                          <span
+                            class="rh-trade-row__bar"
+                            [class.rh-trade-row__bar--pos]="bar.positive"
+                            [class.rh-trade-row__bar--neg]="!bar.positive"
+                            [style.left.%]="bar.startPct"
+                            [style.width.%]="bar.widthPct"
+                          ></span>
+                        </div>
+                      </div>
+                      <div class="rh-trade-row__body">
+                        <div class="rh-trade-row__dates">
+                          <span class="rh-trade-row__date">
+                            <span class="rh-trade-row__date-label muted">Opened</span>
+                            {{ formatFullDate(t.buyDate) }}
+                          </span>
+                          <mat-icon class="rh-trade-row__arrow" aria-hidden="true">arrow_forward</mat-icon>
+                          <span class="rh-trade-row__date">
+                            <span class="rh-trade-row__date-label muted">Closed</span>
+                            {{ formatFullDate(t.sellDate) }}
+                          </span>
+                        </div>
+                        <div class="rh-trade-row__facts">
+                          @if (t.contract) {
+                            <span class="rh-trade-row__contract muted" [attr.title]="t.contract">{{ t.contract }}</span>
+                          }
+                          <span class="muted">{{ t.strategy }}</span>
+                          <span class="muted">Qty {{ t.quantity | number: '1.0-4' }}</span>
+                          <span class="muted">{{ formatHoldDays(t.holdDays) }}</span>
+                          <span
+                            class="rh-trade-row__outcome"
+                            [class.rh-trade-row__outcome--win]="tradeOutcome(t.realizedPnL) === 'win'"
+                            [class.rh-trade-row__outcome--loss]="tradeOutcome(t.realizedPnL) === 'loss'"
+                            >{{ outcomeLabel(t.realizedPnL) }}</span
+                          >
+                          <span class="rh-trade-row__pnl" [class.rh-trade-row__pnl--neg]="t.realizedPnL < 0">{{
+                            formatMoney(t.realizedPnL)
+                          }}</span>
+                        </div>
+                      </div>
+                    </article>
+                  }
+                </mat-expansion-panel>
+              }
+            </mat-accordion>
+          </mat-tab>
+
+          <mat-tab label="By close date">
+            <div class="table-wrap rh-trades__table-wrap">
+              <table mat-table [dataSource]="chronologicalClosedTrades()" class="full-width rh-compact-table">
+                <ng-container matColumnDef="instrument">
+                  <th mat-header-cell *matHeaderCellDef>Symbol</th>
+                  <td mat-cell *matCellDef="let row">{{ row.instrument }}</td>
+                </ng-container>
+                <ng-container matColumnDef="buyDate">
+                  <th mat-header-cell *matHeaderCellDef>Opened</th>
+                  <td mat-cell *matCellDef="let row">{{ formatFullDate(row.buyDate) }}</td>
+                </ng-container>
+                <ng-container matColumnDef="sellDate">
+                  <th mat-header-cell *matHeaderCellDef>Closed</th>
+                  <td mat-cell *matCellDef="let row">{{ formatFullDate(row.sellDate) }}</td>
+                </ng-container>
+                <ng-container matColumnDef="holdDays">
+                  <th mat-header-cell *matHeaderCellDef>Hold</th>
+                  <td mat-cell *matCellDef="let row">{{ formatHoldDays(row.holdDays) }}</td>
+                </ng-container>
+                <ng-container matColumnDef="quantity">
+                  <th mat-header-cell *matHeaderCellDef>Qty</th>
+                  <td mat-cell *matCellDef="let row">{{ row.quantity | number: '1.0-4' }}</td>
+                </ng-container>
+                <ng-container matColumnDef="realizedPnL">
+                  <th mat-header-cell *matHeaderCellDef>P&amp;L</th>
+                  <td mat-cell *matCellDef="let row" [class.rh-cell-pnl--neg]="row.realizedPnL < 0">
+                    {{ formatMoney(row.realizedPnL) }}
+                  </td>
+                </ng-container>
+                <ng-container matColumnDef="outcome">
+                  <th mat-header-cell *matHeaderCellDef>Result</th>
+                  <td mat-cell *matCellDef="let row">
+                    <span
+                      class="rh-trade-row__outcome"
+                      [class.rh-trade-row__outcome--win]="tradeOutcome(row.realizedPnL) === 'win'"
+                      [class.rh-trade-row__outcome--loss]="tradeOutcome(row.realizedPnL) === 'loss'"
+                      >{{ outcomeLabel(row.realizedPnL) }}</span
+                    >
+                  </td>
+                </ng-container>
+                <tr mat-header-row *matHeaderRowDef="closedTradeColumns"></tr>
+                <tr mat-row *matRowDef="let row; columns: closedTradeColumns"></tr>
+              </table>
+            </div>
+          </mat-tab>
+        </mat-tab-group>
+      </section>
+    }
+
     @if (!r.dailyPnL.length) {
       <p class="muted rh-report__empty">No closed trade P&amp;L for this filter. Import CSV data with buy/sell legs (BTO, STC, etc.).</p>
     } @else {

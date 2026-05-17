@@ -76,6 +76,8 @@ public class RobinhoodPerformanceReportService {
 
         RobinhoodPerformanceSummaryDto summary =
                 buildSummary(fifo.byDay(), fifo.winCount(), fifo.lossCount(), fifo.breakevenCount());
+        List<RobinhoodClosedTradeDto> closedTrades =
+                fifo.closedTrades().stream().map(this::toClosedTradeDto).toList();
         RobinhoodPerformanceInsightsDto insights = buildInsights(fifo.closedTrades(), financialYear);
         RobinhoodPerformanceTaxDto tax = buildTax(fifo.closedTrades(), financialYear);
 
@@ -96,6 +98,7 @@ public class RobinhoodPerformanceReportService {
                 daily,
                 monthly,
                 equity,
+                closedTrades,
                 insights,
                 tax);
     }

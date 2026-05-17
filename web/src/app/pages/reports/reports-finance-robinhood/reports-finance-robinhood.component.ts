@@ -10,8 +10,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatExpansionModule } from '@angular/material/expansion';
 import { MatTableModule } from '@angular/material/table';
+import { MatTabsModule } from '@angular/material/tabs';
 import {
+  RobinhoodClosedTradeDto,
   RobinhoodNotebookConfigDto,
   RobinhoodNotebookId,
   RobinhoodPerformanceReportDto,
@@ -33,6 +36,21 @@ interface DailyBar {
   positive: boolean;
 }
 
+interface InstrumentTradeGroup {
+  instrument: string;
+  totalPnL: number;
+  winCount: number;
+  lossCount: number;
+  breakevenCount: number;
+  trades: RobinhoodClosedTradeDto[];
+}
+
+interface TradeTimelineBar {
+  startPct: number;
+  widthPct: number;
+  positive: boolean;
+}
+
 @Component({
   selector: 'app-reports-finance-robinhood',
   standalone: true,
@@ -48,6 +66,8 @@ interface DailyBar {
     MatProgressSpinnerModule,
     MatIconModule,
     MatTableModule,
+    MatExpansionModule,
+    MatTabsModule,
   ],
   templateUrl: './reports-finance-robinhood.component.html',
   styleUrl: './reports-finance-robinhood.component.scss',
@@ -77,8 +97,60 @@ export class ReportsFinanceRobinhoodComponent implements OnInit {
   readonly dailyColumns = ['date', 'realizedPnL', 'closedLots'];
   readonly bestStockColumns = ['instrument', 'totalRealizedPnL', 'closedLots', 'winCount', 'lossCount'];
   readonly worstTradeColumns = ['instrument', 'contract', 'strategy', 'sellDate', 'holdDays', 'realizedPnL'];
+  readonly closedTradeColumns = [
+    'instrument',
+    'buyDate',
+    'sellDate',
+    'holdDays',
+    'quantity',
+    'realizedPnL',
+    'outcome',
+  ];
   readonly strategyColumns = ['strategy', 'totalRealizedPnL', 'closedLots', 'winRate'];
   readonly quarterlyColumns = ['quarterLabel', 'realizedGain', 'estimatedTax'];
+
+  readonly tradeGroupsByInstrument = computed<InstrumentTradeGroup[]>(() => {
+    const trades = this.report()?.closedTrades ?? [];
+    if (!trades.length) {
+      return [];
+    }
+    const byInstrument = new Map<string, RobinhoodClosedTradeDto[]>();
+    for (const t of trades) {
+      const key = t.instrument?.trim() || '—';
+      const list = byInstrument.get(key) ?? [];
+      list.push(t);
+      byInstrument.set(key, list);
+    }
+    const groups: InstrumentTradeGroup[] = [];
+    for (const [instrument, list] of byInstrument) {
+      const sorted = [...list].sort(
+        (a, b) => this.dateMs(a.sellDate) - this.dateMs(b.sellDate) || this.dateMs(a.buyDate) - this.dateMs(b.buyDate),
+      );
+      let totalPnL = 0;
+      let winCount = 0;
+      let lossCount = 0;
+      let breakevenCount = 0;
+      for (const t of sorted) {
+        const pnl = Number(t.realizedPnL) || 0;
+        totalPnL += pnl;
+        const outcome = this.tradeOutcome(pnl);
+        if (outcome === 'win') {
+          winCount++;
+        } else if (outcome === 'loss') {
+          lossCount++;
+        } else {
+          breakevenCount++;
+        }
+      }
+      groups.push({ instrument, totalPnL, winCount, lossCount, breakevenCount, trades: sorted });
+    }
+    return groups.sort((a, b) => b.totalPnL - a.totalPnL);
+  });
+
+  readonly chronologicalClosedTrades = computed<RobinhoodClosedTradeDto[]>(() => {
+    const trades = this.report()?.closedTrades ?? [];
+    return [...trades].sort((a, b) => this.dateMs(b.sellDate) - this.dateMs(a.sellDate));
+  });
 
   readonly dailyBars = computed<DailyBar[]>(() => {
     const r = this.report();
@@ -300,6 +372,61 @@ export class ReportsFinanceRobinhoodComponent implements OnInit {
   formatDayLabel(iso: string): string {
     const d = new Date(iso + 'T12:00:00');
     return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  }
+
+  formatFullDate(iso: string | null | undefined): string {
+    if (!iso) {
+      return '—';
+    }
+    const d = new Date(iso + 'T12:00:00');
+    return Number.isNaN(d.getTime())
+      ? iso
+      : d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  tradeOutcome(pnl: number): 'win' | 'loss' | 'breakeven' {
+    const v = Number(pnl);
+    if (!Number.isFinite(v) || Math.abs(v) < 0.005) {
+      return 'breakeven';
+    }
+    return v > 0 ? 'win' : 'loss';
+  }
+
+  outcomeLabel(pnl: number): string {
+    const o = this.tradeOutcome(pnl);
+    if (o === 'win') {
+      return 'Win';
+    }
+    if (o === 'loss') {
+      return 'Loss';
+    }
+    return 'Breakeven';
+  }
+
+  tradeTimelineBar(trade: RobinhoodClosedTradeDto): TradeTimelineBar {
+    const year = this.report()?.financialYear ?? this.reportYear;
+    const yearStart = new Date(year, 0, 1).getTime();
+    const yearEnd = new Date(year, 11, 31).getTime();
+    const span = Math.max(yearEnd - yearStart, 1);
+    const buyMs = this.dateMs(trade.buyDate) || yearStart;
+    const sellMs = this.dateMs(trade.sellDate) || buyMs;
+    const start = Math.max(0, Math.min(100, ((buyMs - yearStart) / span) * 100));
+    const end = Math.max(start, Math.min(100, ((sellMs - yearStart) / span) * 100));
+    const widthPct = Math.max(1.5, end - start);
+    const pnl = Number(trade.realizedPnL) || 0;
+    return { startPct: start, widthPct, positive: pnl >= 0 };
+  }
+
+  trackTrade(_index: number, trade: RobinhoodClosedTradeDto): string {
+    return `${trade.instrument}|${trade.buyDate}|${trade.sellDate}|${trade.quantity}|${trade.realizedPnL}`;
+  }
+
+  private dateMs(iso: string | null | undefined): number {
+    if (!iso) {
+      return 0;
+    }
+    const d = new Date(iso + 'T12:00:00');
+    return Number.isNaN(d.getTime()) ? 0 : d.getTime();
   }
 
   equityTickIndices(): number[] {

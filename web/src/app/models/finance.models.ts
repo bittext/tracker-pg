@@ -81,6 +81,7 @@ export interface RobinhoodPerformanceReportDto {
   dailyPnL: RobinhoodDailyPnLPointDto[];
   monthlyPnL: RobinhoodMonthlyPnLPointDto[];
   equityCurve: RobinhoodEquityCurvePointDto[];
+  closedTrades: RobinhoodClosedTradeDto[];
   insights: RobinhoodPerformanceInsightsDto;
   tax: RobinhoodPerformanceTaxDto;
 }
