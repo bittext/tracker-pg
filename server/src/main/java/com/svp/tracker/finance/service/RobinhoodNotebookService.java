@@ -113,7 +113,6 @@ public class RobinhoodNotebookService {
                             .timeout(Duration.ofMillis(timeoutMs))
                             .header("Content-Type", "application/json; charset=utf-8")
                             .header("Accept", "application/json")
-                            .header("Content-Length", String.valueOf(bodyBytes.length))
                             .POST(HttpRequest.BodyPublishers.ofByteArray(bodyBytes))
                             .build();
             log.debug("notebook render POST {} bytes to {}", bodyBytes.length, renderUri);
