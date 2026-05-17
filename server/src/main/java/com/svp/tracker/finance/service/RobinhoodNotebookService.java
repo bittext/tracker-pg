@@ -9,6 +9,12 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.LinkedHashMap;
@@ -17,9 +23,7 @@ import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClient;
 
 @Service
 @RequiredArgsConstructor
@@ -102,14 +106,24 @@ public class RobinhoodNotebookService {
         try {
             String jsonBody = JSON.writeValueAsString(payload);
             String normalized = base.endsWith("/") ? base.substring(0, base.length() - 1) : base;
-            RestClient client = RestClient.builder().baseUrl(normalized).build();
-            RenderResponse body =
-                    client.post()
-                            .uri("/v1/render")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .body(jsonBody)
-                            .retrieve()
-                            .body(RenderResponse.class);
+            int timeoutMs = financeProperties.robinhoodNotebookServiceTimeoutMs();
+            HttpClient httpClient =
+                    HttpClient.newBuilder()
+                            .connectTimeout(Duration.ofMillis(Math.min(timeoutMs, 30_000)))
+                            .build();
+            HttpRequest request =
+                    HttpRequest.newBuilder(URI.create(normalized + "/v1/render"))
+                            .timeout(Duration.ofMillis(timeoutMs))
+                            .header("Content-Type", "application/json")
+                            .header("Accept", "application/json")
+                            .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
+                            .build();
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() / 100 != 2) {
+                throw new IllegalStateException(
+                        "status " + response.statusCode() + ": " + abbreviate(response.body(), 500));
+            }
+            RenderResponse body = JSON.readValue(response.body(), RenderResponse.class);
             if (body == null || body.html() == null) {
                 return new RobinhoodNotebookRenderDto(year, "", "error", "Empty response from notebook service.");
             }
@@ -135,6 +149,13 @@ public class RobinhoodNotebookService {
             throw new IllegalArgumentException("Unknown notebook: " + notebookId + " (use performance or risk)");
         }
         return id;
+    }
+
+    private static String abbreviate(String s, int max) {
+        if (s == null) {
+            return "";
+        }
+        return s.length() <= max ? s : s.substring(0, max) + "…";
     }
 
     private record RenderResponse(String html, String source, String note) {}

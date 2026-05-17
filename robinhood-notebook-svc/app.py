@@ -68,10 +68,13 @@ def health() -> dict:
 
 @app.post("/v1/render")
 async def render(request: Request) -> dict:
+    raw_bytes = await request.body()
+    if not raw_bytes:
+        raise HTTPException(status_code=422, detail="JSON request body required")
     try:
-        payload: dict[str, Any] = await request.json()
-    except Exception as exc:
-        raise HTTPException(status_code=422, detail="JSON request body required") from exc
+        payload = json.loads(raw_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise HTTPException(status_code=422, detail="Invalid JSON request body") from exc
     if not isinstance(payload, dict):
         raise HTTPException(status_code=422, detail="Request body must be a JSON object")
     notebook_id, bundle = _bundle_from_payload(payload)
