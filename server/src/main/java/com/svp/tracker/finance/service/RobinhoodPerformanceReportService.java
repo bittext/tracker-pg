@@ -6,6 +6,7 @@ import com.svp.tracker.finance.dto.RobinhoodDailyPnLPointDto;
 import com.svp.tracker.finance.dto.RobinhoodEquityCurvePointDto;
 import com.svp.tracker.finance.dto.RobinhoodInstrumentPerformanceDto;
 import com.svp.tracker.finance.dto.RobinhoodMonthlyPnLPointDto;
+import com.svp.tracker.finance.dto.RobinhoodOpenPositionDto;
 import com.svp.tracker.finance.dto.RobinhoodPerformanceInsightsDto;
 import com.svp.tracker.finance.dto.RobinhoodPerformanceReportDto;
 import com.svp.tracker.finance.dto.RobinhoodPerformanceSummaryDto;
@@ -13,6 +14,8 @@ import com.svp.tracker.finance.dto.RobinhoodPerformanceTaxDto;
 import com.svp.tracker.finance.dto.RobinhoodQuarterlyGainDto;
 import com.svp.tracker.finance.dto.RobinhoodStrategyPerformanceDto;
 import com.svp.tracker.finance.dto.RobinhoodTradingFrequencyDto;
+import com.svp.tracker.finance.dto.RobinhoodUnrealizedSectionDto;
+import com.svp.tracker.finance.dto.YahooExtendedQuoteDto;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -24,10 +27,12 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.TreeMap;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -47,11 +52,18 @@ public class RobinhoodPerformanceReportService {
 
     private final RobinhoodFinanceService robinhoodFinanceService;
     private final FinanceProperties financeProperties;
+    private final YahooBatchQuoteService yahooBatchQuoteService;
 
     public RobinhoodPerformanceReportDto buildReport(int financialYear, String symbolFilter) {
         List<Map<String, Object>> rows = robinhoodFinanceService.loadYearTransactionRows(financialYear, symbolFilter);
         int cap = financeProperties.maxStocksSummaryRows();
         boolean truncated = rows.size() >= cap;
+
+        LocalDate asOfDate = resolveAsOfDate(financialYear);
+        List<Map<String, Object>> rowsThrough =
+                robinhoodFinanceService.loadTransactionRowsThrough(asOfDate, symbolFilter);
+        boolean openTruncated = rowsThrough.size() >= cap;
+        FifoResult fifoOpen = runFifo(rowsThrough);
 
         FifoResult fifo = runFifo(rows);
 
@@ -78,6 +90,8 @@ public class RobinhoodPerformanceReportService {
                 buildSummary(fifo.byDay(), fifo.winCount(), fifo.lossCount(), fifo.breakevenCount());
         List<RobinhoodClosedTradeDto> closedTrades =
                 fifo.closedTrades().stream().map(this::toClosedTradeDto).toList();
+        RobinhoodUnrealizedSectionDto unrealized =
+                buildUnrealized(fifoOpen.openLots(), asOfDate, openTruncated);
         RobinhoodPerformanceInsightsDto insights = buildInsights(fifo.closedTrades(), financialYear);
         RobinhoodPerformanceTaxDto tax = buildTax(fifo.closedTrades(), financialYear);
 
@@ -99,8 +113,115 @@ public class RobinhoodPerformanceReportService {
                 monthly,
                 equity,
                 closedTrades,
+                unrealized,
                 insights,
                 tax);
+    }
+
+    private static LocalDate resolveAsOfDate(int financialYear) {
+        LocalDate today = LocalDate.now();
+        LocalDate yearEnd = LocalDate.of(financialYear, 12, 31);
+        if (financialYear < today.getYear()) {
+            return yearEnd;
+        }
+        if (financialYear > today.getYear()) {
+            return yearEnd;
+        }
+        return today;
+    }
+
+    private RobinhoodUnrealizedSectionDto buildUnrealized(
+            List<OpenLot> openLots, LocalDate asOfDate, boolean truncated) {
+        Set<String> stockSymbols = new LinkedHashSet<>();
+        for (OpenLot lot : openLots) {
+            if (lot.strategy() == TradeStrategy.STOCK && lot.instrument() != null && !lot.instrument().isBlank()) {
+                stockSymbols.add(lot.instrument().trim().toUpperCase(Locale.ROOT));
+            }
+        }
+        Map<String, YahooExtendedQuoteDto> quotes =
+                stockSymbols.isEmpty()
+                        ? Map.of()
+                        : yahooBatchQuoteService.fetchExtendedBySymbols(List.copyOf(stockSymbols));
+
+        List<RobinhoodOpenPositionDto> positions = new ArrayList<>();
+        BigDecimal totalCost = ZERO;
+        BigDecimal totalMarket = ZERO;
+        BigDecimal totalUnrealized = ZERO;
+        boolean anyMarket = false;
+        int quoted = 0;
+
+        for (OpenLot lot : openLots) {
+            totalCost = totalCost.add(lot.costBasis());
+            LocalDate opened = lot.openedAt() != null ? lot.openedAt() : asOfDate;
+            int holdDays = (int) Math.max(0, ChronoUnit.DAYS.between(opened, asOfDate));
+
+            BigDecimal marketPrice = null;
+            BigDecimal marketValue = null;
+            BigDecimal unrealized = null;
+            boolean quoteAvailable = false;
+
+            if (lot.strategy() == TradeStrategy.STOCK) {
+                String sym = lot.instrument().trim().toUpperCase(Locale.ROOT);
+                YahooExtendedQuoteDto q = quotes.get(sym);
+                if (q != null && q.regularMarketPrice() != null && q.regularMarketPrice() > 0) {
+                    marketPrice =
+                            BigDecimal.valueOf(q.regularMarketPrice()).setScale(4, RoundingMode.HALF_UP);
+                    marketValue =
+                            marketPrice.multiply(lot.quantity()).setScale(2, RoundingMode.HALF_UP);
+                    unrealized = marketValue.subtract(lot.costBasis()).setScale(2, RoundingMode.HALF_UP);
+                    quoteAvailable = true;
+                    quoted++;
+                    anyMarket = true;
+                    totalMarket = totalMarket.add(marketValue);
+                    totalUnrealized = totalUnrealized.add(unrealized);
+                }
+            }
+
+            positions.add(
+                    new RobinhoodOpenPositionDto(
+                            lot.instrument(),
+                            lot.contract(),
+                            lot.strategy().label(),
+                            opened,
+                            holdDays,
+                            lot.quantity(),
+                            lot.costBasis().setScale(2, RoundingMode.HALF_UP),
+                            marketPrice,
+                            marketValue,
+                            unrealized,
+                            quoteAvailable));
+        }
+
+        positions.sort(
+                Comparator.comparing(RobinhoodOpenPositionDto::instrument, String.CASE_INSENSITIVE_ORDER)
+                        .thenComparing(RobinhoodOpenPositionDto::openedDate, Comparator.nullsLast(Comparator.naturalOrder())));
+
+        StringBuilder note = new StringBuilder();
+        note.append("Open lots from FIFO on all imported trades through ")
+                .append(asOfDate)
+                .append(". ");
+        if (!financeProperties.alphaVantageEnabled()) {
+            note.append("Enable tracker.finance.alpha-vantage-enabled for stock mark-to-market prices. ");
+        } else if (quoted < stockSymbols.size()) {
+            note.append("Some stock quotes were unavailable; those rows show cost basis only. ");
+        }
+        note.append("Options show cost basis only (no live option marks). Not investment advice.");
+        if (truncated) {
+            note.append(" Open-position history capped at ")
+                    .append(financeProperties.maxStocksSummaryRows())
+                    .append(" rows; positions may be incomplete.");
+        }
+
+        return new RobinhoodUnrealizedSectionDto(
+                asOfDate,
+                totalCost.setScale(2, RoundingMode.HALF_UP),
+                anyMarket ? totalMarket.setScale(2, RoundingMode.HALF_UP) : null,
+                anyMarket ? totalUnrealized.setScale(2, RoundingMode.HALF_UP) : null,
+                positions.size(),
+                quoted,
+                truncated,
+                note.toString(),
+                positions);
     }
 
     /** All FIFO closed lots for notebook export (same filters as {@link #buildReport}). */
@@ -123,6 +244,7 @@ public class RobinhoodPerformanceReportService {
                         .thenComparing(TradeEvent::leg));
 
         Map<String, Deque<Lot>> books = new LinkedHashMap<>();
+        Map<String, PositionMeta> positionMeta = new LinkedHashMap<>();
         Map<LocalDate, DayAgg> byDay = new TreeMap<>();
         List<ClosedTrade> closedTrades = new ArrayList<>();
         int winCount = 0;
@@ -130,6 +252,8 @@ public class RobinhoodPerformanceReportService {
         int breakevenCount = 0;
 
         for (TradeEvent ev : events) {
+            positionMeta.put(
+                    ev.positionKey(), new PositionMeta(ev.instrument(), ev.contract(), ev.strategy()));
             Deque<Lot> lots = books.computeIfAbsent(ev.positionKey(), k -> new ArrayDeque<>());
             if (ev.leg() == Leg.BUY) {
                 BigDecimal buyQty = ev.quantity().abs();
@@ -199,7 +323,33 @@ public class RobinhoodPerformanceReportService {
                                 proceeds));
             }
         }
-        return new FifoResult(byDay, closedTrades, winCount, lossCount, breakevenCount);
+        List<OpenLot> openLots = collectOpenLots(books, positionMeta);
+        return new FifoResult(byDay, closedTrades, winCount, lossCount, breakevenCount, openLots);
+    }
+
+    private static List<OpenLot> collectOpenLots(
+            Map<String, Deque<Lot>> books, Map<String, PositionMeta> positionMeta) {
+        List<OpenLot> openLots = new ArrayList<>();
+        for (Map.Entry<String, Deque<Lot>> e : books.entrySet()) {
+            PositionMeta meta = positionMeta.get(e.getKey());
+            if (meta == null) {
+                continue;
+            }
+            for (Lot lot : e.getValue()) {
+                if (lot.quantity.compareTo(PNL_EPSILON) <= 0) {
+                    continue;
+                }
+                openLots.add(
+                        new OpenLot(
+                                meta.instrument(),
+                                meta.contract(),
+                                meta.strategy(),
+                                lot.openedAt,
+                                lot.quantity,
+                                lot.costTotal));
+            }
+        }
+        return openLots;
     }
 
     private RobinhoodPerformanceInsightsDto buildInsights(List<ClosedTrade> closed, int year) {
@@ -477,7 +627,18 @@ public class RobinhoodPerformanceReportService {
             List<ClosedTrade> closedTrades,
             int winCount,
             int lossCount,
-            int breakevenCount) {}
+            int breakevenCount,
+            List<OpenLot> openLots) {}
+
+    private record PositionMeta(String instrument, String contract, TradeStrategy strategy) {}
+
+    private record OpenLot(
+            String instrument,
+            String contract,
+            TradeStrategy strategy,
+            LocalDate openedAt,
+            BigDecimal quantity,
+            BigDecimal costBasis) {}
 
     private record ClosedTrade(
             String instrument,

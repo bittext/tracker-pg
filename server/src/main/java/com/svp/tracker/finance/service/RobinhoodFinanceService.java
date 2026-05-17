@@ -127,6 +127,14 @@ public class RobinhoodFinanceService {
         return queryTransactionRows(year, null, sanitizeSymbolFilter(symbolFilter), props.maxStocksSummaryRows());
     }
 
+    /**
+     * All transaction rows with activity date on or before {@code throughInclusive} (for open-position FIFO).
+     * Capped by {@link FinanceProperties#maxStocksSummaryRows()}.
+     */
+    public List<Map<String, Object>> loadTransactionRowsThrough(LocalDate throughInclusive, String symbolFilter) {
+        return queryTransactionRowsThrough(throughInclusive, sanitizeSymbolFilter(symbolFilter), props.maxStocksSummaryRows());
+    }
+
     /** Row count and activity date range for the signed-in user's imported Robinhood data. */
     public RobinhoodAccountStatusDto fetchAccountStatus() {
         String table = qualifiedTable();
@@ -260,6 +268,67 @@ public class RobinhoodFinanceService {
                             ps.setTimestamp(i++, Timestamp.valueOf(start.atStartOfDay()));
                             ps.setTimestamp(i++, Timestamp.valueOf(endExclusive.atStartOfDay()));
                         }
+                    }
+                    if (symbol != null) {
+                        ps.setString(i++, symbol);
+                    }
+                    ps.setInt(i, cap);
+                },
+                new ColumnMapRowMapper());
+    }
+
+    private List<Map<String, Object>> queryTransactionRowsThrough(LocalDate throughInclusive, String symbol, int cap) {
+        String table = qualifiedTable();
+        String qualifiedDateCol = qualifiedTransactionDateColumn();
+        String dateExpr = activityDateExpression(qualifiedDateCol);
+        String qualSym = qualifiedStockSymbolColumn();
+        if (dateExpr == null) {
+            throw new IllegalStateException("Configure tracker.finance.transaction-date-column for open positions");
+        }
+        LocalDate endExclusive = throughInclusive.plusDays(1);
+
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT ").append(T).append(".* FROM ").append(table).append(" ").append(T);
+
+        List<Object> prefixBinds = new ArrayList<>();
+        boolean hasWhere = appendUserOwnerClause(sql, prefixBinds);
+
+        String[] oracleStringBounds = oracleStringBoundsForFilter(LocalDate.of(1900, 1, 1), endExclusive);
+        String maskTrim =
+                props.transactionDateOracleFormatMask() == null
+                        ? ""
+                        : props.transactionDateOracleFormatMask().trim();
+        boolean isoDayPrefixBounds =
+                oracleStringBounds != null && maskTrim.equalsIgnoreCase("YYYY-MM-DD");
+        sql.append(hasWhere ? " AND " : " WHERE ");
+        if (oracleStringBounds != null && !isoDayPrefixBounds) {
+            String quotedMask = maskTrim.replace("'", "''");
+            sql.append(dateExpr)
+                    .append(" < to_timestamp(?, '")
+                    .append(quotedMask)
+                    .append("')");
+        } else {
+            sql.append(dateExpr).append(" < ?");
+        }
+        if (symbol != null) {
+            sql.append(" AND ").append(symbolEqualityPredicate(qualSym));
+        }
+        sql.append(" ORDER BY ").append(dateExpr).append(" ASC NULLS LAST");
+        sql.append(" LIMIT ?");
+
+        log.debug("Robinhood query (through {}): {}", throughInclusive, sql);
+
+        return jdbcTemplate.query(
+                sql.toString(),
+                ps -> {
+                    int i = 1;
+                    for (Object o : prefixBinds) {
+                        ps.setObject(i++, o);
+                    }
+                    if (oracleStringBounds != null && !isoDayPrefixBounds) {
+                        ps.setString(i++, oracleStringBounds[1]);
+                    } else {
+                        ps.setTimestamp(i++, Timestamp.valueOf(endExclusive.atStartOfDay()));
                     }
                     if (symbol != null) {
                         ps.setString(i++, symbol);

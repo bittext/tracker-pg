@@ -304,6 +304,14 @@
   font-size: 1rem;
 }
 
+.rh-open {
+  margin-top: 0.5rem;
+}
+
+.rh-trade-row--open {
+  border-bottom: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+}
+
 .rh-trades__lead {
   max-width: 44rem;
   margin-bottom: 1rem;

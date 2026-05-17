@@ -17,6 +17,7 @@ import {
   RobinhoodClosedTradeDto,
   RobinhoodNotebookConfigDto,
   RobinhoodNotebookId,
+  RobinhoodOpenPositionDto,
   RobinhoodPerformanceReportDto,
 } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
@@ -43,6 +44,13 @@ interface InstrumentTradeGroup {
   lossCount: number;
   breakevenCount: number;
   trades: RobinhoodClosedTradeDto[];
+}
+
+interface InstrumentOpenGroup {
+  instrument: string;
+  totalCost: number;
+  totalUnrealized: number | null;
+  positions: RobinhoodOpenPositionDto[];
 }
 
 interface TradeTimelineBar {
@@ -150,6 +158,34 @@ export class ReportsFinanceRobinhoodComponent implements OnInit {
   readonly chronologicalClosedTrades = computed<RobinhoodClosedTradeDto[]>(() => {
     const trades = this.report()?.closedTrades ?? [];
     return [...trades].sort((a, b) => this.dateMs(b.sellDate) - this.dateMs(a.sellDate));
+  });
+
+  readonly openGroupsByInstrument = computed<InstrumentOpenGroup[]>(() => {
+    const positions = this.report()?.unrealized?.openPositions ?? [];
+    if (!positions.length) {
+      return [];
+    }
+    const byInstrument = new Map<string, RobinhoodOpenPositionDto[]>();
+    for (const p of positions) {
+      const key = p.instrument?.trim() || '—';
+      const list = byInstrument.get(key) ?? [];
+      list.push(p);
+      byInstrument.set(key, list);
+    }
+    const groups: InstrumentOpenGroup[] = [];
+    for (const [instrument, list] of byInstrument) {
+      const sorted = [...list].sort((a, b) => this.dateMs(a.openedDate) - this.dateMs(b.openedDate));
+      let totalCost = 0;
+      let totalUnrealized: number | null = null;
+      for (const p of sorted) {
+        totalCost += Number(p.costBasis) || 0;
+        if (p.quoteAvailable && p.unrealizedPnL != null) {
+          totalUnrealized = (totalUnrealized ?? 0) + (Number(p.unrealizedPnL) || 0);
+        }
+      }
+      groups.push({ instrument, totalCost, totalUnrealized, positions: sorted });
+    }
+    return groups.sort((a, b) => (b.totalUnrealized ?? 0) - (a.totalUnrealized ?? 0));
   });
 
   readonly dailyBars = computed<DailyBar[]>(() => {
@@ -419,6 +455,10 @@ export class ReportsFinanceRobinhoodComponent implements OnInit {
 
   trackTrade(_index: number, trade: RobinhoodClosedTradeDto): string {
     return `${trade.instrument}|${trade.buyDate}|${trade.sellDate}|${trade.quantity}|${trade.realizedPnL}`;
+  }
+
+  trackOpen(_index: number, p: RobinhoodOpenPositionDto): string {
+    return `${p.instrument}|${p.openedDate}|${p.quantity}|${p.costBasis}`;
   }
 
   private dateMs(iso: string | null | undefined): number {

@@ -15,5 +15,6 @@ public record RobinhoodPerformanceReportDto(
         List<RobinhoodMonthlyPnLPointDto> monthlyPnL,
         List<RobinhoodEquityCurvePointDto> equityCurve,
         List<RobinhoodClosedTradeDto> closedTrades,
+        RobinhoodUnrealizedSectionDto unrealized,
         RobinhoodPerformanceInsightsDto insights,
         RobinhoodPerformanceTaxDto tax) {}
