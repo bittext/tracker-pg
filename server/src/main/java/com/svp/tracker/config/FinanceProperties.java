@@ -72,6 +72,11 @@ public record FinanceProperties(
         String robinhoodCsvUploadedDirectory,
         /** Max number of {@code *.csv} files processed in one directory import request. */
         int maxDirectoryImportFiles,
+        /**
+         * Flat rate (0–1) applied to positive realized gains for Robinhood estimated-tax projection in reports (e.g.
+         * {@code 0.22} = 22%). Not tax advice.
+         */
+        double robinhoodEstimatedTaxRate,
         /** Enable/disable internet-backed stock news endpoint. */
         boolean newsEnabled,
         /** Max items returned by stock news endpoint. */
@@ -180,6 +185,11 @@ public record FinanceProperties(
         }
         if (maxDirectoryImportFiles > 10_000) {
             maxDirectoryImportFiles = 10_000;
+        }
+        if (robinhoodEstimatedTaxRate < 0) {
+            robinhoodEstimatedTaxRate = 0;
+        } else if (robinhoodEstimatedTaxRate > 1) {
+            robinhoodEstimatedTaxRate = 1;
         }
         if (newsMaxItems < 1) {
             newsMaxItems = 10;

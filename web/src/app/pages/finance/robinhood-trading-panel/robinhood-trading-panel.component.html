@@ -1,0 +1,91 @@
+<section class="rh-trading" aria-labelledby="rh-trading-heading">
+  <h2 id="rh-trading-heading" class="rh-trading__title">Robinhood</h2>
+  <p class="muted rh-trading__lead">
+    Data comes from <strong>Robinhood transaction CSV exports</strong> you import here — there is no live brokerage
+    connection. Performance charts and win/loss stats are under
+    <a routerLink="/reports">Reports</a> → Finance → Robinhood.
+  </p>
+
+  <div class="rh-trading__status" aria-live="polite">
+    @if (statusLoading) {
+      <p class="muted">Loading account snapshot…</p>
+    } @else if (status) {
+      <ul class="rh-trading__stats muted">
+        <li>
+          <strong>{{ status.transactionRowCount | number }}</strong> transaction row(s) in
+          <code>{{ status.tableQueried }}</code>
+        </li>
+        <li>
+          Activity range:
+          <strong>{{ formatDate(status.earliestActivity) }}</strong> –
+          <strong>{{ formatDate(status.latestActivity) }}</strong>
+        </li>
+      </ul>
+      @if (status.transactionRowCount === 0) {
+        <p class="rh-trading__empty muted">Import a CSV below to populate trading data.</p>
+      }
+    }
+    <button mat-stroked-button type="button" (click)="refreshStatus()" [disabled]="statusLoading">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+  </div>
+
+  <h3 class="rh-trading__subtitle">Import CSV</h3>
+  <p class="muted rh-trading__hint">
+    Export from Robinhood (Account → Reports → Generate report, or request a transaction export). Dry-run first, then
+    check <strong>Apply to database</strong>.
+  </p>
+
+  <div class="rh-trading__toolbar">
+    <input
+      #csvPick
+      type="file"
+      accept=".csv,text/csv"
+      class="rh-trading__file-input"
+      (change)="onCsvSelected($event)"
+    />
+    <button mat-stroked-button type="button" (click)="csvPick.click()" [disabled]="csvUploading">Choose CSV…</button>
+    @if (csvSelectedLabel) {
+      <span class="muted rh-trading__file-label">{{ csvSelectedLabel }}</span>
+    }
+    <label class="rh-trading__apply">
+      <input type="checkbox" [(ngModel)]="csvApplyToDb" name="rhCsvApply" [disabled]="csvUploading" />
+      Apply to database
+    </label>
+    <button mat-flat-button color="primary" type="button" (click)="uploadCsvDirect()" [disabled]="csvUploading || !csvSelectedFile">
+      <mat-icon>upload</mat-icon>
+      Import
+    </button>
+    @if (directoryImportConfigured) {
+      <button mat-stroked-button type="button" (click)="uploadCsvToDirectory()" [disabled]="csvUploading || !csvSelectedFile">
+        Save to server folder &amp; import
+      </button>
+    }
+  </div>
+
+  @if (csvUploading) {
+    <p class="muted">Running import…</p>
+  }
+
+  @if (csvDirectResult; as r) {
+    <div class="rh-trading__result" role="region" aria-label="Import result">
+      <p class="muted">
+        <strong>{{ r.apply ? 'Applied' : 'Dry-run' }}</strong> · parsed {{ r.parsedRows }} · inserted {{ r.insertedRows }}
+        · duplicates skipped {{ r.duplicateRowsSkipped }} · errors {{ r.errorCount }}
+      </p>
+      @if (r.errors.length) {
+        <ul class="rh-trading__errors">
+          @for (err of r.errors; track err) {
+            <li>{{ err }}</li>
+          }
+        </ul>
+      }
+    </div>
+  }
+
+  <p class="muted rh-trading__links">
+    Browse rows: Finance → Trading → <strong>Transactions</strong> or <strong>Summary</strong>.
+    Operators can also use Admin → Finance → Trading for directory-based imports.
+  </p>
+</section>

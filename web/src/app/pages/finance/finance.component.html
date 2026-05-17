@@ -3,7 +3,7 @@
   <p class="muted">
     Banking, investments, loans, market, money, credit, trading, insurance, and taxes are grouped under one Finance page.
     Trading includes news, crawler, 52-week-high risers, break-out setup scan, alerts, transactions, screeners, and summary tools.
-    Robinhood CSV upload lives under <strong>Admin → Finance → Trading</strong>.
+    Import Robinhood CSV under <strong>Trading → Robinhood</strong>; performance reports are under <strong>Reports → Finance → Robinhood</strong>.
   </p>
 </div>
 
@@ -67,6 +67,12 @@
             [(selectedIndex)]="financeSubTabIndex"
             (selectedIndexChange)="onFinanceSubTabIndexChange($event)"
           >
+      <mat-tab label="Robinhood">
+        <div class="finance-panel">
+          <app-robinhood-trading-panel />
+        </div>
+      </mat-tab>
+
       <mat-tab label="News">
         <div class="finance-panel">
           <p class="muted stocks-news-intro">
@@ -1100,7 +1106,7 @@
 
       <mat-tab label="Screeners">
         <div class="finance-panel">
-          @if (financeCategoryTabIndex === 6 && financeSubTabIndex === 7) {
+          @if (financeCategoryTabIndex === 6 && financeSubTabIndex === 8) {
             <app-trading-screeners-panel />
           }
         </div>
@@ -1155,7 +1161,7 @@
             </button>
           </div>
 
-          @if (stockSymbolsLoading && financeSubTabIndex === 8) {
+          @if (stockSymbolsLoading && financeSubTabIndex === 9) {
             <p class="muted">Loading instruments…</p>
           }
           <!-- Predicts sub-tab is index 9; gated below this block. -->
@@ -1237,7 +1243,7 @@
 
       <mat-tab label="Predicts">
         <div class="finance-panel">
-          @if (financeCategoryTabIndex === 6 && financeSubTabIndex === 9) {
+          @if (financeCategoryTabIndex === 6 && financeSubTabIndex === 10) {
             <app-predicts-panel />
           }
         </div>

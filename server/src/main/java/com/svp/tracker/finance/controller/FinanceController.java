@@ -8,8 +8,11 @@ import com.svp.tracker.finance.dto.RobinhoodCsvDirectoryImportDto;
 import com.svp.tracker.finance.dto.RobinhoodCsvImportResultDto;
 import com.svp.tracker.finance.dto.RobinhoodCsvSavedImportDto;
 import com.svp.tracker.finance.dto.RobinhoodCsvUploadStatusDto;
+import com.svp.tracker.finance.dto.RobinhoodAccountStatusDto;
+import com.svp.tracker.finance.dto.RobinhoodPerformanceReportDto;
 import com.svp.tracker.finance.dto.RobinhoodStocksSummaryDto;
 import com.svp.tracker.finance.dto.RobinhoodTransactionsDto;
+import com.svp.tracker.finance.service.RobinhoodPerformanceReportService;
 import com.svp.tracker.finance.dto.StockNewsDto;
 import com.svp.tracker.finance.dto.Surge52WeekHighsDto;
 import com.svp.tracker.finance.service.BreakoutScanService;
@@ -39,6 +42,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class FinanceController {
 
     private final RobinhoodFinanceService robinhoodFinanceService;
+    private final RobinhoodPerformanceReportService robinhoodPerformanceReportService;
     private final RobinhoodCsvImportService robinhoodCsvImportService;
     private final StockNewsService stockNewsService;
     private final Surge52WeekHighsService surge52WeekHighsService;
@@ -82,6 +86,40 @@ public class FinanceController {
      * Buy/sell rollups by instrument + contract (description) for a calendar year (financial year), optional
      * instrument filter. Skips non-trade codes (ACH, etc.); matches BTO/Buy and STC/Sell.
      */
+    @GetMapping("/account-status")
+    public RobinhoodAccountStatusDto accountStatus() {
+        log.info("GET /api/finance/robinhood/account-status");
+        try {
+            return robinhoodFinanceService.fetchAccountStatus();
+        } catch (IllegalStateException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * FIFO realized P&amp;L performance report for a calendar year (daily P&amp;L, equity curve, win/loss). Data from
+     * imported CSV rows only.
+     */
+    @GetMapping("/performance-report")
+    public RobinhoodPerformanceReportDto performanceReport(
+            @RequestParam(name = "year") int year,
+            @RequestParam(name = "symbol", required = false) String symbol) {
+        validateYear(year);
+        if (financeProperties.transactionDateColumn().isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Configure tracker.finance.transaction-date-column for performance reports");
+        }
+        log.info("GET /api/finance/robinhood/performance-report year={} symbol={}", year, symbol);
+        try {
+            return robinhoodPerformanceReportService.buildReport(year, symbol);
+        } catch (IllegalStateException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
+        }
+    }
+
     @GetMapping("/stocks-summary")
     public RobinhoodStocksSummaryDto stocksSummary(
             @RequestParam(name = "year") int year,

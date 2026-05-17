@@ -2,6 +2,7 @@ package com.svp.tracker.finance.service;
 
 import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.FinanceProperties;
+import com.svp.tracker.finance.dto.RobinhoodAccountStatusDto;
 import com.svp.tracker.finance.dto.RobinhoodStocksSummaryDto;
 import com.svp.tracker.finance.dto.RobinhoodStocksSummaryRow;
 import com.svp.tracker.finance.dto.RobinhoodTransactionsDto;
@@ -119,6 +120,67 @@ public class RobinhoodFinanceService {
                 cap,
                 truncated,
                 note);
+    }
+
+    /** Rows for a calendar year (performance reports, FIFO analytics), capped by {@link FinanceProperties#maxStocksSummaryRows()}. */
+    public List<Map<String, Object>> loadYearTransactionRows(int year, String symbolFilter) {
+        return queryTransactionRows(year, null, sanitizeSymbolFilter(symbolFilter), props.maxStocksSummaryRows());
+    }
+
+    /** Row count and activity date range for the signed-in user's imported Robinhood data. */
+    public RobinhoodAccountStatusDto fetchAccountStatus() {
+        String table = qualifiedTable();
+        String qualifiedDateCol = qualifiedTransactionDateColumn();
+        String dateExpr = activityDateExpression(qualifiedDateCol);
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT COUNT(*) AS CNT");
+        if (dateExpr != null) {
+            sql.append(", MIN(").append(dateExpr).append(") AS MIN_D, MAX(").append(dateExpr).append(") AS MAX_D");
+        }
+        sql.append(" FROM ").append(table).append(" ").append(T);
+        List<Object> binds = new ArrayList<>();
+        appendUserOwnerClause(sql, binds);
+        Map<String, Object> row =
+                jdbcTemplate.queryForMap(sql.toString(), binds.toArray());
+        long count = longCell(row, "CNT");
+        LocalDate min = dateExpr != null ? localDateCell(row, "MIN_D") : null;
+        LocalDate max = dateExpr != null ? localDateCell(row, "MAX_D") : null;
+        String importDir = props.robinhoodCsvImportDirectory().trim();
+        boolean dirConfigured = !importDir.isBlank();
+        return new RobinhoodAccountStatusDto(
+                props.robinhoodTable(),
+                count,
+                min,
+                max,
+                dirConfigured,
+                dirConfigured ? importDir : "");
+    }
+
+    public static String stringCellPublic(Map<String, Object> row, String name) {
+        return stringCell(row, name);
+    }
+
+    public static BigDecimal decimalCellPublic(Map<String, Object> row, String name) {
+        return decimalCell(row, name);
+    }
+
+    public static LocalDate localDateCellPublic(Map<String, Object> row, String name) {
+        return localDateCell(row, name);
+    }
+
+    private static long longCell(Map<String, Object> row, String name) {
+        Object v = rawCell(row, name);
+        if (v instanceof Number n) {
+            return n.longValue();
+        }
+        if (v != null) {
+            try {
+                return Long.parseLong(v.toString().trim());
+            } catch (NumberFormatException ignored) {
+                return 0L;
+            }
+        }
+        return 0L;
     }
 
     private List<Map<String, Object>> queryTransactionRows(Integer year, Integer month, String symbol, int cap) {

@@ -28,6 +28,121 @@ export interface RobinhoodCsvImportResultDto {
   note: string;
 }
 
+/** GET /api/finance/robinhood/account-status */
+export interface RobinhoodAccountStatusDto {
+  tableQueried: string;
+  transactionRowCount: number;
+  earliestActivity: string | null;
+  latestActivity: string | null;
+  csvImportDirectoryConfigured: boolean;
+  csvImportDirectory: string;
+}
+
+/** GET /api/finance/robinhood/performance-report */
+export interface RobinhoodPerformanceReportDto {
+  financialYear: number;
+  filterInstrument: string | null;
+  tableQueried: string;
+  rowsAnalyzed: number;
+  truncated: boolean;
+  note: string;
+  summary: RobinhoodPerformanceSummaryDto;
+  dailyPnL: RobinhoodDailyPnLPointDto[];
+  monthlyPnL: RobinhoodMonthlyPnLPointDto[];
+  equityCurve: RobinhoodEquityCurvePointDto[];
+  insights: RobinhoodPerformanceInsightsDto;
+  tax: RobinhoodPerformanceTaxDto;
+}
+
+export interface RobinhoodPerformanceInsightsDto {
+  bestPerformingStocks: RobinhoodInstrumentPerformanceDto[];
+  worstTrades: RobinhoodClosedTradeDto[];
+  averageHoldDays: number;
+  medianHoldDays: number;
+  tradingFrequency: RobinhoodTradingFrequencyDto;
+  strategyPerformance: RobinhoodStrategyPerformanceDto[];
+}
+
+export interface RobinhoodInstrumentPerformanceDto {
+  instrument: string;
+  totalRealizedPnL: number;
+  closedLots: number;
+  winCount: number;
+  lossCount: number;
+}
+
+export interface RobinhoodClosedTradeDto {
+  instrument: string;
+  contract: string;
+  strategy: string;
+  buyDate: string;
+  sellDate: string;
+  holdDays: number;
+  quantity: number;
+  realizedPnL: number;
+}
+
+export interface RobinhoodTradingFrequencyDto {
+  totalClosedLots: number;
+  tradingDays: number;
+  averageClosesPerWeek: number;
+  averageClosesPerMonth: number;
+  busiestMonthLabel: string;
+  busiestMonthCloses: number;
+}
+
+export interface RobinhoodStrategyPerformanceDto {
+  strategy: string;
+  totalRealizedPnL: number;
+  closedLots: number;
+  winRate: number;
+}
+
+export interface RobinhoodPerformanceTaxDto {
+  quarterlyGains: RobinhoodQuarterlyGainDto[];
+  yearRealizedGain: number;
+  estimatedTaxRate: number;
+  estimatedTaxOwed: number;
+  disclaimer: string;
+}
+
+export interface RobinhoodQuarterlyGainDto {
+  quarter: number;
+  quarterLabel: string;
+  realizedGain: number;
+  estimatedTax: number;
+}
+
+export interface RobinhoodPerformanceSummaryDto {
+  totalRealizedPnL: number;
+  winCount: number;
+  lossCount: number;
+  breakevenCount: number;
+  winRate: number;
+  tradingDays: number;
+  bestDay: string | null;
+  bestDayPnL: number;
+  worstDay: string | null;
+  worstDayPnL: number;
+}
+
+export interface RobinhoodDailyPnLPointDto {
+  date: string;
+  realizedPnL: number;
+  closedLots: number;
+}
+
+export interface RobinhoodMonthlyPnLPointDto {
+  yearMonth: string;
+  monthLabel: string;
+  realizedPnL: number;
+}
+
+export interface RobinhoodEquityCurvePointDto {
+  date: string;
+  cumulativePnL: number;
+}
+
 /** GET /api/finance/robinhood/transactions */
 export interface RobinhoodTransactionsDto {
   rows: Record<string, unknown>[];

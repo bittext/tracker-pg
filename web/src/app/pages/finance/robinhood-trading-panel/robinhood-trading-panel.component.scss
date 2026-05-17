@@ -1,0 +1,66 @@
+.rh-trading__title {
+  margin: 0 0 0.5rem;
+  font-size: 1.15rem;
+}
+
+.rh-trading__subtitle {
+  margin: 1.25rem 0 0.35rem;
+  font-size: 1rem;
+}
+
+.rh-trading__lead,
+.rh-trading__hint,
+.rh-trading__links {
+  max-width: 44rem;
+}
+
+.rh-trading__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.rh-trading__stats {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.rh-trading__empty {
+  margin: 0;
+}
+
+.rh-trading__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 0.75rem;
+  margin: 0.75rem 0;
+}
+
+.rh-trading__file-input {
+  display: none;
+}
+
+.rh-trading__apply {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+
+.rh-trading__result {
+  margin: 0.75rem 0;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+  background: var(--app-surface-muted, #f8fafc);
+}
+
+.rh-trading__errors {
+  margin: 0.5rem 0 0;
+  padding-left: 1.1rem;
+  color: var(--mat-sys-error, #b3261e);
+  font-size: 0.85rem;
+}

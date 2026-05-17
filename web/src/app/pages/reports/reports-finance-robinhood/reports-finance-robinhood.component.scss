@@ -1,0 +1,258 @@
+.rh-report__title {
+  margin: 0 0 0.5rem;
+  font-size: 1.15rem;
+}
+
+.rh-report__lead {
+  max-width: 44rem;
+}
+
+.rh-report__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.rh-report__year {
+  width: 7rem;
+}
+
+.rh-report__symbol {
+  min-width: 12rem;
+}
+
+.rh-report__warn {
+  color: var(--mat-sys-error, #b3261e);
+}
+
+.rh-report__kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0 1.25rem;
+}
+
+.rh-kpi {
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+  background: var(--app-surface, #fff);
+}
+
+.rh-kpi__label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--app-text-muted, #64748b);
+}
+
+.rh-kpi__value {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-top: 0.2rem;
+}
+
+.rh-kpi__value--neg {
+  color: var(--mat-sys-error, #b3261e);
+}
+
+.rh-kpi__sub {
+  display: block;
+  font-size: 0.78rem;
+  margin-top: 0.15rem;
+}
+
+.rh-report__charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.rh-chart-card--wide {
+  grid-column: 1 / -1;
+}
+
+.rh-bar-chart {
+  display: grid;
+  grid-template-columns: repeat(var(--bar-count, 1), 1fr);
+  align-items: end;
+  gap: 3px;
+  height: 160px;
+}
+
+.rh-bar-chart--daily {
+  height: 120px;
+}
+
+.rh-bar-chart__col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  min-width: 0;
+}
+
+.rh-bar-chart__bar {
+  width: 100%;
+  max-width: 28px;
+  min-height: 2px;
+  border-radius: 3px 3px 0 0;
+}
+
+.rh-bar-chart__bar--pos {
+  background: #0d9488;
+}
+
+.rh-bar-chart__bar--neg {
+  background: #dc2626;
+}
+
+.rh-bar-chart__label {
+  font-size: 0.62rem;
+  margin-top: 4px;
+  text-align: center;
+  line-height: 1.1;
+  color: var(--app-text-muted, #64748b);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.rh-line-wrap {
+  height: 200px;
+}
+
+.rh-line-svg {
+  width: 100%;
+  height: 100%;
+}
+
+.rh-line-axis {
+  stroke: rgba(0, 0, 0, 0.15);
+  stroke-width: 0.4;
+  vector-effect: non-scaling-stroke;
+}
+
+.rh-line-path {
+  fill: none;
+  stroke: var(--app-accent, #0f6d73);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.rh-line-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.68rem;
+  color: var(--app-text-muted, #64748b);
+  margin-top: 4px;
+}
+
+.rh-winloss__bar {
+  display: flex;
+  height: 28px;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 0.65rem;
+}
+
+.rh-winloss__wins {
+  background: #0d9488;
+  min-width: 2px;
+}
+
+.rh-winloss__losses {
+  background: #dc2626;
+  min-width: 2px;
+}
+
+.rh-winloss__be {
+  background: #94a3b8;
+  min-width: 2px;
+}
+
+.rh-winloss__legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  font-size: 0.85rem;
+}
+
+.rh-winloss__swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 0.35rem;
+  vertical-align: middle;
+}
+
+.rh-winloss__swatch--win {
+  background: #0d9488;
+}
+
+.rh-winloss__swatch--loss {
+  background: #dc2626;
+}
+
+.rh-winloss__swatch--be {
+  background: #94a3b8;
+}
+
+.rh-report__section {
+  margin: 2rem 0 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+}
+
+.rh-report__section-title {
+  margin: 0 0 1rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.rh-report__kpis--compact {
+  margin-bottom: 1rem;
+}
+
+.rh-report__grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.rh-compact-table {
+  font-size: 0.85rem;
+}
+
+.rh-cell-contract {
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rh-bar-chart--quarterly {
+  height: 140px;
+  max-width: 28rem;
+}
+
+.rh-report__freq-note {
+  margin: 0.75rem 0 0;
+}
+
+.rh-report__table-title {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}

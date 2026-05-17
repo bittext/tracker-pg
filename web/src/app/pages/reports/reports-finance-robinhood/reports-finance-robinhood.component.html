@@ -1,0 +1,370 @@
+<section class="rh-report" aria-labelledby="rh-report-heading">
+  <h2 id="rh-report-heading" class="rh-report__title">Robinhood performance</h2>
+  <p class="muted rh-report__lead">
+    Realized P&amp;L from imported CSV rows (FIFO on buy/sell legs). Not tax advice.
+    <a routerLink="/finance">Finance</a> → Trading → Robinhood to import data.
+  </p>
+
+  <div class="rh-report__toolbar">
+    <mat-form-field appearance="outline" class="rh-report__year">
+      <mat-label>Year</mat-label>
+      <mat-select [(ngModel)]="reportYear" name="rhReportYear" (selectionChange)="loadReport()">
+        @for (y of yearChoices(); track y) {
+          <mat-option [value]="y">{{ y }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="rh-report__symbol">
+      <mat-label>Instrument (optional)</mat-label>
+      <mat-select [(ngModel)]="filterSymbol" name="rhReportSym" (selectionChange)="loadReport()">
+        <mat-option value="">All</mat-option>
+        @for (s of symbols; track s) {
+          <mat-option [value]="s">{{ s }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <button mat-flat-button color="primary" type="button" (click)="loadReport()" [disabled]="loading()">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+    @if (loading()) {
+      <mat-spinner diameter="28" aria-label="Loading report" />
+    }
+  </div>
+
+  @if (report(); as r) {
+    <p class="muted rh-report__meta">
+      {{ r.rowsAnalyzed | number }} row(s) analyzed · {{ r.tableQueried }}
+      @if (r.truncated) {
+        <span class="rh-report__warn"> · capped — totals may be incomplete</span>
+      }
+    </p>
+    <p class="muted small">{{ r.note }}</p>
+
+    <div class="rh-report__kpis" role="group" aria-label="Summary">
+      <div class="rh-kpi">
+        <span class="rh-kpi__label">Total realized P&amp;L</span>
+        <span class="rh-kpi__value" [class.rh-kpi__value--neg]="r.summary.totalRealizedPnL < 0">{{
+          formatMoney(r.summary.totalRealizedPnL)
+        }}</span>
+      </div>
+      <div class="rh-kpi">
+        <span class="rh-kpi__label">Win rate</span>
+        <span class="rh-kpi__value">{{ formatPct(r.summary.winRate) }}</span>
+        <span class="rh-kpi__sub muted"
+          >{{ r.summary.winCount }}W / {{ r.summary.lossCount }}L / {{ r.summary.breakevenCount }}BE</span
+        >
+      </div>
+      <div class="rh-kpi">
+        <span class="rh-kpi__label">Trading days</span>
+        <span class="rh-kpi__value">{{ r.summary.tradingDays }}</span>
+      </div>
+      <div class="rh-kpi">
+        <span class="rh-kpi__label">Best day</span>
+        <span class="rh-kpi__value">{{ formatMoney(r.summary.bestDayPnL) }}</span>
+        <span class="rh-kpi__sub muted">{{ r.summary.bestDay ? formatDayLabel(r.summary.bestDay) : '—' }}</span>
+      </div>
+      <div class="rh-kpi">
+        <span class="rh-kpi__label">Worst day</span>
+        <span class="rh-kpi__value rh-kpi__value--neg">{{ formatMoney(r.summary.worstDayPnL) }}</span>
+        <span class="rh-kpi__sub muted">{{ r.summary.worstDay ? formatDayLabel(r.summary.worstDay) : '—' }}</span>
+      </div>
+    </div>
+
+    @if (!r.dailyPnL.length) {
+      <p class="muted rh-report__empty">No closed trade P&amp;L for this filter. Import CSV data with buy/sell legs (BTO, STC, etc.).</p>
+    } @else {
+      <div class="rh-report__charts">
+        <mat-card appearance="outlined" class="rh-chart-card">
+          <mat-card-header>
+            <mat-card-title>Profit over time (monthly)</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="rh-bar-chart" [style.--bar-count]="monthlyBars().length">
+              @for (bar of monthlyBars(); track bar.day) {
+                <div class="rh-bar-chart__col" [attr.title]="bar.day + ': ' + formatMoney(bar.pnl)">
+                  <span
+                    class="rh-bar-chart__bar"
+                    [class.rh-bar-chart__bar--pos]="bar.positive"
+                    [class.rh-bar-chart__bar--neg]="!bar.positive"
+                    [style.height.%]="bar.heightPct"
+                  ></span>
+                  <span class="rh-bar-chart__label">{{ bar.day }}</span>
+                </div>
+              }
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <mat-card appearance="outlined" class="rh-chart-card">
+          <mat-card-header>
+            <mat-card-title>Equity curve (cumulative realized P&amp;L)</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="rh-line-wrap" aria-hidden="true">
+              <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="rh-line-svg">
+                <line x1="0" x2="100" y1="100" y2="100" class="rh-line-axis" />
+                <path [attr.d]="equityLinePath()" class="rh-line-path" />
+              </svg>
+            </div>
+            <div class="rh-line-labels">
+              @for (i of equityTickIndices(); track i) {
+                <span>{{ formatDayLabel(equityLine()[i].label) }}</span>
+              }
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <mat-card appearance="outlined" class="rh-chart-card rh-chart-card--wide">
+          <mat-card-header>
+            <mat-card-title>Daily P&amp;L</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="rh-bar-chart rh-bar-chart--daily" [style.--bar-count]="dailyBars().length">
+              @for (bar of dailyBars(); track bar.day) {
+                <div class="rh-bar-chart__col" [attr.title]="formatDayLabel(bar.day) + ': ' + formatMoney(bar.pnl)">
+                  <span
+                    class="rh-bar-chart__bar"
+                    [class.rh-bar-chart__bar--pos]="bar.positive"
+                    [class.rh-bar-chart__bar--neg]="!bar.positive"
+                    [style.height.%]="bar.heightPct"
+                  ></span>
+                </div>
+              }
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <mat-card appearance="outlined" class="rh-chart-card">
+          <mat-card-header>
+            <mat-card-title>Win / loss ratio</mat-card-title>
+            <mat-card-subtitle>Closed FIFO lots</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            @if (winLossTotal() === 0) {
+              <p class="muted">No decisive closes in range.</p>
+            } @else {
+              <div class="rh-winloss">
+                <div
+                  class="rh-winloss__bar"
+                  role="img"
+                  [attr.aria-label]="
+                    'Wins ' +
+                    r.summary.winCount +
+                    ', losses ' +
+                    r.summary.lossCount +
+                    ', breakeven ' +
+                    r.summary.breakevenCount
+                  "
+                >
+                  <span class="rh-winloss__wins" [style.flex]="r.summary.winCount"></span>
+                  <span class="rh-winloss__losses" [style.flex]="r.summary.lossCount"></span>
+                  <span class="rh-winloss__be" [style.flex]="r.summary.breakevenCount"></span>
+                </div>
+                <ul class="rh-winloss__legend muted">
+                  <li><span class="rh-winloss__swatch rh-winloss__swatch--win"></span> Wins {{ r.summary.winCount }}</li>
+                  <li><span class="rh-winloss__swatch rh-winloss__swatch--loss"></span> Losses {{ r.summary.lossCount }}</li>
+                  <li><span class="rh-winloss__swatch rh-winloss__swatch--be"></span> Breakeven {{ r.summary.breakevenCount }}</li>
+                </ul>
+              </div>
+            }
+          </mat-card-content>
+        </mat-card>
+      </div>
+
+      @if (r.insights) {
+        <section class="rh-report__section" aria-labelledby="rh-insights-heading">
+          <h3 id="rh-insights-heading" class="rh-report__section-title">Insights (advanced)</h3>
+          <div class="rh-report__kpis rh-report__kpis--compact">
+            <div class="rh-kpi">
+              <span class="rh-kpi__label">Avg hold time</span>
+              <span class="rh-kpi__value">{{ formatHoldDays(r.insights.averageHoldDays) }}</span>
+            </div>
+            <div class="rh-kpi">
+              <span class="rh-kpi__label">Median hold</span>
+              <span class="rh-kpi__value">{{ formatHoldDays(r.insights.medianHoldDays) }}</span>
+            </div>
+            <div class="rh-kpi">
+              <span class="rh-kpi__label">Closes / week</span>
+              <span class="rh-kpi__value">{{ r.insights.tradingFrequency.averageClosesPerWeek | number: '1.1-1' }}</span>
+            </div>
+            <div class="rh-kpi">
+              <span class="rh-kpi__label">Busiest month</span>
+              <span class="rh-kpi__value">{{ r.insights.tradingFrequency.busiestMonthLabel }}</span>
+            </div>
+          </div>
+          <div class="rh-report__grid-2">
+            <mat-card appearance="outlined">
+              <mat-card-header><mat-card-title>Best performing stocks</mat-card-title></mat-card-header>
+              <mat-card-content>
+                <table mat-table [dataSource]="r.insights.bestPerformingStocks" class="full-width rh-compact-table">
+                  <ng-container matColumnDef="instrument">
+                    <th mat-header-cell *matHeaderCellDef>Instrument</th>
+                    <td mat-cell *matCellDef="let row">{{ row.instrument }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="totalRealizedPnL">
+                    <th mat-header-cell *matHeaderCellDef>P&amp;L</th>
+                    <td mat-cell *matCellDef="let row">{{ formatMoney(row.totalRealizedPnL) }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="closedLots">
+                    <th mat-header-cell *matHeaderCellDef>Closes</th>
+                    <td mat-cell *matCellDef="let row">{{ row.closedLots }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="winCount">
+                    <th mat-header-cell *matHeaderCellDef>W</th>
+                    <td mat-cell *matCellDef="let row">{{ row.winCount }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="lossCount">
+                    <th mat-header-cell *matHeaderCellDef>L</th>
+                    <td mat-cell *matCellDef="let row">{{ row.lossCount }}</td>
+                  </ng-container>
+                  <tr mat-header-row *matHeaderRowDef="bestStockColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: bestStockColumns"></tr>
+                </table>
+              </mat-card-content>
+            </mat-card>
+            <mat-card appearance="outlined">
+              <mat-card-header><mat-card-title>Worst trades</mat-card-title></mat-card-header>
+              <mat-card-content>
+                <table mat-table [dataSource]="r.insights.worstTrades" class="full-width rh-compact-table">
+                  <ng-container matColumnDef="instrument">
+                    <th mat-header-cell *matHeaderCellDef>Symbol</th>
+                    <td mat-cell *matCellDef="let row">{{ row.instrument }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="contract">
+                    <th mat-header-cell *matHeaderCellDef>Contract</th>
+                    <td mat-cell *matCellDef="let row" class="rh-cell-contract">{{ row.contract }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="strategy">
+                    <th mat-header-cell *matHeaderCellDef>Type</th>
+                    <td mat-cell *matCellDef="let row">{{ row.strategy }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="sellDate">
+                    <th mat-header-cell *matHeaderCellDef>Sold</th>
+                    <td mat-cell *matCellDef="let row">{{ formatDayLabel(row.sellDate) }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="holdDays">
+                    <th mat-header-cell *matHeaderCellDef>Hold</th>
+                    <td mat-cell *matCellDef="let row">{{ formatHoldDays(row.holdDays) }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="realizedPnL">
+                    <th mat-header-cell *matHeaderCellDef>P&amp;L</th>
+                    <td mat-cell *matCellDef="let row">{{ formatMoney(row.realizedPnL) }}</td>
+                  </ng-container>
+                  <tr mat-header-row *matHeaderRowDef="worstTradeColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: worstTradeColumns"></tr>
+                </table>
+              </mat-card-content>
+            </mat-card>
+          </div>
+          <mat-card appearance="outlined">
+            <mat-card-header><mat-card-title>Strategy performance</mat-card-title></mat-card-header>
+            <mat-card-content>
+              <table mat-table [dataSource]="r.insights.strategyPerformance" class="full-width rh-compact-table">
+                <ng-container matColumnDef="strategy">
+                  <th mat-header-cell *matHeaderCellDef>Strategy</th>
+                  <td mat-cell *matCellDef="let row">{{ row.strategy }}</td>
+                </ng-container>
+                <ng-container matColumnDef="totalRealizedPnL">
+                  <th mat-header-cell *matHeaderCellDef>P&amp;L</th>
+                  <td mat-cell *matCellDef="let row">{{ formatMoney(row.totalRealizedPnL) }}</td>
+                </ng-container>
+                <ng-container matColumnDef="closedLots">
+                  <th mat-header-cell *matHeaderCellDef>Closes</th>
+                  <td mat-cell *matCellDef="let row">{{ row.closedLots }}</td>
+                </ng-container>
+                <ng-container matColumnDef="winRate">
+                  <th mat-header-cell *matHeaderCellDef>Win rate</th>
+                  <td mat-cell *matCellDef="let row">{{ formatPct(row.winRate) }}</td>
+                </ng-container>
+                <tr mat-header-row *matHeaderRowDef="strategyColumns"></tr>
+                <tr mat-row *matRowDef="let row; columns: strategyColumns"></tr>
+              </table>
+              <p class="muted small rh-report__freq-note">
+                {{ r.insights.tradingFrequency.totalClosedLots }} closes · {{ r.insights.tradingFrequency.tradingDays }}
+                trading days (~{{ r.insights.tradingFrequency.averageClosesPerMonth | number: '1.1-1' }}/month)
+              </p>
+            </mat-card-content>
+          </mat-card>
+        </section>
+      }
+
+      @if (r.tax) {
+        <section class="rh-report__section" aria-labelledby="rh-tax-heading">
+          <h3 id="rh-tax-heading" class="rh-report__section-title">Tax view</h3>
+          <p class="muted small">{{ r.tax.disclaimer }}</p>
+          <div class="rh-report__kpis rh-report__kpis--compact">
+            <div class="rh-kpi">
+              <span class="rh-kpi__label">Year realized gain</span>
+              <span class="rh-kpi__value">{{ formatMoney(r.tax.yearRealizedGain) }}</span>
+            </div>
+            <div class="rh-kpi">
+              <span class="rh-kpi__label">Est. tax rate</span>
+              <span class="rh-kpi__value">{{ formatPct(r.tax.estimatedTaxRate) }}</span>
+            </div>
+            <div class="rh-kpi">
+              <span class="rh-kpi__label">Est. tax owed</span>
+              <span class="rh-kpi__value">{{ formatMoney(r.tax.estimatedTaxOwed) }}</span>
+            </div>
+          </div>
+          <mat-card appearance="outlined" class="rh-chart-card">
+            <mat-card-header><mat-card-title>Quarterly gains</mat-card-title></mat-card-header>
+            <mat-card-content>
+              <div class="rh-bar-chart rh-bar-chart--quarterly" [style.--bar-count]="quarterlyBars().length">
+                @for (bar of quarterlyBars(); track bar.day) {
+                  <div class="rh-bar-chart__col">
+                    <span
+                      class="rh-bar-chart__bar"
+                      [class.rh-bar-chart__bar--pos]="bar.positive"
+                      [class.rh-bar-chart__bar--neg]="!bar.positive"
+                      [style.height.%]="bar.heightPct"
+                    ></span>
+                    <span class="rh-bar-chart__label">{{ bar.day }}</span>
+                  </div>
+                }
+              </div>
+            </mat-card-content>
+          </mat-card>
+          <div class="table-wrap">
+            <table mat-table [dataSource]="r.tax.quarterlyGains" class="full-width">
+              <ng-container matColumnDef="quarterLabel">
+                <th mat-header-cell *matHeaderCellDef>Quarter</th>
+                <td mat-cell *matCellDef="let row">{{ row.quarterLabel }}</td>
+              </ng-container>
+              <ng-container matColumnDef="realizedGain">
+                <th mat-header-cell *matHeaderCellDef>Realized gain</th>
+                <td mat-cell *matCellDef="let row">{{ formatMoney(row.realizedGain) }}</td>
+              </ng-container>
+              <ng-container matColumnDef="estimatedTax">
+                <th mat-header-cell *matHeaderCellDef>Est. tax</th>
+                <td mat-cell *matCellDef="let row">{{ formatMoney(row.estimatedTax) }}</td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="quarterlyColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: quarterlyColumns"></tr>
+            </table>
+          </div>
+        </section>
+      }
+
+      <h3 class="rh-report__table-title">Daily detail</h3>
+      <div class="table-wrap">
+        <table mat-table [dataSource]="r.dailyPnL" class="full-width">
+          <ng-container matColumnDef="date">
+            <th mat-header-cell *matHeaderCellDef>Date</th>
+            <td mat-cell *matCellDef="let row">{{ formatDayLabel(row.date) }}</td>
+          </ng-container>
+          <ng-container matColumnDef="realizedPnL">
+            <th mat-header-cell *matHeaderCellDef>Realized P&amp;L</th>
+            <td mat-cell *matCellDef="let row">{{ formatMoney(row.realizedPnL) }}</td>
+          </ng-container>
+          <ng-container matColumnDef="closedLots">
+            <th mat-header-cell *matHeaderCellDef>Closes</th>
+            <td mat-cell *matCellDef="let row">{{ row.closedLots }}</td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="dailyColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: dailyColumns"></tr>
+        </table>
+      </div>
+    }
+  }
+</section>

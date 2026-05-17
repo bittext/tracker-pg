@@ -3,7 +3,7 @@
   <p class="muted">
     <strong>Exercise</strong>: month trends on the left, selected-day snapshot on the right. Calendar tiles show only
     available <strong>exercise time</strong> and <strong>weight (lb)</strong>.
-    <strong>Management</strong>: tasks and the Now roadmap. <strong>Finance</strong>: banking import summaries and money-flow views.
+    <strong>Management</strong>: tasks and the Now roadmap. <strong>Finance</strong>: banking money-flow and Robinhood performance (CSV import).
     <strong>Journal</strong>: search entries by date, tags, and keywords. For
     dated notes (trades, banking, payments, opinion & strategies, and more), use
     <a routerLink="/management">Management</a> → <strong>Calendar</strong>.
@@ -306,6 +306,11 @@
           <mat-tab label="Banking">
             <div class="tab-panel tab-panel--nested">
               <app-reports-finance-banking />
+            </div>
+          </mat-tab>
+          <mat-tab label="Robinhood">
+            <div class="tab-panel tab-panel--nested">
+              <app-reports-finance-robinhood />
             </div>
           </mat-tab>
         </mat-tab-group>

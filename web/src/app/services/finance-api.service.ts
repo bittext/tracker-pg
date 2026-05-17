@@ -12,6 +12,9 @@ import {
   FinanceStockAlertRequestDto,
   FinanceTax1040ReturnDto,
   MarketOverviewDto,
+  RobinhoodAccountStatusDto,
+  RobinhoodCsvImportResultDto,
+  RobinhoodPerformanceReportDto,
   RobinhoodStocksSummaryDto,
   RobinhoodTransactionsDto,
   StockNewsDto,
@@ -65,6 +68,29 @@ export class FinanceApiService {
   /** Distinct values from the configured stock column (e.g. instrument), server-capped. */
   robinhoodStockSymbols() {
     return this.http.get<string[]>(`${this.root}/symbols`);
+  }
+
+  /** Imported Robinhood row count and activity date range for the signed-in user. */
+  robinhoodAccountStatus() {
+    return this.http.get<RobinhoodAccountStatusDto>(`${this.root}/account-status`);
+  }
+
+  /** FIFO realized P&amp;L report (daily P&amp;L, equity curve, win/loss) for a calendar year. */
+  robinhoodPerformanceReport(year: number, symbol?: string | null) {
+    let params = new HttpParams().set('year', String(year));
+    const sym = symbol?.trim();
+    if (sym) {
+      params = params.set('symbol', sym);
+    }
+    return this.http.get<RobinhoodPerformanceReportDto>(`${this.root}/performance-report`, { params });
+  }
+
+  /** Upload Robinhood CSV directly (dry-run unless apply=true). */
+  robinhoodImportCsv(file: File, apply: boolean) {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    const params = new HttpParams().set('apply', apply ? 'true' : 'false');
+    return this.http.post<RobinhoodCsvImportResultDto>(`${this.root}/import-csv`, form, { params });
   }
 
   /** Buy/sell rollups by instrument + contract for a calendar year; optional instrument filter. */
