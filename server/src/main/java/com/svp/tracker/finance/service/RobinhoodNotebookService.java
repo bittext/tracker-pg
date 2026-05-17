@@ -7,6 +7,8 @@ import com.svp.tracker.finance.dto.RobinhoodNotebookRenderDto;
 import com.svp.tracker.finance.dto.RobinhoodPerformanceReportDto;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.LinkedHashMap;
@@ -27,7 +29,10 @@ public class RobinhoodNotebookService {
     private static final Set<String> NOTEBOOK_IDS = Set.of("performance", "risk");
 
     /** Spring Boot 4 does not expose an {@link ObjectMapper} bean; local mapper for notebook sidecar JSON only. */
-    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final ObjectMapper JSON =
+            new ObjectMapper()
+                    .registerModule(new JavaTimeModule())
+                    .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
     private final RobinhoodFinanceService robinhoodFinanceService;
     private final RobinhoodPerformanceReportService robinhoodPerformanceReportService;
