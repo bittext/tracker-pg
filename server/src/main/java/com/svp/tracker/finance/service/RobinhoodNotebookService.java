@@ -26,10 +26,12 @@ public class RobinhoodNotebookService {
 
     private static final Set<String> NOTEBOOK_IDS = Set.of("performance", "risk");
 
+    /** Spring Boot 4 does not expose an {@link ObjectMapper} bean; local mapper for notebook sidecar JSON only. */
+    private static final ObjectMapper JSON = new ObjectMapper();
+
     private final RobinhoodFinanceService robinhoodFinanceService;
     private final RobinhoodPerformanceReportService robinhoodPerformanceReportService;
     private final FinanceProperties financeProperties;
-    private final ObjectMapper objectMapper;
 
     public RobinhoodNotebookConfigDto notebookConfig() {
         String jupyterUrl = financeProperties.robinhoodJupyterLabUrl().trim();
@@ -93,7 +95,7 @@ public class RobinhoodNotebookService {
         payload.put("closedTrades", bundle.closedTrades());
         payload.put("usageNote", bundle.usageNote());
         try {
-            String jsonBody = objectMapper.writeValueAsString(payload);
+            String jsonBody = JSON.writeValueAsString(payload);
             String normalized = base.endsWith("/") ? base.substring(0, base.length() - 1) : base;
             RestClient client = RestClient.builder().baseUrl(normalized).build();
             RenderResponse body =
