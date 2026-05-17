@@ -138,6 +138,7 @@
 
         <mat-tab-group class="rh-trades__tabs" dynamicHeight>
           <mat-tab label="By symbol">
+            <ng-template matTabContent>
             <mat-accordion class="rh-trades__accordion" multi>
               @for (group of tradeGroupsByInstrument(); track group.instrument) {
                 <mat-expansion-panel>
@@ -213,9 +214,11 @@
                 </mat-expansion-panel>
               }
             </mat-accordion>
+            </ng-template>
           </mat-tab>
 
           <mat-tab label="By close date">
+            <ng-template matTabContent>
             <div class="table-wrap rh-trades__table-wrap">
               <table mat-table [dataSource]="chronologicalClosedTrades()" class="full-width rh-compact-table">
                 <ng-container matColumnDef="instrument">
@@ -259,6 +262,7 @@
                 <tr mat-row *matRowDef="let row; columns: closedTradeColumns"></tr>
               </table>
             </div>
+            </ng-template>
           </mat-tab>
         </mat-tab-group>
       </section>
@@ -386,8 +390,8 @@
               <span class="rh-kpi__value">{{ r.insights.tradingFrequency.busiestMonthLabel }}</span>
             </div>
           </div>
-          <div class="rh-report__grid-2">
-            <mat-card appearance="outlined">
+          <div class="rh-report__grid-2 rh-insights-pair">
+            <mat-card appearance="outlined" class="rh-insights-card">
               <mat-card-header><mat-card-title>Best performing stocks</mat-card-title></mat-card-header>
               <mat-card-content>
                 <table mat-table [dataSource]="r.insights.bestPerformingStocks" class="full-width rh-compact-table">
@@ -416,7 +420,7 @@
                 </table>
               </mat-card-content>
             </mat-card>
-            <mat-card appearance="outlined" class="rh-insights-card--full">
+            <mat-card appearance="outlined" class="rh-insights-card">
               <mat-card-header><mat-card-title>Worst trades</mat-card-title></mat-card-header>
               <mat-card-content>
                 <div class="table-wrap rh-worst-trades-wrap">

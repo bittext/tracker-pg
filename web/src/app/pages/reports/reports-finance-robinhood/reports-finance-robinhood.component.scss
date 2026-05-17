@@ -94,6 +94,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1rem;
+  margin-top: 0.25rem;
   margin-bottom: 1.25rem;
 }
 
@@ -253,9 +254,20 @@
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1rem;
   margin-bottom: 1rem;
+}
 
-  .rh-insights-card--full {
-    grid-column: 1 / -1;
+.rh-insights-pair {
+  @media (min-width: 768px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+
+.rh-insights-card {
+  min-width: 0;
+
+  .table-wrap {
+    max-width: 100%;
   }
 }
 
@@ -267,8 +279,12 @@
   background: var(--app-surface-muted, #f8fafc);
 }
 
+.rh-insights-pair .rh-worst-trades-wrap .rh-compact-table {
+  min-width: 0;
+}
+
 .rh-worst-trades-wrap .rh-compact-table {
-  min-width: 40rem;
+  min-width: 28rem;
 }
 
 .rh-compact-table {
@@ -414,8 +430,20 @@
   margin-bottom: 1rem;
 }
 
+.rh-trades.rh-report__section {
+  margin-bottom: 0.75rem;
+}
+
 .rh-trades__tabs {
   margin-top: 0.5rem;
+
+  ::ng-deep .mat-mdc-tab-body-wrapper {
+    overflow: visible;
+  }
+
+  ::ng-deep .mat-mdc-tab-body-content {
+    overflow: visible;
+  }
 }
 
 .rh-trades__accordion {
