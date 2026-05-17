@@ -6,6 +6,7 @@ import com.svp.tracker.finance.dto.RobinhoodNotebookConfigDto;
 import com.svp.tracker.finance.dto.RobinhoodNotebookRenderDto;
 import com.svp.tracker.finance.dto.RobinhoodPerformanceReportDto;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -92,32 +93,30 @@ public class RobinhoodNotebookService {
         }
         String notebook = normalizeNotebookId(notebookId);
         RobinhoodNotebookBundleDto bundle = buildBundle(year, symbolFilter);
-        Map<String, Object> payload = new LinkedHashMap<>();
-        payload.put("notebook", notebook);
-        payload.put("year", bundle.year());
-        payload.put("filterInstrument", bundle.filterInstrument());
-        payload.put("exportedAt", bundle.exportedAt());
-        payload.put("transactionRowCount", bundle.transactionRowCount());
-        payload.put("transactionsTruncated", bundle.transactionsTruncated());
-        payload.put("transactions", bundle.transactions());
-        payload.put("performanceReport", bundle.performanceReport());
-        payload.put("closedTrades", bundle.closedTrades());
-        payload.put("usageNote", bundle.usageNote());
         try {
-            String jsonBody = JSON.writeValueAsString(payload);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> bundleBody = JSON.convertValue(bundle, new TypeReference<Map<String, Object>>() {});
+            String jsonBody = JSON.writeValueAsString(bundleBody);
+            byte[] bodyBytes = jsonBody.getBytes(StandardCharsets.UTF_8);
+            if (bodyBytes.length == 0) {
+                return new RobinhoodNotebookRenderDto(year, "", "error", "Notebook bundle serialized to empty body.");
+            }
             String normalized = base.endsWith("/") ? base.substring(0, base.length() - 1) : base;
             int timeoutMs = financeProperties.robinhoodNotebookServiceTimeoutMs();
             HttpClient httpClient =
                     HttpClient.newBuilder()
                             .connectTimeout(Duration.ofMillis(Math.min(timeoutMs, 30_000)))
                             .build();
+            URI renderUri = URI.create(normalized + "/v1/render/" + notebook);
             HttpRequest request =
-                    HttpRequest.newBuilder(URI.create(normalized + "/v1/render"))
+                    HttpRequest.newBuilder(renderUri)
                             .timeout(Duration.ofMillis(timeoutMs))
-                            .header("Content-Type", "application/json")
+                            .header("Content-Type", "application/json; charset=utf-8")
                             .header("Accept", "application/json")
-                            .POST(HttpRequest.BodyPublishers.ofString(jsonBody, StandardCharsets.UTF_8))
+                            .header("Content-Length", String.valueOf(bodyBytes.length))
+                            .POST(HttpRequest.BodyPublishers.ofByteArray(bodyBytes))
                             .build();
+            log.debug("notebook render POST {} bytes to {}", bodyBytes.length, renderUri);
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() / 100 != 2) {
                 throw new IllegalStateException(

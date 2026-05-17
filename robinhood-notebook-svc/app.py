@@ -33,7 +33,7 @@ NOTEBOOK_FILES: dict[str, str] = {
 }
 MAX_BUNDLE_BYTES = int(os.environ.get("RH_MAX_BUNDLE_BYTES", str(32 * 1024 * 1024)))
 
-app = FastAPI(title="robinhood-notebook-svc", version="1.1.0")
+app = FastAPI(title="robinhood-notebook-svc", version="1.2.0")
 
 
 def _resolve_notebook(notebook_id: str) -> Path:
@@ -56,20 +56,22 @@ def _bundle_from_payload(payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     return notebook, bundle
 
 
-@app.get("/health")
-def health() -> dict:
-    notebooks = {
-        key: {"path": str(NOTEBOOK_DIR / name), "exists": (NOTEBOOK_DIR / name).is_file()}
-        for key, name in NOTEBOOK_FILES.items()
-    }
-    ok = all(v["exists"] for v in notebooks.values())
-    return {"status": "ok" if ok else "degraded", "notebooks": notebooks}
-
-
-@app.post("/v1/render")
-async def render(request: Request) -> dict:
+async def _read_json_object(request: Request) -> dict[str, Any]:
     raw_bytes = await request.body()
     if not raw_bytes:
+        cl = request.headers.get("content-length", "").strip()
+        if cl.isdigit() and int(cl) > 0:
+            chunks: list[bytes] = []
+            async for chunk in request.stream():
+                chunks.append(chunk)
+            raw_bytes = b"".join(chunks)
+    if not raw_bytes:
+        LOGGER.warning(
+            "empty POST body method=%s content-type=%s content-length=%s",
+            request.method,
+            request.headers.get("content-type"),
+            request.headers.get("content-length"),
+        )
         raise HTTPException(status_code=422, detail="JSON request body required")
     try:
         payload = json.loads(raw_bytes.decode("utf-8"))
@@ -77,7 +79,10 @@ async def render(request: Request) -> dict:
         raise HTTPException(status_code=422, detail="Invalid JSON request body") from exc
     if not isinstance(payload, dict):
         raise HTTPException(status_code=422, detail="Request body must be a JSON object")
-    notebook_id, bundle = _bundle_from_payload(payload)
+    return payload
+
+
+def _render_notebook(notebook_id: str, bundle: dict[str, Any]) -> dict:
     input_path = _resolve_notebook(notebook_id)
     raw = json.dumps(bundle, default=str)
     if len(raw.encode("utf-8")) > MAX_BUNDLE_BYTES:
@@ -111,3 +116,29 @@ async def render(request: Request) -> dict:
             work.rmdir()
         except OSError:
             pass
+
+
+@app.get("/health")
+def health() -> dict:
+    notebooks = {
+        key: {"path": str(NOTEBOOK_DIR / name), "exists": (NOTEBOOK_DIR / name).is_file()}
+        for key, name in NOTEBOOK_FILES.items()
+    }
+    ok = all(v["exists"] for v in notebooks.values())
+    return {"status": "ok" if ok else "degraded", "version": "1.2.0", "notebooks": notebooks}
+
+
+@app.post("/v1/render/{notebook_id}")
+async def render_with_notebook_path(notebook_id: str, request: Request) -> dict:
+    """Preferred: notebook id in URL path, JSON bundle in body (used by Spring api)."""
+    bundle = await _read_json_object(request)
+    LOGGER.info("render path=%s body_bytes=%s", notebook_id, request.headers.get("content-length", "?"))
+    return _render_notebook(notebook_id.strip().lower(), bundle)
+
+
+@app.post("/v1/render")
+async def render(request: Request) -> dict:
+    """Legacy: notebook id may be inside JSON body."""
+    payload = await _read_json_object(request)
+    notebook_id, bundle = _bundle_from_payload(payload)
+    return _render_notebook(notebook_id, bundle)
