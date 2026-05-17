@@ -58,32 +58,38 @@
           </div>
         </div>
 
-        <div class="rh-report__kpis rh-report__kpis--compact rh-portfolio__pnl">
-          <div class="rh-kpi">
-            <span class="rh-kpi__label">Cash</span>
-            <span class="rh-kpi__value">{{ formatMoney(port.cash) }}</span>
+        <div class="rh-portfolio__overview muted small">
+          <div class="rh-portfolio__overview-row">
+            <span>Buying power</span><span>{{ formatMoney(port.cash) }}</span>
           </div>
-          <div class="rh-kpi">
-            <span class="rh-kpi__label">YTD P&amp;L</span>
-            <span class="rh-kpi__value" [class.rh-kpi__value--neg]="port.ytdTotalPnL < 0">{{
+          <div class="rh-portfolio__overview-row">
+            <span>Cash</span><span>{{ formatMoney(port.cash) }}</span>
+          </div>
+        </div>
+
+        <h4 class="rh-portfolio__pnl-title">Profit &amp; loss</h4>
+        <div class="rh-portfolio__pnl-grid">
+          <div class="rh-portfolio__pnl-row">
+            <span class="rh-portfolio__pnl-label">Today</span>
+            <span class="rh-portfolio__pnl-value" [class.rh-portfolio__pnl-value--neg]="port.todayPnL < 0">{{
+              formatMoney(port.todayPnL)
+            }}</span>
+          </div>
+          <div class="rh-portfolio__pnl-row">
+            <span class="rh-portfolio__pnl-label">YTD</span>
+            <span class="rh-portfolio__pnl-value" [class.rh-portfolio__pnl-value--pos]="port.ytdTotalPnL > 0">{{
               formatMoney(port.ytdTotalPnL)
             }}</span>
           </div>
-          <div class="rh-kpi">
-            <span class="rh-kpi__label">YTD realized</span>
-            <span class="rh-kpi__value" [class.rh-kpi__value--neg]="port.ytdRealizedPnL < 0">{{
+          <div class="rh-portfolio__pnl-row">
+            <span class="rh-portfolio__pnl-label">Day&rsquo;s realized (excl. crypto)</span>
+            <span class="rh-portfolio__pnl-value">{{ formatMoney(port.todayRealizedPnL) }}</span>
+          </div>
+          <div class="rh-portfolio__pnl-row">
+            <span class="rh-portfolio__pnl-label">YTD realized (excl. crypto)</span>
+            <span class="rh-portfolio__pnl-value" [class.rh-portfolio__pnl-value--pos]="port.ytdRealizedPnL > 0">{{
               formatMoney(port.ytdRealizedPnL)
             }}</span>
-          </div>
-          <div class="rh-kpi">
-            <span class="rh-kpi__label">Open (unrealized)</span>
-            <span class="rh-kpi__value" [class.rh-kpi__value--neg]="port.openUnrealizedPnL < 0">{{
-              formatMoney(port.openUnrealizedPnL)
-            }}</span>
-          </div>
-          <div class="rh-kpi">
-            <span class="rh-kpi__label">Day realized</span>
-            <span class="rh-kpi__value">{{ formatMoney(port.todayRealizedPnL) }}</span>
           </div>
         </div>
 
@@ -172,7 +178,7 @@
         <span class="rh-kpi__value rh-kpi__value--neg">{{ formatMoney(r.summary.worstDayPnL) }}</span>
         <span class="rh-kpi__sub muted">{{ r.summary.worstDay ? formatDayLabel(r.summary.worstDay) : '—' }}</span>
       </div>
-      @if (r.unrealized.openLotCount > 0) {
+      @if (r.portfolio.source !== 'snapshot' && r.unrealized.openLotCount > 0) {
         <div class="rh-kpi">
           <span class="rh-kpi__label">Unrealized P&amp;L</span>
           <span
@@ -190,7 +196,11 @@
       }
     </div>
 
-    @if (!r.unrealized.openPositions.length) {
+    @if (r.portfolio.source === 'snapshot') {
+      <p class="muted small">
+        Open positions and P&amp;L match the Robinhood app snapshot above. FIFO trade history is below.
+      </p>
+    } @else if (!r.unrealized.openPositions.length) {
       <p class="muted small rh-open__empty">
         No open FIFO lots as of {{ formatFullDate(r.unrealized.asOfDate) }} for this filter.
       </p>

@@ -7,6 +7,7 @@
   "ytdTotalPnL": 123606.6,
   "todayRealizedPnL": 0,
   "ytdRealizedPnL": 94999.4,
+  "openUnrealizedPnL": 28607.2,
   "positions": [
     {
       "instrument": "NBIS",

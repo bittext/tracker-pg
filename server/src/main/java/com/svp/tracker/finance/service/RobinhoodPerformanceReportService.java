@@ -97,6 +97,9 @@ public class RobinhoodPerformanceReportService {
                 buildUnrealized(fifoOpen.openLots(), asOfDate, openTruncated);
         RobinhoodPortfolioOverviewDto portfolio =
                 resolvePortfolio(financialYear, asOfDate, fifoOpen, unrealized, openTruncated);
+        if ("snapshot".equals(portfolio.source())) {
+            unrealized = unrealizedFromPortfolioSnapshot(portfolio);
+        }
         RobinhoodPerformanceInsightsDto insights = buildInsights(fifo.closedTrades(), financialYear);
         RobinhoodPerformanceTaxDto tax = buildTax(fifo.closedTrades(), financialYear);
 
@@ -158,6 +161,50 @@ public class RobinhoodPerformanceReportService {
                                     note);
                         })
                 .orElse(computed);
+    }
+
+    private RobinhoodUnrealizedSectionDto unrealizedFromPortfolioSnapshot(RobinhoodPortfolioOverviewDto port) {
+        List<RobinhoodOpenPositionDto> opens = new ArrayList<>();
+        BigDecimal totalCost = ZERO;
+        BigDecimal totalMarket = ZERO;
+        for (RobinhoodPortfolioPositionDto p : port.positions()) {
+            BigDecimal qty = p.quantity() != null ? p.quantity() : ZERO;
+            BigDecimal avg = p.avgPrice();
+            BigDecimal cost =
+                    avg != null && qty.compareTo(ZERO) > 0
+                            ? avg.multiply(qty).setScale(2, RoundingMode.HALF_UP)
+                            : ZERO;
+            totalCost = totalCost.add(cost);
+            if (p.marketValue() != null) {
+                totalMarket = totalMarket.add(p.marketValue());
+            }
+            opens.add(
+                    new RobinhoodOpenPositionDto(
+                            p.instrument(),
+                            p.contract() != null ? p.contract() : "",
+                            p.assetClass(),
+                            port.asOfDate(),
+                            0,
+                            qty,
+                            avg,
+                            cost,
+                            p.marketPrice(),
+                            p.marketValue(),
+                            p.openPnL(),
+                            p.dayOpenPnL(),
+                            p.dayOpenPnLPercent(),
+                            p.marketPrice() != null));
+        }
+        return new RobinhoodUnrealizedSectionDto(
+                port.asOfDate(),
+                totalCost.setScale(2, RoundingMode.HALF_UP),
+                totalMarket.compareTo(ZERO) > 0 ? totalMarket.setScale(2, RoundingMode.HALF_UP) : null,
+                port.openUnrealizedPnL(),
+                opens.size(),
+                opens.size(),
+                false,
+                "Open positions from Robinhood app snapshot (same as Individual investing above).",
+                opens);
     }
 
     private static String formatMoneyShort(BigDecimal v) {

@@ -41,10 +41,14 @@ public class RobinhoodPortfolioSnapshotService {
             for (JsonNode p : root.path("positions")) {
                 positions.add(parsePosition(p));
             }
-            BigDecimal openUnrealized = positions.stream()
-                    .map(RobinhoodPortfolioPositionDto::openPnL)
-                    .filter(v -> v != null)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal openUnrealized = decimal(root, "openUnrealizedPnL");
+            if (openUnrealized == null) {
+                openUnrealized =
+                        positions.stream()
+                                .map(RobinhoodPortfolioPositionDto::openPnL)
+                                .filter(v -> v != null)
+                                .reduce(BigDecimal.ZERO, BigDecimal::add);
+            }
             String note = root.path("note").asText("");
             if (note.isBlank()) {
                 note = "Portfolio figures from configured Robinhood snapshot file.";
