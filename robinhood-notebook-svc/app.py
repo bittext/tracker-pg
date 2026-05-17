@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import papermill as pm
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from nbconvert import HTMLExporter
 import nbformat
 
@@ -67,7 +67,13 @@ def health() -> dict:
 
 
 @app.post("/v1/render")
-def render(payload: dict[str, Any]) -> dict:
+async def render(request: Request) -> dict:
+    try:
+        payload: dict[str, Any] = await request.json()
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail="JSON request body required") from exc
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=422, detail="Request body must be a JSON object")
     notebook_id, bundle = _bundle_from_payload(payload)
     input_path = _resolve_notebook(notebook_id)
     raw = json.dumps(bundle, default=str)

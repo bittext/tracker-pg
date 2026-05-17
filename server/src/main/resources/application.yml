@@ -76,7 +76,7 @@ tracker:
     travel:
       # User-Agent for OpenStreetMap Nominatim (see OSM usage policy). No literal "https:" in the ${…:default} here —
       # Spring treats the first colon as the default separator. Override in production with TRACKER_TRAVEL_GEOCODE_USER_AGENT.
-      geocode-user-agent: ${TRACKER_TRAVEL_GEOCODE_USER_AGENT:tracker-pg/7.3.0 (github.com/bittext/tracker-pg; travel geocode)}
+      geocode-user-agent: ${TRACKER_TRAVEL_GEOCODE_USER_AGENT:tracker-pg/7.4.0 (github.com/bittext/tracker-pg; travel geocode)}
     accounts:
       # AES-256-GCM sealing for Account password + authenticator key at rest (passphrase or Base64 32-byte key).
       # Empty = store plaintext (dev only); production deployments MUST set TRACKER_MANAGEMENT_ACCOUNTS_ENCRYPTION_KEY.
@@ -167,7 +167,7 @@ tracker:
         client-id: ${TRACKER_FINANCE_PREDICTS_REDDIT_CLIENT_ID:}
         client-secret: ${TRACKER_FINANCE_PREDICTS_REDDIT_CLIENT_SECRET:}
         # Reddit requires a unique User-Agent; including a contact identifier is recommended (their API rules).
-        user-agent: ${TRACKER_FINANCE_PREDICTS_REDDIT_USER_AGENT:tracker-pg/7.3.0 (github.com/bittext/tracker-pg; finance-predicts)}
+        user-agent: ${TRACKER_FINANCE_PREDICTS_REDDIT_USER_AGENT:tracker-pg/7.4.0 (github.com/bittext/tracker-pg; finance-predicts)}
         base-url: ${TRACKER_FINANCE_PREDICTS_REDDIT_BASE_URL:https://oauth.reddit.com}
         # Comma-separated subreddits to scan each cycle (no leading r/).
         subreddits: ${TRACKER_FINANCE_PREDICTS_REDDIT_SUBREDDITS:wallstreetbets,stocks,investing,options}

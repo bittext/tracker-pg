@@ -4,7 +4,8 @@ import com.svp.tracker.config.FinanceProperties;
 import com.svp.tracker.finance.dto.RobinhoodNotebookBundleDto;
 import com.svp.tracker.finance.dto.RobinhoodNotebookConfigDto;
 import com.svp.tracker.finance.dto.RobinhoodNotebookRenderDto;
-import com.svp.tracker.finance.dto.RobinhoodPerformanceReportDto;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.LinkedHashMap;
@@ -27,6 +28,7 @@ public class RobinhoodNotebookService {
     private final RobinhoodFinanceService robinhoodFinanceService;
     private final RobinhoodPerformanceReportService robinhoodPerformanceReportService;
     private final FinanceProperties financeProperties;
+    private final ObjectMapper objectMapper;
 
     public RobinhoodNotebookConfigDto notebookConfig() {
         String jupyterUrl = financeProperties.robinhoodJupyterLabUrl().trim();
@@ -104,6 +106,10 @@ public class RobinhoodNotebookService {
             }
             return new RobinhoodNotebookRenderDto(
                     year, body.html(), body.source() != null ? body.source() : "papermill", body.note());
+        } catch (JsonProcessingException e) {
+            log.warn("Robinhood notebook render payload serialization failed: {}", e.getMessage());
+            return new RobinhoodNotebookRenderDto(
+                    year, "", "error", "Could not serialize notebook bundle: " + e.getMessage());
         } catch (Exception e) {
             log.warn("Robinhood notebook render failed: {}", e.getMessage());
             return new RobinhoodNotebookRenderDto(
