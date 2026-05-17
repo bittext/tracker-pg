@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 import papermill as pm
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from nbconvert import HTMLExporter
 import nbformat
 
@@ -67,12 +67,15 @@ async def _read_json_object(request: Request) -> dict[str, Any]:
             raw_bytes = b"".join(chunks)
     if not raw_bytes:
         LOGGER.warning(
-            "empty POST body method=%s content-type=%s content-length=%s",
+            "empty POST body method=%s path=%s content-type=%s content-length=%s expect=%s",
             request.method,
+            request.url.path,
             request.headers.get("content-type"),
             request.headers.get("content-length"),
+            request.headers.get("expect"),
         )
         raise HTTPException(status_code=422, detail="JSON request body required")
+    LOGGER.info("received JSON body bytes=%s path=%s", len(raw_bytes), request.url.path)
     try:
         payload = json.loads(raw_bytes.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
@@ -125,20 +128,19 @@ def health() -> dict:
         for key, name in NOTEBOOK_FILES.items()
     }
     ok = all(v["exists"] for v in notebooks.values())
-    return {"status": "ok" if ok else "degraded", "version": "1.2.0", "notebooks": notebooks}
+    return {"status": "ok" if ok else "degraded", "version": "1.3.0", "notebooks": notebooks}
+
+
+@app.post("/v1/render")
+async def render(request: Request, notebook: str = Query("performance")) -> dict:
+    """Notebook id as query param; JSON bundle in body (used by Spring api)."""
+    bundle = await _read_json_object(request)
+    notebook_id = (notebook or "performance").strip().lower()
+    return _render_notebook(notebook_id, bundle)
 
 
 @app.post("/v1/render/{notebook_id}")
 async def render_with_notebook_path(notebook_id: str, request: Request) -> dict:
-    """Preferred: notebook id in URL path, JSON bundle in body (used by Spring api)."""
+    """Alternate: notebook id in URL path."""
     bundle = await _read_json_object(request)
-    LOGGER.info("render path=%s body_bytes=%s", notebook_id, request.headers.get("content-length", "?"))
     return _render_notebook(notebook_id.strip().lower(), bundle)
-
-
-@app.post("/v1/render")
-async def render(request: Request) -> dict:
-    """Legacy: notebook id may be inside JSON body."""
-    payload = await _read_json_object(request)
-    notebook_id, bundle = _bundle_from_payload(payload)
-    return _render_notebook(notebook_id, bundle)

@@ -28,4 +28,4 @@ EXPOSE 8010
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -fsS http://127.0.0.1:8010/health | grep -q '"status"'
 
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8010", "--workers", "1"]
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8010", "--workers", "1", "--timeout-keep-alive", "120"]

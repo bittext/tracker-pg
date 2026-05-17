@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -32,6 +33,11 @@ import org.springframework.stereotype.Service;
 public class RobinhoodNotebookService {
 
     private static final Set<String> NOTEBOOK_IDS = Set.of("performance", "risk");
+
+    static {
+        // Bundles are often >1KB; JDK otherwise sends Expect: 100-continue and some ASGI servers see an empty body.
+        System.setProperty("jdk.httpclient.enableExpectContinue", "false");
+    }
 
     /** Spring Boot 4 does not expose an {@link ObjectMapper} bean; local mapper for notebook sidecar JSON only. */
     private static final ObjectMapper JSON =
@@ -107,7 +113,11 @@ public class RobinhoodNotebookService {
                     HttpClient.newBuilder()
                             .connectTimeout(Duration.ofMillis(Math.min(timeoutMs, 30_000)))
                             .build();
-            URI renderUri = URI.create(normalized + "/v1/render/" + notebook);
+            String renderUrl =
+                    normalized
+                            + "/v1/render?notebook="
+                            + URLEncoder.encode(notebook, StandardCharsets.UTF_8);
+            URI renderUri = URI.create(renderUrl);
             HttpRequest request =
                     HttpRequest.newBuilder(renderUri)
                             .timeout(Duration.ofMillis(timeoutMs))
