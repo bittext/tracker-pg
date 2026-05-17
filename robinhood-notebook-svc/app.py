@@ -148,7 +148,7 @@ def health() -> dict:
         for key, name in NOTEBOOK_FILES.items()
     }
     ok = all(v["exists"] for v in notebooks.values())
-    return {"status": "ok" if ok else "degraded", "version": "1.4.0", "notebooks": notebooks}
+    return {"status": "ok" if ok else "degraded", "version": "1.4.1", "notebooks": notebooks}
 
 
 @app.post("/v1/render")
