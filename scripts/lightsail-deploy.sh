@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run on the Lightsail host from the repository root after `git pull` (see GitHub Actions deploy workflow).
-# Rebuilds and restarts only api + web; does not recreate or restart postgres (--no-deps).
+# Rebuilds and restarts api + web (+ robinhood-notebook when enabled); does not recreate postgres (--no-deps).
 # First-time stack (Postgres + volumes): run once from repo root:
 #   docker compose -f docker-compose.stack.yml --env-file .env.stack up -d --build
 #
@@ -14,6 +14,11 @@
 #   - CADDY_DOMAIN=your.fqdn is set in .env.stack (auto-detect so deploys do not drop Caddy as an orphan).
 # To disable auto-merge while keeping CADDY_DOMAIN in the file, set TRACKER_CADDY_DISABLE=1 in .env.stack.
 # Requires CADDY_DOMAIN and usually WEB_PORT_BIND=127.0.0.1:9080:80 in .env.stack.
+#
+# Robinhood notebook sidecar (Reports → Render notebook): build/start robinhood-notebook when any of:
+#   - export TRACKER_ROBINHOOD_NOTEBOOK=1, or touch .use-lightsail-robinhood-notebook, or
+#   - TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_ENABLED=true in .env.stack (auto-detect).
+# Disable auto-detect while keeping the flag in .env.stack: TRACKER_ROBINHOOD_NOTEBOOK_DISABLE=1
 set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
@@ -56,11 +61,30 @@ if [[ "$use_caddy" -eq 1 ]]; then
   fi
 fi
 
+use_robinhood_notebook=0
+if [[ "${TRACKER_ROBINHOOD_NOTEBOOK:-0}" == "1" ]] || [[ -f "${repo_root}/.use-lightsail-robinhood-notebook" ]]; then
+  use_robinhood_notebook=1
+  echo "Including robinhood-notebook service (TRACKER_ROBINHOOD_NOTEBOOK=1 or .use-lightsail-robinhood-notebook)."
+elif grep -qE '^[[:space:]]*TRACKER_ROBINHOOD_NOTEBOOK_DISABLE=1' "$env_file" 2>/dev/null; then
+  echo "robinhood-notebook auto-start disabled (TRACKER_ROBINHOOD_NOTEBOOK_DISABLE=1 in ${env_file})."
+elif grep -qE '^[[:space:]]*TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_ENABLED=(true|1|yes)' "$env_file" 2>/dev/null; then
+  use_robinhood_notebook=1
+  echo "Including robinhood-notebook service (TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_ENABLED in ${env_file})."
+fi
+
+build_services=( api web )
+if [[ "$use_robinhood_notebook" -eq 1 ]]; then
+  build_services+=( robinhood-notebook )
+fi
+
 # --remove-orphans: dropping Caddy or Robinhood overlays no longer leaves old containers (e.g. tracker-pg-caddy-1).
 # --force-recreate: avoids "container name already in use" when a prior run left a stale api/web container.
-docker compose "${compose_files[@]}" --env-file "$env_file" build api web
+docker compose "${compose_files[@]}" --env-file "$env_file" build "${build_services[@]}"
 docker compose "${compose_files[@]}" --env-file "$env_file" up -d --no-deps --force-recreate --remove-orphans api web
 # Ensure Caddy (re)starts and stays in the project; picks up Caddyfile bind-mount changes.
 if [[ "$use_caddy" -eq 1 ]] && [[ -f "${repo_root}/docker-compose.https-lightsail.yml" ]]; then
   docker compose "${compose_files[@]}" --env-file "$env_file" up -d caddy
+fi
+if [[ "$use_robinhood_notebook" -eq 1 ]]; then
+  docker compose "${compose_files[@]}" --env-file "$env_file" up -d --no-deps --force-recreate robinhood-notebook
 fi

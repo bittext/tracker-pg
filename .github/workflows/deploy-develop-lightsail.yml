@@ -10,6 +10,8 @@
 #   LIGHTSAIL_USE_ROBINHOOD_COMPOSE — set to 1 to merge docker-compose.robinhood.yml
 #   LIGHTSAIL_USE_CADDY             — optional; set to 1 to force Caddy merge. If unset, deploy still merges Caddy
 #                                     when CADDY_DOMAIN is set in the server’s .env.stack (see scripts/lightsail-deploy.sh).
+#   LIGHTSAIL_USE_ROBINHOOD_NOTEBOOK — optional; set to 1 to build/start robinhood-notebook. If unset, deploy still
+#                                     does so when TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_ENABLED=true in .env.stack.
 #
 # One-time on the Lightsail host:
 #   - Install Docker Engine + Compose plugin; add ubuntu to the docker group if needed.
@@ -65,5 +67,9 @@ jobs:
             export TRACKER_CADDY="${{ vars.LIGHTSAIL_USE_CADDY }}"
             if [[ "${TRACKER_CADDY:-}" != "1" ]]; then
               unset TRACKER_CADDY
+            fi
+            export TRACKER_ROBINHOOD_NOTEBOOK="${{ vars.LIGHTSAIL_USE_ROBINHOOD_NOTEBOOK }}"
+            if [[ "${TRACKER_ROBINHOOD_NOTEBOOK:-}" != "1" ]]; then
+              unset TRACKER_ROBINHOOD_NOTEBOOK
             fi
             bash scripts/lightsail-deploy.sh

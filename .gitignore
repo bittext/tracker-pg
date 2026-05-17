@@ -11,4 +11,5 @@ web/.angular/
 .venv/
 dumps/
 .use-lightsail-robinhood-compose
+.use-lightsail-robinhood-notebook
 .use-caddy-lightsail
