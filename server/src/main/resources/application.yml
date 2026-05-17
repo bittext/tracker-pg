@@ -121,6 +121,11 @@ tracker:
     max-directory-import-files: 500
     # Flat rate for Reports → Finance → Robinhood estimated tax (0.22 = 22%). Not tax advice.
     robinhood-estimated-tax-rate: ${TRACKER_FINANCE_ROBINHOOD_ESTIMATED_TAX_RATE:0.22}
+    # JupyterLab URL shown in Reports → Robinhood (optional). Example: http://127.0.0.1:8888/lab
+    robinhood-jupyter-lab-url: ${TRACKER_FINANCE_ROBINHOOD_JUPYTER_LAB_URL:}
+    robinhood-notebook-service-enabled: ${TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_ENABLED:false}
+    robinhood-notebook-service-base-url: ${TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_BASE_URL:http://robinhood-notebook:8010}
+    robinhood-notebook-service-timeout-ms: ${TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_TIMEOUT_MS:120000}
     banking:
       # Host default ~/imports/banking. Production VMs often use TRACKER_BANKING_IMPORT_DIRECTORY=/home/ubuntu/imports/banking (0700).
       import-directory: ${TRACKER_BANKING_IMPORT_DIRECTORY:${user.home}/imports/banking}

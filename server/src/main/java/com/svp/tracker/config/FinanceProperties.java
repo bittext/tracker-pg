@@ -77,6 +77,17 @@ public record FinanceProperties(
          * {@code 0.22} = 22%). Not tax advice.
          */
         double robinhoodEstimatedTaxRate,
+        /**
+         * Optional JupyterLab URL for Reports → Robinhood (e.g. {@code http://127.0.0.1:8888/lab}). Empty hides the
+         * link in the UI.
+         */
+        String robinhoodJupyterLabUrl,
+        /** When true, call robinhood-notebook-svc to render parameterized notebooks to HTML. */
+        boolean robinhoodNotebookServiceEnabled,
+        /** Base URL for robinhood-notebook-svc (e.g. {@code http://robinhood-notebook:8010}). */
+        String robinhoodNotebookServiceBaseUrl,
+        /** HTTP timeout for notebook render requests (ms). */
+        int robinhoodNotebookServiceTimeoutMs,
         /** Enable/disable internet-backed stock news endpoint. */
         boolean newsEnabled,
         /** Max items returned by stock news endpoint. */
@@ -190,6 +201,22 @@ public record FinanceProperties(
             robinhoodEstimatedTaxRate = 0;
         } else if (robinhoodEstimatedTaxRate > 1) {
             robinhoodEstimatedTaxRate = 1;
+        }
+        if (robinhoodJupyterLabUrl == null) {
+            robinhoodJupyterLabUrl = "";
+        } else {
+            robinhoodJupyterLabUrl = robinhoodJupyterLabUrl.trim();
+        }
+        if (robinhoodNotebookServiceBaseUrl == null) {
+            robinhoodNotebookServiceBaseUrl = "";
+        } else {
+            robinhoodNotebookServiceBaseUrl = robinhoodNotebookServiceBaseUrl.trim();
+        }
+        if (robinhoodNotebookServiceTimeoutMs < 1_000) {
+            robinhoodNotebookServiceTimeoutMs = 120_000;
+        }
+        if (robinhoodNotebookServiceTimeoutMs > 600_000) {
+            robinhoodNotebookServiceTimeoutMs = 600_000;
         }
         if (newsMaxItems < 1) {
             newsMaxItems = 10;

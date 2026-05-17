@@ -1,0 +1,31 @@
+# Optional JupyterLab + notebook render sidecar for Reports → Finance → Robinhood.
+#
+#   docker compose -f docker-compose.robinhood-jupyter.yml up -d
+#   # JupyterLab: http://127.0.0.1:8888/lab
+#
+# Stack integration (api + sidecar):
+#   docker compose -f docker-compose.stack.yml -f docker-compose.robinhood-jupyter.yml --env-file .env.stack up -d --build
+
+services:
+  robinhood-notebook:
+    build:
+      context: .
+      dockerfile: robinhood-notebook-svc/Dockerfile
+    restart: unless-stopped
+    environment:
+      RH_NOTEBOOK_DIR: /app/notebooks/robinhood
+      RH_MAX_BUNDLE_BYTES: ${RH_MAX_BUNDLE_BYTES:-33554432}
+    ports:
+      - "${ROBINHOOD_NOTEBOOK_PORT:-8010}:8010"
+
+  robinhood-jupyter:
+    image: jupyter/scipy-notebook:latest
+    restart: unless-stopped
+    environment:
+      JUPYTER_ENABLE_LAB: "yes"
+      JUPYTER_TOKEN: ${RH_JUPYTER_TOKEN:-}
+    ports:
+      - "${ROBINHOOD_JUPYTER_PORT:-8888}:8888"
+    volumes:
+      - ./notebooks/robinhood:/home/jovyan/work/robinhood:rw
+    working_dir: /home/jovyan/work/robinhood

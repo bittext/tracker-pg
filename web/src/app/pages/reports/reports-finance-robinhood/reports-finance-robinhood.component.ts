@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -10,7 +11,10 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
-import { RobinhoodPerformanceReportDto } from '../../../models/finance.models';
+import {
+  RobinhoodNotebookConfigDto,
+  RobinhoodPerformanceReportDto,
+} from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
 
@@ -50,6 +54,7 @@ interface DailyBar {
 export class ReportsFinanceRobinhoodComponent implements OnInit {
   private readonly financeApi = inject(FinanceApiService);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly sanitizer = inject(DomSanitizer);
 
   reportYear = new Date().getFullYear();
   filterSymbol = '';
@@ -57,6 +62,10 @@ export class ReportsFinanceRobinhoodComponent implements OnInit {
 
   readonly loading = signal(false);
   readonly report = signal<RobinhoodPerformanceReportDto | null>(null);
+  readonly notebookConfig = signal<RobinhoodNotebookConfigDto | null>(null);
+  readonly notebookRendering = signal(false);
+  readonly notebookHtml = signal<SafeHtml | null>(null);
+  readonly notebookRenderNote = signal('');
 
   readonly dailyColumns = ['date', 'realizedPnL', 'closedLots'];
   readonly bestStockColumns = ['instrument', 'totalRealizedPnL', 'closedLots', 'winCount', 'lossCount'];
@@ -157,6 +166,10 @@ export class ReportsFinanceRobinhoodComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    this.financeApi.robinhoodNotebookConfig().subscribe({
+      next: (cfg) => this.notebookConfig.set(cfg),
+      error: () => this.notebookConfig.set(null),
+    });
     this.financeApi.robinhoodStockSymbols().subscribe({
       next: (rows) => {
         this.symbols = rows ?? [];
@@ -170,6 +183,8 @@ export class ReportsFinanceRobinhoodComponent implements OnInit {
 
   loadReport(): void {
     this.loading.set(true);
+    this.notebookHtml.set(null);
+    this.notebookRenderNote.set('');
     const sym = this.filterSymbol.trim() || undefined;
     this.financeApi.robinhoodPerformanceReport(this.reportYear, sym).subscribe({
       next: (dto) => {
@@ -184,6 +199,59 @@ export class ReportsFinanceRobinhoodComponent implements OnInit {
         });
       },
     });
+  }
+
+  downloadNotebookBundle(): void {
+    const sym = this.filterSymbol.trim() || undefined;
+    this.financeApi.robinhoodNotebookBundle(this.reportYear, sym).subscribe({
+      next: (dto) => {
+        const blob = new Blob([JSON.stringify(dto, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `robinhood-bundle-${this.reportYear}${sym ? `-${sym}` : ''}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.snackBar.open('Notebook bundle downloaded', undefined, { duration: 3000 });
+      },
+      error: (e) => {
+        this.snackBar.open(`Bundle download failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 6000 });
+      },
+    });
+  }
+
+  renderNotebook(): void {
+    const cfg = this.notebookConfig();
+    if (!cfg?.notebookServiceConfigured) {
+      this.snackBar.open('Notebook service is not enabled on the server', undefined, { duration: 5000 });
+      return;
+    }
+    this.notebookRendering.set(true);
+    this.notebookHtml.set(null);
+    const sym = this.filterSymbol.trim() || undefined;
+    this.financeApi.robinhoodNotebookRender(this.reportYear, sym).subscribe({
+      next: (dto) => {
+        this.notebookRendering.set(false);
+        this.notebookRenderNote.set(dto.note || '');
+        if (dto.html?.trim()) {
+          this.notebookHtml.set(this.sanitizer.bypassSecurityTrustHtml(dto.html));
+        } else {
+          this.snackBar.open(dto.note || 'No HTML returned from notebook service', undefined, { duration: 6000 });
+        }
+      },
+      error: (e) => {
+        this.notebookRendering.set(false);
+        this.snackBar.open(`Notebook render failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 6000 });
+      },
+    });
+  }
+
+  openJupyterLab(): void {
+    const url = this.notebookConfig()?.jupyterLabUrl?.trim();
+    if (!url) {
+      return;
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
   }
 
   yearChoices(): number[] {

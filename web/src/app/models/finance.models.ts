@@ -38,6 +38,34 @@ export interface RobinhoodAccountStatusDto {
   csvImportDirectory: string;
 }
 
+/** GET /api/finance/robinhood/notebook-config */
+export interface RobinhoodNotebookConfigDto {
+  jupyterLabConfigured: boolean;
+  jupyterLabUrl: string;
+  notebookServiceConfigured: boolean;
+  notebookServiceNote: string;
+}
+
+/** GET /api/finance/robinhood/notebook-bundle */
+export interface RobinhoodNotebookBundleDto {
+  year: number;
+  filterInstrument: string | null;
+  exportedAt: string;
+  transactionRowCount: number;
+  transactionsTruncated: boolean;
+  transactions: Record<string, unknown>[];
+  performanceReport: RobinhoodPerformanceReportDto;
+  usageNote: string;
+}
+
+/** GET /api/finance/robinhood/notebook-render */
+export interface RobinhoodNotebookRenderDto {
+  year: number;
+  html: string;
+  source: string;
+  note: string;
+}
+
 /** GET /api/finance/robinhood/performance-report */
 export interface RobinhoodPerformanceReportDto {
   financialYear: number;

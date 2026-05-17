@@ -1,3 +1,22 @@
+.rh-notebook__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+
+.rh-notebook__embed {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+  border-radius: 8px;
+  max-height: 48rem;
+  overflow: auto;
+  background: var(--app-surface, #fff);
+  font-size: 0.875rem;
+}
+
 .rh-report__title {
   margin: 0 0 0.5rem;
   font-size: 1.15rem;

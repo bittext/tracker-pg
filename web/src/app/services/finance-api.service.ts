@@ -14,6 +14,9 @@ import {
   MarketOverviewDto,
   RobinhoodAccountStatusDto,
   RobinhoodCsvImportResultDto,
+  RobinhoodNotebookBundleDto,
+  RobinhoodNotebookConfigDto,
+  RobinhoodNotebookRenderDto,
   RobinhoodPerformanceReportDto,
   RobinhoodStocksSummaryDto,
   RobinhoodTransactionsDto,
@@ -83,6 +86,31 @@ export class FinanceApiService {
       params = params.set('symbol', sym);
     }
     return this.http.get<RobinhoodPerformanceReportDto>(`${this.root}/performance-report`, { params });
+  }
+
+  /** JupyterLab + notebook sidecar hints for Reports → Robinhood. */
+  robinhoodNotebookConfig() {
+    return this.http.get<RobinhoodNotebookConfigDto>(`${this.root}/notebook-config`);
+  }
+
+  /** JSON export for Jupyter / pandas workflows. */
+  robinhoodNotebookBundle(year: number, symbol?: string | null) {
+    let params = new HttpParams().set('year', String(year));
+    const sym = symbol?.trim();
+    if (sym) {
+      params = params.set('symbol', sym);
+    }
+    return this.http.get<RobinhoodNotebookBundleDto>(`${this.root}/notebook-bundle`, { params });
+  }
+
+  /** Server-rendered notebook HTML (requires robinhood-notebook-svc). */
+  robinhoodNotebookRender(year: number, symbol?: string | null) {
+    let params = new HttpParams().set('year', String(year));
+    const sym = symbol?.trim();
+    if (sym) {
+      params = params.set('symbol', sym);
+    }
+    return this.http.get<RobinhoodNotebookRenderDto>(`${this.root}/notebook-render`, { params });
   }
 
   /** Upload Robinhood CSV directly (dry-run unless apply=true). */

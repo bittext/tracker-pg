@@ -346,6 +346,48 @@
         </section>
       }
 
+      <section class="rh-report__section rh-notebook" aria-labelledby="rh-notebook-heading">
+        <h3 id="rh-notebook-heading" class="rh-report__table-title">Jupyter workflows</h3>
+        <p class="muted small">
+          Download a JSON bundle for pandas/matplotlib in JupyterLab, or render the parameterized notebook on the server
+          when <code>robinhood-notebook-svc</code> is enabled. See <code>notebooks/robinhood</code> in the repo.
+        </p>
+        <div class="rh-notebook__actions">
+          <button mat-stroked-button type="button" (click)="downloadNotebookBundle()">
+            <mat-icon>download</mat-icon>
+            Download bundle (JSON)
+          </button>
+          @if (notebookConfig()?.jupyterLabConfigured) {
+            <button mat-stroked-button type="button" (click)="openJupyterLab()">
+              <mat-icon>science</mat-icon>
+              Open JupyterLab
+            </button>
+          }
+          @if (notebookConfig()?.notebookServiceConfigured) {
+            <button
+              mat-stroked-button
+              type="button"
+              (click)="renderNotebook()"
+              [disabled]="notebookRendering()"
+            >
+              <mat-icon>auto_stories</mat-icon>
+              Render notebook
+            </button>
+            @if (notebookRendering()) {
+              <mat-spinner diameter="24" aria-label="Rendering notebook" />
+            }
+          } @else if (notebookConfig()) {
+            <span class="muted small">{{ notebookConfig()!.notebookServiceNote }}</span>
+          }
+        </div>
+        @if (notebookRenderNote()) {
+          <p class="muted small">{{ notebookRenderNote() }}</p>
+        }
+        @if (notebookHtml(); as safeHtml) {
+          <div class="rh-notebook__embed" [innerHTML]="safeHtml"></div>
+        }
+      </section>
+
       <h3 class="rh-report__table-title">Daily detail</h3>
       <div class="table-wrap">
         <table mat-table [dataSource]="r.dailyPnL" class="full-width">

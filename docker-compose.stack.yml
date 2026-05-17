@@ -115,6 +115,11 @@ services:
       TRACKER_FINANCE_PREDICTS_X_ENABLED: ${TRACKER_FINANCE_PREDICTS_X_ENABLED:-false}
       TRACKER_FINANCE_PREDICTS_FINBERT_ENABLED: ${TRACKER_FINANCE_PREDICTS_FINBERT_ENABLED:-true}
       TRACKER_FINANCE_PREDICTS_FINBERT_BASE_URL: ${TRACKER_FINANCE_PREDICTS_FINBERT_BASE_URL:-http://finbert:8000}
+      # Reports → Finance → Robinhood Jupyter / notebook sidecar (optional).
+      TRACKER_FINANCE_ROBINHOOD_JUPYTER_LAB_URL: ${TRACKER_FINANCE_ROBINHOOD_JUPYTER_LAB_URL:-}
+      TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_ENABLED: ${TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_ENABLED:-false}
+      TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_BASE_URL: ${TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_BASE_URL:-http://robinhood-notebook:8010}
+      TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_TIMEOUT_MS: ${TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_TIMEOUT_MS:-120000}
       TRACKER_FINANCE_PREDICTS_TRACKED_TICKER_QUOTA_PER_USER: ${TRACKER_FINANCE_PREDICTS_TRACKED_TICKER_QUOTA_PER_USER:-25}
       TRACKER_FINANCE_PREDICTS_BASELINE_WINDOW_DAYS: ${TRACKER_FINANCE_PREDICTS_BASELINE_WINDOW_DAYS:-30}
       TRACKER_FINANCE_PREDICTS_RETENTION_MENTIONS_DAYS: ${TRACKER_FINANCE_PREDICTS_RETENTION_MENTIONS_DAYS:-60}
@@ -137,6 +142,18 @@ services:
     volumes:
       - tracker_pg_stack_finbert_cache:/cache/huggingface
     # Not published on the host by default — only the api container needs it via the internal network.
+
+  robinhood-notebook:
+    # Optional: parameterized Robinhood reports → HTML (see notebooks/robinhood).
+    # Enable TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_ENABLED on api when using this service.
+    build:
+      context: .
+      dockerfile: robinhood-notebook-svc/Dockerfile
+    restart: unless-stopped
+    environment:
+      RH_NOTEBOOK_DIR: /app/notebooks/robinhood
+      RH_MAX_BUNDLE_BYTES: ${RH_MAX_BUNDLE_BYTES:-33554432}
+    # Internal only by default — publish via docker-compose.robinhood-jupyter.yml if needed.
 
   web:
     build:
