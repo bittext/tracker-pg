@@ -13,6 +13,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import {
   RobinhoodNotebookConfigDto,
+  RobinhoodNotebookId,
   RobinhoodPerformanceReportDto,
 } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
@@ -58,7 +59,13 @@ export class ReportsFinanceRobinhoodComponent implements OnInit {
 
   reportYear = new Date().getFullYear();
   filterSymbol = '';
+  notebookId: RobinhoodNotebookId = 'performance';
   symbols: string[] = [];
+
+  readonly notebookChoices: { id: RobinhoodNotebookId; label: string }[] = [
+    { id: 'performance', label: 'Performance (monthly P&L)' },
+    { id: 'risk', label: 'Risk (drawdown, heatmap, scatter)' },
+  ];
 
   readonly loading = signal(false);
   readonly report = signal<RobinhoodPerformanceReportDto | null>(null);
@@ -229,7 +236,7 @@ export class ReportsFinanceRobinhoodComponent implements OnInit {
     this.notebookRendering.set(true);
     this.notebookHtml.set(null);
     const sym = this.filterSymbol.trim() || undefined;
-    this.financeApi.robinhoodNotebookRender(this.reportYear, sym).subscribe({
+    this.financeApi.robinhoodNotebookRender(this.reportYear, sym, this.notebookId).subscribe({
       next: (dto) => {
         this.notebookRendering.set(false);
         this.notebookRenderNote.set(dto.note || '');

@@ -16,4 +16,5 @@ public record RobinhoodNotebookBundleDto(
         boolean transactionsTruncated,
         List<Map<String, Object>> transactions,
         RobinhoodPerformanceReportDto performanceReport,
+        List<RobinhoodClosedTradeDto> closedTrades,
         String usageNote) {}

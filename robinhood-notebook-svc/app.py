@@ -1,13 +1,12 @@
 """
 Robinhood notebook render sidecar for tracker-pg Reports → Finance → Robinhood.
 
-Accepts the same JSON bundle as GET /api/finance/robinhood/notebook-bundle, executes
-``notebooks/robinhood/robinhood_performance.ipynb`` with papermill, and returns HTML via nbconvert.
+Executes parameterized notebooks under ``notebooks/robinhood`` with papermill and returns HTML via nbconvert.
 
 Endpoints
 ---------
-- GET  /health     → {status, notebook}
-- POST /v1/render  → bundle JSON → {html, source, note}
+- GET  /health     → {status, notebooks}
+- POST /v1/render  → bundle JSON (+ optional ``notebook``: performance | risk) → {html, source, note}
 """
 
 from __future__ import annotations
@@ -16,9 +15,8 @@ import json
 import logging
 import os
 import tempfile
-import uuid
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import papermill as pm
 from fastapi import FastAPI, HTTPException
@@ -29,25 +27,49 @@ LOGGER = logging.getLogger("robinhood-notebook-svc")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s :: %(message)s")
 
 NOTEBOOK_DIR = Path(os.environ.get("RH_NOTEBOOK_DIR", "/app/notebooks/robinhood"))
-INPUT_NOTEBOOK = NOTEBOOK_DIR / "robinhood_performance.ipynb"
+NOTEBOOK_FILES: dict[str, str] = {
+    "performance": "robinhood_performance.ipynb",
+    "risk": "robinhood_risk.ipynb",
+}
 MAX_BUNDLE_BYTES = int(os.environ.get("RH_MAX_BUNDLE_BYTES", str(32 * 1024 * 1024)))
 
-app = FastAPI(title="robinhood-notebook-svc", version="1.0.0")
+app = FastAPI(title="robinhood-notebook-svc", version="1.1.0")
+
+
+def _resolve_notebook(notebook_id: str) -> Path:
+    key = (notebook_id or "performance").strip().lower()
+    filename = NOTEBOOK_FILES.get(key)
+    if not filename:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown notebook '{notebook_id}'. Use: {', '.join(NOTEBOOK_FILES)}",
+        )
+    path = NOTEBOOK_DIR / filename
+    if not path.is_file():
+        raise HTTPException(status_code=503, detail=f"notebook missing: {path}")
+    return path
+
+
+def _bundle_from_payload(payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+    notebook = str(payload.get("notebook", "performance"))
+    bundle = {k: v for k, v in payload.items() if k != "notebook"}
+    return notebook, bundle
 
 
 @app.get("/health")
 def health() -> dict:
-    return {
-        "status": "ok" if INPUT_NOTEBOOK.is_file() else "degraded",
-        "notebook": str(INPUT_NOTEBOOK),
-        "notebook_exists": INPUT_NOTEBOOK.is_file(),
+    notebooks = {
+        key: {"path": str(NOTEBOOK_DIR / name), "exists": (NOTEBOOK_DIR / name).is_file()}
+        for key, name in NOTEBOOK_FILES.items()
     }
+    ok = all(v["exists"] for v in notebooks.values())
+    return {"status": "ok" if ok else "degraded", "notebooks": notebooks}
 
 
 @app.post("/v1/render")
-def render(bundle: dict[str, Any]) -> dict:
-    if not INPUT_NOTEBOOK.is_file():
-        raise HTTPException(status_code=503, detail=f"notebook missing: {INPUT_NOTEBOOK}")
+def render(payload: dict[str, Any]) -> dict:
+    notebook_id, bundle = _bundle_from_payload(payload)
+    input_path = _resolve_notebook(notebook_id)
     raw = json.dumps(bundle, default=str)
     if len(raw.encode("utf-8")) > MAX_BUNDLE_BYTES:
         raise HTTPException(status_code=413, detail="bundle too large")
@@ -60,7 +82,7 @@ def render(bundle: dict[str, Any]) -> dict:
     year = bundle.get("year")
     try:
         pm.execute_notebook(
-            str(INPUT_NOTEBOOK),
+            str(input_path),
             str(executed),
             parameters={"bundle_path": str(bundle_path), "year": year},
             cwd=str(NOTEBOOK_DIR),
@@ -68,10 +90,10 @@ def render(bundle: dict[str, Any]) -> dict:
         )
         nb = nbformat.read(executed, as_version=4)
         html, _ = HTMLExporter(template_name="classic").from_notebook_node(nb)
-        note = bundle.get("usageNote") or "Rendered with papermill + nbconvert."
-        return {"html": html, "source": "papermill", "note": note}
+        note = bundle.get("usageNote") or f"Rendered {notebook_id} with papermill + nbconvert."
+        return {"html": html, "source": "papermill", "note": note, "notebook": notebook_id}
     except Exception as exc:
-        LOGGER.exception("notebook render failed")
+        LOGGER.exception("notebook render failed notebook=%s", notebook_id)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     finally:
         try:

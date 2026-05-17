@@ -12,7 +12,9 @@ docker compose -f docker-compose.robinhood-jupyter.yml up -d
 
 1. In the web app, open **Reports → Finance → Robinhood**.
 2. Use **Download bundle (JSON)** for your year/filter.
-3. In JupyterLab, open `notebooks/robinhood/robinhood_performance.ipynb`.
+3. In JupyterLab, open a notebook under `notebooks/robinhood/`:
+   - `robinhood_performance.ipynb` — monthly P&L bars
+   - `robinhood_risk.ipynb` — drawdown, calendar heatmap, hold-time scatter, daily P&L distribution
 4. Set `bundle_path` to the downloaded file and run all cells.
 
 ## Server-rendered HTML (optional)
@@ -22,4 +24,5 @@ Enable `TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_ENABLED=true` and run `robinh
 ## Extend
 
 - Add notebooks under this folder and register them in `robinhood-notebook-svc`.
-- Reuse `lib/tracker_robinhood.py` for pandas helpers.
+- Reuse `lib/tracker_robinhood.py` for pandas helpers (`daily_pnl_frame`, `closed_trades_frame`, `calendar_pnl_matrix`, etc.).
+- In the web UI, choose **Performance** or **Risk** before **Render notebook** when the sidecar is enabled.

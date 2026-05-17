@@ -55,8 +55,11 @@ export interface RobinhoodNotebookBundleDto {
   transactionsTruncated: boolean;
   transactions: Record<string, unknown>[];
   performanceReport: RobinhoodPerformanceReportDto;
+  closedTrades: RobinhoodClosedTradeDto[];
   usageNote: string;
 }
+
+export type RobinhoodNotebookId = 'performance' | 'risk';
 
 /** GET /api/finance/robinhood/notebook-render */
 export interface RobinhoodNotebookRenderDto {

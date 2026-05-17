@@ -13,4 +13,4 @@ docker build -f robinhood-notebook-svc/Dockerfile .
 ## Endpoints
 
 - `GET /health`
-- `POST /v1/render` — body: same JSON as `GET /api/finance/robinhood/notebook-bundle`
+- `POST /v1/render` — body: notebook bundle JSON plus optional `"notebook": "performance"` or `"risk"`

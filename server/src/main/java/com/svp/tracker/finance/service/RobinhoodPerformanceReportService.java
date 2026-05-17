@@ -100,6 +100,13 @@ public class RobinhoodPerformanceReportService {
                 tax);
     }
 
+    /** All FIFO closed lots for notebook export (same filters as {@link #buildReport}). */
+    public List<RobinhoodClosedTradeDto> listClosedTrades(int financialYear, String symbolFilter) {
+        List<Map<String, Object>> rows = robinhoodFinanceService.loadYearTransactionRows(financialYear, symbolFilter);
+        FifoResult fifo = runFifo(rows);
+        return fifo.closedTrades().stream().map(this::toClosedTradeDto).toList();
+    }
+
     private FifoResult runFifo(List<Map<String, Object>> rows) {
         List<TradeEvent> events = new ArrayList<>();
         for (Map<String, Object> row : rows) {

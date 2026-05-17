@@ -16,6 +16,7 @@ import {
   RobinhoodCsvImportResultDto,
   RobinhoodNotebookBundleDto,
   RobinhoodNotebookConfigDto,
+  RobinhoodNotebookId,
   RobinhoodNotebookRenderDto,
   RobinhoodPerformanceReportDto,
   RobinhoodStocksSummaryDto,
@@ -104,8 +105,8 @@ export class FinanceApiService {
   }
 
   /** Server-rendered notebook HTML (requires robinhood-notebook-svc). */
-  robinhoodNotebookRender(year: number, symbol?: string | null) {
-    let params = new HttpParams().set('year', String(year));
+  robinhoodNotebookRender(year: number, symbol?: string | null, notebook: RobinhoodNotebookId = 'performance') {
+    let params = new HttpParams().set('year', String(year)).set('notebook', notebook);
     const sym = symbol?.trim();
     if (sym) {
       params = params.set('symbol', sym);

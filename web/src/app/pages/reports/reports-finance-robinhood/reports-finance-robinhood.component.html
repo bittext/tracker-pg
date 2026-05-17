@@ -373,6 +373,14 @@
             </button>
           }
           @if (notebookConfig()?.notebookServiceConfigured) {
+            <mat-form-field appearance="outline" class="rh-notebook__picker">
+              <mat-label>Notebook</mat-label>
+              <mat-select [(ngModel)]="notebookId" name="rhNotebookId">
+                @for (n of notebookChoices; track n.id) {
+                  <mat-option [value]="n.id">{{ n.label }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
             <button
               mat-stroked-button
               type="button"

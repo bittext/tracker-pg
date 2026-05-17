@@ -149,10 +149,15 @@ public class FinanceController {
     @GetMapping("/notebook-render")
     public RobinhoodNotebookRenderDto notebookRender(
             @RequestParam(name = "year") int year,
-            @RequestParam(name = "symbol", required = false) String symbol) {
+            @RequestParam(name = "symbol", required = false) String symbol,
+            @RequestParam(name = "notebook", defaultValue = "performance") String notebook) {
         validateYear(year);
-        log.info("GET /api/finance/robinhood/notebook-render year={} symbol={}", year, symbol);
-        return robinhoodNotebookService.renderNotebookHtml(year, symbol);
+        log.info("GET /api/finance/robinhood/notebook-render year={} symbol={} notebook={}", year, symbol, notebook);
+        try {
+            return robinhoodNotebookService.renderNotebookHtml(year, symbol, notebook);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
+        }
     }
 
     @GetMapping("/stocks-summary")
