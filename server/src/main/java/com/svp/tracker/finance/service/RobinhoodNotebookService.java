@@ -4,6 +4,7 @@ import com.svp.tracker.config.FinanceProperties;
 import com.svp.tracker.finance.dto.RobinhoodNotebookBundleDto;
 import com.svp.tracker.finance.dto.RobinhoodNotebookConfigDto;
 import com.svp.tracker.finance.dto.RobinhoodNotebookRenderDto;
+import com.svp.tracker.finance.dto.RobinhoodPerformanceReportDto;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Instant;
@@ -92,13 +93,14 @@ public class RobinhoodNotebookService {
         payload.put("closedTrades", bundle.closedTrades());
         payload.put("usageNote", bundle.usageNote());
         try {
+            String jsonBody = objectMapper.writeValueAsString(payload);
             String normalized = base.endsWith("/") ? base.substring(0, base.length() - 1) : base;
             RestClient client = RestClient.builder().baseUrl(normalized).build();
             RenderResponse body =
                     client.post()
                             .uri("/v1/render")
                             .contentType(MediaType.APPLICATION_JSON)
-                            .body(payload)
+                            .body(jsonBody)
                             .retrieve()
                             .body(RenderResponse.class);
             if (body == null || body.html() == null) {
