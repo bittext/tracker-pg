@@ -4,6 +4,7 @@ export interface AuthLoginEventDto {
   userId: number | null;
   username: string;
   clientIp: string;
+  locationLabel: string;
   userAgent: string;
   detail: string;
   createdAt: string;

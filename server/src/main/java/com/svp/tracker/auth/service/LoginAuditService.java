@@ -36,7 +36,8 @@ public class LoginAuditService {
             String usernameShown,
             String clientIp,
             String userAgent,
-            String detail) {
+            String detail,
+            String locationLabel) {
         AuthLoginEvent e = new AuthLoginEvent();
         e.setEventType(eventType);
         e.setUserId(userId);
@@ -44,6 +45,7 @@ public class LoginAuditService {
         e.setClientIp(s(clientIp, 64));
         e.setUserAgent(trimUa(userAgent));
         e.setDetail(s(detail, 500));
+        e.setLocationLabel(s(locationLabel, 180));
         e.setCreatedAt(Instant.now());
         authLoginEventRepository.save(e);
     }
@@ -80,6 +82,7 @@ public class LoginAuditService {
                 e.getUserId(),
                 e.getUsernameShown() != null ? e.getUsernameShown() : "",
                 e.getClientIp() != null ? e.getClientIp() : "",
+                e.getLocationLabel() != null ? e.getLocationLabel() : "",
                 e.getUserAgent() != null ? e.getUserAgent() : "",
                 e.getDetail() != null ? e.getDetail() : "",
                 e.getCreatedAt());

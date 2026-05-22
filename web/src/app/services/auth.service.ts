@@ -1,8 +1,9 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { BehaviorSubject, map, tap } from 'rxjs';
+import { BehaviorSubject, finalize, map, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { buildLoginLocationContext } from '../util/login-location';
 
 export interface AuthTokenDto {
   token: string;
@@ -54,8 +55,14 @@ export class AuthService {
   }
 
   login(username: string, password: string) {
+    const location = buildLoginLocationContext();
     return this.http
-      .post<LoginResponseDto>(`${this.apiBase}/login`, { username, password })
+      .post<LoginResponseDto>(`${this.apiBase}/login`, {
+        username,
+        password,
+        locationFingerprintSource: location.locationFingerprintSource,
+        locationLabel: location.locationLabel,
+      })
       .pipe(
         map((res) => {
           if (res.mfaRequired) {
@@ -78,13 +85,30 @@ export class AuthService {
   }
 
   logout(redirectToLogin = true): void {
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem(USER_KEY);
-    localStorage.removeItem(ROLE_KEY);
-    this.authState$.next(false);
-    if (redirectToLogin) {
-      this.router.navigate(['/login']);
+    const token = this.token;
+    const location = buildLoginLocationContext();
+    const finish = () => {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+      localStorage.removeItem(ROLE_KEY);
+      this.authState$.next(false);
+      if (redirectToLogin) {
+        this.router.navigate(['/login']);
+      }
+    };
+
+    if (!token) {
+      finish();
+      return;
     }
+
+    this.http
+      .post(`${this.apiBase}/logout`, {
+        locationFingerprintSource: location.locationFingerprintSource,
+        locationLabel: location.locationLabel,
+      })
+      .pipe(finalize(finish))
+      .subscribe({ error: () => {} });
   }
 
   private hasStoredToken(): boolean {

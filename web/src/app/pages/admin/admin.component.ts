@@ -141,7 +141,7 @@ export class AdminComponent implements OnInit {
   loginEventLoading = false;
   loginEventSearch = '';
   loginEventLimit = 100;
-  readonly loginEventColumns = ['createdAt', 'eventType', 'username', 'clientIp', 'detail', 'userAgent'];
+  readonly loginEventColumns = ['createdAt', 'eventType', 'username', 'clientIp', 'locationLabel', 'detail', 'userAgent'];
 
   /** Selected tab in Admin (0 = Sign-in log, …). */
   adminTabIndex = 0;

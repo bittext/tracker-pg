@@ -48,23 +48,49 @@ public class AuthService {
         Optional<AppUser> opt = appUserRepository.findByUsernameIgnoreCase(un);
         if (opt.isEmpty()) {
             loginAuditService.record(
-                    AuthLoginEventType.LOGIN_FAILED, null, un.isEmpty() ? "(empty)" : un, ip, ua, "user_not_found");
+                    AuthLoginEventType.LOGIN_FAILED,
+                    null,
+                    un.isEmpty() ? "(empty)" : un,
+                    ip,
+                    ua,
+                    "user_not_found",
+                    req.locationLabel());
             throw new ResponseStatusException(UNAUTHORIZED, "Invalid credentials");
         }
         AppUser user = opt.get();
         if (!user.isActive()) {
-            loginAuditService.record(AuthLoginEventType.LOGIN_FAILED, user.getId(), user.getUsername(), ip, ua, "account_inactive");
+            loginAuditService.record(
+                    AuthLoginEventType.LOGIN_FAILED,
+                    user.getId(),
+                    user.getUsername(),
+                    ip,
+                    ua,
+                    "account_inactive",
+                    req.locationLabel());
             throw new ResponseStatusException(UNAUTHORIZED, "Invalid credentials");
         }
         if (!passwordHashService.verify(req.password(), user.getPasswordHash(), user.getPasswordSalt())) {
-            loginAuditService.record(AuthLoginEventType.LOGIN_FAILED, user.getId(), user.getUsername(), ip, ua, "invalid_password");
+            loginAuditService.record(
+                    AuthLoginEventType.LOGIN_FAILED,
+                    user.getId(),
+                    user.getUsername(),
+                    ip,
+                    ua,
+                    "invalid_password",
+                    req.locationLabel());
             throw new ResponseStatusException(UNAUTHORIZED, "Invalid credentials");
         }
 
         if (user.getRole() == AppUserRole.ADMIN || !user.isMfaEnabled()) {
             var token = issueToken(user);
             loginAuditService.record(
-                    AuthLoginEventType.LOGIN_SUCCESS, user.getId(), user.getUsername(), ip, ua, "password");
+                    AuthLoginEventType.LOGIN_SUCCESS,
+                    user.getId(),
+                    user.getUsername(),
+                    ip,
+                    ua,
+                    "password",
+                    req.locationLabel());
             return new LoginResponseDto(false, null, "Login successful", token);
         }
 
@@ -81,7 +107,13 @@ public class AuthService {
             trustedLocationRepository.save(knownLocation);
             var token = issueToken(user);
             loginAuditService.record(
-                    AuthLoginEventType.LOGIN_SUCCESS, user.getId(), user.getUsername(), ip, ua, "trusted_location");
+                    AuthLoginEventType.LOGIN_SUCCESS,
+                    user.getId(),
+                    user.getUsername(),
+                    ip,
+                    ua,
+                    "trusted_location",
+                    pickLocationLabel(req.locationLabel(), knownLocation.getDisplayLabel()));
             return new LoginResponseDto(false, null, "Login successful", token);
         }
 
@@ -107,7 +139,13 @@ public class AuthService {
         mfaChallengeRepository.save(challenge);
         smsSender.sendOtp(user.getPhoneE164(), otp);
         loginAuditService.record(
-                AuthLoginEventType.MFA_REQUIRED, user.getId(), user.getUsername(), ip, ua, "challenge=" + challenge.getId());
+                AuthLoginEventType.MFA_REQUIRED,
+                user.getId(),
+                user.getUsername(),
+                ip,
+                ua,
+                "challenge=" + challenge.getId(),
+                req.locationLabel());
 
         return new LoginResponseDto(
                 true,
@@ -125,7 +163,7 @@ public class AuthService {
                 .orElse(null);
         if (challenge == null) {
             loginAuditService.record(
-                    AuthLoginEventType.MFA_FAILED, null, "(unknown)", ip, ua, "invalid_challenge");
+                    AuthLoginEventType.MFA_FAILED, null, "(unknown)", ip, ua, "invalid_challenge", req.locationLabel());
             throw new ResponseStatusException(UNAUTHORIZED, "Invalid challenge");
         }
         AppUser preUser = challenge.getUser();
@@ -134,12 +172,12 @@ public class AuthService {
         Instant now = Instant.now();
         if (challenge.getExpiresAt().isBefore(now)) {
             loginAuditService.record(
-                    AuthLoginEventType.MFA_FAILED, preUid, preName, ip, ua, "challenge_expired");
+                    AuthLoginEventType.MFA_FAILED, preUid, preName, ip, ua, "challenge_expired", req.locationLabel());
             throw new ResponseStatusException(UNAUTHORIZED, "MFA code expired");
         }
         if (challenge.getAttempts() >= challenge.getMaxAttempts()) {
             loginAuditService.record(
-                    AuthLoginEventType.MFA_FAILED, preUid, preName, ip, ua, "max_attempts");
+                    AuthLoginEventType.MFA_FAILED, preUid, preName, ip, ua, "max_attempts", req.locationLabel());
             throw new ResponseStatusException(UNAUTHORIZED, "MFA challenge locked");
         }
 
@@ -148,7 +186,7 @@ public class AuthService {
             challenge.setAttempts(challenge.getAttempts() + 1);
             mfaChallengeRepository.save(challenge);
             loginAuditService.record(
-                    AuthLoginEventType.MFA_FAILED, preUid, preName, ip, ua, "invalid_otp");
+                    AuthLoginEventType.MFA_FAILED, preUid, preName, ip, ua, "invalid_otp", req.locationLabel());
             throw new ResponseStatusException(UNAUTHORIZED, "Invalid MFA code");
         }
 
@@ -170,7 +208,13 @@ public class AuthService {
         trustedLocationRepository.save(trusted);
         var token = issueToken(user);
         loginAuditService.record(
-                AuthLoginEventType.LOGIN_SUCCESS, user.getId(), user.getUsername(), ip, ua, "mfa");
+                AuthLoginEventType.LOGIN_SUCCESS,
+                user.getId(),
+                user.getUsername(),
+                ip,
+                ua,
+                "mfa",
+                pickLocationLabel(req.locationLabel(), trusted.getDisplayLabel()));
         return token;
     }
 
@@ -192,5 +236,15 @@ public class AuthService {
 
     private static String nvl(String s) {
         return s == null ? "" : s;
+    }
+
+    private static String pickLocationLabel(String fromRequest, String fromTrusted) {
+        if (fromRequest != null && !fromRequest.isBlank()) {
+            return fromRequest.trim();
+        }
+        if (fromTrusted != null && !fromTrusted.isBlank()) {
+            return fromTrusted.trim();
+        }
+        return null;
     }
 }

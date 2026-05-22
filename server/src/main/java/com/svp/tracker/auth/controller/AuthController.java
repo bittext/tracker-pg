@@ -4,6 +4,7 @@ import com.svp.tracker.auth.domain.AuthLoginEventType;
 import com.svp.tracker.auth.dto.AuthTokenDto;
 import com.svp.tracker.auth.dto.LoginRequestDto;
 import com.svp.tracker.auth.dto.LoginResponseDto;
+import com.svp.tracker.auth.dto.LogoutRequestDto;
 import com.svp.tracker.auth.dto.MfaVerifyRequestDto;
 import com.svp.tracker.auth.security.TrackerUserPrincipal;
 import com.svp.tracker.auth.service.AuthService;
@@ -38,15 +39,19 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Map<String, String>> logout(Authentication auth, HttpServletRequest request) {
+    public ResponseEntity<Map<String, String>> logout(
+            Authentication auth,
+            HttpServletRequest request,
+            @RequestBody(required = false) LogoutRequestDto body) {
         if (auth != null && auth.getPrincipal() instanceof TrackerUserPrincipal p) {
             String ip = request.getRemoteAddr() != null ? request.getRemoteAddr() : "";
             String ua = request.getHeader("User-Agent");
             if (ua == null) {
                 ua = "";
             }
+            String locationLabel = body != null ? body.locationLabel() : null;
             loginAuditService.record(
-                    AuthLoginEventType.LOGOUT, p.id(), p.username(), ip, ua, null);
+                    AuthLoginEventType.LOGOUT, p.id(), p.username(), ip, ua, null, locationLabel);
         }
         return ResponseEntity.ok(Map.of("status", "ok", "message", "Logged out"));
     }

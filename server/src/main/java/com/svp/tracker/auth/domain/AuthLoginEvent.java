@@ -42,6 +42,9 @@ public class AuthLoginEvent {
     @Column(name = "detail", length = 500)
     private String detail;
 
+    @Column(name = "location_label", length = 180)
+    private String locationLabel;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 

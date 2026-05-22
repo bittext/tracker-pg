@@ -8,6 +8,7 @@ public record AuthLoginEventResponseDto(
         Long userId,
         String username,
         String clientIp,
+        String locationLabel,
         String userAgent,
         String detail,
         Instant createdAt) {}

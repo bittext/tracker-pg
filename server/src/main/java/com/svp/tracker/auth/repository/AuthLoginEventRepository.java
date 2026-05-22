@@ -20,6 +20,7 @@ public interface AuthLoginEventRepository extends JpaRepository<AuthLoginEvent, 
                OR LOWER(e.clientIp) LIKE LOWER(CONCAT('%', :q, '%'))
                OR LOWER(COALESCE(e.userAgent, '')) LIKE LOWER(CONCAT('%', :q, '%'))
                OR LOWER(COALESCE(e.detail, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+               OR LOWER(COALESCE(e.locationLabel, '')) LIKE LOWER(CONCAT('%', :q, '%'))
             ORDER BY e.createdAt DESC
             """)
     Page<AuthLoginEvent> search(@Param("q") String q, Pageable pageable);
@@ -42,6 +43,7 @@ public interface AuthLoginEventRepository extends JpaRepository<AuthLoginEvent, 
                 LOWER(e.clientIp) LIKE LOWER(CONCAT('%', :q, '%'))
                 OR LOWER(COALESCE(e.userAgent, '')) LIKE LOWER(CONCAT('%', :q, '%'))
                 OR LOWER(COALESCE(e.detail, '')) LIKE LOWER(CONCAT('%', :q, '%'))
+               OR LOWER(COALESCE(e.locationLabel, '')) LIKE LOWER(CONCAT('%', :q, '%'))
               )
             ORDER BY e.createdAt DESC
             """)
