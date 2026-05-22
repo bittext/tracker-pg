@@ -1,4 +1,4 @@
-<h2 mat-dialog-title>{{ title }}</h2>
+<h2 mat-dialog-title>{{ dialogTitle }}</h2>
 <mat-dialog-content>
   @if (err) {
     <p class="rc-err" role="alert">{{ err }}</p>
@@ -25,8 +25,44 @@
       <textarea matInput formControlName="body" name="rcBody" rows="5" placeholder="Notes, plans, or details for this date"></textarea>
     </mat-form-field>
   </form>
+
+  @if (canManageAttachments) {
+    <section class="rc-attachments" aria-labelledby="rc-attach-heading">
+      <h3 id="rc-attach-heading" class="rc-attach-title">Files &amp; images</h3>
+      <p class="muted rc-attach-hint">Upload photos, PDFs, or other documents. Images show inline below.</p>
+      <label class="rc-file-label">
+        <input type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" (change)="onFilesSelected($event)" [disabled]="uploading" />
+        <span class="rc-file-label-text">Add file(s)</span>
+      </label>
+      @if (attachments.length) {
+        <ul class="rc-attachment-list">
+          @for (a of attachments; track a.id) {
+            <li class="rc-attachment-item">
+              @if (isImageAttachment(a) && previewUrl(a); as src) {
+                <button type="button" class="rc-image-preview-btn" (click)="openAttachment(a)">
+                  <img [src]="src" [alt]="a.originalFilename" class="rc-image-preview" loading="lazy" />
+                </button>
+              }
+              <div class="rc-attachment-meta">
+                <button type="button" class="rc-att-link" (click)="openAttachment(a)">{{ a.originalFilename }}</button>
+                <span class="muted">({{ (a.sizeBytes / 1024) | number: '1.0-0' }} KB)</span>
+                <button mat-icon-button type="button" (click)="removeAttachment(a, $event)" aria-label="Remove attachment">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  } @else {
+    <p class="muted rc-attach-pending">Save the entry first, then you can attach files and images.</p>
+  }
 </mat-dialog-content>
 <mat-dialog-actions align="end">
   <button mat-button type="button" (click)="cancel()">Cancel</button>
-  <button mat-flat-button color="primary" type="button" (click)="save()" [disabled]="saving">Save</button>
+  @if (savedEntryId != null && !dialogData.entry) {
+    <button mat-flat-button color="primary" type="button" (click)="done()">Done</button>
+  }
+  <button mat-flat-button color="primary" type="button" (click)="save()" [disabled]="saving || uploading">Save</button>
 </mat-dialog-actions>

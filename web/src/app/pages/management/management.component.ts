@@ -950,9 +950,29 @@ export class ManagementComponent implements OnInit {
 
   get repCalTableColumnsForList(): string[] {
     if (this.repCalTypeFilter === 'ALL') {
-      return ['cDate', 'cType', 'cTitle', 'cInfo', 'cAct'];
+      return ['cDate', 'cType', 'cTitle', 'cInfo', 'cAttach', 'cAct'];
     }
-    return ['cDate', 'cTitle', 'cInfo', 'cAct'];
+    return ['cDate', 'cTitle', 'cInfo', 'cAttach', 'cAct'];
+  }
+
+  repCalAttachmentSummary(row: ReportCalendarEntryDto): string {
+    const n = row.attachments?.length ?? 0;
+    if (!n) {
+      return '';
+    }
+    const images = (row.attachments ?? []).filter((a) => this.repCalIsImageAttachment(a)).length;
+    if (images && images === n) {
+      return `${n} image${n === 1 ? '' : 's'}`;
+    }
+    return `${n} file${n === 1 ? '' : 's'}`;
+  }
+
+  private repCalIsImageAttachment(att: { contentType: string | null; originalFilename: string }): boolean {
+    const ct = att.contentType?.toLowerCase() ?? '';
+    if (ct.startsWith('image/')) {
+      return true;
+    }
+    return /\.(jpe?g|png|gif|webp|bmp|svg|heic|heif)$/i.test(att.originalFilename);
   }
 
   onRepCalYearMonthClicked(m: number): void {

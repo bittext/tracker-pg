@@ -7,11 +7,14 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -42,6 +45,9 @@ public class ReportCalendarEntry {
 
     @Column
     private String body;
+
+    @OneToMany(mappedBy = "entry")
+    private List<ReportCalendarAttachment> attachments = new ArrayList<>();
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;

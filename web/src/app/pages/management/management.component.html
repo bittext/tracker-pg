@@ -345,7 +345,7 @@
           <h2 id="mgmt-calendar-heading" class="subsection-title">Calendar</h2>
           <p class="muted">
             Choose <strong>All types</strong> or one calendar (birthday, work, personal, trades, banking, payments,
-            opinion & strategies). In <strong>Year</strong> view, click a month to filter the list to that month
+            opinion & strategies). Attach photos or files to any entry (edit after save). In <strong>Year</strong> view, click a month to filter the list to that month
             (click again to clear). In <strong>Month</strong> view, click a day to filter to that date (click again to
             clear). Use <strong>Narrow by title</strong> to filter the table by entry title. Use the arrows to change period.
           </p>
@@ -495,6 +495,19 @@
                   <ng-container matColumnDef="cInfo">
                     <th mat-header-cell *matHeaderCellDef>Information</th>
                     <td mat-cell *matCellDef="let row" class="rep-cal-info-cell">{{ repCalInfoPreview(row.body) || '—' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="cAttach">
+                    <th mat-header-cell *matHeaderCellDef>Files</th>
+                    <td mat-cell *matCellDef="let row" class="rep-cal-attach-cell">
+                      @if (repCalAttachmentSummary(row)) {
+                        <span class="rep-cal-attach-badge">
+                          <mat-icon aria-hidden="true">attach_file</mat-icon>
+                          {{ repCalAttachmentSummary(row) }}
+                        </span>
+                      } @else {
+                        —
+                      }
+                    </td>
                   </ng-container>
                   <ng-container matColumnDef="cAct">
                     <th mat-header-cell *matHeaderCellDef class="rep-cal-actions-header"></th>

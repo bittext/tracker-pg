@@ -19,3 +19,89 @@
 .rc-stretch {
   width: 100%;
 }
+
+.rc-attach-title {
+  margin: 1rem 0 0.35rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.rc-attach-hint,
+.rc-attach-pending {
+  margin: 0 0 0.65rem;
+  font-size: 0.85rem;
+}
+
+.rc-file-label {
+  display: inline-flex;
+  cursor: pointer;
+  margin-bottom: 0.75rem;
+
+  input[type='file'] {
+    display: none;
+  }
+}
+
+.rc-file-label-text {
+  display: inline-block;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  border: 1px dashed var(--app-border, rgba(15, 23, 42, 0.25));
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--app-accent, #2563eb);
+}
+
+.rc-attachment-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.rc-attachment-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.rc-image-preview-btn {
+  align-self: flex-start;
+  padding: 0;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
+  border-radius: 8px;
+  background: var(--app-surface-muted, #f8fafc);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.rc-image-preview {
+  display: block;
+  max-width: min(100%, 16rem);
+  max-height: 10rem;
+  object-fit: contain;
+}
+
+.rc-attachment-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+}
+
+.rc-att-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--app-accent, #2563eb);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-align: left;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}

@@ -30,12 +30,21 @@ export function reportCalendarTypeLabel(t: ReportCalendarType): string {
   return o?.label ?? t;
 }
 
+export interface ReportCalendarAttachmentDto {
+  id: number;
+  originalFilename: string;
+  contentType: string | null;
+  sizeBytes: number;
+  downloadPath: string;
+}
+
 export interface ReportCalendarEntryDto {
   id: number;
   entryDate: string;
   calendarType: ReportCalendarType;
   title: string | null;
   body: string | null;
+  attachments: ReportCalendarAttachmentDto[];
   createdAt: string;
   updatedAt: string;
 }
