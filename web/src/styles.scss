@@ -442,6 +442,70 @@ app-management-work-panel .notes-att-link {
   font-weight: 500;
 }
 
+/* Management → Calendar tab: phone landscape layout + iOS table scroll */
+app-management .rep-cal-table-wrap {
+  overflow-x: auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  min-width: 0;
+  width: 100%;
+}
+
+app-management .rep-cal-table-wrap table.mat-mdc-table {
+  min-width: 36rem;
+}
+
+@media (orientation: landscape) and (min-width: 36rem) and (max-width: 59.9375rem) {
+  app-management .rep-cal-grid {
+    grid-template-columns: minmax(11rem, 16rem) minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+
+  app-management .rep-cal-col--list {
+    position: sticky;
+    top: 0.5rem;
+    max-height: calc(100dvh - 4.5rem);
+    display: flex;
+    flex-direction: column;
+  }
+
+  app-management .mgmt-calendar-panel.tab-panel {
+    padding: 0.65rem 0.75rem 0.85rem;
+  }
+
+  app-management .rep-cal-col--nav .rep-cal-toolbar,
+  app-management .rep-cal-col--nav .cal-toolbar.rep-cal-nav,
+  app-management .rep-cal-col--nav .rep-cal-cal,
+  app-management .rep-cal-col--nav .rep-cal-year-grid {
+    max-width: 100%;
+  }
+
+  app-management .rep-cal-col--nav .rep-cal-toolbar-pair {
+    flex-wrap: wrap;
+    justify-content: stretch;
+  }
+
+  app-management .rep-cal-col--nav .rep-cal-toolbar-pair .rep-cal-field {
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  app-management .rep-cal-col--nav .rep-cal-toggles {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  app-management .rep-cal-col--nav .cal-weekday {
+    font-size: 0.55rem;
+  }
+
+  app-management .rep-cal-col--nav .rep-cal-year-legend {
+    font-size: 0.78rem;
+  }
+}
+
 /* Management → Write-up tab */
 app-management .mgmt-writeup-panel {
   max-width: min(100%, 96rem);

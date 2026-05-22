@@ -23,6 +23,10 @@
   min-height: min(50vh, 560px);
 }
 
+.mgmt-card ::ng-deep .mat-mdc-tab-body-content {
+  overflow: visible;
+}
+
 .mgmt-tab-group {
   --mat-tab-header-label-text-size: 0.95rem;
 }
@@ -311,6 +315,7 @@
 
 .mgmt-calendar-panel {
   max-width: min(100%, 80rem);
+  min-width: 0;
 }
 
 .rep-cal-grid {
@@ -318,10 +323,15 @@
   gap: 1.25rem;
   align-items: start;
   grid-template-columns: 1fr;
+  min-width: 0;
 
   @media (min-width: 960px) {
     grid-template-columns: minmax(16rem, 30rem) minmax(0, 1fr);
   }
+}
+
+.rep-cal-col {
+  min-width: 0;
 }
 
 .rep-cal-col--list {
