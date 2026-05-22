@@ -66,3 +66,45 @@
   }
   <button mat-flat-button color="primary" type="button" (click)="save()" [disabled]="saving || uploading">Save</button>
 </mat-dialog-actions>
+
+@if (previewOpen) {
+  <div class="rc-preview-overlay" role="dialog" aria-modal="true" [attr.aria-label]="previewAtt?.originalFilename ?? 'Attachment preview'">
+    <header class="rc-preview-toolbar">
+      <span class="rc-preview-name">{{ previewAtt?.originalFilename }}</span>
+      <button mat-icon-button type="button" (click)="closePreview()" aria-label="Close preview">
+        <mat-icon>close</mat-icon>
+      </button>
+    </header>
+    <div class="rc-preview-body">
+      @if (previewLoading) {
+        <p class="rc-preview-status">Loading…</p>
+      } @else if (previewError) {
+        <p class="rc-preview-status rc-preview-status--err" role="alert">{{ previewError }}</p>
+      } @else if (previewBlobUrl && previewAtt) {
+        @if (isImageAttachment(previewAtt)) {
+          <img [src]="previewBlobUrl" [alt]="previewAtt.originalFilename" class="rc-preview-image" />
+        } @else {
+          <p class="rc-preview-status muted">Tap below to open this file on your phone.</p>
+          <a
+            class="rc-preview-open-btn"
+            [href]="previewBlobUrl"
+            [attr.download]="previewAtt.originalFilename"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Open {{ previewAtt.originalFilename }}</a
+          >
+          @if (isPdfAttachment(previewAtt)) {
+            <object
+              class="rc-preview-pdf"
+              [data]="previewBlobUrl"
+              [attr.title]="previewAtt.originalFilename"
+              type="application/pdf"
+            >
+              <p class="rc-preview-status muted">PDF preview unavailable — use Open above.</p>
+            </object>
+          }
+        }
+      }
+    </div>
+  </div>
+}

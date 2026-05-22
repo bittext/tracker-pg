@@ -2,11 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import {
-  MAT_DIALOG_DATA,
-  MatDialogModule,
-  MatDialogRef,
-} from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -56,6 +52,14 @@ export class ReportCalendarEntryDialogComponent implements OnInit, OnDestroy {
   attachments: ReportCalendarAttachmentDto[] = [];
   readonly imagePreviewUrls = new Map<number, string>();
 
+  previewOpen = false;
+  previewLoading = false;
+  previewError: string | null = null;
+  previewAtt: ReportCalendarAttachmentDto | null = null;
+  previewBlobUrl: string | null = null;
+  /** True when previewBlobUrl was created for the overlay (not reused from thumbnail cache). */
+  private previewOwnedUrl = false;
+
   entryForm = this.fb.group({
     entryDate: ['', Validators.required],
     calendarType: ['PERSONAL' as ReportCalendarType, Validators.required],
@@ -89,6 +93,7 @@ export class ReportCalendarEntryDialogComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.closePreview();
     for (const url of this.imagePreviewUrls.values()) {
       URL.revokeObjectURL(url);
     }
@@ -172,25 +177,52 @@ export class ReportCalendarEntryDialogComponent implements OnInit, OnDestroy {
     step();
   }
 
+  /** Inline full-screen preview — works on iOS WebKit browsers (Safari, Orion) without nested dialogs. */
   openAttachment(att: ReportCalendarAttachmentDto): void {
+    this.closePreview();
+    this.previewAtt = att;
+    this.previewOpen = true;
+    this.previewError = null;
+    this.previewLoading = false;
+
+    const cached = this.imagePreviewUrls.get(att.id);
+    if (cached && this.isImageAttachment(att)) {
+      this.previewBlobUrl = cached;
+      this.previewOwnedUrl = false;
+      return;
+    }
+
+    this.previewLoading = true;
     this.api.getAttachmentBlob(att.id, 'inline').subscribe({
       next: (blob) => {
-        const url = URL.createObjectURL(blob);
-        const win = window.open(url, '_blank', 'noopener');
-        if (!win) {
-          URL.revokeObjectURL(url);
-        } else {
-          win.addEventListener('beforeunload', () => URL.revokeObjectURL(url));
-        }
+        this.previewLoading = false;
+        this.previewBlobUrl = URL.createObjectURL(blob);
+        this.previewOwnedUrl = true;
       },
       error: (err) => {
-        this.err = formatHttpErrorDetail(err);
+        this.previewLoading = false;
+        this.previewError = formatHttpErrorDetail(err);
       },
     });
   }
 
+  closePreview(): void {
+    if (this.previewOwnedUrl && this.previewBlobUrl) {
+      URL.revokeObjectURL(this.previewBlobUrl);
+    }
+    this.previewOpen = false;
+    this.previewAtt = null;
+    this.previewBlobUrl = null;
+    this.previewOwnedUrl = false;
+    this.previewLoading = false;
+    this.previewError = null;
+  }
+
   removeAttachment(att: ReportCalendarAttachmentDto, ev: Event): void {
     ev.stopPropagation();
+    if (this.previewAtt?.id === att.id) {
+      this.closePreview();
+    }
     this.api.deleteAttachment(att.id).subscribe({
       next: () => {
         this.revokePreview(att.id);
@@ -202,13 +234,23 @@ export class ReportCalendarEntryDialogComponent implements OnInit, OnDestroy {
     });
   }
 
-  isImageAttachment(att: ReportCalendarAttachmentDto): boolean {
+  isImageAttachment(att: ReportCalendarAttachmentDto | null | undefined): boolean {
+    if (!att) {
+      return false;
+    }
     const ct = att.contentType?.toLowerCase() ?? '';
     if (ct.startsWith('image/')) {
       return true;
     }
-    const name = att.originalFilename.toLowerCase();
-    return /\.(jpe?g|png|gif|webp|bmp|svg|heic|heif)$/.test(name);
+    return /\.(jpe?g|png|gif|webp|bmp|svg|heic|heif)$/i.test(att.originalFilename);
+  }
+
+  isPdfAttachment(att: ReportCalendarAttachmentDto | null | undefined): boolean {
+    if (!att) {
+      return false;
+    }
+    const ct = att.contentType?.toLowerCase() ?? '';
+    return ct === 'application/pdf' || att.originalFilename.toLowerCase().endsWith('.pdf');
   }
 
   previewUrl(att: ReportCalendarAttachmentDto): string | null {
