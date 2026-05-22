@@ -744,8 +744,9 @@
       <mat-tab label="Alerts">
         <div class="finance-panel finance-alerts-panel">
           <p class="muted stocks-news-intro">
-            Create Yahoo quote alerts for a stock reaching a target price or a daily/session rise percentage. Alerts use
-            the notification channels configured in <strong>Admin → Finance</strong>; quotes can be delayed.
+            Create price or session-rise alerts for a stock. Repeating alerts fire again only after the quote drops
+            below your threshold and later crosses back up. Notifications use channels in
+            <strong>Admin → Finance</strong>; quotes refresh on each alert check but may still be delayed.
           </p>
 
           <div class="finance-alert-form">
@@ -771,14 +772,15 @@
               <mat-label>Frequency</mat-label>
               <mat-select [(ngModel)]="financeAlertForm.repeatMode" name="alertRepeat">
                 <mat-option [value]="'ONCE'">Once</mat-option>
-                <mat-option [value]="'REPEAT'">Repeat with cooldown</mat-option>
+                <mat-option [value]="'REPEAT'">Repeat after reset</mat-option>
               </mat-select>
             </mat-form-field>
 
-            <mat-form-field appearance="outline" class="fh-year">
-              <mat-label>Cooldown min</mat-label>
-              <input matInput type="number" min="0" step="1" [(ngModel)]="financeAlertForm.cooldownMinutes" name="alertCooldown" />
-            </mat-form-field>
+            @if (financeAlertForm.repeatMode === 'REPEAT') {
+              <p class="muted finance-alert-repeat-hint">
+                Repeats only after price (or session %) falls below the threshold, then reaches it again.
+              </p>
+            }
 
             <label class="finance-alert-check">
               <input type="checkbox" [(ngModel)]="financeAlertForm.enabled" name="alertEnabled" />
@@ -822,6 +824,7 @@
                 <thead>
                   <tr>
                     <th scope="col">Symbol</th>
+                    <th scope="col">Name</th>
                     <th scope="col">Trigger</th>
                     <th scope="col">Threshold</th>
                     <th scope="col">Frequency</th>
@@ -836,6 +839,7 @@
                   @for (a of financeAlerts; track financeAlertTrack($index, a)) {
                     <tr>
                       <td><strong>{{ a.symbol }}</strong></td>
+                      <td>{{ a.companyName || '—' }}</td>
                       <td>{{ triggerLabel(a.triggerType) }}</td>
                       <td>
                         @if (a.triggerType === 'PRICE_AT_OR_ABOVE') {
@@ -844,7 +848,7 @@
                           {{ formatPct(a.thresholdValue) }}
                         }
                       </td>
-                      <td>{{ repeatLabel(a.repeatMode) }} · {{ a.cooldownMinutes }}m</td>
+                      <td>{{ repeatLabel(a.repeatMode, a.triggerArmed) }}</td>
                       <td>
                         {{ formatFinanceCell('AMOUNT', a.lastRegularMarketPrice) }}
                         <span class="muted">({{ formatPct(a.lastRegularMarketChangePercent) }})</span>

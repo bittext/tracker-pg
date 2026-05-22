@@ -16,11 +16,13 @@ final class FinanceAlertMapper {
         return new FinanceStockAlertDto(
                 a.getId(),
                 a.getSymbol(),
+                a.getCompanyName(),
                 a.getTriggerType(),
                 a.getThresholdValue(),
                 a.getRepeatMode(),
                 a.getCooldownMinutes(),
                 a.isEnabled(),
+                a.isTriggerArmed(),
                 a.getLastCheckedAt(),
                 a.getLastTriggeredAt(),
                 a.getLastRegularMarketPrice(),

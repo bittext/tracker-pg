@@ -44,6 +44,7 @@ public class YahooBatchQuoteService {
     private final Object refreshLock = new Object();
 
     private volatile Map<String, AlphaQuote> cache = Map.of();
+    private volatile Map<String, String> companyNames = Map.of();
     private volatile Instant lastRefreshAt = Instant.EPOCH;
 
     /**
@@ -73,9 +74,21 @@ public class YahooBatchQuoteService {
             if (q == null) {
                 continue;
             }
-            out.put(s, new YahooSimpleQuoteDto(s, s, q.price(), q.changePercent()));
+            out.put(s, new YahooSimpleQuoteDto(s, displayName(s), q.price(), q.changePercent()));
         }
         return out;
+    }
+
+    /**
+     * Fresh quotes for alert evaluation (bypasses the hourly cache TTL). Also resolves company names when missing.
+     */
+    public Map<String, YahooExtendedQuoteDto> fetchExtendedForAlerts(List<String> symbols) {
+        List<String> req = normalizeSymbols(symbols);
+        if (req.isEmpty()) {
+            return Map.of();
+        }
+        refreshQuotesForAlerts(req);
+        return fetchExtendedBySymbols(req);
     }
 
     /**
@@ -94,12 +107,13 @@ public class YahooBatchQuoteService {
             if (q == null) {
                 continue;
             }
+            String name = displayName(s);
             out.put(
                     s,
                     new YahooExtendedQuoteDto(
                             s,
-                            s,
-                            s,
+                            name,
+                            name,
                             q.price(),
                             q.changePercent(),
                             q.volume(),
@@ -112,6 +126,98 @@ public class YahooBatchQuoteService {
                             ""));
         }
         return out;
+    }
+
+    /** Resolve a human-readable company name for a symbol (cached; may return the symbol). */
+    public String lookupCompanyName(String symbol) {
+        String sym = text(symbol).toUpperCase(Locale.ROOT);
+        if (sym.isEmpty()) {
+            return "";
+        }
+        if (!props.alphaVantageEnabled()) {
+            return sym;
+        }
+        ensureCompanyNames(List.of(sym));
+        return displayName(sym);
+    }
+
+    private void refreshQuotesForAlerts(List<String> symbols) {
+        if (!props.alphaVantageEnabled()) {
+            return;
+        }
+        synchronized (refreshLock) {
+            Map<String, AlphaQuote> fresh = fetchAlphaBulkOneShot(symbols);
+            if (fresh.isEmpty()) {
+                return;
+            }
+            Map<String, AlphaQuote> merged = new HashMap<>(cache);
+            merged.putAll(fresh);
+            cache = Map.copyOf(merged);
+            ensureCompanyNames(symbols);
+            log.debug("Alert quote refresh symbols={} received={}", symbols.size(), fresh.size());
+        }
+    }
+
+    private void ensureCompanyNames(List<String> symbols) {
+        List<String> missing = symbols.stream()
+                .filter(s -> !companyNames.containsKey(s))
+                .toList();
+        if (missing.isEmpty()) {
+            return;
+        }
+        Map<String, String> merged = new HashMap<>(companyNames);
+        for (String symbol : missing) {
+            String name = fetchOverviewCompanyName(symbol);
+            if (name != null && !name.isBlank()) {
+                merged.put(symbol, name.trim());
+            }
+        }
+        if (!merged.equals(companyNames)) {
+            companyNames = Map.copyOf(merged);
+        }
+    }
+
+    private String displayName(String symbol) {
+        String name = companyNames.get(symbol);
+        if (name != null && !name.isBlank() && !name.equalsIgnoreCase(symbol)) {
+            return name;
+        }
+        return symbol;
+    }
+
+    private String fetchOverviewCompanyName(String symbol) {
+        String key = props.alphaVantageApiKey();
+        if (key == null || key.isBlank()) {
+            return null;
+        }
+        String url = props.alphaVantageBaseUrl()
+                + "?function=OVERVIEW&symbol="
+                + URLEncoder.encode(symbol, StandardCharsets.UTF_8)
+                + "&apikey="
+                + URLEncoder.encode(key, StandardCharsets.UTF_8);
+        try {
+            HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+                    .GET()
+                    .timeout(Duration.ofMillis(props.newsTimeoutMs()))
+                    .header("Accept", "application/json")
+                    .header("User-Agent", "tracker-server/1.0")
+                    .build();
+            HttpResponse<String> resp =
+                    httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
+                log.warn("Alpha Vantage overview HTTP {} for {}", resp.statusCode(), symbol);
+                return null;
+            }
+            JsonNode root = objectMapper.readTree(resp.body());
+            if (root.has("Note") || root.has("Error Message")) {
+                return null;
+            }
+            String name = text(root.path("Name").asText(null));
+            return name.isBlank() ? null : name;
+        } catch (Exception e) {
+            log.warn("Alpha Vantage overview failed for {}", symbol, e);
+            return null;
+        }
     }
 
     private void ensureFresh(List<String> requested) {
@@ -159,15 +265,10 @@ public class YahooBatchQuoteService {
             }
             Map<String, AlphaQuote> merged = new HashMap<>(cache);
             for (Map.Entry<String, AlphaQuote> e : fresh.entrySet()) {
-                AlphaQuote prev = merged.get(e.getKey());
-                AlphaQuote next = e.getValue();
-                if (prev != null && prev.price() != null && next.price() != null && prev.price() > 0) {
-                    double pct = ((next.price() - prev.price()) / prev.price()) * 100.0;
-                    next = new AlphaQuote(next.price(), pct, next.volume());
-                }
-                merged.put(e.getKey(), next);
+                merged.put(e.getKey(), e.getValue());
             }
             cache = Map.copyOf(merged);
+            ensureCompanyNames(normalized);
             lastRefreshAt = now;
             log.info(
                     "Alpha Vantage refresh reason={} requested={} received={}",

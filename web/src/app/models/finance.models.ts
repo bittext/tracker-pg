@@ -410,11 +410,13 @@ export type FinanceAlertDeliveryStatus = 'SENT' | 'SKIPPED' | 'FAILED';
 export interface FinanceStockAlertDto {
   id: number;
   symbol: string;
+  companyName: string | null;
   triggerType: FinanceStockAlertTriggerType;
   thresholdValue: number;
   repeatMode: FinanceStockAlertRepeatMode;
   cooldownMinutes: number;
   enabled: boolean;
+  triggerArmed: boolean;
   lastCheckedAt: string | null;
   lastTriggeredAt: string | null;
   lastRegularMarketPrice: number | null;

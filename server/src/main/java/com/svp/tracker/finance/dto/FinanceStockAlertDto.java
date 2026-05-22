@@ -8,11 +8,13 @@ import java.time.Instant;
 public record FinanceStockAlertDto(
         Long id,
         String symbol,
+        String companyName,
         FinanceStockAlertTriggerType triggerType,
         BigDecimal thresholdValue,
         FinanceStockAlertRepeatMode repeatMode,
         int cooldownMinutes,
         boolean enabled,
+        boolean triggerArmed,
         Instant lastCheckedAt,
         Instant lastTriggeredAt,
         BigDecimal lastRegularMarketPrice,

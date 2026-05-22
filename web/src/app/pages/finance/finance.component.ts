@@ -381,8 +381,11 @@ export class FinanceComponent implements OnInit {
     return t === 'SESSION_CHANGE_PERCENT_AT_OR_ABOVE' ? 'Session rise % at/above' : 'Price at/above';
   }
 
-  repeatLabel(r: FinanceStockAlertRepeatMode | null | undefined): string {
-    return r === 'REPEAT' ? 'Repeat with cooldown' : 'Once';
+  repeatLabel(r: FinanceStockAlertRepeatMode | null | undefined, armed = true): string {
+    if (r === 'REPEAT') {
+      return armed ? 'Repeat · armed' : 'Repeat · waiting for dip';
+    }
+    return 'Once';
   }
 
   loadRobinhoodFinanceData(): void {

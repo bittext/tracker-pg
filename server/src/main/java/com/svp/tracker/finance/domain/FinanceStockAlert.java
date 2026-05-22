@@ -33,6 +33,9 @@ public class FinanceStockAlert {
     @Column(nullable = false, length = 32)
     private String symbol;
 
+    @Column(name = "company_name", length = 256)
+    private String companyName;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 48)
     private FinanceStockAlertTriggerType triggerType;
@@ -49,6 +52,10 @@ public class FinanceStockAlert {
 
     @Column(nullable = false)
     private boolean enabled = true;
+
+    /** When false, a repeating alert waits for price/session to drop below threshold before firing again. */
+    @Column(name = "trigger_armed", nullable = false)
+    private boolean triggerArmed = true;
 
     private Instant lastCheckedAt;
 

@@ -27,6 +27,7 @@ public class FinanceStockAlertService {
     private final FinanceAlertProperties props;
     private final FinanceStockAlertRepository alertRepository;
     private final FinanceAlertEventRepository eventRepository;
+    private final YahooBatchQuoteService yahooBatchQuoteService;
 
     @Transactional(readOnly = true)
     public List<FinanceStockAlertDto> listCurrentUserAlerts() {
@@ -96,12 +97,25 @@ public class FinanceStockAlertService {
         if (cooldown < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cooldown minutes cannot be negative");
         }
+        String priorSymbol = alert.getSymbol();
         alert.setSymbol(symbol);
         alert.setTriggerType(trigger);
         alert.setThresholdValue(threshold);
         alert.setRepeatMode(repeat);
         alert.setCooldownMinutes(cooldown);
         alert.setEnabled(req.enabled() == null || req.enabled());
+        if (priorSymbol == null || priorSymbol.isBlank() || !priorSymbol.equals(symbol)) {
+            alert.setTriggerArmed(true);
+            String name = yahooBatchQuoteService.lookupCompanyName(symbol);
+            if (name != null && !name.isBlank() && !name.equalsIgnoreCase(symbol)) {
+                alert.setCompanyName(name);
+            }
+        } else if (alert.getCompanyName() == null || alert.getCompanyName().isBlank()) {
+            String name = yahooBatchQuoteService.lookupCompanyName(symbol);
+            if (name != null && !name.isBlank() && !name.equalsIgnoreCase(symbol)) {
+                alert.setCompanyName(name);
+            }
+        }
     }
 
     private int cap(Integer limit) {
