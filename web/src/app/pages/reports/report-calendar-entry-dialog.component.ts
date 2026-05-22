@@ -1,5 +1,15 @@
+import { Overlay, OverlayRef } from '@angular/cdk/overlay';
+import { TemplatePortal } from '@angular/cdk/portal';
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit, inject } from '@angular/core';
+import {
+  Component,
+  OnDestroy,
+  OnInit,
+  TemplateRef,
+  ViewChild,
+  ViewContainerRef,
+  inject,
+} from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -7,6 +17,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import {
   REPORT_CALENDAR_TYPE_OPTIONS,
   ReportCalendarAttachmentDto,
@@ -39,10 +50,16 @@ export interface ReportCalendarEntryDialogData {
   styleUrl: './report-calendar-entry-dialog.component.scss',
 })
 export class ReportCalendarEntryDialogComponent implements OnInit, OnDestroy {
+  @ViewChild('rcPreviewTpl') rcPreviewTpl!: TemplateRef<unknown>;
+
   readonly dialogData = inject<ReportCalendarEntryDialogData>(MAT_DIALOG_DATA);
   private readonly ref = inject(MatDialogRef<ReportCalendarEntryDialogComponent>);
   private readonly api = inject(ReportCalendarApiService);
   private readonly fb = inject(FormBuilder);
+  private readonly overlay = inject(Overlay);
+  private readonly vcr = inject(ViewContainerRef);
+  private readonly dom = inject(DomSanitizer);
+  private previewOverlayRef: OverlayRef | null = null;
 
   readonly typeOptions = REPORT_CALENDAR_TYPE_OPTIONS;
   saving = false;
@@ -57,6 +74,7 @@ export class ReportCalendarEntryDialogComponent implements OnInit, OnDestroy {
   previewError: string | null = null;
   previewAtt: ReportCalendarAttachmentDto | null = null;
   previewBlobUrl: string | null = null;
+  previewSafePdfUrl: SafeResourceUrl | null = null;
   /** True when previewBlobUrl was created for the overlay (not reused from thumbnail cache). */
   private previewOwnedUrl = false;
 
@@ -94,6 +112,8 @@ export class ReportCalendarEntryDialogComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.closePreview();
+    this.previewOverlayRef?.dispose();
+    this.previewOverlayRef = null;
     for (const url of this.imagePreviewUrls.values()) {
       URL.revokeObjectURL(url);
     }
@@ -177,13 +197,15 @@ export class ReportCalendarEntryDialogComponent implements OnInit, OnDestroy {
     step();
   }
 
-  /** Inline full-screen preview — works on iOS WebKit browsers (Safari, Orion) without nested dialogs. */
+  /** Full-screen preview on document.body (CDK overlay) — avoids iOS WebKit clipping inside mat-dialog. */
   openAttachment(att: ReportCalendarAttachmentDto): void {
     this.closePreview();
     this.previewAtt = att;
     this.previewOpen = true;
     this.previewError = null;
     this.previewLoading = false;
+    this.previewSafePdfUrl = null;
+    this.attachPreviewOverlay();
 
     const cached = this.imagePreviewUrls.get(att.id);
     if (cached && this.isImageAttachment(att)) {
@@ -196,8 +218,11 @@ export class ReportCalendarEntryDialogComponent implements OnInit, OnDestroy {
     this.api.getAttachmentBlob(att.id, 'inline').subscribe({
       next: (blob) => {
         this.previewLoading = false;
-        this.previewBlobUrl = URL.createObjectURL(blob);
+        this.previewBlobUrl = this.createBlobUrl(blob, att);
         this.previewOwnedUrl = true;
+        if (this.isPdfAttachment(att)) {
+          this.previewSafePdfUrl = this.dom.bypassSecurityTrustResourceUrl(this.previewBlobUrl);
+        }
       },
       error: (err) => {
         this.previewLoading = false;
@@ -206,13 +231,23 @@ export class ReportCalendarEntryDialogComponent implements OnInit, OnDestroy {
     });
   }
 
+  /** Direct tap handler — iOS blocks blob links with target=_blank after async fetch. */
+  openPreviewBlob(): void {
+    if (!this.previewBlobUrl) {
+      return;
+    }
+    window.location.assign(this.previewBlobUrl);
+  }
+
   closePreview(): void {
+    this.detachPreviewOverlay();
     if (this.previewOwnedUrl && this.previewBlobUrl) {
       URL.revokeObjectURL(this.previewBlobUrl);
     }
     this.previewOpen = false;
     this.previewAtt = null;
     this.previewBlobUrl = null;
+    this.previewSafePdfUrl = null;
     this.previewOwnedUrl = false;
     this.previewLoading = false;
     this.previewError = null;
@@ -271,9 +306,41 @@ export class ReportCalendarEntryDialogComponent implements OnInit, OnDestroy {
     }
     this.api.getAttachmentBlob(attachmentId, 'inline').subscribe({
       next: (blob) => {
-        this.imagePreviewUrls.set(attachmentId, URL.createObjectURL(blob));
+        const att = this.attachments.find((a) => a.id === attachmentId);
+        const url = att ? this.createBlobUrl(blob, att) : URL.createObjectURL(blob);
+        this.imagePreviewUrls.set(attachmentId, url);
       },
     });
+  }
+
+  private attachPreviewOverlay(): void {
+    if (!this.rcPreviewTpl || this.previewOverlayRef?.hasAttached()) {
+      return;
+    }
+    if (!this.previewOverlayRef) {
+      this.previewOverlayRef = this.overlay.create({
+        hasBackdrop: false,
+        scrollStrategy: this.overlay.scrollStrategies.block(),
+        positionStrategy: this.overlay.position().global().left('0').top('0'),
+        width: '100%',
+        height: '100%',
+        panelClass: 'rc-preview-overlay-host',
+      });
+    }
+    this.previewOverlayRef.attach(new TemplatePortal(this.rcPreviewTpl, this.vcr));
+  }
+
+  private detachPreviewOverlay(): void {
+    this.previewOverlayRef?.detach();
+  }
+
+  private createBlobUrl(blob: Blob, att: ReportCalendarAttachmentDto): string {
+    const type =
+      att.contentType?.split(';')[0]?.trim().toLowerCase() ||
+      blob.type ||
+      'application/octet-stream';
+    const body = blob.type === type ? blob : new Blob([blob], { type });
+    return URL.createObjectURL(body);
   }
 
   private revokePreview(attachmentId: number): void {

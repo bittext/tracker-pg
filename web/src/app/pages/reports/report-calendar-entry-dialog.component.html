@@ -67,7 +67,7 @@
   <button mat-flat-button color="primary" type="button" (click)="save()" [disabled]="saving || uploading">Save</button>
 </mat-dialog-actions>
 
-@if (previewOpen) {
+<ng-template #rcPreviewTpl>
   <div class="rc-preview-overlay" role="dialog" aria-modal="true" [attr.aria-label]="previewAtt?.originalFilename ?? 'Attachment preview'">
     <header class="rc-preview-toolbar">
       <span class="rc-preview-name">{{ previewAtt?.originalFilename }}</span>
@@ -84,27 +84,19 @@
         @if (isImageAttachment(previewAtt)) {
           <img [src]="previewBlobUrl" [alt]="previewAtt.originalFilename" class="rc-preview-image" />
         } @else {
-          <p class="rc-preview-status muted">Tap below to open this file on your phone.</p>
-          <a
-            class="rc-preview-open-btn"
-            [href]="previewBlobUrl"
-            [attr.download]="previewAtt.originalFilename"
-            target="_blank"
-            rel="noopener noreferrer"
-            >Open {{ previewAtt.originalFilename }}</a
-          >
-          @if (isPdfAttachment(previewAtt)) {
-            <object
+          <p class="rc-preview-status muted">Tap Open to view this file on your phone.</p>
+          <button type="button" class="rc-preview-open-btn" (click)="openPreviewBlob()">
+            Open {{ previewAtt.originalFilename }}
+          </button>
+          @if (isPdfAttachment(previewAtt) && previewSafePdfUrl) {
+            <iframe
               class="rc-preview-pdf"
-              [data]="previewBlobUrl"
-              [attr.title]="previewAtt.originalFilename"
-              type="application/pdf"
-            >
-              <p class="rc-preview-status muted">PDF preview unavailable — use Open above.</p>
-            </object>
+              [src]="previewSafePdfUrl"
+              [title]="previewAtt.originalFilename"
+            ></iframe>
           }
         }
       }
     </div>
   </div>
-}
+</ng-template>

@@ -506,6 +506,12 @@ app-management .rep-cal-table-wrap table.mat-mdc-table {
   }
 }
 
+/* Calendar attachment preview overlay — above mat-dialog (iOS WebKit / Orion). */
+.cdk-overlay-container .rc-preview-overlay-host {
+  z-index: 2000;
+  max-width: 100vw;
+}
+
 /* Management → Write-up tab */
 app-management .mgmt-writeup-panel {
   max-width: min(100%, 96rem);

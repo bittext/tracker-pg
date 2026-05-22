@@ -159,7 +159,7 @@
 
 .rc-preview-image {
   max-width: 100%;
-  max-height: calc(100vh - 5rem);
+  max-height: calc(100dvh - 5rem);
   object-fit: contain;
   border-radius: 8px;
 }
@@ -167,6 +167,7 @@
 .rc-preview-open-btn {
   display: inline-block;
   padding: 0.75rem 1.25rem;
+  border: 0;
   border-radius: 8px;
   background: var(--app-accent, #2563eb);
   color: #fff;
@@ -174,12 +175,14 @@
   font-size: 1rem;
   text-decoration: none;
   text-align: center;
+  cursor: pointer;
+  font-family: inherit;
 }
 
 .rc-preview-pdf {
   width: 100%;
   min-height: 50vh;
-  max-height: calc(100vh - 10rem);
+  max-height: calc(100dvh - 10rem);
   border: 0;
   border-radius: 8px;
   background: #fff;
