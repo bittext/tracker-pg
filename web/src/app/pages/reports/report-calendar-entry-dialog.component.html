@@ -1,4 +1,29 @@
 <h2 mat-dialog-title>{{ dialogTitle }}</h2>
+@if (canBrowse) {
+  <div class="rc-browse-bar" role="navigation" aria-label="Browse entries">
+    <button
+      mat-stroked-button
+      type="button"
+      (click)="browsePrevious()"
+      [disabled]="browseAtStart || saving || uploading"
+      aria-label="Previous entry"
+    >
+      <mat-icon>chevron_left</mat-icon>
+      Previous
+    </button>
+    <span class="rc-browse-pos muted">{{ browseIndex + 1 }} / {{ browseEntries.length }}</span>
+    <button
+      mat-stroked-button
+      type="button"
+      (click)="browseNext()"
+      [disabled]="browseAtEnd || saving || uploading"
+      aria-label="Next entry"
+    >
+      Next
+      <mat-icon>chevron_right</mat-icon>
+    </button>
+  </div>
+}
 <mat-dialog-content>
   @if (err) {
     <p class="rc-err" role="alert">{{ err }}</p>
@@ -64,7 +89,11 @@
   }
 </mat-dialog-content>
 <mat-dialog-actions align="end">
-  <button mat-button type="button" (click)="cancel()">Cancel</button>
+  @if (canBrowse) {
+    <button mat-button type="button" (click)="closeBrowse()">Close</button>
+  } @else {
+    <button mat-button type="button" (click)="cancel()">Cancel</button>
+  }
   @if (savedEntryId != null && !dialogData.entry) {
     <button mat-flat-button color="primary" type="button" (click)="done()">Done</button>
   }

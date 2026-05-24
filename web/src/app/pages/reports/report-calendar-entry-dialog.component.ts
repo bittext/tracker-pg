@@ -32,6 +32,9 @@ export interface ReportCalendarEntryDialogData {
   defaultDate: string;
   defaultType: ReportCalendarType;
   typeOptions?: ReadonlyArray<{ value: ReportCalendarType; label: string }>;
+  /** When length > 1, prev/next browse through these entries in edit mode. */
+  browseEntries?: ReportCalendarEntryDto[];
+  browseIndex?: number;
 }
 
 @Component({
@@ -64,9 +67,20 @@ export class ReportCalendarEntryDialogComponent implements OnInit, OnDestroy {
 
   readonly typeOptions =
     this.dialogData.typeOptions ?? reportCalendarTypeOptionsFromProvisioned([]);
+  /** Mutable copy so saves update the in-dialog browse list. */
+  browseEntries: ReportCalendarEntryDto[] = [
+    ...(this.dialogData.browseEntries?.length
+      ? this.dialogData.browseEntries
+      : this.dialogData.entry
+        ? [this.dialogData.entry]
+        : []),
+  ];
+  browseIndex = this.dialogData.browseIndex ?? 0;
   saving = false;
   uploading = false;
   err: string | null = null;
+  /** True when at least one save succeeded while browsing. */
+  private browseSaved = false;
   savedEntryId: number | null = null;
   attachments: ReportCalendarAttachmentDto[] = [];
   readonly imagePreviewUrls = new Map<number, string>();
@@ -89,7 +103,23 @@ export class ReportCalendarEntryDialogComponent implements OnInit, OnDestroy {
   });
 
   get dialogTitle() {
-    return this.dialogData.entry || this.savedEntryId != null ? 'Edit entry' : 'Add entry';
+    const base = this.dialogData.entry || this.savedEntryId != null ? 'Edit entry' : 'Add entry';
+    if (this.canBrowse) {
+      return `${base} (${this.browseIndex + 1} of ${this.browseEntries.length})`;
+    }
+    return base;
+  }
+
+  get canBrowse(): boolean {
+    return this.browseEntries.length > 1;
+  }
+
+  get browseAtStart(): boolean {
+    return this.browseIndex <= 0;
+  }
+
+  get browseAtEnd(): boolean {
+    return this.browseIndex >= this.browseEntries.length - 1;
   }
 
   get canManageAttachments(): boolean {
@@ -97,18 +127,9 @@ export class ReportCalendarEntryDialogComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    const e = this.dialogData.entry;
+    const e = this.browseEntries[this.browseIndex] ?? this.dialogData.entry;
     if (e) {
-      this.savedEntryId = e.id;
-      this.attachments = [...(e.attachments ?? [])];
-      this.entryForm.patchValue({
-        entryDate: e.entryDate,
-        calendarType: e.calendarType,
-        title: e.title ?? '',
-        body: e.body ?? '',
-        details: e.details ?? '',
-      });
-      this.loadImagePreviews();
+      this.loadEntryIntoForm(e);
     } else {
       this.entryForm.patchValue({ entryDate: this.dialogData.defaultDate, calendarType: this.dialogData.defaultType });
     }
@@ -145,7 +166,11 @@ export class ReportCalendarEntryDialogComponent implements OnInit, OnDestroy {
         this.saving = false;
         this.savedEntryId = entry.id;
         this.attachments = [...(entry.attachments ?? [])];
-        if (this.dialogData.entry) {
+        if (this.canBrowse) {
+          this.browseEntries[this.browseIndex] = entry;
+          this.entryForm.markAsPristine();
+          this.browseSaved = true;
+        } else if (this.dialogData.entry) {
           this.ref.close(true);
         }
       },
@@ -161,7 +186,57 @@ export class ReportCalendarEntryDialogComponent implements OnInit, OnDestroy {
   }
 
   cancel(): void {
+    if (this.canBrowse) {
+      this.closeBrowse();
+      return;
+    }
     this.ref.close(this.savedEntryId != null && !this.dialogData.entry);
+  }
+
+  closeBrowse(): void {
+    this.ref.close(this.browseSaved);
+  }
+
+  browsePrevious(): void {
+    this.navigateBrowse(-1);
+  }
+
+  browseNext(): void {
+    this.navigateBrowse(1);
+  }
+
+  private navigateBrowse(delta: number): void {
+    if (!this.canBrowse || this.saving || this.uploading) {
+      return;
+    }
+    const next = this.browseIndex + delta;
+    if (next < 0 || next >= this.browseEntries.length) {
+      return;
+    }
+    if (this.entryForm.dirty) {
+      if (typeof window !== 'undefined' && !window.confirm('Discard unsaved changes and open another entry?')) {
+        return;
+      }
+    }
+    this.browseIndex = next;
+    this.loadEntryIntoForm(this.browseEntries[next]);
+  }
+
+  private loadEntryIntoForm(e: ReportCalendarEntryDto): void {
+    this.closePreview();
+    this.err = null;
+    this.clearImagePreviews();
+    this.savedEntryId = e.id;
+    this.attachments = [...(e.attachments ?? [])];
+    this.entryForm.reset({
+      entryDate: e.entryDate,
+      calendarType: e.calendarType,
+      title: e.title ?? '',
+      body: e.body ?? '',
+      details: e.details ?? '',
+    });
+    this.entryForm.markAsPristine();
+    this.loadImagePreviews();
   }
 
   onFilesSelected(event: Event): void {
@@ -303,6 +378,13 @@ export class ReportCalendarEntryDialogComponent implements OnInit, OnDestroy {
         this.loadImagePreview(att.id);
       }
     }
+  }
+
+  private clearImagePreviews(): void {
+    for (const url of this.imagePreviewUrls.values()) {
+      URL.revokeObjectURL(url);
+    }
+    this.imagePreviewUrls.clear();
   }
 
   private loadImagePreview(attachmentId: number): void {

@@ -347,7 +347,8 @@
             Choose <strong>All types</strong> or one calendar (birthday, work, personal, trades, banking, payments,
             opinion & strategies). Attach photos or files to any entry (edit after save). In <strong>Year</strong> view, click a month to filter the list to that month
             (click again to clear). In <strong>Month</strong> view, click a day to filter to that date (click again to
-            clear). Use <strong>Search</strong> to filter by title, information, or details (details text is not shown in the table). Use the arrows to change period.
+            clear). Use <strong>Search</strong> to filter by title, information, or details. Select entries to browse
+            them with Previous/Next in edit mode, or edit any row to step through the list. Use the arrows to change period.
           </p>
           <div class="rep-cal-grid">
             <section class="rep-cal-col rep-cal-col--nav" aria-label="Calendar navigator">
@@ -453,6 +454,16 @@
                 @if (repCalHasTableNarrowing) {
                   <button mat-button type="button" (click)="clearRepCalTableFilters()">Clear list filters</button>
                 }
+                @if (repCalSelectionCount) {
+                  <button mat-button type="button" (click)="clearRepCalSelection()">
+                    Clear selection ({{ repCalSelectionCount }})
+                  </button>
+                }
+                @if (repCalBrowseList.length > 1) {
+                  <button mat-stroked-button type="button" (click)="openRepCalBrowseDialog()">
+                    Browse {{ repCalSelectionCount ? repCalSelectionCount : repCalBrowseList.length }} entries
+                  </button>
+                }
                 <button mat-stroked-button color="primary" type="button" (click)="openRepCalAddDialog()">
                   Add entry
                 </button>
@@ -480,6 +491,24 @@
               </mat-form-field>
               <div class="table-wrap rep-cal-table-wrap">
                 <table mat-table [dataSource]="repCalDisplayedEntries" class="full-width">
+                  <ng-container matColumnDef="cSel">
+                    <th mat-header-cell *matHeaderCellDef class="rep-cal-sel-header">
+                      <mat-checkbox
+                        [checked]="repCalAllDisplayedSelected"
+                        [indeterminate]="repCalSomeDisplayedSelected"
+                        (change)="toggleRepCalSelectAllDisplayed($event.checked)"
+                        aria-label="Select all displayed entries"
+                      />
+                    </th>
+                    <td mat-cell *matCellDef="let row" class="rep-cal-sel-cell">
+                      <mat-checkbox
+                        [checked]="isRepCalSelected(row)"
+                        (change)="toggleRepCalSelected(row.id, $event.checked)"
+                        (click)="$event.stopPropagation()"
+                        [attr.aria-label]="'Select entry ' + (row.title || row.entryDate)"
+                      />
+                    </td>
+                  </ng-container>
                   <ng-container matColumnDef="cDate">
                     <th mat-header-cell *matHeaderCellDef>Date</th>
                     <td mat-cell *matCellDef="let row">{{ formatRepCalRowDate(row.entryDate) }}</td>
@@ -534,7 +563,11 @@
                     </td>
                   </ng-container>
                   <tr mat-header-row *matHeaderRowDef="repCalTableColumnsForList"></tr>
-                  <tr mat-row *matRowDef="let row; columns: repCalTableColumnsForList"></tr>
+                  <tr
+                    mat-row
+                    *matRowDef="let row; columns: repCalTableColumnsForList"
+                    [class.rep-cal-row--selected]="isRepCalSelected(row)"
+                  ></tr>
                 </table>
                 @if (!repCalDisplayedEntries.length) {
                   <p class="muted empty-hint">No entries match the current filters.</p>

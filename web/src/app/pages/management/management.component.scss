@@ -540,6 +540,17 @@
   color: #334155;
 }
 
+.rep-cal-sel-header,
+.rep-cal-sel-cell {
+  width: 2.75rem;
+  max-width: 2.75rem;
+  padding-right: 0.25rem !important;
+}
+
+.rep-cal-row--selected {
+  background: rgba(37, 99, 235, 0.06);
+}
+
 .rep-cal-attach-cell {
   white-space: nowrap;
   font-size: 0.82rem;

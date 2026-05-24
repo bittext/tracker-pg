@@ -168,6 +168,8 @@ export class ManagementComponent implements OnInit {
   repCalFocusedDayIso: string | null = null;
   /** Narrows the entries table by title, information, or details (case-insensitive). */
   repCalSearchFilter = '';
+  /** Selected entry ids for bulk browse in edit mode. */
+  repCalSelectedIds = new Set<number>();
   repCalCalendarTypes: ManagementCalendarType[] = [];
   readonly yearMonthIndex = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
 
@@ -1003,9 +1005,68 @@ export class ManagementComponent implements OnInit {
 
   get repCalTableColumnsForList(): string[] {
     if (this.repCalTypeFilter === 'ALL') {
-      return ['cDate', 'cType', 'cTitle', 'cInfo', 'cDetails', 'cAttach', 'cAct'];
+      return ['cSel', 'cDate', 'cType', 'cTitle', 'cInfo', 'cDetails', 'cAttach', 'cAct'];
     }
-    return ['cDate', 'cTitle', 'cInfo', 'cDetails', 'cAttach', 'cAct'];
+    return ['cSel', 'cDate', 'cTitle', 'cInfo', 'cDetails', 'cAttach', 'cAct'];
+  }
+
+  /** Entries to browse in edit mode: selected rows if any, else all displayed. */
+  get repCalBrowseList(): ReportCalendarEntryDto[] {
+    const displayed = this.repCalDisplayedEntries;
+    const selected = displayed.filter((e) => this.repCalSelectedIds.has(e.id));
+    return selected.length > 0 ? selected : displayed;
+  }
+
+  get repCalSelectionCount(): number {
+    return this.repCalSelectedIds.size;
+  }
+
+  get repCalAllDisplayedSelected(): boolean {
+    const rows = this.repCalDisplayedEntries;
+    return rows.length > 0 && rows.every((r) => this.repCalSelectedIds.has(r.id));
+  }
+
+  get repCalSomeDisplayedSelected(): boolean {
+    const rows = this.repCalDisplayedEntries;
+    return rows.some((r) => this.repCalSelectedIds.has(r.id)) && !this.repCalAllDisplayedSelected;
+  }
+
+  isRepCalSelected(row: ReportCalendarEntryDto): boolean {
+    return this.repCalSelectedIds.has(row.id);
+  }
+
+  toggleRepCalSelected(id: number, checked: boolean): void {
+    const next = new Set(this.repCalSelectedIds);
+    if (checked) {
+      next.add(id);
+    } else {
+      next.delete(id);
+    }
+    this.repCalSelectedIds = next;
+  }
+
+  toggleRepCalSelectAllDisplayed(checked: boolean): void {
+    const next = new Set(this.repCalSelectedIds);
+    for (const row of this.repCalDisplayedEntries) {
+      if (checked) {
+        next.add(row.id);
+      } else {
+        next.delete(row.id);
+      }
+    }
+    this.repCalSelectedIds = next;
+  }
+
+  clearRepCalSelection(): void {
+    this.repCalSelectedIds = new Set();
+  }
+
+  openRepCalBrowseDialog(): void {
+    const browseEntries = this.repCalBrowseList;
+    if (!browseEntries.length) {
+      return;
+    }
+    this.openRepCalEditDialog(browseEntries[0], browseEntries, 0);
   }
 
   repCalAttachmentSummary(row: ReportCalendarEntryDto): string {
@@ -1148,12 +1209,25 @@ export class ManagementComponent implements OnInit {
       });
   }
 
-  openRepCalEditDialog(row: ReportCalendarEntryDto): void {
+  openRepCalEditDialog(
+    row: ReportCalendarEntryDto,
+    browseEntries?: ReportCalendarEntryDto[],
+    browseIndex?: number,
+  ): void {
+    const list = browseEntries ?? this.repCalBrowseList;
+    const index =
+      browseIndex ??
+      Math.max(
+        0,
+        list.findIndex((e) => e.id === row.id),
+      );
     const d: ReportCalendarEntryDialogData = {
       entry: row,
       defaultDate: row.entryDate,
       defaultType: row.calendarType,
       typeOptions: this.repCalTypeOptionsForDialog(),
+      browseEntries: list,
+      browseIndex: index,
     };
     this.dialog
       .open(ReportCalendarEntryDialogComponent, {
