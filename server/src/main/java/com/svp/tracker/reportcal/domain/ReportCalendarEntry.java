@@ -2,8 +2,6 @@ package com.svp.tracker.reportcal.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -36,15 +34,17 @@ public class ReportCalendarEntry {
     @Column(name = "entry_date", nullable = false)
     private LocalDate entryDate;
 
-    @Enumerated(EnumType.STRING)
     @Column(name = "calendar_type", nullable = false, length = 32)
-    private ReportCalendarType calendarType = ReportCalendarType.PERSONAL;
+    private String calendarType = "PERSONAL";
 
     @Column(length = 200)
     private String title;
 
     @Column
     private String body;
+
+    @Column
+    private String details;
 
     @OneToMany(mappedBy = "entry")
     private List<ReportCalendarAttachment> attachments = new ArrayList<>();

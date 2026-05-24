@@ -1,6 +1,5 @@
 package com.svp.tracker.reportcal.controller;
 
-import com.svp.tracker.reportcal.domain.ReportCalendarType;
 import com.svp.tracker.reportcal.dto.ReportCalendarAttachmentDto;
 import com.svp.tracker.reportcal.dto.ReportCalendarEntryDto;
 import com.svp.tracker.reportcal.dto.ReportCalendarEntryWriteDto;
@@ -38,7 +37,7 @@ public class ReportCalendarController {
     public List<ReportCalendarEntryDto> list(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-            @RequestParam(required = false) ReportCalendarType calendarType) {
+            @RequestParam(required = false) String calendarType) {
         return service.listInRange(from, to, calendarType);
     }
 

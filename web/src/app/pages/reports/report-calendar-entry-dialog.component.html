@@ -22,7 +22,11 @@
     </mat-form-field>
     <mat-form-field appearance="outline" class="rc-field rc-stretch">
       <mat-label>Information</mat-label>
-      <textarea matInput formControlName="body" name="rcBody" rows="5" placeholder="Notes, plans, or details for this date"></textarea>
+      <textarea matInput formControlName="body" name="rcBody" rows="4" placeholder="Short summary shown in the entry list"></textarea>
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="rc-field rc-stretch">
+      <mat-label>Details</mat-label>
+      <textarea matInput formControlName="details" name="rcDetails" rows="5" placeholder="Optional — only in add/edit, not shown in the list"></textarea>
     </mat-form-field>
   </form>
 

@@ -22,6 +22,7 @@ import {
   ManagementAccountWriteBody,
   ManagementMonthNoteCalendarDto,
   ManagementMonthNoteDto,
+  ManagementCalendarType,
   ManagementWriteupAttachmentDto,
   ManagementWriteupDto,
   ManagementTaskCategory,
@@ -30,7 +31,8 @@ import {
   TaskMonthCalendarDto,
 } from '../../models/management.models';
 import {
-  REPORT_CALENDAR_FILTER_OPTIONS,
+  reportCalendarFilterOptions,
+  reportCalendarTypeOptionsFromProvisioned,
   ReportCalendarEntryDto,
   ReportCalendarType,
   ReportCalendarTypeFilter,
@@ -164,11 +166,18 @@ export class ManagementComponent implements OnInit {
   repCalFocusedMonthKey: string | null = null;
   /** yyyy-MM-dd when month view: list filtered to that day (toggle same day to clear). */
   repCalFocusedDayIso: string | null = null;
-  /** Narrows the entries table to titles containing this text (case-insensitive). */
-  repCalTitleFilter = '';
-  readonly repCalFilterOptions = REPORT_CALENDAR_FILTER_OPTIONS;
+  /** Narrows the entries table by title, information, or details (case-insensitive). */
+  repCalSearchFilter = '';
+  repCalCalendarTypes: ManagementCalendarType[] = [];
   readonly yearMonthIndex = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
-  readonly reportCalendarTypeLabel = reportCalendarTypeLabel;
+
+  get repCalFilterOptions() {
+    return reportCalendarFilterOptions(this.repCalCalendarTypes);
+  }
+
+  repCalTypeLabel(t: ReportCalendarType): string {
+    return reportCalendarTypeLabel(t, this.repCalCalendarTypes);
+  }
 
   accountEntryDraft = {
     itemName: '',
@@ -247,8 +256,40 @@ export class ManagementComponent implements OnInit {
     this.calendarMonth = Number(t.slice(5, 7));
     this.resetForm();
     this.reloadRefsAndCalendar();
+    this.loadRepCalCalendarTypes();
     this.loadReportCalendar();
     this.loadAccountsFromServer();
+  }
+
+  private loadRepCalCalendarTypes(): void {
+    this.api.listCalendarTypes().subscribe({
+      next: (rows: ManagementCalendarType[]) => {
+        this.repCalCalendarTypes = [...rows].sort((a, b) => {
+          const si = (a.sortIndex ?? 0) - (b.sortIndex ?? 0);
+          if (si !== 0) {
+            return si;
+          }
+          return (a.code || '').localeCompare(b.code || '', undefined, { sensitivity: 'base' });
+        });
+      },
+      error: (e) => this.err('Could not load calendar types', e),
+    });
+  }
+
+  private repCalDefaultType(): ReportCalendarType {
+    const types = this.repCalCalendarTypes;
+    if (this.repCalTypeFilter !== 'ALL') {
+      return this.repCalTypeFilter;
+    }
+    const personal = types.find((t) => t.code === 'PERSONAL');
+    if (personal) {
+      return personal.code;
+    }
+    return types[0]?.code ?? 'PERSONAL';
+  }
+
+  private repCalTypeOptionsForDialog(): ReadonlyArray<{ value: ReportCalendarType; label: string }> {
+    return reportCalendarTypeOptionsFromProvisioned(this.repCalCalendarTypes);
   }
 
   get filteredAccountEntries(): AccountEntry[] {
@@ -854,11 +895,11 @@ export class ManagementComponent implements OnInit {
   /** Clears day/month list filters and the title text filter (toolbar “Clear” action). */
   clearRepCalTableFilters(): void {
     this.clearRepCalListFilters();
-    this.repCalTitleFilter = '';
+    this.repCalSearchFilter = '';
   }
 
   get repCalHasTableNarrowing(): boolean {
-    return !!(this.repCalFocusedDayIso || this.repCalFocusedMonthKey || this.repCalTitleFilter.trim());
+    return !!(this.repCalFocusedDayIso || this.repCalFocusedMonthKey || this.repCalSearchFilter.trim());
   }
 
   repCalStep(delta: number): void {
@@ -929,11 +970,23 @@ export class ManagementComponent implements OnInit {
     } else if (this.repCalView === 'year' && this.repCalFocusedMonthKey) {
       rows = rows.filter((e) => e.entryDate.slice(0, 7) === this.repCalFocusedMonthKey);
     }
-    const q = this.repCalTitleFilter.trim().toLowerCase();
+    const q = this.repCalSearchFilter.trim().toLowerCase();
     if (q) {
-      rows = rows.filter((e) => (e.title ?? '').toLowerCase().includes(q));
+      rows = rows.filter((e) => this.repCalEntryMatchesSearch(e, q));
     }
     return rows;
+  }
+
+  private repCalEntryMatchesSearch(e: ReportCalendarEntryDto, q: string): boolean {
+    return (
+      (e.title ?? '').toLowerCase().includes(q) ||
+      (e.body ?? '').toLowerCase().includes(q) ||
+      (e.details ?? '').toLowerCase().includes(q)
+    );
+  }
+
+  repCalHasDetails(row: ReportCalendarEntryDto): boolean {
+    return !!(row.details ?? '').trim();
   }
 
   get repCalEntriesHeading(): string {
@@ -950,9 +1003,9 @@ export class ManagementComponent implements OnInit {
 
   get repCalTableColumnsForList(): string[] {
     if (this.repCalTypeFilter === 'ALL') {
-      return ['cDate', 'cType', 'cTitle', 'cInfo', 'cAttach', 'cAct'];
+      return ['cDate', 'cType', 'cTitle', 'cInfo', 'cDetails', 'cAttach', 'cAct'];
     }
-    return ['cDate', 'cTitle', 'cInfo', 'cAttach', 'cAct'];
+    return ['cDate', 'cTitle', 'cInfo', 'cDetails', 'cAttach', 'cAct'];
   }
 
   repCalAttachmentSummary(row: ReportCalendarEntryDto): string {
@@ -1079,7 +1132,8 @@ export class ManagementComponent implements OnInit {
     const d: ReportCalendarEntryDialogData = {
       entry: null,
       defaultDate: this.repCalFocusedDayIso ?? this.repCalAnchorIso,
-      defaultType: this.repCalTypeFilter === 'ALL' ? 'PERSONAL' : this.repCalTypeFilter,
+      defaultType: this.repCalDefaultType(),
+      typeOptions: this.repCalTypeOptionsForDialog(),
     };
     this.dialog
       .open(ReportCalendarEntryDialogComponent, {
@@ -1099,6 +1153,7 @@ export class ManagementComponent implements OnInit {
       entry: row,
       defaultDate: row.entryDate,
       defaultType: row.calendarType,
+      typeOptions: this.repCalTypeOptionsForDialog(),
     };
     this.dialog
       .open(ReportCalendarEntryDialogComponent, {

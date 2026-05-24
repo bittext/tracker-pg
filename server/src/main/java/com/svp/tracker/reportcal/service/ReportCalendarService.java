@@ -4,9 +4,9 @@ import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.JournalProperties;
 import com.svp.tracker.fitness.exception.NotFoundException;
 import com.svp.tracker.journal.service.JournalBlobStore;
+import com.svp.tracker.management.service.ManagementCalendarTypeService;
 import com.svp.tracker.reportcal.domain.ReportCalendarAttachment;
 import com.svp.tracker.reportcal.domain.ReportCalendarEntry;
-import com.svp.tracker.reportcal.domain.ReportCalendarType;
 import com.svp.tracker.reportcal.dto.ReportCalendarAttachmentDto;
 import com.svp.tracker.reportcal.dto.ReportCalendarEntryDto;
 import com.svp.tracker.reportcal.dto.ReportCalendarEntryWriteDto;
@@ -37,9 +37,10 @@ public class ReportCalendarService {
     private final JournalBlobStore blobStore;
     private final JournalProperties journalProperties;
     private final CurrentUserService currentUser;
+    private final ManagementCalendarTypeService calendarTypeService;
 
     @Transactional(readOnly = true)
-    public List<ReportCalendarEntryDto> listInRange(LocalDate from, LocalDate to, @Nullable ReportCalendarType type) {
+    public List<ReportCalendarEntryDto> listInRange(LocalDate from, LocalDate to, @Nullable String type) {
         long uid = currentUser.requireUserId();
         if (to.isBefore(from)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "to before from");
@@ -57,15 +58,17 @@ public class ReportCalendarService {
         long uid = currentUser.requireUserId();
         String title = trimToNull(body.getTitle());
         String text = trimToNull(body.getBody());
-        if (title == null && text == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "title or information is required");
+        String details = trimToNull(body.getDetails());
+        if (title == null && text == null && details == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "title, information, or details is required");
         }
         ReportCalendarEntry e = new ReportCalendarEntry();
         e.setOwnerUserId(uid);
         e.setEntryDate(body.getEntryDate());
-        e.setCalendarType(body.getCalendarType());
+        e.setCalendarType(calendarTypeService.assertValidForUser(uid, body.getCalendarType()));
         e.setTitle(title);
         e.setBody(text);
+        e.setDetails(details);
         e = repository.save(e);
         return toDto(repository.findByIdWithAttachments(e.getId()).orElse(e));
     }
@@ -78,13 +81,15 @@ public class ReportCalendarService {
         assertRowAccess(e.getOwnerUserId());
         String title = trimToNull(body.getTitle());
         String text = trimToNull(body.getBody());
-        if (title == null && text == null && e.getAttachments().isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "title or information is required");
+        String details = trimToNull(body.getDetails());
+        if (title == null && text == null && details == null && e.getAttachments().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "title, information, or details is required");
         }
         e.setEntryDate(body.getEntryDate());
-        e.setCalendarType(body.getCalendarType());
+        e.setCalendarType(calendarTypeService.assertValidForUser(e.getOwnerUserId(), body.getCalendarType()));
         e.setTitle(title);
         e.setBody(text);
+        e.setDetails(details);
         e = repository.save(e);
         return toDto(repository.findByIdWithAttachments(e.getId()).orElse(e));
     }
@@ -197,6 +202,7 @@ public class ReportCalendarService {
                 .calendarType(e.getCalendarType())
                 .title(e.getTitle())
                 .body(e.getBody())
+                .details(e.getDetails())
                 .attachments(attDtos)
                 .createdAt(e.getCreatedAt())
                 .updatedAt(e.getUpdatedAt())

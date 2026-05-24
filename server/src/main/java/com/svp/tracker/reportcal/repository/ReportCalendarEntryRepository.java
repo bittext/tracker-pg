@@ -1,7 +1,6 @@
 package com.svp.tracker.reportcal.repository;
 
 import com.svp.tracker.reportcal.domain.ReportCalendarEntry;
-import com.svp.tracker.reportcal.domain.ReportCalendarType;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -23,7 +22,7 @@ public interface ReportCalendarEntryRepository extends JpaRepository<ReportCalen
             """)
     List<ReportCalendarEntry> findByOwnerUserIdAndCalendarTypeAndEntryDateBetweenWithAttachments(
             @Param("ownerUserId") long ownerUserId,
-            @Param("type") ReportCalendarType type,
+            @Param("type") String type,
             @Param("from") LocalDate from,
             @Param("to") LocalDate to);
 
@@ -37,8 +36,10 @@ public interface ReportCalendarEntryRepository extends JpaRepository<ReportCalen
             @Param("ownerUserId") long ownerUserId, @Param("from") LocalDate from, @Param("to") LocalDate to);
 
     List<ReportCalendarEntry> findByOwnerUserIdAndCalendarTypeAndEntryDateBetweenOrderByEntryDateAscIdAsc(
-            long ownerUserId, ReportCalendarType type, LocalDate from, LocalDate to);
+            long ownerUserId, String calendarType, LocalDate from, LocalDate to);
 
     List<ReportCalendarEntry> findByOwnerUserIdAndEntryDateBetweenOrderByEntryDateAscCalendarTypeAscIdAsc(
             long ownerUserId, LocalDate from, LocalDate to);
+
+    boolean existsByOwnerUserIdAndCalendarType(long ownerUserId, String calendarType);
 }

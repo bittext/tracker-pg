@@ -1,6 +1,6 @@
 package com.svp.tracker.reportcal.dto;
 
-import com.svp.tracker.reportcal.domain.ReportCalendarType;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
 import lombok.Data;
@@ -10,10 +10,12 @@ public class ReportCalendarEntryWriteDto {
     @NotNull
     private LocalDate entryDate;
 
-    @NotNull
-    private ReportCalendarType calendarType;
+    @NotBlank
+    private String calendarType;
 
     private String title;
 
     private String body;
+
+    private String details;
 }

@@ -347,7 +347,7 @@
             Choose <strong>All types</strong> or one calendar (birthday, work, personal, trades, banking, payments,
             opinion & strategies). Attach photos or files to any entry (edit after save). In <strong>Year</strong> view, click a month to filter the list to that month
             (click again to clear). In <strong>Month</strong> view, click a day to filter to that date (click again to
-            clear). Use <strong>Narrow by title</strong> to filter the table by entry title. Use the arrows to change period.
+            clear). Use <strong>Search</strong> to filter by title, information, or details (details text is not shown in the table). Use the arrows to change period.
           </p>
           <div class="rep-cal-grid">
             <section class="rep-cal-col rep-cal-col--nav" aria-label="Calendar navigator">
@@ -458,21 +458,21 @@
                 </button>
               </div>
               <mat-form-field appearance="outline" class="rep-cal-title-filter full-width" subscriptSizing="dynamic">
-                <mat-label>Narrow by title</mat-label>
+                <mat-label>Search</mat-label>
                 <input
                   matInput
-                  [(ngModel)]="repCalTitleFilter"
-                  name="repCalTitleFilter"
+                  [(ngModel)]="repCalSearchFilter"
+                  name="repCalSearchFilter"
                   autocomplete="off"
-                  placeholder="Contains text…"
+                  placeholder="Title, information, or details…"
                 />
-                @if (repCalTitleFilter.trim()) {
+                @if (repCalSearchFilter.trim()) {
                   <button
                     matSuffix
                     mat-icon-button
                     type="button"
-                    (click)="repCalTitleFilter = ''"
-                    aria-label="Clear title filter"
+                    (click)="repCalSearchFilter = ''"
+                    aria-label="Clear search"
                   >
                     <mat-icon>close</mat-icon>
                   </button>
@@ -486,7 +486,7 @@
                   </ng-container>
                   <ng-container matColumnDef="cType">
                     <th mat-header-cell *matHeaderCellDef>Type</th>
-                    <td mat-cell *matCellDef="let row">{{ reportCalendarTypeLabel(row.calendarType) }}</td>
+                    <td mat-cell *matCellDef="let row">{{ repCalTypeLabel(row.calendarType) }}</td>
                   </ng-container>
                   <ng-container matColumnDef="cTitle">
                     <th mat-header-cell *matHeaderCellDef>Title</th>
@@ -495,6 +495,19 @@
                   <ng-container matColumnDef="cInfo">
                     <th mat-header-cell *matHeaderCellDef>Information</th>
                     <td mat-cell *matCellDef="let row" class="rep-cal-info-cell">{{ repCalInfoPreview(row.body) || '—' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="cDetails">
+                    <th mat-header-cell *matHeaderCellDef>Details</th>
+                    <td mat-cell *matCellDef="let row" class="rep-cal-details-cell">
+                      @if (repCalHasDetails(row)) {
+                        <span class="rep-cal-details-badge" title="Has details (open edit to view)">
+                          <mat-icon aria-hidden="true">description</mat-icon>
+                          Yes
+                        </span>
+                      } @else {
+                        —
+                      }
+                    </td>
                   </ng-container>
                   <ng-container matColumnDef="cAttach">
                     <th mat-header-cell *matHeaderCellDef>Files</th>

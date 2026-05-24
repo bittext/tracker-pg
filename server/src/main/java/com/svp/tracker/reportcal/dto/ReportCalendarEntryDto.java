@@ -1,6 +1,5 @@
 package com.svp.tracker.reportcal.dto;
 
-import com.svp.tracker.reportcal.domain.ReportCalendarType;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -12,9 +11,10 @@ import lombok.Value;
 public class ReportCalendarEntryDto {
     long id;
     LocalDate entryDate;
-    ReportCalendarType calendarType;
+    String calendarType;
     String title;
     String body;
+    String details;
     List<ReportCalendarAttachmentDto> attachments;
     Instant createdAt;
     Instant updatedAt;

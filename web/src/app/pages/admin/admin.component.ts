@@ -20,6 +20,8 @@ import { FinanceNotificationSettingsDto, FinanceNotificationSettingsRequestDto }
 import { AuthLoginEventDto } from '../../models/auth-audit.models';
 import { JournalTagDefDto } from '../../models/journal.models';
 import {
+  ManagementCalendarType,
+  ManagementCalendarTypeWriteBody,
   ManagementNowCardType,
   ManagementNowCardTypeWriteBody,
   ManagementTaskCategory,
@@ -123,6 +125,10 @@ export class AdminComponent implements OnInit {
     colorHex: string;
     sortIndex: string;
   } = { slug: '', label: '', badge: '', colorHex: '#6366f1', sortIndex: '' };
+
+  calendarTypes: ManagementCalendarType[] = [];
+  calendarTypeColumns = ['calCode', 'calLabel', 'calSort', 'calActions'];
+  newCalendarType: { code: string; label: string; sortIndex: string } = { code: '', label: '', sortIndex: '' };
 
   journalTags: JournalTagDefDto[] = [];
   journalTagColumns = ['jName', 'jActions'];
@@ -366,6 +372,18 @@ export class AdminComponent implements OnInit {
       },
       error: (e) => this.err('Could not load Now card types', e),
     });
+    this.managementApi.listCalendarTypes().subscribe({
+      next: (rows) => {
+        this.calendarTypes = [...rows].sort((a, b) => {
+          const si = (a.sortIndex ?? 0) - (b.sortIndex ?? 0);
+          if (si !== 0) {
+            return si;
+          }
+          return (a.code || '').localeCompare(b.code || '', undefined, { sensitivity: 'base' });
+        });
+      },
+      error: (e) => this.err('Could not load calendar types', e),
+    });
   }
 
   addCategory(): void {
@@ -480,6 +498,55 @@ export class AdminComponent implements OnInit {
         this.snackBar.open(`Removed type “${row.slug}”`, undefined, { duration: 2500 });
       },
       error: (e) => this.err('Could not delete Now card type', e),
+    });
+  }
+
+  addCalendarType(): void {
+    const code = (this.newCalendarType.code || '').trim().toUpperCase().replace(/\s+/g, '_');
+    const label = (this.newCalendarType.label || '').trim();
+    if (!code || !label) {
+      this.snackBar.open('Code and label are required.', 'Dismiss', { duration: 5000 });
+      return;
+    }
+    if (!/^[A-Z][A-Z0-9_]{0,30}$/.test(code)) {
+      this.snackBar.open(
+        'Code must start with a letter and use uppercase letters, digits, or underscore.',
+        'Dismiss',
+        { duration: 6000 },
+      );
+      return;
+    }
+    const sortRaw = (this.newCalendarType.sortIndex || '').trim();
+    let sortIndex: number | null = null;
+    if (sortRaw !== '') {
+      const n = Number(sortRaw);
+      if (!Number.isFinite(n)) {
+        this.snackBar.open('Sort order must be a number.', 'Dismiss', { duration: 5000 });
+        return;
+      }
+      sortIndex = n;
+    }
+    const body: ManagementCalendarTypeWriteBody = { code, label, sortIndex };
+    this.managementApi.createCalendarType(body).subscribe({
+      next: () => {
+        this.newCalendarType = { code: '', label: '', sortIndex: '' };
+        this.reloadManagement();
+        this.snackBar.open('Calendar type added', undefined, { duration: 2500 });
+      },
+      error: (e) => this.err('Could not add calendar type', e),
+    });
+  }
+
+  deleteCalendarType(row: ManagementCalendarType): void {
+    if (row.id == null) {
+      return;
+    }
+    this.managementApi.deleteCalendarType(row.id).subscribe({
+      next: () => {
+        this.reloadManagement();
+        this.snackBar.open(`Removed type “${row.code}”`, undefined, { duration: 2500 });
+      },
+      error: (e) => this.err('Could not delete calendar type', e),
     });
   }
 

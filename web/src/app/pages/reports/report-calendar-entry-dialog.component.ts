@@ -19,7 +19,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import {
-  REPORT_CALENDAR_TYPE_OPTIONS,
+  reportCalendarTypeOptionsFromProvisioned,
   ReportCalendarAttachmentDto,
   ReportCalendarEntryDto,
   ReportCalendarType,
@@ -31,6 +31,7 @@ export interface ReportCalendarEntryDialogData {
   entry: ReportCalendarEntryDto | null;
   defaultDate: string;
   defaultType: ReportCalendarType;
+  typeOptions?: ReadonlyArray<{ value: ReportCalendarType; label: string }>;
 }
 
 @Component({
@@ -61,7 +62,8 @@ export class ReportCalendarEntryDialogComponent implements OnInit, OnDestroy {
   private readonly dom = inject(DomSanitizer);
   private previewOverlayRef: OverlayRef | null = null;
 
-  readonly typeOptions = REPORT_CALENDAR_TYPE_OPTIONS;
+  readonly typeOptions =
+    this.dialogData.typeOptions ?? reportCalendarTypeOptionsFromProvisioned([]);
   saving = false;
   uploading = false;
   err: string | null = null;
@@ -83,6 +85,7 @@ export class ReportCalendarEntryDialogComponent implements OnInit, OnDestroy {
     calendarType: ['PERSONAL' as ReportCalendarType, Validators.required],
     title: [''],
     body: [''],
+    details: [''],
   });
 
   get dialogTitle() {
@@ -103,6 +106,7 @@ export class ReportCalendarEntryDialogComponent implements OnInit, OnDestroy {
         calendarType: e.calendarType,
         title: e.title ?? '',
         body: e.body ?? '',
+        details: e.details ?? '',
       });
       this.loadImagePreviews();
     } else {
@@ -131,6 +135,7 @@ export class ReportCalendarEntryDialogComponent implements OnInit, OnDestroy {
       calendarType: v.calendarType as ReportCalendarType,
       title: (v.title ?? '').trim() || null,
       body: (v.body ?? '').trim() || null,
+      details: (v.details ?? '').trim() || null,
     };
     this.saving = true;
     const existingId = this.savedEntryId;

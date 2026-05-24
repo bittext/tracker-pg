@@ -34,6 +34,21 @@ export interface ManagementNowCardTypeWriteBody {
   sortIndex?: number | null;
 }
 
+/** Types for Management → Calendar (Admin → Management → Calendar). */
+export interface ManagementCalendarType {
+  id?: number;
+  code: string;
+  label: string;
+  sortIndex: number;
+  createdAt?: string;
+}
+
+export interface ManagementCalendarTypeWriteBody {
+  code: string;
+  label: string;
+  sortIndex?: number | null;
+}
+
 export interface ManagementTaskDto {
   id: number;
   title: string;

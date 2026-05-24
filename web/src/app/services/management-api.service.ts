@@ -6,6 +6,8 @@ import {
   ManagementMonthNoteDto,
   ManagementNowCardType,
   ManagementNowCardTypeWriteBody,
+  ManagementCalendarType,
+  ManagementCalendarTypeWriteBody,
   ManagementTaskCategory,
   ManagementTaskDto,
   ManagementTaskType,
@@ -73,6 +75,18 @@ export class ManagementApiService {
 
   deleteNowCardType(id: number) {
     return this.http.delete<void>(`${this.root}/now-card-types/${id}`);
+  }
+
+  listCalendarTypes() {
+    return this.http.get<ManagementCalendarType[]>(`${this.root}/calendar-types`);
+  }
+
+  createCalendarType(body: ManagementCalendarTypeWriteBody) {
+    return this.http.post<ManagementCalendarType>(`${this.root}/calendar-types`, body);
+  }
+
+  deleteCalendarType(id: number) {
+    return this.http.delete<void>(`${this.root}/calendar-types/${id}`);
   }
 
   listTasksReport() {

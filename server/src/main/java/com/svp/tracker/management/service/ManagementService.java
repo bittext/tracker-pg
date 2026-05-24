@@ -3,10 +3,12 @@ package com.svp.tracker.management.service;
 import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.fitness.exception.NotFoundException;
 import com.svp.tracker.management.domain.BalanceUrgency;
+import com.svp.tracker.management.domain.ManagementCalendarType;
 import com.svp.tracker.management.domain.ManagementNowCardType;
 import com.svp.tracker.management.domain.ManagementTask;
 import com.svp.tracker.management.domain.ManagementTaskCategory;
 import com.svp.tracker.management.domain.ManagementTaskType;
+import com.svp.tracker.management.dto.ManagementCalendarTypeWriteRequest;
 import com.svp.tracker.management.dto.ManagementNowCardTypeWriteRequest;
 import com.svp.tracker.management.dto.ManagementTaskDto;
 import com.svp.tracker.management.dto.ManagementTaskWriteRequest;
@@ -37,6 +39,7 @@ public class ManagementService {
     private final ManagementTaskCategoryRepository categoryRepository;
     private final ManagementTaskTypeRepository taskTypeRepository;
     private final ManagementNowCardTypeRepository nowCardTypeRepository;
+    private final ManagementCalendarTypeService calendarTypeService;
     private final ManagementTaskRepository taskRepository;
     private final CurrentUserService currentUser;
 
@@ -108,6 +111,21 @@ public class ManagementService {
                 .orElseThrow(() -> new NotFoundException("Now card type not found: " + id));
         assertRowAccess(row.getOwnerUserId());
         nowCardTypeRepository.deleteById(id);
+    }
+
+    @Transactional
+    public List<ManagementCalendarType> listCalendarTypes() {
+        return calendarTypeService.listForCurrentUser();
+    }
+
+    @Transactional
+    public ManagementCalendarType createCalendarType(ManagementCalendarTypeWriteRequest req) {
+        return calendarTypeService.create(req);
+    }
+
+    @Transactional
+    public void deleteCalendarType(Long id) {
+        calendarTypeService.delete(id);
     }
 
     public List<ManagementTaskDto> listTasksForReport() {
