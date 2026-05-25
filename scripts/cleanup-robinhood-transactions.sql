@@ -1,17 +1,27 @@
 -- Robinhood transaction cleanup (robinhood_transactions).
 -- Matches dedupe semantics in RobinhoodCsvImportService / V8 migration.
 --
--- Do not run with bash — use psql or:
---   bash scripts/cleanup-robinhood-transactions.sh --help
---
--- psql variables (set by the shell wrapper):
+-- psql variables (set by cleanup-robinhood-transactions.sh):
 --   action          preview | dedupe | malformed | delete_year | truncate
---   year            calendar year for scoped deletes/dedupe (e.g. 2026)
+--   year            calendar year (e.g. 2026)
 --   owner_username  optional auth_users.username; empty = all users
+--
+-- Note: psql substitutes :variables only outside dollar-quoted bodies (stdin-safe).
 
 \set ON_ERROR_STOP on
 
 BEGIN;
+
+-- Fail fast when --user names a missing login (plain SQL so :'owner_username' is substituted).
+SELECT 1 / CASE
+    WHEN COALESCE(trim(:'owner_username'), '') = '' THEN 1
+    WHEN EXISTS (
+        SELECT 1
+        FROM auth_users u
+        WHERE lower(u.username) = lower(trim(:'owner_username'))
+    ) THEN 1
+    ELSE 0
+END AS owner_username_ok;
 
 -- ---------------------------------------------------------------------------
 -- Scope: calendar year + optional owner
@@ -34,20 +44,8 @@ WHERE
         )
     );
 
-DO $$
-BEGIN
-    IF COALESCE(trim(:'owner_username'), '') <> ''
-        AND NOT EXISTS (
-            SELECT 1
-            FROM auth_users u
-            WHERE lower(u.username) = lower(trim(:'owner_username'))
-        ) THEN
-        RAISE EXCEPTION 'owner_username not found: %', trim(:'owner_username');
-    END IF;
-END $$;
-
 -- ---------------------------------------------------------------------------
--- Preview (always printed for every action)
+-- Preview (always printed)
 -- ---------------------------------------------------------------------------
 \echo '--- Robinhood cleanup preview ---'
 \echo 'action:' :action
@@ -126,114 +124,85 @@ ORDER BY s.activity_date, s.trans_code
 LIMIT 10;
 
 -- ---------------------------------------------------------------------------
--- dedupe: keep one row per import dedupe key (same as V8 / CSV import)
+-- dedupe (no-op unless action=dedupe; psql substitutes :'action' before send)
 -- ---------------------------------------------------------------------------
-DO $$
-DECLARE
-    n INTEGER;
-BEGIN
-    IF :'action' <> 'dedupe' THEN
-        RETURN;
-    END IF;
-
+WITH deleted AS (
     DELETE FROM robinhood_transactions t
-    WHERE t.ctid IN (
-        SELECT d.row_ctid
-        FROM (
-            SELECT
-                s.row_ctid,
-                row_number() OVER (
-                    PARTITION BY
-                        s.owner_user_id,
-                        s.activity_date,
-                        s.process_date,
-                        s.settle_date,
-                        NULLIF(trim(s.instrument), ''),
-                        NULLIF(trim(s.description), ''),
-                        NULLIF(trim(s.trans_code), ''),
-                        s.quantity,
-                        s.price,
-                        s.amount
-                    ORDER BY
-                        s.process_date NULLS LAST,
-                        s.settle_date NULLS LAST,
-                        s.activity_date NULLS LAST,
-                        s.row_ctid
-                ) AS rn
+    WHERE (:'action' = 'dedupe')
+        AND t.ctid IN (
+            SELECT d.row_ctid
+            FROM (
+                SELECT
+                    s.row_ctid,
+                    row_number() OVER (
+                        PARTITION BY
+                            s.owner_user_id,
+                            s.activity_date,
+                            s.process_date,
+                            s.settle_date,
+                            NULLIF(trim(s.instrument), ''),
+                            NULLIF(trim(s.description), ''),
+                            NULLIF(trim(s.trans_code), ''),
+                            s.quantity,
+                            s.price,
+                            s.amount
+                        ORDER BY
+                            s.process_date NULLS LAST,
+                            s.settle_date NULLS LAST,
+                            s.activity_date NULLS LAST,
+                            s.row_ctid
+                    ) AS rn
+                FROM rh_scope s
+            ) d
+            WHERE d.rn > 1
+        )
+    RETURNING 1
+)
+SELECT count(*) AS dedupe_rows_removed FROM deleted;
+
+-- ---------------------------------------------------------------------------
+-- malformed (numeric trans_code from CSV column shift)
+-- ---------------------------------------------------------------------------
+WITH deleted AS (
+    DELETE FROM robinhood_transactions t
+    WHERE (:'action' = 'malformed')
+        AND t.ctid IN (
+            SELECT s.row_ctid
             FROM rh_scope s
-        ) d
-        WHERE d.rn > 1
-    );
-
-    GET DIAGNOSTICS n = ROW_COUNT;
-    RAISE NOTICE 'dedupe: deleted % duplicate row(s) for year %', n, :year;
-END $$;
+            WHERE trim(COALESCE(s.trans_code, '')) ~ '^[0-9]+\.?[0-9]*$'
+        )
+    RETURNING 1
+)
+SELECT count(*) AS malformed_rows_removed FROM deleted;
 
 -- ---------------------------------------------------------------------------
--- malformed: rows from bad CSV column shift (trans_code = quantity digit, etc.)
+-- delete_year (scoped rows only)
 -- ---------------------------------------------------------------------------
-DO $$
-DECLARE
-    n INTEGER;
-BEGIN
-    IF :'action' <> 'malformed' THEN
-        RETURN;
-    END IF;
-
+WITH deleted AS (
     DELETE FROM robinhood_transactions t
-    WHERE t.ctid IN (
-        SELECT s.row_ctid
-        FROM rh_scope s
-        WHERE trim(COALESCE(s.trans_code, '')) ~ '^[0-9]+\.?[0-9]*$'
-    );
-
-    GET DIAGNOSTICS n = ROW_COUNT;
-    RAISE NOTICE 'malformed: deleted % row(s) with numeric trans_code for year %', n, :year;
-END $$;
+    WHERE (:'action' = 'delete_year')
+        AND t.ctid IN (SELECT s.row_ctid FROM rh_scope s)
+    RETURNING 1
+)
+SELECT count(*) AS delete_year_rows_removed FROM deleted;
 
 -- ---------------------------------------------------------------------------
--- delete_year: remove all scoped rows (typical before a clean re-import)
+-- truncate (all rows, or --user only; ignores year scope)
 -- ---------------------------------------------------------------------------
-DO $$
-DECLARE
-    n INTEGER;
-BEGIN
-    IF :'action' <> 'delete_year' THEN
-        RETURN;
-    END IF;
-
+WITH deleted AS (
     DELETE FROM robinhood_transactions t
-    WHERE t.ctid IN (SELECT s.row_ctid FROM rh_scope s);
-
-    GET DIAGNOSTICS n = ROW_COUNT;
-    RAISE NOTICE 'delete_year: deleted % row(s) for year %', n, :year;
-END $$;
-
--- ---------------------------------------------------------------------------
--- truncate: all robinhood_transactions (ignores year; optional owner only)
--- ---------------------------------------------------------------------------
-DO $$
-DECLARE
-    n INTEGER;
-BEGIN
-    IF :'action' <> 'truncate' THEN
-        RETURN;
-    END IF;
-
-    IF COALESCE(trim(:'owner_username'), '') = '' THEN
-        TRUNCATE robinhood_transactions;
-        RAISE NOTICE 'truncate: truncated robinhood_transactions (all users)';
-    ELSE
-        DELETE FROM robinhood_transactions t
-        WHERE t.owner_user_id = (
-            SELECT u.id
-            FROM auth_users u
-            WHERE lower(u.username) = lower(trim(:'owner_username'))
-        );
-        GET DIAGNOSTICS n = ROW_COUNT;
-        RAISE NOTICE 'truncate: deleted % row(s) for user %', n, trim(:'owner_username');
-    END IF;
-END $$;
+    WHERE (:'action' = 'truncate')
+        AND (
+            COALESCE(trim(:'owner_username'), '') = ''
+            OR t.owner_user_id = (
+                SELECT u.id
+                FROM auth_users u
+                WHERE lower(u.username) = lower(trim(:'owner_username'))
+            )
+        )
+    RETURNING 1
+)
+SELECT count(*) AS truncate_rows_removed FROM deleted;
 
 COMMIT;
 
