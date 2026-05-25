@@ -261,6 +261,12 @@ export interface RobinhoodStocksSummaryRow {
   financialYear: number;
   totalBuyQuantity: number;
   totalSellQuantity: number;
+  btoQuantity: number;
+  stcQuantity: number;
+  stoQuantity: number;
+  btcQuantity: number;
+  stockBuyQuantity: number;
+  stockSellQuantity: number;
   totalBuyAmount: number;
   totalSellAmount: number;
   netAmount: number;

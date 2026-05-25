@@ -1184,6 +1184,10 @@
               · <strong>{{ rhSummary.rows.length }}</strong> group(s) · cap {{ rhSummary.maxRowsCap }} ·
               {{ rhSummary.tableQueried }}
             </p>
+            <p class="muted stocks-summary-help">
+              Option legs are split by trans code (BTO/STC/STO/BTC). If STC exceeds BTO in a year, remaining contracts
+              were likely opened before that year.
+            </p>
 
             @if (rhSummary.truncated && rhSummary.note) {
               <p class="stocks-summary-truncated" role="status">{{ rhSummary.note }}</p>
@@ -1193,7 +1197,7 @@
               <div class="finance-empty-report" role="status">
                 <p class="finance-empty-title">No trade legs for this filter</p>
                 <p class="muted finance-empty-detail">
-                  No BTO/Buy or STC/Sell rows in <strong>{{ rhSummary.tableQueried }}</strong> for year
+                  No BTO/BTC/Buy or STC/STO/Sell rows in <strong>{{ rhSummary.tableQueried }}</strong> for year
                   <strong>{{ rhSummary.financialYear }}</strong>.
                 </p>
               </div>
@@ -1205,8 +1209,12 @@
                       <th scope="col">Instrument</th>
                       <th scope="col">Contract</th>
                       <th scope="col">Year</th>
-                      <th scope="col">Buy qty</th>
-                      <th scope="col">Sell qty</th>
+                      <th scope="col" title="Buy to open (long)">BTO</th>
+                      <th scope="col" title="Sell to close (long)">STC</th>
+                      <th scope="col" title="Sell to open (short)">STO</th>
+                      <th scope="col" title="Buy to close (short)">BTC</th>
+                      <th scope="col" title="Stock buy">Buy</th>
+                      <th scope="col" title="Stock sell">Sell</th>
                       <th scope="col">Buys $</th>
                       <th scope="col">Sells $</th>
                       <th scope="col">Net $</th>
@@ -1224,8 +1232,12 @@
                         <td>{{ row.instrument }}</td>
                         <td class="stocks-summary-contract">{{ row.contract }}</td>
                         <td>{{ row.financialYear }}</td>
-                        <td>{{ formatSummaryQty(row.totalBuyQuantity) }}</td>
-                        <td>{{ formatSummaryQty(row.totalSellQuantity) }}</td>
+                        <td>{{ formatSummaryQty(row.btoQuantity) }}</td>
+                        <td>{{ formatSummaryQty(row.stcQuantity) }}</td>
+                        <td>{{ formatSummaryQty(row.stoQuantity) }}</td>
+                        <td>{{ formatSummaryQty(row.btcQuantity) }}</td>
+                        <td>{{ formatSummaryQty(row.stockBuyQuantity) }}</td>
+                        <td>{{ formatSummaryQty(row.stockSellQuantity) }}</td>
                         <td>{{ formatFinanceCell('AMOUNT', row.totalBuyAmount) }}</td>
                         <td>{{ formatFinanceCell('AMOUNT', row.totalSellAmount) }}</td>
                         <td>{{ formatFinanceCell('AMOUNT', row.netAmount) }}</td>

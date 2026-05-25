@@ -88,8 +88,9 @@ public class RobinhoodFinanceService {
     }
 
     /**
-     * Buy/sell summary by instrument and contract (description) for a calendar year. Uses Robinhood-style trans codes:
-     * {@code BTO}/{@code Buy} as buys; {@code STC}/{@code Sell} as sells. Other codes (e.g. ACH) are skipped.
+     * Buy/sell summary by instrument and contract (description) for a calendar year. Option legs are split by trans
+     * code ({@code BTO}/{@code STC}/{@code STO}/{@code BTC}); stock legs use {@code BUY}/{@code SELL}. Other codes
+     * (e.g. ACH) are skipped.
      */
     public RobinhoodStocksSummaryDto fetchStocksSummary(int financialYear, String symbolFilter) {
         String symbol = sanitizeSymbolFilter(symbolFilter);
@@ -102,7 +103,7 @@ public class RobinhoodFinanceService {
         int cap = props.maxStocksSummaryRows();
         List<Map<String, Object>> rows = queryTransactionRows(financialYear, null, symbol, cap);
         boolean truncated = rows.size() >= cap;
-        List<RobinhoodStocksSummaryRow> summaryRows = buildStocksSummaryRows(rows, financialYear);
+        List<RobinhoodStocksSummaryRow> summaryRows = RobinhoodStocksSummaryAggregator.aggregate(rows, financialYear);
         summaryRows.sort(
                 Comparator.comparing(RobinhoodStocksSummaryRow::instrument, String.CASE_INSENSITIVE_ORDER)
                         .thenComparing(RobinhoodStocksSummaryRow::contract, String.CASE_INSENSITIVE_ORDER));
@@ -343,144 +344,6 @@ public class RobinhoodFinanceService {
         sql.append(" WHERE ").append(T).append(".owner_user_id = ?");
         prefixBinds.add(currentUser.requireUserId());
         return true;
-    }
-
-    private List<RobinhoodStocksSummaryRow> buildStocksSummaryRows(List<Map<String, Object>> rows, int financialYear) {
-        Map<String, SummaryAgg> byKey = new LinkedHashMap<>();
-        for (Map<String, Object> row : rows) {
-            String trans = stringCell(row, "TRANS_CODE");
-            Leg leg = classifyLeg(trans);
-            if (leg == Leg.OTHER) {
-                continue;
-            }
-            String inst = Objects.requireNonNullElse(stringCell(row, "INSTRUMENT"), "").trim();
-            if (inst.isEmpty()) {
-                inst = "—";
-            }
-            String contract = Objects.requireNonNullElse(stringCell(row, "DESCRIPTION"), "").trim();
-            if (contract.isEmpty()) {
-                contract = "—";
-            }
-            final String instKey = inst;
-            final String contractKey = contract;
-            BigDecimal qty = decimalCell(row, "QUANTITY");
-            BigDecimal amt = decimalCell(row, "AMOUNT");
-            LocalDate activity = localDateCell(row, "ACTIVITY_DATE");
-            String key = instKey + "\u0001" + contractKey;
-            SummaryAgg agg = byKey.computeIfAbsent(key, k -> new SummaryAgg(instKey, contractKey, financialYear));
-            if (leg == Leg.BUY) {
-                agg.addBuy(activity, qty, amt);
-            } else {
-                agg.addSell(activity, qty, amt);
-            }
-        }
-        List<RobinhoodStocksSummaryRow> out = new ArrayList<>(byKey.size());
-        for (SummaryAgg a : byKey.values()) {
-            out.add(a.toRow());
-        }
-        return out;
-    }
-
-    private enum Leg {
-        BUY,
-        SELL,
-        OTHER
-    }
-
-    private static Leg classifyLeg(String transCode) {
-        if (transCode == null) {
-            return Leg.OTHER;
-        }
-        String u = transCode.trim().toUpperCase(Locale.ROOT);
-        return switch (u) {
-            case "BTO", "BTC", "BUY" -> Leg.BUY;
-            case "STC", "STO", "SELL" -> Leg.SELL;
-            default -> Leg.OTHER;
-        };
-    }
-
-    private static final class SummaryAgg {
-        final String instrument;
-        final String contract;
-        final int financialYear;
-        BigDecimal buyQty = BigDecimal.ZERO;
-        BigDecimal sellQty = BigDecimal.ZERO;
-        BigDecimal buyAmt = BigDecimal.ZERO;
-        BigDecimal sellAmt = BigDecimal.ZERO;
-        int buyLegs;
-        int sellLegs;
-        LocalDate firstBuy;
-        LocalDate lastBuy;
-        LocalDate firstSell;
-        LocalDate lastSell;
-
-        SummaryAgg(String instrument, String contract, int financialYear) {
-            this.instrument = instrument;
-            this.contract = contract;
-            this.financialYear = financialYear;
-        }
-
-        void addBuy(LocalDate d, BigDecimal qty, BigDecimal amt) {
-            buyLegs++;
-            if (qty != null) {
-                buyQty = buyQty.add(qty.abs());
-            }
-            if (amt != null) {
-                buyAmt = buyAmt.add(amt);
-            }
-            touch(d, true);
-        }
-
-        void addSell(LocalDate d, BigDecimal qty, BigDecimal amt) {
-            sellLegs++;
-            if (qty != null) {
-                sellQty = sellQty.add(qty.abs());
-            }
-            if (amt != null) {
-                sellAmt = sellAmt.add(amt);
-            }
-            touch(d, false);
-        }
-
-        private void touch(LocalDate d, boolean buy) {
-            if (d == null) {
-                return;
-            }
-            if (buy) {
-                if (firstBuy == null || d.isBefore(firstBuy)) {
-                    firstBuy = d;
-                }
-                if (lastBuy == null || d.isAfter(lastBuy)) {
-                    lastBuy = d;
-                }
-            } else {
-                if (firstSell == null || d.isBefore(firstSell)) {
-                    firstSell = d;
-                }
-                if (lastSell == null || d.isAfter(lastSell)) {
-                    lastSell = d;
-                }
-            }
-        }
-
-        RobinhoodStocksSummaryRow toRow() {
-            BigDecimal net = buyAmt.add(sellAmt);
-            return new RobinhoodStocksSummaryRow(
-                    instrument,
-                    contract,
-                    financialYear,
-                    buyQty,
-                    sellQty,
-                    buyAmt,
-                    sellAmt,
-                    net,
-                    firstBuy,
-                    lastBuy,
-                    firstSell,
-                    lastSell,
-                    buyLegs,
-                    sellLegs);
-        }
     }
 
     private static Object rawCell(Map<String, Object> row, String name) {
