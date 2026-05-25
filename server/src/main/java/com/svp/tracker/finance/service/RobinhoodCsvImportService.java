@@ -291,7 +291,7 @@ public class RobinhoodCsvImportService {
             throw new IllegalArgumentException("CSV file is empty");
         }
 
-        List<String> headerRow = parseCsvLine(records.get(0));
+        List<String> headerRow = RobinhoodCsvLineParser.parseCsvLine(records.get(0));
         Map<String, Integer> headerIdx = indexHeaders(headerRow);
 
         List<String> errors = new ArrayList<>();
@@ -310,7 +310,9 @@ public class RobinhoodCsvImportService {
                 continue;
             }
             csvRows++;
-            List<String> cols = normalizeColumns(parseCsvLine(record), headerRow.size());
+            List<String> cols =
+                    RobinhoodCsvLineParser.normalizeColumns(
+                            RobinhoodCsvLineParser.parseCsvLine(record), headerRow.size());
             ParsedRow row = mapRow(cols, headerIdx, i + 1, errors);
             if (row == null) {
                 skipped++;
@@ -393,33 +395,6 @@ public class RobinhoodCsvImportService {
                 note);
     }
 
-    /**
-     * Robinhood exports may contain unquoted commas in Description. When a row has extra columns, rebuild using fixed
-     * columns from both ends:
-     *
-     * <pre>
-     * [date, process, settle, instrument, ...description..., transCode, quantity, price, amount]
-     * </pre>
-     */
-    private static List<String> normalizeColumns(List<String> cols, int expected) {
-        if (cols.size() == expected || expected != 9) {
-            return cols;
-        }
-        if (cols.size() < expected) {
-            return cols;
-        }
-        String activity = cols.get(0);
-        String process = cols.get(1);
-        String settle = cols.get(2);
-        String instrument = cols.get(3);
-        String transCode = cols.get(cols.size() - 4);
-        String quantity = cols.get(cols.size() - 3);
-        String price = cols.get(cols.size() - 2);
-        String amount = cols.get(cols.size() - 1);
-        String description = String.join(",", cols.subList(4, cols.size() - 4));
-        return List.of(activity, process, settle, instrument, description, transCode, quantity, price, amount);
-    }
-
     private static String oneLineMessage(String raw) {
         if (raw == null || raw.isBlank()) {
             return "unknown error";
@@ -490,6 +465,8 @@ public class RobinhoodCsvImportService {
         if (allBlank) {
             return null;
         }
+        RobinhoodCsvLineParser.addOptionCashMismatchWarning(
+                errors, lineNo, description, quantity, price, amount);
         return new ParsedRow(
                 lineNo, activity, process, settle, instrument, description, transCode, quantity, price, amount);
     }
@@ -733,8 +710,7 @@ public class RobinhoodCsvImportService {
     }
 
     private static String normHeader(String raw) {
-        String s = raw == null ? "" : raw.trim().toLowerCase(Locale.ROOT);
-        return s.replace('_', ' ').replaceAll("\\s+", " ");
+        return RobinhoodCsvLineParser.normHeader(raw);
     }
 
     /**
@@ -767,33 +743,6 @@ public class RobinhoodCsvImportService {
         if (rec.length() > 0) {
             out.add(rec.toString());
         }
-        return out;
-    }
-
-    /** Minimal CSV parser supporting quoted fields and escaped quotes. */
-    private static List<String> parseCsvLine(String line) {
-        List<String> out = new ArrayList<>();
-        StringBuilder cell = new StringBuilder();
-        boolean quoted = false;
-        for (int i = 0; i < line.length(); i++) {
-            char c = line.charAt(i);
-            if (c == '"') {
-                if (quoted && i + 1 < line.length() && line.charAt(i + 1) == '"') {
-                    cell.append('"');
-                    i++;
-                } else {
-                    quoted = !quoted;
-                }
-                continue;
-            }
-            if (c == ',' && !quoted) {
-                out.add(cell.toString());
-                cell.setLength(0);
-                continue;
-            }
-            cell.append(c);
-        }
-        out.add(cell.toString());
         return out;
     }
 
