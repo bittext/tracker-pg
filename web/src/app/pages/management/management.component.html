@@ -347,7 +347,7 @@
             Choose <strong>All types</strong> or one calendar (birthday, work, personal, trades, banking, payments,
             opinion & strategies). Attach photos or files to any entry (edit after save). In <strong>Year</strong> view, click a month to filter the list to that month
             (click again to clear). In <strong>Month</strong> view, click a day to filter to that date (click again to
-            clear). Use <strong>Search</strong> to filter by title, information, or details. Select entries to browse
+            clear). Use <strong>Search</strong> to filter by type, title, information, or details. Select entries to browse
             them with Previous/Next in edit mode, or edit any row to step through the list. Use the arrows to change period.
           </p>
           <div class="rep-cal-grid">
@@ -475,7 +475,7 @@
                   [(ngModel)]="repCalSearchFilter"
                   name="repCalSearchFilter"
                   autocomplete="off"
-                  placeholder="Title, information, or details…"
+                  placeholder="Type, title, information, or details…"
                 />
                 @if (repCalSearchFilter.trim()) {
                   <button

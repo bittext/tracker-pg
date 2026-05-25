@@ -166,7 +166,7 @@ export class ManagementComponent implements OnInit {
   repCalFocusedMonthKey: string | null = null;
   /** yyyy-MM-dd when month view: list filtered to that day (toggle same day to clear). */
   repCalFocusedDayIso: string | null = null;
-  /** Narrows the entries table by title, information, or details (case-insensitive). */
+  /** Narrows the entries table by type, title, information, or details (case-insensitive). */
   repCalSearchFilter = '';
   /** Selected entry ids for bulk browse in edit mode. */
   repCalSelectedIds = new Set<number>();
@@ -980,7 +980,11 @@ export class ManagementComponent implements OnInit {
   }
 
   private repCalEntryMatchesSearch(e: ReportCalendarEntryDto, q: string): boolean {
+    const typeCode = (e.calendarType ?? '').toLowerCase();
+    const typeLabel = this.repCalTypeLabel(e.calendarType).toLowerCase();
     return (
+      typeCode.includes(q) ||
+      typeLabel.includes(q) ||
       (e.title ?? '').toLowerCase().includes(q) ||
       (e.body ?? '').toLowerCase().includes(q) ||
       (e.details ?? '').toLowerCase().includes(q)
