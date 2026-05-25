@@ -115,16 +115,27 @@ if [[ "${destructive}" == "true" && "${skip_confirm}" != "true" ]]; then
 fi
 
 run_psql() {
-  local -a psql_args=(
+  local -a psql_vars=(
     -v ON_ERROR_STOP=1
     -v "action=${action}"
     -v "year=${year}"
     -v "owner_username=${owner_username}"
-    -f "${sql_file}"
   )
 
+  # Pipe SQL on stdin for docker exec — the postgres container cannot read host paths.
+  run_psql_via_docker() {
+    dc_stack exec -iT \
+      -e PGPASSWORD="${postgres_password}" \
+      postgres \
+      psql \
+      -U "${postgres_user}" \
+      -d "${postgres_db}" \
+      "${psql_vars[@]}" \
+      -f - <"${sql_file}"
+  }
+
   if [[ -n "${DATABASE_URL:-}" ]]; then
-    psql "$DATABASE_URL" "${psql_args[@]}"
+    psql "$DATABASE_URL" "${psql_vars[@]}" -f "${sql_file}"
     return
   fi
 
@@ -182,28 +193,17 @@ run_psql() {
   }
 
   if postgres_container_running; then
-    dc_stack exec -iT \
-      -e PGPASSWORD="${postgres_password}" \
-      postgres \
-      psql \
-      -U "${postgres_user}" \
-      -d "${postgres_db}" \
-      "${psql_args[@]}"
+    run_psql_via_docker
   elif psql_client_ready; then
     PGPASSWORD="${postgres_password}" psql \
       -h "${postgres_host}" \
       -p "${postgres_port}" \
       -U "${postgres_user}" \
       -d "${postgres_db}" \
-      "${psql_args[@]}"
+      "${psql_vars[@]}" \
+      -f "${sql_file}"
   elif command -v docker >/dev/null 2>&1; then
-    dc_stack exec -iT \
-      -e PGPASSWORD="${postgres_password}" \
-      postgres \
-      psql \
-      -U "${postgres_user}" \
-      -d "${postgres_db}" \
-      "${psql_args[@]}"
+    run_psql_via_docker
   else
     echo "Error: set DATABASE_URL, or install psql, or run Docker stack postgres." >&2
     exit 1
