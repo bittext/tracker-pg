@@ -1,0 +1,14 @@
+# Optional merge: persist journal / calendar / work-log attachments on disk instead of S3.
+#
+#   cp .env.stack.example .env.stack   # set TRACKER_JOURNAL_STORAGE_DIR=/data/journal-attachments
+#   # leave TRACKER_JOURNAL_S3_BUCKET empty
+#   docker compose -f docker-compose.stack.yml -f docker-compose.journal-local.yml \
+#     --env-file .env.stack up -d --force-recreate api
+#
+services:
+  api:
+    volumes:
+      - tracker_pg_stack_journal_data:/data/journal-attachments
+
+volumes:
+  tracker_pg_stack_journal_data:

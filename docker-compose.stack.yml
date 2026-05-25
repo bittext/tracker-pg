@@ -85,6 +85,8 @@ services:
       # Journal attachments: leave empty for local disk (TRACKER_JOURNAL_STORAGE_DIR); set bucket for S3.
       TRACKER_JOURNAL_S3_BUCKET: ${TRACKER_JOURNAL_S3_BUCKET:-}
       TRACKER_JOURNAL_S3_REGION: ${TRACKER_JOURNAL_S3_REGION:-us-east-1}
+      TRACKER_JOURNAL_S3_PUT_ACL: ${TRACKER_JOURNAL_S3_PUT_ACL:-}
+      TRACKER_JOURNAL_STORAGE_DIR: ${TRACKER_JOURNAL_STORAGE_DIR:-}
       # Banking uploads + Plaid-generated QFX (see README / scripts/plaid-request.example.json).
       TRACKER_BANKING_IMPORT_DIRECTORY: ${TRACKER_BANKING_IMPORT_DIRECTORY:-}
       TRACKER_PLAID_ENABLED: ${TRACKER_PLAID_ENABLED:-false}

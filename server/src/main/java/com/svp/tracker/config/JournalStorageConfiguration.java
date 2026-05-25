@@ -5,8 +5,10 @@ import com.svp.tracker.journal.service.LocalFileJournalBlobStore;
 import com.svp.tracker.journal.service.S3JournalBlobStore;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.lang.Nullable;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.ObjectCannedACL;
 
 @Configuration
 public class JournalStorageConfiguration {
@@ -29,6 +31,21 @@ public class JournalStorageConfiguration {
                 // to the correct regional S3 endpoint instead of failing on HTTP 307.
                 .crossRegionAccessEnabled(true)
                 .build();
-        return new S3JournalBlobStore(bucket.trim(), client);
+        return new S3JournalBlobStore(bucket.trim(), client, parsePutAcl(properties.getS3PutAcl()));
+    }
+
+    @Nullable
+    static ObjectCannedACL parsePutAcl(@Nullable String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String normalized = raw.trim().toLowerCase().replace('_', '-');
+        for (ObjectCannedACL acl : ObjectCannedACL.values()) {
+            if (acl.toString().equals(normalized)) {
+                return acl;
+            }
+        }
+        throw new IllegalArgumentException(
+                "Invalid tracker.journal.s3-put-acl: " + raw + " (e.g. bucket-owner-full-control)");
     }
 }

@@ -20,4 +20,11 @@ public class JournalProperties {
 
     /** AWS region for the S3 client (e.g. us-east-1). */
     private String s3Region = "us-east-1";
+
+    /**
+     * Optional canned ACL on S3 PutObject (e.g. {@code bucket-owner-full-control}). Required for some
+     * Lightsail object storage buckets when writing via the S3 API. Leave empty for standard S3 buckets
+     * with Object Ownership = Bucket owner enforced.
+     */
+    private String s3PutAcl = "";
 }

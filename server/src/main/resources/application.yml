@@ -55,6 +55,8 @@ tracker:
     # If set (e.g. tracker-pg-journal), attachments go to S3; otherwise use storage-directory (or tmp).
     s3-bucket: ${TRACKER_JOURNAL_S3_BUCKET:}
     s3-region: ${TRACKER_JOURNAL_S3_REGION:us-east-1}
+    # Lightsail buckets often need bucket-owner-full-control on put; leave empty for standard S3.
+    s3-put-acl: ${TRACKER_JOURNAL_S3_PUT_ACL:}
   feedback:
     # Optional comma-separated inboxes when no ADMIN user has a member profile email (dev / break-glass).
     fallback-admin-emails: ${TRACKER_FEEDBACK_FALLBACK_ADMIN_EMAILS:}
