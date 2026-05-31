@@ -3,6 +3,7 @@ package com.svp.tracker.member.service;
 import com.svp.tracker.auth.domain.AppUser;
 import com.svp.tracker.auth.domain.AppUserRole;
 import com.svp.tracker.auth.repository.AppUserRepository;
+import com.svp.tracker.config.FeedbackEmailAddresses;
 import com.svp.tracker.config.FeedbackProperties;
 import com.svp.tracker.config.FinanceAlertProperties;
 import com.svp.tracker.member.domain.MemberProfile;
@@ -11,6 +12,7 @@ import com.svp.tracker.member.repository.MemberProfileRepository;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -41,7 +43,7 @@ public class MemberContactFeedbackService {
         if (recipients.isEmpty()) {
             throw new ResponseStatusException(
                     HttpStatus.SERVICE_UNAVAILABLE,
-                    "No admin notification addresses were found. Ensure ADMIN users have a saved member profile email, or set tracker.feedback.fallback-admin-emails.");
+                    "No admin notification addresses were found. Set tracker.feedback.admin-emails (recommended), ensure ADMIN users have a valid member profile email, or set tracker.feedback.fallback-admin-emails.");
         }
         AppUser sender = appUserRepository
                 .findById(userId)
@@ -100,17 +102,24 @@ public class MemberContactFeedbackService {
     }
 
     private List<String> resolveAdminEmails() {
+        List<String> excluded = feedbackProperties.excludedEmailList();
+        List<String> configured = feedbackProperties.adminEmailList();
+        if (!configured.isEmpty()) {
+            return FeedbackEmailAddresses.minusExcluded(configured, excluded);
+        }
         Set<String> emails = new LinkedHashSet<>();
         for (AppUser admin : appUserRepository.findByRole(AppUserRole.ADMIN)) {
             memberProfileRepository
                     .findByUserId(admin.getId())
-                    .map(p -> p.getEmail())
+                    .map(MemberProfile::getEmail)
                     .filter(StringUtils::hasText)
                     .map(String::trim)
+                    .map(s -> s.toLowerCase(Locale.ROOT))
+                    .filter(FeedbackEmailAddresses::isValid)
                     .ifPresent(emails::add);
         }
         emails.addAll(feedbackProperties.fallbackEmailList());
-        return new ArrayList<>(emails);
+        return FeedbackEmailAddresses.minusExcluded(new ArrayList<>(emails), excluded);
     }
 
     private static String trimSubject(String s) {

@@ -12,9 +12,13 @@ spring:
     password: tracker
 
 tracker:
-  # Optional comma-separated inboxes for Contact us feedback when ADMIN accounts have no profile email.
+  # Contact us feedback inboxes (see tracker.feedback in application.yml).
   feedback:
+    # Production: set real admin inboxes; overrides every ADMIN member profile email.
+    admin-emails: ""
     fallback-admin-emails: ""
+    # Example: excluded-admin-emails: "notanemail@mail.com"
+    excluded-admin-emails: ""
 
   # Admin → Repository (GitHub): REST insights (contributors, commits, stars, optional traffic/views).
   github:
