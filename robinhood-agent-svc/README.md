@@ -65,7 +65,7 @@ structured tool names/schemas for Phase 1 implementation.
 - Start with read-only inventory before calling trade tools
 - Trades execute only in the **Agentic account**, not your primary account
 
-See also: [docs/robinhood-agentic/PHASE0.md](../docs/robinhood-agentic/PHASE0.md)
+See also: [docs/robinhood-agentic/PHASE0.md](../docs/robinhood-agentic/PHASE0.md) · [PHASE1.md](../docs/robinhood-agentic/PHASE1.md) (read-only sync)
 
 ## OAuth from AWS / Lightsail SSH
 

@@ -1,8 +1,107 @@
 <section class="rh-trading" aria-labelledby="rh-trading-heading">
   <h2 id="rh-trading-heading" class="rh-trading__title">Robinhood</h2>
+
+  <h3 class="rh-trading__subtitle">Agentic live sync</h3>
+  <p class="muted rh-trading__hint">
+    Connect OAuth tokens from <code>phase0_oauth.py</code> (paste <code>.tokens.json</code>) to sync live positions from
+    your Robinhood <strong>Agentic</strong> account via MCP. Trades still require Phase 2 guardrails; this phase is
+    read-only.
+  </p>
+
+  <div class="rh-trading__status" aria-live="polite">
+    @if (agenticLoading) {
+      <p class="muted">Loading Agentic status…</p>
+    } @else if (agenticStatus) {
+      @if (!agenticStatus.featureEnabled) {
+        <p class="muted">Agentic sync is disabled on the server (<code>TRACKER_FINANCE_ROBINHOOD_AGENTIC_ENABLED</code>).</p>
+      } @else if (!agenticStatus.serviceConfigured) {
+        <p class="muted">Agentic sidecar not configured.</p>
+      } @else if (agenticStatus.connected) {
+        <ul class="rh-trading__stats muted">
+          <li>
+            Connected · Agentic account <strong>{{ agenticStatus.agenticNickname || 'Agentic' }}</strong>
+            <code>{{ agenticStatus.agenticAccountNumberMasked }}</code>
+          </li>
+          <li>
+            Last sync: <strong>{{ formatDate(agenticStatus.lastSyncAt) }}</strong>
+            @if (agenticStatus.lastSyncStatus) {
+              ({{ agenticStatus.lastSyncStatus }})
+            }
+          </li>
+          <li><strong>{{ agenticStatus.positionCount | number }}</strong> synced position row(s)</li>
+        </ul>
+        @if (agenticStatus.lastSyncMessage) {
+          <p class="muted">{{ agenticStatus.lastSyncMessage }}</p>
+        }
+      } @else {
+        <p class="muted">Not connected — paste tokens below.</p>
+      }
+    }
+
+    @if (agenticStatus?.featureEnabled && agenticStatus?.serviceConfigured) {
+      <button mat-stroked-button type="button" (click)="refreshAgentic()" [disabled]="agenticLoading">
+        <mat-icon>refresh</mat-icon>
+        Refresh
+      </button>
+      @if (agenticStatus?.connected) {
+        <button mat-flat-button color="primary" type="button" (click)="syncAgentic()" [disabled]="agenticSyncing">
+          <mat-icon>sync</mat-icon>
+          Sync now
+        </button>
+        <button mat-stroked-button type="button" (click)="disconnectAgentic()">Disconnect</button>
+      }
+    }
+  </div>
+
+  @if (agenticStatus?.featureEnabled && agenticStatus?.serviceConfigured && !agenticStatus?.connected) {
+    <div class="rh-trading__agentic-connect">
+      <label class="rh-trading__token-label" for="rhAgenticTokens">Paste .tokens.json or access_token</label>
+      <textarea
+        id="rhAgenticTokens"
+        class="rh-trading__token-input"
+        rows="4"
+        [(ngModel)]="agenticTokenJson"
+        name="rhAgenticTokens"
+        [disabled]="agenticSavingTokens"
+        placeholder='{"access_token":"…","refresh_token":"…"}'
+      ></textarea>
+      <button mat-flat-button color="primary" type="button" (click)="saveAgenticTokens()" [disabled]="agenticSavingTokens">
+        Save tokens
+      </button>
+    </div>
+  }
+
+  @if (agenticPositions.length) {
+    <div class="rh-trading__positions" role="region" aria-label="Live Agentic positions">
+      <h4 class="rh-trading__positions-title">Live positions (last sync)</h4>
+      <table class="rh-trading__table">
+        <thead>
+          <tr>
+            <th>Symbol</th>
+            <th>Account</th>
+            <th>Qty</th>
+            <th>Avg cost</th>
+            <th>Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (p of agenticPositions; track p.symbol + p.accountNumberMasked) {
+            <tr>
+              <td><strong>{{ p.symbol }}</strong></td>
+              <td><code>{{ p.accountNumberMasked }}</code></td>
+              <td>{{ p.quantity ?? '—' }}</td>
+              <td>{{ p.averageBuyPrice ?? '—' }}</td>
+              <td>{{ p.marketValue ?? '—' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  <h3 class="rh-trading__subtitle">CSV history</h3>
   <p class="muted rh-trading__lead">
-    Data comes from <strong>Robinhood transaction CSV exports</strong> you import here — there is no live brokerage
-    connection. Performance charts and win/loss stats are under
+    Historical data from <strong>Robinhood transaction CSV exports</strong>. Performance charts are under
     <a routerLink="/reports">Reports</a> → Finance → Robinhood.
   </p>
 

@@ -38,6 +38,42 @@ export interface RobinhoodAccountStatusDto {
   csvImportDirectory: string;
 }
 
+/** Robinhood Agentic Trading MCP (Phase 1) */
+export interface RobinhoodAgenticStatusDto {
+  featureEnabled: boolean;
+  serviceConfigured: boolean;
+  connected: boolean;
+  agenticAccountNumberMasked: string;
+  agenticNickname: string;
+  connectedAt: string | null;
+  lastSyncAt: string | null;
+  lastSyncStatus: string;
+  lastSyncMessage: string;
+  positionCount: number;
+}
+
+export interface RobinhoodAgenticPositionDto {
+  accountNumberMasked: string;
+  symbol: string;
+  quantity: number | null;
+  averageBuyPrice: number | null;
+  marketValue: number | null;
+  syncedAt: string;
+}
+
+export interface RobinhoodAgenticPositionsDto {
+  positions: RobinhoodAgenticPositionDto[];
+  portfolioJson: string;
+}
+
+export interface RobinhoodAgenticSyncResultDto {
+  ok: boolean;
+  syncedAt: string | null;
+  message: string;
+  positionCount: number;
+  accountsSynced: number;
+}
+
 /** GET /api/finance/robinhood/notebook-config */
 export interface RobinhoodNotebookConfigDto {
   jupyterLabConfigured: boolean;

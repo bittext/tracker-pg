@@ -7,6 +7,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import {
   RobinhoodAccountStatusDto,
+  RobinhoodAgenticPositionDto,
+  RobinhoodAgenticStatusDto,
   RobinhoodCsvImportResultDto,
   RobinhoodCsvSavedImportDto,
 } from '../../../models/finance.models';
@@ -27,6 +29,13 @@ export class RobinhoodTradingPanelComponent implements OnInit {
   status: RobinhoodAccountStatusDto | null = null;
   statusLoading = false;
 
+  agenticStatus: RobinhoodAgenticStatusDto | null = null;
+  agenticPositions: RobinhoodAgenticPositionDto[] = [];
+  agenticLoading = false;
+  agenticSyncing = false;
+  agenticTokenJson = '';
+  agenticSavingTokens = false;
+
   csvApplyToDb = false;
   csvSelectedFile: File | null = null;
   csvSelectedLabel: string | null = null;
@@ -37,6 +46,7 @@ export class RobinhoodTradingPanelComponent implements OnInit {
 
   ngOnInit(): void {
     this.refreshStatus();
+    this.refreshAgentic();
     this.financeApi.robinhoodCsvImportUploadStatus().subscribe({
       next: (s) => {
         this.directoryImportConfigured = s.configured;
@@ -60,6 +70,96 @@ export class RobinhoodTradingPanelComponent implements OnInit {
         this.snackBar.open(`Could not load Robinhood status — ${formatHttpErrorDetail(e)}`, undefined, {
           duration: 6000,
         });
+      },
+    });
+  }
+
+  refreshAgentic(): void {
+    this.agenticLoading = true;
+    this.financeApi.robinhoodAgenticStatus().subscribe({
+      next: (s) => {
+        this.agenticStatus = s;
+        this.agenticLoading = false;
+        if (s.connected) {
+          this.loadAgenticPositions();
+        } else {
+          this.agenticPositions = [];
+        }
+      },
+      error: () => {
+        this.agenticStatus = null;
+        this.agenticLoading = false;
+        this.agenticPositions = [];
+      },
+    });
+  }
+
+  loadAgenticPositions(): void {
+    this.financeApi.robinhoodAgenticPositions().subscribe({
+      next: (p) => {
+        this.agenticPositions = p.positions;
+      },
+      error: () => {
+        this.agenticPositions = [];
+      },
+    });
+  }
+
+  saveAgenticTokens(): void {
+    const raw = this.agenticTokenJson.trim();
+    if (!raw) {
+      this.snackBar.open('Paste .tokens.json contents or access_token', undefined, { duration: 4500 });
+      return;
+    }
+    let accessToken = raw;
+    let refreshToken = '';
+    try {
+      const parsed = JSON.parse(raw) as { access_token?: string; refresh_token?: string };
+      if (parsed.access_token) {
+        accessToken = parsed.access_token;
+        refreshToken = parsed.refresh_token ?? '';
+      }
+    } catch {
+      // treat as bare access token
+    }
+    this.agenticSavingTokens = true;
+    this.financeApi.robinhoodAgenticSaveTokens(accessToken, refreshToken).subscribe({
+      next: () => {
+        this.agenticSavingTokens = false;
+        this.agenticTokenJson = '';
+        this.snackBar.open('Robinhood Agentic tokens saved', undefined, { duration: 4500 });
+        this.refreshAgentic();
+      },
+      error: (e) => {
+        this.agenticSavingTokens = false;
+        this.snackBar.open(`Save tokens failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 8000 });
+      },
+    });
+  }
+
+  syncAgentic(): void {
+    this.agenticSyncing = true;
+    this.financeApi.robinhoodAgenticSync().subscribe({
+      next: (r) => {
+        this.agenticSyncing = false;
+        this.snackBar.open(r.message || 'Sync complete', undefined, { duration: 5000 });
+        this.refreshAgentic();
+      },
+      error: (e) => {
+        this.agenticSyncing = false;
+        this.snackBar.open(`Sync failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 8000 });
+      },
+    });
+  }
+
+  disconnectAgentic(): void {
+    this.financeApi.robinhoodAgenticDisconnect().subscribe({
+      next: () => {
+        this.snackBar.open('Robinhood Agentic disconnected', undefined, { duration: 4500 });
+        this.refreshAgentic();
+      },
+      error: (e) => {
+        this.snackBar.open(`Disconnect failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 8000 });
       },
     });
   }
@@ -136,6 +236,6 @@ export class RobinhoodTradingPanelComponent implements OnInit {
       return '—';
     }
     const d = new Date(iso);
-    return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString();
+    return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
   }
 }

@@ -26,6 +26,9 @@ import {
   BreakoutCandidatesDto,
   RobinhoodCsvSavedImportDto,
   RobinhoodCsvUploadStatusDto,
+  RobinhoodAgenticStatusDto,
+  RobinhoodAgenticPositionsDto,
+  RobinhoodAgenticSyncResultDto,
   BankingImportResultDto,
   BankingInstitutionDto,
   BankingInstitutionTypeDto,
@@ -77,6 +80,30 @@ export class FinanceApiService {
   /** Imported Robinhood row count and activity date range for the signed-in user. */
   robinhoodAccountStatus() {
     return this.http.get<RobinhoodAccountStatusDto>(`${this.root}/account-status`);
+  }
+
+  /** Robinhood Agentic MCP connection status (Phase 1). */
+  robinhoodAgenticStatus() {
+    return this.http.get<RobinhoodAgenticStatusDto>(`${this.root}/agentic/status`);
+  }
+
+  robinhoodAgenticSaveTokens(accessToken: string, refreshToken?: string | null) {
+    return this.http.post<RobinhoodAgenticStatusDto>(`${this.root}/agentic/tokens`, {
+      accessToken,
+      refreshToken: refreshToken ?? '',
+    });
+  }
+
+  robinhoodAgenticSync() {
+    return this.http.post<RobinhoodAgenticSyncResultDto>(`${this.root}/agentic/sync`, {});
+  }
+
+  robinhoodAgenticPositions() {
+    return this.http.get<RobinhoodAgenticPositionsDto>(`${this.root}/agentic/positions`);
+  }
+
+  robinhoodAgenticDisconnect() {
+    return this.http.delete<void>(`${this.root}/agentic/connection`);
   }
 
   /** FIFO realized P&amp;L report (daily P&amp;L, equity curve, win/loss) for a calendar year. */

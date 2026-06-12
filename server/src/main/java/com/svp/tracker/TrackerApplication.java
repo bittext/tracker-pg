@@ -33,7 +33,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
     JournalProperties.class,
     SecurityProperties.class,
     ManagementAccountsProperties.class,
-    FinancePredictsProperties.class
+    FinancePredictsProperties.class,
+    com.svp.tracker.config.RobinhoodAgenticProperties.class
 })
 public class TrackerApplication {
 
