@@ -15,7 +15,10 @@
 # To disable auto-merge while keeping CADDY_DOMAIN in the file, set TRACKER_CADDY_DISABLE=1 in .env.stack.
 # Requires CADDY_DOMAIN and usually WEB_PORT_BIND=127.0.0.1:9080:80 in .env.stack.
 #
-# Robinhood notebook sidecar (Reports → Render notebook): build/start robinhood-notebook when any of:
+# Robinhood Agentic sidecar (Finance → Robinhood live sync): build/start robinhood-agent when any of:
+#   - export TRACKER_ROBINHOOD_AGENTIC=1, or touch .use-lightsail-robinhood-agent, or
+#   - TRACKER_FINANCE_ROBINHOOD_AGENTIC_ENABLED=true in .env.stack (auto-detect).
+# Disable auto-detect while keeping the flag in .env.stack: TRACKER_ROBINHOOD_AGENTIC_DISABLE=1
 #   - export TRACKER_ROBINHOOD_NOTEBOOK=1, or touch .use-lightsail-robinhood-notebook, or
 #   - TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_ENABLED=true in .env.stack (auto-detect).
 # Disable auto-detect while keeping the flag in .env.stack: TRACKER_ROBINHOOD_NOTEBOOK_DISABLE=1
@@ -61,6 +64,17 @@ if [[ "$use_caddy" -eq 1 ]]; then
   fi
 fi
 
+use_robinhood_agent=0
+if [[ "${TRACKER_ROBINHOOD_AGENTIC:-0}" == "1" ]] || [[ -f "${repo_root}/.use-lightsail-robinhood-agent" ]]; then
+  use_robinhood_agent=1
+  echo "Including robinhood-agent service (TRACKER_ROBINHOOD_AGENTIC=1 or .use-lightsail-robinhood-agent)."
+elif grep -qE '^[[:space:]]*TRACKER_ROBINHOOD_AGENTIC_DISABLE=1' "$env_file" 2>/dev/null; then
+  echo "robinhood-agent auto-start disabled (TRACKER_ROBINHOOD_AGENTIC_DISABLE=1 in ${env_file})."
+elif grep -qE '^[[:space:]]*TRACKER_FINANCE_ROBINHOOD_AGENTIC_ENABLED=(true|1|yes)' "$env_file" 2>/dev/null; then
+  use_robinhood_agent=1
+  echo "Including robinhood-agent service (TRACKER_FINANCE_ROBINHOOD_AGENTIC_ENABLED in ${env_file})."
+fi
+
 use_robinhood_notebook=0
 if [[ "${TRACKER_ROBINHOOD_NOTEBOOK:-0}" == "1" ]] || [[ -f "${repo_root}/.use-lightsail-robinhood-notebook" ]]; then
   use_robinhood_notebook=1
@@ -73,6 +87,9 @@ elif grep -qE '^[[:space:]]*TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_ENABLED=(
 fi
 
 build_services=( api web )
+if [[ "$use_robinhood_agent" -eq 1 ]]; then
+  build_services+=( robinhood-agent )
+fi
 if [[ "$use_robinhood_notebook" -eq 1 ]]; then
   build_services+=( robinhood-notebook )
 fi
@@ -81,6 +98,9 @@ fi
 # --force-recreate: avoids "container name already in use" when a prior run left a stale api/web container.
 docker compose "${compose_files[@]}" --env-file "$env_file" build "${build_services[@]}"
 docker compose "${compose_files[@]}" --env-file "$env_file" up -d --no-deps --force-recreate --remove-orphans api web
+if [[ "$use_robinhood_agent" -eq 1 ]]; then
+  docker compose "${compose_files[@]}" --env-file "$env_file" up -d --no-deps --force-recreate robinhood-agent
+fi
 # Ensure Caddy (re)starts and stays in the project; picks up Caddyfile bind-mount changes.
 if [[ "$use_caddy" -eq 1 ]] && [[ -f "${repo_root}/docker-compose.https-lightsail.yml" ]]; then
   docker compose "${compose_files[@]}" --env-file "$env_file" up -d caddy

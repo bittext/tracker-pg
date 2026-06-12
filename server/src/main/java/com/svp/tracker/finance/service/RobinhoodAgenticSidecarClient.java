@@ -51,7 +51,16 @@ public class RobinhoodAgenticSidecarClient {
         } catch (IllegalStateException e) {
             throw e;
         } catch (Exception e) {
-            throw new IllegalStateException("Robinhood Agentic sidecar unreachable: " + e.getMessage(), e);
+            String detail = e.getMessage();
+            if (detail == null || detail.isBlank()) {
+                detail = e.getClass().getSimpleName();
+            }
+            throw new IllegalStateException(
+                    "Robinhood Agentic sidecar unreachable at "
+                            + props.serviceBaseUrl()
+                            + ": "
+                            + detail,
+                    e);
         }
     }
 
