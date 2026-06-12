@@ -32,6 +32,9 @@ python phase0_inventory.py
 
 # Optional: probe read-like tools with empty args
 python phase0_inventory.py --probe-read-tools
+
+# Recommended: chained reads using account_number from get_accounts
+python phase0_inventory.py --probe-chain
 ```
 
 ## Cursor MCP (parallel path)

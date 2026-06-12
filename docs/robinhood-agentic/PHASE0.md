@@ -1,6 +1,6 @@
 # Phase 0: Robinhood Agentic Trading (MCP) Discovery
 
-Status: **in progress** — unauthenticated probes complete; authenticated tool inventory pending your OAuth run.
+Status: **mostly complete** — OAuth, 23-tool catalog, and account schema confirmed on Lightsail.
 
 ## Goal
 
@@ -98,36 +98,77 @@ pip install -r requirements.txt
 python phase0_discover.py --write findings/discovery.json   # done
 python phase0_oauth.py                                       # opens browser → .tokens.json
 python phase0_inventory.py                                   # → findings/tool-inventory.json
-python phase0_inventory.py --probe-read-tools                # optional read-only probes
+python phase0_inventory.py --probe-read-tools                # optional empty-arg probes
+python phase0_inventory.py --probe-chain                     # get_accounts → portfolio/positions/orders
 ```
 
-- [ ] `phase0_oauth.py` completed
-- [ ] `findings/tool-inventory.json` generated
-- [ ] Read-only tool probes documented below
-- [ ] One write tool identified but **not called** until Phase 2
+- [x] `phase0_oauth.py` completed (manual mode on Lightsail)
+- [x] `findings/tool-inventory.json` generated (23 tools)
+- [x] Read-only empty-arg probes (`get_accounts`, watchlists)
+- [ ] `--probe-chain` for portfolio/positions/orders per account
+- [x] Write tools identified (`place_equity_order`, `cancel_equity_order`) — **not called**
 
 ### C. Read vs write boundary
 
 | Test | Expected | Actual | Pass? |
 |------|----------|--------|-------|
-| MCP initialize with Bearer | 200 + session | _pending auth_ | |
-| tools/list | Non-empty catalog | _pending_ | |
-| Read tool (portfolio/positions) | Data from all accounts | _pending_ | |
-| Order tool schema | Requires symbol/qty/side | _pending_ | |
-| Order in primary account | Should fail or be unavailable | _pending_ | |
-| Order in Agentic account | Succeeds (manual test only) | _pending_ | |
+| MCP initialize with Bearer | 200 + session | `robinhood-trading` 1.0.0 | ✓ |
+| tools/list | Non-empty catalog | 23 tools | ✓ |
+| get_accounts | All brokerage accounts | Returns list with `agentic_allowed` flag | ✓ |
+| Agentic account marker | `agentic_allowed: true` | Present on nickname `"Agentic"` account | ✓ |
+| Read tools need account_number | `get_portfolio`, positions, orders | Fail without args; need `--probe-chain` | ✓ |
+| Order tool schema | Requires account_number, symbol, side, type | Confirmed via empty-arg probe | ✓ |
+| Order in primary account | Should fail or be blocked | Not tested (skip until Phase 2) | — |
+| Order in Agentic account | Succeeds (manual test only) | Not tested (skip until Phase 2) | — |
 
-Fill this table after running `phase0_inventory.py`.
+### Account schema (`get_accounts`)
+
+Each account object includes:
+
+| Field | Use |
+|-------|-----|
+| `account_number` | Pass to equity/portfolio/order tools |
+| `rhs_account_number` | Crypto flows only |
+| `brokerage_account_type` | `individual`, `ira_roth`, etc. |
+| `nickname` | User label (e.g. `"Agentic"`) |
+| `is_default` | Primary account |
+| `agentic_allowed` | **`true` = only account MCP may trade on** |
+| `management_type` | `self_directed` or `managed` |
+| `option_level` | Empty on Agentic account (equities beta) |
+
+Phase 1 sync should filter **`agentic_allowed: true`** for write path; read sync may pull all accounts or default + agentic.
 
 ---
 
-## Tool inventory (fill after auth)
+## Tool inventory (23 tools)
 
-_Paste or link `findings/tool-inventory.json` summary here once generated._
+| Tool name | Read/Write | Notes |
+|-----------|------------|-------|
+| `get_accounts` | Read | Entry point; no args |
+| `get_portfolio` | Read | Requires `account_number` |
+| `get_equity_positions` | Read | Requires `account_number` |
+| `get_equity_orders` | Read | Requires `account_number`; optional `limit` |
+| `get_equity_quotes` | Read | Requires `symbols` |
+| `get_equity_historicals` | Read | Requires `symbols`, `start_time` |
+| `get_equity_tradability` | Read | Requires `account_number`, `symbols` |
+| `get_watchlists` | Read | No args |
+| `get_watchlist_items` | Read | Requires `list_id` |
+| `get_popular_watchlists` | Read | No args |
+| `get_option_watchlist` | Read | No args |
+| `search` | Read | Natural-language instrument lookup |
+| `review_equity_order` | Read (sim) | Dry-run order; no execution |
+| `place_equity_order` | **Write** | Real money; Agentic account only |
+| `cancel_equity_order` | **Write** | Requires `account_number`, `order_id` |
+| `create_watchlist` | Write | |
+| `add_to_watchlist` | Write | |
+| `remove_from_watchlist` | Write | |
+| `follow_watchlist` | Write | |
+| `unfollow_watchlist` | Write | |
+| `update_watchlist` | Write | |
+| `add_option_to_watchlist` | Write | |
+| `remove_option_from_watchlist` | Write | |
 
-| Tool name | Description | Read/Write | Notes |
-|-----------|-------------|------------|-------|
-| _TBD_ | | | |
+MCP response shape: business data in `structuredContent` and/or JSON string in `content[].text` — use `mcp_tool_utils.parse_tool_payload()`.
 
 ---
 
@@ -138,7 +179,7 @@ _Paste or link `findings/tool-inventory.json` summary here once generated._
 | 1 | Exact tool names and input schemas | `phase0_inventory.py` |
 | 2 | Access token TTL + refresh behavior | `phase0_oauth.py --refresh` after ~1h |
 | 3 | Rate limits on sync | Repeated `tools/list` / read calls |
-| 4 | Account ID in responses — Agentic vs primary | Compare portfolio tool output to RH app |
+| 4 | Account ID in responses — Agentic vs primary | **`agentic_allowed: true`** on Agentic account | ✓ |
 | 5 | Server-side token storage model | Design in Phase 1 (encrypt like Plaid) |
 
 ---
@@ -159,8 +200,9 @@ _Paste or link `findings/tool-inventory.json` summary here once generated._
 
 - [x] Unauthenticated OAuth/MCP metadata documented
 - [x] Spike scripts runnable locally
-- [ ] Authenticated tool catalog captured
-- [ ] Read vs write boundary confirmed
-- [ ] Team decision: fund Agentic sandbox account for dev
+- [x] Authenticated tool catalog captured (23 tools)
+- [x] Read vs write boundary confirmed (`agentic_allowed` flag)
+- [x] Agentic sandbox account exists (nickname `"Agentic"`)
+- [ ] `--probe-chain` portfolio/positions/orders verified
 
-When the last three items are checked, start Phase 1 (read-only sync sidecar + Flyway schema).
+When `--probe-chain` passes, start Phase 1 (read-only sync sidecar + Flyway schema).
