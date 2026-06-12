@@ -5,4 +5,5 @@ findings/probe-*.json
 # OAuth credentials — never commit.
 .tokens.json
 .oauth-client.json
+.oauth-pending.json
 .env

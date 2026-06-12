@@ -7,7 +7,8 @@ on a local callback, exchanges it for tokens, and saves them to .tokens.json.
 
 Usage:
   python phase0_oauth.py
-  python phase0_oauth.py --refresh   # use refresh_token in .tokens.json
+  python phase0_oauth.py --manual          # paste callback URL (SSH / AWS console)
+  python phase0_oauth.py --refresh         # use refresh_token in .tokens.json
 """
 
 from __future__ import annotations
@@ -34,6 +35,7 @@ DEFAULT_REDIRECT = "http://127.0.0.1:8765/callback"
 DEFAULT_SCOPE = "internal"
 TOKENS_PATH = Path(__file__).resolve().parent / ".tokens.json"
 CLIENT_PATH = Path(__file__).resolve().parent / ".oauth-client.json"
+PENDING_PATH = Path(__file__).resolve().parent / ".oauth-pending.json"
 
 
 def b64url(data: bytes) -> str:
@@ -135,6 +137,99 @@ def save_tokens(tokens: dict[str, Any], *, source: str) -> None:
     print(f"Saved tokens to {TOKENS_PATH}")
 
 
+def parse_callback_input(raw: str) -> tuple[str, str | None]:
+    """Extract authorization code and state from a pasted callback URL or bare code."""
+    text = raw.strip()
+    if not text:
+        raise ValueError("empty input")
+    if "://" in text or text.startswith("/"):
+        parsed = urllib.parse.urlparse(text if "://" in text else f"http://127.0.0.1{text}")
+        query = urllib.parse.parse_qs(parsed.query)
+        code = query.get("code", [None])[0]
+        state = query.get("state", [None])[0]
+        if not code:
+            raise ValueError("no code= in callback URL")
+        return str(code), str(state) if state else None
+    return text, None
+
+
+def manual_authorize(
+    authorization_endpoint: str,
+    token_endpoint: str,
+    client_id: str,
+    redirect_uri: str,
+    scope: str,
+    *,
+    callback_url: str | None = None,
+) -> dict[str, Any]:
+    """
+    OAuth without a local callback server — for SSH/AWS console users.
+
+    Open the printed URL in a browser on your laptop (not the AWS console browser).
+    After Robinhood redirects, copy the full address bar URL (page may not load).
+    """
+    if callback_url is not None and not PENDING_PATH.exists():
+        raise RuntimeError(
+            "No pending OAuth session — run `python phase0_oauth.py --manual` first, "
+            "then paste the callback URL when prompted"
+        )
+
+    if PENDING_PATH.exists():
+        pending = json.loads(PENDING_PATH.read_text(encoding="utf-8"))
+        code_verifier = pending["code_verifier"]
+        state = pending["state"]
+        auth_url = pending["auth_url"]
+        print("Resuming pending OAuth session…")
+        print(f"If you need the link again:\n{auth_url}\n")
+    else:
+        code_verifier, code_challenge = pkce_pair()
+        state = secrets.token_urlsafe(16)
+        params = {
+            "response_type": "code",
+            "client_id": client_id,
+            "redirect_uri": redirect_uri,
+            "scope": scope,
+            "state": state,
+            "code_challenge": code_challenge,
+            "code_challenge_method": "S256",
+        }
+        auth_url = authorization_endpoint + "?" + urllib.parse.urlencode(params)
+        PENDING_PATH.write_text(
+            json.dumps(
+                {
+                    "code_verifier": code_verifier,
+                    "state": state,
+                    "client_id": client_id,
+                    "redirect_uri": redirect_uri,
+                    "auth_url": auth_url,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        print("Manual OAuth — use a browser ON YOUR LAPTOP, not the AWS console browser.\n")
+        print("1. Copy this URL and open it in Chrome/Safari on your Mac:")
+        print(f"\n{auth_url}\n")
+        print("2. Log in to Robinhood and complete Agentic onboarding (desktop).")
+        print("3. You will be redirected to http://127.0.0.1:8765/callback?code=…")
+        print("   The page may show “can't connect” — that is OK.")
+        print("4. Copy the FULL URL from the address bar and paste it below.\n")
+
+    if callback_url is None:
+        callback_url = input("Paste callback URL: ").strip()
+
+    code, returned_state = parse_callback_input(callback_url)
+    if returned_state is not None and returned_state != state:
+        raise RuntimeError("state mismatch — restart with: python phase0_oauth.py --manual")
+
+    tokens = exchange_code(token_endpoint, client_id, redirect_uri, code, code_verifier)
+    save_tokens(tokens, source="authorization_code")
+    PENDING_PATH.unlink(missing_ok=True)
+    return tokens
+
+
 def interactive_authorize(
     authorization_endpoint: str,
     token_endpoint: str,
@@ -219,6 +314,16 @@ def main() -> int:
     parser.add_argument("--redirect-uri", default=DEFAULT_REDIRECT)
     parser.add_argument("--scope", default=DEFAULT_SCOPE)
     parser.add_argument("--refresh", action="store_true", help="Refresh using .tokens.json")
+    parser.add_argument(
+        "--manual",
+        action="store_true",
+        help="No local callback server — open URL on your laptop and paste the redirect URL",
+    )
+    parser.add_argument(
+        "--callback-url",
+        metavar="URL",
+        help="With --manual: callback URL from browser address bar (skip prompt)",
+    )
     args = parser.parse_args()
 
     metadata = load_oauth_metadata()
@@ -241,17 +346,29 @@ def main() -> int:
 
     print("Requirements before auth:")
     print("  • Primary Robinhood account in good standing")
-    print("  • Desktop browser (Agentic onboarding is desktop-only)")
+    print("  • Desktop browser on your laptop (not AWS/Lightsail console browser)")
     print("  • Fund Agentic account when prompted during onboarding")
+    if not args.manual:
+        print("  • Tip: if you are on AWS SSH, use: python phase0_oauth.py --manual")
     print()
 
-    tokens = interactive_authorize(
-        authorization_endpoint,
-        token_endpoint,
-        client["client_id"],
-        args.redirect_uri,
-        args.scope,
-    )
+    if args.manual:
+        tokens = manual_authorize(
+            authorization_endpoint,
+            token_endpoint,
+            client["client_id"],
+            args.redirect_uri,
+            args.scope,
+            callback_url=args.callback_url,
+        )
+    else:
+        tokens = interactive_authorize(
+            authorization_endpoint,
+            token_endpoint,
+            client["client_id"],
+            args.redirect_uri,
+            args.scope,
+        )
     print(f"access_token={tokens.get('access_token', '')[:12]}…")
     if tokens.get("refresh_token"):
         print("refresh_token received")

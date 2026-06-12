@@ -24,6 +24,9 @@ python phase0_discover.py --write findings/discovery.json
 # 2. OAuth — opens browser, saves .tokens.json
 python phase0_oauth.py
 
+# If you are on AWS/Lightsail SSH (console browser cannot reach localhost):
+python phase0_oauth.py --manual
+
 # 3. List MCP tools after auth
 python phase0_inventory.py
 
@@ -60,3 +63,25 @@ structured tool names/schemas for Phase 1 implementation.
 - Trades execute only in the **Agentic account**, not your primary account
 
 See also: [docs/robinhood-agentic/PHASE0.md](../docs/robinhood-agentic/PHASE0.md)
+
+## OAuth from AWS / Lightsail SSH
+
+The Lightsail or EC2 **console browser cannot complete OAuth** — Robinhood redirects to
+`http://127.0.0.1:8765/callback`, which must hit the machine where the script runs, or
+your laptop when using manual mode.
+
+**Recommended:** run OAuth on your Mac, not on the server:
+
+```bash
+# On your Mac (clone repo or copy robinhood-agent-svc/)
+cd robinhood-agent-svc
+python phase0_oauth.py --manual
+```
+
+Open the printed URL in **Chrome/Safari on your Mac**. After login, copy the full
+`http://127.0.0.1:8765/callback?code=…&state=…` URL from the address bar (the page
+may not load) and paste it into the terminal.
+
+Then copy `.tokens.json` to the server if needed, or run `phase0_inventory.py` locally.
+
+**Alternative:** Cursor MCP on your Mac (Settings → Tools & MCPs) skips these scripts entirely.
