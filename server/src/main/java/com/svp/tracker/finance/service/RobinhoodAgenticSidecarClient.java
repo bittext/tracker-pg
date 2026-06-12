@@ -4,12 +4,12 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.svp.tracker.config.RobinhoodAgenticProperties;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -18,12 +18,10 @@ import org.springframework.stereotype.Component;
 public class RobinhoodAgenticSidecarClient {
 
     private final RobinhoodAgenticProperties props;
-    private final HttpClient httpClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public RobinhoodAgenticSidecarClient(RobinhoodAgenticProperties props) {
         this.props = props;
-        this.httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     }
 
     public JsonNode sync(String accessToken, boolean syncDefaultAccount) {
@@ -34,20 +32,10 @@ public class RobinhoodAgenticSidecarClient {
             ObjectNode body = objectMapper.createObjectNode();
             body.put("access_token", accessToken);
             body.put("sync_default", syncDefaultAccount);
+            byte[] bodyBytes = objectMapper.writeValueAsBytes(body);
             URI uri = URI.create(stripTrailingSlash(props.serviceBaseUrl()) + "/v1/sync");
-            HttpRequest request = HttpRequest.newBuilder(uri)
-                    .timeout(Duration.ofMillis(props.serviceTimeoutMs()))
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(
-                            objectMapper.writeValueAsString(body), StandardCharsets.UTF_8))
-                    .build();
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() / 100 != 2) {
-                String detail = response.body() == null ? "" : response.body();
-                throw new IllegalStateException(
-                        "Robinhood Agentic sync failed (HTTP " + response.statusCode() + "): " + detail);
-            }
-            return objectMapper.readTree(response.body());
+            String responseBody = postJson(uri, bodyBytes, props.serviceTimeoutMs());
+            return objectMapper.readTree(responseBody);
         } catch (IllegalStateException e) {
             throw e;
         } catch (Exception e) {
@@ -62,6 +50,37 @@ public class RobinhoodAgenticSidecarClient {
                             + detail,
                     e);
         }
+    }
+
+    /**
+     * POST JSON via {@link HttpURLConnection} — JDK {@code HttpClient} sends {@code Expect: 100-continue},
+     * which uvicorn/FastAPI can mishandle (empty body → HTTP 422).
+     */
+    private static String postJson(URI uri, byte[] bodyBytes, int timeoutMs) throws IOException {
+        HttpURLConnection conn = (HttpURLConnection) uri.toURL().openConnection();
+        int connectTimeout = Math.min(timeoutMs, 30_000);
+        conn.setConnectTimeout(connectTimeout);
+        conn.setReadTimeout(timeoutMs);
+        conn.setRequestMethod("POST");
+        conn.setDoOutput(true);
+        conn.setInstanceFollowRedirects(false);
+        conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+        conn.setRequestProperty("Accept", "application/json");
+        conn.setFixedLengthStreamingMode(bodyBytes.length);
+        try (OutputStream os = conn.getOutputStream()) {
+            os.write(bodyBytes);
+        }
+        int status = conn.getResponseCode();
+        InputStream stream = status >= 400 ? conn.getErrorStream() : conn.getInputStream();
+        String responseBody = "";
+        if (stream != null) {
+            responseBody = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+        }
+        if (status / 100 != 2) {
+            throw new IllegalStateException(
+                    "Robinhood Agentic sync failed (HTTP " + status + "): " + responseBody);
+        }
+        return responseBody;
     }
 
     private static String stripTrailingSlash(String base) {
