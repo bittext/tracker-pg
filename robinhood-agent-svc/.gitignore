@@ -1,0 +1,8 @@
+# Phase 0 discovery outputs (may contain sensitive tool responses).
+findings/tool-inventory.json
+findings/probe-*.json
+
+# OAuth credentials — never commit.
+.tokens.json
+.oauth-client.json
+.env

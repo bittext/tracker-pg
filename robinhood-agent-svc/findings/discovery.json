@@ -1,0 +1,81 @@
+{
+  "generated_at": "2026-06-12T16:34:28.336749+00:00",
+  "mcp_endpoint": "https://agent.robinhood.com/mcp/trading",
+  "oauth_authorization_server_metadata": {
+    "url": "https://agent.robinhood.com/.well-known/oauth-authorization-server",
+    "status": 200,
+    "body": {
+      "authorization_endpoint": "https://robinhood.com/oauth",
+      "code_challenge_methods_supported": [
+        "S256"
+      ],
+      "grant_types_supported": [
+        "authorization_code",
+        "refresh_token"
+      ],
+      "issuer": "https://agent.robinhood.com/mcp/trading",
+      "registration_endpoint": "https://agent.robinhood.com/oauth/trading/register",
+      "response_types_supported": [
+        "code"
+      ],
+      "scopes_supported": [
+        "internal"
+      ],
+      "token_endpoint": "https://api.robinhood.com/oauth2/token/",
+      "token_endpoint_auth_methods_supported": [
+        "none"
+      ]
+    }
+  },
+  "oauth_protected_resource_metadata": {
+    "url": "https://agent.robinhood.com/.well-known/oauth-protected-resource/mcp/trading",
+    "status": 200,
+    "body": {
+      "authorization_servers": [
+        "https://agent.robinhood.com/mcp/trading"
+      ],
+      "bearer_methods_supported": [
+        "header"
+      ],
+      "resource": "https://agent.robinhood.com/mcp/trading",
+      "scopes_supported": [
+        "internal"
+      ]
+    }
+  },
+  "dynamic_client_registration": {
+    "url": "https://agent.robinhood.com/oauth/trading/register",
+    "status": 200,
+    "request": {
+      "client_name": "tracker-pg-phase0-discover",
+      "redirect_uris": [
+        "http://127.0.0.1:8765/callback"
+      ],
+      "grant_types": [
+        "authorization_code",
+        "refresh_token"
+      ],
+      "response_types": [
+        "code"
+      ],
+      "token_endpoint_auth_method": "none"
+    },
+    "body": {
+      "client_id": "(redacted — run phase0_discover.py locally)",
+      "client_name": "Robinhood Trading",
+      "redirect_uris": [
+        "http://127.0.0.1:8765/callback"
+      ],
+      "token_endpoint_auth_method": "none"
+    }
+  },
+  "unauthenticated_initialize_probe": {
+    "status_code": 401,
+    "body": "authentication required\n",
+    "headers": {
+      "www-authenticate": "Bearer resource_metadata=\"https://agent.robinhood.com/.well-known/oauth-protected-resource/mcp/trading\"",
+      "access-control-allow-headers": "Content-Type, Authorization, Mcp-Session-Id",
+      "access-control-allow-methods": "GET, POST, OPTIONS, DELETE"
+    }
+  }
+}
