@@ -32,13 +32,62 @@ def _normalize_position(row: dict[str, Any]) -> dict[str, Any]:
     symbol = row.get("symbol") or row.get("instrument_symbol")
     if not symbol and isinstance(instrument, dict):
         symbol = instrument.get("symbol")
+    symbol_text = str(symbol).strip().upper() if symbol else ""
     return {
-        "symbol": symbol,
+        "position_type": "equity",
+        "position_key": symbol_text,
+        "symbol": symbol_text or symbol,
         "quantity": row.get("quantity") or row.get("shares") or row.get("qty"),
         "average_buy_price": row.get("average_buy_price")
         or row.get("average_price")
         or row.get("avg_cost"),
         "market_value": row.get("market_value") or row.get("equity") or row.get("value"),
+    }
+
+
+def _positions_from_option_payload(payload: Any) -> list[dict[str, Any]]:
+    """Best-effort extract option rows from get_option_positions payload."""
+    if not isinstance(payload, dict):
+        return []
+    data = payload.get("data", payload)
+    if isinstance(data, dict):
+        for key in ("option_positions", "positions", "results", "items"):
+            items = data.get(key)
+            if isinstance(items, list):
+                return [_normalize_option_position(row) for row in items if isinstance(row, dict)]
+    if isinstance(data, list):
+        return [_normalize_option_position(row) for row in data if isinstance(row, dict)]
+    return []
+
+
+def _normalize_option_position(row: dict[str, Any]) -> dict[str, Any]:
+    chain = (
+        row.get("chain_symbol")
+        or row.get("underlying_symbol")
+        or row.get("symbol")
+        or row.get("underlying")
+    )
+    option_type = row.get("type") or row.get("option_type") or row.get("kind")
+    strike = row.get("strike_price") or row.get("strike")
+    expiration = row.get("expiration_date") or row.get("expiration") or row.get("expires_at")
+    position_key = row.get("id") or row.get("option_id") or row.get("instrument_id") or row.get("position_id")
+    if not position_key:
+        position_key = f"{chain}|{option_type}|{strike}|{expiration}"
+    chain_text = str(chain).strip().upper() if chain else ""
+    return {
+        "position_type": "option",
+        "position_key": str(position_key),
+        "symbol": chain_text or chain,
+        "chain_symbol": chain_text or chain,
+        "option_type": str(option_type).lower() if option_type else None,
+        "strike_price": strike,
+        "expiration_date": expiration,
+        "quantity": row.get("quantity") or row.get("contracts") or row.get("qty"),
+        "average_buy_price": row.get("average_price")
+        or row.get("average_open_price")
+        or row.get("average_buy_price")
+        or row.get("avg_cost"),
+        "market_value": row.get("market_value") or row.get("value") or row.get("equity"),
     }
 
 
@@ -77,6 +126,20 @@ def run_sync(access_token: str, *, sync_default: bool = True) -> dict[str, Any]:
                 p["account_number"] = acct_num
                 p["account_role"] = role
             all_positions.extend(positions)
+
+            option_count = 0
+            try:
+                options_raw = client.call_tool("get_option_positions", {"account_number": acct_num})
+                options_data = parse_tool_payload(options_raw)
+                options = _positions_from_option_payload(options_data)
+                for p in options:
+                    p["account_number"] = acct_num
+                    p["account_role"] = role
+                all_positions.extend(options)
+                option_count = len(options)
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.warning("get_option_positions failed for •••%s: %s", acct_num[-4:], exc)
+
             portfolios[acct_num] = portfolio_data
             account_summaries.append(
                 {
@@ -86,7 +149,9 @@ def run_sync(access_token: str, *, sync_default: bool = True) -> dict[str, Any]:
                     "brokerage_account_type": account.get("brokerage_account_type"),
                     "agentic_allowed": account.get("agentic_allowed"),
                     "is_default": account.get("is_default"),
-                    "position_count": len(positions),
+                    "equity_position_count": len(positions),
+                    "option_position_count": option_count,
+                    "position_count": len(positions) + option_count,
                 }
             )
 

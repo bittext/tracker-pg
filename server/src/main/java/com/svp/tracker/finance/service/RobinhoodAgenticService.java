@@ -17,6 +17,7 @@ import com.svp.tracker.finance.repository.RobinhoodAgenticPositionRepository;
 import com.svp.tracker.finance.repository.RobinhoodAgenticSyncLogRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -55,7 +56,9 @@ public class RobinhoodAgenticService {
                         conn.getLastSyncAt(),
                         conn.getLastSyncStatus(),
                         conn.getLastSyncMessage(),
-                        (int) positionRepository.findByOwnerUserIdOrderBySymbolAsc(uid).size()))
+                        (int) positionRepository
+                                .findByOwnerUserIdOrderByPositionTypeAscSymbolAscChainSymbolAsc(uid)
+                                .size()))
                 .orElseGet(() -> new RobinhoodAgenticStatusDto(
                         props.enabled(),
                         props.serviceConfigured(),
@@ -108,7 +111,9 @@ public class RobinhoodAgenticService {
                 .findByOwnerUserId(uid)
                 .map(RobinhoodAgenticConnection::getPortfolioJson)
                 .orElse("");
-        List<RobinhoodAgenticPositionDto> rows = positionRepository.findByOwnerUserIdOrderBySymbolAsc(uid).stream()
+        List<RobinhoodAgenticPositionDto> rows = positionRepository
+                .findByOwnerUserIdOrderByPositionTypeAscSymbolAscChainSymbolAsc(uid)
+                .stream()
                 .map(this::toPositionDto)
                 .toList();
         return new RobinhoodAgenticPositionsDto(rows, portfolioJson == null ? "" : portfolioJson);
@@ -142,7 +147,9 @@ public class RobinhoodAgenticService {
             logRow.setMessage("Synced " + result.path("positions").size() + " position row(s)");
             logRow.setFinishedAt(Instant.now());
             syncLogRepository.save(logRow);
-            int count = (int) positionRepository.findByOwnerUserIdOrderBySymbolAsc(conn.getOwnerUserId()).size();
+            int count = (int) positionRepository
+                    .findByOwnerUserIdOrderByPositionTypeAscSymbolAscChainSymbolAsc(conn.getOwnerUserId())
+                    .size();
             return new RobinhoodAgenticSyncResultDto(
                     true, conn.getLastSyncAt(), conn.getLastSyncMessage(), count, logRow.getAccountsSynced());
         } catch (Exception e) {
@@ -173,14 +180,28 @@ public class RobinhoodAgenticService {
         positionRepository.deleteAllByOwnerUserId(conn.getOwnerUserId());
         List<RobinhoodAgenticPosition> batch = new ArrayList<>();
         for (JsonNode row : result.withArray("positions")) {
+            String positionKey = textOrNull(row.get("position_key"));
             String symbol = textOrNull(row.get("symbol"));
-            if (symbol == null || symbol.isBlank()) {
-                continue;
+            if (positionKey == null || positionKey.isBlank()) {
+                if (symbol == null || symbol.isBlank()) {
+                    continue;
+                }
+                positionKey = symbol.trim().toUpperCase();
+            }
+            String positionType = textOrNull(row.get("position_type"));
+            if (positionType == null || positionType.isBlank()) {
+                positionType = "equity";
             }
             RobinhoodAgenticPosition pos = new RobinhoodAgenticPosition();
             pos.setOwnerUserId(conn.getOwnerUserId());
             pos.setAccountNumber(textOrNull(row.get("account_number")));
-            pos.setSymbol(symbol.trim().toUpperCase());
+            pos.setPositionType(positionType);
+            pos.setPositionKey(positionKey);
+            pos.setSymbol(symbol == null ? positionKey : symbol.trim().toUpperCase());
+            pos.setChainSymbol(textOrNull(row.get("chain_symbol")));
+            pos.setOptionType(textOrNull(row.get("option_type")));
+            pos.setStrikePrice(decimalOrNull(row.get("strike_price")));
+            pos.setExpirationDate(localDateOrNull(row.get("expiration_date")));
             pos.setQuantity(decimalOrNull(row.get("quantity")));
             pos.setAverageBuyPrice(decimalOrNull(row.get("average_buy_price")));
             pos.setMarketValue(decimalOrNull(row.get("market_value")));
@@ -193,7 +214,13 @@ public class RobinhoodAgenticService {
     private RobinhoodAgenticPositionDto toPositionDto(RobinhoodAgenticPosition p) {
         return new RobinhoodAgenticPositionDto(
                 maskAccount(p.getAccountNumber()),
+                p.getPositionType(),
+                p.getPositionKey(),
                 p.getSymbol(),
+                p.getChainSymbol(),
+                p.getOptionType(),
+                p.getStrikePrice(),
+                p.getExpirationDate(),
                 p.getQuantity(),
                 p.getAverageBuyPrice(),
                 p.getMarketValue(),
@@ -229,6 +256,20 @@ public class RobinhoodAgenticService {
             return null;
         }
         return new BigDecimal(node.asText());
+    }
+
+    private static LocalDate localDateOrNull(JsonNode node) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        String t = node.asText().trim();
+        if (t.isBlank()) {
+            return null;
+        }
+        if (t.length() >= 10) {
+            return LocalDate.parse(t.substring(0, 10));
+        }
+        return LocalDate.parse(t);
     }
 
     private static String truncate(String s, int max) {

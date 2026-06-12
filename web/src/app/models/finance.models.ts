@@ -54,7 +54,13 @@ export interface RobinhoodAgenticStatusDto {
 
 export interface RobinhoodAgenticPositionDto {
   accountNumberMasked: string;
+  positionType: string;
+  positionKey: string;
   symbol: string;
+  chainSymbol: string | null;
+  optionType: string | null;
+  strikePrice: number | null;
+  expirationDate: string | null;
   quantity: number | null;
   averageBuyPrice: number | null;
   marketValue: number | null;

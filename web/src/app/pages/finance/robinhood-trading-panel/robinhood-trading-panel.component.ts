@@ -238,4 +238,18 @@ export class RobinhoodTradingPanelComponent implements OnInit {
     const d = new Date(iso);
     return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
   }
+
+  positionTypeLabel(p: RobinhoodAgenticPositionDto): string {
+    return p.positionType === 'option' ? 'Option' : 'Equity';
+  }
+
+  optionContractLabel(p: RobinhoodAgenticPositionDto): string {
+    if (p.positionType !== 'option') {
+      return '—';
+    }
+    const type = p.optionType ? p.optionType.toUpperCase() : '?';
+    const strike = p.strikePrice ?? '—';
+    const exp = p.expirationDate ? p.expirationDate.slice(0, 10) : '—';
+    return `${type} ${strike} · ${exp}`;
+  }
 }

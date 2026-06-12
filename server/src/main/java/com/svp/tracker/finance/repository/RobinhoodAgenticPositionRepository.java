@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface RobinhoodAgenticPositionRepository extends JpaRepository<RobinhoodAgenticPosition, Long> {
+    List<RobinhoodAgenticPosition> findByOwnerUserIdOrderByPositionTypeAscSymbolAscChainSymbolAsc(long ownerUserId);
+
     List<RobinhoodAgenticPosition> findByOwnerUserIdOrderBySymbolAsc(long ownerUserId);
 
     @Modifying

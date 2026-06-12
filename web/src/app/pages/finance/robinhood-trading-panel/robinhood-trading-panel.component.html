@@ -77,7 +77,9 @@
       <table class="rh-trading__table">
         <thead>
           <tr>
+            <th>Type</th>
             <th>Symbol</th>
+            <th>Contract</th>
             <th>Account</th>
             <th>Qty</th>
             <th>Avg cost</th>
@@ -85,9 +87,11 @@
           </tr>
         </thead>
         <tbody>
-          @for (p of agenticPositions; track p.symbol + p.accountNumberMasked) {
+          @for (p of agenticPositions; track p.positionKey + p.accountNumberMasked) {
             <tr>
+              <td>{{ positionTypeLabel(p) }}</td>
               <td><strong>{{ p.symbol }}</strong></td>
+              <td>{{ optionContractLabel(p) }}</td>
               <td><code>{{ p.accountNumberMasked }}</code></td>
               <td>{{ p.quantity ?? '—' }}</td>
               <td>{{ p.averageBuyPrice ?? '—' }}</td>

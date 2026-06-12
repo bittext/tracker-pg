@@ -48,7 +48,7 @@ docker compose -f docker-compose.stack.yml --env-file .env.stack up -d --build
 curl -s http://127.0.0.1:8020/health   # from api container network: robinhood-agent:8020
 ```
 
-Internal sync flow: `get_accounts` → agentic + default accounts → `get_portfolio` + `get_equity_positions`.
+Internal sync flow: `get_accounts` → agentic + default accounts → `get_portfolio` + `get_equity_positions` + `get_option_positions`.
 
 ## Security
 

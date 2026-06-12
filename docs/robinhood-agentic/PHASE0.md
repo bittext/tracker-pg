@@ -69,7 +69,7 @@ sequenceDiagram
 - **Read access** spans all Robinhood accounts (positions, balances, order history)
 - **Write access** (orders) only in the Agentic account
 - **Desktop-only** onboarding when first connecting MCP
-- **Equities beta** — options, crypto, futures not supported yet
+- **Equities beta** — crypto, futures not supported yet; **options** via `get_option_positions` (Phase 1 sync)
 - User responsible for agent trades; Robinhood does not audit third-party agents
 
 Sources: [Agentic Trading overview](https://robinhood.com/us/en/support/articles/agentic-trading-overview/)
@@ -147,6 +147,7 @@ Phase 1 sync should filter **`agentic_allowed: true`** for write path; read sync
 | `get_accounts` | Read | Entry point; no args |
 | `get_portfolio` | Read | Requires `account_number` |
 | `get_equity_positions` | Read | Requires `account_number` |
+| `get_option_positions` | Read | Requires `account_number`; open/closed options |
 | `get_equity_orders` | Read | Requires `account_number`; optional `limit` |
 | `get_equity_quotes` | Read | Requires `symbols` |
 | `get_equity_historicals` | Read | Requires `symbols`, `start_time` |
