@@ -1,0 +1,368 @@
+<section class="money-panel" aria-labelledby="money-panel-heading">
+  <h2 id="money-panel-heading" class="money-panel__title">Money</h2>
+  <p class="muted money-panel__intro">
+    Income, spending, cash flow, and budgeting views are derived from your
+    <a routerLink="/finance">Finance → Banking</a> ledger (uploaded files and Plaid syncs).
+    <strong>Income</strong> = credits (positive amounts); <strong>spending</strong> = debits (outflows).
+  </p>
+
+  <div class="money-panel__toolbar">
+    <mat-form-field appearance="outline" class="money-field">
+      <mat-label>Period</mat-label>
+      <mat-select [(ngModel)]="ledgerRange" name="moneyRange" (selectionChange)="loadLedger()">
+        <mat-option value="MONTH">Month</mat-option>
+        <mat-option value="QUARTER">Quarter</mat-option>
+        <mat-option value="YEAR">Year</mat-option>
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="money-field narrow">
+      <mat-label>Year</mat-label>
+      <input
+        matInput
+        type="number"
+        [(ngModel)]="ledgerYear"
+        name="moneyYear"
+        min="1990"
+        max="2100"
+        (change)="loadLedger()"
+      />
+    </mat-form-field>
+    @if (ledgerRange === 'MONTH') {
+      <mat-form-field appearance="outline" class="money-field">
+        <mat-label>Month</mat-label>
+        <mat-select [(ngModel)]="ledgerMonth" name="moneyMonth" (selectionChange)="loadLedger()">
+          @for (m of monthChoices; track m.value) {
+            <mat-option [value]="m.value">{{ m.label }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    }
+    @if (ledgerRange === 'QUARTER') {
+      <mat-form-field appearance="outline" class="money-field narrow">
+        <mat-label>Quarter</mat-label>
+        <mat-select [(ngModel)]="ledgerQuarter" name="moneyQuarter" (selectionChange)="loadLedger()">
+          <mat-option [value]="1">Q1</mat-option>
+          <mat-option [value]="2">Q2</mat-option>
+          <mat-option [value]="3">Q3</mat-option>
+          <mat-option [value]="4">Q4</mat-option>
+        </mat-select>
+      </mat-form-field>
+    }
+    <mat-form-field appearance="outline" class="money-field grow">
+      <mat-label>Institution</mat-label>
+      <mat-select [(ngModel)]="filterInstitutionId" name="moneyInst" (selectionChange)="onInstitutionFilterChange()">
+        <mat-option value="">All</mat-option>
+        @for (i of institutions; track i.id) {
+          <mat-option [value]="'' + i.id">{{ i.name }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="money-field grow">
+      <mat-label>Institution type</mat-label>
+      <mat-select [(ngModel)]="filterInstitutionTypeId" name="moneyInstType" (selectionChange)="onTypeFilterChange()">
+        <mat-option value="">All types</mat-option>
+        @for (t of institutionTypes; track t.id) {
+          <mat-option [value]="'' + t.id">{{ t.name }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <button mat-stroked-button type="button" (click)="loadLedger()" [disabled]="loading">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+  </div>
+
+  @if (loading) {
+    <div class="money-panel__spinner">
+      <mat-progress-spinner diameter="40" mode="indeterminate" />
+    </div>
+  }
+
+  @if (ledger && !loading) {
+    <p class="muted money-panel__range">{{ ledger.rangeLabel }}</p>
+
+    <div class="money-kpi-strip" role="group" aria-label="Period totals">
+      <div class="money-kpi">
+        <span class="money-kpi__label">Income</span>
+        <span class="money-kpi__value money-kpi--in">{{ money(totals.creditTotal) }}</span>
+      </div>
+      <div class="money-kpi">
+        <span class="money-kpi__label">Spending</span>
+        <span class="money-kpi__value money-kpi--out">{{ money(totals.debitTotal) }}</span>
+      </div>
+      <div class="money-kpi">
+        <span class="money-kpi__label">Net cash flow</span>
+        <span class="money-kpi__value" [class]="netClass(totals.net)">{{ money(totals.net) }}</span>
+      </div>
+      <div class="money-kpi">
+        <span class="money-kpi__label">Transactions</span>
+        <span class="money-kpi__value">{{ totals.txnCount }}</span>
+      </div>
+    </div>
+
+    <mat-tab-group class="money-inner-tabs" animationDuration="180ms" [(selectedIndex)]="moneySubTabIndex">
+      <mat-tab label="Overview">
+        <div class="money-tab-body">
+          <mat-card appearance="outlined" class="money-card">
+            <mat-card-header>
+              <mat-card-title>By institution</mat-card-title>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="table-wrap">
+                <table mat-table [dataSource]="byInstitution" class="full-width">
+                  <ng-container matColumnDef="institutionName">
+                    <th mat-header-cell *matHeaderCellDef>Institution</th>
+                    <td mat-cell *matCellDef="let row">{{ row.institutionName }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="creditTotal">
+                    <th mat-header-cell *matHeaderCellDef>Income</th>
+                    <td mat-cell *matCellDef="let row">{{ money(row.creditTotal) }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="debitTotal">
+                    <th mat-header-cell *matHeaderCellDef>Spending</th>
+                    <td mat-cell *matCellDef="let row">{{ money(row.debitTotal) }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="net">
+                    <th mat-header-cell *matHeaderCellDef>Net</th>
+                    <td mat-cell *matCellDef="let row" [class]="netClass(row.net)">{{ money(row.net) }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="txnCount">
+                    <th mat-header-cell *matHeaderCellDef>Txns</th>
+                    <td mat-cell *matCellDef="let row">{{ row.txnCount }}</td>
+                  </ng-container>
+                  <tr mat-header-row *matHeaderRowDef="instColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: instColumns"></tr>
+                </table>
+                @if (!byInstitution.length) {
+                  <p class="muted empty-hint">No transactions in this period.</p>
+                }
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+          <mat-card appearance="outlined" class="money-card">
+            <mat-card-header>
+              <mat-card-title>By account type</mat-card-title>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="table-wrap">
+                <table mat-table [dataSource]="byType" class="full-width">
+                  <ng-container matColumnDef="typeLabel">
+                    <th mat-header-cell *matHeaderCellDef>Type</th>
+                    <td mat-cell *matCellDef="let row">{{ row.typeLabel }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="creditTotal">
+                    <th mat-header-cell *matHeaderCellDef>Income</th>
+                    <td mat-cell *matCellDef="let row">{{ money(row.creditTotal) }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="debitTotal">
+                    <th mat-header-cell *matHeaderCellDef>Spending</th>
+                    <td mat-cell *matCellDef="let row">{{ money(row.debitTotal) }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="net">
+                    <th mat-header-cell *matHeaderCellDef>Net</th>
+                    <td mat-cell *matCellDef="let row" [class]="netClass(row.net)">{{ money(row.net) }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="txnCount">
+                    <th mat-header-cell *matHeaderCellDef>Txns</th>
+                    <td mat-cell *matCellDef="let row">{{ row.txnCount }}</td>
+                  </ng-container>
+                  <tr mat-header-row *matHeaderRowDef="typeColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: typeColumns"></tr>
+                </table>
+                @if (!byType.length) {
+                  <p class="muted empty-hint">No transactions in this period.</p>
+                }
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </div>
+      </mat-tab>
+
+      <mat-tab label="Income">
+        <div class="money-tab-body">
+          <p class="muted">Credit transactions (inflows) in the selected period, largest first.</p>
+          <div class="table-wrap">
+            <table mat-table [dataSource]="incomeTxns" class="full-width">
+              <ng-container matColumnDef="txnDate">
+                <th mat-header-cell *matHeaderCellDef>Date</th>
+                <td mat-cell *matCellDef="let row">{{ formatDate(row.txnDate) }}</td>
+              </ng-container>
+              <ng-container matColumnDef="institutionName">
+                <th mat-header-cell *matHeaderCellDef>Institution</th>
+                <td mat-cell *matCellDef="let row">{{ row.institutionName }}</td>
+              </ng-container>
+              <ng-container matColumnDef="description">
+                <th mat-header-cell *matHeaderCellDef>Description</th>
+                <td mat-cell *matCellDef="let row">{{ row.description }}</td>
+              </ng-container>
+              <ng-container matColumnDef="amount">
+                <th mat-header-cell *matHeaderCellDef>Amount</th>
+                <td mat-cell *matCellDef="let row" class="money-kpi--in">{{ money(row.amount) }}</td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="incomeColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: incomeColumns"></tr>
+            </table>
+            @if (!incomeTxns.length) {
+              <p class="muted empty-hint">No income transactions in this period.</p>
+            }
+          </div>
+        </div>
+      </mat-tab>
+
+      <mat-tab label="Spending">
+        <div class="money-tab-body">
+          <mat-card appearance="outlined" class="money-card">
+            <mat-card-header>
+              <mat-card-title>Top spending by description</mat-card-title>
+              <mat-card-subtitle>Grouped from debit transactions in the period</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="table-wrap">
+                <table mat-table [dataSource]="spendingByDescription" class="full-width">
+                  <ng-container matColumnDef="description">
+                    <th mat-header-cell *matHeaderCellDef>Description</th>
+                    <td mat-cell *matCellDef="let row">{{ row.description }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="debitTotal">
+                    <th mat-header-cell *matHeaderCellDef>Total spent</th>
+                    <td mat-cell *matCellDef="let row" class="money-kpi--out">{{ money(row.debitTotal) }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="txnCount">
+                    <th mat-header-cell *matHeaderCellDef>Txns</th>
+                    <td mat-cell *matCellDef="let row">{{ row.txnCount }}</td>
+                  </ng-container>
+                  <tr mat-header-row *matHeaderRowDef="spendDescColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: spendDescColumns"></tr>
+                </table>
+                @if (!spendingByDescription.length) {
+                  <p class="muted empty-hint">No spending in this period.</p>
+                }
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+          <mat-card appearance="outlined" class="money-card">
+            <mat-card-header>
+              <mat-card-title>All spending transactions</mat-card-title>
+              <mat-card-subtitle>Debit transactions, largest outflows first</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="table-wrap">
+                <table mat-table [dataSource]="spendingTxns" class="full-width">
+                  <ng-container matColumnDef="txnDate">
+                    <th mat-header-cell *matHeaderCellDef>Date</th>
+                    <td mat-cell *matCellDef="let row">{{ formatDate(row.txnDate) }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="institutionName">
+                    <th mat-header-cell *matHeaderCellDef>Institution</th>
+                    <td mat-cell *matCellDef="let row">{{ row.institutionName }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="description">
+                    <th mat-header-cell *matHeaderCellDef>Description</th>
+                    <td mat-cell *matCellDef="let row">{{ row.description }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="amount">
+                    <th mat-header-cell *matHeaderCellDef>Amount</th>
+                    <td mat-cell *matCellDef="let row" class="money-kpi--out">{{ money(row.amount) }}</td>
+                  </ng-container>
+                  <tr mat-header-row *matHeaderRowDef="spendingColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: spendingColumns"></tr>
+                </table>
+                @if (!spendingTxns.length) {
+                  <p class="muted empty-hint">No spending transactions in this period.</p>
+                }
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </div>
+      </mat-tab>
+
+      <mat-tab label="Cash flow">
+        <div class="money-tab-body">
+          <p class="muted">Monthly income vs spending across transactions in the selected period.</p>
+          <div class="table-wrap">
+            <table mat-table [dataSource]="byMonth" class="full-width">
+              <ng-container matColumnDef="monthLabel">
+                <th mat-header-cell *matHeaderCellDef>Month</th>
+                <td mat-cell *matCellDef="let row">{{ row.monthLabel }}</td>
+              </ng-container>
+              <ng-container matColumnDef="creditTotal">
+                <th mat-header-cell *matHeaderCellDef>Income</th>
+                <td mat-cell *matCellDef="let row">{{ money(row.creditTotal) }}</td>
+              </ng-container>
+              <ng-container matColumnDef="debitTotal">
+                <th mat-header-cell *matHeaderCellDef>Spending</th>
+                <td mat-cell *matCellDef="let row">{{ money(row.debitTotal) }}</td>
+              </ng-container>
+              <ng-container matColumnDef="net">
+                <th mat-header-cell *matHeaderCellDef>Net</th>
+                <td mat-cell *matCellDef="let row" [class]="netClass(row.net)">{{ money(row.net) }}</td>
+              </ng-container>
+              <ng-container matColumnDef="savingsRatePct">
+                <th mat-header-cell *matHeaderCellDef>Savings rate</th>
+                <td mat-cell *matCellDef="let row">{{ pct(row.savingsRatePct) }}</td>
+              </ng-container>
+              <ng-container matColumnDef="txnCount">
+                <th mat-header-cell *matHeaderCellDef>Txns</th>
+                <td mat-cell *matCellDef="let row">{{ row.txnCount }}</td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="monthColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: monthColumns"></tr>
+            </table>
+            @if (!byMonth.length) {
+              <p class="muted empty-hint">No monthly breakdown for this period.</p>
+            }
+          </div>
+        </div>
+      </mat-tab>
+
+      <mat-tab label="Budget">
+        <div class="money-tab-body">
+          <p class="muted">
+            Budget view compares income and spending by month from ledger data — net surplus and savings rate show how much
+            you kept vs spent. No separate budget targets; upload or sync transactions under Banking to populate this view.
+          </p>
+          @if (byMonth.length) {
+            <div class="money-budget-summary" aria-label="Budget averages">
+              <span>Avg monthly income: <strong>{{ money(avgMonthlyIncome) }}</strong></span>
+              <span>Avg monthly spending: <strong>{{ money(avgMonthlySpending) }}</strong></span>
+              <span>Avg savings rate: <strong>{{ pct(avgSavingsRatePct) }}</strong></span>
+            </div>
+          }
+          <div class="table-wrap">
+            <table mat-table [dataSource]="byMonth" class="full-width">
+              <ng-container matColumnDef="monthLabel">
+                <th mat-header-cell *matHeaderCellDef>Month</th>
+                <td mat-cell *matCellDef="let row">{{ row.monthLabel }}</td>
+              </ng-container>
+              <ng-container matColumnDef="creditTotal">
+                <th mat-header-cell *matHeaderCellDef>Income</th>
+                <td mat-cell *matCellDef="let row">{{ money(row.creditTotal) }}</td>
+              </ng-container>
+              <ng-container matColumnDef="debitTotal">
+                <th mat-header-cell *matHeaderCellDef>Spending</th>
+                <td mat-cell *matCellDef="let row">{{ money(row.debitTotal) }}</td>
+              </ng-container>
+              <ng-container matColumnDef="net">
+                <th mat-header-cell *matHeaderCellDef>Surplus / deficit</th>
+                <td mat-cell *matCellDef="let row" [class]="netClass(row.net)">{{ money(row.net) }}</td>
+              </ng-container>
+              <ng-container matColumnDef="savingsRatePct">
+                <th mat-header-cell *matHeaderCellDef>Savings rate</th>
+                <td mat-cell *matCellDef="let row">{{ pct(row.savingsRatePct) }}</td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="budgetColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: budgetColumns"></tr>
+            </table>
+            @if (!byMonth.length) {
+              <p class="muted empty-hint">No budget data — add banking transactions first.</p>
+            }
+          </div>
+        </div>
+      </mat-tab>
+    </mat-tab-group>
+  } @else if (!loading && !ledger) {
+    <p class="muted">Could not load ledger data. Check Banking imports and try again.</p>
+  }
+</section>

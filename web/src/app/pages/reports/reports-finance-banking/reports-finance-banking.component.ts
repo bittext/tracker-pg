@@ -12,49 +12,23 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import {
-  BankingImportFileDto,
   BankingInstitutionDto,
   BankingInstitutionTypeDto,
   BankingLedgerDto,
-  BankingTransactionDto,
 } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
+import {
+  BankingFlowByInstitutionRow,
+  BankingFlowByMonthRow,
+  BankingFlowBySourceRow,
+  BankingFlowByTypeRow,
+  buildBankingFlowByInstitution,
+  buildBankingFlowByMonth,
+  buildBankingFlowBySource,
+  buildBankingFlowByType,
+  computeBankingFlowTotals,
+} from '../../../util/banking-ledger-flow.util';
 import { formatHttpErrorDetail } from '../../../util/http-error';
-
-export interface BankingFlowByInstitutionRow {
-  institutionId: number;
-  institutionName: string;
-  creditTotal: number;
-  debitTotal: number;
-  net: number;
-  txnCount: number;
-}
-
-export interface BankingFlowByMonthRow {
-  yearMonth: string;
-  monthLabel: string;
-  creditTotal: number;
-  debitTotal: number;
-  net: number;
-  txnCount: number;
-}
-
-export interface BankingFlowBySourceRow {
-  sourceFormat: string;
-  creditTotal: number;
-  debitTotal: number;
-  net: number;
-  txnCount: number;
-}
-
-export interface BankingFlowByTypeRow {
-  institutionTypeId: number | null;
-  typeLabel: string;
-  creditTotal: number;
-  debitTotal: number;
-  net: number;
-  txnCount: number;
-}
 
 @Component({
   selector: 'app-reports-finance-banking',
@@ -156,170 +130,15 @@ export class ReportsFinanceBankingComponent implements OnInit {
 
   private recomputeFromLedger(dto: BankingLedgerDto): void {
     const txns = dto.transactions ?? [];
-    let yc = 0;
-    let yd = 0;
-    for (const t of txns) {
-      const a = Number(t.amount);
-      if (!Number.isFinite(a)) {
-        continue;
-      }
-      if (a > 0) {
-        yc += a;
-      } else if (a < 0) {
-        yd += -a;
-      }
-    }
-    this.yearCreditTotal = yc;
-    this.yearDebitTotal = yd;
-    this.yearNet = yc - yd;
-    this.yearTxnCount = txns.length;
+    const totals = computeBankingFlowTotals(txns);
+    this.yearCreditTotal = totals.creditTotal;
+    this.yearDebitTotal = totals.debitTotal;
+    this.yearNet = totals.net;
+    this.yearTxnCount = totals.txnCount;
 
-    this.byInstitution = this.buildByInstitution(txns);
-    this.byType = this.buildByType(txns);
-    this.byMonth = this.buildByMonth(txns);
-    this.bySource = this.buildBySource(txns);
+    this.byInstitution = buildBankingFlowByInstitution(txns);
+    this.byType = buildBankingFlowByType(txns);
+    this.byMonth = buildBankingFlowByMonth(txns);
+    this.bySource = buildBankingFlowBySource(txns);
   }
-
-  private buildByInstitution(txns: BankingTransactionDto[]): BankingFlowByInstitutionRow[] {
-    const m = new Map<number, { name: string; credit: number; debit: number; n: number }>();
-    for (const t of txns) {
-      const id = t.institutionId;
-      const name = t.institutionName || `Institution ${id}`;
-      const a = Number(t.amount);
-      if (!Number.isFinite(a)) {
-        continue;
-      }
-      const cur = m.get(id) ?? { name, credit: 0, debit: 0, n: 0 };
-      cur.name = name;
-      if (a > 0) {
-        cur.credit += a;
-      } else if (a < 0) {
-        cur.debit += -a;
-      }
-      cur.n += 1;
-      m.set(id, cur);
-    }
-    return [...m.entries()]
-      .map(([institutionId, v]) => ({
-        institutionId,
-        institutionName: v.name,
-        creditTotal: v.credit,
-        debitTotal: v.debit,
-        net: v.credit - v.debit,
-        txnCount: v.n,
-      }))
-      .sort((a, b) => a.institutionName.localeCompare(b.institutionName, undefined, { sensitivity: 'base' }));
-  }
-
-  private buildByType(txns: BankingTransactionDto[]): BankingFlowByTypeRow[] {
-    const m = new Map<number | null, { label: string; credit: number; debit: number; n: number }>();
-    for (const t of txns) {
-      const tid = t.institutionTypeId != null && Number.isFinite(t.institutionTypeId) ? t.institutionTypeId : null;
-      const label =
-          tid != null && (t.institutionTypeName ?? '').trim()
-              ? (t.institutionTypeName as string).trim()
-              : 'Untyped';
-      const a = Number(t.amount);
-      if (!Number.isFinite(a)) {
-        continue;
-      }
-      const cur = m.get(tid) ?? { label, credit: 0, debit: 0, n: 0 };
-      cur.label = label;
-      if (a > 0) {
-        cur.credit += a;
-      } else if (a < 0) {
-        cur.debit += -a;
-      }
-      cur.n += 1;
-      m.set(tid, cur);
-    }
-    return [...m.entries()]
-      .map(([institutionTypeId, v]) => ({
-        institutionTypeId,
-        typeLabel: v.label,
-        creditTotal: v.credit,
-        debitTotal: v.debit,
-        net: v.credit - v.debit,
-        txnCount: v.n,
-      }))
-      .sort((a, b) => {
-        if (a.institutionTypeId == null) {
-          return 1;
-        }
-        if (b.institutionTypeId == null) {
-          return -1;
-        }
-        return a.typeLabel.localeCompare(b.typeLabel, undefined, { sensitivity: 'base' });
-      });
-  }
-
-  private buildByMonth(txns: BankingTransactionDto[]): BankingFlowByMonthRow[] {
-    const m = new Map<string, { credit: number; debit: number; n: number }>();
-    for (const t of txns) {
-      const ym = (t.txnDate ?? '').slice(0, 7);
-      if (ym.length !== 7) {
-        continue;
-      }
-      const a = Number(t.amount);
-      if (!Number.isFinite(a)) {
-        continue;
-      }
-      const cur = m.get(ym) ?? { credit: 0, debit: 0, n: 0 };
-      if (a > 0) {
-        cur.credit += a;
-      } else if (a < 0) {
-        cur.debit += -a;
-      }
-      cur.n += 1;
-      m.set(ym, cur);
-    }
-    return [...m.entries()]
-      .map(([yearMonth, v]) => ({
-        yearMonth,
-        monthLabel: this.formatYearMonthLabel(yearMonth),
-        creditTotal: v.credit,
-        debitTotal: v.debit,
-        net: v.credit - v.debit,
-        txnCount: v.n,
-      }))
-      .sort((a, b) => a.yearMonth.localeCompare(b.yearMonth));
-  }
-
-  private formatYearMonthLabel(ym: string): string {
-    const y = Number(ym.slice(0, 4));
-    const mo = Number(ym.slice(5, 7));
-    if (!Number.isFinite(y) || !Number.isFinite(mo) || mo < 1 || mo > 12) {
-      return ym;
-    }
-    return new Date(y, mo - 1, 1).toLocaleString(undefined, { month: 'short', year: 'numeric' });
-  }
-
-  private buildBySource(txns: BankingTransactionDto[]): BankingFlowBySourceRow[] {
-    const m = new Map<string, { credit: number; debit: number; n: number }>();
-    for (const t of txns) {
-      const key = (t.sourceFormat ?? '').trim() || '—';
-      const a = Number(t.amount);
-      if (!Number.isFinite(a)) {
-        continue;
-      }
-      const cur = m.get(key) ?? { credit: 0, debit: 0, n: 0 };
-      if (a > 0) {
-        cur.credit += a;
-      } else if (a < 0) {
-        cur.debit += -a;
-      }
-      cur.n += 1;
-      m.set(key, cur);
-    }
-    return [...m.entries()]
-      .map(([sourceFormat, v]) => ({
-        sourceFormat,
-        creditTotal: v.credit,
-        debitTotal: v.debit,
-        net: v.credit - v.debit,
-        txnCount: v.n,
-      }))
-      .sort((a, b) => Math.abs(b.net) - Math.abs(a.net));
-  }
-
 }

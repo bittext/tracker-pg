@@ -47,9 +47,10 @@
       </mat-tab>
 
       <mat-tab label="Money">
-        <div class="finance-panel finance-category-placeholder">
-          <h2>Money</h2>
-          <p class="muted">Organize budgeting, income, spending, and cash-flow views here.</p>
+        <div class="finance-panel">
+          @if (financeCategoryTabIndex === 4) {
+            <app-money-panel />
+          }
         </div>
       </mat-tab>
 

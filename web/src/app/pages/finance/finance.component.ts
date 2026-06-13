@@ -36,6 +36,7 @@ import { RobinhoodTradingPanelComponent } from './robinhood-trading-panel/robinh
 import { TradingScreenersPanelComponent } from './trading-screeners-panel/trading-screeners-panel.component';
 import { LoansPanelComponent } from './loans-panel/loans-panel.component';
 import { InvestmentsPanelComponent } from './investments-panel/investments-panel.component';
+import { MoneyPanelComponent } from './money-panel/money-panel.component';
 
 @Component({
   selector: 'app-finance',
@@ -60,6 +61,7 @@ import { InvestmentsPanelComponent } from './investments-panel/investments-panel
     TradingScreenersPanelComponent,
     LoansPanelComponent,
     InvestmentsPanelComponent,
+    MoneyPanelComponent,
   ],
   templateUrl: './finance.component.html',
   styleUrl: './finance.component.scss',
