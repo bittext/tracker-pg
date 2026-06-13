@@ -940,3 +940,77 @@ export interface FinanceInvestmentRequestDto {
   currentValue?: number | null;
   notes?: string;
 }
+
+/** GET /api/finance/credit-cards */
+export interface FinanceCreditCardDto {
+  id: number;
+  institution: string;
+  cardName: string;
+  lastFour: string;
+  creditLimit: number | null;
+  currentBalance: number | null;
+  apr: number | null;
+  statementBalance: number | null;
+  statementDate: string | null;
+  paymentDueDate: string | null;
+  bankingInstitutionId: number | null;
+  bankingInstitutionName: string;
+  utilizationPct: number | null;
+  availableCredit: number | null;
+  healthLabel: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FinanceCreditCardSummaryDto {
+  cardCount: number;
+  totalCreditLimit: number | null;
+  totalCurrentBalance: number | null;
+  overallUtilizationPct: number | null;
+  healthLabel: string;
+}
+
+export interface FinanceCreditCardBankingInstitutionOptionDto {
+  id: number;
+  name: string;
+  institutionTypeName: string;
+}
+
+export interface FinanceCreditCardOptionsDto {
+  bankingInstitutions: FinanceCreditCardBankingInstitutionOptionDto[];
+}
+
+export interface FinanceCreditCardRequestDto {
+  institution: string;
+  cardName: string;
+  lastFour?: string;
+  creditLimit?: number | null;
+  currentBalance?: number | null;
+  apr?: number | null;
+  statementBalance?: number | null;
+  statementDate?: string | null;
+  paymentDueDate?: string | null;
+  bankingInstitutionId?: number | null;
+  notes?: string;
+}
+
+export interface FinanceCreditCardStatementDto {
+  id: number;
+  creditCardId: number;
+  statementDate: string;
+  statementBalance: number | null;
+  minimumPayment: number | null;
+  paymentDueDate: string | null;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FinanceCreditCardStatementRequestDto {
+  statementDate: string;
+  statementBalance?: number | null;
+  minimumPayment?: number | null;
+  paymentDueDate?: string | null;
+  notes?: string;
+}

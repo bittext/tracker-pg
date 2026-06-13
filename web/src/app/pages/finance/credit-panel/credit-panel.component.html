@@ -1,0 +1,283 @@
+<section class="credit-panel" aria-labelledby="credit-panel-heading">
+  <h2 id="credit-panel-heading" class="credit-panel__title">Credit</h2>
+  <p class="muted credit-panel__intro">
+    Track credit cards, utilization, statements, and credit health. Link a card to a
+    <a routerLink="/finance">Finance → Banking</a> institution to show month-to-date spending from your ledger imports.
+  </p>
+
+  @if (summary && !loading) {
+    <div class="credit-summary" aria-label="Portfolio credit health">
+      <div class="credit-kpi">
+        <span class="credit-kpi__label">Cards</span>
+        <span class="credit-kpi__value">{{ summary.cardCount }}</span>
+      </div>
+      <div class="credit-kpi">
+        <span class="credit-kpi__label">Total limit</span>
+        <span class="credit-kpi__value">{{ money(summary.totalCreditLimit) }}</span>
+      </div>
+      <div class="credit-kpi">
+        <span class="credit-kpi__label">Total balance</span>
+        <span class="credit-kpi__value">{{ money(summary.totalCurrentBalance) }}</span>
+      </div>
+      <div class="credit-kpi">
+        <span class="credit-kpi__label">Utilization</span>
+        <span class="credit-kpi__value">{{ pct(summary.overallUtilizationPct) }}</span>
+      </div>
+      <div class="credit-kpi">
+        <span class="credit-kpi__label">Credit health</span>
+        <span class="credit-kpi__value" [class]="healthClass(summary.healthLabel)">{{ summary.healthLabel }}</span>
+      </div>
+    </div>
+    <p class="muted credit-health-hint">
+      Health bands: Excellent (&lt;30%), Good (30–49%), Fair (50–74%), High (75%+ utilization).
+    </p>
+  }
+
+  <div class="credit-panel__toolbar">
+    <button mat-stroked-button type="button" (click)="refresh()" [disabled]="loading">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+    <button mat-stroked-button type="button" (click)="startAdd()" [disabled]="saving">
+      <mat-icon>add</mat-icon>
+      New card
+    </button>
+  </div>
+
+  @if (loading) {
+    <p class="muted">Loading credit cards…</p>
+  } @else {
+    <mat-tab-group class="credit-inner-tabs" animationDuration="180ms" [(selectedIndex)]="creditSubTabIndex">
+      <mat-tab label="Cards">
+        <div class="credit-tab-body">
+          <div class="credit-panel__form" role="region" [attr.aria-label]="editingId == null ? 'Add card' : 'Edit card'">
+            <h3 class="credit-panel__form-title">{{ editingId == null ? 'Add credit card' : 'Edit credit card' }}</h3>
+            <div class="credit-panel__form-grid">
+              <mat-form-field appearance="outline">
+                <mat-label>Issuer / institution</mat-label>
+                <input matInput [(ngModel)]="form.institution" name="ccInstitution" [disabled]="saving" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Card name</mat-label>
+                <input matInput [(ngModel)]="form.cardName" name="ccName" [disabled]="saving" placeholder="e.g. Sapphire Preferred" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Last four (optional)</mat-label>
+                <input matInput [(ngModel)]="form.lastFour" name="ccLastFour" [disabled]="saving" maxlength="4" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Credit limit (USD)</mat-label>
+                <input matInput type="number" step="0.01" [(ngModel)]="form.creditLimit" name="ccLimit" [disabled]="saving" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Current balance (USD)</mat-label>
+                <input matInput type="number" step="0.01" [(ngModel)]="form.currentBalance" name="ccBalance" [disabled]="saving" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>APR % (optional)</mat-label>
+                <input matInput type="number" step="0.01" [(ngModel)]="form.apr" name="ccApr" [disabled]="saving" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Latest statement balance</mat-label>
+                <input matInput type="number" step="0.01" [(ngModel)]="form.statementBalance" name="ccStmtBal" [disabled]="saving" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Statement date</mat-label>
+                <input matInput type="date" [(ngModel)]="form.statementDate" name="ccStmtDate" [disabled]="saving" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Payment due date</mat-label>
+                <input matInput type="date" [(ngModel)]="form.paymentDueDate" name="ccDueDate" [disabled]="saving" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Link to Banking institution</mat-label>
+                <mat-select [(ngModel)]="form.bankingInstitutionId" name="ccBankInst" [disabled]="saving">
+                  <mat-option [value]="null">None</mat-option>
+                  @for (i of bankingInstitutions; track i.id) {
+                    <mat-option [value]="i.id">
+                      {{ i.name }}@if (i.institutionTypeName) { ({{ i.institutionTypeName }}) }
+                    </mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="credit-panel__notes">
+                <mat-label>Notes (optional)</mat-label>
+                <textarea matInput rows="2" [(ngModel)]="form.notes" name="ccNotes" [disabled]="saving"></textarea>
+              </mat-form-field>
+            </div>
+
+            <div class="credit-panel__form-actions">
+              <button mat-flat-button color="primary" type="button" (click)="saveCard()" [disabled]="saving">
+                {{ editingId == null ? 'Add card' : 'Save changes' }}
+              </button>
+              @if (editingId != null) {
+                <button mat-button type="button" (click)="cancelEdit()" [disabled]="saving">Cancel</button>
+              }
+            </div>
+          </div>
+
+          @if (cards.length === 0) {
+            <p class="muted">No credit cards yet — use the form above to add your first card.</p>
+          } @else {
+            <div class="table-wrap">
+              <table mat-table [dataSource]="cards" class="credit-panel__table full-width">
+                <ng-container matColumnDef="institution">
+                  <th mat-header-cell *matHeaderCellDef>Issuer</th>
+                  <td mat-cell *matCellDef="let row">{{ row.institution }}</td>
+                </ng-container>
+                <ng-container matColumnDef="cardName">
+                  <th mat-header-cell *matHeaderCellDef>Card</th>
+                  <td mat-cell *matCellDef="let row"><strong>{{ cardLabel(row) }}</strong></td>
+                </ng-container>
+                <ng-container matColumnDef="limit">
+                  <th mat-header-cell *matHeaderCellDef>Limit</th>
+                  <td mat-cell *matCellDef="let row">{{ money(row.creditLimit) }}</td>
+                </ng-container>
+                <ng-container matColumnDef="balance">
+                  <th mat-header-cell *matHeaderCellDef>Balance</th>
+                  <td mat-cell *matCellDef="let row">{{ money(row.currentBalance) }}</td>
+                </ng-container>
+                <ng-container matColumnDef="utilization">
+                  <th mat-header-cell *matHeaderCellDef>Utilization</th>
+                  <td mat-cell *matCellDef="let row">{{ pct(row.utilizationPct) }}</td>
+                </ng-container>
+                <ng-container matColumnDef="health">
+                  <th mat-header-cell *matHeaderCellDef>Health</th>
+                  <td mat-cell *matCellDef="let row" [class]="healthClass(row.healthLabel)">{{ row.healthLabel }}</td>
+                </ng-container>
+                <ng-container matColumnDef="statementDate">
+                  <th mat-header-cell *matHeaderCellDef>Statement</th>
+                  <td mat-cell *matCellDef="let row">{{ formatDate(row.statementDate) }}</td>
+                </ng-container>
+                <ng-container matColumnDef="paymentDueDate">
+                  <th mat-header-cell *matHeaderCellDef>Due</th>
+                  <td mat-cell *matCellDef="let row">{{ formatDate(row.paymentDueDate) }}</td>
+                </ng-container>
+                <ng-container matColumnDef="ledgerSpending">
+                  <th mat-header-cell *matHeaderCellDef>MTD spending</th>
+                  <td mat-cell *matCellDef="let row">
+                    @if (row.bankingInstitutionId) {
+                      {{ money(ledgerSpending(row)) }}
+                    } @else {
+                      <span class="muted">—</span>
+                    }
+                  </td>
+                </ng-container>
+                <ng-container matColumnDef="actions">
+                  <th mat-header-cell *matHeaderCellDef></th>
+                  <td mat-cell *matCellDef="let row">
+                    <button mat-button type="button" (click)="startEdit(row)">Edit</button>
+                    <button mat-button type="button" (click)="openStatements(row)">Statements</button>
+                    <button mat-button color="warn" type="button" (click)="deleteCard(row)">Delete</button>
+                  </td>
+                </ng-container>
+                <tr mat-header-row *matHeaderRowDef="cardColumns"></tr>
+                <tr mat-row *matRowDef="let row; columns: cardColumns"></tr>
+              </table>
+            </div>
+          }
+        </div>
+      </mat-tab>
+
+      <mat-tab label="Statements">
+        <div class="credit-tab-body">
+          @if (!statementsCardId) {
+            <p class="muted">Select a card from the Cards tab and click <strong>Statements</strong>, or pick one below.</p>
+            @if (cards.length) {
+              <div class="credit-statement-picker">
+                @for (c of cards; track c.id) {
+                  <button mat-stroked-button type="button" (click)="openStatements(c)">{{ cardLabel(c) }}</button>
+                }
+              </div>
+            }
+          } @else {
+            <h3 class="credit-panel__form-title">
+              Statements — {{ selectedStatementsCard ? cardLabel(selectedStatementsCard) : 'Card' }}
+            </h3>
+
+            <div class="credit-panel__form" role="region" [attr.aria-label]="editingStatementId == null ? 'Add statement' : 'Edit statement'">
+              <h4 class="credit-panel__form-subtitle">{{ editingStatementId == null ? 'Add statement' : 'Edit statement' }}</h4>
+              <div class="credit-panel__form-grid">
+                <mat-form-field appearance="outline">
+                  <mat-label>Statement date</mat-label>
+                  <input matInput type="date" [(ngModel)]="statementForm.statementDate" name="stmtDate" [disabled]="statementSaving" />
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Statement balance</mat-label>
+                  <input matInput type="number" step="0.01" [(ngModel)]="statementForm.statementBalance" name="stmtBal" [disabled]="statementSaving" />
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Minimum payment</mat-label>
+                  <input matInput type="number" step="0.01" [(ngModel)]="statementForm.minimumPayment" name="stmtMin" [disabled]="statementSaving" />
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Payment due date</mat-label>
+                  <input matInput type="date" [(ngModel)]="statementForm.paymentDueDate" name="stmtDue" [disabled]="statementSaving" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="credit-panel__notes">
+                  <mat-label>Notes</mat-label>
+                  <textarea matInput rows="2" [(ngModel)]="statementForm.notes" name="stmtNotes" [disabled]="statementSaving"></textarea>
+                </mat-form-field>
+              </div>
+              <div class="credit-panel__form-actions">
+                <button mat-flat-button color="primary" type="button" (click)="saveStatement()" [disabled]="statementSaving">
+                  {{ editingStatementId == null ? 'Add statement' : 'Save statement' }}
+                </button>
+                @if (editingStatementId != null) {
+                  <button mat-button type="button" (click)="cancelStatementEdit()" [disabled]="statementSaving">Cancel</button>
+                }
+                <button mat-button type="button" (click)="startAddStatement()" [disabled]="statementSaving">Clear form</button>
+              </div>
+            </div>
+
+            @if (statementsLoading) {
+              <p class="muted">Loading statements…</p>
+            } @else if (!statements.length) {
+              <p class="muted">No statement history for this card yet.</p>
+            } @else {
+              <div class="table-wrap">
+                <table mat-table [dataSource]="statements" class="full-width">
+                  <ng-container matColumnDef="statementDate">
+                    <th mat-header-cell *matHeaderCellDef>Date</th>
+                    <td mat-cell *matCellDef="let row">{{ formatDate(row.statementDate) }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="statementBalance">
+                    <th mat-header-cell *matHeaderCellDef>Balance</th>
+                    <td mat-cell *matCellDef="let row">{{ money(row.statementBalance) }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="minimumPayment">
+                    <th mat-header-cell *matHeaderCellDef>Min payment</th>
+                    <td mat-cell *matCellDef="let row">{{ money(row.minimumPayment) }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="paymentDueDate">
+                    <th mat-header-cell *matHeaderCellDef>Due</th>
+                    <td mat-cell *matCellDef="let row">{{ formatDate(row.paymentDueDate) }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="actions">
+                    <th mat-header-cell *matHeaderCellDef></th>
+                    <td mat-cell *matCellDef="let row">
+                      <button mat-button type="button" (click)="startEditStatement(row)">Edit</button>
+                      <button mat-button color="warn" type="button" (click)="deleteStatement(row)">Delete</button>
+                    </td>
+                  </ng-container>
+                  <tr mat-header-row *matHeaderRowDef="statementColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: statementColumns"></tr>
+                </table>
+              </div>
+            }
+          }
+        </div>
+      </mat-tab>
+    </mat-tab-group>
+  }
+</section>

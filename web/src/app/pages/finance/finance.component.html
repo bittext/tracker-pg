@@ -55,9 +55,10 @@
       </mat-tab>
 
       <mat-tab label="Credit">
-        <div class="finance-panel finance-category-placeholder">
-          <h2>Credit</h2>
-          <p class="muted">Track credit cards, utilization, statements, and credit health here.</p>
+        <div class="finance-panel">
+          @if (financeCategoryTabIndex === 5) {
+            <app-credit-panel />
+          }
         </div>
       </mat-tab>
 

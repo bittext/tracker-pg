@@ -34,7 +34,7 @@ public class TravelGeocodeService {
     public TravelGeocodeService(
             ClientHttpRequestFactory trackerOutboundHttpRequestFactory,
             @Value(
-                    "${tracker.management.travel.geocode-user-agent:tracker-pg/9.2.0 (github.com/bittext/tracker-pg; travel geocode)}")
+                    "${tracker.management.travel.geocode-user-agent:tracker-pg/9.3.0 (github.com/bittext/tracker-pg; travel geocode)}")
                     String userAgent) {
         this.userAgent = userAgent;
         this.nominatim = RestClient.builder()
