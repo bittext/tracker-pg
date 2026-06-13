@@ -48,3 +48,7 @@ def pick_probe_accounts(accounts: list[dict[str, Any]]) -> dict[str, dict[str, A
     agentic = next((a for a in accounts if a.get("agentic_allowed")), None)
     default = next((a for a in accounts if a.get("is_default")), None)
     return {"agentic": agentic, "default": default}
+
+
+def list_tool_names(tools: list[dict[str, Any]]) -> set[str]:
+    return {str(t.get("name", "")).strip() for t in tools if t.get("name")}

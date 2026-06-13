@@ -5,7 +5,7 @@
   <p class="muted rh-trading__hint">
     Connect OAuth tokens from <code>phase0_oauth.py</code> (paste <code>.tokens.json</code>) to sync live positions from
     your Robinhood <strong>Agentic</strong> account via MCP. Trades still require Phase 2 guardrails; this phase is
-    read-only.
+    read-only. Option contracts require Robinhood MCP tool <code>get_option_positions</code> (not on all accounts yet).
   </p>
 
   <div class="rh-trading__status" aria-live="polite">
@@ -95,7 +95,7 @@
               <td><code>{{ p.accountNumberMasked }}</code></td>
               <td>{{ p.quantity ?? '—' }}</td>
               <td>{{ p.averageBuyPrice ?? '—' }}</td>
-              <td>{{ p.marketValue ?? '—' }}</td>
+              <td>{{ p.marketValue != null ? (p.marketValue | number:'1.2-2') : '—' }}</td>
             </tr>
           }
         </tbody>

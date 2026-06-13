@@ -144,7 +144,7 @@ public class RobinhoodAgenticService {
             persistSyncResult(conn, result, started);
             logRow.setStatus("ok");
             logRow.setAccountsSynced(result.path("accounts").size());
-            logRow.setMessage("Synced " + result.path("positions").size() + " position row(s)");
+            logRow.setMessage(buildSyncMessage(result));
             logRow.setFinishedAt(Instant.now());
             syncLogRepository.save(logRow);
             int count = (int) positionRepository
@@ -173,7 +173,7 @@ public class RobinhoodAgenticService {
         conn.setPortfolioJson(objectMapper.writeValueAsString(result.get("portfolios")));
         conn.setLastSyncAt(syncedAt);
         conn.setLastSyncStatus("ok");
-        conn.setLastSyncMessage("Synced " + result.path("positions").size() + " position row(s)");
+        conn.setLastSyncMessage(buildSyncMessage(result));
         conn.setUpdatedAt(Instant.now());
         connectionRepository.save(conn);
 
@@ -225,6 +225,17 @@ public class RobinhoodAgenticService {
                 p.getAverageBuyPrice(),
                 p.getMarketValue(),
                 p.getSyncedAt());
+    }
+
+    private static String buildSyncMessage(JsonNode result) {
+        int count = result.path("positions").size();
+        StringBuilder msg = new StringBuilder("Synced ").append(count).append(" position row(s)");
+        for (JsonNode warning : result.withArray("warnings")) {
+            if (!warning.isNull() && !warning.asText().isBlank()) {
+                msg.append(". ").append(warning.asText());
+            }
+        }
+        return truncate(msg.toString(), 500);
     }
 
     private void requireFeature() {

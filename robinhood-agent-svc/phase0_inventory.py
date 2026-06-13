@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from mcp_client import RobinhoodMcpClient
-from mcp_tool_utils import extract_accounts, parse_tool_payload, pick_probe_accounts
+from mcp_tool_utils import extract_accounts, list_tool_names, parse_tool_payload, pick_probe_accounts
 
 TOKENS_PATH = Path(__file__).resolve().parent / ".tokens.json"
 FINDINGS_DIR = Path(__file__).resolve().parent / "findings"
@@ -190,11 +190,17 @@ def main() -> int:
     print("Listing tools…")
     tools = client.list_tools()
     print(f"  found {len(tools)} tool(s)")
+    tool_names = list_tool_names(tools)
+    if "get_option_positions" in tool_names:
+        print("  option read tool: get_option_positions ✓")
+    else:
+        print("  option read tool: get_option_positions ✗ (options cannot sync until Robinhood enables it)")
 
     inventory: dict[str, Any] = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "initialize_result": init_result,
         "tool_count": len(tools),
+        "option_positions_tool_available": "get_option_positions" in tool_names,
         "tools": [summarize_tool(t) for t in tools],
         "probe_results": [],
     }

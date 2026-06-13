@@ -48,7 +48,11 @@ docker compose -f docker-compose.stack.yml --env-file .env.stack up -d --build
 curl -s http://127.0.0.1:8020/health   # from api container network: robinhood-agent:8020
 ```
 
-Internal sync flow: `get_accounts` → agentic + default accounts → `get_portfolio` + `get_equity_positions` + `get_option_positions`.
+Phase 1 sync pulls the **Agentic account** by default (`TRACKER_FINANCE_ROBINHOOD_AGENTIC_SYNC_DEFAULT=false`). Set to `true` to also sync your primary Robinhood account.
+
+Internal sync flow: `get_accounts` → agentic (+ optional default) → `get_portfolio` + `get_equity_positions` + `get_option_positions` when available. Missing **Value** is filled via row price fields or batched `get_equity_quotes` (qty × last trade).
+
+**Options:** Robinhood is rolling out option read/write tools. If `phase0_inventory.py` reports only **23 tools** and no `get_option_positions`, live option contracts cannot sync yet — only equities. Re-check after Robinhood expands your MCP catalog.
 
 ## Security
 
