@@ -30,9 +30,10 @@
       </mat-tab>
 
       <mat-tab label="Loans">
-        <div class="finance-panel finance-category-placeholder">
-          <h2>Loans</h2>
-          <p class="muted">Track loan balances, payments, payoff plans, and lender notes here.</p>
+        <div class="finance-panel">
+          @if (financeCategoryTabIndex === 2) {
+            <app-loans-panel />
+          }
         </div>
       </mat-tab>
 

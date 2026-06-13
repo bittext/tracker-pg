@@ -34,6 +34,7 @@ import { MarketOverviewPanelComponent } from './market-overview-panel/market-ove
 import { PredictsPanelComponent } from './predicts-panel/predicts-panel.component';
 import { RobinhoodTradingPanelComponent } from './robinhood-trading-panel/robinhood-trading-panel.component';
 import { TradingScreenersPanelComponent } from './trading-screeners-panel/trading-screeners-panel.component';
+import { LoansPanelComponent } from './loans-panel/loans-panel.component';
 
 @Component({
   selector: 'app-finance',
@@ -56,6 +57,7 @@ import { TradingScreenersPanelComponent } from './trading-screeners-panel/tradin
     PredictsPanelComponent,
     RobinhoodTradingPanelComponent,
     TradingScreenersPanelComponent,
+    LoansPanelComponent,
   ],
   templateUrl: './finance.component.html',
   styleUrl: './finance.component.scss',

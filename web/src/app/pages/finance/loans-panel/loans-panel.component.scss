@@ -1,0 +1,47 @@
+.loans-panel__title {
+  margin: 0 0 0.35rem;
+}
+
+.loans-panel__intro {
+  max-width: 42rem;
+  margin: 0 0 1rem;
+}
+
+.loans-panel__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.loans-panel__form {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+}
+
+.loans-panel__form-title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+.loans-panel__form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 0.25rem 1rem;
+}
+
+.loans-panel__notes {
+  grid-column: 1 / -1;
+}
+
+.loans-panel__form-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.full-width {
+  width: 100%;
+}

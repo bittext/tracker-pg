@@ -29,6 +29,7 @@ import {
 } from '../../models/management.models';
 import { AdminFinanceRobinhoodCsvComponent } from './admin-finance-robinhood-csv/admin-finance-robinhood-csv.component';
 import { AdminRobinhoodAgenticPanelComponent } from './admin-robinhood-agentic-panel/admin-robinhood-agentic-panel.component';
+import { LoansPanelComponent } from '../finance/loans-panel/loans-panel.component';
 import { AdminPredictsPanelComponent } from './admin-predicts-panel/admin-predicts-panel.component';
 import { AdminUsagePanelComponent } from './admin-usage-panel/admin-usage-panel.component';
 import { AdminFeaturesPanelComponent } from './admin-features-panel/admin-features-panel.component';
@@ -74,6 +75,7 @@ import {
     BankingPanelComponent,
     AdminFinanceRobinhoodCsvComponent,
     AdminRobinhoodAgenticPanelComponent,
+    LoansPanelComponent,
     AdminPredictsPanelComponent,
     AdminUsagePanelComponent,
     AdminFeaturesPanelComponent,

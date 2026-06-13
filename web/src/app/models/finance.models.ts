@@ -855,3 +855,47 @@ export interface MarketOverviewInstrumentDto {
   changePercentYearToDate: number | null;
   quoteUrl: string;
 }
+
+/** GET /api/finance/loans */
+export interface FinanceLoanDto {
+  id: number;
+  institution: string;
+  loanNature: string;
+  loanNatureLabel: string;
+  natureOther: string;
+  dateAvailed: string | null;
+  dateToCommence: string | null;
+  currentBalance: number | null;
+  interestRate: number | null;
+  paidSoFar: number | null;
+  balanceToPay: number | null;
+  paymentFrequency: string;
+  paymentFrequencyLabel: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FinanceLoanOptionDto {
+  value: string;
+  label: string;
+}
+
+export interface FinanceLoanOptionsDto {
+  loanNatures: FinanceLoanOptionDto[];
+  paymentFrequencies: FinanceLoanOptionDto[];
+}
+
+export interface FinanceLoanRequestDto {
+  institution: string;
+  loanNature: string;
+  natureOther?: string;
+  dateAvailed?: string | null;
+  dateToCommence?: string | null;
+  currentBalance?: number | null;
+  interestRate?: number | null;
+  paidSoFar?: number | null;
+  balanceToPay?: number | null;
+  paymentFrequency?: string;
+  notes?: string;
+}
