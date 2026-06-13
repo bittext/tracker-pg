@@ -141,7 +141,7 @@ tracker:
       service-timeout-ms: ${TRACKER_FINANCE_ROBINHOOD_AGENTIC_SERVICE_TIMEOUT_MS:120000}
       token-encryption-key: ${TRACKER_FINANCE_ROBINHOOD_AGENTIC_TOKEN_ENCRYPTION_KEY:}
       sync-cron: ${TRACKER_FINANCE_ROBINHOOD_AGENTIC_SYNC_CRON:}
-      sync-default-account: ${TRACKER_FINANCE_ROBINHOOD_AGENTIC_SYNC_DEFAULT:false}
+      sync-default-account-config: ${TRACKER_FINANCE_ROBINHOOD_AGENTIC_SYNC_DEFAULT:false} # true | false
     banking:
       # Host default ~/imports/banking. Production VMs often use TRACKER_BANKING_IMPORT_DIRECTORY=/home/ubuntu/imports/banking (0700).
       import-directory: ${TRACKER_BANKING_IMPORT_DIRECTORY:${user.home}/imports/banking}
