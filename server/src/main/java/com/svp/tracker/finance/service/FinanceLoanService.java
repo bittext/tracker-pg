@@ -20,6 +20,7 @@ public class FinanceLoanService {
 
     private final CurrentUserService currentUser;
     private final FinanceLoanRepository loanRepository;
+    private final FinanceEntryDocumentService entryDocumentService;
 
     @Transactional(readOnly = true)
     public FinanceLoanOptionsDto options() {
@@ -31,14 +32,14 @@ public class FinanceLoanService {
     public List<FinanceLoanDto> listForCurrentUser() {
         long uid = currentUser.requireUserId();
         return loanRepository.findByOwnerUserIdOrderByInstitutionAscDateAvailedDesc(uid).stream()
-                .map(this::toDto)
+                .map(row -> toDto(row, uid))
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public FinanceLoanDto getForCurrentUser(long id) {
         long uid = currentUser.requireUserId();
-        return toDto(requireOwned(id, uid));
+        return toDto(requireOwned(id, uid), uid);
     }
 
     @Transactional
@@ -47,7 +48,7 @@ public class FinanceLoanService {
         FinanceLoan row = new FinanceLoan();
         row.setOwnerUserId(uid);
         apply(row, req);
-        return toDto(loanRepository.save(row));
+        return toDto(loanRepository.save(row), uid);
     }
 
     @Transactional
@@ -56,13 +57,15 @@ public class FinanceLoanService {
         FinanceLoan row = requireOwned(id, uid);
         apply(row, req);
         row.setUpdatedAt(Instant.now());
-        return toDto(loanRepository.save(row));
+        return toDto(loanRepository.save(row), uid);
     }
 
     @Transactional
     public void deleteForCurrentUser(long id) {
         long uid = currentUser.requireUserId();
-        loanRepository.delete(requireOwned(id, uid));
+        requireOwned(id, uid);
+        entryDocumentService.deleteAllForEntity(FinanceEntryEntityType.LOAN, id, uid);
+        loanRepository.deleteById(id);
     }
 
     private FinanceLoan requireOwned(long id, long uid) {
@@ -106,11 +109,13 @@ public class FinanceLoanService {
         row.setNotes(emptyToNull(req.notes()));
     }
 
-    private FinanceLoanDto toDto(FinanceLoan row) {
+    private FinanceLoanDto toDto(FinanceLoan row, long ownerUserId) {
         String natureLabel = FinanceLoanCatalog.natureLabel(row.getLoanNature());
         if ("OTHER".equals(row.getLoanNature()) && row.getNatureOther() != null && !row.getNatureOther().isBlank()) {
             natureLabel = row.getNatureOther();
         }
+        int documentCount =
+                (int) entryDocumentService.countForEntity(FinanceEntryEntityType.LOAN, row.getId(), ownerUserId);
         return new FinanceLoanDto(
                 row.getId(),
                 row.getInstitution(),
@@ -126,6 +131,7 @@ public class FinanceLoanService {
                 row.getPaymentFrequency(),
                 FinanceLoanCatalog.frequencyLabel(row.getPaymentFrequency()),
                 row.getNotes() == null ? "" : row.getNotes(),
+                documentCount,
                 row.getCreatedAt(),
                 row.getUpdatedAt());
     }

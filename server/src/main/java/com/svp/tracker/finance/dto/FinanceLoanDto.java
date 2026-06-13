@@ -19,5 +19,6 @@ public record FinanceLoanDto(
         String paymentFrequency,
         String paymentFrequencyLabel,
         String notes,
+        int documentCount,
         Instant createdAt,
         Instant updatedAt) {}

@@ -21,5 +21,6 @@ public record FinanceCreditCardDto(
         BigDecimal availableCredit,
         String healthLabel,
         String notes,
+        int documentCount,
         Instant createdAt,
         Instant updatedAt) {}

@@ -17,6 +17,7 @@ import {
 } from '../../../models/finance.models';
 import { FinanceLoansApiService } from '../../../services/finance-loans-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
+import { FinanceEntryDocumentsComponent } from '../finance-entry-documents/finance-entry-documents.component';
 
 @Component({
   selector: 'app-loans-panel',
@@ -32,6 +33,7 @@ import { formatHttpErrorDetail } from '../../../util/http-error';
     MatIconModule,
     MatSnackBarModule,
     MatTableModule,
+    FinanceEntryDocumentsComponent,
   ],
   templateUrl: './loans-panel.component.html',
   styleUrl: './loans-panel.component.scss',
@@ -62,6 +64,7 @@ export class LoansPanelComponent implements OnInit {
     'paidSoFar',
     'balanceToPay',
     'frequency',
+    'documents',
     'actions',
   ] as const;
 
@@ -135,11 +138,16 @@ export class LoansPanelComponent implements OnInit {
         ? this.api.create(body)
         : this.api.update(this.editingId, body);
     req.subscribe({
-      next: () => {
+      next: (saved) => {
         this.saving = false;
-        this.snackBar.open(this.editingId == null ? 'Loan added' : 'Loan updated', undefined, { duration: 4500 });
-        this.editingId = null;
-        this.form = this.emptyForm();
+        const isNew = this.editingId == null;
+        this.snackBar.open(isNew ? 'Loan added' : 'Loan updated', undefined, { duration: 4500 });
+        if (isNew) {
+          this.editingId = saved.id;
+        } else {
+          this.editingId = null;
+          this.form = this.emptyForm();
+        }
         this.refresh();
       },
       error: (e) => {

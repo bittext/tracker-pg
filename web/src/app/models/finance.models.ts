@@ -872,6 +872,7 @@ export interface FinanceLoanDto {
   paymentFrequency: string;
   paymentFrequencyLabel: string;
   notes: string;
+  documentCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -915,6 +916,7 @@ export interface FinanceInvestmentDto {
   currentValue: number | null;
   gainLoss: number | null;
   notes: string;
+  documentCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -959,6 +961,7 @@ export interface FinanceCreditCardDto {
   availableCredit: number | null;
   healthLabel: string;
   notes: string;
+  documentCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -1035,6 +1038,7 @@ export interface FinanceInsurancePolicyDto {
   renewalStatus: string;
   renewalStatusLabel: string;
   notes: string;
+  documentCount: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -1068,4 +1072,18 @@ export interface FinanceInsurancePolicyRequestDto {
   coverageEndDate?: string | null;
   renewalReminderDays?: number | null;
   notes?: string;
+}
+
+/** GET /api/finance/entry-documents */
+export type FinanceEntryEntityType = 'INVESTMENT' | 'LOAN' | 'CREDIT_CARD' | 'INSURANCE';
+
+export interface FinanceEntryDocumentDto {
+  id: number;
+  entityType: string;
+  entityId: number;
+  originalFilename: string;
+  displayName: string;
+  contentType: string;
+  sizeBytes: number;
+  createdAt: string;
 }

@@ -22,6 +22,7 @@ public class FinanceInvestmentService {
 
     private final CurrentUserService currentUser;
     private final FinanceInvestmentRepository investmentRepository;
+    private final FinanceEntryDocumentService entryDocumentService;
 
     @Transactional(readOnly = true)
     public FinanceInvestmentOptionsDto options() {
@@ -32,14 +33,14 @@ public class FinanceInvestmentService {
     public List<FinanceInvestmentDto> listForCurrentUser() {
         long uid = currentUser.requireUserId();
         return investmentRepository.findByOwnerUserIdOrderByInstitutionAscNameAsc(uid).stream()
-                .map(this::toDto)
+                .map(row -> toDto(row, uid))
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public FinanceInvestmentDto getForCurrentUser(long id) {
         long uid = currentUser.requireUserId();
-        return toDto(requireOwned(id, uid));
+        return toDto(requireOwned(id, uid), uid);
     }
 
     @Transactional
@@ -48,7 +49,7 @@ public class FinanceInvestmentService {
         FinanceInvestment row = new FinanceInvestment();
         row.setOwnerUserId(uid);
         apply(row, req);
-        return toDto(investmentRepository.save(row));
+        return toDto(investmentRepository.save(row), uid);
     }
 
     @Transactional
@@ -57,13 +58,15 @@ public class FinanceInvestmentService {
         FinanceInvestment row = requireOwned(id, uid);
         apply(row, req);
         row.setUpdatedAt(Instant.now());
-        return toDto(investmentRepository.save(row));
+        return toDto(investmentRepository.save(row), uid);
     }
 
     @Transactional
     public void deleteForCurrentUser(long id) {
         long uid = currentUser.requireUserId();
-        investmentRepository.delete(requireOwned(id, uid));
+        requireOwned(id, uid);
+        entryDocumentService.deleteAllForEntity(FinanceEntryEntityType.INVESTMENT, id, uid);
+        investmentRepository.deleteById(id);
     }
 
     private FinanceInvestment requireOwned(long id, long uid) {
@@ -107,11 +110,13 @@ public class FinanceInvestmentService {
         row.setNotes(emptyToNull(req.notes()));
     }
 
-    private FinanceInvestmentDto toDto(FinanceInvestment row) {
+    private FinanceInvestmentDto toDto(FinanceInvestment row, long ownerUserId) {
         String typeLabel = FinanceInvestmentCatalog.typeLabel(row.getInvestmentType());
         if ("OTHER".equals(row.getInvestmentType()) && row.getTypeOther() != null && !row.getTypeOther().isBlank()) {
             typeLabel = row.getTypeOther();
         }
+        int documentCount =
+                (int) entryDocumentService.countForEntity(FinanceEntryEntityType.INVESTMENT, row.getId(), ownerUserId);
         return new FinanceInvestmentDto(
                 row.getId(),
                 row.getInstitution(),
@@ -126,6 +131,7 @@ public class FinanceInvestmentService {
                 row.getCurrentValue(),
                 computeGainLoss(row.getCostBasis(), row.getCurrentValue()),
                 row.getNotes() == null ? "" : row.getNotes(),
+                documentCount,
                 row.getCreatedAt(),
                 row.getUpdatedAt());
     }

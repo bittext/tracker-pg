@@ -1,0 +1,33 @@
+<div class="fin-docs" role="region" aria-label="Documents">
+  <div class="fin-docs__head">
+    <h4 class="fin-docs__title">Documents</h4>
+    @if (entityId != null) {
+      <button mat-stroked-button type="button" [disabled]="uploading" (click)="fileInput.click()">
+        <mat-icon>upload_file</mat-icon>
+        {{ uploading ? 'Uploading…' : 'Add document' }}
+      </button>
+      <input #fileInput type="file" (change)="onFileSelected($event)" [disabled]="uploading" hidden />
+    }
+  </div>
+
+  @if (entityId == null) {
+    <p class="muted fin-docs__hint">Save this entry first, then you can attach documents.</p>
+  } @else if (loading) {
+    <p class="muted">Loading documents…</p>
+  } @else if (!documents.length) {
+    <p class="muted fin-docs__hint">No documents yet — upload statements, policies, or other files.</p>
+  } @else {
+    <ul class="fin-docs__list">
+      @for (doc of documents; track doc.id) {
+        <li class="fin-docs__item">
+          <span class="fin-docs__name">{{ label(doc) }}</span>
+          <span class="muted fin-docs__meta">{{ sizeLabel(doc.sizeBytes) }}</span>
+          <span class="fin-docs__actions">
+            <button mat-button type="button" (click)="download(doc)">Download</button>
+            <button mat-button color="warn" type="button" (click)="deleteDoc(doc)">Delete</button>
+          </span>
+        </li>
+      }
+    </ul>
+  }
+</div>

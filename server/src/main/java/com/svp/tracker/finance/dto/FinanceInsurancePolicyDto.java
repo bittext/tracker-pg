@@ -23,5 +23,6 @@ public record FinanceInsurancePolicyDto(
         String renewalStatus,
         String renewalStatusLabel,
         String notes,
+        int documentCount,
         Instant createdAt,
         Instant updatedAt) {}

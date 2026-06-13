@@ -33,6 +33,7 @@ public class FinanceCreditCardService {
     private final FinanceCreditCardRepository cardRepository;
     private final FinanceCreditCardStatementRepository statementRepository;
     private final BankingInstitutionRepository bankingInstitutionRepository;
+    private final FinanceEntryDocumentService entryDocumentService;
 
     @Transactional(readOnly = true)
     public FinanceCreditCardOptionsDto options() {
@@ -70,14 +71,14 @@ public class FinanceCreditCardService {
         long uid = currentUser.requireUserId();
         Map<Long, String> bankingNames = bankingNameMap(uid);
         return cardRepository.findByOwnerUserIdOrderByInstitutionAscCardNameAsc(uid).stream()
-                .map(c -> toDto(c, bankingNames))
+                .map(c -> toDto(c, bankingNames, uid))
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public FinanceCreditCardDto getForCurrentUser(long id) {
         long uid = currentUser.requireUserId();
-        return toDto(requireOwnedCard(id, uid), bankingNameMap(uid));
+        return toDto(requireOwnedCard(id, uid), bankingNameMap(uid), uid);
     }
 
     @Transactional
@@ -86,7 +87,7 @@ public class FinanceCreditCardService {
         FinanceCreditCard row = new FinanceCreditCard();
         row.setOwnerUserId(uid);
         apply(row, req, uid);
-        return toDto(cardRepository.save(row), bankingNameMap(uid));
+        return toDto(cardRepository.save(row), bankingNameMap(uid), uid);
     }
 
     @Transactional
@@ -95,13 +96,15 @@ public class FinanceCreditCardService {
         FinanceCreditCard row = requireOwnedCard(id, uid);
         apply(row, req, uid);
         row.setUpdatedAt(Instant.now());
-        return toDto(cardRepository.save(row), bankingNameMap(uid));
+        return toDto(cardRepository.save(row), bankingNameMap(uid), uid);
     }
 
     @Transactional
     public void deleteForCurrentUser(long id) {
         long uid = currentUser.requireUserId();
-        cardRepository.delete(requireOwnedCard(id, uid));
+        requireOwnedCard(id, uid);
+        entryDocumentService.deleteAllForEntity(FinanceEntryEntityType.CREDIT_CARD, id, uid);
+        cardRepository.deleteById(id);
     }
 
     @Transactional(readOnly = true)
@@ -203,10 +206,12 @@ public class FinanceCreditCardService {
         row.setNotes(emptyToNull(req.notes()));
     }
 
-    private FinanceCreditCardDto toDto(FinanceCreditCard row, Map<Long, String> bankingNames) {
+    private FinanceCreditCardDto toDto(FinanceCreditCard row, Map<Long, String> bankingNames, long ownerUserId) {
         BigDecimal util = FinanceCreditHealth.utilizationPct(row.getCurrentBalance(), row.getCreditLimit());
         Long bankingId = row.getBankingInstitutionId();
         String bankingName = bankingId != null ? bankingNames.getOrDefault(bankingId, "") : "";
+        int documentCount =
+                (int) entryDocumentService.countForEntity(FinanceEntryEntityType.CREDIT_CARD, row.getId(), ownerUserId);
         return new FinanceCreditCardDto(
                 row.getId(),
                 row.getInstitution(),
@@ -224,6 +229,7 @@ public class FinanceCreditCardService {
                 FinanceCreditHealth.availableCredit(row.getCurrentBalance(), row.getCreditLimit()),
                 FinanceCreditHealth.healthLabel(util),
                 row.getNotes() == null ? "" : row.getNotes(),
+                documentCount,
                 row.getCreatedAt(),
                 row.getUpdatedAt());
     }

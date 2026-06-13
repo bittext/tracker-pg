@@ -22,6 +22,7 @@ import {
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { FinanceCreditCardsApiService } from '../../../services/finance-credit-cards-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
+import { FinanceEntryDocumentsComponent } from '../finance-entry-documents/finance-entry-documents.component';
 
 @Component({
   selector: 'app-credit-panel',
@@ -38,6 +39,7 @@ import { formatHttpErrorDetail } from '../../../util/http-error';
     MatIconModule,
     MatSnackBarModule,
     MatTableModule,
+    FinanceEntryDocumentsComponent,
   ],
   templateUrl: './credit-panel.component.html',
   styleUrl: './credit-panel.component.scss',
@@ -78,6 +80,7 @@ export class CreditPanelComponent implements OnInit {
     'statementDate',
     'paymentDueDate',
     'ledgerSpending',
+    'documents',
     'actions',
   ] as const;
 
@@ -182,13 +185,18 @@ export class CreditPanelComponent implements OnInit {
     };
     const req = this.editingId == null ? this.api.create(body) : this.api.update(this.editingId, body);
     req.subscribe({
-      next: () => {
+      next: (saved) => {
         this.saving = false;
-        this.snackBar.open(this.editingId == null ? 'Credit card added' : 'Credit card updated', undefined, {
+        const isNew = this.editingId == null;
+        this.snackBar.open(isNew ? 'Credit card added' : 'Credit card updated', undefined, {
           duration: 4500,
         });
-        this.editingId = null;
-        this.form = this.emptyCardForm();
+        if (isNew) {
+          this.editingId = saved.id;
+        } else {
+          this.editingId = null;
+          this.form = this.emptyCardForm();
+        }
         this.refresh();
       },
       error: (e) => {

@@ -124,6 +124,14 @@
                 <button mat-button type="button" (click)="cancelEdit()" [disabled]="saving">Cancel</button>
               }
             </div>
+
+            @if (editingId != null) {
+              <app-finance-entry-documents
+                entityType="CREDIT_CARD"
+                [entityId]="editingId"
+                (documentsChanged)="refresh()"
+              />
+            }
           </div>
 
           @if (cards.length === 0) {
@@ -172,6 +180,10 @@
                       <span class="muted">—</span>
                     }
                   </td>
+                </ng-container>
+                <ng-container matColumnDef="documents">
+                  <th mat-header-cell *matHeaderCellDef>Docs</th>
+                  <td mat-cell *matCellDef="let row">{{ row.documentCount || 0 }}</td>
                 </ng-container>
                 <ng-container matColumnDef="actions">
                   <th mat-header-cell *matHeaderCellDef></th>

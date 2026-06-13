@@ -18,5 +18,6 @@ public record FinanceInvestmentDto(
         BigDecimal currentValue,
         BigDecimal gainLoss,
         String notes,
+        int documentCount,
         Instant createdAt,
         Instant updatedAt) {}
