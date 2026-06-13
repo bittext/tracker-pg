@@ -1,0 +1,76 @@
+.admin-agentic__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.admin-agentic__title {
+  margin: 0 0 0.25rem;
+}
+
+.admin-agentic__lead {
+  max-width: 52rem;
+  margin: 0;
+}
+
+.admin-agentic__kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.kpi__label {
+  margin: 0;
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+.kpi__value {
+  margin: 0.25rem 0 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.admin-agentic__section {
+  margin-bottom: 1rem;
+}
+
+.admin-agentic__form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.admin-agentic__form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.admin-agentic__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.admin-agentic__notif-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.admin-agentic__notif-list li {
+  padding: 0.35rem 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  font-size: 0.9rem;
+}
+
+.full-width {
+  width: 100%;
+}

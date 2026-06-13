@@ -38,4 +38,17 @@ public interface RobinhoodAgenticOrderRepository extends JpaRepository<Robinhood
             """)
     BigDecimal sumEstimatedNotionalSince(
             @Param("uid") long ownerUserId, @Param("source") String source, @Param("since") Instant since);
+
+    List<RobinhoodAgenticOrder> findByStatusOrderByCreatedAtDesc(String status);
+
+    List<RobinhoodAgenticOrder> findTop50ByOrderByCreatedAtDesc();
+
+    long countByStatus(String status);
+
+    @Query(
+            """
+            SELECT COUNT(o) FROM RobinhoodAgenticOrder o
+            WHERE o.createdAt >= :since
+            """)
+    long countSince(@Param("since") Instant since);
 }

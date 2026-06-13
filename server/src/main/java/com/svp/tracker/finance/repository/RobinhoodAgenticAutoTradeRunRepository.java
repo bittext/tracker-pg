@@ -6,4 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface RobinhoodAgenticAutoTradeRunRepository extends JpaRepository<RobinhoodAgenticAutoTradeRun, Long> {
     List<RobinhoodAgenticAutoTradeRun> findTop20ByOwnerUserIdOrderByStartedAtDesc(long ownerUserId);
+
+    List<RobinhoodAgenticAutoTradeRun> findTop30ByOrderByStartedAtDesc();
 }

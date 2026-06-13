@@ -112,3 +112,17 @@ Settings response includes `autoTradeServerEnabled` (read-only mirror of server 
 - Rotate OAuth tokens if exposed; store full `.tokens.json` including `refresh_token`.
 
 See [PHASE2.md](./PHASE2.md) for order review/approve flow and [PHASE1.md](./PHASE1.md) for sync setup.
+
+## Admin console (Phase 3+)
+
+**Admin → Finance → Trading → Robinhood Agentic** provides:
+
+| Feature | Description |
+|---------|-------------|
+| **Default guardrails** | Editable DB defaults applied to new users via **Apply to user** |
+| **Tracker** | Pending approval queue, recent orders, auto-trade runs, alert log |
+| **Evaluate** | Run auto-trade for all users or a specific user ID |
+| **Approve/Reject** | Cross-user order actions (ADMIN role) |
+| **Approval alerts** | Email/SMS when orders enter `pending_approval` (uses Admin → Finance → Notifications destinations; toggles on defaults form) |
+
+API base: `/api/admin/finance/agentic/*`

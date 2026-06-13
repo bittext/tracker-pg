@@ -8,4 +8,6 @@ public interface RobinhoodAgenticConnectionRepository extends JpaRepository<Robi
     Optional<RobinhoodAgenticConnection> findByOwnerUserId(long ownerUserId);
 
     void deleteByOwnerUserId(long ownerUserId);
+
+    long count();
 }

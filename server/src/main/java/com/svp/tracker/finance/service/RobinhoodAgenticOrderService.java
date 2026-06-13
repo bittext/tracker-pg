@@ -28,6 +28,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
@@ -51,8 +53,11 @@ public class RobinhoodAgenticOrderService {
     private final RobinhoodAgenticOrderRepository orderRepository;
     private final RobinhoodAgenticTokenService tokenService;
     private final RobinhoodAgenticSidecarClient sidecarClient;
+    private final RobinhoodAgenticAdminDefaultsService adminDefaultsService;
+    private final RobinhoodAgenticApprovalNotificationService approvalNotificationService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    /** Legacy static defaults; prefer {@link RobinhoodAgenticAdminDefaultsService#newUserSettingsTemplate()}. */
     static RobinhoodAgenticSettings defaultSettingsTemplate() {
         RobinhoodAgenticSettings s = new RobinhoodAgenticSettings();
         s.setRequireApproval(true);
@@ -78,6 +83,75 @@ public class RobinhoodAgenticOrderService {
         return toSettingsDto(row);
     }
 
+    @Transactional(readOnly = true)
+    public RobinhoodAgenticSettingsDto settingsForUser(long ownerUserId) {
+        requireFeature();
+        RobinhoodAgenticSettings row = settingsRepository
+                .findByOwnerUserId(ownerUserId)
+                .orElseGet(this::defaultSettingsRow);
+        return toSettingsDto(row);
+    }
+
+    @Transactional
+    public RobinhoodAgenticSettingsDto saveSettingsForUser(
+            long ownerUserId, RobinhoodAgenticSettingsRequestDto request) {
+        requireFeature();
+        RobinhoodAgenticSettings row = settingsRepository
+                .findByOwnerUserId(ownerUserId)
+                .orElseGet(() -> {
+                    RobinhoodAgenticSettings s = defaultSettingsRow();
+                    s.setOwnerUserId(ownerUserId);
+                    return s;
+                });
+        applySettingsRequest(row, request);
+        row.setUpdatedAt(Instant.now());
+        settingsRepository.save(row);
+        return toSettingsDto(row);
+    }
+
+    @Transactional
+    public RobinhoodAgenticOrderDto approveOrderForUser(long ownerUserId, long orderId) {
+        requireFeature();
+        requireExecutionEnabled();
+        RobinhoodAgenticConnection conn = requireConnection(ownerUserId);
+        RobinhoodAgenticOrder order = orderRepository
+                .findByIdAndOwnerUserId(orderId, ownerUserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+        if (!STATUS_PENDING.equals(order.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order is not pending approval");
+        }
+        RobinhoodAgenticSettings settings = effectiveSettings(ownerUserId);
+        validateSymbolAllowed(order.getSymbol(), settings);
+        validateNotional(order.getEstimatedNotional(), settings);
+        RobinhoodAgenticOrderRequestDto request = toRequestDto(order);
+        try {
+            placeReviewedOrder(conn, order, request);
+        } catch (Exception e) {
+            order.setStatus(STATUS_FAILED);
+            order.setErrorMessage(truncate(e.getMessage(), 500));
+            order.setUpdatedAt(Instant.now());
+            orderRepository.save(order);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, e.getMessage(), e);
+        }
+        orderRepository.save(order);
+        return toOrderDto(order);
+    }
+
+    @Transactional
+    public RobinhoodAgenticOrderDto rejectOrderForUser(long ownerUserId, long orderId) {
+        requireFeature();
+        RobinhoodAgenticOrder order = orderRepository
+                .findByIdAndOwnerUserId(orderId, ownerUserId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+        if (!STATUS_PENDING.equals(order.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order is not pending approval");
+        }
+        order.setStatus(STATUS_REJECTED);
+        order.setUpdatedAt(Instant.now());
+        orderRepository.save(order);
+        return toOrderDto(order);
+    }
+
     @Transactional
     public RobinhoodAgenticSettingsDto saveSettings(RobinhoodAgenticSettingsRequestDto request) {
         requireFeature();
@@ -89,6 +163,13 @@ public class RobinhoodAgenticOrderService {
                     s.setOwnerUserId(uid);
                     return s;
                 });
+        applySettingsRequest(row, request);
+        row.setUpdatedAt(Instant.now());
+        settingsRepository.save(row);
+        return toSettingsDto(row);
+    }
+
+    private void applySettingsRequest(RobinhoodAgenticSettings row, RobinhoodAgenticSettingsRequestDto request) {
         if (request.requireApproval() != null) {
             row.setRequireApproval(request.requireApproval());
         }
@@ -128,9 +209,6 @@ public class RobinhoodAgenticOrderService {
         if (request.autoTradeMarketHoursOnly() != null) {
             row.setAutoTradeMarketHoursOnly(request.autoTradeMarketHoursOnly());
         }
-        row.setUpdatedAt(Instant.now());
-        settingsRepository.save(row);
-        return toSettingsDto(row);
     }
 
     @Transactional(readOnly = true)
@@ -213,6 +291,9 @@ public class RobinhoodAgenticOrderService {
         }
 
         orderRepository.save(order);
+        if (STATUS_PENDING.equals(order.getStatus())) {
+            notifyPendingApprovalAfterCommit(order);
+        }
         return order;
     }
 
@@ -221,45 +302,32 @@ public class RobinhoodAgenticOrderService {
         requireFeature();
         requireExecutionEnabled();
         long uid = currentUser.requireUserId();
-        RobinhoodAgenticConnection conn = requireConnection(uid);
-        RobinhoodAgenticOrder order = orderRepository
-                .findByIdAndOwnerUserId(orderId, uid)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
-        if (!STATUS_PENDING.equals(order.getStatus())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order is not pending approval");
-        }
-        RobinhoodAgenticSettings settings = effectiveSettings(uid);
-        validateSymbolAllowed(order.getSymbol(), settings);
-        validateNotional(order.getEstimatedNotional(), settings);
-
-        RobinhoodAgenticOrderRequestDto request = toRequestDto(order);
-        try {
-            placeReviewedOrder(conn, order, request);
-        } catch (Exception e) {
-            order.setStatus(STATUS_FAILED);
-            order.setErrorMessage(truncate(e.getMessage(), 500));
-            order.setUpdatedAt(Instant.now());
-            orderRepository.save(order);
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, e.getMessage(), e);
-        }
-        orderRepository.save(order);
-        return toOrderDto(order);
+        return approveOrderForUser(uid, orderId);
     }
 
     @Transactional
     public RobinhoodAgenticOrderDto rejectOrder(long orderId) {
         requireFeature();
         long uid = currentUser.requireUserId();
-        RobinhoodAgenticOrder order = orderRepository
-                .findByIdAndOwnerUserId(orderId, uid)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
-        if (!STATUS_PENDING.equals(order.getStatus())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order is not pending approval");
+        return rejectOrderForUser(uid, orderId);
+    }
+
+    private void notifyPendingApprovalAfterCommit(RobinhoodAgenticOrder order) {
+        RobinhoodAgenticOrder snapshot = order;
+        runAfterCommit(() -> approvalNotificationService.notifyPendingApproval(snapshot));
+    }
+
+    private static void runAfterCommit(Runnable action) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    action.run();
+                }
+            });
+        } else {
+            action.run();
         }
-        order.setStatus(STATUS_REJECTED);
-        order.setUpdatedAt(Instant.now());
-        orderRepository.save(order);
-        return toOrderDto(order);
     }
 
     private void placeReviewedOrder(
@@ -283,8 +351,10 @@ public class RobinhoodAgenticOrderService {
     }
 
     private RobinhoodAgenticSettings defaultSettingsRow() {
-        RobinhoodAgenticSettings s = defaultSettingsTemplate();
-        s.setMaxOrderNotional(props.defaultMaxOrderNotional());
+        RobinhoodAgenticSettings s = adminDefaultsService.newUserSettingsTemplate();
+        if (s.getMaxOrderNotional() == null) {
+            s.setMaxOrderNotional(props.defaultMaxOrderNotional());
+        }
         return s;
     }
 

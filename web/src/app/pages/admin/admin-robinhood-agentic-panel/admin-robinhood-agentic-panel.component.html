@@ -1,0 +1,207 @@
+<div class="admin-agentic">
+  <header class="admin-agentic__head">
+    <div>
+      <h2 class="admin-agentic__title">Robinhood Agentic (admin)</h2>
+      <p class="muted admin-agentic__lead">
+        Default guardrails for Phase 2 (review → approve → place) and Phase 3 (Predicts → auto-trade).
+        Pending AI/manual orders appear in the tracker; approve here or in
+        <a routerLink="/finance">Finance → Robinhood</a>.
+        Approval alerts use <strong>Admin → Finance → Notifications</strong> email/SMS destinations.
+      </p>
+    </div>
+    <button mat-flat-button color="primary" type="button" (click)="refresh()" [disabled]="loading()">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+  </header>
+
+  @if (loading()) {
+    <mat-progress-bar mode="indeterminate" />
+  }
+
+  @if (config(); as c) {
+    <section class="admin-agentic__chips muted">
+      Agentic: <strong>{{ c.featureEnabled ? 'on' : 'off' }}</strong> ·
+      Execution: <strong>{{ c.executionEnabled ? 'on' : 'off' }}</strong> ·
+      Auto-trade scheduler: <strong>{{ c.autoTradeServerEnabled ? 'on' : 'off' }}</strong> ·
+      Sidecar: <code>{{ c.serviceBaseUrl || '—' }}</code>
+    </section>
+  }
+
+  @if (stats(); as s) {
+    <section class="admin-agentic__kpis">
+      <mat-card><mat-card-content>
+        <p class="kpi__label">Connected users</p>
+        <p class="kpi__value">{{ s.connectedUsers }}</p>
+      </mat-card-content></mat-card>
+      <mat-card><mat-card-content>
+        <p class="kpi__label">Pending approvals</p>
+        <p class="kpi__value">{{ s.pendingApprovals }}</p>
+      </mat-card-content></mat-card>
+      <mat-card><mat-card-content>
+        <p class="kpi__label">Orders (24h)</p>
+        <p class="kpi__value">{{ s.ordersLast24h }}</p>
+      </mat-card-content></mat-card>
+      <mat-card><mat-card-content>
+        <p class="kpi__label">Auto-trade runs (24h)</p>
+        <p class="kpi__value">{{ s.autoTradeRunsLast24h }}</p>
+      </mat-card-content></mat-card>
+      <mat-card><mat-card-content>
+        <p class="kpi__label">Alert sends (24h)</p>
+        <p class="kpi__value">{{ s.notificationsLast24h }}</p>
+      </mat-card-content></mat-card>
+    </section>
+  }
+
+  @if (defaultsForm; as d) {
+    <mat-card class="admin-agentic__section">
+      <mat-card-header>
+        <mat-card-title>Default guardrails (new users &amp; Apply defaults)</mat-card-title>
+        <mat-card-subtitle>Last saved {{ formatDate(d.updatedAt) }}</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="admin-agentic__form-grid">
+          <label><input type="checkbox" [(ngModel)]="d.requireApproval" /> Require approval (manual orders)</label>
+          <label><input type="checkbox" [(ngModel)]="d.autoTradeRequireApproval" /> Require approval (auto orders)</label>
+          <label><input type="checkbox" [(ngModel)]="d.autoTradeEnabled" /> Auto-trade enabled by default</label>
+          <label><input type="checkbox" [(ngModel)]="d.autoTradeKillSwitch" /> Kill switch on by default</label>
+          <label><input type="checkbox" [(ngModel)]="d.autoTradeMarketHoursOnly" /> US market hours only</label>
+          <label><input type="checkbox" [(ngModel)]="d.approvalAlertEmailEnabled" /> Email on pending approval</label>
+          <label><input type="checkbox" [(ngModel)]="d.approvalAlertSmsEnabled" /> SMS on pending approval</label>
+          <label>Max order notional (USD)
+            <input type="number" [(ngModel)]="d.maxOrderNotional" placeholder="No cap" />
+          </label>
+          <label>Allowed symbols
+            <input type="text" [(ngModel)]="d.allowedSymbols" placeholder="AAPL,MSFT or empty" />
+          </label>
+          <label>Buy min positivity %
+            <input type="number" [(ngModel)]="d.autoTradeMinPositivityBuy" />
+          </label>
+          <label>Sell max positivity %
+            <input type="number" [(ngModel)]="d.autoTradeMaxPositivitySell" />
+          </label>
+          <label>Min spike Z
+            <input type="number" step="0.1" [(ngModel)]="d.autoTradeMinSpikeZ" />
+          </label>
+          <label>Min mentions (24h)
+            <input type="number" [(ngModel)]="d.autoTradeMinMentions24h" />
+          </label>
+          <label>Order quantity
+            <input type="number" [(ngModel)]="d.autoTradeOrderQuantity" />
+          </label>
+          <label>Max trades / day
+            <input type="number" [(ngModel)]="d.autoTradeMaxTradesPerDay" />
+          </label>
+          <label>Max daily notional
+            <input type="number" [(ngModel)]="d.autoTradeMaxDailyNotional" placeholder="No cap" />
+          </label>
+          <label>Cooldown (minutes)
+            <input type="number" [(ngModel)]="d.autoTradeCooldownMinutes" />
+          </label>
+        </div>
+        <div class="admin-agentic__actions">
+          <button mat-flat-button color="primary" type="button" (click)="saveDefaults()" [disabled]="savingDefaults()">
+            Save default guardrails
+          </button>
+          <label>Apply defaults to user ID
+            <input type="number" [(ngModel)]="applyDefaultsUserId" placeholder="User id" />
+          </label>
+          <button mat-stroked-button type="button" (click)="applyDefaultsToUser()" [disabled]="busyAction() === 'apply-defaults'">
+            Apply to user
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  }
+
+  <mat-card class="admin-agentic__section">
+    <mat-card-header>
+      <mat-card-title>Manual evaluate</mat-card-title>
+    </mat-card-header>
+    <mat-card-content class="admin-agentic__actions">
+      <button mat-stroked-button type="button" (click)="evaluateAll()" [disabled]="busyAction() === 'evaluate-all'">
+        Evaluate all enabled users
+      </button>
+      <label>User ID
+        <input type="number" [(ngModel)]="evaluateUserId" placeholder="User id" />
+      </label>
+      <button mat-stroked-button type="button" (click)="evaluateUser()" [disabled]="busyAction() === 'evaluate-user'">
+        Evaluate user now
+      </button>
+    </mat-card-content>
+  </mat-card>
+
+  @if (tracker(); as t) {
+    <mat-card class="admin-agentic__section">
+      <mat-card-header>
+        <mat-card-title>Pending approval queue</mat-card-title>
+        <mat-card-subtitle>AI and manual orders awaiting approve/reject</mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        @if (t.pendingOrders.length === 0) {
+          <p class="muted">No pending orders.</p>
+        } @else {
+          <table mat-table [dataSource]="t.pendingOrders" class="full-width">
+            <ng-container matColumnDef="when">
+              <th mat-header-cell *matHeaderCellDef>When</th>
+              <td mat-cell *matCellDef="let row">{{ formatDate(row.order.createdAt) }}</td>
+            </ng-container>
+            <ng-container matColumnDef="user">
+              <th mat-header-cell *matHeaderCellDef>User</th>
+              <td mat-cell *matCellDef="let row">
+                <strong>{{ row.ownerUsername }}</strong>
+                <span class="muted"> #{{ row.ownerUserId }}</span>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="source">
+              <th mat-header-cell *matHeaderCellDef>Source</th>
+              <td mat-cell *matCellDef="let row">{{ row.order.source }}</td>
+            </ng-container>
+            <ng-container matColumnDef="symbol">
+              <th mat-header-cell *matHeaderCellDef>Symbol</th>
+              <td mat-cell *matCellDef="let row"><strong>{{ row.order.symbol }}</strong></td>
+            </ng-container>
+            <ng-container matColumnDef="side">
+              <th mat-header-cell *matHeaderCellDef>Side</th>
+              <td mat-cell *matCellDef="let row">{{ row.order.side }}</td>
+            </ng-container>
+            <ng-container matColumnDef="notional">
+              <th mat-header-cell *matHeaderCellDef>Est. $</th>
+              <td mat-cell *matCellDef="let row">{{ row.order.estimatedNotional ?? '—' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef></th>
+              <td mat-cell *matCellDef="let row">
+                <button mat-flat-button color="primary" type="button" (click)="approve(row)" [disabled]="!!busyAction()">Approve</button>
+                <button mat-stroked-button type="button" (click)="reject(row)" [disabled]="!!busyAction()">Reject</button>
+              </td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="pendingColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: pendingColumns"></tr>
+          </table>
+        }
+      </mat-card-content>
+    </mat-card>
+
+    @if (t.recentNotifications.length) {
+      <mat-card class="admin-agentic__section">
+        <mat-card-header>
+          <mat-card-title>Approval alert log</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <ul class="admin-agentic__notif-list">
+            @for (n of t.recentNotifications; track n.id) {
+              <li>
+                <span>{{ formatDate(n.createdAt) }}</span>
+                <strong>{{ n.channel }}</strong> {{ n.status }}
+                order #{{ n.orderId }} user #{{ n.ownerUserId }}
+                @if (n.destinationMasked) { → {{ n.destinationMasked }} }
+                <span class="muted">{{ n.detail }}</span>
+              </li>
+            }
+          </ul>
+        </mat-card-content>
+      </mat-card>
+    }
+  }
+</div>

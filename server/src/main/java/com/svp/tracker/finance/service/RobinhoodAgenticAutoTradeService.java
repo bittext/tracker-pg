@@ -61,6 +61,7 @@ public class RobinhoodAgenticAutoTradeService {
     private final RobinhoodAgenticPositionRepository positionRepository;
     private final RobinhoodAgenticAutoTradeRunRepository runRepository;
     private final RobinhoodAgenticOrderService orderService;
+    private final RobinhoodAgenticAdminDefaultsService adminDefaultsService;
     private final RobinhoodAgenticService agenticService;
     private final PredictsService predictsService;
     private final PredictsTickerRepository tickerRepository;
@@ -77,7 +78,7 @@ public class RobinhoodAgenticAutoTradeService {
         requireAutoTradeAllowed();
         RobinhoodAgenticSettings settings = settingsRepository
                 .findByOwnerUserId(ownerUserId)
-                .orElseGet(RobinhoodAgenticOrderService::defaultSettingsTemplate);
+                .orElseGet(adminDefaultsService::newUserSettingsTemplate);
         if (!settings.isAutoTradeEnabled()) {
             return skipped("Auto-trade disabled for user");
         }
