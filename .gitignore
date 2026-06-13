@@ -9,6 +9,8 @@ web/node_modules/
 web/dist/
 web/.angular/
 .venv/
+__pycache__/
+*.py[cod]
 dumps/
 .use-lightsail-robinhood-compose
 .use-lightsail-robinhood-notebook
