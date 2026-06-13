@@ -1,26 +1,31 @@
 """
-Robinhood Agentic Trading sidecar for tracker-pg (Phase 1 read-only sync).
+Robinhood Agentic Trading sidecar for tracker-pg.
 
 Endpoints
 ---------
 - GET  /health
-- POST /v1/sync  → {access_token, sync_default?} → accounts, portfolios, positions
+- POST /v1/sync           → {access_token, sync_default?}
+- POST /v1/refresh-token  → {refresh_token, client_id?}
+- POST /v1/review-order   → {access_token, symbol, side, type, ...}
+- POST /v1/place-order    → {access_token, symbol, side, type, ...}
 """
 
 from __future__ import annotations
 
 import logging
-import os
+from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+from oauth_service import refresh_access_token
+from order_service import run_place, run_review
 from sync_service import run_sync
 
 LOGGER = logging.getLogger("robinhood-agent-svc")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s :: %(message)s")
 
-app = FastAPI(title="robinhood-agent-svc", version="1.0.0")
+app = FastAPI(title="robinhood-agent-svc", version="2.0.0")
 
 
 class SyncRequest(BaseModel):
@@ -28,9 +33,26 @@ class SyncRequest(BaseModel):
     sync_default: bool = True
 
 
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str = Field(min_length=10)
+    client_id: str | None = None
+
+
+class OrderRequest(BaseModel):
+    access_token: str = Field(min_length=10)
+    account_number: str | None = None
+    symbol: str = Field(min_length=1)
+    side: str = Field(min_length=2)
+    type: str = Field(default="market")
+    quantity: str | float | int | None = None
+    amount: str | float | int | None = None
+    limit_price: str | float | int | None = None
+    time_in_force: str | None = None
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "service": "robinhood-agent-svc"}
+    return {"status": "ok", "service": "robinhood-agent-svc", "phase": "2"}
 
 
 @app.post("/v1/sync")
@@ -43,4 +65,50 @@ def sync(body: SyncRequest) -> dict:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         LOGGER.exception("sync failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/v1/refresh-token")
+def refresh_token(body: RefreshTokenRequest) -> dict[str, Any]:
+    try:
+        tokens = refresh_access_token(body.refresh_token, client_id=body.client_id)
+        return {"ok": True, **tokens}
+    except PermissionError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.exception("refresh failed")
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+def _order_body(body: OrderRequest) -> dict[str, Any]:
+    return body.model_dump(exclude={"access_token"}, exclude_none=True)
+
+
+@app.post("/v1/review-order")
+def review_order(body: OrderRequest) -> dict:
+    try:
+        return run_review(body.access_token, _order_body(body))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.exception("review-order failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/v1/place-order")
+def place_order(body: OrderRequest) -> dict:
+    try:
+        return run_place(body.access_token, _order_body(body))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.exception("place-order failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc

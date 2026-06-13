@@ -106,3 +106,37 @@
   color: var(--mat-sys-error, #b3261e);
   font-size: 0.85rem;
 }
+
+.rh-trading__phase2 {
+  margin: 1.25rem 0;
+  max-width: 52rem;
+}
+
+.rh-trading__guardrails,
+.rh-trading__order-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+  align-items: flex-end;
+  margin: 0.75rem 0 1rem;
+}
+
+.rh-trading__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  min-width: 7rem;
+}
+
+.rh-trading__field input,
+.rh-trading__field select {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.9rem;
+}
+
+.rh-trading__order-error {
+  display: block;
+  font-size: 0.8rem;
+  max-width: 14rem;
+}

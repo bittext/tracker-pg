@@ -4,8 +4,9 @@
   <h3 class="rh-trading__subtitle">Agentic live sync</h3>
   <p class="muted rh-trading__hint">
     Connect OAuth tokens from <code>phase0_oauth.py</code> (paste <code>.tokens.json</code>) to sync live positions from
-    your Robinhood <strong>Agentic</strong> account via MCP. Trades still require Phase 2 guardrails; this phase is
-    read-only. Option contracts require Robinhood MCP tool <code>get_option_positions</code> (not on all accounts yet).
+    your Robinhood <strong>Agentic</strong> account via MCP. Phase 2 adds guarded order execution on the Agentic account
+    only (<code>review_equity_order</code> → approval → <code>place_equity_order</code>). Option contracts require MCP
+    tool <code>get_option_positions</code> (not on all accounts yet).
   </p>
 
   <div class="rh-trading__status" aria-live="polite">
@@ -100,6 +101,153 @@
           }
         </tbody>
       </table>
+    </div>
+  }
+
+  @if (agenticStatus?.connected) {
+    <div class="rh-trading__phase2" role="region" aria-label="Agentic order guardrails">
+      <h4 class="rh-trading__positions-title">Order guardrails</h4>
+      @if (agenticSettings) {
+        <p class="muted rh-trading__hint">
+          Server execution:
+          @if (agenticSettings.executionEnabled) {
+            <strong>enabled</strong> — orders may be placed on your Agentic account after review/approval.
+          } @else {
+            <strong>disabled</strong> — set <code>TRACKER_FINANCE_ROBINHOOD_AGENTIC_EXECUTION_ENABLED=true</code> to allow
+            placement.
+          }
+        </p>
+        <div class="rh-trading__guardrails">
+          <label class="rh-trading__apply">
+            <input type="checkbox" [(ngModel)]="settingsRequireApproval" name="rhRequireApproval" [disabled]="agenticSavingSettings" />
+            Require approval before placing
+          </label>
+          <label class="rh-trading__field">
+            <span>Max order notional (USD)</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              [(ngModel)]="settingsMaxNotional"
+              name="rhMaxNotional"
+              [disabled]="agenticSavingSettings"
+              placeholder="No cap"
+            />
+          </label>
+          <label class="rh-trading__field">
+            <span>Allowed symbols (comma-separated, empty = all)</span>
+            <input
+              type="text"
+              [(ngModel)]="settingsAllowedSymbols"
+              name="rhAllowedSymbols"
+              [disabled]="agenticSavingSettings"
+              placeholder="AAPL,MSFT"
+            />
+          </label>
+          <button mat-stroked-button type="button" (click)="saveAgenticSettings()" [disabled]="agenticSavingSettings">
+            Save guardrails
+          </button>
+        </div>
+      }
+
+      <h4 class="rh-trading__positions-title">Propose equity order</h4>
+      <p class="muted rh-trading__hint">
+        Calls MCP <code>review_equity_order</code> first. When approval is required, the order stays pending until you
+        approve (calls <code>place_equity_order</code>).
+      </p>
+      <div class="rh-trading__order-form">
+        <label class="rh-trading__field">
+          <span>Symbol</span>
+          <input type="text" [(ngModel)]="orderSymbol" name="rhOrderSymbol" [disabled]="agenticReviewingOrder" />
+        </label>
+        <label class="rh-trading__field">
+          <span>Side</span>
+          <select [(ngModel)]="orderSide" name="rhOrderSide" [disabled]="agenticReviewingOrder">
+            <option value="buy">Buy</option>
+            <option value="sell">Sell</option>
+          </select>
+        </label>
+        <label class="rh-trading__field">
+          <span>Type</span>
+          <select [(ngModel)]="orderType" name="rhOrderType" [disabled]="agenticReviewingOrder">
+            <option value="market">Market</option>
+            <option value="limit">Limit</option>
+          </select>
+        </label>
+        <label class="rh-trading__field">
+          <span>Quantity</span>
+          <input
+            type="number"
+            min="0"
+            step="any"
+            [(ngModel)]="orderQuantity"
+            name="rhOrderQty"
+            [disabled]="agenticReviewingOrder"
+          />
+        </label>
+        @if (orderType === 'limit') {
+          <label class="rh-trading__field">
+            <span>Limit price</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              [(ngModel)]="orderLimitPrice"
+              name="rhOrderLimit"
+              [disabled]="agenticReviewingOrder"
+            />
+          </label>
+        }
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          (click)="reviewAgenticOrder()"
+          [disabled]="agenticReviewingOrder"
+        >
+          Review order
+        </button>
+      </div>
+
+      @if (agenticOrders.length) {
+        <h4 class="rh-trading__positions-title">Order history</h4>
+        <table class="rh-trading__table">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Symbol</th>
+              <th>Side</th>
+              <th>Type</th>
+              <th>Qty</th>
+              <th>Est. $</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (o of agenticOrders; track o.id) {
+              <tr>
+                <td>{{ formatDate(o.createdAt) }}</td>
+                <td><strong>{{ o.symbol }}</strong></td>
+                <td>{{ o.side }}</td>
+                <td>{{ o.orderType }}</td>
+                <td>{{ o.quantity ?? '—' }}</td>
+                <td>{{ o.estimatedNotional != null ? (o.estimatedNotional | number:'1.2-2') : '—' }}</td>
+                <td>{{ orderStatusLabel(o.status) }}</td>
+                <td>
+                  @if (isPendingOrder(o) && agenticSettings?.executionEnabled) {
+                    <button mat-stroked-button type="button" (click)="approveAgenticOrder(o)">Approve</button>
+                    <button mat-button type="button" (click)="rejectAgenticOrder(o)">Reject</button>
+                  }
+                  @if (o.errorMessage) {
+                    <span class="rh-trading__order-error muted">{{ o.errorMessage }}</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
     </div>
   }
 

@@ -29,6 +29,9 @@ import {
   RobinhoodAgenticStatusDto,
   RobinhoodAgenticPositionsDto,
   RobinhoodAgenticSyncResultDto,
+  RobinhoodAgenticSettingsDto,
+  RobinhoodAgenticOrderDto,
+  RobinhoodAgenticOrdersDto,
   BankingImportResultDto,
   BankingInstitutionDto,
   BankingInstitutionTypeDto,
@@ -104,6 +107,42 @@ export class FinanceApiService {
 
   robinhoodAgenticDisconnect() {
     return this.http.delete<void>(`${this.root}/agentic/connection`);
+  }
+
+  robinhoodAgenticSettings() {
+    return this.http.get<RobinhoodAgenticSettingsDto>(`${this.root}/agentic/settings`);
+  }
+
+  robinhoodAgenticSaveSettings(body: {
+    requireApproval?: boolean;
+    maxOrderNotional?: number | null;
+    allowedSymbols?: string;
+  }) {
+    return this.http.put<RobinhoodAgenticSettingsDto>(`${this.root}/agentic/settings`, body);
+  }
+
+  robinhoodAgenticOrders() {
+    return this.http.get<RobinhoodAgenticOrdersDto>(`${this.root}/agentic/orders`);
+  }
+
+  robinhoodAgenticReviewOrder(body: {
+    symbol: string;
+    side: string;
+    type: string;
+    quantity?: number | null;
+    amount?: number | null;
+    limitPrice?: number | null;
+    timeInForce?: string;
+  }) {
+    return this.http.post<RobinhoodAgenticOrderDto>(`${this.root}/agentic/orders/review`, body);
+  }
+
+  robinhoodAgenticApproveOrder(orderId: number) {
+    return this.http.post<RobinhoodAgenticOrderDto>(`${this.root}/agentic/orders/${orderId}/approve`, {});
+  }
+
+  robinhoodAgenticRejectOrder(orderId: number) {
+    return this.http.post<RobinhoodAgenticOrderDto>(`${this.root}/agentic/orders/${orderId}/reject`, {});
   }
 
   /** FIFO realized P&amp;L report (daily P&amp;L, equity curve, win/loss) for a calendar year. */

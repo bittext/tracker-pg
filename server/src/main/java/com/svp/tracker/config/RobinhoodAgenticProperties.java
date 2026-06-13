@@ -12,7 +12,11 @@ public record RobinhoodAgenticProperties(
         /** Cron for scheduled sync (empty disables scheduler). */
         String syncCron,
         /** Bound from sync-default-account; use {@link #syncDefaultAccount()}. */
-        String syncDefaultAccountConfig) {
+        String syncDefaultAccountConfig,
+        /** When true, place_equity_order may be invoked (Phase 2). */
+        String executionEnabledConfig,
+        /** Server-wide default max order notional (USD); users may set a lower cap. */
+        String defaultMaxOrderNotionalConfig) {
 
     public RobinhoodAgenticProperties {
         if (serviceBaseUrl == null) {
@@ -37,11 +41,34 @@ public record RobinhoodAgenticProperties(
             syncCron = syncCron.trim();
         }
         syncDefaultAccountConfig = normalizeBooleanConfig(syncDefaultAccountConfig, false);
+        executionEnabledConfig = normalizeBooleanConfig(executionEnabledConfig, false);
+        if (defaultMaxOrderNotionalConfig == null) {
+            defaultMaxOrderNotionalConfig = "";
+        } else {
+            defaultMaxOrderNotionalConfig = defaultMaxOrderNotionalConfig.trim();
+        }
     }
 
     /** When true, sync also pulls the user's primary (default) Robinhood account. */
     public boolean syncDefaultAccount() {
         return Boolean.parseBoolean(syncDefaultAccountConfig);
+    }
+
+    /** When true, MCP write tools (place_equity_order) may be called. */
+    public boolean executionEnabled() {
+        return Boolean.parseBoolean(executionEnabledConfig);
+    }
+
+    /** Server default max order notional; empty means no server cap. */
+    public java.math.BigDecimal defaultMaxOrderNotional() {
+        if (defaultMaxOrderNotionalConfig.isBlank()) {
+            return null;
+        }
+        return new java.math.BigDecimal(defaultMaxOrderNotionalConfig);
+    }
+
+    public boolean syncCronEnabled() {
+        return !syncCron.isBlank();
     }
 
     private static String normalizeBooleanConfig(String raw, boolean defaultValue) {

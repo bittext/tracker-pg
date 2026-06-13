@@ -39,6 +39,7 @@ public class RobinhoodAgenticService {
     private final RobinhoodAgenticSyncLogRepository syncLogRepository;
     private final RobinhoodAgenticSidecarClient sidecarClient;
     private final RobinhoodAgenticTokenCrypto tokenCrypto;
+    private final RobinhoodAgenticTokenService tokenService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional(readOnly = true)
@@ -129,6 +130,12 @@ public class RobinhoodAgenticService {
         return runSync(conn);
     }
 
+    /** Called by scheduled sync — no current-user context. */
+    @Transactional
+    public void syncConnection(RobinhoodAgenticConnection conn) {
+        runSync(conn);
+    }
+
     private RobinhoodAgenticSyncResultDto runSync(RobinhoodAgenticConnection conn) {
         requireFeature();
         Instant started = Instant.now();
@@ -136,8 +143,9 @@ public class RobinhoodAgenticService {
         logRow.setOwnerUserId(conn.getOwnerUserId());
         logRow.setStartedAt(started);
         try {
-            String accessToken = tokenCrypto.open(conn.getAccessToken());
-            JsonNode result = sidecarClient.sync(accessToken, props.syncDefaultAccount());
+            JsonNode result = tokenService.withFreshToken(
+                    conn,
+                    token -> sidecarClient.sync(token, props.syncDefaultAccount()));
             if (!result.path("ok").asBoolean(false)) {
                 throw new IllegalStateException("Sidecar sync returned ok=false");
             }

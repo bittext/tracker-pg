@@ -62,8 +62,6 @@ Internal sync flow: `get_accounts` → agentic (+ optional default) → `get_por
 
 ## Next (Phase 2)
 
-- Strategy rules, approval gates, `review_equity_order` → `place_equity_order` bridge
-- Token refresh via `phase0_oauth.py --refresh` pattern in API
-- Scheduled sync cron
+See [PHASE2.md](./PHASE2.md) — **implemented**: strategy guardrails, `review_equity_order` → `place_equity_order` bridge, token refresh, scheduled sync cron.
 
 See [PHASE0.md](./PHASE0.md) for MCP tool catalog and account schema.

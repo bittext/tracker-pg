@@ -1,0 +1,70 @@
+package com.svp.tracker.finance.service;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.svp.tracker.finance.domain.RobinhoodAgenticConnection;
+import com.svp.tracker.finance.repository.RobinhoodAgenticConnectionRepository;
+import java.time.Instant;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class RobinhoodAgenticTokenService {
+
+    private final RobinhoodAgenticConnectionRepository connectionRepository;
+    private final RobinhoodAgenticSidecarClient sidecarClient;
+    private final RobinhoodAgenticTokenCrypto tokenCrypto;
+
+    /** Decrypt access token; refresh and persist when sidecar returns 401. */
+    @Transactional
+    public String requireAccessToken(RobinhoodAgenticConnection conn) {
+        String accessToken = tokenCrypto.open(conn.getAccessToken());
+        return accessToken;
+    }
+
+    @Transactional
+    public void refreshAndSave(RobinhoodAgenticConnection conn) {
+        String refresh = conn.getRefreshToken();
+        if (refresh == null || refresh.isBlank()) {
+            throw new IllegalStateException("No refresh_token stored — re-paste .tokens.json from phase0_oauth.py");
+        }
+        String plainRefresh = tokenCrypto.open(refresh);
+        JsonNode result = sidecarClient.refreshToken(plainRefresh);
+        if (!result.path("ok").asBoolean(true) && result.get("access_token") == null) {
+            throw new IllegalStateException("Token refresh failed");
+        }
+        String newAccess = result.path("access_token").asText(null);
+        if (newAccess == null || newAccess.isBlank()) {
+            throw new IllegalStateException("Token refresh returned no access_token");
+        }
+        conn.setAccessToken(tokenCrypto.seal(newAccess));
+        String newRefresh = result.path("refresh_token").asText(null);
+        if (newRefresh != null && !newRefresh.isBlank()) {
+            conn.setRefreshToken(tokenCrypto.seal(newRefresh));
+        }
+        conn.setUpdatedAt(Instant.now());
+        connectionRepository.save(conn);
+        log.info("Robinhood Agentic tokens refreshed for user {}", conn.getOwnerUserId());
+    }
+
+    @FunctionalInterface
+    public interface SidecarCall<T> {
+        T call(String accessToken);
+    }
+
+    /** Run a sidecar call; on 401 refresh tokens once and retry. */
+    @Transactional
+    public <T> T withFreshToken(RobinhoodAgenticConnection conn, SidecarCall<T> call) {
+        String accessToken = requireAccessToken(conn);
+        try {
+            return call.call(accessToken);
+        } catch (RobinhoodAgenticUnauthorizedException e) {
+            log.info("Robinhood Agentic access token expired for user {}, refreshing", conn.getOwnerUserId());
+            refreshAndSave(conn);
+            return call.call(requireAccessToken(conn));
+        }
+    }
+}

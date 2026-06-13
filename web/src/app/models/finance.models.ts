@@ -80,6 +80,37 @@ export interface RobinhoodAgenticSyncResultDto {
   accountsSynced: number;
 }
 
+/** Robinhood Agentic Phase 2 — guardrails */
+export interface RobinhoodAgenticSettingsDto {
+  executionEnabled: boolean;
+  requireApproval: boolean;
+  maxOrderNotional: number | null;
+  allowedSymbols: string;
+  updatedAt: string | null;
+}
+
+export interface RobinhoodAgenticOrderDto {
+  id: number;
+  status: string;
+  symbol: string;
+  side: string;
+  orderType: string;
+  quantity: number | null;
+  amount: number | null;
+  limitPrice: number | null;
+  timeInForce: string | null;
+  estimatedNotional: number | null;
+  robinhoodOrderId: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+  reviewedAt: string | null;
+  placedAt: string | null;
+}
+
+export interface RobinhoodAgenticOrdersDto {
+  orders: RobinhoodAgenticOrderDto[];
+}
+
 /** GET /api/finance/robinhood/notebook-config */
 export interface RobinhoodNotebookConfigDto {
   jupyterLabConfigured: boolean;

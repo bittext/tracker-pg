@@ -7,7 +7,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import {
   RobinhoodAccountStatusDto,
+  RobinhoodAgenticOrderDto,
   RobinhoodAgenticPositionDto,
+  RobinhoodAgenticSettingsDto,
   RobinhoodAgenticStatusDto,
   RobinhoodCsvImportResultDto,
   RobinhoodCsvSavedImportDto,
@@ -30,11 +32,24 @@ export class RobinhoodTradingPanelComponent implements OnInit {
   statusLoading = false;
 
   agenticStatus: RobinhoodAgenticStatusDto | null = null;
+  agenticSettings: RobinhoodAgenticSettingsDto | null = null;
+  agenticOrders: RobinhoodAgenticOrderDto[] = [];
   agenticPositions: RobinhoodAgenticPositionDto[] = [];
   agenticLoading = false;
   agenticSyncing = false;
   agenticTokenJson = '';
   agenticSavingTokens = false;
+  agenticSavingSettings = false;
+  agenticReviewingOrder = false;
+
+  orderSymbol = '';
+  orderSide: 'buy' | 'sell' = 'buy';
+  orderType: 'market' | 'limit' = 'market';
+  orderQuantity: number | null = null;
+  orderLimitPrice: number | null = null;
+  settingsRequireApproval = true;
+  settingsMaxNotional: number | null = null;
+  settingsAllowedSymbols = '';
 
   csvApplyToDb = false;
   csvSelectedFile: File | null = null;
@@ -82,14 +97,20 @@ export class RobinhoodTradingPanelComponent implements OnInit {
         this.agenticLoading = false;
         if (s.connected) {
           this.loadAgenticPositions();
+          this.loadAgenticSettings();
+          this.loadAgenticOrders();
         } else {
           this.agenticPositions = [];
+          this.agenticSettings = null;
+          this.agenticOrders = [];
         }
       },
       error: () => {
         this.agenticStatus = null;
         this.agenticLoading = false;
         this.agenticPositions = [];
+        this.agenticSettings = null;
+        this.agenticOrders = [];
       },
     });
   }
@@ -101,6 +122,121 @@ export class RobinhoodTradingPanelComponent implements OnInit {
       },
       error: () => {
         this.agenticPositions = [];
+      },
+    });
+  }
+
+  loadAgenticSettings(): void {
+    this.financeApi.robinhoodAgenticSettings().subscribe({
+      next: (s) => {
+        this.agenticSettings = s;
+        this.settingsRequireApproval = s.requireApproval;
+        this.settingsMaxNotional = s.maxOrderNotional;
+        this.settingsAllowedSymbols = s.allowedSymbols ?? '';
+      },
+      error: () => {
+        this.agenticSettings = null;
+      },
+    });
+  }
+
+  loadAgenticOrders(): void {
+    this.financeApi.robinhoodAgenticOrders().subscribe({
+      next: (o) => {
+        this.agenticOrders = o.orders;
+      },
+      error: () => {
+        this.agenticOrders = [];
+      },
+    });
+  }
+
+  saveAgenticSettings(): void {
+    this.agenticSavingSettings = true;
+    this.financeApi
+      .robinhoodAgenticSaveSettings({
+        requireApproval: this.settingsRequireApproval,
+        maxOrderNotional: this.settingsMaxNotional,
+        allowedSymbols: this.settingsAllowedSymbols,
+      })
+      .subscribe({
+        next: (s) => {
+          this.agenticSavingSettings = false;
+          this.agenticSettings = s;
+          this.snackBar.open('Agentic guardrails saved', undefined, { duration: 4500 });
+        },
+        error: (e) => {
+          this.agenticSavingSettings = false;
+          this.snackBar.open(`Save settings failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 8000 });
+        },
+      });
+  }
+
+  reviewAgenticOrder(): void {
+    const symbol = this.orderSymbol.trim().toUpperCase();
+    if (!symbol) {
+      this.snackBar.open('Enter a symbol', undefined, { duration: 4500 });
+      return;
+    }
+    if (this.orderQuantity == null || this.orderQuantity <= 0) {
+      this.snackBar.open('Enter a positive quantity', undefined, { duration: 4500 });
+      return;
+    }
+    if (this.orderType === 'limit' && (this.orderLimitPrice == null || this.orderLimitPrice <= 0)) {
+      this.snackBar.open('Enter a limit price', undefined, { duration: 4500 });
+      return;
+    }
+    this.agenticReviewingOrder = true;
+    this.financeApi
+      .robinhoodAgenticReviewOrder({
+        symbol,
+        side: this.orderSide,
+        type: this.orderType,
+        quantity: this.orderQuantity,
+        limitPrice: this.orderType === 'limit' ? this.orderLimitPrice : null,
+      })
+      .subscribe({
+        next: (o) => {
+          this.agenticReviewingOrder = false;
+          const msg =
+            o.status === 'placed'
+              ? `Order placed (${o.symbol} ${o.side})`
+              : `Order reviewed — status: ${o.status}`;
+          this.snackBar.open(msg, undefined, { duration: 6000 });
+          this.loadAgenticOrders();
+          if (o.status === 'placed') {
+            this.syncAgentic();
+          }
+        },
+        error: (e) => {
+          this.agenticReviewingOrder = false;
+          this.snackBar.open(`Order review failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 8000 });
+        },
+      });
+  }
+
+  approveAgenticOrder(order: RobinhoodAgenticOrderDto): void {
+    this.financeApi.robinhoodAgenticApproveOrder(order.id).subscribe({
+      next: () => {
+        this.snackBar.open(`Order approved and placed (${order.symbol})`, undefined, { duration: 5000 });
+        this.loadAgenticOrders();
+        this.syncAgentic();
+      },
+      error: (e) => {
+        this.snackBar.open(`Approve failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 8000 });
+        this.loadAgenticOrders();
+      },
+    });
+  }
+
+  rejectAgenticOrder(order: RobinhoodAgenticOrderDto): void {
+    this.financeApi.robinhoodAgenticRejectOrder(order.id).subscribe({
+      next: () => {
+        this.snackBar.open('Order rejected', undefined, { duration: 4500 });
+        this.loadAgenticOrders();
+      },
+      error: (e) => {
+        this.snackBar.open(`Reject failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 8000 });
       },
     });
   }
@@ -251,5 +387,13 @@ export class RobinhoodTradingPanelComponent implements OnInit {
     const strike = p.strikePrice ?? '—';
     const exp = p.expirationDate ? p.expirationDate.slice(0, 10) : '—';
     return `${type} ${strike} · ${exp}`;
+  }
+
+  orderStatusLabel(status: string): string {
+    return status.replace(/_/g, ' ');
+  }
+
+  isPendingOrder(o: RobinhoodAgenticOrderDto): boolean {
+    return o.status === 'pending_approval';
   }
 }
