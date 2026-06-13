@@ -68,6 +68,12 @@ public class RobinhoodAgenticOrder {
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
+    @Column(name = "source", nullable = false, length = 16)
+    private String source = "manual";
+
+    @Column(name = "auto_signal_json", columnDefinition = "TEXT")
+    private String autoSignalJson;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 

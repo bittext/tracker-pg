@@ -6,6 +6,7 @@ import java.time.Instant;
 public record RobinhoodAgenticOrderDto(
         long id,
         String status,
+        String source,
         String symbol,
         String side,
         String orderType,
@@ -16,6 +17,7 @@ public record RobinhoodAgenticOrderDto(
         BigDecimal estimatedNotional,
         String robinhoodOrderId,
         String errorMessage,
+        String autoSignalJson,
         Instant createdAt,
         Instant reviewedAt,
         Instant placedAt) {}

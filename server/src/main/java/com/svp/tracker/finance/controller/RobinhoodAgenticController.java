@@ -1,6 +1,8 @@
 package com.svp.tracker.finance.controller;
 
 import com.svp.tracker.finance.dto.RobinhoodAgenticOrderDto;
+import com.svp.tracker.finance.dto.RobinhoodAgenticAutoTradeEvaluateDto;
+import com.svp.tracker.finance.dto.RobinhoodAgenticAutoTradeRunDto;
 import com.svp.tracker.finance.dto.RobinhoodAgenticOrderRequestDto;
 import com.svp.tracker.finance.dto.RobinhoodAgenticOrdersDto;
 import com.svp.tracker.finance.dto.RobinhoodAgenticPositionsDto;
@@ -9,8 +11,10 @@ import com.svp.tracker.finance.dto.RobinhoodAgenticSettingsRequestDto;
 import com.svp.tracker.finance.dto.RobinhoodAgenticStatusDto;
 import com.svp.tracker.finance.dto.RobinhoodAgenticSyncResultDto;
 import com.svp.tracker.finance.dto.RobinhoodAgenticTokensRequestDto;
+import com.svp.tracker.finance.service.RobinhoodAgenticAutoTradeService;
 import com.svp.tracker.finance.service.RobinhoodAgenticOrderService;
 import com.svp.tracker.finance.service.RobinhoodAgenticService;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,6 +32,7 @@ public class RobinhoodAgenticController {
 
     private final RobinhoodAgenticService agenticService;
     private final RobinhoodAgenticOrderService orderService;
+    private final RobinhoodAgenticAutoTradeService autoTradeService;
 
     @GetMapping("/status")
     public RobinhoodAgenticStatusDto status() {
@@ -82,5 +87,15 @@ public class RobinhoodAgenticController {
     @PostMapping("/orders/{id}/reject")
     public RobinhoodAgenticOrderDto rejectOrder(@PathVariable long id) {
         return orderService.rejectOrder(id);
+    }
+
+    @PostMapping("/auto-trade/evaluate")
+    public RobinhoodAgenticAutoTradeEvaluateDto evaluateAutoTrade() {
+        return autoTradeService.evaluateForCurrentUser();
+    }
+
+    @GetMapping("/auto-trade/runs")
+    public List<RobinhoodAgenticAutoTradeRunDto> autoTradeRuns() {
+        return autoTradeService.recentRuns();
     }
 }

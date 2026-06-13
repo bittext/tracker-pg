@@ -148,6 +148,79 @@
             Save guardrails
           </button>
         </div>
+
+        <h4 class="rh-trading__positions-title">AI auto-trade (Predicts → Agentic)</h4>
+        <p class="muted rh-trading__hint">
+          Uses Finance → Predicts tracked tickers. Server auto-trade:
+          @if (agenticSettings.autoTradeServerEnabled) {
+            <strong>enabled</strong>
+          } @else {
+            <strong>disabled</strong> — set <code>TRACKER_FINANCE_ROBINHOOD_AGENTIC_AUTO_TRADE_ENABLED=true</code>
+          }
+          · Evaluates bullish/bearish sentiment + spikeZ, then review → optional auto-place on Agentic account only.
+        </p>
+        @if (autoTradeLastMessage) {
+          <p class="muted">Last run: {{ autoTradeLastMessage }}</p>
+        }
+        <div class="rh-trading__guardrails">
+          <label class="rh-trading__apply">
+            <input type="checkbox" [(ngModel)]="autoTradeEnabled" name="rhAutoEnabled" [disabled]="agenticSavingSettings" />
+            Enable AI auto-trade (scheduled + manual evaluate)
+          </label>
+          <label class="rh-trading__apply">
+            <input type="checkbox" [(ngModel)]="autoTradeKillSwitch" name="rhKillSwitch" [disabled]="agenticSavingSettings" />
+            Kill switch (pause all auto orders)
+          </label>
+          <label class="rh-trading__apply">
+            <input type="checkbox" [(ngModel)]="autoTradeRequireApproval" name="rhAutoRequireApproval" [disabled]="agenticSavingSettings" />
+            Require approval for auto orders
+          </label>
+          <label class="rh-trading__apply">
+            <input type="checkbox" [(ngModel)]="autoTradeMarketHoursOnly" name="rhMarketHours" [disabled]="agenticSavingSettings" />
+            US market hours only (9:30–16:00 ET)
+          </label>
+          <label class="rh-trading__field">
+            <span>Buy min positivity %</span>
+            <input type="number" [(ngModel)]="autoTradeMinPositivityBuy" name="rhMinBuy" [disabled]="agenticSavingSettings" />
+          </label>
+          <label class="rh-trading__field">
+            <span>Sell max positivity %</span>
+            <input type="number" [(ngModel)]="autoTradeMaxPositivitySell" name="rhMaxSell" [disabled]="agenticSavingSettings" />
+          </label>
+          <label class="rh-trading__field">
+            <span>Min spike Z</span>
+            <input type="number" step="0.1" [(ngModel)]="autoTradeMinSpikeZ" name="rhMinSpike" [disabled]="agenticSavingSettings" />
+          </label>
+          <label class="rh-trading__field">
+            <span>Min mentions (24h)</span>
+            <input type="number" min="1" [(ngModel)]="autoTradeMinMentions24h" name="rhMinMentions" [disabled]="agenticSavingSettings" />
+          </label>
+          <label class="rh-trading__field">
+            <span>Order quantity</span>
+            <input type="number" min="0" step="any" [(ngModel)]="autoTradeOrderQuantity" name="rhAutoQty" [disabled]="agenticSavingSettings" />
+          </label>
+          <label class="rh-trading__field">
+            <span>Max trades / day</span>
+            <input type="number" min="1" [(ngModel)]="autoTradeMaxTradesPerDay" name="rhMaxTrades" [disabled]="agenticSavingSettings" />
+          </label>
+          <label class="rh-trading__field">
+            <span>Max daily notional (USD)</span>
+            <input type="number" min="0" [(ngModel)]="autoTradeMaxDailyNotional" name="rhMaxDaily" [disabled]="agenticSavingSettings" placeholder="No cap" />
+          </label>
+          <label class="rh-trading__field">
+            <span>Cooldown (minutes)</span>
+            <input type="number" min="1" [(ngModel)]="autoTradeCooldownMinutes" name="rhCooldown" [disabled]="agenticSavingSettings" />
+          </label>
+          <button mat-stroked-button type="button" (click)="saveAgenticSettings()" [disabled]="agenticSavingSettings">
+            Save AI settings
+          </button>
+          <button mat-flat-button color="primary" type="button" (click)="evaluateAutoTradeNow()" [disabled]="autoTradeEvaluating">
+            Run evaluate now
+          </button>
+          <button mat-stroked-button color="warn" type="button" (click)="activateKillSwitch()" [disabled]="agenticSavingSettings">
+            Emergency stop
+          </button>
+        </div>
       }
 
       <h4 class="rh-trading__positions-title">Propose equity order</h4>
@@ -215,6 +288,7 @@
           <thead>
             <tr>
               <th>When</th>
+              <th>Source</th>
               <th>Symbol</th>
               <th>Side</th>
               <th>Type</th>
@@ -228,6 +302,7 @@
             @for (o of agenticOrders; track o.id) {
               <tr>
                 <td>{{ formatDate(o.createdAt) }}</td>
+                <td>{{ o.source }}</td>
                 <td><strong>{{ o.symbol }}</strong></td>
                 <td>{{ o.side }}</td>
                 <td>{{ o.orderType }}</td>

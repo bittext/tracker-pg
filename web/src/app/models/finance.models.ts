@@ -80,18 +80,34 @@ export interface RobinhoodAgenticSyncResultDto {
   accountsSynced: number;
 }
 
-/** Robinhood Agentic Phase 2 — guardrails */
+/** Robinhood Agentic Phase 2–3 — guardrails + AI auto-trade */
 export interface RobinhoodAgenticSettingsDto {
   executionEnabled: boolean;
+  autoTradeServerEnabled: boolean;
   requireApproval: boolean;
   maxOrderNotional: number | null;
   allowedSymbols: string;
+  autoTradeEnabled: boolean;
+  autoTradeKillSwitch: boolean;
+  autoTradeRequireApproval: boolean;
+  autoTradeMinPositivityBuy: number;
+  autoTradeMaxPositivitySell: number;
+  autoTradeMinSpikeZ: number;
+  autoTradeMinMentions24h: number;
+  autoTradeOrderQuantity: number;
+  autoTradeMaxTradesPerDay: number;
+  autoTradeMaxDailyNotional: number | null;
+  autoTradeCooldownMinutes: number;
+  autoTradeMarketHoursOnly: boolean;
+  autoTradeLastRunAt: string | null;
+  autoTradeLastRunMessage: string;
   updatedAt: string | null;
 }
 
 export interface RobinhoodAgenticOrderDto {
   id: number;
   status: string;
+  source: string;
   symbol: string;
   side: string;
   orderType: string;
@@ -102,6 +118,7 @@ export interface RobinhoodAgenticOrderDto {
   estimatedNotional: number | null;
   robinhoodOrderId: string | null;
   errorMessage: string | null;
+  autoSignalJson: string | null;
   createdAt: string;
   reviewedAt: string | null;
   placedAt: string | null;
@@ -109,6 +126,40 @@ export interface RobinhoodAgenticOrderDto {
 
 export interface RobinhoodAgenticOrdersDto {
   orders: RobinhoodAgenticOrderDto[];
+}
+
+export interface RobinhoodAgenticAutoTradeSignalDto {
+  symbol: string;
+  side: string;
+  reason: string;
+  overallPositivityPct: number;
+  overallSpikeZ: number;
+  mentions24h: number;
+  acted: boolean;
+  actionResult: string;
+}
+
+export interface RobinhoodAgenticAutoTradeEvaluateDto {
+  ran: boolean;
+  message: string;
+  tickersEvaluated: number;
+  signalsGenerated: number;
+  ordersReviewed: number;
+  ordersPlaced: number;
+  signals: RobinhoodAgenticAutoTradeSignalDto[];
+  finishedAt: string;
+}
+
+export interface RobinhoodAgenticAutoTradeRunDto {
+  id: number;
+  startedAt: string;
+  finishedAt: string | null;
+  status: string;
+  tickersEvaluated: number;
+  signalsGenerated: number;
+  ordersReviewed: number;
+  ordersPlaced: number;
+  message: string;
 }
 
 /** GET /api/finance/robinhood/notebook-config */

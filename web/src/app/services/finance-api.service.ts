@@ -32,6 +32,8 @@ import {
   RobinhoodAgenticSettingsDto,
   RobinhoodAgenticOrderDto,
   RobinhoodAgenticOrdersDto,
+  RobinhoodAgenticAutoTradeEvaluateDto,
+  RobinhoodAgenticAutoTradeRunDto,
   BankingImportResultDto,
   BankingInstitutionDto,
   BankingInstitutionTypeDto,
@@ -113,12 +115,16 @@ export class FinanceApiService {
     return this.http.get<RobinhoodAgenticSettingsDto>(`${this.root}/agentic/settings`);
   }
 
-  robinhoodAgenticSaveSettings(body: {
-    requireApproval?: boolean;
-    maxOrderNotional?: number | null;
-    allowedSymbols?: string;
-  }) {
+  robinhoodAgenticSaveSettings(body: Partial<RobinhoodAgenticSettingsDto>) {
     return this.http.put<RobinhoodAgenticSettingsDto>(`${this.root}/agentic/settings`, body);
+  }
+
+  robinhoodAgenticEvaluateAutoTrade() {
+    return this.http.post<RobinhoodAgenticAutoTradeEvaluateDto>(`${this.root}/agentic/auto-trade/evaluate`, {});
+  }
+
+  robinhoodAgenticAutoTradeRuns() {
+    return this.http.get<RobinhoodAgenticAutoTradeRunDto[]>(`${this.root}/agentic/auto-trade/runs`);
   }
 
   robinhoodAgenticOrders() {

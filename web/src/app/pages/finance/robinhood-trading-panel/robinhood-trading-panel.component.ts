@@ -50,6 +50,20 @@ export class RobinhoodTradingPanelComponent implements OnInit {
   settingsRequireApproval = true;
   settingsMaxNotional: number | null = null;
   settingsAllowedSymbols = '';
+  autoTradeEnabled = false;
+  autoTradeKillSwitch = false;
+  autoTradeRequireApproval = true;
+  autoTradeMinPositivityBuy = 15;
+  autoTradeMaxPositivitySell = -15;
+  autoTradeMinSpikeZ = 1.5;
+  autoTradeMinMentions24h = 5;
+  autoTradeOrderQuantity = 1;
+  autoTradeMaxTradesPerDay = 3;
+  autoTradeMaxDailyNotional: number | null = null;
+  autoTradeCooldownMinutes = 60;
+  autoTradeMarketHoursOnly = true;
+  autoTradeEvaluating = false;
+  autoTradeLastMessage = '';
 
   csvApplyToDb = false;
   csvSelectedFile: File | null = null;
@@ -130,14 +144,31 @@ export class RobinhoodTradingPanelComponent implements OnInit {
     this.financeApi.robinhoodAgenticSettings().subscribe({
       next: (s) => {
         this.agenticSettings = s;
-        this.settingsRequireApproval = s.requireApproval;
-        this.settingsMaxNotional = s.maxOrderNotional;
-        this.settingsAllowedSymbols = s.allowedSymbols ?? '';
+        this.applySettingsFromDto(s);
       },
       error: () => {
         this.agenticSettings = null;
       },
     });
+  }
+
+  private applySettingsFromDto(s: RobinhoodAgenticSettingsDto): void {
+    this.settingsRequireApproval = s.requireApproval;
+    this.settingsMaxNotional = s.maxOrderNotional;
+    this.settingsAllowedSymbols = s.allowedSymbols ?? '';
+    this.autoTradeEnabled = s.autoTradeEnabled;
+    this.autoTradeKillSwitch = s.autoTradeKillSwitch;
+    this.autoTradeRequireApproval = s.autoTradeRequireApproval;
+    this.autoTradeMinPositivityBuy = s.autoTradeMinPositivityBuy;
+    this.autoTradeMaxPositivitySell = s.autoTradeMaxPositivitySell;
+    this.autoTradeMinSpikeZ = s.autoTradeMinSpikeZ;
+    this.autoTradeMinMentions24h = s.autoTradeMinMentions24h;
+    this.autoTradeOrderQuantity = s.autoTradeOrderQuantity;
+    this.autoTradeMaxTradesPerDay = s.autoTradeMaxTradesPerDay;
+    this.autoTradeMaxDailyNotional = s.autoTradeMaxDailyNotional;
+    this.autoTradeCooldownMinutes = s.autoTradeCooldownMinutes;
+    this.autoTradeMarketHoursOnly = s.autoTradeMarketHoursOnly;
+    this.autoTradeLastMessage = s.autoTradeLastRunMessage ?? '';
   }
 
   loadAgenticOrders(): void {
@@ -158,18 +189,54 @@ export class RobinhoodTradingPanelComponent implements OnInit {
         requireApproval: this.settingsRequireApproval,
         maxOrderNotional: this.settingsMaxNotional,
         allowedSymbols: this.settingsAllowedSymbols,
+        autoTradeEnabled: this.autoTradeEnabled,
+        autoTradeKillSwitch: this.autoTradeKillSwitch,
+        autoTradeRequireApproval: this.autoTradeRequireApproval,
+        autoTradeMinPositivityBuy: this.autoTradeMinPositivityBuy,
+        autoTradeMaxPositivitySell: this.autoTradeMaxPositivitySell,
+        autoTradeMinSpikeZ: this.autoTradeMinSpikeZ,
+        autoTradeMinMentions24h: this.autoTradeMinMentions24h,
+        autoTradeOrderQuantity: this.autoTradeOrderQuantity,
+        autoTradeMaxTradesPerDay: this.autoTradeMaxTradesPerDay,
+        autoTradeMaxDailyNotional: this.autoTradeMaxDailyNotional,
+        autoTradeCooldownMinutes: this.autoTradeCooldownMinutes,
+        autoTradeMarketHoursOnly: this.autoTradeMarketHoursOnly,
       })
       .subscribe({
         next: (s) => {
           this.agenticSavingSettings = false;
           this.agenticSettings = s;
-          this.snackBar.open('Agentic guardrails saved', undefined, { duration: 4500 });
+          this.applySettingsFromDto(s);
+          this.snackBar.open('Agentic settings saved', undefined, { duration: 4500 });
         },
         error: (e) => {
           this.agenticSavingSettings = false;
           this.snackBar.open(`Save settings failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 8000 });
         },
       });
+  }
+
+  evaluateAutoTradeNow(): void {
+    this.autoTradeEvaluating = true;
+    this.financeApi.robinhoodAgenticEvaluateAutoTrade().subscribe({
+      next: (r) => {
+        this.autoTradeEvaluating = false;
+        this.autoTradeLastMessage = r.message;
+        this.snackBar.open(r.message || 'Auto-trade evaluation complete', undefined, { duration: 7000 });
+        this.loadAgenticOrders();
+        this.refreshAgentic();
+      },
+      error: (e) => {
+        this.autoTradeEvaluating = false;
+        this.snackBar.open(`Auto-trade failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 8000 });
+      },
+    });
+  }
+
+  activateKillSwitch(): void {
+    this.autoTradeKillSwitch = true;
+    this.autoTradeEnabled = false;
+    this.saveAgenticSettings();
   }
 
   reviewAgenticOrder(): void {

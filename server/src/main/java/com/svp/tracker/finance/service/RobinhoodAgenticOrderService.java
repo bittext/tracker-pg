@@ -3,6 +3,7 @@ package com.svp.tracker.finance.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.svp.tracker.auth.security.CurrentUserService;
+import com.svp.tracker.config.RobinhoodAgenticAutoTradeProperties;
 import com.svp.tracker.config.RobinhoodAgenticProperties;
 import com.svp.tracker.finance.domain.RobinhoodAgenticConnection;
 import com.svp.tracker.finance.domain.RobinhoodAgenticOrder;
@@ -34,12 +35,16 @@ import org.springframework.web.server.ResponseStatusException;
 @Slf4j
 public class RobinhoodAgenticOrderService {
 
+    static final String SOURCE_MANUAL = "manual";
+    static final String SOURCE_AUTO = "auto";
+
     private static final String STATUS_PENDING = "pending_approval";
     private static final String STATUS_PLACED = "placed";
     private static final String STATUS_REJECTED = "rejected";
     private static final String STATUS_FAILED = "failed";
 
     private final RobinhoodAgenticProperties props;
+    private final RobinhoodAgenticAutoTradeProperties autoTradeProps;
     private final CurrentUserService currentUser;
     private final RobinhoodAgenticConnectionRepository connectionRepository;
     private final RobinhoodAgenticSettingsRepository settingsRepository;
@@ -47,6 +52,21 @@ public class RobinhoodAgenticOrderService {
     private final RobinhoodAgenticTokenService tokenService;
     private final RobinhoodAgenticSidecarClient sidecarClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    static RobinhoodAgenticSettings defaultSettingsTemplate() {
+        RobinhoodAgenticSettings s = new RobinhoodAgenticSettings();
+        s.setRequireApproval(true);
+        s.setAutoTradeRequireApproval(true);
+        s.setAutoTradeMinPositivityBuy(new BigDecimal("15.00"));
+        s.setAutoTradeMaxPositivitySell(new BigDecimal("-15.00"));
+        s.setAutoTradeMinSpikeZ(new BigDecimal("1.5000"));
+        s.setAutoTradeMinMentions24h(5);
+        s.setAutoTradeOrderQuantity(BigDecimal.ONE);
+        s.setAutoTradeMaxTradesPerDay(3);
+        s.setAutoTradeCooldownMinutes(60);
+        s.setAutoTradeMarketHoursOnly(true);
+        return s;
+    }
 
     @Transactional(readOnly = true)
     public RobinhoodAgenticSettingsDto settings() {
@@ -74,6 +94,40 @@ public class RobinhoodAgenticOrderService {
         }
         row.setMaxOrderNotional(request.maxOrderNotional());
         row.setAllowedSymbols(normalizeSymbols(request.allowedSymbols()));
+        if (request.autoTradeEnabled() != null) {
+            row.setAutoTradeEnabled(request.autoTradeEnabled());
+        }
+        if (request.autoTradeKillSwitch() != null) {
+            row.setAutoTradeKillSwitch(request.autoTradeKillSwitch());
+        }
+        if (request.autoTradeRequireApproval() != null) {
+            row.setAutoTradeRequireApproval(request.autoTradeRequireApproval());
+        }
+        if (request.autoTradeMinPositivityBuy() != null) {
+            row.setAutoTradeMinPositivityBuy(request.autoTradeMinPositivityBuy());
+        }
+        if (request.autoTradeMaxPositivitySell() != null) {
+            row.setAutoTradeMaxPositivitySell(request.autoTradeMaxPositivitySell());
+        }
+        if (request.autoTradeMinSpikeZ() != null) {
+            row.setAutoTradeMinSpikeZ(request.autoTradeMinSpikeZ());
+        }
+        if (request.autoTradeMinMentions24h() != null) {
+            row.setAutoTradeMinMentions24h(Math.max(1, request.autoTradeMinMentions24h()));
+        }
+        if (request.autoTradeOrderQuantity() != null) {
+            row.setAutoTradeOrderQuantity(request.autoTradeOrderQuantity());
+        }
+        if (request.autoTradeMaxTradesPerDay() != null) {
+            row.setAutoTradeMaxTradesPerDay(Math.max(1, request.autoTradeMaxTradesPerDay()));
+        }
+        row.setAutoTradeMaxDailyNotional(request.autoTradeMaxDailyNotional());
+        if (request.autoTradeCooldownMinutes() != null) {
+            row.setAutoTradeCooldownMinutes(Math.max(1, request.autoTradeCooldownMinutes()));
+        }
+        if (request.autoTradeMarketHoursOnly() != null) {
+            row.setAutoTradeMarketHoursOnly(request.autoTradeMarketHoursOnly());
+        }
         row.setUpdatedAt(Instant.now());
         settingsRepository.save(row);
         return toSettingsDto(row);
@@ -91,17 +145,31 @@ public class RobinhoodAgenticOrderService {
 
     @Transactional
     public RobinhoodAgenticOrderDto reviewOrder(RobinhoodAgenticOrderRequestDto request) {
+        long uid = currentUser.requireUserId();
+        RobinhoodAgenticOrder order = reviewOrderForUser(uid, request, SOURCE_MANUAL, null, false);
+        return toOrderDto(order);
+    }
+
+    /** Used by AI auto-trade scheduler; returns persisted order entity. */
+    @Transactional
+    public RobinhoodAgenticOrder reviewOrderForUser(
+            long ownerUserId,
+            RobinhoodAgenticOrderRequestDto request,
+            String source,
+            String autoSignalJson,
+            boolean autoTradePolicy) {
         requireFeature();
         validateOrderRequest(request);
-        long uid = currentUser.requireUserId();
-        RobinhoodAgenticConnection conn = requireConnection(uid);
-        RobinhoodAgenticSettings settings = effectiveSettings(uid);
+        RobinhoodAgenticConnection conn = requireConnection(ownerUserId);
+        RobinhoodAgenticSettings settings = effectiveSettings(ownerUserId);
         validateSymbolAllowed(request.symbol(), settings);
 
         RobinhoodAgenticOrder order = new RobinhoodAgenticOrder();
-        order.setOwnerUserId(uid);
-        order.setSymbol(request.symbol().trim().toUpperCase());
-        order.setSide(request.side().trim().toLowerCase());
+        order.setOwnerUserId(ownerUserId);
+        order.setSource(source == null ? SOURCE_MANUAL : source);
+        order.setAutoSignalJson(autoSignalJson);
+        order.setSymbol(request.symbol().trim().toUpperCase(Locale.ROOT));
+        order.setSide(request.side().trim().toLowerCase(Locale.ROOT));
         order.setOrderType(request.type() == null || request.type().isBlank() ? "market" : request.type().trim().toLowerCase());
         order.setQuantity(request.quantity());
         order.setAmount(request.amount());
@@ -110,6 +178,8 @@ public class RobinhoodAgenticOrderService {
         order.setAccountNumber(conn.getAgenticAccountNumber());
         order.setCreatedAt(Instant.now());
         order.setUpdatedAt(Instant.now());
+
+        boolean requireApproval = autoTradePolicy ? settings.isAutoTradeRequireApproval() : settings.isRequireApproval();
 
         try {
             JsonNode result = tokenService.withFreshToken(
@@ -127,7 +197,7 @@ public class RobinhoodAgenticOrderService {
                 order.setAccountNumber(acct);
             }
 
-            if (settings.isRequireApproval()) {
+            if (requireApproval) {
                 order.setStatus(STATUS_PENDING);
             } else {
                 requireExecutionEnabled();
@@ -143,7 +213,7 @@ public class RobinhoodAgenticOrderService {
         }
 
         orderRepository.save(order);
-        return toOrderDto(order);
+        return order;
     }
 
     @Transactional
@@ -213,8 +283,7 @@ public class RobinhoodAgenticOrderService {
     }
 
     private RobinhoodAgenticSettings defaultSettingsRow() {
-        RobinhoodAgenticSettings s = new RobinhoodAgenticSettings();
-        s.setRequireApproval(true);
+        RobinhoodAgenticSettings s = defaultSettingsTemplate();
         s.setMaxOrderNotional(props.defaultMaxOrderNotional());
         return s;
     }
@@ -307,16 +376,32 @@ public class RobinhoodAgenticOrderService {
     private RobinhoodAgenticSettingsDto toSettingsDto(RobinhoodAgenticSettings row) {
         return new RobinhoodAgenticSettingsDto(
                 props.executionEnabled(),
+                autoTradeProps.enabled(),
                 row.isRequireApproval(),
                 row.getMaxOrderNotional() != null ? row.getMaxOrderNotional() : props.defaultMaxOrderNotional(),
                 row.getAllowedSymbols() == null ? "" : row.getAllowedSymbols(),
+                row.isAutoTradeEnabled(),
+                row.isAutoTradeKillSwitch(),
+                row.isAutoTradeRequireApproval(),
+                row.getAutoTradeMinPositivityBuy(),
+                row.getAutoTradeMaxPositivitySell(),
+                row.getAutoTradeMinSpikeZ(),
+                row.getAutoTradeMinMentions24h(),
+                row.getAutoTradeOrderQuantity(),
+                row.getAutoTradeMaxTradesPerDay(),
+                row.getAutoTradeMaxDailyNotional(),
+                row.getAutoTradeCooldownMinutes(),
+                row.isAutoTradeMarketHoursOnly(),
+                row.getAutoTradeLastRunAt(),
+                row.getAutoTradeLastRunMessage() == null ? "" : row.getAutoTradeLastRunMessage(),
                 row.getUpdatedAt());
     }
 
-    private RobinhoodAgenticOrderDto toOrderDto(RobinhoodAgenticOrder order) {
+    RobinhoodAgenticOrderDto toOrderDto(RobinhoodAgenticOrder order) {
         return new RobinhoodAgenticOrderDto(
                 order.getId(),
                 order.getStatus(),
+                order.getSource() == null ? SOURCE_MANUAL : order.getSource(),
                 order.getSymbol(),
                 order.getSide(),
                 order.getOrderType(),
@@ -327,6 +412,7 @@ public class RobinhoodAgenticOrderService {
                 order.getEstimatedNotional(),
                 order.getRobinhoodOrderId(),
                 order.getErrorMessage(),
+                order.getAutoSignalJson(),
                 order.getCreatedAt(),
                 order.getReviewedAt(),
                 order.getPlacedAt());

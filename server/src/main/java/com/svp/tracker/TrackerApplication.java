@@ -34,7 +34,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
     SecurityProperties.class,
     ManagementAccountsProperties.class,
     FinancePredictsProperties.class,
-    com.svp.tracker.config.RobinhoodAgenticProperties.class
+    com.svp.tracker.config.RobinhoodAgenticProperties.class,
+    com.svp.tracker.config.RobinhoodAgenticAutoTradeProperties.class
 })
 public class TrackerApplication {
 
