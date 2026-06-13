@@ -899,3 +899,44 @@ export interface FinanceLoanRequestDto {
   paymentFrequency?: string;
   notes?: string;
 }
+
+/** GET /api/finance/investments */
+export interface FinanceInvestmentDto {
+  id: number;
+  institution: string;
+  investmentType: string;
+  investmentTypeLabel: string;
+  typeOther: string;
+  symbol: string;
+  name: string;
+  dateAcquired: string | null;
+  quantity: number | null;
+  costBasis: number | null;
+  currentValue: number | null;
+  gainLoss: number | null;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FinanceInvestmentOptionDto {
+  value: string;
+  label: string;
+}
+
+export interface FinanceInvestmentOptionsDto {
+  investmentTypes: FinanceInvestmentOptionDto[];
+}
+
+export interface FinanceInvestmentRequestDto {
+  institution: string;
+  investmentType: string;
+  typeOther?: string;
+  symbol?: string;
+  name: string;
+  dateAcquired?: string | null;
+  quantity?: number | null;
+  costBasis?: number | null;
+  currentValue?: number | null;
+  notes?: string;
+}

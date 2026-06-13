@@ -1,0 +1,63 @@
+.inv-panel__title {
+  margin: 0 0 0.35rem;
+}
+
+.inv-panel__intro {
+  max-width: 42rem;
+  margin: 0 0 1rem;
+}
+
+.inv-panel__summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 1.5rem;
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+}
+
+.inv-gain-pos {
+  color: #1b7a3d;
+}
+
+.inv-gain-neg {
+  color: #b42318;
+}
+
+.inv-panel__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.inv-panel__form {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+}
+
+.inv-panel__form-title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+.inv-panel__form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 0.25rem 1rem;
+}
+
+.inv-panel__notes {
+  grid-column: 1 / -1;
+}
+
+.inv-panel__form-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.full-width {
+  width: 100%;
+}

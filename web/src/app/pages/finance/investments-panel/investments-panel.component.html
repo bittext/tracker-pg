@@ -1,0 +1,151 @@
+<section class="inv-panel" aria-labelledby="inv-panel-heading">
+  <h2 id="inv-panel-heading" class="inv-panel__title">Investments</h2>
+  <p class="muted inv-panel__intro">
+    Record holdings you have so far — stocks, ETFs, funds, retirement accounts, crypto, real estate, and more.
+  </p>
+
+  @if (investments.length && !loading) {
+    <div class="inv-panel__summary" aria-label="Portfolio totals">
+      <span>Cost basis: <strong>{{ money(totalCostBasis) }}</strong></span>
+      <span>Current value: <strong>{{ money(totalCurrentValue) }}</strong></span>
+      <span [class]="gainClass(totalGainLoss)">Gain / loss: <strong>{{ money(totalGainLoss) }}</strong></span>
+    </div>
+  }
+
+  <div class="inv-panel__toolbar">
+    <button mat-stroked-button type="button" (click)="refresh()" [disabled]="loading">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+    <button mat-stroked-button type="button" (click)="startAdd()" [disabled]="saving">
+      <mat-icon>add</mat-icon>
+      New investment
+    </button>
+  </div>
+
+  <div class="inv-panel__form" role="region" [attr.aria-label]="editingId == null ? 'Add investment' : 'Edit investment'">
+    <h3 class="inv-panel__form-title">{{ editingId == null ? 'Add investment' : 'Edit investment' }}</h3>
+    <div class="inv-panel__form-grid">
+      <mat-form-field appearance="outline">
+        <mat-label>Institution / broker</mat-label>
+        <input matInput [(ngModel)]="form.institution" name="invInstitution" [disabled]="saving" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Investment type</mat-label>
+        <mat-select [(ngModel)]="form.investmentType" name="invType" [disabled]="saving">
+          @for (t of investmentTypes; track t.value) {
+            <mat-option [value]="t.value">{{ t.label }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      @if (form.investmentType === 'OTHER') {
+        <mat-form-field appearance="outline">
+          <mat-label>Describe type</mat-label>
+          <input matInput [(ngModel)]="form.typeOther" name="invTypeOther" [disabled]="saving" />
+        </mat-form-field>
+      }
+
+      <mat-form-field appearance="outline">
+        <mat-label>Symbol (optional)</mat-label>
+        <input matInput [(ngModel)]="form.symbol" name="invSymbol" [disabled]="saving" placeholder="e.g. AAPL" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Name / description</mat-label>
+        <input matInput [(ngModel)]="form.name" name="invName" [disabled]="saving" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Date acquired</mat-label>
+        <input matInput type="date" [(ngModel)]="form.dateAcquired" name="invDateAcquired" [disabled]="saving" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Quantity / shares</mat-label>
+        <input matInput type="number" step="any" [(ngModel)]="form.quantity" name="invQuantity" [disabled]="saving" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Cost basis (USD)</mat-label>
+        <input matInput type="number" step="0.01" [(ngModel)]="form.costBasis" name="invCostBasis" [disabled]="saving" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Current value (USD)</mat-label>
+        <input matInput type="number" step="0.01" [(ngModel)]="form.currentValue" name="invCurrentValue" [disabled]="saving" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="inv-panel__notes">
+        <mat-label>Notes (optional)</mat-label>
+        <textarea matInput rows="2" [(ngModel)]="form.notes" name="invNotes" [disabled]="saving"></textarea>
+      </mat-form-field>
+    </div>
+
+    <div class="inv-panel__form-actions">
+      <button mat-flat-button color="primary" type="button" (click)="save()" [disabled]="saving">
+        {{ editingId == null ? 'Add investment' : 'Save changes' }}
+      </button>
+      @if (editingId != null) {
+        <button mat-button type="button" (click)="cancelEdit()" [disabled]="saving">Cancel</button>
+      }
+    </div>
+  </div>
+
+  @if (loading) {
+    <p class="muted">Loading investments…</p>
+  } @else if (investments.length === 0) {
+    <p class="muted">No investments yet — use the form above to add your first holding.</p>
+  } @else {
+    <div class="table-wrap">
+      <table mat-table [dataSource]="investments" class="inv-panel__table full-width">
+        <ng-container matColumnDef="institution">
+          <th mat-header-cell *matHeaderCellDef>Institution</th>
+          <td mat-cell *matCellDef="let row">{{ row.institution }}</td>
+        </ng-container>
+        <ng-container matColumnDef="type">
+          <th mat-header-cell *matHeaderCellDef>Type</th>
+          <td mat-cell *matCellDef="let row">{{ row.investmentTypeLabel }}</td>
+        </ng-container>
+        <ng-container matColumnDef="symbol">
+          <th mat-header-cell *matHeaderCellDef>Symbol</th>
+          <td mat-cell *matCellDef="let row">{{ row.symbol || '—' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="name">
+          <th mat-header-cell *matHeaderCellDef>Name</th>
+          <td mat-cell *matCellDef="let row"><strong>{{ row.name }}</strong></td>
+        </ng-container>
+        <ng-container matColumnDef="dateAcquired">
+          <th mat-header-cell *matHeaderCellDef>Acquired</th>
+          <td mat-cell *matCellDef="let row">{{ formatDate(row.dateAcquired) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="quantity">
+          <th mat-header-cell *matHeaderCellDef>Qty</th>
+          <td mat-cell *matCellDef="let row">{{ qty(row.quantity) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="costBasis">
+          <th mat-header-cell *matHeaderCellDef>Cost basis</th>
+          <td mat-cell *matCellDef="let row">{{ money(row.costBasis) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="currentValue">
+          <th mat-header-cell *matHeaderCellDef>Current value</th>
+          <td mat-cell *matCellDef="let row">{{ money(row.currentValue) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="gainLoss">
+          <th mat-header-cell *matHeaderCellDef>Gain / loss</th>
+          <td mat-cell *matCellDef="let row" [class]="gainClass(row.gainLoss)">{{ money(row.gainLoss) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef></th>
+          <td mat-cell *matCellDef="let row">
+            <button mat-button type="button" (click)="startEdit(row)">Edit</button>
+            <button mat-button color="warn" type="button" (click)="deleteRow(row)">Delete</button>
+          </td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+      </table>
+    </div>
+  }
+</section>
