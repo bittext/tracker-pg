@@ -1,0 +1,212 @@
+<section class="ins-panel" aria-labelledby="ins-panel-heading">
+  <h2 id="ins-panel-heading" class="ins-panel__title">Insurance</h2>
+  <p class="muted ins-panel__intro">
+    Track insurance policies, premiums, coverage dates, and renewal reminders. Set a coverage end date and reminder window
+    to see upcoming renewals below.
+  </p>
+
+  @if (summary && !loading) {
+    <div class="ins-summary" aria-label="Insurance summary">
+      <div class="ins-kpi">
+        <span class="ins-kpi__label">Policies</span>
+        <span class="ins-kpi__value">{{ summary.policyCount }}</span>
+      </div>
+      <div class="ins-kpi">
+        <span class="ins-kpi__label">Renewals due</span>
+        <span class="ins-kpi__value ins-renewal-soon">{{ summary.dueSoonCount }}</span>
+      </div>
+      <div class="ins-kpi">
+        <span class="ins-kpi__label">Expired</span>
+        <span class="ins-kpi__value ins-renewal-expired">{{ summary.expiredCount }}</span>
+      </div>
+      <div class="ins-kpi">
+        <span class="ins-kpi__label">Est. annual premiums</span>
+        <span class="ins-kpi__value">{{ money(summary.totalAnnualPremium) }}</span>
+      </div>
+    </div>
+  }
+
+  @if (renewalReminders.length && !loading) {
+    <div class="ins-reminders" role="region" aria-label="Renewal reminders">
+      <h3 class="ins-reminders__title">Renewal reminders</h3>
+      <div class="table-wrap">
+        <table mat-table [dataSource]="renewalReminders" class="full-width">
+          <ng-container matColumnDef="carrier">
+            <th mat-header-cell *matHeaderCellDef>Carrier</th>
+            <td mat-cell *matCellDef="let row">{{ row.carrier }}</td>
+          </ng-container>
+          <ng-container matColumnDef="type">
+            <th mat-header-cell *matHeaderCellDef>Type</th>
+            <td mat-cell *matCellDef="let row">{{ row.policyTypeLabel }}</td>
+          </ng-container>
+          <ng-container matColumnDef="coverageEnd">
+            <th mat-header-cell *matHeaderCellDef>Coverage ends</th>
+            <td mat-cell *matCellDef="let row">{{ formatDate(row.coverageEndDate) }}</td>
+          </ng-container>
+          <ng-container matColumnDef="daysUntilRenewal">
+            <th mat-header-cell *matHeaderCellDef>Timing</th>
+            <td mat-cell *matCellDef="let row" [class]="renewalClass(row.renewalStatus)">{{ daysLabel(row.daysUntilRenewal) }}</td>
+          </ng-container>
+          <ng-container matColumnDef="renewalStatusLabel">
+            <th mat-header-cell *matHeaderCellDef>Status</th>
+            <td mat-cell *matCellDef="let row" [class]="renewalClass(row.renewalStatus)">{{ row.renewalStatusLabel }}</td>
+          </ng-container>
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef></th>
+            <td mat-cell *matCellDef="let row">
+              <button mat-button type="button" (click)="startEdit(row)">Edit</button>
+            </td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="reminderColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: reminderColumns"></tr>
+        </table>
+      </div>
+    </div>
+  }
+
+  <div class="ins-panel__toolbar">
+    <button mat-stroked-button type="button" (click)="refresh()" [disabled]="loading">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+    <button mat-stroked-button type="button" (click)="startAdd()" [disabled]="saving">
+      <mat-icon>add</mat-icon>
+      New policy
+    </button>
+  </div>
+
+  <div class="ins-panel__form" role="region" [attr.aria-label]="editingId == null ? 'Add policy' : 'Edit policy'">
+    <h3 class="ins-panel__form-title">{{ editingId == null ? 'Add policy' : 'Edit policy' }}</h3>
+    <div class="ins-panel__form-grid">
+      <mat-form-field appearance="outline">
+        <mat-label>Carrier / insurer</mat-label>
+        <input matInput [(ngModel)]="form.carrier" name="insCarrier" [disabled]="saving" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Policy type</mat-label>
+        <mat-select [(ngModel)]="form.policyType" name="insType" [disabled]="saving">
+          @for (t of policyTypes; track t.value) {
+            <mat-option [value]="t.value">{{ t.label }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      @if (form.policyType === 'OTHER') {
+        <mat-form-field appearance="outline">
+          <mat-label>Describe type</mat-label>
+          <input matInput [(ngModel)]="form.typeOther" name="insTypeOther" [disabled]="saving" />
+        </mat-form-field>
+      }
+
+      <mat-form-field appearance="outline">
+        <mat-label>Policy number (optional)</mat-label>
+        <input matInput [(ngModel)]="form.policyNumber" name="insPolicyNum" [disabled]="saving" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Coverage / insured</mat-label>
+        <input matInput [(ngModel)]="form.coverageDescription" name="insCoverage" [disabled]="saving" placeholder="e.g. 2022 Honda Accord" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Premium amount (USD)</mat-label>
+        <input matInput type="number" step="0.01" [(ngModel)]="form.premiumAmount" name="insPremium" [disabled]="saving" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Premium frequency</mat-label>
+        <mat-select [(ngModel)]="form.premiumFrequency" name="insFreq" [disabled]="saving">
+          @for (f of premiumFrequencies; track f.value) {
+            <mat-option [value]="f.value">{{ f.label }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Coverage start</mat-label>
+        <input matInput type="date" [(ngModel)]="form.coverageStartDate" name="insStart" [disabled]="saving" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Coverage end / renewal</mat-label>
+        <input matInput type="date" [(ngModel)]="form.coverageEndDate" name="insEnd" [disabled]="saving" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Reminder days before end</mat-label>
+        <input matInput type="number" min="0" max="365" [(ngModel)]="form.renewalReminderDays" name="insReminder" [disabled]="saving" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="ins-panel__notes">
+        <mat-label>Notes (optional)</mat-label>
+        <textarea matInput rows="2" [(ngModel)]="form.notes" name="insNotes" [disabled]="saving"></textarea>
+      </mat-form-field>
+    </div>
+
+    <div class="ins-panel__form-actions">
+      <button mat-flat-button color="primary" type="button" (click)="save()" [disabled]="saving">
+        {{ editingId == null ? 'Add policy' : 'Save changes' }}
+      </button>
+      @if (editingId != null) {
+        <button mat-button type="button" (click)="cancelEdit()" [disabled]="saving">Cancel</button>
+      }
+    </div>
+  </div>
+
+  @if (loading) {
+    <p class="muted">Loading policies…</p>
+  } @else if (policies.length === 0) {
+    <p class="muted">No policies yet — use the form above to add your first insurance policy.</p>
+  } @else {
+    <div class="table-wrap">
+      <table mat-table [dataSource]="policies" class="ins-panel__table full-width">
+        <ng-container matColumnDef="carrier">
+          <th mat-header-cell *matHeaderCellDef>Carrier</th>
+          <td mat-cell *matCellDef="let row"><strong>{{ row.carrier }}</strong></td>
+        </ng-container>
+        <ng-container matColumnDef="type">
+          <th mat-header-cell *matHeaderCellDef>Type</th>
+          <td mat-cell *matCellDef="let row">{{ row.policyTypeLabel }}</td>
+        </ng-container>
+        <ng-container matColumnDef="coverage">
+          <th mat-header-cell *matHeaderCellDef>Coverage</th>
+          <td mat-cell *matCellDef="let row">{{ row.coverageDescription }}</td>
+        </ng-container>
+        <ng-container matColumnDef="premium">
+          <th mat-header-cell *matHeaderCellDef>Premium</th>
+          <td mat-cell *matCellDef="let row">{{ money(row.premiumAmount) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="frequency">
+          <th mat-header-cell *matHeaderCellDef>Frequency</th>
+          <td mat-cell *matCellDef="let row">{{ row.premiumFrequencyLabel }}</td>
+        </ng-container>
+        <ng-container matColumnDef="annualPremium">
+          <th mat-header-cell *matHeaderCellDef>Annual est.</th>
+          <td mat-cell *matCellDef="let row">{{ money(row.annualizedPremium) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="coverageStart">
+          <th mat-header-cell *matHeaderCellDef>Start</th>
+          <td mat-cell *matCellDef="let row">{{ formatDate(row.coverageStartDate) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="coverageEnd">
+          <th mat-header-cell *matHeaderCellDef>End</th>
+          <td mat-cell *matCellDef="let row">{{ formatDate(row.coverageEndDate) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="renewal">
+          <th mat-header-cell *matHeaderCellDef>Renewal</th>
+          <td mat-cell *matCellDef="let row" [class]="renewalClass(row.renewalStatus)">{{ row.renewalStatusLabel }}</td>
+        </ng-container>
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef></th>
+          <td mat-cell *matCellDef="let row">
+            <button mat-button type="button" (click)="startEdit(row)">Edit</button>
+            <button mat-button color="warn" type="button" (click)="deleteRow(row)">Delete</button>
+          </td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+      </table>
+    </div>
+  }
+</section>

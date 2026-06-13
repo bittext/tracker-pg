@@ -1274,9 +1274,10 @@
       </mat-tab>
 
       <mat-tab label="Insurance">
-        <div class="finance-panel finance-category-placeholder">
-          <h2>Insurance</h2>
-          <p class="muted">Track insurance policies, premiums, coverage dates, and renewal reminders here.</p>
+        <div class="finance-panel">
+          @if (financeCategoryTabIndex === 7) {
+            <app-insurance-panel />
+          }
         </div>
       </mat-tab>
 

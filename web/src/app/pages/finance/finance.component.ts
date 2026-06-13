@@ -38,6 +38,7 @@ import { LoansPanelComponent } from './loans-panel/loans-panel.component';
 import { InvestmentsPanelComponent } from './investments-panel/investments-panel.component';
 import { MoneyPanelComponent } from './money-panel/money-panel.component';
 import { CreditPanelComponent } from './credit-panel/credit-panel.component';
+import { InsurancePanelComponent } from './insurance-panel/insurance-panel.component';
 
 @Component({
   selector: 'app-finance',
@@ -64,6 +65,7 @@ import { CreditPanelComponent } from './credit-panel/credit-panel.component';
     InvestmentsPanelComponent,
     MoneyPanelComponent,
     CreditPanelComponent,
+    InsurancePanelComponent,
   ],
   templateUrl: './finance.component.html',
   styleUrl: './finance.component.scss',

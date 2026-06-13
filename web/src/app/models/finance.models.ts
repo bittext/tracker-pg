@@ -1014,3 +1014,58 @@ export interface FinanceCreditCardStatementRequestDto {
   paymentDueDate?: string | null;
   notes?: string;
 }
+
+/** GET /api/finance/insurance-policies */
+export interface FinanceInsurancePolicyDto {
+  id: number;
+  carrier: string;
+  policyType: string;
+  policyTypeLabel: string;
+  typeOther: string;
+  policyNumber: string;
+  coverageDescription: string;
+  premiumAmount: number | null;
+  premiumFrequency: string;
+  premiumFrequencyLabel: string;
+  annualizedPremium: number | null;
+  coverageStartDate: string | null;
+  coverageEndDate: string | null;
+  renewalReminderDays: number;
+  daysUntilRenewal: number | null;
+  renewalStatus: string;
+  renewalStatusLabel: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FinanceInsuranceSummaryDto {
+  policyCount: number;
+  dueSoonCount: number;
+  expiredCount: number;
+  totalAnnualPremium: number | null;
+}
+
+export interface FinanceInsuranceOptionDto {
+  value: string;
+  label: string;
+}
+
+export interface FinanceInsuranceOptionsDto {
+  policyTypes: FinanceInsuranceOptionDto[];
+  premiumFrequencies: FinanceInsuranceOptionDto[];
+}
+
+export interface FinanceInsurancePolicyRequestDto {
+  carrier: string;
+  policyType: string;
+  typeOther?: string;
+  policyNumber?: string;
+  coverageDescription: string;
+  premiumAmount?: number | null;
+  premiumFrequency?: string;
+  coverageStartDate?: string | null;
+  coverageEndDate?: string | null;
+  renewalReminderDays?: number | null;
+  notes?: string;
+}

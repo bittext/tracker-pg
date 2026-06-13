@@ -1,0 +1,108 @@
+.ins-panel__title {
+  margin: 0 0 0.35rem;
+}
+
+.ins-panel__intro {
+  max-width: 44rem;
+  margin: 0 0 1rem;
+  line-height: 1.45;
+}
+
+.ins-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem 0.65rem;
+  margin-bottom: 1rem;
+
+  @media (min-width: 640px) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.ins-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--app-radius-sm, 10px);
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+  background: var(--app-surface-muted, #f8fafc);
+}
+
+.ins-kpi__label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--app-text-muted, #64748b);
+}
+
+.ins-kpi__value {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.ins-reminders {
+  margin-bottom: 1.25rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(180, 83, 9, 0.25);
+  border-radius: 8px;
+  background: rgba(180, 83, 9, 0.04);
+}
+
+.ins-reminders__title {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+}
+
+.ins-renewal-expired {
+  color: #b42318;
+  font-weight: 600;
+}
+
+.ins-renewal-soon {
+  color: #b45309;
+  font-weight: 600;
+}
+
+.ins-renewal-ok {
+  color: #1b7a3d;
+}
+
+.ins-panel__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.ins-panel__form {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+}
+
+.ins-panel__form-title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+.ins-panel__form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 0.25rem 1rem;
+}
+
+.ins-panel__notes {
+  grid-column: 1 / -1;
+}
+
+.ins-panel__form-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.full-width {
+  width: 100%;
+}
