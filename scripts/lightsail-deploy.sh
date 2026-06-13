@@ -26,10 +26,28 @@ set -euo pipefail
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 env_file="${TRACKER_ENV_FILE:-.env.stack}"
+compose_project=( -p tracker-pg )
 if [[ ! -f "$env_file" ]]; then
   echo "Missing ${env_file}. On the server: cp .env.stack.example .env.stack && edit secrets." >&2
   exit 1
 fi
+
+# Remove hash-prefixed stale containers (e.g. 1c480efcaea9_tracker-pg-api-1) left by interrupted compose runs.
+remove_stale_compose_containers() {
+  local service="$1"
+  local canonical="tracker-pg-${service}-1"
+  local id name
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    id="${line%% *}"
+    name="${line#* }"
+    name="${name#/}"
+    if [[ "$name" == *"tracker-pg-${service}-"* ]] && [[ "$name" != "$canonical" ]]; then
+      echo "Removing stale container ${name} (${id})..."
+      docker rm -f "$id" >/dev/null 2>&1 || true
+    fi
+  done < <(docker ps -a --filter "name=tracker-pg-${service}-" --format '{{.ID}} {{.Names}}' 2>/dev/null || true)
+}
 
 compose_files=( -f docker-compose.stack.yml )
 if [[ "${TRACKER_ROBINHOOD_COMPOSE:-0}" == "1" ]] || [[ -f "${repo_root}/.use-lightsail-robinhood-compose" ]]; then
@@ -96,15 +114,21 @@ fi
 
 # --remove-orphans: dropping Caddy or Robinhood overlays no longer leaves old containers (e.g. tracker-pg-caddy-1).
 # --force-recreate: avoids "container name already in use" when a prior run left a stale api/web container.
-docker compose "${compose_files[@]}" --env-file "$env_file" build "${build_services[@]}"
-docker compose "${compose_files[@]}" --env-file "$env_file" up -d --no-deps --force-recreate --remove-orphans api web
+for svc in api web; do
+  remove_stale_compose_containers "$svc"
+done
+docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" build "${build_services[@]}"
+docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" up -d --no-deps --force-recreate --remove-orphans api web
 if [[ "$use_robinhood_agent" -eq 1 ]]; then
-  docker compose "${compose_files[@]}" --env-file "$env_file" up -d --no-deps --force-recreate robinhood-agent
+  remove_stale_compose_containers robinhood-agent
+  docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" up -d --no-deps --force-recreate robinhood-agent
 fi
 # Ensure Caddy (re)starts and stays in the project; picks up Caddyfile bind-mount changes.
 if [[ "$use_caddy" -eq 1 ]] && [[ -f "${repo_root}/docker-compose.https-lightsail.yml" ]]; then
-  docker compose "${compose_files[@]}" --env-file "$env_file" up -d caddy
+  remove_stale_compose_containers caddy
+  docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" up -d caddy
 fi
 if [[ "$use_robinhood_notebook" -eq 1 ]]; then
-  docker compose "${compose_files[@]}" --env-file "$env_file" up -d --no-deps --force-recreate robinhood-notebook
+  remove_stale_compose_containers robinhood-notebook
+  docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" up -d --no-deps --force-recreate robinhood-notebook
 fi
