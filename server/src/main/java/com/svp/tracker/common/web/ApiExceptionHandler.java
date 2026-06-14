@@ -8,6 +8,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.TransactionException;
+import org.springframework.transaction.UnexpectedRollbackException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
@@ -26,6 +27,17 @@ public class ApiExceptionHandler {
         log.error("Data access error", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of("error", "data_access", "message", "A database error occurred."));
+    }
+
+    @ExceptionHandler(UnexpectedRollbackException.class)
+    public ResponseEntity<Map<String, String>> unexpectedRollback(UnexpectedRollbackException ex) {
+        log.error("Transaction rolled back after a nested failure was handled", ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of(
+                        "error",
+                        "transaction_rollback",
+                        "message",
+                        "The request could not be completed because a nested operation failed. Check server logs."));
     }
 
     /**

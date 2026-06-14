@@ -27,6 +27,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -229,7 +230,7 @@ public class RobinhoodAgenticOrderService {
     }
 
     /** Used by AI auto-trade scheduler; returns persisted order entity. */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public RobinhoodAgenticOrder reviewOrderForUser(
             long ownerUserId,
             RobinhoodAgenticOrderRequestDto request,
@@ -384,17 +385,23 @@ public class RobinhoodAgenticOrderService {
         }
     }
 
-    private void validateSymbolAllowed(String symbol, RobinhoodAgenticSettings settings) {
+    /** Guardrail check shared with auto-trade (skip before order review). */
+    public boolean isSymbolAllowed(String symbol, RobinhoodAgenticSettings settings) {
         String allowed = settings.getAllowedSymbols();
         if (allowed == null || allowed.isBlank()) {
-            return;
+            return true;
         }
         Set<String> whitelist = Arrays.stream(allowed.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
                 .map(s -> s.toUpperCase(Locale.ROOT))
                 .collect(Collectors.toSet());
-        if (!whitelist.isEmpty() && !whitelist.contains(symbol.trim().toUpperCase(Locale.ROOT))) {
+        return whitelist.isEmpty()
+                || whitelist.contains(symbol.trim().toUpperCase(Locale.ROOT));
+    }
+
+    private void validateSymbolAllowed(String symbol, RobinhoodAgenticSettings settings) {
+        if (!isSymbolAllowed(symbol, settings)) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST, "Symbol " + symbol + " is not in allowed_symbols whitelist");
         }

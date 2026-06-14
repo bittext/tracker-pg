@@ -41,6 +41,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -73,7 +74,7 @@ public class RobinhoodAgenticAutoTradeService {
         return evaluateForUser(uid, false);
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public RobinhoodAgenticAutoTradeEvaluateDto evaluateForUser(long ownerUserId, boolean scheduled) {
         requireAutoTradeAllowed();
         RobinhoodAgenticSettings settings = settingsRepository
@@ -141,6 +142,12 @@ public class RobinhoodAgenticAutoTradeService {
                     continue;
                 }
 
+                if (!orderService.isSymbolAllowed(symbol, settings)) {
+                    updateLastSignal(signals, symbol, false, "Not in allowed_symbols whitelist");
+                    msg.append(symbol).append(" skipped (whitelist); ");
+                    continue;
+                }
+
                 String signalJson = writeSignalJson(sig);
                 RobinhoodAgenticOrderRequestDto request = new RobinhoodAgenticOrderRequestDto(
                         symbol, sig.side(), "market", settings.getAutoTradeOrderQuantity(), null, null, null);
@@ -175,8 +182,9 @@ public class RobinhoodAgenticAutoTradeService {
             return buildResult(true, summary, evaluated, generated, reviewed, placed, signals);
         } catch (Exception e) {
             log.error("Auto-trade run failed for user {}", ownerUserId, e);
-            finishRun(run, settings, ownerUserId, "error", evaluated, generated, reviewed, placed, e.getMessage());
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, e.getMessage(), e);
+            String err = truncate(e.getMessage(), 500);
+            finishRun(run, settings, ownerUserId, "error", evaluated, generated, reviewed, placed, err);
+            return buildResult(false, err, evaluated, generated, reviewed, placed, signals);
         }
     }
 
@@ -189,7 +197,6 @@ public class RobinhoodAgenticAutoTradeService {
     }
 
     /** Scheduled entry: all users with auto-trade enabled and kill switch off. */
-    @Transactional
     public void evaluateAllScheduled() {
         if (!agenticProps.enabled() || !autoTradeProps.enabled() || !agenticProps.executionEnabled()) {
             return;
