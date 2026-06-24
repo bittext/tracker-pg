@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import {
   RobinhoodAccountStatusDto,
+  RobinhoodAccountTrackerDto,
   RobinhoodAgenticPositionDto,
   RobinhoodAgenticSettingsDto,
   RobinhoodAgenticSyncedOrderDto,
@@ -32,6 +33,9 @@ export class RobinhoodTradingPanelComponent implements OnInit {
 
   status: RobinhoodAccountStatusDto | null = null;
   statusLoading = false;
+
+  accountTracker: RobinhoodAccountTrackerDto | null = null;
+  accountTrackerLoading = false;
 
   agenticStatus: RobinhoodAgenticStatusDto | null = null;
   agenticSettings: RobinhoodAgenticSettingsDto | null = null;
@@ -77,6 +81,7 @@ export class RobinhoodTradingPanelComponent implements OnInit {
 
   ngOnInit(): void {
     this.refreshStatus();
+    this.refreshAccountTracker();
     this.refreshAgentic();
     this.financeApi.robinhoodCsvImportUploadStatus().subscribe({
       next: (s) => {
@@ -99,6 +104,23 @@ export class RobinhoodTradingPanelComponent implements OnInit {
         this.status = null;
         this.statusLoading = false;
         this.snackBar.open(`Could not load Robinhood status — ${formatHttpErrorDetail(e)}`, undefined, {
+          duration: 6000,
+        });
+      },
+    });
+  }
+
+  refreshAccountTracker(): void {
+    this.accountTrackerLoading = true;
+    this.financeApi.robinhoodAccountTracker().subscribe({
+      next: (t) => {
+        this.accountTracker = t;
+        this.accountTrackerLoading = false;
+      },
+      error: (e) => {
+        this.accountTracker = null;
+        this.accountTrackerLoading = false;
+        this.snackBar.open(`Could not load account tracker — ${formatHttpErrorDetail(e)}`, undefined, {
           duration: 6000,
         });
       },
@@ -321,6 +343,7 @@ export class RobinhoodTradingPanelComponent implements OnInit {
         this.agenticSyncing = false;
         this.snackBar.open(r.message || 'Sync complete', undefined, { duration: 5000 });
         this.refreshAgentic();
+        this.refreshAccountTracker();
       },
       error: (e) => {
         this.agenticSyncing = false;
@@ -414,6 +437,28 @@ export class RobinhoodTradingPanelComponent implements OnInit {
     }
     const d = new Date(iso);
     return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
+  }
+
+  formatPct(value: number | null | undefined): string {
+    if (value == null || Number.isNaN(value)) {
+      return '—';
+    }
+    const sign = value > 0 ? '+' : '';
+    return `${sign}${value.toFixed(2)}%`;
+  }
+
+  formatNbis(value: number | null | undefined): string {
+    if (value == null || Number.isNaN(value)) {
+      return '—';
+    }
+    return value.toLocaleString(undefined, { maximumFractionDigits: 4 });
+  }
+
+  varianceClass(variance: number | null | undefined): string {
+    if (variance == null || variance === 0) {
+      return '';
+    }
+    return variance > 0 ? 'rh-trading__var--pos' : 'rh-trading__var--neg';
   }
 
   positionTypeLabel(p: RobinhoodAgenticPositionDto): string {

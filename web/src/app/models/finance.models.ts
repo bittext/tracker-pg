@@ -38,6 +38,58 @@ export interface RobinhoodAccountStatusDto {
   csvImportDirectory: string;
 }
 
+/** GET /api/finance/robinhood/account-tracker */
+export interface RobinhoodAccountTrackerDto {
+  trackingStartedAt: string;
+  individualAccountSuffix: string;
+  agenticAccountSuffix: string;
+  individualNbis: RobinhoodIndividualNbisTrackerDto;
+  agenticVsSpx: RobinhoodAgenticSpxComparisonDto;
+  ledgerEvents: RobinhoodAccountLedgerEventDto[];
+  notes: string[];
+}
+
+export interface RobinhoodIndividualNbisTrackerDto {
+  accountMasked: string;
+  trackingStartedAt: string;
+  baselineNbis: number;
+  boughtSince: number;
+  soldSince: number;
+  expectedNbis: number;
+  liveNbis: number;
+  variance: number;
+  liveSyncedAt: string | null;
+  liveFromSync: boolean;
+}
+
+export interface RobinhoodAgenticSpxComparisonDto {
+  agenticAccountMasked: string;
+  trackingStartedAt: string;
+  spxSymbol: string;
+  spxStartDate: string | null;
+  spxStartPrice: number | null;
+  spxCurrentPrice: number | null;
+  spxReturnPct: number | null;
+  agenticMarketValue: number;
+  agenticCostBasis: number;
+  agenticBaselineMarketValue: number | null;
+  agenticReturnPct: number | null;
+  agenticReturnBasis: string;
+  agenticSyncedAt: string | null;
+}
+
+export interface RobinhoodAccountLedgerEventDto {
+  activityDate: string | null;
+  instrument: string | null;
+  description: string | null;
+  transCode: string;
+  quantity: number | null;
+  price: number | null;
+  amount: number | null;
+  direction: string;
+  category: string;
+}
+
 /** Robinhood Agentic Trading MCP (Phase 1) */
 export interface RobinhoodAgenticStatusDto {
   featureEnabled: boolean;

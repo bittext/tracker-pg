@@ -10,6 +10,7 @@ import java.math.BigDecimal;
 import java.sql.Clob;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.Month;
 import java.time.format.DateTimeFormatter;
@@ -85,6 +86,21 @@ public class RobinhoodFinanceService {
             log.error("Robinhood query failed | message: {}", e.getMessage(), e);
             throw e;
         }
+    }
+
+    /**
+     * Rows on or after {@code since} (inclusive), ordered by activity date ascending, capped. Optional symbol filter on
+     * the configured stock column.
+     */
+    public List<Map<String, Object>> fetchTransactionMapsSince(Instant since, String symbolFilter, int cap) {
+        String symbol = sanitizeSymbolFilter(symbolFilter);
+        if (symbol != null && qualifiedStockSymbolColumn() == null) {
+            throw new IllegalStateException("Configure tracker.finance.stock-symbol-column to filter by symbol");
+        }
+        if (props.transactionDateColumn().isBlank()) {
+            throw new IllegalStateException("Configure tracker.finance.transaction-date-column for account tracker");
+        }
+        return queryTransactionRowsSince(since, symbol, cap);
     }
 
     /**
@@ -330,6 +346,67 @@ public class RobinhoodFinanceService {
                         ps.setString(i++, oracleStringBounds[1]);
                     } else {
                         ps.setTimestamp(i++, Timestamp.valueOf(endExclusive.atStartOfDay()));
+                    }
+                    if (symbol != null) {
+                        ps.setString(i++, symbol);
+                    }
+                    ps.setInt(i, cap);
+                },
+                new ColumnMapRowMapper());
+    }
+
+    private List<Map<String, Object>> queryTransactionRowsSince(Instant since, String symbol, int cap) {
+        String table = qualifiedTable();
+        String qualifiedDateCol = qualifiedTransactionDateColumn();
+        String dateExpr = activityDateExpression(qualifiedDateCol);
+        String qualSym = qualifiedStockSymbolColumn();
+        if (dateExpr == null) {
+            throw new IllegalStateException("Date column not configured");
+        }
+
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT ").append(T).append(".* FROM ").append(table).append(" ").append(T);
+
+        List<Object> prefixBinds = new ArrayList<>();
+        boolean hasWhere = appendUserOwnerClause(sql, prefixBinds);
+
+        String[] oracleStringBounds = oracleStringBoundsForFilter(
+                since.atZone(ZoneId.systemDefault()).toLocalDate(), LocalDate.of(9999, 12, 31));
+        String maskTrim =
+                props.transactionDateOracleFormatMask() == null
+                        ? ""
+                        : props.transactionDateOracleFormatMask().trim();
+        boolean isoDayPrefixBounds =
+                oracleStringBounds != null && maskTrim.equalsIgnoreCase("YYYY-MM-DD");
+        sql.append(hasWhere ? " AND " : " WHERE ");
+        if (oracleStringBounds != null && !isoDayPrefixBounds) {
+            String quotedMask = maskTrim.replace("'", "''");
+            sql.append(dateExpr)
+                    .append(" >= to_timestamp(?, '")
+                    .append(quotedMask)
+                    .append("')");
+        } else {
+            sql.append(dateExpr).append(" >= ?");
+        }
+        if (symbol != null) {
+            sql.append(" AND ").append(symbolEqualityPredicate(qualSym));
+        }
+        sql.append(" ORDER BY ").append(dateExpr).append(" ASC NULLS LAST");
+        sql.append(" LIMIT ?");
+
+        log.debug("Robinhood query (since {}): {}", since, sql);
+
+        return jdbcTemplate.query(
+                sql.toString(),
+                ps -> {
+                    int i = 1;
+                    for (Object o : prefixBinds) {
+                        ps.setObject(i++, o);
+                    }
+                    if (oracleStringBounds != null && !isoDayPrefixBounds) {
+                        ps.setString(i++, oracleStringBounds[0]);
+                    } else {
+                        ps.setTimestamp(i++, Timestamp.from(since));
                     }
                     if (symbol != null) {
                         ps.setString(i++, symbol);

@@ -9,6 +9,7 @@ import com.svp.tracker.finance.dto.RobinhoodCsvImportResultDto;
 import com.svp.tracker.finance.dto.RobinhoodCsvSavedImportDto;
 import com.svp.tracker.finance.dto.RobinhoodCsvUploadStatusDto;
 import com.svp.tracker.finance.dto.RobinhoodAccountStatusDto;
+import com.svp.tracker.finance.dto.RobinhoodAccountTrackerDto;
 import com.svp.tracker.finance.dto.RobinhoodNotebookBundleDto;
 import com.svp.tracker.finance.dto.RobinhoodNotebookConfigDto;
 import com.svp.tracker.finance.dto.RobinhoodNotebookRenderDto;
@@ -22,6 +23,7 @@ import com.svp.tracker.finance.dto.Surge52WeekHighsDto;
 import com.svp.tracker.finance.service.BreakoutScanService;
 import com.svp.tracker.finance.service.FinanceCrawlService;
 import com.svp.tracker.finance.service.MarketOverviewService;
+import com.svp.tracker.finance.service.RobinhoodAccountTrackerService;
 import com.svp.tracker.finance.service.RobinhoodCsvImportService;
 import com.svp.tracker.finance.service.RobinhoodFinanceService;
 import com.svp.tracker.finance.service.StockNewsService;
@@ -54,6 +56,7 @@ public class FinanceController {
     private final FinanceCrawlService financeCrawlService;
     private final BreakoutScanService breakoutScanService;
     private final MarketOverviewService marketOverviewService;
+    private final RobinhoodAccountTrackerService accountTrackerService;
     private final FinanceProperties financeProperties;
 
     /**
@@ -96,6 +99,19 @@ public class FinanceController {
         log.info("GET /api/finance/robinhood/account-status");
         try {
             return robinhoodFinanceService.fetchAccountStatus();
+        } catch (IllegalStateException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Individual NBIS ledger (CSV since cutoff) and Agentic portfolio vs {@code ^GSPC} since tracking start.
+     */
+    @GetMapping("/account-tracker")
+    public RobinhoodAccountTrackerDto accountTracker() {
+        log.info("GET /api/finance/robinhood/account-tracker");
+        try {
+            return accountTrackerService.buildTracker();
         } catch (IllegalStateException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
         }

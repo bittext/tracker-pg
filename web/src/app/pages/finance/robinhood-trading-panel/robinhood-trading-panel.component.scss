@@ -8,6 +8,37 @@
   font-size: 1rem;
 }
 
+.rh-trading__tracker {
+  margin: 0.75rem 0 1.25rem;
+}
+
+.rh-trading__tracker-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  margin-bottom: 0.75rem;
+}
+
+.rh-trading__tracker-card {
+  padding: 0.75rem 1rem;
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  border-radius: 0.5rem;
+}
+
+.rh-trading__notes {
+  margin: 0.5rem 0 1rem;
+  padding-left: 1.25rem;
+  max-width: 44rem;
+}
+
+.rh-trading__var--pos {
+  color: #16a34a;
+}
+
+.rh-trading__var--neg {
+  color: #dc2626;
+}
+
 .rh-trading__lead,
 .rh-trading__hint,
 .rh-trading__links {

@@ -13,6 +13,7 @@ import {
   FinanceTax1040ReturnDto,
   MarketOverviewDto,
   RobinhoodAccountStatusDto,
+  RobinhoodAccountTrackerDto,
   RobinhoodCsvImportResultDto,
   RobinhoodNotebookBundleDto,
   RobinhoodNotebookConfigDto,
@@ -86,6 +87,11 @@ export class FinanceApiService {
   /** Imported Robinhood row count and activity date range for the signed-in user. */
   robinhoodAccountStatus() {
     return this.http.get<RobinhoodAccountStatusDto>(`${this.root}/account-status`);
+  }
+
+  /** Individual NBIS ledger + Agentic vs SPX since tracking cutoff. */
+  robinhoodAccountTracker() {
+    return this.http.get<RobinhoodAccountTrackerDto>(`${this.root}/account-tracker`);
   }
 
   /** Robinhood Agentic MCP connection status (Phase 1). */

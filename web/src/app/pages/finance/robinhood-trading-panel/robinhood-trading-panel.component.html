@@ -1,6 +1,106 @@
 <section class="rh-trading" aria-labelledby="rh-trading-heading">
   <h2 id="rh-trading-heading" class="rh-trading__title">Robinhood</h2>
 
+  <h3 class="rh-trading__subtitle">Account tracker</h3>
+  <p class="muted rh-trading__hint">
+    Individual <strong>••••3370</strong> NBIS ledger from CSV since <strong>Jun 24, 2026 00:00 Central</strong>
+    (baseline <strong>732</strong> shares). Agentic <strong>••••3550</strong> portfolio return vs
+    <strong>S&amp;P 500 (^GSPC)</strong> over the same window.
+  </p>
+
+  @if (accountTrackerLoading) {
+    <p class="muted">Loading account tracker…</p>
+  } @else if (accountTracker; as t) {
+    <div class="rh-trading__tracker" role="region" aria-label="Account tracker">
+      <div class="rh-trading__tracker-grid">
+        <div class="rh-trading__tracker-card">
+          <h4 class="rh-trading__positions-title">Individual NBIS · {{ t.individualNbis.accountMasked }}</h4>
+          <ul class="rh-trading__stats muted">
+            <li>Cutoff: <strong>{{ formatDate(t.trackingStartedAt) }}</strong></li>
+            <li>Baseline: <strong>{{ formatNbis(t.individualNbis.baselineNbis) }}</strong> NBIS</li>
+            <li>Bought since: <strong>{{ formatNbis(t.individualNbis.boughtSince) }}</strong></li>
+            <li>Sold since: <strong>{{ formatNbis(t.individualNbis.soldSince) }}</strong></li>
+            <li>Expected: <strong>{{ formatNbis(t.individualNbis.expectedNbis) }}</strong></li>
+            <li>
+              Live (sync): <strong>{{ formatNbis(t.individualNbis.liveNbis) }}</strong>
+              @if (t.individualNbis.liveSyncedAt) {
+                · {{ formatDate(t.individualNbis.liveSyncedAt) }}
+              }
+            </li>
+            <li [class]="varianceClass(t.individualNbis.variance)">
+              Variance: <strong>{{ formatNbis(t.individualNbis.variance) }}</strong>
+            </li>
+          </ul>
+        </div>
+
+        <div class="rh-trading__tracker-card">
+          <h4 class="rh-trading__positions-title">Agentic vs SPX · {{ t.agenticVsSpx.agenticAccountMasked }}</h4>
+          <ul class="rh-trading__stats muted">
+            <li>
+              {{ t.agenticVsSpx.spxSymbol }}:
+              <strong>{{ formatPct(t.agenticVsSpx.spxReturnPct) }}</strong>
+              @if (t.agenticVsSpx.spxStartPrice != null && t.agenticVsSpx.spxCurrentPrice != null) {
+                ({{ t.agenticVsSpx.spxStartPrice | number: '1.2-2' }} →
+                {{ t.agenticVsSpx.spxCurrentPrice | number: '1.2-2' }})
+              }
+            </li>
+            <li>
+              Agentic portfolio:
+              <strong>{{ formatPct(t.agenticVsSpx.agenticReturnPct) }}</strong>
+              · MV <strong>{{ t.agenticVsSpx.agenticMarketValue | currency }}</strong>
+            </li>
+            <li class="muted">{{ t.agenticVsSpx.agenticReturnBasis }}</li>
+          </ul>
+        </div>
+      </div>
+
+      @if (t.notes.length) {
+        <ul class="rh-trading__notes muted">
+          @for (note of t.notes; track note) {
+            <li>{{ note }}</li>
+          }
+        </ul>
+      }
+
+      @if (t.ledgerEvents.length) {
+        <h4 class="rh-trading__positions-title">Ledger since cutoff (individual CSV)</h4>
+        <div class="rh-trading__positions">
+          <table class="rh-trading__table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Code</th>
+                <th>Instrument</th>
+                <th>Qty</th>
+                <th>Amount</th>
+                <th>Flow</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of t.ledgerEvents; track $index) {
+                <tr>
+                  <td>{{ row.activityDate ?? '—' }}</td>
+                  <td><code>{{ row.transCode }}</code></td>
+                  <td>{{ row.instrument ?? '—' }}</td>
+                  <td>{{ row.quantity ?? '—' }}</td>
+                  <td>{{ row.amount != null ? (row.amount | currency) : '—' }}</td>
+                  <td>{{ row.direction }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <p class="muted">No CSV activity since cutoff.</p>
+      }
+
+      <button mat-stroked-button type="button" (click)="refreshAccountTracker()" [disabled]="accountTrackerLoading">
+        <mat-icon>refresh</mat-icon>
+        Refresh tracker
+      </button>
+    </div>
+  }
+
   <h3 class="rh-trading__subtitle">Agentic live sync</h3>
   <p class="muted rh-trading__hint">
     Connect OAuth tokens from <code>phase0_oauth.py</code> (paste <code>.tokens.json</code>) to sync live positions from
