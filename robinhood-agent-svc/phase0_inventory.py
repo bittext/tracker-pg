@@ -46,7 +46,7 @@ CHAIN_READ_TOOLS: tuple[tuple[str, dict[str, Any]], ...] = (
     ("get_portfolio", {}),
     ("get_equity_positions", {}),
     ("get_option_positions", {}),
-    ("get_equity_orders", {"limit": 5}),
+    ("get_equity_orders", {}),
 )
 
 

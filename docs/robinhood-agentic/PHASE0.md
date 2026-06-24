@@ -148,7 +148,7 @@ Phase 1 sync should filter **`agentic_allowed: true`** for write path; read sync
 | `get_portfolio` | Read | Requires `account_number` |
 | `get_equity_positions` | Read | Requires `account_number` |
 | `get_option_positions` | Read | Requires `account_number`; open/closed options |
-| `get_equity_orders` | Read | Requires `account_number`; optional `limit` |
+| `get_equity_orders` | Read | Requires `account_number` only (trim to last N client-side) |
 | `get_equity_quotes` | Read | Requires `symbols` |
 | `get_equity_historicals` | Read | Requires `symbols`, `start_time` |
 | `get_equity_tradability` | Read | Requires `account_number`, `symbols` |

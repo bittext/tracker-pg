@@ -431,7 +431,7 @@ def run_sync(access_token: str, *, sync_default: bool = True) -> dict[str, Any]:
                 try:
                     orders_raw = client.call_tool(
                         EQUITY_ORDERS_TOOL,
-                        {"account_number": acct_num, "limit": ORDERS_SYNC_LIMIT},
+                        {"account_number": acct_num},
                     )
                     account_orders = _orders_from_payload(parse_tool_payload(orders_raw))
                 except Exception as exc:  # noqa: BLE001
