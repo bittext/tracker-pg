@@ -56,6 +56,14 @@
   border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
 }
 
+.rh-trading__row--open {
+  background: color-mix(in srgb, #16a34a 14%, transparent);
+}
+
+.rh-trading__row--open td strong {
+  color: #15803d;
+}
+
 .rh-trading__status {
   display: flex;
   flex-wrap: wrap;

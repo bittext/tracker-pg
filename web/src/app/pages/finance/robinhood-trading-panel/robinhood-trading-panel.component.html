@@ -29,7 +29,7 @@
               ({{ agenticStatus.lastSyncStatus }})
             }
           </li>
-          <li><strong>{{ agenticStatus.positionCount | number }}</strong> synced position row(s)</li>
+          <li><strong>{{ agenticStatus.positionCount | number }}</strong> open position(s) shown (max 10)</li>
         </ul>
         @if (agenticStatus.lastSyncMessage) {
           <p class="muted">{{ agenticStatus.lastSyncMessage }}</p>
@@ -72,9 +72,10 @@
     </div>
   }
 
-  @if (agenticPositions.length) {
+  @if (displayedLivePositions().length) {
     <div class="rh-trading__positions" role="region" aria-label="Live Agentic positions">
-      <h4 class="rh-trading__positions-title">Live positions (last sync)</h4>
+      <h4 class="rh-trading__positions-title">Live open positions (top 10)</h4>
+      <p class="muted rh-trading__hint">Open holdings ranked by market value. Closed or zero-qty positions are not shown.</p>
       <table class="rh-trading__table">
         <thead>
           <tr>
@@ -88,8 +89,8 @@
           </tr>
         </thead>
         <tbody>
-          @for (p of agenticPositions; track p.positionKey + p.accountNumberMasked) {
-            <tr>
+          @for (p of displayedLivePositions(); track p.positionKey + p.accountNumberMasked) {
+            <tr [class.rh-trading__row--open]="isOpenPosition(p)">
               <td>{{ positionTypeLabel(p) }}</td>
               <td><strong>{{ p.symbol }}</strong></td>
               <td>{{ optionContractLabel(p) }}</td>

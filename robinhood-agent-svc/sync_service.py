@@ -16,6 +16,7 @@ EQUITY_ORDERS_TOOL = "get_equity_orders"
 EQUITY_QUOTES_TOOL = "get_equity_quotes"
 QUOTE_BATCH_SIZE = 20
 ORDERS_SYNC_LIMIT = 10
+POSITIONS_SYNC_LIMIT = 10
 
 
 def _to_float(value: Any) -> float | None:
@@ -157,6 +158,31 @@ def _enrich_market_values(
             quantity=position.get("quantity"),
             price=price,
         )
+
+
+def _is_open_position(row: dict[str, Any]) -> bool:
+    qty = _to_float(row.get("quantity"))
+    return qty is not None and qty != 0.0
+
+
+def _position_rank_value(row: dict[str, Any]) -> float:
+    market_value = _to_float(row.get("market_value"))
+    if market_value is not None:
+        return abs(market_value)
+    qty = _to_float(row.get("quantity"))
+    price = _to_float(
+        row.get("current_price") or row.get("average_buy_price") or row.get("average_price")
+    )
+    if qty is not None and price is not None:
+        return abs(qty * price)
+    return 0.0
+
+
+def _trim_positions_for_sync(positions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Keep only open positions, ranked by market value (top N)."""
+    open_positions = [row for row in positions if _is_open_position(row)]
+    open_positions.sort(key=_position_rank_value, reverse=True)
+    return open_positions[:POSITIONS_SYNC_LIMIT]
 
 
 def _orders_from_payload(payload: Any) -> list[dict[str, Any]]:
@@ -469,6 +495,7 @@ def run_sync(access_token: str, *, sync_default: bool = True) -> dict[str, Any]:
             )
 
         _enrich_market_values(client, all_positions, tool_names)
+        all_positions = _trim_positions_for_sync(all_positions)
 
         all_orders.sort(
             key=lambda row: str(row.get("updated_at") or row.get("created_at") or ""),
@@ -496,6 +523,7 @@ def run_sync(access_token: str, *, sync_default: bool = True) -> dict[str, Any]:
             "mcp_tool_count": len(tool_names),
             "option_positions_tool_available": option_tool_available,
             "orders_sync_limit": ORDERS_SYNC_LIMIT,
+            "positions_sync_limit": POSITIONS_SYNC_LIMIT,
             "warnings": warnings,
             "accounts": account_summaries,
             "portfolios": portfolios,

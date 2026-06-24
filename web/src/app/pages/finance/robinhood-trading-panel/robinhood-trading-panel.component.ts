@@ -26,6 +26,8 @@ import { formatHttpErrorDetail } from '../../../util/http-error';
   styleUrl: './robinhood-trading-panel.component.scss',
 })
 export class RobinhoodTradingPanelComponent implements OnInit {
+  private static readonly LIVE_POSITIONS_LIMIT = 10;
+
   private readonly financeApi = inject(FinanceApiService);
   private readonly snackBar = inject(MatSnackBar);
 
@@ -460,6 +462,17 @@ export class RobinhoodTradingPanelComponent implements OnInit {
 
   positionTypeLabel(p: RobinhoodAgenticPositionDto): string {
     return p.positionType === 'option' ? 'Option' : 'Equity';
+  }
+
+  isOpenPosition(p: RobinhoodAgenticPositionDto): boolean {
+    return p.quantity != null && p.quantity !== 0;
+  }
+
+  displayedLivePositions(): RobinhoodAgenticPositionDto[] {
+    return [...this.agenticPositions]
+      .filter((p) => this.isOpenPosition(p))
+      .sort((a, b) => Math.abs(b.marketValue ?? 0) - Math.abs(a.marketValue ?? 0))
+      .slice(0, RobinhoodTradingPanelComponent.LIVE_POSITIONS_LIMIT);
   }
 
   optionContractLabel(p: RobinhoodAgenticPositionDto): string {

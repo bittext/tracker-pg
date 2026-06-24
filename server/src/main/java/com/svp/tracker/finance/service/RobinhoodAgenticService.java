@@ -23,6 +23,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +39,8 @@ import org.springframework.web.server.ResponseStatusException;
 @RequiredArgsConstructor
 @Slf4j
 public class RobinhoodAgenticService {
+
+    private static final int POSITIONS_SYNC_LIMIT = 10;
 
     private final RobinhoodAgenticProperties props;
     private final CurrentUserService currentUser;
@@ -65,9 +68,7 @@ public class RobinhoodAgenticService {
                         conn.getLastSyncAt(),
                         conn.getLastSyncStatus(),
                         conn.getLastSyncMessage(),
-                        (int) positionRepository
-                                .findByOwnerUserIdOrderByPositionTypeAscSymbolAscChainSymbolAsc(uid)
-                                .size()))
+                        openPositionCount(uid)))
                 .orElseGet(() -> new RobinhoodAgenticStatusDto(
                         props.enabled(),
                         props.serviceConfigured(),
@@ -121,8 +122,8 @@ public class RobinhoodAgenticService {
                 .findByOwnerUserId(uid)
                 .map(RobinhoodAgenticConnection::getPortfolioJson)
                 .orElse("");
-        List<RobinhoodAgenticPositionDto> rows = positionRepository
-                .findByOwnerUserIdOrderByPositionTypeAscSymbolAscChainSymbolAsc(uid)
+        List<RobinhoodAgenticPositionDto> rows = trimOpenPositions(
+                        positionRepository.findByOwnerUserIdOrderByPositionTypeAscSymbolAscChainSymbolAsc(uid))
                 .stream()
                 .map(this::toPositionDto)
                 .toList();
@@ -175,9 +176,7 @@ public class RobinhoodAgenticService {
             logRow.setMessage(buildSyncMessage(result));
             logRow.setFinishedAt(Instant.now());
             syncLogRepository.save(logRow);
-            int count = (int) positionRepository
-                    .findByOwnerUserIdOrderByPositionTypeAscSymbolAscChainSymbolAsc(conn.getOwnerUserId())
-                    .size();
+            int count = openPositionCount(conn.getOwnerUserId());
             int orderCount = (int) syncedOrderRepository
                     .findTop10ByOwnerUserIdOrderByUpdatedAtRhDescCreatedAtRhDesc(conn.getOwnerUserId())
                     .size();
@@ -246,7 +245,7 @@ public class RobinhoodAgenticService {
             // Sidecar may emit duplicate option legs (same option_id, long + short); last row wins.
             byAccountAndKey.put(accountNumber + "\u0000" + positionKey, pos);
         }
-        positionRepository.saveAll(byAccountAndKey.values());
+        positionRepository.saveAll(trimOpenPositions(List.copyOf(byAccountAndKey.values())));
 
         syncedOrderRepository.deleteAllByOwnerUserId(conn.getOwnerUserId());
         Map<String, RobinhoodAgenticSyncedOrder> byAccountAndRhOrder = new LinkedHashMap<>();
@@ -321,7 +320,7 @@ public class RobinhoodAgenticService {
         int orderCount = result.path("orders").size();
         StringBuilder msg = new StringBuilder("Synced ")
                 .append(positionCount)
-                .append(" position row(s) and ")
+                .append(" open position(s) and ")
                 .append(orderCount)
                 .append(" recent order(s)");
         for (JsonNode warning : result.withArray("warnings")) {
@@ -330,6 +329,35 @@ public class RobinhoodAgenticService {
             }
         }
         return truncate(msg.toString(), 500);
+    }
+
+    private int openPositionCount(long ownerUserId) {
+        return trimOpenPositions(
+                        positionRepository.findByOwnerUserIdOrderByPositionTypeAscSymbolAscChainSymbolAsc(
+                                ownerUserId))
+                .size();
+    }
+
+    private static boolean isOpenPosition(BigDecimal quantity) {
+        return quantity != null && quantity.compareTo(BigDecimal.ZERO) != 0;
+    }
+
+    private static BigDecimal positionRankValue(RobinhoodAgenticPosition position) {
+        if (position.getMarketValue() != null) {
+            return position.getMarketValue().abs();
+        }
+        if (position.getQuantity() != null && position.getAverageBuyPrice() != null) {
+            return position.getQuantity().multiply(position.getAverageBuyPrice()).abs();
+        }
+        return BigDecimal.ZERO;
+    }
+
+    private List<RobinhoodAgenticPosition> trimOpenPositions(List<RobinhoodAgenticPosition> positions) {
+        return positions.stream()
+                .filter(p -> isOpenPosition(p.getQuantity()))
+                .sorted(Comparator.comparing(RobinhoodAgenticService::positionRankValue).reversed())
+                .limit(POSITIONS_SYNC_LIMIT)
+                .toList();
     }
 
     private void requireFeature() {
