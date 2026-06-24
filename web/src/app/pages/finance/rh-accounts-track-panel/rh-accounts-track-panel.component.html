@@ -1,8 +1,9 @@
 <section class="rh-acct" aria-labelledby="rh-acct-heading">
   <h2 id="rh-acct-heading" class="rh-acct__title">RH Accounts Track</h2>
   <p class="muted rh-acct__hint">
-    All Robinhood accounts since <strong>Apr 5, 2026 00:00 Central</strong>: deposits and withdrawals (CSV on
-    individual account), current holdings from Agentic sync, and gain/loss vs net deposits or unrealized P&amp;L.
+    All Robinhood accounts since <strong>Apr 5, 2026 00:00 Central</strong>: deposits, withdrawals, and transfers
+    (<strong>Transfer</strong>, <strong>Transfer In</strong>, ACH, ITRF, RTP, etc. from CSV on the individual account),
+    plus current holdings from Agentic sync and gain/loss vs net cash in.
   </p>
 
   @if (loading) {
@@ -77,7 +78,7 @@
                   <th>Date</th>
                   <th>Direction</th>
                   <th>Amount</th>
-                  <th>Code</th>
+                  <th>Code / type</th>
                   <th>Description</th>
                 </tr>
               </thead>

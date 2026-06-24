@@ -104,6 +104,23 @@ public class RobinhoodFinanceService {
     }
 
     /**
+     * Cash-flow rows (transfers, deposits, withdrawals, interest) on or after {@code since}, ordered by activity date
+     * ascending. Filters in SQL then applies {@link RobinhoodCashFlowClassifier} so trade legs are excluded.
+     */
+    public List<Map<String, Object>> fetchCashFlowMapsSince(Instant since, int cap) {
+        if (props.transactionDateColumn().isBlank()) {
+            throw new IllegalStateException("Configure tracker.finance.transaction-date-column for account tracker");
+        }
+        List<Map<String, Object>> rows = queryCashFlowRowsSince(since, cap);
+        return rows.stream()
+                .filter(row -> RobinhoodCashFlowClassifier.isCashFlowRow(
+                        stringCellAny(row, "TRANS_CODE", "trans_code"),
+                        stringCellAny(row, "DESCRIPTION", "description"),
+                        stringCellAny(row, "INSTRUMENT", "instrument")))
+                .toList();
+    }
+
+    /**
      * Buy/sell summary by instrument and contract (description) for a calendar year. Option legs are split by trans
      * code ({@code BTO}/{@code STC}/{@code STO}/{@code BTC}); stock legs use {@code BUY}/{@code SELL}. Other codes
      * (e.g. ACH) are skipped.
@@ -416,6 +433,86 @@ public class RobinhoodFinanceService {
                 new ColumnMapRowMapper());
     }
 
+    private List<Map<String, Object>> queryCashFlowRowsSince(Instant since, int cap) {
+        String table = qualifiedTable();
+        String qualifiedDateCol = qualifiedTransactionDateColumn();
+        String dateExpr = activityDateExpression(qualifiedDateCol);
+        if (dateExpr == null) {
+            throw new IllegalStateException("Date column not configured");
+        }
+
+        String transExpr = T + ".trans_code";
+        String descExpr = T + ".description";
+        String instExpr = T + ".instrument";
+        String transKey = "UPPER(REPLACE(REPLACE(TRIM(COALESCE(" + transExpr + ", '')), ' ', ''), '-', ''))";
+        String transUpper = "UPPER(TRIM(COALESCE(" + transExpr + ", '')))";
+        String descUpper = "UPPER(TRIM(COALESCE(" + descExpr + ", '')))";
+
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT ").append(T).append(".* FROM ").append(table).append(" ").append(T);
+
+        List<Object> prefixBinds = new ArrayList<>();
+        appendUserOwnerClause(sql, prefixBinds);
+
+        String[] oracleStringBounds = oracleStringBoundsForFilter(
+                since.atZone(ZoneId.systemDefault()).toLocalDate(), LocalDate.of(9999, 12, 31));
+        String maskTrim =
+                props.transactionDateOracleFormatMask() == null
+                        ? ""
+                        : props.transactionDateOracleFormatMask().trim();
+        boolean isoDayPrefixBounds =
+                oracleStringBounds != null && maskTrim.equalsIgnoreCase("YYYY-MM-DD");
+        sql.append(" AND ");
+        if (oracleStringBounds != null && !isoDayPrefixBounds) {
+            String quotedMask = maskTrim.replace("'", "''");
+            sql.append(dateExpr)
+                    .append(" >= to_timestamp(?, '")
+                    .append(quotedMask)
+                    .append("')");
+        } else {
+            sql.append(dateExpr).append(" >= ?");
+        }
+
+        sql.append(" AND NOT (").append(transUpper).append(" IN ('BUY','SELL','BTO','STC','STO','BTC','OEXP','OASGN','OEXCS','CONV','SPL','MRGS','SXCH'))");
+        sql.append(" AND (");
+        sql.append(transUpper)
+                .append(" IN ('ACH','XENT','ITRF','RTP','CDEP','CSR','INT','MINT','WIRE','UKBT','SLIP','CSH','DCNT','FEE','GOLD','TRF','TRFI','TRFO','TRANSFER')");
+        sql.append(" OR ").append(transUpper).append(" LIKE 'ACH%'");
+        sql.append(" OR ").append(transKey).append(" LIKE 'TRANSFER%'");
+        sql.append(" OR ").append(descUpper).append(" LIKE '%TRANSFER%'");
+        sql.append(" OR ").append(descUpper).append(" LIKE '%DEPOSIT%'");
+        sql.append(" OR ").append(descUpper).append(" LIKE '%WITHDRAW%'");
+        sql.append(" OR ").append(descUpper).append(" LIKE '%INSTANT BANK%'");
+        sql.append(" OR (TRIM(COALESCE(")
+                .append(instExpr)
+                .append(", '')) = '' AND ")
+                .append(T)
+                .append(".amount IS NOT NULL AND ")
+                .append(transUpper)
+                .append(" <> '')");
+        sql.append(")");
+        sql.append(" ORDER BY ").append(dateExpr).append(" ASC NULLS LAST");
+        sql.append(" LIMIT ?");
+
+        log.debug("Robinhood cash-flow query (since {}): {}", since, sql);
+
+        return jdbcTemplate.query(
+                sql.toString(),
+                ps -> {
+                    int i = 1;
+                    for (Object o : prefixBinds) {
+                        ps.setObject(i++, o);
+                    }
+                    if (oracleStringBounds != null && !isoDayPrefixBounds) {
+                        ps.setString(i++, oracleStringBounds[0]);
+                    } else {
+                        ps.setTimestamp(i++, Timestamp.from(since));
+                    }
+                    ps.setInt(i, cap);
+                },
+                new ColumnMapRowMapper());
+    }
+
     /** Restrict Robinhood SQL to rows owned by the signed-in user ({@code owner_user_id}). */
     private boolean appendUserOwnerClause(StringBuilder sql, List<Object> prefixBinds) {
         sql.append(" WHERE ").append(T).append(".owner_user_id = ?");
@@ -439,6 +536,16 @@ public class RobinhoodFinanceService {
     private static String stringCell(Map<String, Object> row, String name) {
         Object v = rawCell(row, name);
         return v == null ? null : v.toString();
+    }
+
+    private static String stringCellAny(Map<String, Object> row, String... names) {
+        for (String name : names) {
+            String v = stringCell(row, name);
+            if (v != null && !v.isBlank()) {
+                return v;
+            }
+        }
+        return null;
     }
 
     private static BigDecimal decimalCell(Map<String, Object> row, String name) {

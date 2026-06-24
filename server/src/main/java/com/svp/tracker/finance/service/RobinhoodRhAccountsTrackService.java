@@ -60,10 +60,9 @@ public class RobinhoodRhAccountsTrackService {
         String individualSuffix = config.getIndividualAccountSuffix();
         String agenticSuffix = config.getAgenticAccountSuffix();
 
-        int rowCap = Math.max(financeProperties.maxStocksSummaryRows(), 500);
-        List<Map<String, Object>> csvRows =
-                financeService.fetchTransactionMapsSince(trackingStartedAt, null, rowCap);
-        List<RobinhoodRhCashFlowEventDto> individualCashFlows = extractTransferEvents(csvRows);
+        int rowCap = Math.max(financeProperties.maxTransactionRows(), 2_000);
+        List<Map<String, Object>> csvRows = financeService.fetchCashFlowMapsSince(trackingStartedAt, rowCap);
+        List<RobinhoodRhCashFlowEventDto> individualCashFlows = extractCashFlowEvents(csvRows);
 
         List<RobinhoodAgenticPosition> allPositions =
                 positionRepository.findByOwnerUserIdOrderBySymbolAsc(ownerUserId);
@@ -273,11 +272,13 @@ public class RobinhoodRhAccountsTrackService {
         return new HoldingsTotals(marketValue, costBasis, unrealized);
     }
 
-    private List<RobinhoodRhCashFlowEventDto> extractTransferEvents(List<Map<String, Object>> rows) {
+    private List<RobinhoodRhCashFlowEventDto> extractCashFlowEvents(List<Map<String, Object>> rows) {
         List<RobinhoodRhCashFlowEventDto> out = new ArrayList<>();
         for (Map<String, Object> row : rows) {
-            String transCode = norm(stringCell(row, "TRANS_CODE", "trans_code"));
-            if (!isTransferCode(transCode)) {
+            String transCode = stringCell(row, "TRANS_CODE", "trans_code");
+            String description = stringCell(row, "DESCRIPTION", "description");
+            String instrument = stringCell(row, "INSTRUMENT", "instrument");
+            if (!RobinhoodCashFlowClassifier.isCashFlowRow(transCode, description, instrument)) {
                 continue;
             }
             BigDecimal amount = decimalCell(row, "AMOUNT", "amount");
@@ -285,14 +286,17 @@ public class RobinhoodRhAccountsTrackService {
                 continue;
             }
             LocalDate activityDate = localDateCell(row, "ACTIVITY_DATE", "activity_date");
-            String direction = amount.compareTo(BigDecimal.ZERO) > 0 ? "IN" : "OUT";
+            String direction = RobinhoodCashFlowClassifier.cashFlowDirection(transCode, description, amount);
+            if ("OTHER".equals(direction)) {
+                continue;
+            }
             out.add(
                     new RobinhoodRhCashFlowEventDto(
                             activityDate,
                             direction,
                             scaleMoney(amount.abs()),
-                            transCode,
-                            trimOrNull(stringCell(row, "DESCRIPTION", "description")),
+                            RobinhoodCashFlowClassifier.displayFlowType(transCode, description),
+                            trimOrNull(description),
                             "CSV"));
         }
         return out;
@@ -458,9 +462,9 @@ public class RobinhoodRhAccountsTrackService {
             List<RobinhoodRhAccountSummaryDto> accounts) {
         List<String> notes = new ArrayList<>();
         notes.add(
-                "Tracking window starts Apr 5, 2026 00:00 Central. CSV ACH/transfers apply to the imported individual account; synced MCP data covers all connected accounts.");
+                "Tracking window starts Apr 5, 2026 00:00 Central. Cash flows include Transfer, Transfer In/Out, ACH, ITRF, RTP, and similar CSV rows on the individual account; synced MCP data covers all connected accounts.");
         if (csvRowCount >= rowCap) {
-            notes.add("CSV activity capped at " + rowCap + " rows; older transfers since cutoff may be omitted.");
+            notes.add("Cash-flow query capped at " + rowCap + " rows; older transfers since cutoff may be omitted.");
         }
         if (connectionOpt.isEmpty() || connectionOpt.get().getLastSyncAt() == null) {
             notes.add("Connect Robinhood Agentic Trading and run Sync for live holdings and portfolio totals.");
@@ -509,16 +513,6 @@ public class RobinhoodRhAccountsTrackService {
         return config.getRhAccountsTrackStartedAt() != null
                 ? config.getRhAccountsTrackStartedAt()
                 : DEFAULT_TRACKING_START;
-    }
-
-    private static boolean isTransferCode(String transCode) {
-        if (transCode.isBlank()) {
-            return false;
-        }
-        return switch (transCode) {
-            case "ACH", "XENT", "INT", "MINT" -> true;
-            default -> transCode.startsWith("ACH");
-        };
     }
 
     private static boolean accountEndsWith(String accountNumber, String suffix) {
