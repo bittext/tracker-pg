@@ -29,6 +29,10 @@ public class RobinhoodAccountTrackerConfig {
     @Column(name = "tracking_started_at", nullable = false)
     private Instant trackingStartedAt;
 
+    /** Cash-flow / holdings summary window for Finance → RH Accounts Track (default Apr 5 2026 Central). */
+    @Column(name = "rh_accounts_track_started_at")
+    private Instant rhAccountsTrackStartedAt;
+
     @Column(name = "individual_account_suffix", nullable = false, length = 8)
     private String individualAccountSuffix = "3370";
 

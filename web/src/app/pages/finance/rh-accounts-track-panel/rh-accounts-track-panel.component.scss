@@ -1,0 +1,86 @@
+.rh-acct__title {
+  margin: 0 0 0.5rem;
+  font-size: 1.15rem;
+}
+
+.rh-acct__hint,
+.rh-acct__notes {
+  max-width: 48rem;
+}
+
+.rh-acct__notes {
+  margin: 0.5rem 0 1rem;
+  padding-left: 1.25rem;
+}
+
+.rh-acct__combined {
+  margin: 0.75rem 0 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  border-radius: 0.5rem;
+}
+
+.rh-acct__card {
+  margin: 0 0 1.25rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  border-radius: 0.5rem;
+}
+
+.rh-acct__card-title {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.rh-acct__card-notes {
+  margin: 0 0 0.75rem;
+  padding-left: 1.25rem;
+  font-size: 0.9rem;
+}
+
+.rh-acct__grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  margin-bottom: 0.75rem;
+}
+
+.rh-acct__section {
+  margin: 0.75rem 0 0.35rem;
+  font-size: 0.95rem;
+}
+
+.rh-acct__stats {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.rh-acct__table-wrap {
+  overflow-x: auto;
+  margin-bottom: 0.75rem;
+}
+
+.rh-acct__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.rh-acct__table th,
+.rh-acct__table td {
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.rh-acct__pnl--pos {
+  color: #16a34a;
+}
+
+.rh-acct__pnl--neg {
+  color: #dc2626;
+}
+
+.rh-acct__empty {
+  margin: 0.25rem 0 0.5rem;
+}

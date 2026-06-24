@@ -32,6 +32,7 @@ import { BankingPanelComponent } from './banking-panel/banking-panel.component';
 import { FinanceTax1040PanelComponent } from './finance-tax-1040-panel/finance-tax-1040-panel.component';
 import { MarketOverviewPanelComponent } from './market-overview-panel/market-overview-panel.component';
 import { PredictsPanelComponent } from './predicts-panel/predicts-panel.component';
+import { RhAccountsTrackPanelComponent } from './rh-accounts-track-panel/rh-accounts-track-panel.component';
 import { RobinhoodTradingPanelComponent } from './robinhood-trading-panel/robinhood-trading-panel.component';
 import { TradingScreenersPanelComponent } from './trading-screeners-panel/trading-screeners-panel.component';
 import { LoansPanelComponent } from './loans-panel/loans-panel.component';
@@ -60,6 +61,7 @@ import { InsurancePanelComponent } from './insurance-panel/insurance-panel.compo
     MarketOverviewPanelComponent,
     PredictsPanelComponent,
     RobinhoodTradingPanelComponent,
+    RhAccountsTrackPanelComponent,
     TradingScreenersPanelComponent,
     LoansPanelComponent,
     InvestmentsPanelComponent,
@@ -162,24 +164,24 @@ export class FinanceComponent implements OnInit {
   }
 
   onFinanceSubTabIndexChange(index: number): void {
-    if (index === 2) {
+    if (index === 3) {
       this.loadCrawlSnapshot();
-    } else if (index === 3) {
-      this.loadRising52WeekHighs();
     } else if (index === 4) {
-      this.loadBreakoutCandidates();
+      this.loadRising52WeekHighs();
     } else if (index === 5) {
+      this.loadBreakoutCandidates();
+    } else if (index === 6) {
       this.loadFinanceAlerts();
       this.loadFinanceAlertEvents();
-    } else if (index === 6) {
-      this.loadRobinhoodFinanceData();
     } else if (index === 7) {
+      this.loadRobinhoodFinanceData();
+    } else if (index === 8) {
       this.ensureStockSymbolsLoaded(() => {
         if (this.financeSelectedSymbol.trim()) {
           this.loadIndividualStockFinanceData();
         }
       }, true);
-    } else if (index === 9) {
+    } else if (index === 10) {
       this.ensureStockSymbolsLoaded(undefined, this.stockSymbols.length === 0);
       this.loadStocksSummary();
     }
@@ -189,9 +191,9 @@ export class FinanceComponent implements OnInit {
     if (this.financeCategoryTabIndex !== 6) {
       return;
     }
-    if (this.financeSubTabIndex === 6) {
+    if (this.financeSubTabIndex === 7) {
       this.loadRobinhoodFinanceData();
-    } else if (this.financeSubTabIndex === 7) {
+    } else if (this.financeSubTabIndex === 8) {
       if (this.financeSelectedSymbol.trim()) {
         this.loadIndividualStockFinanceData();
       }
@@ -199,7 +201,7 @@ export class FinanceComponent implements OnInit {
   }
 
   onStocksSummaryFilterChange(): void {
-    if (this.financeCategoryTabIndex === 6 && this.financeSubTabIndex === 9) {
+    if (this.financeCategoryTabIndex === 6 && this.financeSubTabIndex === 10) {
       this.loadStocksSummary();
     }
   }

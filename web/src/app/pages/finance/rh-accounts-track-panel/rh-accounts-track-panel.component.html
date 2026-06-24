@@ -1,0 +1,140 @@
+<section class="rh-acct" aria-labelledby="rh-acct-heading">
+  <h2 id="rh-acct-heading" class="rh-acct__title">RH Accounts Track</h2>
+  <p class="muted rh-acct__hint">
+    All Robinhood accounts since <strong>Apr 5, 2026 00:00 Central</strong>: deposits and withdrawals (CSV on
+    individual account), current holdings from Agentic sync, and gain/loss vs net deposits or unrealized P&amp;L.
+  </p>
+
+  @if (loading) {
+    <p class="muted">Loading accounts track…</p>
+  } @else if (track; as t) {
+    <div class="rh-acct__combined" role="region" aria-label="Combined totals">
+      <ul class="rh-acct__stats muted">
+        <li>Cutoff: <strong>{{ formatDate(t.trackingStartedAt) }}</strong></li>
+        <li>Combined value: <strong>{{ t.combinedTotalValue | currency }}</strong></li>
+        <li>Combined net cash flow: <strong>{{ t.combinedNetCashFlow | currency }}</strong></li>
+        <li [class]="pnlClass(t.combinedGainLossPositive)">
+          Combined gain/loss:
+          <strong>{{ t.combinedGainLossVsNetDeposits | currency }}</strong>
+          ({{ t.combinedGainLossPositive ? 'positive' : 'negative' }})
+        </li>
+      </ul>
+    </div>
+
+    @if (t.notes.length) {
+      <ul class="rh-acct__notes muted">
+        @for (note of t.notes; track note) {
+          <li>{{ note }}</li>
+        }
+      </ul>
+    }
+
+    @for (acct of t.accounts; track acct.accountSuffix) {
+      <article class="rh-acct__card" [attr.aria-label]="acct.label">
+        <h3 class="rh-acct__card-title">{{ acct.label }}</h3>
+        @if (acct.notes.length) {
+          <ul class="rh-acct__card-notes muted">
+            @for (note of acct.notes; track note) {
+              <li>{{ note }}</li>
+            }
+          </ul>
+        }
+
+        <div class="rh-acct__grid">
+          <div>
+            <h4 class="rh-acct__section">Cash flow (since cutoff)</h4>
+            <ul class="rh-acct__stats muted">
+              <li>Deposits in: <strong>{{ acct.totalDeposits | currency }}</strong></li>
+              <li>Withdrawals out: <strong>{{ acct.totalWithdrawals | currency }}</strong></li>
+              <li>Net: <strong>{{ acct.netCashFlow | currency }}</strong></li>
+            </ul>
+          </div>
+          <div>
+            <h4 class="rh-acct__section">Current account</h4>
+            <ul class="rh-acct__stats muted">
+              <li>Cash: <strong>{{ acct.cashBalance | currency }}</strong></li>
+              <li>Equity MV: <strong>{{ acct.equityMarketValue | currency }}</strong></li>
+              <li>Total value: <strong>{{ acct.totalAccountValue | currency }}</strong></li>
+              <li>Unrealized P&amp;L: <strong>{{ acct.unrealizedPnL | currency }}</strong></li>
+              <li [class]="pnlClass(acct.gainLossPositive)">
+                Gain/loss:
+                <strong>{{ acct.gainLossVsNetDeposits | currency }}</strong>
+                ({{ acct.gainLossPositive ? 'positive' : 'negative' }})
+              </li>
+              @if (acct.syncedAt) {
+                <li>Synced: <strong>{{ formatDate(acct.syncedAt) }}</strong></li>
+              }
+            </ul>
+          </div>
+        </div>
+
+        @if (acct.cashFlowEvents.length) {
+          <h4 class="rh-acct__section">Deposits &amp; withdrawals</h4>
+          <div class="rh-acct__table-wrap">
+            <table class="rh-acct__table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Direction</th>
+                  <th>Amount</th>
+                  <th>Code</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of acct.cashFlowEvents; track $index) {
+                  <tr>
+                    <td>{{ row.activityDate | date: 'mediumDate' }}</td>
+                    <td>{{ row.direction === 'IN' ? 'In' : 'Out' }}</td>
+                    <td>{{ row.amount | currency }}</td>
+                    <td>{{ row.transCode }}</td>
+                    <td>{{ row.description || '—' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+
+        @if (acct.holdings.length) {
+          <h4 class="rh-acct__section">Holdings</h4>
+          <div class="rh-acct__table-wrap">
+            <table class="rh-acct__table">
+              <thead>
+                <tr>
+                  <th>Symbol</th>
+                  <th>Type</th>
+                  <th>Qty</th>
+                  <th>Avg cost</th>
+                  <th>Market value</th>
+                  <th>Cost basis</th>
+                  <th>Unrealized P&amp;L</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (h of acct.holdings; track h.symbol + h.positionType) {
+                  <tr>
+                    <td>{{ h.symbol }}</td>
+                    <td>{{ h.positionType }}</td>
+                    <td>{{ h.quantity | number: '1.0-4' }}</td>
+                    <td>{{ h.averageBuyPrice | currency }}</td>
+                    <td>{{ h.marketValue | currency }}</td>
+                    <td>{{ h.costBasis | currency }}</td>
+                    <td [class]="pnlClass(h.unrealizedPnL >= 0)">{{ h.unrealizedPnL | currency }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <p class="muted rh-acct__empty">No synced holdings for this account.</p>
+        }
+      </article>
+    }
+
+    <button mat-stroked-button type="button" (click)="refresh()" [disabled]="loading">Refresh</button>
+  } @else {
+    <p class="muted">Could not load RH Accounts Track.</p>
+    <button mat-stroked-button type="button" (click)="refresh()">Retry</button>
+  }
+</section>

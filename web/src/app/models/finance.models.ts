@@ -90,6 +90,57 @@ export interface RobinhoodAccountLedgerEventDto {
   category: string;
 }
 
+/** GET /api/finance/robinhood/rh-accounts-track */
+export interface RobinhoodRhAccountsTrackDto {
+  trackingStartedAt: string;
+  accounts: RobinhoodRhAccountSummaryDto[];
+  combinedTotalValue: number;
+  combinedNetCashFlow: number;
+  combinedGainLossVsNetDeposits: number;
+  combinedGainLossPositive: boolean;
+  notes: string[];
+}
+
+export interface RobinhoodRhAccountSummaryDto {
+  accountNumberMasked: string;
+  accountSuffix: string;
+  label: string;
+  agenticAccount: boolean;
+  totalDeposits: number;
+  totalWithdrawals: number;
+  netCashFlow: number;
+  cashFlowEvents: RobinhoodRhCashFlowEventDto[];
+  cashBalance: number;
+  equityMarketValue: number;
+  totalAccountValue: number;
+  totalCostBasis: number;
+  unrealizedPnL: number;
+  gainLossVsNetDeposits: number;
+  gainLossPositive: boolean;
+  holdings: RobinhoodRhHoldingDto[];
+  syncedAt: string | null;
+  notes: string[];
+}
+
+export interface RobinhoodRhCashFlowEventDto {
+  activityDate: string | null;
+  direction: string;
+  amount: number;
+  transCode: string;
+  description: string | null;
+  source: string;
+}
+
+export interface RobinhoodRhHoldingDto {
+  symbol: string;
+  positionType: string;
+  quantity: number;
+  averageBuyPrice: number;
+  marketValue: number;
+  costBasis: number;
+  unrealizedPnL: number;
+}
+
 /** Robinhood Agentic Trading MCP (Phase 1) */
 export interface RobinhoodAgenticStatusDto {
   featureEnabled: boolean;

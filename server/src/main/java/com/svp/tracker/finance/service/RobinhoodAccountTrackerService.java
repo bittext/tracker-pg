@@ -149,6 +149,8 @@ public class RobinhoodAccountTrackerService {
         RobinhoodAccountTrackerConfig config = new RobinhoodAccountTrackerConfig();
         config.setOwnerUserId(ownerUserId);
         config.setTrackingStartedAt(trackingStart);
+        config.setRhAccountsTrackStartedAt(
+                ZonedDateTime.of(2026, 4, 5, 0, 0, 0, 0, CENTRAL).toInstant());
         config.setIndividualAccountSuffix("3370");
         config.setIndividualBaselineNbis(DEFAULT_BASELINE_NBIS);
         config.setAgenticAccountSuffix("3550");

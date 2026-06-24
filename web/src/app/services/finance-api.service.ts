@@ -14,6 +14,7 @@ import {
   MarketOverviewDto,
   RobinhoodAccountStatusDto,
   RobinhoodAccountTrackerDto,
+  RobinhoodRhAccountsTrackDto,
   RobinhoodCsvImportResultDto,
   RobinhoodNotebookBundleDto,
   RobinhoodNotebookConfigDto,
@@ -92,6 +93,11 @@ export class FinanceApiService {
   /** Individual NBIS ledger + Agentic vs SPX since tracking cutoff. */
   robinhoodAccountTracker() {
     return this.http.get<RobinhoodAccountTrackerDto>(`${this.root}/account-tracker`);
+  }
+
+  /** All Robinhood accounts: CSV cash flows + synced holdings since Apr 5 2026. */
+  robinhoodRhAccountsTrack() {
+    return this.http.get<RobinhoodRhAccountsTrackDto>(`${this.root}/rh-accounts-track`);
   }
 
   /** Robinhood Agentic MCP connection status (Phase 1). */

@@ -23,7 +23,9 @@ import com.svp.tracker.finance.dto.Surge52WeekHighsDto;
 import com.svp.tracker.finance.service.BreakoutScanService;
 import com.svp.tracker.finance.service.FinanceCrawlService;
 import com.svp.tracker.finance.service.MarketOverviewService;
+import com.svp.tracker.finance.dto.RobinhoodRhAccountsTrackDto;
 import com.svp.tracker.finance.service.RobinhoodAccountTrackerService;
+import com.svp.tracker.finance.service.RobinhoodRhAccountsTrackService;
 import com.svp.tracker.finance.service.RobinhoodCsvImportService;
 import com.svp.tracker.finance.service.RobinhoodFinanceService;
 import com.svp.tracker.finance.service.StockNewsService;
@@ -57,6 +59,7 @@ public class FinanceController {
     private final BreakoutScanService breakoutScanService;
     private final MarketOverviewService marketOverviewService;
     private final RobinhoodAccountTrackerService accountTrackerService;
+    private final RobinhoodRhAccountsTrackService rhAccountsTrackService;
     private final FinanceProperties financeProperties;
 
     /**
@@ -112,6 +115,17 @@ public class FinanceController {
         log.info("GET /api/finance/robinhood/account-tracker");
         try {
             return accountTrackerService.buildTracker();
+        } catch (IllegalStateException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
+        }
+    }
+
+    /** All Robinhood accounts: CSV cash flows + synced holdings since Apr 5 2026. */
+    @GetMapping("/rh-accounts-track")
+    public RobinhoodRhAccountsTrackDto rhAccountsTrack() {
+        log.info("GET /api/finance/robinhood/rh-accounts-track");
+        try {
+            return rhAccountsTrackService.build();
         } catch (IllegalStateException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
         }
