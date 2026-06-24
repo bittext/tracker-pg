@@ -12,7 +12,7 @@ public interface RobinhoodAgenticPositionRepository extends JpaRepository<Robinh
 
     List<RobinhoodAgenticPosition> findByOwnerUserIdOrderBySymbolAsc(long ownerUserId);
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("delete from RobinhoodAgenticPosition p where p.ownerUserId = :uid")
     void deleteAllByOwnerUserId(@Param("uid") long ownerUserId);
 }

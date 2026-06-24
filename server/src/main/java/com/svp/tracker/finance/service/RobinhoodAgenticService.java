@@ -255,6 +255,7 @@ public class RobinhoodAgenticService {
             if (rhOrderId == null || rhOrderId.isBlank()) {
                 continue;
             }
+            rhOrderId = rhOrderId.trim();
             String symbol = textOrNull(row.get("symbol"));
             if (symbol == null || symbol.isBlank()) {
                 continue;
@@ -263,6 +264,7 @@ public class RobinhoodAgenticService {
             if (accountNumber == null || accountNumber.isBlank()) {
                 accountNumber = agenticNum != null ? agenticNum : "";
             }
+            accountNumber = accountNumber.trim();
             RobinhoodAgenticSyncedOrder order = new RobinhoodAgenticSyncedOrder();
             order.setOwnerUserId(conn.getOwnerUserId());
             order.setAccountNumber(accountNumber);

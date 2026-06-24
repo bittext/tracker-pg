@@ -176,8 +176,16 @@ def _orders_from_payload(payload: Any) -> list[dict[str, Any]]:
 
     normalized = [_normalize_order(row) for row in rows]
     normalized = [row for row in normalized if row.get("robinhood_order_id")]
-    normalized.sort(key=lambda row: str(row.get("updated_at") or row.get("created_at") or ""), reverse=True)
-    return normalized[:ORDERS_SYNC_LIMIT]
+    seen_ids: set[str] = set()
+    deduped: list[dict[str, Any]] = []
+    for row in normalized:
+        order_id = str(row["robinhood_order_id"])
+        if order_id in seen_ids:
+            continue
+        seen_ids.add(order_id)
+        deduped.append(row)
+    deduped.sort(key=lambda row: str(row.get("updated_at") or row.get("created_at") or ""), reverse=True)
+    return deduped[:ORDERS_SYNC_LIMIT]
 
 
 def _normalize_order(row: dict[str, Any]) -> dict[str, Any]:
@@ -466,7 +474,17 @@ def run_sync(access_token: str, *, sync_default: bool = True) -> dict[str, Any]:
             key=lambda row: str(row.get("updated_at") or row.get("created_at") or ""),
             reverse=True,
         )
-        all_orders = all_orders[:ORDERS_SYNC_LIMIT]
+        seen_keys: set[str] = set()
+        trimmed_orders: list[dict[str, Any]] = []
+        for row in all_orders:
+            key = f"{row.get('account_number', '')}\0{row.get('robinhood_order_id', '')}"
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            trimmed_orders.append(row)
+            if len(trimmed_orders) >= ORDERS_SYNC_LIMIT:
+                break
+        all_orders = trimmed_orders
 
         agentic_account = agentic or {}
         return {
