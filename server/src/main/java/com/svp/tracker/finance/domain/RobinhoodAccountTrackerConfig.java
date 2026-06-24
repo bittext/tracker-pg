@@ -45,6 +45,20 @@ public class RobinhoodAccountTrackerConfig {
     @Column(name = "agentic_baseline_market_value", precision = 19, scale = 2)
     private BigDecimal agenticBaselineMarketValue;
 
+    /** Portfolio total at {@link #rhAccountsTrackStartedAt} (individual ••••3370). */
+    @Column(name = "individual_starting_total_value", precision = 19, scale = 2)
+    private BigDecimal individualStartingTotalValue;
+
+    /** Portfolio total at RH Accounts Track cutoff (Agentic account; usually $0 before first funding). */
+    @Column(name = "agentic_starting_total_value", precision = 19, scale = 2)
+    private BigDecimal agenticStartingTotalValue;
+
+    @Column(name = "managed_account_suffix", length = 8)
+    private String managedAccountSuffix = "4123";
+
+    @Column(name = "managed_starting_total_value", precision = 19, scale = 2)
+    private BigDecimal managedStartingTotalValue;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 

@@ -8,10 +8,16 @@ public record RobinhoodRhAccountSummaryDto(
         String accountNumberMasked,
         String accountSuffix,
         String label,
+        /** INDIVIDUAL, AGENTIC, MANAGED, IRA, OTHER */
+        String accountKind,
         boolean agenticAccount,
-        /** Deposits / transfers in since cutoff (CSV for default individual; may be empty for Agentic-only). */
+        boolean managedAccount,
+        /** Total account value at tracking cutoff (Apr 5 2026 Central). */
+        BigDecimal startingTotalValue,
         BigDecimal totalDeposits,
         BigDecimal totalWithdrawals,
+        BigDecimal internalTransferIn,
+        BigDecimal internalTransferOut,
         BigDecimal netCashFlow,
         List<RobinhoodRhCashFlowEventDto> cashFlowEvents,
         BigDecimal cashBalance,
@@ -19,7 +25,7 @@ public record RobinhoodRhAccountSummaryDto(
         BigDecimal totalAccountValue,
         BigDecimal totalCostBasis,
         BigDecimal unrealizedPnL,
-        /** totalAccountValue − netCashFlow since cutoff (positive = ahead of net deposits). */
+        /** totalAccountValue − startingTotalValue − netCashFlow since cutoff. */
         BigDecimal gainLossVsNetDeposits,
         boolean gainLossPositive,
         List<RobinhoodRhHoldingDto> holdings,

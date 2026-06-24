@@ -83,6 +83,16 @@ final class RobinhoodCashFlowClassifier {
     /** {@code IN} = money into the account; {@code OUT} = money out. */
     static String cashFlowDirection(String transCode, String description, BigDecimal amount) {
         String code = codeKey(transCode);
+        if (isInternalTransfer(transCode, description)) {
+            if (amount != null && amount.compareTo(BigDecimal.ZERO) < 0) {
+                return "OUT";
+            }
+            if (amount != null && amount.compareTo(BigDecimal.ZERO) > 0) {
+                return "IN";
+            }
+            Optional<String> explicit = explicitDirection(code, norm(description));
+            return explicit.orElse("OTHER");
+        }
         Optional<String> explicit = explicitDirection(code, norm(description));
         if (explicit.isPresent()) {
             return explicit.get();
@@ -94,6 +104,66 @@ final class RobinhoodCashFlowClassifier {
             return "IN";
         }
         return "OTHER";
+    }
+
+    static String flowCategory(String transCode, String description, String direction) {
+        String code = codeKey(transCode);
+        if ("STARTING_BALANCE".equalsIgnoreCase(trimOrNull(transCode))) {
+            return "STARTING_BALANCE";
+        }
+        if (isInternalTransfer(transCode, description)) {
+            return "IN".equals(direction) ? "INTERNAL_IN" : "INTERNAL_OUT";
+        }
+        if (CASH_IN_CODES.contains(code)) {
+            return "INTEREST";
+        }
+        if (CASH_OUT_CODES.contains(code)) {
+            return "FEE";
+        }
+        return "IN".equals(direction) ? "EXTERNAL_IN" : "EXTERNAL_OUT";
+    }
+
+    static boolean isInternalTransfer(String transCode, String description) {
+        String code = codeKey(transCode);
+        if ("ITRF".equals(code)) {
+            return true;
+        }
+        String desc = norm(description);
+        if (desc.isEmpty()) {
+            return false;
+        }
+        if (isExternalBankTransfer(desc)) {
+            return false;
+        }
+        if (desc.contains("INTERNAL TRANSFER") || desc.contains("TRANSFER TO") || desc.contains("TRANSFER FROM")) {
+            return true;
+        }
+        if (desc.contains("TRANSFER") && (desc.contains("AGENTIC") || desc.contains("MANAGED") || desc.contains("ACCOUNT"))) {
+            return true;
+        }
+        if (SUFFIX_IN_TEXT.matcher(description).find() && desc.contains("TRANSFER")) {
+            return true;
+        }
+        return false;
+    }
+
+    private static final java.util.regex.Pattern SUFFIX_IN_TEXT =
+            java.util.regex.Pattern.compile(
+                    "(?:ENDING\\s+IN|••••|\\bACCOUNT\\b\\s*(?:ENDING\\s+IN)?\\s*)(\\d{4})\\b",
+                    java.util.regex.Pattern.CASE_INSENSITIVE);
+
+    private static boolean isExternalBankTransfer(String desc) {
+        return desc.contains("BANK")
+                || desc.contains(" ACH")
+                || desc.startsWith("ACH")
+                || desc.contains("INSTANT BANK")
+                || desc.contains("WIRE")
+                || desc.contains("DEBIT CARD")
+                || desc.contains("RTP");
+    }
+
+    static boolean internalTransfer(String transCode, String description) {
+        return isInternalTransfer(transCode, description);
     }
 
     static String codeKey(String transCode) {

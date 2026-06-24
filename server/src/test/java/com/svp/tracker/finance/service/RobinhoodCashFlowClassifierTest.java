@@ -10,6 +10,14 @@ import org.junit.jupiter.api.Test;
 class RobinhoodCashFlowClassifierTest {
 
     @Test
+    void itrfIsInternalTransfer() {
+        assertTrue(RobinhoodCashFlowClassifier.isInternalTransfer("ITRF", "Internal transfer"));
+        assertEquals(
+                "OUT",
+                RobinhoodCashFlowClassifier.cashFlowDirection("ITRF", "Internal transfer", new BigDecimal("-1000")));
+    }
+
+    @Test
     void transferCodesAreCashFlow() {
         assertTrue(RobinhoodCashFlowClassifier.isCashFlowRow("Transfer", "Transfer to brokerage", null));
         assertTrue(RobinhoodCashFlowClassifier.isCashFlowRow("Transfer In", "Transfer from bank", null));

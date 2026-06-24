@@ -29,6 +29,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -59,10 +60,11 @@ public class RobinhoodRhAccountsTrackService {
         Instant trackingStartedAt = resolveTrackingStart(config);
         String individualSuffix = config.getIndividualAccountSuffix();
         String agenticSuffix = config.getAgenticAccountSuffix();
+        String managedSuffix = trimOrNull(config.getManagedAccountSuffix());
 
         int rowCap = Math.max(financeProperties.maxTransactionRows(), 2_000);
         List<Map<String, Object>> csvRows = financeService.fetchCashFlowMapsSince(trackingStartedAt, rowCap);
-        List<RobinhoodRhCashFlowEventDto> individualCashFlows = extractCashFlowEvents(csvRows);
+        List<RobinhoodRhCashFlowEventDto> rawIndividualFlows = extractCashFlowEvents(csvRows);
 
         List<RobinhoodAgenticPosition> allPositions =
                 positionRepository.findByOwnerUserIdOrderBySymbolAsc(ownerUserId);
@@ -78,27 +80,59 @@ public class RobinhoodRhAccountsTrackService {
         accountNumbers.addAll(positionsByAccount.keySet());
         resolveAccountBySuffix(allPositions, individualSuffix).ifPresent(accountNumbers::add);
         resolveAccountBySuffix(allPositions, agenticSuffix).ifPresent(accountNumbers::add);
+        if (managedSuffix != null) {
+            resolveAccountBySuffix(allPositions, managedSuffix).ifPresent(accountNumbers::add);
+        }
 
-        List<String> sortedAccounts = sortAccounts(accountNumbers, individualSuffix, agenticSuffix, allPositions);
+        Set<String> knownSuffixes =
+                RobinhoodRhCashFlowAllocator.collectKnownSuffixes(
+                        accountNumbers, individualSuffix, agenticSuffix, managedSuffix);
+        Map<String, List<RobinhoodRhCashFlowEventDto>> flowsBySuffix =
+                RobinhoodRhCashFlowAllocator.allocateByAccountSuffix(
+                        rawIndividualFlows, individualSuffix, agenticSuffix, managedSuffix, knownSuffixes);
+
+        LocalDate trackingStartDate = trackingStartedAt.atZone(CENTRAL).toLocalDate();
+        prependStartingBalances(
+                flowsBySuffix,
+                trackingStartDate,
+                individualSuffix,
+                agenticSuffix,
+                managedSuffix,
+                config);
+
+        List<String> sortedAccounts = sortAccounts(accountNumbers, individualSuffix, agenticSuffix, managedSuffix, allPositions);
+        if (managedSuffix != null && sortedAccounts.stream().noneMatch(a -> accountEndsWith(a, managedSuffix))) {
+            sortedAccounts.add(managedSuffix);
+        }
 
         List<RobinhoodRhAccountSummaryDto> accounts = new ArrayList<>();
-        for (String accountNumber : sortedAccounts) {
+        for (String accountKey : sortedAccounts) {
+            String suffix = accountKey.length() >= 4 && accountKey.chars().allMatch(Character::isDigit)
+                    ? accountKey
+                    : suffixOf(accountKey, allPositions);
             accounts.add(
                     buildAccountSummary(
-                            accountNumber,
+                            accountKey,
+                            suffix,
                             individualSuffix,
                             agenticSuffix,
+                            managedSuffix,
                             agenticNickname,
-                            individualCashFlows,
-                            positionsByAccount.getOrDefault(accountNumber, List.of()),
-                            portfoliosByAccount.get(accountNumber),
-                            portfolioSyncedAt));
+                            flowsBySuffix.getOrDefault(suffix, List.of()),
+                            resolvePositions(accountKey, suffix, positionsByAccount),
+                            portfoliosByAccount.get(resolveFullAccountNumber(accountKey, portfoliosByAccount.keySet())),
+                            portfolioSyncedAt,
+                            startingTotalForSuffix(suffix, individualSuffix, agenticSuffix, managedSuffix, config)));
         }
 
         if (accounts.isEmpty()) {
+            List<RobinhoodRhCashFlowEventDto> individualFlows =
+                    flowsBySuffix.getOrDefault(individualSuffix, List.of());
             accounts.add(
                     buildPlaceholderIndividual(
-                            individualSuffix, trackingStartedAt, individualCashFlows));
+                            individualSuffix,
+                            individualFlows,
+                            startingTotalForSuffix(individualSuffix, individualSuffix, agenticSuffix, managedSuffix, config)));
         }
 
         BigDecimal combinedValue = BigDecimal.ZERO;
@@ -124,29 +158,32 @@ public class RobinhoodRhAccountsTrackService {
 
     private RobinhoodRhAccountSummaryDto buildPlaceholderIndividual(
             String individualSuffix,
-            Instant trackingStartedAt,
-            List<RobinhoodRhCashFlowEventDto> cashFlows) {
-        CashFlowTotals flow = summarizeCashFlows(cashFlows);
+            List<RobinhoodRhCashFlowEventDto> cashFlows,
+            BigDecimal startingTotal) {
         List<String> notes = List.of(
                 "No synced Robinhood accounts yet — showing CSV cash flows for individual ••••"
                         + individualSuffix
                         + " only. Connect and sync Agentic Trading for live holdings.");
-        return new RobinhoodRhAccountSummaryDto(
+        FlowTotals flow = summarizeFlows(cashFlows, startingTotal);
+        BigDecimal basis = nullToZero(startingTotal).add(flow.net);
+        BigDecimal gainLoss = BigDecimal.ZERO.subtract(basis);
+        return buildSummaryFromParts(
                 maskSuffix(individualSuffix),
                 individualSuffix,
                 "Individual " + maskSuffix(individualSuffix),
+                "INDIVIDUAL",
                 false,
-                flow.deposits,
-                flow.withdrawals,
-                flow.net,
+                false,
+                startingTotal,
+                flow,
                 cashFlows,
                 BigDecimal.ZERO,
                 BigDecimal.ZERO,
                 BigDecimal.ZERO,
                 BigDecimal.ZERO,
                 BigDecimal.ZERO,
-                flow.net.negate(),
-                flow.net.compareTo(BigDecimal.ZERO) <= 0,
+                scaleMoney(gainLoss),
+                gainLoss.compareTo(BigDecimal.ZERO) >= 0,
                 List.of(),
                 null,
                 notes);
@@ -154,20 +191,24 @@ public class RobinhoodRhAccountsTrackService {
 
     private RobinhoodRhAccountSummaryDto buildAccountSummary(
             String accountNumber,
+            String suffix,
             String individualSuffix,
             String agenticSuffix,
+            String managedSuffix,
             String agenticNickname,
-            List<RobinhoodRhCashFlowEventDto> individualCashFlows,
+            List<RobinhoodRhCashFlowEventDto> cashFlows,
             List<RobinhoodAgenticPosition> positions,
             JsonNode portfolioNode,
-            Instant syncedAt) {
-        boolean individual = accountEndsWith(accountNumber, individualSuffix);
-        boolean agentic = accountEndsWith(accountNumber, agenticSuffix);
-        String suffix = accountNumber.length() >= 4 ? accountNumber.substring(accountNumber.length() - 4) : accountNumber;
-        String label = accountLabel(individual, agentic, suffix, agenticNickname);
+            Instant syncedAt,
+            BigDecimal startingTotal) {
+        boolean individual = accountEndsWith(accountNumber, individualSuffix) || suffix.equals(individualSuffix);
+        boolean agentic = accountEndsWith(accountNumber, agenticSuffix) || suffix.equals(agenticSuffix);
+        boolean managed = managedSuffix != null
+                && (accountEndsWith(accountNumber, managedSuffix) || suffix.equals(managedSuffix));
+        String label = accountLabel(individual, agentic, managed, suffix, agenticNickname);
+        String accountKind = accountKind(individual, agentic, managed);
 
-        List<RobinhoodRhCashFlowEventDto> cashFlows = individual ? individualCashFlows : List.of();
-        CashFlowTotals flow = summarizeCashFlows(cashFlows);
+        FlowTotals flow = summarizeFlows(cashFlows, startingTotal);
 
         List<RobinhoodRhHoldingDto> holdings = buildHoldings(positions);
         HoldingsTotals holdingsTotals = summarizeHoldings(holdings);
@@ -181,18 +222,9 @@ public class RobinhoodRhAccountsTrackService {
             totalValue = equityMv.add(cash);
         }
 
-        BigDecimal gainLossVsNetDeposits;
-        boolean gainLossPositive;
-        if (individual && flow.net.compareTo(BigDecimal.ZERO) != 0) {
-            gainLossVsNetDeposits = totalValue.subtract(flow.net);
-            gainLossPositive = gainLossVsNetDeposits.compareTo(BigDecimal.ZERO) >= 0;
-        } else if (!individual) {
-            gainLossVsNetDeposits = holdingsTotals.unrealizedPnL;
-            gainLossPositive = gainLossVsNetDeposits.compareTo(BigDecimal.ZERO) >= 0;
-        } else {
-            gainLossVsNetDeposits = totalValue.subtract(flow.net);
-            gainLossPositive = gainLossVsNetDeposits.compareTo(BigDecimal.ZERO) >= 0;
-        }
+        BigDecimal basis = nullToZero(startingTotal).add(flow.net);
+        BigDecimal gainLossVsNetDeposits = totalValue.subtract(basis);
+        boolean gainLossPositive = gainLossVsNetDeposits.compareTo(BigDecimal.ZERO) >= 0;
 
         Instant accountSyncedAt = syncedAt;
         for (RobinhoodAgenticPosition p : positions) {
@@ -202,26 +234,32 @@ public class RobinhoodRhAccountsTrackService {
         }
 
         List<String> notes = new ArrayList<>();
-        if (!individual && !cashFlows.isEmpty()) {
-            notes.add("Cash flows from CSV import apply to the individual account only.");
+        if (individual) {
+            notes.add("CSV cash flows originate on this account; internal transfers out to Agentic, Managed, or other RH accounts are classified as Out and mirrored on the destination account.");
+        } else if (agentic) {
+            notes.add("Funding from the individual account appears as Internal transfer In (derived from CSV when Robinhood posts ITRF/Transfer out on ••••"
+                    + individualSuffix + ").");
+        } else if (managed) {
+            notes.add("Managed account: holdings and portfolio from sync; cash flows only when mirrored from individual CSV internal transfers.");
+        } else if (cashFlows.isEmpty()) {
+            notes.add("Cash flows only when mirrored from internal transfers on the individual CSV export.");
         }
-        if (!individual && cashFlows.isEmpty()) {
-            notes.add("Deposits/withdrawals not available for this account (CSV tracks individual ••••"
-                    + individualSuffix
-                    + "). Gain/loss shown as unrealized P&L on open positions.");
+        if (startingTotal == null) {
+            notes.add("Starting balance at cutoff not configured — set individual/agentic/managed starting totals in tracker config for full gain/loss vs basis.");
         }
         if (portfolioNode == null && !positions.isEmpty()) {
             notes.add("Portfolio totals estimated from synced positions (no portfolio snapshot for this account).");
         }
 
-        return new RobinhoodRhAccountSummaryDto(
+        return buildSummaryFromParts(
                 maskSuffix(suffix),
                 suffix,
                 label,
+                accountKind,
                 agentic,
-                flow.deposits,
-                flow.withdrawals,
-                flow.net,
+                managed,
+                startingTotal,
+                flow,
                 cashFlows,
                 scaleMoney(cash),
                 scaleMoney(equityMv),
@@ -232,6 +270,52 @@ public class RobinhoodRhAccountsTrackService {
                 gainLossPositive,
                 holdings,
                 accountSyncedAt,
+                notes);
+    }
+
+    private static RobinhoodRhAccountSummaryDto buildSummaryFromParts(
+            String masked,
+            String suffix,
+            String label,
+            String accountKind,
+            boolean agentic,
+            boolean managed,
+            BigDecimal startingTotal,
+            FlowTotals flow,
+            List<RobinhoodRhCashFlowEventDto> cashFlows,
+            BigDecimal cash,
+            BigDecimal equityMv,
+            BigDecimal totalValue,
+            BigDecimal costBasis,
+            BigDecimal unrealizedPnL,
+            BigDecimal gainLoss,
+            boolean gainLossPositive,
+            List<RobinhoodRhHoldingDto> holdings,
+            Instant syncedAt,
+            List<String> notes) {
+        return new RobinhoodRhAccountSummaryDto(
+                masked,
+                suffix,
+                label,
+                accountKind,
+                agentic,
+                managed,
+                startingTotal == null ? null : scaleMoney(startingTotal),
+                flow.deposits,
+                flow.withdrawals,
+                flow.internalIn,
+                flow.internalOut,
+                flow.net,
+                cashFlows,
+                cash,
+                equityMv,
+                totalValue,
+                costBasis,
+                unrealizedPnL,
+                gainLoss,
+                gainLossPositive,
+                holdings,
+                syncedAt,
                 notes);
     }
 
@@ -297,24 +381,127 @@ public class RobinhoodRhAccountsTrackService {
                             scaleMoney(amount.abs()),
                             RobinhoodCashFlowClassifier.displayFlowType(transCode, description),
                             trimOrNull(description),
-                            "CSV"));
+                            "CSV",
+                            RobinhoodCashFlowClassifier.flowCategory(transCode, description, direction),
+                            RobinhoodCashFlowClassifier.internalTransfer(transCode, description),
+                            null));
         }
         return out;
     }
 
-    private static CashFlowTotals summarizeCashFlows(List<RobinhoodRhCashFlowEventDto> events) {
+    private static FlowTotals summarizeFlows(List<RobinhoodRhCashFlowEventDto> events, BigDecimal startingTotal) {
         BigDecimal deposits = BigDecimal.ZERO;
         BigDecimal withdrawals = BigDecimal.ZERO;
+        BigDecimal internalIn = BigDecimal.ZERO;
+        BigDecimal internalOut = BigDecimal.ZERO;
         for (RobinhoodRhCashFlowEventDto e : events) {
+            if ("STARTING_BALANCE".equals(e.flowCategory())) {
+                continue;
+            }
+            String cat = e.flowCategory() == null ? "" : e.flowCategory();
             if ("IN".equals(e.direction())) {
                 deposits = deposits.add(nullToZero(e.amount()));
+                if ("INTERNAL_IN".equals(cat)) {
+                    internalIn = internalIn.add(nullToZero(e.amount()));
+                }
             } else if ("OUT".equals(e.direction())) {
                 withdrawals = withdrawals.add(nullToZero(e.amount()));
+                if ("INTERNAL_OUT".equals(cat)) {
+                    internalOut = internalOut.add(nullToZero(e.amount()));
+                }
             }
         }
-        BigDecimal net = deposits.subtract(withdrawals).setScale(2, RoundingMode.HALF_UP);
-        return new CashFlowTotals(
-                scaleMoney(deposits), scaleMoney(withdrawals), net);
+        BigDecimal net = nullToZero(startingTotal).add(deposits).subtract(withdrawals).setScale(2, RoundingMode.HALF_UP);
+        return new FlowTotals(
+                scaleMoney(deposits),
+                scaleMoney(withdrawals),
+                scaleMoney(internalIn),
+                scaleMoney(internalOut),
+                net);
+    }
+
+    private static void prependStartingBalances(
+            Map<String, List<RobinhoodRhCashFlowEventDto>> flowsBySuffix,
+            LocalDate trackingStartDate,
+            String individualSuffix,
+            String agenticSuffix,
+            String managedSuffix,
+            RobinhoodAccountTrackerConfig config) {
+        putStartingBalance(flowsBySuffix, individualSuffix, trackingStartDate, config.getIndividualStartingTotalValue());
+        putStartingBalance(flowsBySuffix, agenticSuffix, trackingStartDate, config.getAgenticStartingTotalValue());
+        if (managedSuffix != null) {
+            putStartingBalance(flowsBySuffix, managedSuffix, trackingStartDate, config.getManagedStartingTotalValue());
+        }
+    }
+
+    private static void putStartingBalance(
+            Map<String, List<RobinhoodRhCashFlowEventDto>> flowsBySuffix,
+            String suffix,
+            LocalDate asOf,
+            BigDecimal amount) {
+        if (amount == null || suffix == null || suffix.isBlank()) {
+            return;
+        }
+        List<RobinhoodRhCashFlowEventDto> list = flowsBySuffix.computeIfAbsent(suffix, k -> new ArrayList<>());
+        list.add(0, RobinhoodRhCashFlowAllocator.startingBalanceEvent(asOf, amount));
+    }
+
+    private static BigDecimal startingTotalForSuffix(
+            String suffix,
+            String individualSuffix,
+            String agenticSuffix,
+            String managedSuffix,
+            RobinhoodAccountTrackerConfig config) {
+        if (suffix.equals(individualSuffix)) {
+            return config.getIndividualStartingTotalValue();
+        }
+        if (suffix.equals(agenticSuffix)) {
+            return config.getAgenticStartingTotalValue();
+        }
+        if (managedSuffix != null && suffix.equals(managedSuffix)) {
+            return config.getManagedStartingTotalValue();
+        }
+        return null;
+    }
+
+    private static List<RobinhoodAgenticPosition> resolvePositions(
+            String accountKey,
+            String suffix,
+            Map<String, List<RobinhoodAgenticPosition>> positionsByAccount) {
+        if (positionsByAccount.containsKey(accountKey)) {
+            return positionsByAccount.get(accountKey);
+        }
+        for (Map.Entry<String, List<RobinhoodAgenticPosition>> e : positionsByAccount.entrySet()) {
+            if (accountEndsWith(e.getKey(), suffix)) {
+                return e.getValue();
+            }
+        }
+        return List.of();
+    }
+
+    private static String resolveFullAccountNumber(String accountKey, Set<String> fullNumbers) {
+        if (fullNumbers.contains(accountKey)) {
+            return accountKey;
+        }
+        for (String full : fullNumbers) {
+            if (accountEndsWith(full, accountKey)) {
+                return full;
+            }
+        }
+        return accountKey;
+    }
+
+    private static String accountKind(boolean individual, boolean agentic, boolean managed) {
+        if (individual) {
+            return "INDIVIDUAL";
+        }
+        if (agentic) {
+            return "AGENTIC";
+        }
+        if (managed) {
+            return "MANAGED";
+        }
+        return "OTHER";
     }
 
     private Map<String, JsonNode> parsePortfolios(Optional<RobinhoodAgenticConnection> connectionOpt) {
@@ -361,23 +548,28 @@ public class RobinhoodRhAccountsTrackService {
             LinkedHashSet<String> accountNumbers,
             String individualSuffix,
             String agenticSuffix,
+            String managedSuffix,
             List<RobinhoodAgenticPosition> allPositions) {
         List<String> list = new ArrayList<>(accountNumbers);
         list.sort(
                 Comparator.<String>comparingInt(
-                                acct -> accountSortRank(acct, individualSuffix, agenticSuffix))
+                                acct -> accountSortRank(acct, individualSuffix, agenticSuffix, managedSuffix))
                         .thenComparing(acct -> suffixOf(acct, allPositions)));
         return list;
     }
 
-    private static int accountSortRank(String accountNumber, String individualSuffix, String agenticSuffix) {
+    private static int accountSortRank(
+            String accountNumber, String individualSuffix, String agenticSuffix, String managedSuffix) {
         if (accountEndsWith(accountNumber, individualSuffix)) {
             return 0;
         }
         if (accountEndsWith(accountNumber, agenticSuffix)) {
             return 1;
         }
-        return 2;
+        if (managedSuffix != null && accountEndsWith(accountNumber, managedSuffix)) {
+            return 2;
+        }
+        return 3;
     }
 
     private static Optional<String> resolveAccountBySuffix(
@@ -398,7 +590,7 @@ public class RobinhoodRhAccountsTrackService {
     }
 
     private static String accountLabel(
-            boolean individual, boolean agentic, String suffix, String agenticNickname) {
+            boolean individual, boolean agentic, boolean managed, String suffix, String agenticNickname) {
         if (individual) {
             return "Individual " + maskSuffix(suffix);
         }
@@ -408,6 +600,9 @@ public class RobinhoodRhAccountsTrackService {
                 return "Agentic " + maskSuffix(suffix) + " · " + nick;
             }
             return "Agentic " + maskSuffix(suffix);
+        }
+        if (managed) {
+            return "Managed " + maskSuffix(suffix);
         }
         return "Account " + maskSuffix(suffix);
     }
@@ -462,7 +657,7 @@ public class RobinhoodRhAccountsTrackService {
             List<RobinhoodRhAccountSummaryDto> accounts) {
         List<String> notes = new ArrayList<>();
         notes.add(
-                "Tracking window starts Apr 5, 2026 00:00 Central. Cash flows include Transfer, Transfer In/Out, ACH, ITRF, RTP, and similar CSV rows on the individual account; synced MCP data covers all connected accounts.");
+                "Tracking window starts Apr 5, 2026 00:00 Central. Internal transfers (ITRF/Transfer to other RH accounts) are Out on the individual CSV and mirrored as In on Agentic, Managed, or matching •••• suffix. Configure starting balances in tracker config for gain/loss vs basis.");
         if (csvRowCount >= rowCap) {
             notes.add("Cash-flow query capped at " + rowCap + " rows; older transfers since cutoff may be omitted.");
         }
@@ -485,8 +680,20 @@ public class RobinhoodRhAccountsTrackService {
     }
 
     private RobinhoodAccountTrackerConfig ensureRhTrackStart(RobinhoodAccountTrackerConfig config) {
+        boolean changed = false;
         if (config.getRhAccountsTrackStartedAt() == null) {
             config.setRhAccountsTrackStartedAt(DEFAULT_TRACKING_START);
+            changed = true;
+        }
+        if (config.getAgenticStartingTotalValue() == null) {
+            config.setAgenticStartingTotalValue(BigDecimal.ZERO);
+            changed = true;
+        }
+        if (config.getManagedAccountSuffix() == null || config.getManagedAccountSuffix().isBlank()) {
+            config.setManagedAccountSuffix("4123");
+            changed = true;
+        }
+        if (changed) {
             config.setUpdatedAt(Instant.now());
             return configRepository.save(config);
         }
@@ -504,6 +711,8 @@ public class RobinhoodRhAccountsTrackService {
         config.setIndividualAccountSuffix("3370");
         config.setIndividualBaselineNbis(new BigDecimal("732"));
         config.setAgenticAccountSuffix("3550");
+        config.setAgenticStartingTotalValue(BigDecimal.ZERO);
+        config.setManagedAccountSuffix("4123");
         config.setCreatedAt(now);
         config.setUpdatedAt(now);
         return configRepository.save(config);
@@ -618,7 +827,12 @@ public class RobinhoodRhAccountsTrackService {
         return null;
     }
 
-    private record CashFlowTotals(BigDecimal deposits, BigDecimal withdrawals, BigDecimal net) {}
+    private record FlowTotals(
+            BigDecimal deposits,
+            BigDecimal withdrawals,
+            BigDecimal internalIn,
+            BigDecimal internalOut,
+            BigDecimal net) {}
 
     private record HoldingsTotals(BigDecimal marketValue, BigDecimal costBasis, BigDecimal unrealizedPnL) {}
 

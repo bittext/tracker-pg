@@ -1,9 +1,9 @@
 <section class="rh-acct" aria-labelledby="rh-acct-heading">
   <h2 id="rh-acct-heading" class="rh-acct__title">RH Accounts Track</h2>
   <p class="muted rh-acct__hint">
-    All Robinhood accounts since <strong>Apr 5, 2026 00:00 Central</strong>: deposits, withdrawals, and transfers
-    (<strong>Transfer</strong>, <strong>Transfer In</strong>, ACH, ITRF, RTP, etc. from CSV on the individual account),
-    plus current holdings from Agentic sync and gain/loss vs net cash in.
+    All Robinhood accounts since <strong>Apr 5, 2026 00:00 Central</strong>. Starting balance at cutoff is highlighted
+    per account. Internal transfers (ITRF / Transfer to Agentic, Managed, or other RH accounts) are
+    <strong>Out</strong> on individual and mirrored <strong>In</strong> on the destination account.
   </p>
 
   @if (loading) {
@@ -31,8 +31,16 @@
     }
 
     @for (acct of t.accounts; track acct.accountSuffix) {
-      <article class="rh-acct__card" [attr.aria-label]="acct.label">
-        <h3 class="rh-acct__card-title">{{ acct.label }}</h3>
+      <article
+        class="rh-acct__card"
+        [class.rh-acct__card--managed]="acct.managedAccount"
+        [class.rh-acct__card--agentic]="acct.agenticAccount"
+        [attr.aria-label]="acct.label"
+      >
+        <h3 class="rh-acct__card-title">
+          {{ acct.label }}
+          <span class="rh-acct__kind muted">{{ acct.accountKind }}</span>
+        </h3>
         @if (acct.notes.length) {
           <ul class="rh-acct__card-notes muted">
             @for (note of acct.notes; track note) {
@@ -41,13 +49,26 @@
           </ul>
         }
 
+        @if (acct.startingTotalValue != null) {
+          <div class="rh-acct__starting" role="status">
+            <span class="rh-acct__starting-label">Starting balance (Apr 5, 2026)</span>
+            <strong class="rh-acct__starting-value">{{ acct.startingTotalValue | currency }}</strong>
+          </div>
+        } @else {
+          <p class="rh-acct__starting rh-acct__starting--missing muted">
+            Starting balance at cutoff not configured for this account.
+          </p>
+        }
+
         <div class="rh-acct__grid">
           <div>
             <h4 class="rh-acct__section">Cash flow (since cutoff)</h4>
             <ul class="rh-acct__stats muted">
-              <li>Deposits in: <strong>{{ acct.totalDeposits | currency }}</strong></li>
-              <li>Withdrawals out: <strong>{{ acct.totalWithdrawals | currency }}</strong></li>
-              <li>Net: <strong>{{ acct.netCashFlow | currency }}</strong></li>
+              <li>Deposits / transfers in: <strong>{{ acct.totalDeposits | currency }}</strong></li>
+              <li>Withdrawals / transfers out: <strong>{{ acct.totalWithdrawals | currency }}</strong></li>
+              <li>Internal transfer in: <strong>{{ acct.internalTransferIn | currency }}</strong></li>
+              <li>Internal transfer out: <strong>{{ acct.internalTransferOut | currency }}</strong></li>
+              <li>Net (starting + in − out): <strong>{{ acct.netCashFlow | currency }}</strong></li>
             </ul>
           </div>
           <div>
@@ -58,7 +79,7 @@
               <li>Total value: <strong>{{ acct.totalAccountValue | currency }}</strong></li>
               <li>Unrealized P&amp;L: <strong>{{ acct.unrealizedPnL | currency }}</strong></li>
               <li [class]="pnlClass(acct.gainLossPositive)">
-                Gain/loss:
+                Gain/loss vs basis:
                 <strong>{{ acct.gainLossVsNetDeposits | currency }}</strong>
                 ({{ acct.gainLossPositive ? 'positive' : 'negative' }})
               </li>
@@ -70,13 +91,14 @@
         </div>
 
         @if (acct.cashFlowEvents.length) {
-          <h4 class="rh-acct__section">Deposits &amp; withdrawals</h4>
+          <h4 class="rh-acct__section">Cash movements</h4>
           <div class="rh-acct__table-wrap">
             <table class="rh-acct__table">
               <thead>
                 <tr>
                   <th>Date</th>
                   <th>Direction</th>
+                  <th>Category</th>
                   <th>Amount</th>
                   <th>Code / type</th>
                   <th>Description</th>
@@ -84,12 +106,21 @@
               </thead>
               <tbody>
                 @for (row of acct.cashFlowEvents; track $index) {
-                  <tr>
+                  <tr [class]="flowRowClass(row)">
                     <td>{{ row.activityDate | date: 'mediumDate' }}</td>
-                    <td>{{ row.direction === 'IN' ? 'In' : 'Out' }}</td>
+                    <td [class]="directionClass(row)">{{ directionLabel(row) }}</td>
+                    <td>{{ categoryLabel(row.flowCategory) }}</td>
                     <td>{{ row.amount | currency }}</td>
                     <td>{{ row.transCode }}</td>
-                    <td>{{ row.description || '—' }}</td>
+                    <td>
+                      {{ row.description || '—' }}
+                      @if (row.counterpartyMasked) {
+                        <span class="muted"> · {{ row.counterpartyMasked }}</span>
+                      }
+                      @if (row.source === 'Derived') {
+                        <span class="rh-acct__derived muted"> (mirrored)</span>
+                      }
+                    </td>
                   </tr>
                 }
               </tbody>
@@ -127,7 +158,7 @@
               </tbody>
             </table>
           </div>
-        } @else {
+        } @else if (!acct.managedAccount) {
           <p class="muted rh-acct__empty">No synced holdings for this account.</p>
         }
       </article>

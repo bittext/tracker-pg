@@ -73,6 +73,75 @@
   border-bottom: 1px solid color-mix(in srgb, currentColor 10%, transparent);
 }
 
+.rh-acct__card--agentic {
+  border-color: color-mix(in srgb, #2563eb 35%, transparent);
+}
+
+.rh-acct__card--managed {
+  border-color: color-mix(in srgb, #9333ea 35%, transparent);
+}
+
+.rh-acct__kind {
+  font-size: 0.75rem;
+  font-weight: normal;
+  margin-left: 0.35rem;
+}
+
+.rh-acct__starting {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1rem;
+  margin: 0.5rem 0 0.75rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, #ca8a04 18%, transparent);
+  border: 1px solid color-mix(in srgb, #ca8a04 45%, transparent);
+}
+
+.rh-acct__starting--missing {
+  background: transparent;
+  border: 1px dashed color-mix(in srgb, currentColor 20%, transparent);
+  font-size: 0.9rem;
+}
+
+.rh-acct__starting-label {
+  font-size: 0.9rem;
+  color: color-mix(in srgb, currentColor 75%, transparent);
+}
+
+.rh-acct__starting-value {
+  font-size: 1.1rem;
+  color: #a16207;
+}
+
+.rh-acct__row--starting {
+  background: color-mix(in srgb, #ca8a04 12%, transparent);
+  font-weight: 600;
+}
+
+.rh-acct__row--internal {
+  background: color-mix(in srgb, #2563eb 8%, transparent);
+}
+
+.rh-acct__dir--starting {
+  color: #a16207;
+  font-weight: 600;
+}
+
+.rh-acct__dir--in {
+  color: #16a34a;
+}
+
+.rh-acct__dir--out {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.rh-acct__derived {
+  font-size: 0.85em;
+}
+
 .rh-acct__pnl--pos {
   color: #16a34a;
 }

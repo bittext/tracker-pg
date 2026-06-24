@@ -105,9 +105,14 @@ export interface RobinhoodRhAccountSummaryDto {
   accountNumberMasked: string;
   accountSuffix: string;
   label: string;
+  accountKind: string;
   agenticAccount: boolean;
+  managedAccount: boolean;
+  startingTotalValue: number | null;
   totalDeposits: number;
   totalWithdrawals: number;
+  internalTransferIn: number;
+  internalTransferOut: number;
   netCashFlow: number;
   cashFlowEvents: RobinhoodRhCashFlowEventDto[];
   cashBalance: number;
@@ -129,6 +134,9 @@ export interface RobinhoodRhCashFlowEventDto {
   transCode: string;
   description: string | null;
   source: string;
+  flowCategory: string;
+  internalTransfer: boolean;
+  counterpartyMasked: string | null;
 }
 
 export interface RobinhoodRhHoldingDto {
