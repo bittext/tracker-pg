@@ -7,7 +7,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import {
   RobinhoodAccountStatusDto,
-  RobinhoodAgenticOrderDto,
   RobinhoodAgenticPositionDto,
   RobinhoodAgenticSettingsDto,
   RobinhoodAgenticSyncedOrderDto,
@@ -36,7 +35,6 @@ export class RobinhoodTradingPanelComponent implements OnInit {
 
   agenticStatus: RobinhoodAgenticStatusDto | null = null;
   agenticSettings: RobinhoodAgenticSettingsDto | null = null;
-  agenticOrders: RobinhoodAgenticOrderDto[] = [];
   agenticSyncedOrders: RobinhoodAgenticSyncedOrderDto[] = [];
   agenticPositions: RobinhoodAgenticPositionDto[] = [];
   agenticLoading = false;
@@ -117,12 +115,10 @@ export class RobinhoodTradingPanelComponent implements OnInit {
           this.loadAgenticPositions();
           this.loadAgenticSyncedOrders();
           this.loadAgenticSettings();
-          this.loadAgenticOrders();
         } else {
           this.agenticPositions = [];
           this.agenticSyncedOrders = [];
           this.agenticSettings = null;
-          this.agenticOrders = [];
         }
       },
       error: () => {
@@ -131,7 +127,6 @@ export class RobinhoodTradingPanelComponent implements OnInit {
         this.agenticPositions = [];
         this.agenticSyncedOrders = [];
         this.agenticSettings = null;
-        this.agenticOrders = [];
       },
     });
   }
@@ -189,17 +184,6 @@ export class RobinhoodTradingPanelComponent implements OnInit {
     this.autoTradeLastMessage = s.autoTradeLastRunMessage ?? '';
   }
 
-  loadAgenticOrders(): void {
-    this.financeApi.robinhoodAgenticOrders().subscribe({
-      next: (o) => {
-        this.agenticOrders = o.orders;
-      },
-      error: () => {
-        this.agenticOrders = [];
-      },
-    });
-  }
-
   saveAgenticSettings(): void {
     this.agenticSavingSettings = true;
     this.financeApi
@@ -241,7 +225,6 @@ export class RobinhoodTradingPanelComponent implements OnInit {
         this.autoTradeEvaluating = false;
         this.autoTradeLastMessage = r.message;
         this.snackBar.open(r.message || 'Auto-trade evaluation complete', undefined, { duration: 7000 });
-        this.loadAgenticOrders();
         this.refreshAgentic();
       },
       error: (e) => {
@@ -288,7 +271,6 @@ export class RobinhoodTradingPanelComponent implements OnInit {
               ? `Order placed (${o.symbol} ${o.side})`
               : `Order reviewed — status: ${o.status}`;
           this.snackBar.open(msg, undefined, { duration: 6000 });
-          this.loadAgenticOrders();
           if (o.status === 'placed') {
             this.syncAgentic();
           }
@@ -298,32 +280,6 @@ export class RobinhoodTradingPanelComponent implements OnInit {
           this.snackBar.open(`Order review failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 8000 });
         },
       });
-  }
-
-  approveAgenticOrder(order: RobinhoodAgenticOrderDto): void {
-    this.financeApi.robinhoodAgenticApproveOrder(order.id).subscribe({
-      next: () => {
-        this.snackBar.open(`Order approved and placed (${order.symbol})`, undefined, { duration: 5000 });
-        this.loadAgenticOrders();
-        this.syncAgentic();
-      },
-      error: (e) => {
-        this.snackBar.open(`Approve failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 8000 });
-        this.loadAgenticOrders();
-      },
-    });
-  }
-
-  rejectAgenticOrder(order: RobinhoodAgenticOrderDto): void {
-    this.financeApi.robinhoodAgenticRejectOrder(order.id).subscribe({
-      next: () => {
-        this.snackBar.open('Order rejected', undefined, { duration: 4500 });
-        this.loadAgenticOrders();
-      },
-      error: (e) => {
-        this.snackBar.open(`Reject failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 8000 });
-      },
-    });
   }
 
   saveAgenticTokens(): void {
@@ -483,13 +439,5 @@ export class RobinhoodTradingPanelComponent implements OnInit {
     const strike = p.strikePrice ?? '—';
     const exp = p.expirationDate ? p.expirationDate.slice(0, 10) : '—';
     return `${type} ${strike} · ${exp}`;
-  }
-
-  orderStatusLabel(status: string): string {
-    return status.replace(/_/g, ' ');
-  }
-
-  isPendingOrder(o: RobinhoodAgenticOrderDto): boolean {
-    return o.status === 'pending_approval';
   }
 }

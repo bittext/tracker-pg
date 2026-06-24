@@ -262,8 +262,7 @@
 
       <h4 class="rh-trading__positions-title">Propose equity order</h4>
       <p class="muted rh-trading__hint">
-        Calls MCP <code>review_equity_order</code> first. When approval is required, the order stays pending until you
-        approve (calls <code>place_equity_order</code>).
+        Calls MCP <code>review_equity_order</code> first, then <code>place_equity_order</code> when guardrails allow.
       </p>
       <div class="rh-trading__order-form">
         <label class="rh-trading__field">
@@ -318,48 +317,6 @@
           Review order
         </button>
       </div>
-
-      @if (agenticOrders.length) {
-        <h4 class="rh-trading__positions-title">Order history</h4>
-        <table class="rh-trading__table">
-          <thead>
-            <tr>
-              <th>When</th>
-              <th>Source</th>
-              <th>Symbol</th>
-              <th>Side</th>
-              <th>Type</th>
-              <th>Qty</th>
-              <th>Est. $</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (o of agenticOrders; track o.id) {
-              <tr>
-                <td>{{ formatDate(o.createdAt) }}</td>
-                <td>{{ o.source }}</td>
-                <td><strong>{{ o.symbol }}</strong></td>
-                <td>{{ o.side }}</td>
-                <td>{{ o.orderType }}</td>
-                <td>{{ o.quantity ?? '—' }}</td>
-                <td>{{ o.estimatedNotional != null ? (o.estimatedNotional | number:'1.2-2') : '—' }}</td>
-                <td>{{ orderStatusLabel(o.status) }}</td>
-                <td>
-                  @if (isPendingOrder(o) && agenticSettings?.executionEnabled) {
-                    <button mat-stroked-button type="button" (click)="approveAgenticOrder(o)">Approve</button>
-                    <button mat-button type="button" (click)="rejectAgenticOrder(o)">Reject</button>
-                  }
-                  @if (o.errorMessage) {
-                    <span class="rh-trading__order-error muted">{{ o.errorMessage }}</span>
-                  }
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      }
     </div>
   }
 
