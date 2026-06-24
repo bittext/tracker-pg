@@ -7,4 +7,5 @@ public record RobinhoodAgenticSyncResultDto(
         Instant syncedAt,
         String message,
         int positionCount,
+        int orderCount,
         int accountsSynced) {}

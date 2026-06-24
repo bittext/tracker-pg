@@ -12,8 +12,10 @@ from mcp_tool_utils import extract_accounts, list_tool_names, parse_tool_payload
 LOGGER = logging.getLogger(__name__)
 
 OPTION_POSITIONS_TOOL = "get_option_positions"
+EQUITY_ORDERS_TOOL = "get_equity_orders"
 EQUITY_QUOTES_TOOL = "get_equity_quotes"
 QUOTE_BATCH_SIZE = 20
+ORDERS_SYNC_LIMIT = 10
 
 
 def _to_float(value: Any) -> float | None:
@@ -155,6 +157,47 @@ def _enrich_market_values(
             quantity=position.get("quantity"),
             price=price,
         )
+
+
+def _orders_from_payload(payload: Any) -> list[dict[str, Any]]:
+    """Best-effort extract order rows from get_equity_orders payload."""
+    if not isinstance(payload, dict):
+        return []
+    data = payload.get("data", payload)
+    rows: list[dict[str, Any]] = []
+    if isinstance(data, dict):
+        for key in ("orders", "equity_orders", "results", "items"):
+            items = data.get(key)
+            if isinstance(items, list):
+                rows = [row for row in items if isinstance(row, dict)]
+                break
+    elif isinstance(data, list):
+        rows = [row for row in data if isinstance(row, dict)]
+
+    normalized = [_normalize_order(row) for row in rows]
+    normalized = [row for row in normalized if row.get("robinhood_order_id")]
+    normalized.sort(key=lambda row: str(row.get("updated_at") or row.get("created_at") or ""), reverse=True)
+    return normalized[:ORDERS_SYNC_LIMIT]
+
+
+def _normalize_order(row: dict[str, Any]) -> dict[str, Any]:
+    instrument = row.get("instrument")
+    symbol = row.get("symbol") or row.get("instrument_symbol")
+    if not symbol and isinstance(instrument, dict):
+        symbol = instrument.get("symbol")
+    order_id = row.get("id") or row.get("order_id")
+    return {
+        "robinhood_order_id": str(order_id) if order_id else None,
+        "symbol": str(symbol).strip().upper() if symbol else "",
+        "side": row.get("side"),
+        "order_type": row.get("type") or row.get("order_type"),
+        "quantity": row.get("quantity") or row.get("cumulative_quantity"),
+        "limit_price": row.get("price") or row.get("limit_price"),
+        "average_price": row.get("average_price"),
+        "state": row.get("state") or row.get("status"),
+        "created_at": row.get("created_at"),
+        "updated_at": row.get("updated_at") or row.get("last_transaction_at") or row.get("created_at"),
+    }
 
 
 def _positions_from_payload(payload: Any) -> list[dict[str, Any]]:
@@ -333,6 +376,7 @@ def run_sync(access_token: str, *, sync_default: bool = True) -> dict[str, Any]:
         tools = client.list_tools()
         tool_names = list_tool_names(tools)
         option_tool_available = OPTION_POSITIONS_TOOL in tool_names
+        orders_tool_available = EQUITY_ORDERS_TOOL in tool_names
         if not option_tool_available:
             warnings.append(
                 f"Option positions not synced: MCP exposes {len(tool_names)} tools and "
@@ -357,6 +401,7 @@ def run_sync(access_token: str, *, sync_default: bool = True) -> dict[str, Any]:
 
         account_summaries: list[dict[str, Any]] = []
         all_positions: list[dict[str, Any]] = []
+        all_orders: list[dict[str, Any]] = []
         portfolios: dict[str, Any] = {}
 
         for role, account in targets:
@@ -381,6 +426,24 @@ def run_sync(access_token: str, *, sync_default: bool = True) -> dict[str, Any]:
             )
             all_positions.extend(options)
 
+            account_orders: list[dict[str, Any]] = []
+            if orders_tool_available:
+                try:
+                    orders_raw = client.call_tool(
+                        EQUITY_ORDERS_TOOL,
+                        {"account_number": acct_num, "limit": ORDERS_SYNC_LIMIT},
+                    )
+                    account_orders = _orders_from_payload(parse_tool_payload(orders_raw))
+                except Exception as exc:  # noqa: BLE001
+                    LOGGER.warning("get_equity_orders failed for •••%s: %s", acct_num[-4:], exc)
+                    warnings.append(
+                        f"Order sync failed for •••{acct_num[-4:]} ({role}): {exc}"
+                    )
+            for order in account_orders:
+                order["account_number"] = acct_num
+                order["account_role"] = role
+            all_orders.extend(account_orders)
+
             portfolios[acct_num] = portfolio_data
             account_summaries.append(
                 {
@@ -393,10 +456,17 @@ def run_sync(access_token: str, *, sync_default: bool = True) -> dict[str, Any]:
                     "equity_position_count": len(positions),
                     "option_position_count": len(options),
                     "position_count": len(positions) + len(options),
+                    "order_count": len(account_orders),
                 }
             )
 
         _enrich_market_values(client, all_positions, tool_names)
+
+        all_orders.sort(
+            key=lambda row: str(row.get("updated_at") or row.get("created_at") or ""),
+            reverse=True,
+        )
+        all_orders = all_orders[:ORDERS_SYNC_LIMIT]
 
         agentic_account = agentic or {}
         return {
@@ -407,10 +477,12 @@ def run_sync(access_token: str, *, sync_default: bool = True) -> dict[str, Any]:
             "agentic_nickname": agentic_account.get("nickname"),
             "mcp_tool_count": len(tool_names),
             "option_positions_tool_available": option_tool_available,
+            "orders_sync_limit": ORDERS_SYNC_LIMIT,
             "warnings": warnings,
             "accounts": account_summaries,
             "portfolios": portfolios,
             "positions": all_positions,
+            "orders": all_orders,
         }
     finally:
         try:

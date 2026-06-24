@@ -6,18 +6,23 @@ import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.RobinhoodAgenticProperties;
 import com.svp.tracker.finance.domain.RobinhoodAgenticConnection;
 import com.svp.tracker.finance.domain.RobinhoodAgenticPosition;
+import com.svp.tracker.finance.domain.RobinhoodAgenticSyncedOrder;
 import com.svp.tracker.finance.domain.RobinhoodAgenticSyncLog;
 import com.svp.tracker.finance.dto.RobinhoodAgenticPositionDto;
 import com.svp.tracker.finance.dto.RobinhoodAgenticPositionsDto;
 import com.svp.tracker.finance.dto.RobinhoodAgenticStatusDto;
+import com.svp.tracker.finance.dto.RobinhoodAgenticSyncedOrderDto;
+import com.svp.tracker.finance.dto.RobinhoodAgenticSyncedOrdersDto;
 import com.svp.tracker.finance.dto.RobinhoodAgenticSyncResultDto;
 import com.svp.tracker.finance.dto.RobinhoodAgenticTokensRequestDto;
 import com.svp.tracker.finance.repository.RobinhoodAgenticConnectionRepository;
 import com.svp.tracker.finance.repository.RobinhoodAgenticPositionRepository;
+import com.svp.tracker.finance.repository.RobinhoodAgenticSyncedOrderRepository;
 import com.svp.tracker.finance.repository.RobinhoodAgenticSyncLogRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +43,7 @@ public class RobinhoodAgenticService {
     private final CurrentUserService currentUser;
     private final RobinhoodAgenticConnectionRepository connectionRepository;
     private final RobinhoodAgenticPositionRepository positionRepository;
+    private final RobinhoodAgenticSyncedOrderRepository syncedOrderRepository;
     private final RobinhoodAgenticSyncLogRepository syncLogRepository;
     private final RobinhoodAgenticSidecarClient sidecarClient;
     private final RobinhoodAgenticTokenCrypto tokenCrypto;
@@ -103,6 +109,7 @@ public class RobinhoodAgenticService {
     public void disconnect() {
         long uid = currentUser.requireUserId();
         positionRepository.deleteAllByOwnerUserId(uid);
+        syncedOrderRepository.deleteAllByOwnerUserId(uid);
         connectionRepository.deleteByOwnerUserId(uid);
         log.info("Robinhood Agentic disconnected for user {}", uid);
     }
@@ -120,6 +127,17 @@ public class RobinhoodAgenticService {
                 .map(this::toPositionDto)
                 .toList();
         return new RobinhoodAgenticPositionsDto(rows, portfolioJson == null ? "" : portfolioJson);
+    }
+
+    @Transactional(readOnly = true)
+    public RobinhoodAgenticSyncedOrdersDto syncedOrders() {
+        long uid = currentUser.requireUserId();
+        List<RobinhoodAgenticSyncedOrderDto> rows = syncedOrderRepository
+                .findTop10ByOwnerUserIdOrderByUpdatedAtRhDescCreatedAtRhDesc(uid)
+                .stream()
+                .map(this::toSyncedOrderDto)
+                .toList();
+        return new RobinhoodAgenticSyncedOrdersDto(rows);
     }
 
     @Transactional
@@ -160,8 +178,11 @@ public class RobinhoodAgenticService {
             int count = (int) positionRepository
                     .findByOwnerUserIdOrderByPositionTypeAscSymbolAscChainSymbolAsc(conn.getOwnerUserId())
                     .size();
+            int orderCount = (int) syncedOrderRepository
+                    .findTop10ByOwnerUserIdOrderByUpdatedAtRhDescCreatedAtRhDesc(conn.getOwnerUserId())
+                    .size();
             return new RobinhoodAgenticSyncResultDto(
-                    true, conn.getLastSyncAt(), conn.getLastSyncMessage(), count, logRow.getAccountsSynced());
+                    true, conn.getLastSyncAt(), conn.getLastSyncMessage(), count, orderCount, logRow.getAccountsSynced());
         } catch (Exception e) {
             log.error("Robinhood Agentic sync failed for user {}", conn.getOwnerUserId(), e);
             throw new ResponseStatusException(
@@ -226,6 +247,39 @@ public class RobinhoodAgenticService {
             byAccountAndKey.put(accountNumber + "\u0000" + positionKey, pos);
         }
         positionRepository.saveAll(byAccountAndKey.values());
+
+        syncedOrderRepository.deleteAllByOwnerUserId(conn.getOwnerUserId());
+        Map<String, RobinhoodAgenticSyncedOrder> byAccountAndRhOrder = new LinkedHashMap<>();
+        for (JsonNode row : result.withArray("orders")) {
+            String rhOrderId = textOrNull(row.get("robinhood_order_id"));
+            if (rhOrderId == null || rhOrderId.isBlank()) {
+                continue;
+            }
+            String symbol = textOrNull(row.get("symbol"));
+            if (symbol == null || symbol.isBlank()) {
+                continue;
+            }
+            String accountNumber = textOrNull(row.get("account_number"));
+            if (accountNumber == null || accountNumber.isBlank()) {
+                accountNumber = agenticNum != null ? agenticNum : "";
+            }
+            RobinhoodAgenticSyncedOrder order = new RobinhoodAgenticSyncedOrder();
+            order.setOwnerUserId(conn.getOwnerUserId());
+            order.setAccountNumber(accountNumber);
+            order.setRobinhoodOrderId(rhOrderId);
+            order.setSymbol(symbol.trim().toUpperCase());
+            order.setSide(textOrNull(row.get("side")));
+            order.setOrderType(textOrNull(row.get("order_type")));
+            order.setQuantity(decimalOrNull(row.get("quantity")));
+            order.setLimitPrice(decimalOrNull(row.get("limit_price")));
+            order.setAveragePrice(decimalOrNull(row.get("average_price")));
+            order.setState(textOrNull(row.get("state")));
+            order.setCreatedAtRh(instantOrNull(row.get("created_at")));
+            order.setUpdatedAtRh(instantOrNull(row.get("updated_at")));
+            order.setSyncedAt(syncedAt);
+            byAccountAndRhOrder.put(accountNumber + "\u0000" + rhOrderId, order);
+        }
+        syncedOrderRepository.saveAll(byAccountAndRhOrder.values());
     }
 
     private RobinhoodAgenticPositionDto toPositionDto(RobinhoodAgenticPosition p) {
@@ -244,9 +298,30 @@ public class RobinhoodAgenticService {
                 p.getSyncedAt());
     }
 
+    private RobinhoodAgenticSyncedOrderDto toSyncedOrderDto(RobinhoodAgenticSyncedOrder o) {
+        return new RobinhoodAgenticSyncedOrderDto(
+                maskAccount(o.getAccountNumber()),
+                o.getRobinhoodOrderId(),
+                o.getSymbol(),
+                o.getSide(),
+                o.getOrderType(),
+                o.getQuantity(),
+                o.getLimitPrice(),
+                o.getAveragePrice(),
+                o.getState(),
+                o.getCreatedAtRh(),
+                o.getUpdatedAtRh(),
+                o.getSyncedAt());
+    }
+
     private static String buildSyncMessage(JsonNode result) {
-        int count = result.path("positions").size();
-        StringBuilder msg = new StringBuilder("Synced ").append(count).append(" position row(s)");
+        int positionCount = result.path("positions").size();
+        int orderCount = result.path("orders").size();
+        StringBuilder msg = new StringBuilder("Synced ")
+                .append(positionCount)
+                .append(" position row(s) and ")
+                .append(orderCount)
+                .append(" recent order(s)");
         for (JsonNode warning : result.withArray("warnings")) {
             if (!warning.isNull() && !warning.asText().isBlank()) {
                 msg.append(". ").append(warning.asText());
@@ -298,6 +373,25 @@ public class RobinhoodAgenticService {
             return LocalDate.parse(t.substring(0, 10));
         }
         return LocalDate.parse(t);
+    }
+
+    private static Instant instantOrNull(JsonNode node) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        String t = node.asText().trim();
+        if (t.isBlank()) {
+            return null;
+        }
+        try {
+            return Instant.parse(t);
+        } catch (Exception ignored) {
+            try {
+                return OffsetDateTime.parse(t).toInstant();
+            } catch (Exception ignored2) {
+                return null;
+            }
+        }
     }
 
     private static String truncate(String s, int max) {

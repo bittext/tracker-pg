@@ -10,6 +10,7 @@ import {
   RobinhoodAgenticOrderDto,
   RobinhoodAgenticPositionDto,
   RobinhoodAgenticSettingsDto,
+  RobinhoodAgenticSyncedOrderDto,
   RobinhoodAgenticStatusDto,
   RobinhoodCsvImportResultDto,
   RobinhoodCsvSavedImportDto,
@@ -34,6 +35,7 @@ export class RobinhoodTradingPanelComponent implements OnInit {
   agenticStatus: RobinhoodAgenticStatusDto | null = null;
   agenticSettings: RobinhoodAgenticSettingsDto | null = null;
   agenticOrders: RobinhoodAgenticOrderDto[] = [];
+  agenticSyncedOrders: RobinhoodAgenticSyncedOrderDto[] = [];
   agenticPositions: RobinhoodAgenticPositionDto[] = [];
   agenticLoading = false;
   agenticSyncing = false;
@@ -111,10 +113,12 @@ export class RobinhoodTradingPanelComponent implements OnInit {
         this.agenticLoading = false;
         if (s.connected) {
           this.loadAgenticPositions();
+          this.loadAgenticSyncedOrders();
           this.loadAgenticSettings();
           this.loadAgenticOrders();
         } else {
           this.agenticPositions = [];
+          this.agenticSyncedOrders = [];
           this.agenticSettings = null;
           this.agenticOrders = [];
         }
@@ -123,6 +127,7 @@ export class RobinhoodTradingPanelComponent implements OnInit {
         this.agenticStatus = null;
         this.agenticLoading = false;
         this.agenticPositions = [];
+        this.agenticSyncedOrders = [];
         this.agenticSettings = null;
         this.agenticOrders = [];
       },
@@ -136,6 +141,17 @@ export class RobinhoodTradingPanelComponent implements OnInit {
       },
       error: () => {
         this.agenticPositions = [];
+      },
+    });
+  }
+
+  loadAgenticSyncedOrders(): void {
+    this.financeApi.robinhoodAgenticSyncedOrders().subscribe({
+      next: (o) => {
+        this.agenticSyncedOrders = o.orders;
+      },
+      error: () => {
+        this.agenticSyncedOrders = [];
       },
     });
   }

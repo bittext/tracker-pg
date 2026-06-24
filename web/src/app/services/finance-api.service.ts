@@ -30,6 +30,7 @@ import {
   RobinhoodAgenticPositionsDto,
   RobinhoodAgenticSyncResultDto,
   RobinhoodAgenticSettingsDto,
+  RobinhoodAgenticSyncedOrdersDto,
   RobinhoodAgenticOrderDto,
   RobinhoodAgenticOrdersDto,
   RobinhoodAgenticAutoTradeEvaluateDto,
@@ -105,6 +106,10 @@ export class FinanceApiService {
 
   robinhoodAgenticPositions() {
     return this.http.get<RobinhoodAgenticPositionsDto>(`${this.root}/agentic/positions`);
+  }
+
+  robinhoodAgenticSyncedOrders() {
+    return this.http.get<RobinhoodAgenticSyncedOrdersDto>(`${this.root}/agentic/synced-orders`);
   }
 
   robinhoodAgenticDisconnect() {

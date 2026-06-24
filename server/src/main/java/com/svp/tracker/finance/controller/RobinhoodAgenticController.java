@@ -7,6 +7,7 @@ import com.svp.tracker.finance.dto.RobinhoodAgenticOrderRequestDto;
 import com.svp.tracker.finance.dto.RobinhoodAgenticOrdersDto;
 import com.svp.tracker.finance.dto.RobinhoodAgenticPositionsDto;
 import com.svp.tracker.finance.dto.RobinhoodAgenticSettingsDto;
+import com.svp.tracker.finance.dto.RobinhoodAgenticSyncedOrdersDto;
 import com.svp.tracker.finance.dto.RobinhoodAgenticSettingsRequestDto;
 import com.svp.tracker.finance.dto.RobinhoodAgenticStatusDto;
 import com.svp.tracker.finance.dto.RobinhoodAgenticSyncResultDto;
@@ -57,6 +58,11 @@ public class RobinhoodAgenticController {
     @GetMapping("/positions")
     public RobinhoodAgenticPositionsDto positions() {
         return agenticService.positions();
+    }
+
+    @GetMapping("/synced-orders")
+    public RobinhoodAgenticSyncedOrdersDto syncedOrders() {
+        return agenticService.syncedOrders();
     }
 
     @GetMapping("/settings")

@@ -77,7 +77,27 @@ export interface RobinhoodAgenticSyncResultDto {
   syncedAt: string | null;
   message: string;
   positionCount: number;
+  orderCount: number;
   accountsSynced: number;
+}
+
+export interface RobinhoodAgenticSyncedOrderDto {
+  accountNumber: string;
+  robinhoodOrderId: string;
+  symbol: string;
+  side: string | null;
+  orderType: string | null;
+  quantity: number | null;
+  limitPrice: number | null;
+  averagePrice: number | null;
+  state: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  syncedAt: string;
+}
+
+export interface RobinhoodAgenticSyncedOrdersDto {
+  orders: RobinhoodAgenticSyncedOrderDto[];
 }
 
 /** Robinhood Agentic Phase 2–3 — guardrails + AI auto-trade */
