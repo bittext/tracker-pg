@@ -55,7 +55,7 @@ public class RobinhoodAccountTrackerService {
     private final RobinhoodFinanceService financeService;
     private final FinanceProperties financeProperties;
     private final CurrentUserService currentUser;
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(12))
             .build();
