@@ -18,8 +18,9 @@ import com.svp.tracker.finance.repository.RobinhoodAgenticSyncLogRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -162,17 +163,19 @@ public class RobinhoodAgenticService {
             return new RobinhoodAgenticSyncResultDto(
                     true, conn.getLastSyncAt(), conn.getLastSyncMessage(), count, logRow.getAccountsSynced());
         } catch (Exception e) {
-            conn.setLastSyncAt(started);
-            conn.setLastSyncStatus("error");
-            conn.setLastSyncMessage(truncate(e.getMessage(), 500));
-            conn.setUpdatedAt(Instant.now());
-            connectionRepository.save(conn);
-            logRow.setStatus("error");
-            logRow.setMessage(truncate(e.getMessage(), 500));
-            logRow.setFinishedAt(Instant.now());
-            syncLogRepository.save(logRow);
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, e.getMessage(), e);
+            log.error("Robinhood Agentic sync failed for user {}", conn.getOwnerUserId(), e);
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY, truncate(rootCauseMessage(e), 500), e);
         }
+    }
+
+    private static String rootCauseMessage(Throwable e) {
+        Throwable root = e;
+        while (root.getCause() != null) {
+            root = root.getCause();
+        }
+        String message = root.getMessage();
+        return message != null ? message : e.getClass().getSimpleName();
     }
 
     private void persistSyncResult(RobinhoodAgenticConnection conn, JsonNode result, Instant syncedAt) throws Exception {
@@ -187,7 +190,7 @@ public class RobinhoodAgenticService {
         connectionRepository.save(conn);
 
         positionRepository.deleteAllByOwnerUserId(conn.getOwnerUserId());
-        List<RobinhoodAgenticPosition> batch = new ArrayList<>();
+        Map<String, RobinhoodAgenticPosition> byAccountAndKey = new LinkedHashMap<>();
         for (JsonNode row : result.withArray("positions")) {
             String positionKey = textOrNull(row.get("position_key"));
             String symbol = textOrNull(row.get("symbol"));
@@ -201,9 +204,13 @@ public class RobinhoodAgenticService {
             if (positionType == null || positionType.isBlank()) {
                 positionType = "equity";
             }
+            String accountNumber = textOrNull(row.get("account_number"));
+            if (accountNumber == null || accountNumber.isBlank()) {
+                accountNumber = agenticNum != null ? agenticNum : "";
+            }
             RobinhoodAgenticPosition pos = new RobinhoodAgenticPosition();
             pos.setOwnerUserId(conn.getOwnerUserId());
-            pos.setAccountNumber(textOrNull(row.get("account_number")));
+            pos.setAccountNumber(accountNumber);
             pos.setPositionType(positionType);
             pos.setPositionKey(positionKey);
             pos.setSymbol(symbol == null ? positionKey : symbol.trim().toUpperCase());
@@ -215,9 +222,10 @@ public class RobinhoodAgenticService {
             pos.setAverageBuyPrice(decimalOrNull(row.get("average_buy_price")));
             pos.setMarketValue(decimalOrNull(row.get("market_value")));
             pos.setSyncedAt(syncedAt);
-            batch.add(pos);
+            // Sidecar may emit duplicate option legs (same option_id, long + short); last row wins.
+            byAccountAndKey.put(accountNumber + "\u0000" + positionKey, pos);
         }
-        positionRepository.saveAll(batch);
+        positionRepository.saveAll(byAccountAndKey.values());
     }
 
     private RobinhoodAgenticPositionDto toPositionDto(RobinhoodAgenticPosition p) {

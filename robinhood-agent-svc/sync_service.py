@@ -258,6 +258,9 @@ def _normalize_option_position(row: dict[str, Any]) -> dict[str, Any]:
     position_key = row.get("id") or row.get("option_id") or row.get("instrument_id") or row.get("position_id")
     if not position_key:
         position_key = f"{chain}|{option_type}|{strike}|{expiration}"
+    elif option_type:
+        # Robinhood may return separate long/short legs with the same option_id; keys must be unique per account.
+        position_key = f"{position_key}|{str(option_type).lower()}"
     chain_text = str(chain).strip().upper() if chain else ""
     normalized = {
         "position_type": "option",
