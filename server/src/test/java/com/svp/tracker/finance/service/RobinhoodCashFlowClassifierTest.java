@@ -18,6 +18,48 @@ class RobinhoodCashFlowClassifierTest {
     }
 
     @Test
+    void xentCcCreditCardPaymentIsExternalOut() {
+        assertTrue(RobinhoodCashFlowClassifier.isCashFlowRow(
+                "XENT_CC", "Robinhood Credit Card balance payment", null));
+        assertFalse(RobinhoodCashFlowClassifier.isInternalTransfer(
+                "XENT_CC", "Robinhood Credit Card balance payment"));
+        assertEquals(
+                "OUT",
+                RobinhoodCashFlowClassifier.cashFlowDirection(
+                        "XENT_CC", "Robinhood Credit Card balance payment", new BigDecimal("-9371.95")));
+        assertEquals(
+                "EXTERNAL_OUT",
+                RobinhoodCashFlowClassifier.flowCategory(
+                        "XENT_CC", "Robinhood Credit Card balance payment", "OUT"));
+    }
+
+    @Test
+    void brokerageToBrokerageItrfIsInternalOut() {
+        assertTrue(RobinhoodCashFlowClassifier.isInternalTransfer("ITRF", "Transfer from Brokerage to Brokerage"));
+        assertEquals(
+                "OUT",
+                RobinhoodCashFlowClassifier.cashFlowDirection(
+                        "ITRF", "Transfer from Brokerage to Brokerage", new BigDecimal("-400")));
+        assertEquals(
+                "INTERNAL_OUT",
+                RobinhoodCashFlowClassifier.flowCategory(
+                        "ITRF", "Transfer from Brokerage to Brokerage", "OUT"));
+    }
+
+    @Test
+    void rtpInstantBankDepositIsExternalIn() {
+        String desc = "Instant bank transfer - account ending in 7933";
+        assertTrue(RobinhoodCashFlowClassifier.isCashFlowRow("RTP", desc, null));
+        assertFalse(RobinhoodCashFlowClassifier.internalTransfer("RTP", desc));
+        assertEquals(
+                "IN",
+                RobinhoodCashFlowClassifier.cashFlowDirection("RTP", desc, new BigDecimal("2500.00")));
+        assertEquals(
+                "EXTERNAL_IN",
+                RobinhoodCashFlowClassifier.flowCategory("RTP", desc, "IN"));
+    }
+
+    @Test
     void transferCodesAreCashFlow() {
         assertTrue(RobinhoodCashFlowClassifier.isCashFlowRow("Transfer", "Transfer to brokerage", null));
         assertTrue(RobinhoodCashFlowClassifier.isCashFlowRow("Transfer In", "Transfer from bank", null));

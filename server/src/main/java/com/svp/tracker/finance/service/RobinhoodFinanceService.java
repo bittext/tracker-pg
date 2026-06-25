@@ -476,13 +476,15 @@ public class RobinhoodFinanceService {
         sql.append(" AND NOT (").append(transUpper).append(" IN ('BUY','SELL','BTO','STC','STO','BTC','OEXP','OASGN','OEXCS','CONV','SPL','MRGS','SXCH'))");
         sql.append(" AND (");
         sql.append(transUpper)
-                .append(" IN ('ACH','XENT','ITRF','RTP','CDEP','CSR','INT','MINT','WIRE','UKBT','SLIP','CSH','DCNT','FEE','GOLD','TRF','TRFI','TRFO','TRANSFER')");
+                .append(" IN ('ACH','XENT','XENT_CC','ITRF','RTP','CDEP','CSR','INT','MINT','WIRE','UKBT','SLIP','CSH','DCNT','FEE','GOLD','TRF','TRFI','TRFO','TRANSFER')");
         sql.append(" OR ").append(transUpper).append(" LIKE 'ACH%'");
+        sql.append(" OR ").append(transUpper).append(" LIKE 'XENT%'");
         sql.append(" OR ").append(transKey).append(" LIKE 'TRANSFER%'");
         sql.append(" OR ").append(descUpper).append(" LIKE '%TRANSFER%'");
         sql.append(" OR ").append(descUpper).append(" LIKE '%DEPOSIT%'");
         sql.append(" OR ").append(descUpper).append(" LIKE '%WITHDRAW%'");
         sql.append(" OR ").append(descUpper).append(" LIKE '%INSTANT BANK%'");
+        sql.append(" OR ").append(descUpper).append(" LIKE '%CREDIT CARD%'");
         sql.append(" OR (TRIM(COALESCE(")
                 .append(instExpr)
                 .append(", '')) = '' AND ")

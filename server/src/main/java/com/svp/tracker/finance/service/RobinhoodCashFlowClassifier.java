@@ -28,7 +28,7 @@ final class RobinhoodCashFlowClassifier {
 
     private static final Set<String> CASH_IN_CODES = Set.of("INT", "MINT", "SLIP", "CSH");
 
-    private static final Set<String> CASH_OUT_CODES = Set.of("FEE", "GOLD", "RGFE", "ACAT");
+    private static final Set<String> CASH_OUT_CODES = Set.of("FEE", "GOLD", "RGFE", "ACAT", "XENT_CC");
 
     private RobinhoodCashFlowClassifier() {}
 
@@ -58,6 +58,9 @@ final class RobinhoodCashFlowClassifier {
                 || desc.contains("INSTANT BANK")
                 || desc.contains("WIRE ")
                 || desc.contains("ACH ")) {
+            return true;
+        }
+        if (desc.contains("CREDIT CARD")) {
             return true;
         }
         return false;
@@ -138,6 +141,9 @@ final class RobinhoodCashFlowClassifier {
         if (desc.contains("INTERNAL TRANSFER") || desc.contains("TRANSFER TO") || desc.contains("TRANSFER FROM")) {
             return true;
         }
+        if (desc.contains("TRANSFER FROM BROKERAGE TO BROKERAGE")) {
+            return true;
+        }
         if (desc.contains("TRANSFER") && (desc.contains("AGENTIC") || desc.contains("MANAGED") || desc.contains("ACCOUNT"))) {
             return true;
         }
@@ -193,6 +199,9 @@ final class RobinhoodCashFlowClassifier {
             return Optional.empty();
         }
         if (CASH_OUT_CODES.contains(codeKey)) {
+            return Optional.of("OUT");
+        }
+        if (description.contains("CREDIT CARD BALANCE PAYMENT") || description.contains("ROBINHOOD CREDIT CARD")) {
             return Optional.of("OUT");
         }
         if (description.contains("TRANSFER IN") || description.contains("DEPOSIT")) {
