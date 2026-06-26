@@ -7,6 +7,7 @@ import com.svp.tracker.config.FinanceProperties;
 import com.svp.tracker.finance.domain.RobinhoodAccountTrackerConfig;
 import com.svp.tracker.finance.domain.RobinhoodAgenticConnection;
 import com.svp.tracker.finance.domain.RobinhoodAgenticPosition;
+import com.svp.tracker.finance.domain.RobinhoodRhSupplementalCashFlow;
 import com.svp.tracker.finance.dto.RobinhoodRhAccountSummaryDto;
 import com.svp.tracker.finance.dto.RobinhoodRhAccountsTrackDto;
 import com.svp.tracker.finance.dto.RobinhoodRhCashFlowEventDto;
@@ -14,6 +15,7 @@ import com.svp.tracker.finance.dto.RobinhoodRhHoldingDto;
 import com.svp.tracker.finance.repository.RobinhoodAccountTrackerConfigRepository;
 import com.svp.tracker.finance.repository.RobinhoodAgenticConnectionRepository;
 import com.svp.tracker.finance.repository.RobinhoodAgenticPositionRepository;
+import com.svp.tracker.finance.repository.RobinhoodRhSupplementalCashFlowRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -46,6 +48,7 @@ public class RobinhoodRhAccountsTrackService {
             ZonedDateTime.of(2026, 4, 5, 0, 0, 0, 0, CENTRAL).toInstant();
 
     private final RobinhoodAccountTrackerConfigRepository configRepository;
+    private final RobinhoodRhSupplementalCashFlowRepository supplementalCashFlowRepository;
     private final RobinhoodAgenticConnectionRepository connectionRepository;
     private final RobinhoodAgenticPositionRepository positionRepository;
     private final RobinhoodFinanceService financeService;
@@ -90,6 +93,7 @@ public class RobinhoodRhAccountsTrackService {
         Map<String, List<RobinhoodRhCashFlowEventDto>> flowsBySuffix =
                 RobinhoodRhCashFlowAllocator.allocateByAccountSuffix(
                         rawIndividualFlows, individualSuffix, agenticSuffix, managedSuffix, knownSuffixes);
+        mergeSupplementalCashFlows(flowsBySuffix, ownerUserId);
 
         LocalDate trackingStartDate = trackingStartedAt.atZone(CENTRAL).toLocalDate();
         prependStartingBalances(
@@ -165,7 +169,7 @@ public class RobinhoodRhAccountsTrackService {
                         + individualSuffix
                         + " only. Connect and sync Agentic Trading for live holdings.");
         FlowTotals flow = summarizeFlows(cashFlows, startingTotal);
-        BigDecimal basis = nullToZero(startingTotal).add(flow.net);
+        BigDecimal basis = flow.net;
         BigDecimal gainLoss = BigDecimal.ZERO.subtract(basis);
         return buildSummaryFromParts(
                 maskSuffix(individualSuffix),
@@ -222,7 +226,7 @@ public class RobinhoodRhAccountsTrackService {
             totalValue = equityMv.add(cash);
         }
 
-        BigDecimal basis = nullToZero(startingTotal).add(flow.net);
+        BigDecimal basis = flow.net;
         BigDecimal gainLossVsNetDeposits = totalValue.subtract(basis);
         boolean gainLossPositive = gainLossVsNetDeposits.compareTo(BigDecimal.ZERO) >= 0;
 
@@ -240,7 +244,7 @@ public class RobinhoodRhAccountsTrackService {
             notes.add("Funding from the individual account appears as Internal transfer In (derived from CSV when Robinhood posts ITRF/Transfer out on ••••"
                     + individualSuffix + ").");
         } else if (managed) {
-            notes.add("Managed account: holdings and portfolio from sync; cash flows only when mirrored from individual CSV internal transfers.");
+            notes.add("Managed account: holdings and portfolio from sync; cash flows from supplemental config plus internal transfers mirrored from the individual CSV.");
         } else if (cashFlows.isEmpty()) {
             notes.add("Cash flows only when mirrored from internal transfers on the individual CSV export.");
         }
@@ -389,7 +393,7 @@ public class RobinhoodRhAccountsTrackService {
         return out;
     }
 
-    private static FlowTotals summarizeFlows(List<RobinhoodRhCashFlowEventDto> events, BigDecimal startingTotal) {
+    static FlowTotals summarizeFlows(List<RobinhoodRhCashFlowEventDto> events, BigDecimal startingTotal) {
         BigDecimal deposits = BigDecimal.ZERO;
         BigDecimal withdrawals = BigDecimal.ZERO;
         BigDecimal internalIn = BigDecimal.ZERO;
@@ -411,13 +415,48 @@ public class RobinhoodRhAccountsTrackService {
                 }
             }
         }
-        BigDecimal net = nullToZero(startingTotal).add(deposits).subtract(withdrawals).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal net =
+                nullToZero(startingTotal)
+                        .add(deposits)
+                        .subtract(withdrawals)
+                        .setScale(2, RoundingMode.HALF_UP);
         return new FlowTotals(
                 scaleMoney(deposits),
                 scaleMoney(withdrawals),
                 scaleMoney(internalIn),
                 scaleMoney(internalOut),
                 net);
+    }
+
+    private void mergeSupplementalCashFlows(
+            Map<String, List<RobinhoodRhCashFlowEventDto>> flowsBySuffix, long ownerUserId) {
+        for (RobinhoodRhSupplementalCashFlow row :
+                supplementalCashFlowRepository.findByOwnerUserIdOrderByActivityDateAscIdAsc(ownerUserId)) {
+            String suffix = trimOrNull(row.getAccountSuffix());
+            if (suffix == null) {
+                continue;
+            }
+            List<RobinhoodRhCashFlowEventDto> list = flowsBySuffix.computeIfAbsent(suffix, k -> new ArrayList<>());
+            list.add(toSupplementalEvent(row));
+            RobinhoodRhCashFlowAllocator.sortCashFlowEvents(list);
+        }
+    }
+
+    private static RobinhoodRhCashFlowEventDto toSupplementalEvent(RobinhoodRhSupplementalCashFlow row) {
+        String transCode =
+                row.getTransCode() != null && !row.getTransCode().isBlank()
+                        ? row.getTransCode().trim()
+                        : "Cash flow";
+        return new RobinhoodRhCashFlowEventDto(
+                row.getActivityDate(),
+                row.getDirection(),
+                scaleMoney(row.getAmount()),
+                transCode,
+                trimOrNull(row.getDescription()),
+                row.getSource() == null ? "Config" : row.getSource(),
+                row.getFlowCategory(),
+                "INTERNAL_IN".equals(row.getFlowCategory()) || "INTERNAL_OUT".equals(row.getFlowCategory()),
+                null);
     }
 
     private static void prependStartingBalances(
@@ -693,6 +732,10 @@ public class RobinhoodRhAccountsTrackService {
             config.setManagedAccountSuffix("4123");
             changed = true;
         }
+        if (config.getManagedStartingTotalValue() == null) {
+            config.setManagedStartingTotalValue(new BigDecimal("100.00"));
+            changed = true;
+        }
         if (changed) {
             config.setUpdatedAt(Instant.now());
             return configRepository.save(config);
@@ -713,6 +756,7 @@ public class RobinhoodRhAccountsTrackService {
         config.setAgenticAccountSuffix("3550");
         config.setAgenticStartingTotalValue(BigDecimal.ZERO);
         config.setManagedAccountSuffix("4123");
+        config.setManagedStartingTotalValue(new BigDecimal("100.00"));
         config.setCreatedAt(now);
         config.setUpdatedAt(now);
         return configRepository.save(config);
@@ -827,7 +871,7 @@ public class RobinhoodRhAccountsTrackService {
         return null;
     }
 
-    private record FlowTotals(
+    static record FlowTotals(
             BigDecimal deposits,
             BigDecimal withdrawals,
             BigDecimal internalIn,

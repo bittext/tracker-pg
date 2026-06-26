@@ -1,9 +1,9 @@
 <section class="rh-acct" aria-labelledby="rh-acct-heading">
   <h2 id="rh-acct-heading" class="rh-acct__title">RH Accounts Track</h2>
   <p class="muted rh-acct__hint">
-    All Robinhood accounts since <strong>Apr 5, 2026 00:00 Central</strong>. Starting balance at cutoff is highlighted
-    per account. Internal transfers (ITRF / Transfer to Agentic, Managed, or other RH accounts) are
-    <strong>Out</strong> on individual and mirrored <strong>In</strong> on the destination account.
+    All Robinhood accounts since <strong>Apr 5, 2026 00:00 Central</strong>. Starting balance, deposits, and internal
+    transfers are listed separately per account. Internal transfers (ITRF / Transfer to Agentic, Managed, or other RH
+    accounts) are <strong>Out</strong> on individual and mirrored <strong>In</strong> on the destination account.
   </p>
 
   @if (loading) {
@@ -49,21 +49,18 @@
           </ul>
         }
 
-        @if (acct.startingTotalValue != null) {
-          <div class="rh-acct__starting" role="status">
-            <span class="rh-acct__starting-label">Starting balance (Apr 5, 2026)</span>
-            <strong class="rh-acct__starting-value">{{ acct.startingTotalValue | currency }}</strong>
-          </div>
-        } @else {
-          <p class="rh-acct__starting rh-acct__starting--missing muted">
-            Starting balance at cutoff not configured for this account.
-          </p>
-        }
-
         <div class="rh-acct__grid">
           <div>
             <h4 class="rh-acct__section">Cash flow (since cutoff)</h4>
             <ul class="rh-acct__stats muted">
+              <li [class.rh-acct__stat--starting]="acct.startingTotalValue != null">
+                Starting balance:
+                @if (acct.startingTotalValue != null) {
+                  <strong>{{ acct.startingTotalValue | currency }}</strong>
+                } @else {
+                  <span class="muted">not configured</span>
+                }
+              </li>
               <li>Deposits / transfers in: <strong>{{ acct.totalDeposits | currency }}</strong></li>
               <li>Withdrawals / transfers out: <strong>{{ acct.totalWithdrawals | currency }}</strong></li>
               <li>Internal transfer in: <strong>{{ acct.internalTransferIn | currency }}</strong></li>

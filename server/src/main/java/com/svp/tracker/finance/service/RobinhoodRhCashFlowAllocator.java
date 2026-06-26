@@ -79,27 +79,31 @@ final class RobinhoodRhCashFlowAllocator {
         }
 
         for (List<RobinhoodRhCashFlowEventDto> events : bySuffix.values()) {
-            events.sort(
-                    (a, b) -> {
-                        if ("STARTING_BALANCE".equals(a.flowCategory()) && !"STARTING_BALANCE".equals(b.flowCategory())) {
-                            return -1;
-                        }
-                        if ("STARTING_BALANCE".equals(b.flowCategory()) && !"STARTING_BALANCE".equals(a.flowCategory())) {
-                            return 1;
-                        }
-                        if (a.activityDate() == null && b.activityDate() == null) {
-                            return 0;
-                        }
-                        if (a.activityDate() == null) {
-                            return 1;
-                        }
-                        if (b.activityDate() == null) {
-                            return -1;
-                        }
-                        return a.activityDate().compareTo(b.activityDate());
-                    });
+            sortCashFlowEvents(events);
         }
         return bySuffix;
+    }
+
+    static void sortCashFlowEvents(List<RobinhoodRhCashFlowEventDto> events) {
+        events.sort(
+                (a, b) -> {
+                    if ("STARTING_BALANCE".equals(a.flowCategory()) && !"STARTING_BALANCE".equals(b.flowCategory())) {
+                        return -1;
+                    }
+                    if ("STARTING_BALANCE".equals(b.flowCategory()) && !"STARTING_BALANCE".equals(a.flowCategory())) {
+                        return 1;
+                    }
+                    if (a.activityDate() == null && b.activityDate() == null) {
+                        return 0;
+                    }
+                    if (a.activityDate() == null) {
+                        return 1;
+                    }
+                    if (b.activityDate() == null) {
+                        return -1;
+                    }
+                    return a.activityDate().compareTo(b.activityDate());
+                });
     }
 
     static RobinhoodRhCashFlowEventDto startingBalanceEvent(LocalDate asOf, BigDecimal amount) {
