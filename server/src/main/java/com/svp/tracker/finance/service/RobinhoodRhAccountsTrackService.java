@@ -129,9 +129,7 @@ public class RobinhoodRhAccountsTrackService {
 
         List<RobinhoodRhAccountSummaryDto> accounts = new ArrayList<>();
         for (String accountKey : sortedAccounts) {
-            String suffix = accountKey.length() >= 4 && accountKey.chars().allMatch(Character::isDigit)
-                    ? accountKey
-                    : suffixOf(accountKey, allPositions);
+            String suffix = resolveSuffix(accountKey, allPositions);
             accounts.add(
                     buildAccountSummary(
                             accountKey,
@@ -496,14 +494,14 @@ public class RobinhoodRhAccountsTrackService {
         Instant now = Instant.now();
         List<RobinhoodRhAccountStartingBalance> newRows = new ArrayList<>();
         for (String suffix : suffixes) {
-            String trimmed = trimOrNull(suffix);
-            if (trimmed == null || existing.contains(trimmed)) {
+            String normalized = normalizeAccountSuffix(trimOrNull(suffix));
+            if (normalized == null || normalized.isBlank() || existing.contains(normalized)) {
                 continue;
             }
             RobinhoodRhAccountStartingBalance row = new RobinhoodRhAccountStartingBalance();
             row.setOwnerUserId(ownerUserId);
-            row.setAccountSuffix(trimmed);
-            row.setStartingTotalValue(legacyStartingForSuffix(trimmed, config));
+            row.setAccountSuffix(normalized);
+            row.setStartingTotalValue(legacyStartingForSuffix(normalized, config));
             row.setCreatedAt(now);
             row.setUpdatedAt(now);
             newRows.add(row);
@@ -521,23 +519,34 @@ public class RobinhoodRhAccountsTrackService {
             List<RobinhoodAgenticPosition> allPositions,
             Map<String, List<RobinhoodRhCashFlowEventDto>> flowsBySuffix) {
         LinkedHashSet<String> suffixes = new LinkedHashSet<>();
-        suffixes.add(individualSuffix);
-        suffixes.add(agenticSuffix);
+        suffixes.add(normalizeAccountSuffix(individualSuffix));
+        suffixes.add(normalizeAccountSuffix(agenticSuffix));
         if (managedSuffix != null && !managedSuffix.isBlank()) {
-            suffixes.add(managedSuffix.trim());
+            suffixes.add(normalizeAccountSuffix(managedSuffix.trim()));
         }
         for (String accountKey : accountNumbers) {
             suffixes.add(resolveSuffix(accountKey, allPositions));
         }
-        suffixes.addAll(flowsBySuffix.keySet());
+        for (String key : flowsBySuffix.keySet()) {
+            suffixes.add(normalizeAccountSuffix(key));
+        }
         suffixes.removeIf(s -> s == null || s.isBlank());
         return suffixes;
     }
 
-    private static String resolveSuffix(String accountKey, List<RobinhoodAgenticPosition> allPositions) {
-        if (accountKey != null && accountKey.length() >= 4 && accountKey.chars().allMatch(Character::isDigit)) {
-            return accountKey;
+    /** Last 4 digits of a Robinhood account number, or the value itself when already a short suffix. */
+    private static String normalizeAccountSuffix(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
         }
+        String trimmed = value.trim();
+        if (trimmed.length() > 4 && trimmed.chars().allMatch(Character::isDigit)) {
+            return trimmed.substring(trimmed.length() - 4);
+        }
+        return trimmed;
+    }
+
+    private static String resolveSuffix(String accountKey, List<RobinhoodAgenticPosition> allPositions) {
         return suffixOf(accountKey, allPositions);
     }
 
