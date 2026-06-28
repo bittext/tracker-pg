@@ -4,13 +4,10 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
-/**
- * Portfolio-level summary aligned with Robinhood Individual investing (value, cash, P&amp;L). May come from a
- * snapshot file or FIFO + quotes.
- */
+/** Portfolio-level summary from FIFO + quotes (Reports → Robinhood API payload). */
 public record RobinhoodPortfolioOverviewDto(
         LocalDate asOfDate,
-        /** {@code snapshot}, {@code computed}, or {@code snapshot+computed}. */
+        /** {@code computed}. */
         String source,
         BigDecimal portfolioValue,
         BigDecimal cash,

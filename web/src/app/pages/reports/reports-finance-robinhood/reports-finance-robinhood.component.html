@@ -41,63 +41,6 @@
     </p>
     <p class="muted small">{{ r.note }}</p>
 
-    @if (r.portfolio; as port) {
-      <section class="rh-report__section rh-portfolio" aria-labelledby="rh-portfolio-heading">
-        <h3 id="rh-portfolio-heading" class="rh-report__section-title">Individual investing</h3>
-        <p class="muted small">
-          {{ portfolioSourceLabel(port.source) }} · as of {{ formatFullDate(port.asOfDate) }}
-        </p>
-        <div class="rh-portfolio__hero">
-          <div class="rh-portfolio__value">{{ formatMoney(port.portfolioValue) }}</div>
-          <div class="rh-portfolio__today" [class.rh-portfolio__today--neg]="port.todayPnL < 0">
-            {{ formatMoney(port.todayPnL) }}
-            @if (port.todayPnLPercent != null) {
-              <span> ({{ formatPctFromDecimal(port.todayPnLPercent) }})</span>
-            }
-            <span class="muted"> today</span>
-          </div>
-        </div>
-
-        <div class="rh-portfolio__overview muted small">
-          <div class="rh-portfolio__overview-row">
-            <span>Buying power</span><span>{{ formatMoney(port.cash) }}</span>
-          </div>
-          <div class="rh-portfolio__overview-row">
-            <span>Cash</span><span>{{ formatMoney(port.cash) }}</span>
-          </div>
-        </div>
-
-        <h4 class="rh-portfolio__pnl-title">Profit &amp; loss</h4>
-        <div class="rh-portfolio__pnl-grid">
-          <div class="rh-portfolio__pnl-row">
-            <span class="rh-portfolio__pnl-label">Today</span>
-            <span class="rh-portfolio__pnl-value" [class.rh-portfolio__pnl-value--neg]="port.todayPnL < 0">{{
-              formatMoney(port.todayPnL)
-            }}</span>
-          </div>
-          <div class="rh-portfolio__pnl-row">
-            <span class="rh-portfolio__pnl-label">YTD</span>
-            <span class="rh-portfolio__pnl-value" [class.rh-portfolio__pnl-value--pos]="port.ytdTotalPnL > 0">{{
-              formatMoney(port.ytdTotalPnL)
-            }}</span>
-          </div>
-          <div class="rh-portfolio__pnl-row">
-            <span class="rh-portfolio__pnl-label">Day&rsquo;s realized (excl. crypto)</span>
-            <span class="rh-portfolio__pnl-value">{{ formatMoney(port.todayRealizedPnL) }}</span>
-          </div>
-          <div class="rh-portfolio__pnl-row">
-            <span class="rh-portfolio__pnl-label">YTD realized (excl. crypto)</span>
-            <span class="rh-portfolio__pnl-value" [class.rh-portfolio__pnl-value--pos]="port.ytdRealizedPnL > 0">{{
-              formatMoney(port.ytdRealizedPnL)
-            }}</span>
-          </div>
-        </div>
-
-        <p class="muted small">{{ port.note }}</p>
-
-      </section>
-    }
-
     <div class="rh-report__kpis" role="group" aria-label="Summary">
       <div class="rh-kpi">
         <span class="rh-kpi__label">Total realized P&amp;L</span>

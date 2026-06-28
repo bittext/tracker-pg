@@ -369,24 +369,6 @@ export class ReportsFinanceRobinhoodComponent implements OnInit {
     return `${(v * 100).toFixed(1)}%`;
   }
 
-  formatPctFromDecimal(rate: number | null | undefined): string {
-    const v = Number(rate);
-    if (!Number.isFinite(v)) {
-      return '—';
-    }
-    return `${(v * 100).toFixed(2)}%`;
-  }
-
-  portfolioSourceLabel(source: string): string {
-    if (source === 'snapshot') {
-      return 'Robinhood app snapshot';
-    }
-    if (source === 'computed') {
-      return 'From CSV import';
-    }
-    return source;
-  }
-
   formatDayLabel(iso: string): string {
     const d = new Date(iso + 'T12:00:00');
     return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });

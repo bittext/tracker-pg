@@ -125,7 +125,6 @@ services:
       TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_ENABLED: ${TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_ENABLED:-false}
       TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_BASE_URL: ${TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_BASE_URL:-http://robinhood-notebook:8010}
       TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_TIMEOUT_MS: ${TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_TIMEOUT_MS:-120000}
-      TRACKER_FINANCE_ROBINHOOD_PORTFOLIO_SNAPSHOT_PATH: ${TRACKER_FINANCE_ROBINHOOD_PORTFOLIO_SNAPSHOT_PATH:-/config/robinhood-portfolio-snapshot.json}
       # Robinhood Agentic Trading MCP (Phase 1 read-only sync).
       TRACKER_FINANCE_ROBINHOOD_AGENTIC_ENABLED: ${TRACKER_FINANCE_ROBINHOOD_AGENTIC_ENABLED:-false}
       TRACKER_FINANCE_ROBINHOOD_AGENTIC_SERVICE_BASE_URL: ${TRACKER_FINANCE_ROBINHOOD_AGENTIC_SERVICE_BASE_URL:-http://robinhood-agent:8020}
@@ -143,9 +142,6 @@ services:
     ports:
       # Host:container — API always listens on 9091 inside the container.
       - "${API_PORT:-9091}:9091"
-    volumes:
-      # Robinhood app snapshot for Reports → Finance → Robinhood (edit on host, restart api).
-      - ./config/robinhood-portfolio-snapshot.json:/config/robinhood-portfolio-snapshot.json:ro
 
   finbert:
     # FinBERT sentiment sidecar for Predicts (Python FastAPI + transformers).

@@ -55,7 +55,6 @@ public class RobinhoodPerformanceReportService {
     private final RobinhoodFinanceService robinhoodFinanceService;
     private final FinanceProperties financeProperties;
     private final YahooBatchQuoteService yahooBatchQuoteService;
-    private final RobinhoodPortfolioSnapshotService robinhoodPortfolioSnapshotService;
 
     public RobinhoodPerformanceReportDto buildReport(int financialYear, String symbolFilter) {
         List<Map<String, Object>> rows = robinhoodFinanceService.loadYearTransactionRows(financialYear, symbolFilter);
@@ -96,10 +95,7 @@ public class RobinhoodPerformanceReportService {
         RobinhoodUnrealizedSectionDto unrealized =
                 buildUnrealized(fifoOpen.openLots(), asOfDate, openTruncated);
         RobinhoodPortfolioOverviewDto portfolio =
-                resolvePortfolio(financialYear, asOfDate, fifoOpen, unrealized, openTruncated);
-        if ("snapshot".equals(portfolio.source())) {
-            unrealized = unrealizedFromPortfolioSnapshot(portfolio);
-        }
+                buildComputedPortfolio(financialYear, asOfDate, fifoOpen, unrealized, openTruncated);
         RobinhoodPerformanceInsightsDto insights = buildInsights(fifo.closedTrades(), financialYear);
         RobinhoodPerformanceTaxDto tax = buildTax(fifo.closedTrades(), financialYear);
 
@@ -125,93 +121,6 @@ public class RobinhoodPerformanceReportService {
                 unrealized,
                 insights,
                 tax);
-    }
-
-    private RobinhoodPortfolioOverviewDto resolvePortfolio(
-            int financialYear,
-            LocalDate asOfDate,
-            FifoResult fifoOpen,
-            RobinhoodUnrealizedSectionDto unrealized,
-            boolean openTruncated) {
-        RobinhoodPortfolioOverviewDto computed = buildComputedPortfolio(financialYear, asOfDate, fifoOpen, unrealized, openTruncated);
-        return robinhoodPortfolioSnapshotService
-                .loadSnapshot()
-                .filter(s -> s.asOfDate().getYear() == financialYear)
-                .map(
-                        snap -> {
-                            String note =
-                                    snap.note()
-                                            + " CSV-derived YTD realized: "
-                                            + formatMoneyShort(computed.ytdRealizedPnL())
-                                            + "; open unrealized (computed): "
-                                            + formatMoneyShort(computed.openUnrealizedPnL())
-                                            + ".";
-                            return new RobinhoodPortfolioOverviewDto(
-                                    snap.asOfDate(),
-                                    "snapshot",
-                                    snap.portfolioValue(),
-                                    snap.cash(),
-                                    snap.todayPnL(),
-                                    snap.todayPnLPercent(),
-                                    snap.ytdTotalPnL(),
-                                    snap.todayRealizedPnL(),
-                                    snap.ytdRealizedPnL(),
-                                    snap.openUnrealizedPnL(),
-                                    snap.positions(),
-                                    note);
-                        })
-                .orElse(computed);
-    }
-
-    private RobinhoodUnrealizedSectionDto unrealizedFromPortfolioSnapshot(RobinhoodPortfolioOverviewDto port) {
-        List<RobinhoodOpenPositionDto> opens = new ArrayList<>();
-        BigDecimal totalCost = ZERO;
-        BigDecimal totalMarket = ZERO;
-        for (RobinhoodPortfolioPositionDto p : port.positions()) {
-            BigDecimal qty = p.quantity() != null ? p.quantity() : ZERO;
-            BigDecimal avg = p.avgPrice();
-            BigDecimal cost =
-                    avg != null && qty.compareTo(ZERO) > 0
-                            ? avg.multiply(qty).setScale(2, RoundingMode.HALF_UP)
-                            : ZERO;
-            totalCost = totalCost.add(cost);
-            if (p.marketValue() != null) {
-                totalMarket = totalMarket.add(p.marketValue());
-            }
-            opens.add(
-                    new RobinhoodOpenPositionDto(
-                            p.instrument(),
-                            p.contract() != null ? p.contract() : "",
-                            p.assetClass(),
-                            port.asOfDate(),
-                            0,
-                            qty,
-                            avg,
-                            cost,
-                            p.marketPrice(),
-                            p.marketValue(),
-                            p.openPnL(),
-                            p.dayOpenPnL(),
-                            p.dayOpenPnLPercent(),
-                            p.marketPrice() != null));
-        }
-        return new RobinhoodUnrealizedSectionDto(
-                port.asOfDate(),
-                totalCost.setScale(2, RoundingMode.HALF_UP),
-                totalMarket.compareTo(ZERO) > 0 ? totalMarket.setScale(2, RoundingMode.HALF_UP) : null,
-                port.openUnrealizedPnL(),
-                opens.size(),
-                opens.size(),
-                false,
-                "Open positions from Robinhood app snapshot (same as Individual investing above).",
-                opens);
-    }
-
-    private static String formatMoneyShort(BigDecimal v) {
-        if (v == null) {
-            return "—";
-        }
-        return v.setScale(2, RoundingMode.HALF_UP).toPlainString();
     }
 
     private RobinhoodPortfolioOverviewDto buildComputedPortfolio(
@@ -255,9 +164,7 @@ public class RobinhoodPerformanceReportService {
                         : null;
 
         String note =
-                "Computed from imported CSV (FIFO) and quotes through "
-                        + asOfDate
-                        + ". Update config/robinhood-portfolio-snapshot.json to match Robinhood app exactly.";
+                "Computed from imported CSV (FIFO) and quotes through " + asOfDate + ".";
         if (openTruncated) {
             note += " Open-position history may be incomplete (row cap).";
         }
