@@ -1,4 +1,6 @@
-<section class="rh-report" aria-labelledby="rh-report-heading">
+<mat-tab-group class="rh-report-tabs" animationDuration="180ms">
+  <mat-tab label="Performance">
+    <section class="rh-report rh-report-tab-panel" aria-labelledby="rh-report-heading">
   <h2 id="rh-report-heading" class="rh-report__title">Robinhood performance</h2>
   <p class="muted rh-report__lead">
     Realized P&amp;L from imported CSV rows (FIFO on buy/sell legs). Not tax advice.
@@ -567,3 +569,10 @@
     }
   }
 </section>
+  </mat-tab>
+  <mat-tab label="Daily Tracker">
+    <div class="rh-report-tab-panel">
+      <app-reports-finance-robinhood-daily-tracker />
+    </div>
+  </mat-tab>
+</mat-tab-group>

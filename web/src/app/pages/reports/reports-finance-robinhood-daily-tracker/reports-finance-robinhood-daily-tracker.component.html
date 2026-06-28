@@ -1,0 +1,141 @@
+<section class="rh-daily" aria-labelledby="rh-daily-heading">
+  <h2 id="rh-daily-heading" class="rh-daily__title">Robinhood Daily Tracker</h2>
+  <p class="muted rh-daily__lead">
+    End-of-day snapshot of every Robinhood account at <strong>9:00 PM Central</strong>. Each account is tracked
+    separately. Click an account total to view holdings and cash movements since the previous 9 PM snapshot.
+    <a routerLink="/finance">Finance</a> → Trading to connect Agentic sync.
+  </p>
+
+  <div class="rh-daily__toolbar">
+    <mat-form-field appearance="outline" class="rh-daily__field">
+      <mat-label>Year</mat-label>
+      <mat-select [(ngModel)]="reportYear" name="rhDailyYear" (selectionChange)="load()">
+        @for (y of yearChoices(); track y) {
+          <mat-option [value]="y">{{ y }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="rh-daily__field">
+      <mat-label>Month</mat-label>
+      <mat-select [(ngModel)]="reportMonth" name="rhDailyMonth" (selectionChange)="load()">
+        @for (m of monthChoices; track m.value) {
+          <mat-option [value]="m.value">{{ m.label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <button mat-flat-button color="primary" type="button" (click)="load()" [disabled]="loading">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+    <button mat-stroked-button type="button" (click)="captureNow()" [disabled]="capturing || loading">
+      Capture now
+    </button>
+    @if (loading || capturing) {
+      <mat-spinner diameter="28" aria-label="Loading" />
+    }
+  </div>
+
+  @if (tracker; as t) {
+    @if (t.notes.length) {
+      <ul class="rh-daily__notes muted">
+        @for (note of t.notes; track note) {
+          <li>{{ note }}</li>
+        }
+      </ul>
+    }
+
+    <div class="rh-daily__running" role="region" aria-label="Running totals">
+      <div class="rh-daily__kpi">
+        <span class="rh-daily__kpi-label">Month combined total</span>
+        <strong>{{ t.monthCombinedTotal | currency }}</strong>
+        <span class="muted rh-daily__kpi-sub" [class]="pnlClass(t.monthCombinedChange)">
+          Δ {{ t.monthCombinedChange | currency }}
+        </span>
+      </div>
+      <div class="rh-daily__kpi">
+        <span class="rh-daily__kpi-label">Year combined total</span>
+        <strong>{{ t.yearCombinedTotal | currency }}</strong>
+        <span class="muted rh-daily__kpi-sub" [class]="pnlClass(t.yearCombinedChange)">
+          Δ {{ t.yearCombinedChange | currency }}
+        </span>
+      </div>
+    </div>
+
+    @if (!t.days.length) {
+      <p class="muted">No daily snapshots for this period. Use <strong>Capture now</strong> or wait for the 9 PM job.</p>
+    } @else {
+      @for (day of t.days; track day.snapshotDate) {
+        <article class="rh-daily__day" [attr.aria-label]="'Snapshot ' + day.snapshotDate">
+          <header class="rh-daily__day-head">
+            <h3 class="rh-daily__day-title">
+              {{ day.snapshotDate | date: 'mediumDate' }}
+              <span class="muted">· 9 PM Central</span>
+            </h3>
+            <div class="rh-daily__day-combined">
+              <span class="muted">Combined</span>
+              <strong class="rh-daily__total">{{ day.combinedTotal | currency }}</strong>
+              <span class="muted" [class]="pnlClass(day.combinedPeriodValueChange)">
+                Δ {{ day.combinedPeriodValueChange | currency }}
+              </span>
+            </div>
+          </header>
+
+          @if (hasFlowBlock(day)) {
+            <div class="rh-daily__flows" role="region" aria-label="Period cash movements">
+              <h4 class="rh-daily__flows-title">Added / removed since previous 9 PM</h4>
+              <ul class="rh-daily__flows-list">
+                @for (acct of t.accounts; track acct.accountSuffix) {
+                  @if (cellForDay(day, acct.accountSuffix); as cell) {
+                    @if (cell.hasFlowActivity) {
+                      <li>
+                        <strong>{{ acct.label }}</strong>
+                        @if (cell.periodAdded) {
+                          <span class="rh-daily__flow-in">+{{ cell.periodAdded | currency }} in</span>
+                        }
+                        @if (cell.periodRemoved) {
+                          <span class="rh-daily__flow-out">−{{ cell.periodRemoved | currency }} out</span>
+                        }
+                      </li>
+                    }
+                  }
+                }
+                <li class="rh-daily__flows-combined">
+                  <strong>All accounts</strong>
+                  @if (day.combinedPeriodAdded) {
+                    <span class="rh-daily__flow-in">+{{ day.combinedPeriodAdded | currency }} in</span>
+                  }
+                  @if (day.combinedPeriodRemoved) {
+                    <span class="rh-daily__flow-out">−{{ day.combinedPeriodRemoved | currency }} out</span>
+                  }
+                </li>
+              </ul>
+            </div>
+          }
+
+          <div class="rh-daily__accounts">
+            @for (acct of t.accounts; track acct.accountSuffix) {
+              @if (cellForDay(day, acct.accountSuffix); as cell) {
+                <button
+                  type="button"
+                  class="rh-daily__acct-card"
+                  (click)="openSnapshot(cell, day)"
+                  [attr.aria-label]="'View ' + acct.label + ' details for ' + day.snapshotDate"
+                >
+                  <span class="rh-daily__acct-kind muted">{{ acct.accountKind }}</span>
+                  <span class="rh-daily__acct-label">{{ acct.label }}</span>
+                  <strong class="rh-daily__acct-total">{{ cell.totalAccountValue | currency }}</strong>
+                  @if (cell.periodValueChange !== 0) {
+                    <span class="rh-daily__acct-delta muted" [class]="pnlClass(cell.periodValueChange)">
+                      Δ {{ cell.periodValueChange | currency }}
+                    </span>
+                  }
+                  <span class="rh-daily__acct-link">View holdings &amp; flows →</span>
+                </button>
+              }
+            }
+          </div>
+        </article>
+      }
+    }
+  }
+</section>

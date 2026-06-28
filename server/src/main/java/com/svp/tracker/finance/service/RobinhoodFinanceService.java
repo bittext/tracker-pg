@@ -108,10 +108,14 @@ public class RobinhoodFinanceService {
      * ascending. Filters in SQL then applies {@link RobinhoodCashFlowClassifier} so trade legs are excluded.
      */
     public List<Map<String, Object>> fetchCashFlowMapsSince(Instant since, int cap) {
+        return fetchCashFlowMapsSinceForOwner(currentUser.requireUserId(), since, cap);
+    }
+
+    public List<Map<String, Object>> fetchCashFlowMapsSinceForOwner(long ownerUserId, Instant since, int cap) {
         if (props.transactionDateColumn().isBlank()) {
             throw new IllegalStateException("Configure tracker.finance.transaction-date-column for account tracker");
         }
-        List<Map<String, Object>> rows = queryCashFlowRowsSince(since, cap);
+        List<Map<String, Object>> rows = queryCashFlowRowsSince(ownerUserId, since, cap);
         return rows.stream()
                 .filter(row -> RobinhoodCashFlowClassifier.isCashFlowRow(
                         stringCellAny(row, "TRANS_CODE", "trans_code"),
@@ -433,7 +437,7 @@ public class RobinhoodFinanceService {
                 new ColumnMapRowMapper());
     }
 
-    private List<Map<String, Object>> queryCashFlowRowsSince(Instant since, int cap) {
+    private List<Map<String, Object>> queryCashFlowRowsSince(long ownerUserId, Instant since, int cap) {
         String table = qualifiedTable();
         String qualifiedDateCol = qualifiedTransactionDateColumn();
         String dateExpr = activityDateExpression(qualifiedDateCol);
@@ -452,7 +456,7 @@ public class RobinhoodFinanceService {
         sql.append("SELECT ").append(T).append(".* FROM ").append(table).append(" ").append(T);
 
         List<Object> prefixBinds = new ArrayList<>();
-        appendUserOwnerClause(sql, prefixBinds);
+        appendUserOwnerClause(sql, prefixBinds, ownerUserId);
 
         String[] oracleStringBounds = oracleStringBoundsForFilter(
                 since.atZone(ZoneId.systemDefault()).toLocalDate(), LocalDate.of(9999, 12, 31));
@@ -517,8 +521,12 @@ public class RobinhoodFinanceService {
 
     /** Restrict Robinhood SQL to rows owned by the signed-in user ({@code owner_user_id}). */
     private boolean appendUserOwnerClause(StringBuilder sql, List<Object> prefixBinds) {
+        return appendUserOwnerClause(sql, prefixBinds, currentUser.requireUserId());
+    }
+
+    private boolean appendUserOwnerClause(StringBuilder sql, List<Object> prefixBinds, long ownerUserId) {
         sql.append(" WHERE ").append(T).append(".owner_user_id = ?");
-        prefixBinds.add(currentUser.requireUserId());
+        prefixBinds.add(ownerUserId);
         return true;
     }
 

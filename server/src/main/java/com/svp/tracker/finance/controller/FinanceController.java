@@ -26,6 +26,10 @@ import com.svp.tracker.finance.service.MarketOverviewService;
 import com.svp.tracker.finance.dto.RobinhoodRhAccountsTrackDto;
 import com.svp.tracker.finance.service.RobinhoodAccountTrackerService;
 import com.svp.tracker.finance.service.RobinhoodRhAccountsTrackService;
+import com.svp.tracker.finance.dto.RobinhoodRhDailyCaptureResultDto;
+import com.svp.tracker.finance.dto.RobinhoodRhDailySnapshotDetailDto;
+import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerReportDto;
+import com.svp.tracker.finance.service.RobinhoodRhDailyTrackerService;
 import com.svp.tracker.finance.service.RobinhoodCsvImportService;
 import com.svp.tracker.finance.service.RobinhoodFinanceService;
 import com.svp.tracker.finance.service.StockNewsService;
@@ -60,6 +64,7 @@ public class FinanceController {
     private final MarketOverviewService marketOverviewService;
     private final RobinhoodAccountTrackerService accountTrackerService;
     private final RobinhoodRhAccountsTrackService rhAccountsTrackService;
+    private final RobinhoodRhDailyTrackerService rhDailyTrackerService;
     private final FinanceProperties financeProperties;
 
     /**
@@ -130,6 +135,34 @@ public class FinanceController {
         } catch (IllegalStateException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
         }
+    }
+
+    /** Daily 9 PM Central account snapshots for Reports → Robinhood Daily Tracker. */
+    @GetMapping("/daily-tracker")
+    public RobinhoodRhDailyTrackerReportDto dailyTracker(
+            @RequestParam(name = "year") int year,
+            @RequestParam(name = "month", required = false) Integer month) {
+        validateYear(year);
+        if (month != null && (month < 1 || month > 12)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "month must be 1–12");
+        }
+        log.info("GET /api/finance/robinhood/daily-tracker year={} month={}", year, month);
+        return rhDailyTrackerService.buildReport(year, month);
+    }
+
+    /** Holdings + period cash flows for one daily snapshot (popup detail). */
+    @GetMapping("/daily-tracker/snapshot")
+    public RobinhoodRhDailySnapshotDetailDto dailyTrackerSnapshot(@RequestParam(name = "id") long id) {
+        log.info("GET /api/finance/robinhood/daily-tracker/snapshot id={}", id);
+        return rhDailyTrackerService.getSnapshotDetail(id);
+    }
+
+    /** Capture a daily snapshot now (optional live sync first). */
+    @PostMapping("/daily-tracker/capture")
+    public RobinhoodRhDailyCaptureResultDto dailyTrackerCapture(
+            @RequestParam(name = "sync", defaultValue = "true") boolean sync) {
+        log.info("POST /api/finance/robinhood/daily-tracker/capture sync={}", sync);
+        return rhDailyTrackerService.captureNow(sync);
     }
 
     /**

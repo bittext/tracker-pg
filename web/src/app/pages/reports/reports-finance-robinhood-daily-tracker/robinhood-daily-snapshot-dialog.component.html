@@ -1,0 +1,93 @@
+<h2 mat-dialog-title>{{ detail?.label ?? ('Account ••••' + data.accountSuffix) }}</h2>
+<mat-dialog-content class="rh-snap-dialog">
+  @if (loading) {
+    <mat-spinner diameter="36" aria-label="Loading snapshot" />
+  } @else if (detail; as d) {
+    <p class="muted rh-snap-dialog__meta">
+      Snapshot {{ d.snapshotDate | date: 'mediumDate' }} · 9 PM Central
+      @if (d.periodStartDate) {
+        <span> · Period since {{ d.periodStartDate | date: 'mediumDate' }} 9 PM</span>
+      }
+    </p>
+
+    <ul class="rh-snap-dialog__stats">
+      <li>Total value: <strong>{{ d.totalAccountValue | currency }}</strong></li>
+      <li>Cash: <strong>{{ d.cashBalance | currency }}</strong></li>
+      <li>Equity MV: <strong>{{ d.equityMarketValue | currency }}</strong></li>
+      @if (d.periodAdded) {
+        <li class="rh-snap-dialog__in">Added in period: <strong>{{ d.periodAdded | currency }}</strong></li>
+      }
+      @if (d.periodRemoved) {
+        <li class="rh-snap-dialog__out">Removed in period: <strong>{{ d.periodRemoved | currency }}</strong></li>
+      }
+      @if (d.periodValueChange) {
+        <li>Value change (excl. flows): <strong>{{ d.periodValueChange | currency }}</strong></li>
+      }
+    </ul>
+
+    @if (d.holdings.length) {
+      <h3 class="rh-snap-dialog__section">Holdings at snapshot</h3>
+      <div class="rh-snap-dialog__table-wrap">
+        <table class="rh-snap-dialog__table">
+          <thead>
+            <tr>
+              <th>Symbol</th>
+              <th>Type</th>
+              <th>Qty</th>
+              <th>Market value</th>
+              <th>Unrealized P&amp;L</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (h of d.holdings; track h.symbol + h.positionType) {
+              <tr>
+                <td>{{ h.symbol }}</td>
+                <td>{{ h.positionType }}</td>
+                <td>{{ h.quantity }}</td>
+                <td>{{ h.marketValue | currency }}</td>
+                <td>{{ h.unrealizedPnL | currency }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <p class="muted">No holdings at this snapshot.</p>
+    }
+
+    @if (d.periodFlows.length) {
+      <h3 class="rh-snap-dialog__section">Cash movements in period</h3>
+      <div class="rh-snap-dialog__table-wrap">
+        <table class="rh-snap-dialog__table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Direction</th>
+              <th>Category</th>
+              <th>Amount</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (f of d.periodFlows; track $index) {
+              <tr>
+                <td>{{ f.activityDate | date: 'mediumDate' }}</td>
+                <td>{{ f.direction }}</td>
+                <td>{{ flowCategoryLabel(f.flowCategory) }}</td>
+                <td>{{ f.amount | currency }}</td>
+                <td>{{ f.description ?? f.transCode }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <p class="muted">No cash movements in this period.</p>
+    }
+  } @else {
+    <p class="muted">Could not load snapshot detail.</p>
+  }
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-button type="button" (click)="close()">Close</button>
+</mat-dialog-actions>

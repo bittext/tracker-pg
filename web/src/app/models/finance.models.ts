@@ -101,6 +101,70 @@ export interface RobinhoodRhAccountsTrackDto {
   notes: string[];
 }
 
+/** Reports → Robinhood → Daily Tracker (9 PM Central snapshots). */
+export interface RobinhoodRhDailyTrackerReportDto {
+  year: number;
+  month: number | null;
+  monthCombinedTotal: number;
+  monthCombinedChange: number;
+  yearCombinedTotal: number;
+  yearCombinedChange: number;
+  accounts: RobinhoodRhDailyTrackerAccountColumnDto[];
+  days: RobinhoodRhDailyTrackerDayDto[];
+  notes: string[];
+}
+
+export interface RobinhoodRhDailyTrackerAccountColumnDto {
+  accountSuffix: string;
+  label: string;
+  accountKind: string;
+}
+
+export interface RobinhoodRhDailyTrackerDayDto {
+  snapshotDate: string;
+  snapshotAt: string | null;
+  combinedTotal: number;
+  combinedPeriodAdded: number;
+  combinedPeriodRemoved: number;
+  combinedPeriodValueChange: number;
+  accounts: RobinhoodRhDailyTrackerAccountCellDto[];
+}
+
+export interface RobinhoodRhDailyTrackerAccountCellDto {
+  snapshotId: number;
+  accountSuffix: string;
+  totalAccountValue: number;
+  periodAdded: number;
+  periodRemoved: number;
+  periodValueChange: number;
+  hasFlowActivity: boolean;
+}
+
+export interface RobinhoodRhDailySnapshotDetailDto {
+  id: number;
+  snapshotDate: string;
+  snapshotAt: string;
+  periodStartDate: string | null;
+  accountSuffix: string;
+  label: string;
+  accountKind: string;
+  totalAccountValue: number;
+  cashBalance: number;
+  equityMarketValue: number;
+  periodAdded: number;
+  periodRemoved: number;
+  periodValueChange: number;
+  holdings: RobinhoodRhHoldingDto[];
+  periodFlows: RobinhoodRhCashFlowEventDto[];
+}
+
+export interface RobinhoodRhDailyCaptureResultDto {
+  ok: boolean;
+  capturedAt: string;
+  accountsCaptured: number;
+  message: string;
+}
+
 export interface RobinhoodRhAccountSummaryDto {
   accountNumberMasked: string;
   accountSuffix: string;

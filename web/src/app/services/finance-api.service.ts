@@ -15,6 +15,9 @@ import {
   RobinhoodAccountStatusDto,
   RobinhoodAccountTrackerDto,
   RobinhoodRhAccountsTrackDto,
+  RobinhoodRhDailyCaptureResultDto,
+  RobinhoodRhDailySnapshotDetailDto,
+  RobinhoodRhDailyTrackerReportDto,
   RobinhoodCsvImportResultDto,
   RobinhoodNotebookBundleDto,
   RobinhoodNotebookConfigDto,
@@ -98,6 +101,27 @@ export class FinanceApiService {
   /** All Robinhood accounts: CSV cash flows + synced holdings since Apr 5 2026. */
   robinhoodRhAccountsTrack(sync = true) {
     return this.http.get<RobinhoodRhAccountsTrackDto>(`${this.root}/rh-accounts-track`, {
+      params: { sync: String(sync) },
+    });
+  }
+
+  /** Daily 9 PM Central account snapshots. */
+  robinhoodDailyTracker(year: number, month?: number | null) {
+    const params: Record<string, string> = { year: String(year) };
+    if (month != null) {
+      params['month'] = String(month);
+    }
+    return this.http.get<RobinhoodRhDailyTrackerReportDto>(`${this.root}/daily-tracker`, { params });
+  }
+
+  robinhoodDailyTrackerSnapshot(id: number) {
+    return this.http.get<RobinhoodRhDailySnapshotDetailDto>(`${this.root}/daily-tracker/snapshot`, {
+      params: { id: String(id) },
+    });
+  }
+
+  robinhoodDailyTrackerCapture(sync = true) {
+    return this.http.post<RobinhoodRhDailyCaptureResultDto>(`${this.root}/daily-tracker/capture`, null, {
       params: { sync: String(sync) },
     });
   }
