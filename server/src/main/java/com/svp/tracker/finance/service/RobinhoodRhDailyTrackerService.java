@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.RobinhoodAgenticProperties;
+import com.svp.tracker.config.RobinhoodRhDailyTrackerProperties;
 import com.svp.tracker.finance.domain.RobinhoodRhDailySnapshot;
 import com.svp.tracker.finance.dto.RobinhoodRhAccountSummaryDto;
 import com.svp.tracker.finance.dto.RobinhoodRhAccountsTrackDto;
@@ -54,6 +55,7 @@ public class RobinhoodRhDailyTrackerService {
     private final RobinhoodAgenticConnectionRepository connectionRepository;
     private final RobinhoodRhDailySnapshotRepository snapshotRepository;
     private final RobinhoodAgenticProperties agenticProps;
+    private final RobinhoodRhDailyTrackerProperties dailyTrackerProps;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional(readOnly = true)
@@ -62,8 +64,9 @@ public class RobinhoodRhDailyTrackerService {
         LocalDate yearStart = LocalDate.of(year, 1, 1);
         LocalDate yearEnd = LocalDate.of(year, 12, 31);
         List<RobinhoodRhDailySnapshot> yearRows =
-                snapshotRepository.findByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateDescAccountSuffixAsc(
-                        ownerUserId, yearStart, yearEnd);
+                visibleSnapshots(
+                        snapshotRepository.findByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateDescAccountSuffixAsc(
+                                ownerUserId, yearStart, yearEnd));
 
         LocalDate filterFrom = month != null ? LocalDate.of(year, month, 1) : yearStart;
         LocalDate filterTo = month != null ? YearMonth.of(year, month).atEndOfMonth() : yearEnd;
@@ -164,6 +167,9 @@ public class RobinhoodRhDailyTrackerService {
         RobinhoodRhDailySnapshot row = snapshotRepository
                 .findByIdAndOwnerUserId(snapshotId, ownerUserId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Snapshot not found"));
+        if (dailyTrackerProps.isExcludedSuffix(row.getAccountSuffix())) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Snapshot not found");
+        }
         return toDetailDto(row);
     }
 
@@ -186,7 +192,7 @@ public class RobinhoodRhDailyTrackerService {
 
         for (RobinhoodRhAccountSummaryDto acct : track.accounts()) {
             String suffix = acct.accountSuffix();
-            if (suffix == null || suffix.isBlank()) {
+            if (suffix == null || suffix.isBlank() || dailyTrackerProps.isExcludedSuffix(suffix)) {
                 continue;
             }
 
@@ -259,6 +265,12 @@ public class RobinhoodRhDailyTrackerService {
                 scaleMoney(row.getPeriodValueChange()),
                 holdings,
                 flows);
+    }
+
+    private List<RobinhoodRhDailySnapshot> visibleSnapshots(List<RobinhoodRhDailySnapshot> rows) {
+        return rows.stream()
+                .filter(r -> !dailyTrackerProps.isExcludedSuffix(r.getAccountSuffix()))
+                .toList();
     }
 
     private static List<RobinhoodRhCashFlowEventDto> flowsInPeriod(
