@@ -313,7 +313,8 @@ public class RobinhoodRhDailyTrackerService {
         BigDecimal sum = rows.stream()
                 .filter(r -> latest.equals(r.getSnapshotDate()))
                 .map(RobinhoodRhDailySnapshot::getTotalAccountValue)
-                .reduce(BigDecimal.ZERO, RobinhoodRhDailyTrackerService::nullToZero);
+                .map(RobinhoodRhDailyTrackerService::nullToZero)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
         return scaleMoney(sum);
     }
 
@@ -335,11 +336,13 @@ public class RobinhoodRhDailyTrackerService {
         BigDecimal start = rows.stream()
                 .filter(r -> earliest.equals(r.getSnapshotDate()))
                 .map(RobinhoodRhDailySnapshot::getTotalAccountValue)
-                .reduce(BigDecimal.ZERO, RobinhoodRhDailyTrackerService::nullToZero);
+                .map(RobinhoodRhDailyTrackerService::nullToZero)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal end = rows.stream()
                 .filter(r -> latest.equals(r.getSnapshotDate()))
                 .map(RobinhoodRhDailySnapshot::getTotalAccountValue)
-                .reduce(BigDecimal.ZERO, RobinhoodRhDailyTrackerService::nullToZero);
+                .map(RobinhoodRhDailyTrackerService::nullToZero)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
         return scaleMoney(end.subtract(start));
     }
 
