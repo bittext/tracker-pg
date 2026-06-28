@@ -4,6 +4,9 @@ export type ThemePreset = 'openai' | 'classic';
 /** Color scheme; `system` follows OS preference. */
 export type ThemeMode = 'light' | 'dark' | 'system';
 
+/** Light or dark after resolving `system` against OS preference. */
+export type ResolvedThemeMode = 'light' | 'dark';
+
 export interface ThemeConfig {
   preset: ThemePreset;
   mode: ThemeMode;
@@ -31,7 +34,7 @@ export const THEME_PRESETS: ThemePresetMeta[] = [
   {
     id: 'openai',
     label: 'OpenAI Platform',
-    description: 'Monochrome, minimal chrome — inspired by platform.openai.com',
+    description: 'platform.openai.com — sidebar nav, #f7f7f8 canvas, teal & gold accents',
   },
   {
     id: 'classic',

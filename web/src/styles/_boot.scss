@@ -1,0 +1,46 @@
+/* Boot fallbacks before ThemeService runs — mirrors theme-tokens.config OPENAI_LIGHT */
+:root {
+  --app-font-display: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --app-font-body: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --app-bg: #f7f7f8;
+  --app-bg-gradient: #f7f7f8;
+  --app-surface: #ffffff;
+  --app-surface-muted: #f7f7f8;
+  --app-surface-tint: #ffffff;
+  --app-surface-hover: #ececed;
+  --app-surface-sidebar: #f2f2f2;
+  --app-surface-nav-active: #ececec;
+  --app-text: #1a1a1a;
+  --app-text-muted: #6e6e73;
+  --app-text-subtle: #8e8e93;
+  --app-border: #e5e5e5;
+  --app-border-strong: #d1d1d6;
+  --app-accent: #1a1a1a;
+  --app-accent-soft: rgba(26, 26, 26, 0.06);
+  --app-accent-on: #ffffff;
+  --app-color-success: #10a37f;
+  --app-color-warning: #b08d07;
+  --app-color-chart-secondary: #c026d3;
+  --app-hero-gradient: linear-gradient(
+    135deg,
+    rgba(196, 181, 253, 0.45) 0%,
+    rgba(251, 207, 232, 0.4) 40%,
+    rgba(254, 240, 138, 0.35) 100%
+  );
+  --app-toolbar-bg: #f7f7f8;
+  --app-toolbar-border: #e5e5e5;
+  --app-focus-ring: rgba(26, 26, 26, 0.35);
+  --app-shell-max-width: none;
+  --app-frame-shadow: none;
+  --app-sidebar-width: 240px;
+  --app-radius-lg: 12px;
+  --app-radius: 8px;
+  --app-radius-sm: 6px;
+  --app-radius-pill: 9999px;
+  --app-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --app-shadow-md: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+  --app-table-stripe: rgba(0, 0, 0, 0.02);
+  --app-cal-strength: rgba(16, 163, 127, 0.14);
+  --app-cal-weight: rgba(192, 38, 211, 0.12);
+  --app-cal-both: rgba(26, 26, 26, 0.08);
+}

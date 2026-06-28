@@ -1,152 +1,114 @@
-<mat-toolbar class="app-top-bar">
-  @if (authenticated) {
-    <a routerLink="/welcome" class="app-brand-lockup" aria-label="Home — Welcome">
-      <img
-        class="app-brand-icon"
-        src="/tracker-app-icon-192.png"
-        width="32"
-        height="32"
-        alt=""
-      />
-      <span class="brand">{{ brandTitle }}</span>
-    </a>
-  } @else {
-    <span class="app-brand-lockup">
-      <img
-        class="app-brand-icon"
-        src="/tracker-app-icon-192.png"
-        width="32"
-        height="32"
-        alt=""
-        aria-hidden="true"
-      />
-      <span class="brand">{{ brandTitle }}</span>
-    </span>
-  }
-  <span class="spacer"></span>
-  <span class="app-release-hint" [attr.title]="releaseHintTooltip" tabindex="-1" aria-hidden="true"
-    >v{{ webReleaseVersion }}</span>
-  <app-theme-settings *ngIf="authenticated" />
-  <span class="user-chip" *ngIf="authenticated">{{ username }}</span>
-  <button mat-button type="button" *ngIf="authenticated" (click)="logout()">Log out</button>
-</mat-toolbar>
+@if (onLoginRoute) {
+  <main class="main login-main">
+    <router-outlet />
+  </main>
+} @else if (theme.usesSidebarShell()) {
+  <!-- OpenAI Platform layout: sidebar + content -->
+  <div class="app-platform-layout">
+    <aside class="app-sidebar" aria-label="Primary navigation">
+      @if (authenticated) {
+        <a routerLink="/welcome" class="app-sidebar__brand" aria-label="Home — Welcome">
+          <img src="/tracker-app-icon-192.png" width="28" height="28" alt="" />
+          <span>{{ brandTitle }}</span>
+        </a>
+      } @else {
+        <span class="app-sidebar__brand">
+          <img src="/tracker-app-icon-192.png" width="28" height="28" alt="" aria-hidden="true" />
+          <span>{{ brandTitle }}</span>
+        </span>
+      }
 
-<div class="shell">
-  <section class="app-frame" aria-label="Main content" *ngIf="!onLoginRoute; else loginOnly">
-    <header class="frame-tabs">
-      <nav mat-tab-nav-bar class="tab-nav" [tabPanel]="tabPanel">
-        <a
-          mat-tab-link
-          routerLink="/welcome"
-          routerLinkActive
-          #welcomeTab="routerLinkActive"
-          [active]="welcomeTab.isActive"
-          [routerLinkActiveOptions]="{ exact: true }"
-        >
-          Welcome
-        </a>
-        <a
-          mat-tab-link
-          routerLink="/exercise"
-          routerLinkActive
-          #exTab="routerLinkActive"
-          [active]="exTab.isActive"
-          [routerLinkActiveOptions]="{ exact: true }"
-        >
-          Exercise
-        </a>
-        <a
-          mat-tab-link
-          routerLink="/finance"
-          routerLinkActive
-          #finTab="routerLinkActive"
-          [active]="finTab.isActive"
-          [routerLinkActiveOptions]="{ exact: true }"
-        >
-          Finance
-        </a>
-        <a
-          mat-tab-link
-          routerLink="/management"
-          routerLinkActive
-          #mgmtTab="routerLinkActive"
-          [active]="mgmtTab.isActive"
-          [routerLinkActiveOptions]="{ exact: true }"
-        >
-          Management
-        </a>
-        <a
-          mat-tab-link
-          routerLink="/journal"
-          routerLinkActive
-          #journalTab="routerLinkActive"
-          [active]="journalTab.isActive"
-          [routerLinkActiveOptions]="{ exact: true }"
-        >
-          Journal
-        </a>
-        <a
-          mat-tab-link
-          routerLink="/reports"
-          routerLinkActive
-          #repTab="routerLinkActive"
-          [active]="repTab.isActive"
-          [routerLinkActiveOptions]="{ exact: true }"
-        >
-          Reports
-        </a>
-        <a
-          mat-tab-link
-          routerLink="/security"
-          routerLinkActive
-          #secTab="routerLinkActive"
-          [active]="secTab.isActive"
-          [routerLinkActiveOptions]="{ exact: true }"
-        >
-          Security
-        </a>
-        <a
-          mat-tab-link
-          routerLink="/contact"
-          routerLinkActive
-          #contactTab="routerLinkActive"
-          [active]="contactTab.isActive"
-          [routerLinkActiveOptions]="{ exact: true }"
-        >
-          Contact Us
-        </a>
-        <a
-          mat-tab-link
-          routerLink="/admin"
-          routerLinkActive
-          #adminTab="routerLinkActive"
-          [active]="adminTab.isActive"
-          [routerLinkActiveOptions]="{ exact: true }"
-        >
-          Admin
-        </a>
-        <a
-          *ngIf="isAdmin"
-          mat-tab-link
-          routerLink="/logs"
-          routerLinkActive
-          #logsTab="routerLinkActive"
-          [active]="logsTab.isActive"
-          [routerLinkActiveOptions]="{ exact: true }"
-        >
-          Logs
-        </a>
+      <nav class="app-sidebar__nav">
+        @for (item of visibleNavItems; track item.path) {
+          <a
+            class="app-sidebar__link"
+            [routerLink]="item.path"
+            routerLinkActive="app-sidebar__link--active"
+            [routerLinkActiveOptions]="{ exact: item.exact !== false }"
+          >
+            <mat-icon aria-hidden="true">{{ item.icon }}</mat-icon>
+            <span>{{ item.label }}</span>
+          </a>
+        }
       </nav>
-    </header>
-    <mat-tab-nav-panel #tabPanel class="tab-panel">
-      <main class="main">
+
+      @if (authenticated) {
+        <div class="app-sidebar__footer">
+          <span class="app-sidebar__user">{{ username }}</span>
+          <button mat-stroked-button type="button" (click)="logout()">Log out</button>
+        </div>
+      }
+    </aside>
+
+    <div class="app-content-column">
+      @if (authenticated) {
+        <header class="app-content-header">
+          <span class="app-release-hint" [attr.title]="releaseHintTooltip" tabindex="-1" aria-hidden="true"
+            >v{{ webReleaseVersion }}</span
+          >
+          <app-theme-settings />
+        </header>
+      }
+      <main class="app-platform-main">
         <router-outlet />
       </main>
-    </mat-tab-nav-panel>
-  </section>
-  <ng-template #loginOnly>
-    <main class="main login-main">
-      <router-outlet />
-    </main>
-  </ng-template>
-</div>
+    </div>
+  </div>
+} @else {
+  <!-- Classic layout: top bar + tab navigation -->
+  <mat-toolbar class="app-top-bar">
+    @if (authenticated) {
+      <a routerLink="/welcome" class="app-brand-lockup" aria-label="Home — Welcome">
+        <img class="app-brand-icon" src="/tracker-app-icon-192.png" width="32" height="32" alt="" />
+        <span class="brand">{{ brandTitle }}</span>
+      </a>
+    } @else {
+      <span class="app-brand-lockup">
+        <img
+          class="app-brand-icon"
+          src="/tracker-app-icon-192.png"
+          width="32"
+          height="32"
+          alt=""
+          aria-hidden="true"
+        />
+        <span class="brand">{{ brandTitle }}</span>
+      </span>
+    }
+    <span class="spacer"></span>
+    <span class="app-release-hint" [attr.title]="releaseHintTooltip" tabindex="-1" aria-hidden="true"
+      >v{{ webReleaseVersion }}</span
+    >
+    @if (authenticated) {
+      <app-theme-settings />
+    }
+    <span class="user-chip" *ngIf="authenticated">{{ username }}</span>
+    <button mat-button type="button" *ngIf="authenticated" (click)="logout()">Log out</button>
+  </mat-toolbar>
+
+  <div class="shell">
+    <section class="app-frame" aria-label="Main content">
+      <header class="frame-tabs">
+        <nav mat-tab-nav-bar class="tab-nav" [tabPanel]="tabPanel">
+          @for (item of visibleNavItems; track item.path) {
+            <a
+              mat-tab-link
+              [routerLink]="item.path"
+              routerLinkActive
+              #rla="routerLinkActive"
+              [active]="rla.isActive"
+              [routerLinkActiveOptions]="{ exact: item.exact !== false }"
+            >
+              {{ item.label }}
+            </a>
+          }
+        </nav>
+      </header>
+      <mat-tab-nav-panel #tabPanel class="tab-panel">
+        <main class="main">
+          <router-outlet />
+        </main>
+      </mat-tab-nav-panel>
+    </section>
+  </div>
+}

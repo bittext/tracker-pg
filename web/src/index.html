@@ -5,7 +5,7 @@
   <title>Health Tracker &amp; PFM (Personal Financial Management)</title>
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#ffffff">
+  <meta name="theme-color" content="#f7f7f8">
   <link rel="icon" type="image/png" sizes="1024x1024" href="/tracker-app-icon-1024.png">
   <link rel="apple-touch-icon" href="/tracker-app-icon-1024.png">
   <link rel="manifest" href="/manifest.webmanifest">
@@ -27,14 +27,11 @@
         root.setAttribute('data-theme-preset', preset);
         root.setAttribute('data-theme-mode', mode);
         root.style.colorScheme = mode;
+        var themeColor = '#f7f7f8';
+        if (preset === 'openai') themeColor = mode === 'dark' ? '#0d0d0d' : '#f7f7f8';
+        else themeColor = mode === 'dark' ? '#0b3d40' : '#0f6d73';
         var meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) {
-          if (preset === 'openai') {
-            meta.setAttribute('content', mode === 'dark' ? '#0d0d0d' : '#ffffff');
-          } else {
-            meta.setAttribute('content', mode === 'dark' ? '#0b3d40' : '#0f6d73');
-          }
-        }
+        if (meta) meta.setAttribute('content', themeColor);
       } catch (e) { /* ignore */ }
     })();
   </script>

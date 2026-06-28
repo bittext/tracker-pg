@@ -1,0 +1,191 @@
+/* OpenAI Platform shell — sidebar navigation (platform.openai.com) */
+[data-theme-preset='openai'] {
+  .app-platform-layout {
+    display: flex;
+    min-height: 100vh;
+    background: var(--app-bg);
+  }
+
+  .app-sidebar {
+    flex: 0 0 var(--app-sidebar-width);
+    width: var(--app-sidebar-width);
+    display: flex;
+    flex-direction: column;
+    background: var(--app-surface-sidebar);
+    border-right: 1px solid var(--app-border);
+    min-height: 100vh;
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    max-height: 100vh;
+    overflow-y: auto;
+  }
+
+  .app-sidebar__brand {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 1rem 0.85rem 0.75rem;
+    text-decoration: none;
+    color: var(--app-text);
+    font-family: var(--app-font-display);
+    font-weight: 500;
+    font-size: 0.9375rem;
+    letter-spacing: -0.02em;
+  }
+
+  .app-sidebar__brand img {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--app-radius-sm);
+    border: 1px solid var(--app-border);
+  }
+
+  .app-sidebar__nav {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.35rem 0.5rem 1rem;
+  }
+
+  .app-sidebar__link {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.5rem 0.65rem;
+    border-radius: var(--app-radius);
+    font-family: var(--app-font-body);
+    font-size: 0.875rem;
+    font-weight: 400;
+    color: var(--app-text-muted);
+    text-decoration: none;
+    transition:
+      background 0.15s ease,
+      color 0.15s ease;
+  }
+
+  .app-sidebar__link mat-icon {
+    font-size: 1.125rem;
+    width: 1.125rem;
+    height: 1.125rem;
+    color: inherit;
+    opacity: 0.85;
+  }
+
+  .app-sidebar__link:hover {
+    color: var(--app-text);
+    background: var(--app-surface-hover);
+  }
+
+  .app-sidebar__link--active {
+    color: var(--app-text);
+    font-weight: 500;
+    background: var(--app-surface-nav-active);
+  }
+
+  .app-sidebar__footer {
+    padding: 0.75rem 0.85rem 1rem;
+    border-top: 1px solid var(--app-border);
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .app-sidebar__user {
+    font-size: 0.8125rem;
+    color: var(--app-text-muted);
+    padding: 0 0.15rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .app-content-column {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--app-bg);
+  }
+
+  .app-content-header {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.25rem;
+    padding: 0.65rem 1.25rem;
+    min-height: 48px;
+    border-bottom: 1px solid var(--app-border);
+    background: var(--app-bg);
+  }
+
+  .app-content-header .app-release-hint {
+    margin-right: 0.35rem;
+  }
+
+  .app-platform-main {
+    flex: 1 1 auto;
+    padding: 1.5rem 1.75rem 2.5rem;
+    max-width: 1200px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+}
+
+@media (max-width: 768px) {
+  [data-theme-preset='openai'] {
+    .app-platform-layout {
+      flex-direction: column;
+    }
+
+    .app-sidebar {
+      position: relative;
+      width: 100%;
+      flex: none;
+      max-height: none;
+      min-height: auto;
+      border-right: none;
+      border-bottom: 1px solid var(--app-border);
+    }
+
+    .app-sidebar__nav {
+      flex-direction: row;
+      flex-wrap: wrap;
+      padding-bottom: 0.5rem;
+    }
+
+    .app-sidebar__link span {
+      display: none;
+    }
+
+    .app-sidebar__footer {
+      display: none;
+    }
+
+    .app-platform-main {
+      padding: 1rem 1rem 2rem;
+    }
+  }
+}
+
+/* Utility surfaces for platform-style promo / hero cards */
+.surface-hero-gradient {
+  background: var(--app-hero-gradient);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-lg);
+}
+
+.text-success {
+  color: var(--app-color-success);
+}
+
+.text-chart-secondary {
+  color: var(--app-color-chart-secondary);
+}
+
+.btn-accent-warning.mat-mdc-unelevated-button {
+  --mdc-filled-button-container-color: var(--app-color-warning);
+  --mdc-filled-button-label-text-color: #ffffff;
+  border-radius: var(--app-radius);
+}

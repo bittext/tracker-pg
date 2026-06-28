@@ -1,6 +1,12 @@
 :host {
   display: block;
   min-height: 100vh;
+  background: var(--app-bg);
+}
+
+.main.login-main {
+  min-height: 100vh;
+  padding: 0;
 }
 
 /* Whisper-quiet release tag — reads as part of the chrome, not a banner */

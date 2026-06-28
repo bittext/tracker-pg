@@ -6,6 +6,7 @@ import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } fro
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 import { catchError, filter, of } from 'rxjs';
 import { environment } from '../environments/environment';
 import { WEB_RELEASE_VERSION } from './release-version';
@@ -23,6 +24,14 @@ interface ApiVersionPayload {
   buildTime: string | null;
 }
 
+interface AppNavItem {
+  path: string;
+  label: string;
+  icon: string;
+  exact?: boolean;
+  adminOnly?: boolean;
+}
+
 @Component({
   selector: 'app-root',
   imports: [
@@ -33,6 +42,7 @@ interface ApiVersionPayload {
     MatToolbarModule,
     MatTabsModule,
     MatButtonModule,
+    MatIconModule,
     ThemeSettingsComponent,
   ],
   templateUrl: './app.component.html',
@@ -41,12 +51,25 @@ interface ApiVersionPayload {
 export class AppComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
-  private readonly theme = inject(ThemeService);
+  readonly theme = inject(ThemeService);
   private readonly http = inject(HttpClient);
   private readonly documentTitle = inject(Title);
   /** Shown in the top bar; full name sets the browser tab title. */
   readonly brandTitle = APP_SHORT_NAME;
   readonly webReleaseVersion = WEB_RELEASE_VERSION;
+
+  readonly navItems: AppNavItem[] = [
+    { path: '/welcome', label: 'Welcome', icon: 'home', exact: true },
+    { path: '/exercise', label: 'Exercise', icon: 'fitness_center', exact: true },
+    { path: '/finance', label: 'Finance', icon: 'account_balance_wallet', exact: true },
+    { path: '/management', label: 'Management', icon: 'dashboard', exact: true },
+    { path: '/journal', label: 'Journal', icon: 'menu_book', exact: true },
+    { path: '/reports', label: 'Reports', icon: 'bar_chart', exact: true },
+    { path: '/security', label: 'Security', icon: 'shield', exact: true },
+    { path: '/contact', label: 'Contact Us', icon: 'mail_outline', exact: true },
+    { path: '/admin', label: 'Admin', icon: 'admin_panel_settings', exact: true },
+    { path: '/logs', label: 'Logs', icon: 'article', exact: true, adminOnly: true },
+  ];
   /** Populated from API after startup (null if unreachable). */
   apiRelease: ApiVersionPayload | null = null;
   /** True for routes that use the minimal shell (no main tab bar), e.g. login, privacy, and security. */
@@ -101,6 +124,10 @@ export class AppComponent implements OnInit {
 
   get isAdmin(): boolean {
     return this.auth.isAdmin();
+  }
+
+  get visibleNavItems(): AppNavItem[] {
+    return this.navItems.filter((item) => !item.adminOnly || this.isAdmin);
   }
 
   logout(): void {

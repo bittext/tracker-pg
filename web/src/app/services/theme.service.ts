@@ -1,16 +1,21 @@
 import { Injectable, signal, computed, inject, PLATFORM_ID } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import {
+  AppThemeTokens,
+  getThemeTokens,
+  themeTokensToCssVars,
+} from '../config/theme-tokens.config';
+import {
   DEFAULT_THEME_CONFIG,
   THEME_STORAGE_KEY,
   ThemeConfig,
   ThemeMode,
   ThemePreset,
+  ResolvedThemeMode,
   parseThemeConfig,
 } from '../models/theme.models';
 
-/** Resolved light/dark after applying system preference. */
-export type ResolvedThemeMode = 'light' | 'dark';
+export type { ResolvedThemeMode } from '../models/theme.models';
 
 @Injectable({ providedIn: 'root' })
 export class ThemeService {
@@ -30,6 +35,14 @@ export class ThemeService {
   readonly resolvedMode = computed<ResolvedThemeMode>(() =>
     this.resolveMode(this.configSignal().mode),
   );
+
+  /** Active token bundle — use in components when a raw color is unavoidable. */
+  readonly tokens = computed(() =>
+    getThemeTokens(this.configSignal().preset, this.resolvedMode()),
+  );
+
+  /** OpenAI preset uses a platform-style sidebar shell. */
+  readonly usesSidebarShell = computed(() => this.configSignal().preset === 'openai');
 
   /** Call once at startup (AppComponent ngOnInit). */
   init(): void {
@@ -93,18 +106,21 @@ export class ThemeService {
     root.dataset['themePreset'] = config.preset;
     root.dataset['themeMode'] = resolved;
     root.style.colorScheme = resolved;
-    this.updateMetaThemeColor(config.preset, resolved);
+
+    const tokens = getThemeTokens(config.preset, resolved);
+    this.applyTokens(root, tokens);
+
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) {
+      meta.setAttribute('content', tokens.themeColor);
+    }
   }
 
-  private updateMetaThemeColor(preset: ThemePreset, mode: ResolvedThemeMode): void {
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (!meta) {
-      return;
-    }
-    if (preset === 'openai') {
-      meta.setAttribute('content', mode === 'dark' ? '#0d0d0d' : '#ffffff');
-    } else {
-      meta.setAttribute('content', mode === 'dark' ? '#0b3d40' : '#0f6d73');
+  /** Writes configuration tokens to CSS custom properties on `root`. */
+  applyTokens(root: HTMLElement, tokens: AppThemeTokens): void {
+    const vars = themeTokensToCssVars(tokens);
+    for (const [name, value] of Object.entries(vars)) {
+      root.style.setProperty(name, value);
     }
   }
 
