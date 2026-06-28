@@ -96,8 +96,10 @@ export class FinanceApiService {
   }
 
   /** All Robinhood accounts: CSV cash flows + synced holdings since Apr 5 2026. */
-  robinhoodRhAccountsTrack() {
-    return this.http.get<RobinhoodRhAccountsTrackDto>(`${this.root}/rh-accounts-track`);
+  robinhoodRhAccountsTrack(sync = true) {
+    return this.http.get<RobinhoodRhAccountsTrackDto>(`${this.root}/rh-accounts-track`, {
+      params: { sync: String(sync) },
+    });
   }
 
   /** Robinhood Agentic MCP connection status (Phase 1). */

@@ -122,10 +122,11 @@ public class FinanceController {
 
     /** All Robinhood accounts: CSV cash flows + synced holdings since Apr 5 2026. */
     @GetMapping("/rh-accounts-track")
-    public RobinhoodRhAccountsTrackDto rhAccountsTrack() {
-        log.info("GET /api/finance/robinhood/rh-accounts-track");
+    public RobinhoodRhAccountsTrackDto rhAccountsTrack(
+            @RequestParam(name = "sync", defaultValue = "true") boolean sync) {
+        log.info("GET /api/finance/robinhood/rh-accounts-track sync={}", sync);
         try {
-            return rhAccountsTrackService.build();
+            return rhAccountsTrackService.build(sync);
         } catch (IllegalStateException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
         }

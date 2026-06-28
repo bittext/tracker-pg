@@ -4,7 +4,7 @@ Robinhood Agentic Trading sidecar for tracker-pg.
 Endpoints
 ---------
 - GET  /health
-- POST /v1/sync           → {access_token, sync_default?}
+- POST /v1/sync           → {access_token, sync_default?, sync_all?}
 - POST /v1/refresh-token  → {refresh_token, client_id?}
 - POST /v1/review-order   → {access_token, symbol, side, type, ...}
 - POST /v1/place-order    → {access_token, symbol, side, type, ...}
@@ -31,6 +31,7 @@ app = FastAPI(title="robinhood-agent-svc", version="2.0.0")
 class SyncRequest(BaseModel):
     access_token: str = Field(min_length=10)
     sync_default: bool = True
+    sync_all: bool = True
 
 
 class RefreshTokenRequest(BaseModel):
@@ -58,7 +59,7 @@ def health() -> dict[str, str]:
 @app.post("/v1/sync")
 def sync(body: SyncRequest) -> dict:
     try:
-        return run_sync(body.access_token, sync_default=body.sync_default)
+        return run_sync(body.access_token, sync_default=body.sync_default, sync_all=body.sync_all)
     except PermissionError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
     except RuntimeError as exc:

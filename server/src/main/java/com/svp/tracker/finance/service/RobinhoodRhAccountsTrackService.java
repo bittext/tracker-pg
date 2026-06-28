@@ -52,12 +52,19 @@ public class RobinhoodRhAccountsTrackService {
     private final RobinhoodAgenticConnectionRepository connectionRepository;
     private final RobinhoodAgenticPositionRepository positionRepository;
     private final RobinhoodFinanceService financeService;
+    private final RobinhoodAgenticService agenticService;
     private final FinanceProperties financeProperties;
     private final CurrentUserService currentUser;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional
     public RobinhoodRhAccountsTrackDto build() {
+        return build(true);
+    }
+
+    @Transactional
+    public RobinhoodRhAccountsTrackDto build(boolean syncLatest) {
+        List<String> syncNotes = syncLatest ? agenticService.syncLatestForAccountsTrack() : List.of();
         long ownerUserId = currentUser.requireUserId();
         RobinhoodAccountTrackerConfig config = getOrCreateConfig(ownerUserId);
         Instant trackingStartedAt = resolveTrackingStart(config);
@@ -149,6 +156,7 @@ public class RobinhoodRhAccountsTrackService {
         }
 
         List<String> notes = buildGlobalNotes(csvRows.size(), rowCap, connectionOpt, accounts);
+        notes.addAll(0, syncNotes);
 
         return new RobinhoodRhAccountsTrackDto(
                 trackingStartedAt,
@@ -701,7 +709,7 @@ public class RobinhoodRhAccountsTrackService {
             notes.add("Cash-flow query capped at " + rowCap + " rows; older transfers since cutoff may be omitted.");
         }
         if (connectionOpt.isEmpty() || connectionOpt.get().getLastSyncAt() == null) {
-            notes.add("Connect Robinhood Agentic Trading and run Sync for live holdings and portfolio totals.");
+            notes.add("Connect Robinhood Agentic Trading for live holdings, options, and portfolio totals.");
         }
         long withoutHoldings =
                 accounts.stream().filter(a -> a.holdings().isEmpty() && a.totalAccountValue().signum() == 0).count();

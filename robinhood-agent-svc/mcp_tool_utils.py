@@ -50,5 +50,35 @@ def pick_probe_accounts(accounts: list[dict[str, Any]]) -> dict[str, dict[str, A
     return {"agentic": agentic, "default": default}
 
 
+def infer_account_role(account: dict[str, Any]) -> str:
+    if account.get("agentic_allowed"):
+        return "agentic"
+    if account.get("is_default"):
+        return "default"
+    nick = str(account.get("nickname") or "").lower()
+    btype = str(account.get("brokerage_account_type") or "").lower()
+    if "managed" in nick or "managed" in btype:
+        return "managed"
+    return "other"
+
+
+def _role_order(role: str) -> int:
+    return {"agentic": 0, "default": 1, "managed": 2}.get(role, 3)
+
+
+def build_sync_targets(accounts: list[dict[str, Any]]) -> list[tuple[str, dict[str, Any]]]:
+    """All unique Robinhood accounts, labeled for sync (agentic, default, managed, other)."""
+    seen: set[str] = set()
+    targets: list[tuple[str, dict[str, Any]]] = []
+    for account in accounts:
+        acct_num = str(account.get("account_number") or "").strip()
+        if not acct_num or acct_num in seen:
+            continue
+        seen.add(acct_num)
+        targets.append((infer_account_role(account), account))
+    targets.sort(key=lambda t: (_role_order(t[0]), str(t[1].get("account_number", ""))))
+    return targets
+
+
 def list_tool_names(tools: list[dict[str, Any]]) -> set[str]:
     return {str(t.get("name", "")).strip() for t in tools if t.get("name")}

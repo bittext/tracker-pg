@@ -7,7 +7,13 @@ from datetime import datetime, timezone
 from typing import Any
 
 from mcp_client import RobinhoodMcpClient
-from mcp_tool_utils import extract_accounts, list_tool_names, parse_tool_payload, pick_probe_accounts
+from mcp_tool_utils import (
+    build_sync_targets,
+    extract_accounts,
+    list_tool_names,
+    parse_tool_payload,
+    pick_probe_accounts,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -16,7 +22,6 @@ EQUITY_ORDERS_TOOL = "get_equity_orders"
 EQUITY_QUOTES_TOOL = "get_equity_quotes"
 QUOTE_BATCH_SIZE = 20
 ORDERS_SYNC_LIMIT = 10
-POSITIONS_SYNC_LIMIT = 10
 
 
 def _to_float(value: Any) -> float | None:
@@ -179,10 +184,10 @@ def _position_rank_value(row: dict[str, Any]) -> float:
 
 
 def _trim_positions_for_sync(positions: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Keep only open positions, ranked by market value (top N)."""
+    """Keep all open positions across accounts (equity + options)."""
     open_positions = [row for row in positions if _is_open_position(row)]
     open_positions.sort(key=_position_rank_value, reverse=True)
-    return open_positions[:POSITIONS_SYNC_LIMIT]
+    return open_positions
 
 
 def _orders_from_payload(payload: Any) -> list[dict[str, Any]]:
@@ -401,7 +406,12 @@ def _sync_option_positions(
     return options
 
 
-def run_sync(access_token: str, *, sync_default: bool = True) -> dict[str, Any]:
+def run_sync(
+    access_token: str,
+    *,
+    sync_default: bool = True,
+    sync_all: bool = True,
+) -> dict[str, Any]:
     client = RobinhoodMcpClient(access_token=access_token)
     started = datetime.now(timezone.utc).isoformat()
     warnings: list[str] = []
@@ -422,13 +432,16 @@ def run_sync(access_token: str, *, sync_default: bool = True) -> dict[str, Any]:
         accounts = extract_accounts(raw_accounts)
         picks = pick_probe_accounts(accounts)
         agentic = picks.get("agentic")
-        default = picks.get("default") if sync_default else None
 
-        targets: list[tuple[str, dict[str, Any]]] = []
-        if agentic:
-            targets.append(("agentic", agentic))
-        if default and (not agentic or default.get("account_number") != agentic.get("account_number")):
-            targets.append(("default", default))
+        if sync_all:
+            targets = build_sync_targets(accounts)
+        else:
+            default = picks.get("default") if sync_default else None
+            targets = []
+            if agentic:
+                targets.append(("agentic", agentic))
+            if default and (not agentic or default.get("account_number") != agentic.get("account_number")):
+                targets.append(("default", default))
 
         if not targets:
             raise RuntimeError("No accounts found from get_accounts")
@@ -523,7 +536,7 @@ def run_sync(access_token: str, *, sync_default: bool = True) -> dict[str, Any]:
             "mcp_tool_count": len(tool_names),
             "option_positions_tool_available": option_tool_available,
             "orders_sync_limit": ORDERS_SYNC_LIMIT,
-            "positions_sync_limit": POSITIONS_SYNC_LIMIT,
+            "sync_all_accounts": sync_all,
             "warnings": warnings,
             "accounts": account_summaries,
             "portfolios": portfolios,

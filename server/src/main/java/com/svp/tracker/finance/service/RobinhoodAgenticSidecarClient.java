@@ -26,11 +26,11 @@ public class RobinhoodAgenticSidecarClient {
         this.props = props;
     }
 
-    public JsonNode sync(String accessToken, boolean syncDefaultAccount) {
+    public JsonNode sync(String accessToken, boolean syncAllAccounts) {
         requireConfigured();
         ObjectNode body = objectMapper.createObjectNode();
         body.put("access_token", accessToken);
-        body.put("sync_default", syncDefaultAccount);
+        body.put("sync_all", syncAllAccounts);
         return post("/v1/sync", body);
     }
 

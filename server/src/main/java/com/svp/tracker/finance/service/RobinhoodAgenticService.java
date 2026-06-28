@@ -40,7 +40,7 @@ import org.springframework.web.server.ResponseStatusException;
 @Slf4j
 public class RobinhoodAgenticService {
 
-    private static final int POSITIONS_SYNC_LIMIT = 10;
+    private static final int ORDERS_SYNC_LIMIT = 10;
 
     private final RobinhoodAgenticProperties props;
     private final CurrentUserService currentUser;
@@ -151,6 +151,31 @@ public class RobinhoodAgenticService {
         return runSync(conn);
     }
 
+    /** Best-effort live sync for RH Accounts Track refresh; never throws. */
+    public List<String> syncLatestForAccountsTrack() {
+        if (!props.serviceConfigured()) {
+            return List.of("Live sync skipped — Robinhood Agentic sidecar not configured.");
+        }
+        long uid = currentUser.requireUserId();
+        if (connectionRepository.findByOwnerUserId(uid).isEmpty()) {
+            return List.of(
+                    "Live sync skipped — connect Robinhood Agentic Trading to pull latest holdings and options.");
+        }
+        if (!props.enabled()) {
+            return List.of("Live sync skipped — Robinhood Agentic is disabled.");
+        }
+        try {
+            RobinhoodAgenticSyncResultDto result = syncNow();
+            return List.of(result.message());
+        } catch (Exception e) {
+            log.warn("RH Accounts Track live sync failed for user {}", uid, e);
+            return List.of(
+                    "Live sync failed ("
+                            + truncate(rootCauseMessage(e), 180)
+                            + ") — showing last cached snapshot.");
+        }
+    }
+
     /** Called by scheduled sync — no current-user context. */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void syncConnection(RobinhoodAgenticConnection conn) {
@@ -166,7 +191,7 @@ public class RobinhoodAgenticService {
         try {
             JsonNode result = tokenService.withFreshToken(
                     conn,
-                    token -> sidecarClient.sync(token, props.syncDefaultAccount()));
+                    token -> sidecarClient.sync(token, true));
             if (!result.path("ok").asBoolean(false)) {
                 throw new IllegalStateException("Sidecar sync returned ok=false");
             }
@@ -356,7 +381,6 @@ public class RobinhoodAgenticService {
         return positions.stream()
                 .filter(p -> isOpenPosition(p.getQuantity()))
                 .sorted(Comparator.comparing(RobinhoodAgenticService::positionRankValue).reversed())
-                .limit(POSITIONS_SYNC_LIMIT)
                 .toList();
     }
 
