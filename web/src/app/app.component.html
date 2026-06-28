@@ -26,6 +26,7 @@
   <span class="spacer"></span>
   <span class="app-release-hint" [attr.title]="releaseHintTooltip" tabindex="-1" aria-hidden="true"
     >v{{ webReleaseVersion }}</span>
+  <app-theme-settings *ngIf="authenticated" />
   <span class="user-chip" *ngIf="authenticated">{{ username }}</span>
   <button mat-button type="button" *ngIf="authenticated" (click)="logout()">Log out</button>
 </mat-toolbar>

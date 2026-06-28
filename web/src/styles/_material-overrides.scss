@@ -1,0 +1,186 @@
+/* Material surfaces */
+.mat-mdc-card {
+  border-radius: var(--app-radius) !important;
+  border: 1px solid var(--app-border) !important;
+  background-color: var(--app-surface) !important;
+  box-shadow: var(--app-shadow-sm) !important;
+}
+
+/* Tables */
+table.mat-mdc-table {
+  font-variant-numeric: tabular-nums;
+}
+
+table.mat-mdc-table .mat-mdc-header-row {
+  background: var(--app-surface-muted) !important;
+}
+
+table.mat-mdc-table .mat-mdc-header-cell {
+  font-weight: 600 !important;
+  font-size: 0.72rem !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: var(--app-text-subtle) !important;
+  border-bottom-color: var(--app-border-strong) !important;
+}
+
+table.mat-mdc-table .mat-mdc-cell {
+  border-bottom-color: var(--app-border) !important;
+  vertical-align: middle;
+}
+
+table.mat-mdc-table .mat-mdc-row:nth-child(even) .mat-mdc-cell {
+  background-color: var(--app-table-stripe);
+}
+
+/* Tabs */
+.mat-mdc-tab-group.mat-primary,
+.mat-mdc-tab-nav-bar.mat-primary {
+  --mat-tab-header-active-label-text-color: var(--app-accent);
+  --mat-tab-header-active-focus-label-text-color: var(--app-accent);
+  --mat-tab-header-active-hover-label-text-color: var(--app-accent);
+  --mat-tab-header-inactive-label-text-color: var(--app-text-muted);
+  --mdc-tab-indicator-active-indicator-color: var(--app-accent);
+}
+
+/* Form fields — outline matches app border */
+.mat-mdc-form-field {
+  --mdc-outlined-text-field-outline-color: var(--app-border);
+  --mdc-outlined-text-field-hover-outline-color: var(--app-border-strong);
+  --mdc-outlined-text-field-focus-outline-color: var(--app-accent);
+  --mdc-outlined-text-field-label-text-color: var(--app-text-muted);
+  --mdc-outlined-text-field-input-text-color: var(--app-text);
+}
+
+[data-theme-preset='openai'] .mat-mdc-form-field {
+  --mat-form-field-container-text-size: 14px;
+}
+
+[data-theme-preset='openai'] .mat-mdc-text-field-wrapper {
+  border-radius: var(--app-radius-pill);
+}
+
+/* Primary actions — monochromatic for OpenAI preset */
+[data-theme-preset='openai'] {
+  .mat-mdc-unelevated-button.mat-primary,
+  .mat-mdc-raised-button.mat-primary,
+  .mat-mdc-fab.mat-primary,
+  .mat-mdc-mini-fab.mat-primary {
+    --mdc-filled-button-container-color: var(--app-accent);
+    --mdc-protected-button-container-color: var(--app-accent);
+    --mat-filled-button-state-layer-color: var(--app-accent);
+    --mdc-filled-button-label-text-color: var(--app-accent-on);
+    border-radius: var(--app-radius-pill);
+  }
+
+  .mat-mdc-outlined-button.mat-primary,
+  .mat-mdc-button.mat-primary {
+    --mdc-outlined-button-label-text-color: var(--app-accent);
+    --mdc-text-button-label-text-color: var(--app-accent);
+    --mdc-outlined-button-outline-color: var(--app-border);
+    border-radius: var(--app-radius-pill);
+  }
+
+  .mat-mdc-checkbox.mat-primary {
+    --mdc-checkbox-selected-icon-color: var(--app-accent);
+    --mdc-checkbox-selected-focus-icon-color: var(--app-accent);
+    --mdc-checkbox-selected-hover-icon-color: var(--app-accent);
+  }
+
+  .mat-mdc-radio-button.mat-primary {
+    --mdc-radio-selected-icon-color: var(--app-accent);
+    --mdc-radio-selected-focus-icon-color: var(--app-accent);
+    --mdc-radio-selected-hover-icon-color: var(--app-accent);
+  }
+}
+
+[data-theme-preset='classic'] {
+  .mat-mdc-unelevated-button.mat-primary,
+  .mat-mdc-raised-button.mat-primary {
+    --mdc-filled-button-container-color: var(--app-accent);
+    --mdc-filled-button-label-text-color: var(--app-accent-on);
+  }
+}
+
+/* Toolbar buttons in app chrome */
+.app-top-bar {
+  .mat-mdc-button,
+  .mat-mdc-icon-button {
+    color: var(--app-text-muted);
+  }
+
+  .mat-mdc-button:hover,
+  .mat-mdc-icon-button:hover {
+    color: var(--app-text);
+  }
+}
+
+/* Snackbar readable in dark mode */
+[data-theme-mode='dark'] .mat-mdc-snack-bar-container {
+  --mdc-snackbar-container-color: var(--app-surface-muted);
+  --mdc-snackbar-supporting-text-color: var(--app-text);
+}
+
+/* Dialog surfaces */
+.mat-mdc-dialog-container .mdc-dialog__surface {
+  background: var(--app-surface);
+  color: var(--app-text);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-lg);
+}
+
+/* Theme settings panel (appearance menu) */
+.theme-settings-menu-panel .mat-mdc-menu-content {
+  padding: 0;
+}
+
+.theme-settings-menu {
+  min-width: 17rem;
+  padding: 0.75rem 1rem 1rem;
+}
+
+.theme-settings-menu__title {
+  margin: 0 0 0.75rem;
+  font-family: var(--app-font-display);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--app-text-subtle);
+}
+
+.theme-settings-menu__section + .theme-settings-menu__section {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--app-border);
+}
+
+.theme-settings-menu__label {
+  display: block;
+  margin: 0 0 0.4rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--app-text-muted);
+}
+
+.theme-settings-menu mat-button-toggle-group {
+  width: 100%;
+  display: flex;
+}
+
+.theme-settings-menu .mat-button-toggle {
+  flex: 1 1 0;
+  font-size: 0.8125rem;
+}
+
+.theme-settings-menu .mat-button-toggle-label-content {
+  line-height: 2rem;
+  padding: 0 0.35rem;
+}
+
+.theme-settings-menu__hint {
+  margin: 0.5rem 0 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--app-text-subtle);
+}

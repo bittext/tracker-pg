@@ -1,0 +1,43 @@
+/* Classic — light (original app look) */
+[data-theme-preset='classic'][data-theme-mode='light'] {
+  --app-font-display: 'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif;
+  --app-font-body: 'Plus Jakarta Sans', 'Roboto', 'Helvetica Neue', sans-serif;
+
+  --app-bg: #e7eff0;
+  --app-bg-gradient: linear-gradient(165deg, #e6eff2 0%, #edf4f5 42%, #e9f0f2 100%);
+  --app-surface: #ffffff;
+  --app-surface-muted: #f5f7fb;
+  --app-surface-tint: #f0f4fc;
+  --app-surface-hover: rgba(255, 255, 255, 0.65);
+
+  --app-border: rgba(15, 23, 42, 0.08);
+  --app-border-strong: rgba(15, 23, 42, 0.12);
+
+  --app-text: #0f172a;
+  --app-text-muted: #64748b;
+  --app-text-subtle: #94a3b8;
+
+  --app-accent: #0f6d73;
+  --app-accent-soft: rgba(15, 109, 115, 0.12);
+  --app-accent-on: #ffffff;
+
+  --app-radius-lg: 16px;
+  --app-radius: 12px;
+  --app-radius-sm: 10px;
+  --app-radius-pill: 9999px;
+
+  --app-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --app-shadow-md: 0 2px 8px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.04);
+
+  --app-toolbar-bg: rgba(255, 255, 255, 0.82);
+  --app-toolbar-border: rgba(15, 23, 42, 0.08);
+  --app-table-stripe: rgba(248, 250, 252, 0.65);
+  --app-focus-ring: rgba(15, 109, 115, 0.45);
+
+  --app-shell-max-width: 1200px;
+  --app-frame-shadow: var(--app-shadow-md);
+
+  --app-cal-strength: rgba(99, 102, 241, 0.14);
+  --app-cal-weight: rgba(16, 185, 129, 0.14);
+  --app-cal-both: rgba(139, 92, 246, 0.16);
+}

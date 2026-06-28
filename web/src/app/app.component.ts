@@ -11,6 +11,8 @@ import { environment } from '../environments/environment';
 import { WEB_RELEASE_VERSION } from './release-version';
 import { APP_DISPLAY_NAME, APP_SHORT_NAME } from './app-branding';
 import { AuthService } from './services/auth.service';
+import { ThemeService } from './services/theme.service';
+import { ThemeSettingsComponent } from './components/theme-settings/theme-settings.component';
 
 /** Response from GET /api/version (Spring Boot build-info when packaged). */
 interface ApiVersionPayload {
@@ -31,6 +33,7 @@ interface ApiVersionPayload {
     MatToolbarModule,
     MatTabsModule,
     MatButtonModule,
+    ThemeSettingsComponent,
   ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
@@ -38,6 +41,7 @@ interface ApiVersionPayload {
 export class AppComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
+  private readonly theme = inject(ThemeService);
   private readonly http = inject(HttpClient);
   private readonly documentTitle = inject(Title);
   /** Shown in the top bar; full name sets the browser tab title. */
@@ -65,6 +69,7 @@ export class AppComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.theme.init();
     this.documentTitle.setTitle(APP_DISPLAY_NAME);
     const base = environment.apiBaseUrl || '';
     this.http

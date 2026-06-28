@@ -5,14 +5,39 @@
   <title>Health Tracker &amp; PFM (Personal Financial Management)</title>
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#0F6D73">
+  <meta name="theme-color" content="#ffffff">
   <link rel="icon" type="image/png" sizes="1024x1024" href="/tracker-app-icon-1024.png">
   <link rel="apple-touch-icon" href="/tracker-app-icon-1024.png">
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;1,14..32,400&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <script>
+    (function () {
+      try {
+        var raw = localStorage.getItem('tracker.theme.v1');
+        var cfg = raw ? JSON.parse(raw) : { preset: 'openai', mode: 'system' };
+        var preset = cfg.preset === 'classic' ? 'classic' : 'openai';
+        var mode = cfg.mode;
+        if (mode !== 'light' && mode !== 'dark') {
+          mode = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        var root = document.documentElement;
+        root.setAttribute('data-theme-preset', preset);
+        root.setAttribute('data-theme-mode', mode);
+        root.style.colorScheme = mode;
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) {
+          if (preset === 'openai') {
+            meta.setAttribute('content', mode === 'dark' ? '#0d0d0d' : '#ffffff');
+          } else {
+            meta.setAttribute('content', mode === 'dark' ? '#0b3d40' : '#0f6d73');
+          }
+        }
+      } catch (e) { /* ignore */ }
+    })();
+  </script>
 </head>
 <body>
   <app-root></app-root>

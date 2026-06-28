@@ -1,0 +1,58 @@
+/** Visual preset — maps to token bundles in src/styles/themes/. */
+export type ThemePreset = 'openai' | 'classic';
+
+/** Color scheme; `system` follows OS preference. */
+export type ThemeMode = 'light' | 'dark' | 'system';
+
+export interface ThemeConfig {
+  preset: ThemePreset;
+  mode: ThemeMode;
+}
+
+export const THEME_STORAGE_KEY = 'tracker.theme.v1';
+
+export const DEFAULT_THEME_CONFIG: ThemeConfig = {
+  preset: 'openai',
+  mode: 'system',
+};
+
+export interface ThemePresetMeta {
+  id: ThemePreset;
+  label: string;
+  description: string;
+}
+
+export interface ThemeModeMeta {
+  id: ThemeMode;
+  label: string;
+}
+
+export const THEME_PRESETS: ThemePresetMeta[] = [
+  {
+    id: 'openai',
+    label: 'OpenAI Platform',
+    description: 'Monochrome, minimal chrome — inspired by platform.openai.com',
+  },
+  {
+    id: 'classic',
+    label: 'Classic',
+    description: 'Original teal accent with soft gradients',
+  },
+];
+
+export const THEME_MODES: ThemeModeMeta[] = [
+  { id: 'system', label: 'System' },
+  { id: 'light', label: 'Light' },
+  { id: 'dark', label: 'Dark' },
+];
+
+export function parseThemeConfig(raw: unknown): ThemeConfig {
+  if (!raw || typeof raw !== 'object') {
+    return { ...DEFAULT_THEME_CONFIG };
+  }
+  const o = raw as Record<string, unknown>;
+  const preset = o['preset'] === 'classic' ? 'classic' : 'openai';
+  const mode =
+    o['mode'] === 'light' || o['mode'] === 'dark' || o['mode'] === 'system' ? o['mode'] : 'system';
+  return { preset, mode };
+}
