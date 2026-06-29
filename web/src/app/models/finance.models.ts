@@ -109,6 +109,8 @@ export interface RobinhoodRhDailyTrackerReportDto {
   monthCombinedChange: number;
   yearCombinedTotal: number;
   yearCombinedChange: number;
+  autoCaptureScheduled: boolean;
+  autoCaptureScheduleLabel: string;
   accounts: RobinhoodRhDailyTrackerAccountColumnDto[];
   days: RobinhoodRhDailyTrackerDayDto[];
   notes: string[];

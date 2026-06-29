@@ -8,20 +8,16 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatTableModule } from '@angular/material/table';
 import { RouterLink } from '@angular/router';
 import {
   RobinhoodRhDailyTrackerAccountCellDto,
   RobinhoodRhDailyTrackerDayDto,
+  RobinhoodRhDailyTrackerManualCaptureAccountDto,
   RobinhoodRhDailyTrackerManualCaptureDto,
   RobinhoodRhDailyTrackerReportDto,
 } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
-import {
-  RobinhoodDailyManualCaptureDialogComponent,
-  RobinhoodDailyManualCaptureDialogData,
-} from './robinhood-daily-manual-capture-dialog.component';
 import {
   RobinhoodDailySnapshotDialogComponent,
   RobinhoodDailySnapshotDialogData,
@@ -41,7 +37,6 @@ import {
     MatProgressSpinnerModule,
     MatSelectModule,
     MatSnackBarModule,
-    MatTableModule,
     CurrencyPipe,
     DatePipe,
   ],
@@ -58,6 +53,11 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   loading = false;
   capturing = false;
   tracker: RobinhoodRhDailyTrackerReportDto | null = null;
+
+  /** snapshotDate keys for expanded 9 PM day rows */
+  private readonly expandedDays = new Set<string>();
+  /** dayDate|capturedAt keys for expanded manual capture rows */
+  private readonly expandedManuals = new Set<string>();
 
   readonly monthChoices = [
     { value: null, label: 'All months' },
@@ -86,6 +86,8 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
 
   load(): void {
     this.loading = true;
+    this.expandedDays.clear();
+    this.expandedManuals.clear();
     this.financeApi.robinhoodDailyTracker(this.reportYear, this.reportMonth).subscribe({
       next: (t) => {
         this.tracker = t;
@@ -114,15 +116,55 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     });
   }
 
-  openManualCapture(capture: RobinhoodRhDailyTrackerManualCaptureDto, day: RobinhoodRhDailyTrackerDayDto): void {
-    this.dialog.open(RobinhoodDailyManualCaptureDialogComponent, {
-      width: 'min(520px, 96vw)',
-      maxHeight: '90vh',
-      data: {
-        dayLabel: day.snapshotDate,
-        capture,
-      } satisfies RobinhoodDailyManualCaptureDialogData,
-    });
+  isDayExpanded(day: RobinhoodRhDailyTrackerDayDto): boolean {
+    return this.expandedDays.has(day.snapshotDate);
+  }
+
+  toggleDay(day: RobinhoodRhDailyTrackerDayDto): void {
+    if (this.expandedDays.has(day.snapshotDate)) {
+      this.expandedDays.delete(day.snapshotDate);
+      for (const key of [...this.expandedManuals]) {
+        if (key.startsWith(day.snapshotDate + '|')) {
+          this.expandedManuals.delete(key);
+        }
+      }
+    } else {
+      this.expandedDays.add(day.snapshotDate);
+    }
+  }
+
+  isManualExpanded(day: RobinhoodRhDailyTrackerDayDto, capture: RobinhoodRhDailyTrackerManualCaptureDto): boolean {
+    return this.expandedManuals.has(this.manualKey(day, capture));
+  }
+
+  toggleManual(day: RobinhoodRhDailyTrackerDayDto, capture: RobinhoodRhDailyTrackerManualCaptureDto, event: Event): void {
+    event.stopPropagation();
+    const key = this.manualKey(day, capture);
+    if (this.expandedManuals.has(key)) {
+      this.expandedManuals.delete(key);
+    } else {
+      this.expandedManuals.add(key);
+    }
+  }
+
+  openManualAccountSnapshot(
+    acct: RobinhoodRhDailyTrackerManualCaptureAccountDto,
+    day: RobinhoodRhDailyTrackerDayDto,
+    event: Event,
+  ): void {
+    event.stopPropagation();
+    this.openSnapshot(
+      {
+        snapshotId: acct.snapshotId,
+        accountSuffix: acct.accountSuffix,
+        totalAccountValue: acct.totalAccountValue,
+        periodAdded: 0,
+        periodRemoved: 0,
+        periodValueChange: 0,
+        hasFlowActivity: false,
+      },
+      day,
+    );
   }
 
   openSnapshot(cell: RobinhoodRhDailyTrackerAccountCellDto, day: RobinhoodRhDailyTrackerDayDto): void {
@@ -150,5 +192,9 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
 
   hasFlowBlock(day: RobinhoodRhDailyTrackerDayDto): boolean {
     return day.hasScheduledSnapshot && (day.combinedPeriodAdded !== 0 || day.combinedPeriodRemoved !== 0);
+  }
+
+  private manualKey(day: RobinhoodRhDailyTrackerDayDto, capture: RobinhoodRhDailyTrackerManualCaptureDto): string {
+    return `${day.snapshotDate}|${capture.capturedAt}`;
   }
 }

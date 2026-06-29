@@ -147,6 +147,7 @@ tracker:
         poll-fixed-delay-ms: ${TRACKER_FINANCE_ROBINHOOD_AGENTIC_AUTO_TRADE_POLL_MS:300000}
         poll-initial-delay-ms: ${TRACKER_FINANCE_ROBINHOOD_AGENTIC_AUTO_TRADE_INITIAL_DELAY_MS:120000}
     rh-daily-tracker:
+      snapshot-scheduler-enabled-config: ${TRACKER_FINANCE_RH_DAILY_TRACKER_SNAPSHOT_ENABLED:true}
       snapshot-cron: ${TRACKER_FINANCE_RH_DAILY_TRACKER_SNAPSHOT_CRON:0 0 21 * * *}
       snapshot-zone: ${TRACKER_FINANCE_RH_DAILY_TRACKER_SNAPSHOT_ZONE:America/Chicago}
       excluded-account-suffixes:

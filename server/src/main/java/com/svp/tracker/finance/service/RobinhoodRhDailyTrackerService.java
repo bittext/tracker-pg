@@ -178,12 +178,20 @@ public class RobinhoodRhDailyTrackerService {
         BigDecimal yearCombinedChange = combinedChange(scheduledYearRows);
 
         List<String> notes = new ArrayList<>();
+        if (dailyTrackerProps.snapshotSchedulerActive()) {
+            notes.add(
+                    "Automatic capture runs "
+                            + dailyTrackerProps.autoCaptureScheduleLabel()
+                            + " for every connected Agentic account (syncs holdings first).");
+        } else {
+            notes.add("Automatic daily capture is disabled — use Capture now or enable the scheduler in server config.");
+        }
         notes.add(
-                "Each day shows the scheduled 9:00 PM Central snapshot. Manual captures are kept separately with timestamp links.");
+                "Each day shows the scheduled 9 PM snapshot. Manual captures are kept separately with timestamp links.");
         notes.add("Period flows on scheduled rows are cash movements since the previous 9 PM snapshot.");
         if (days.isEmpty()) {
             notes.add(
-                    "No snapshots yet — enable the daily snapshot scheduler or click Capture now after connecting Agentic Trading.");
+                    "No snapshots yet — wait for the 9 PM job or click Capture now after connecting Agentic Trading.");
         }
 
         return new RobinhoodRhDailyTrackerReportDto(
@@ -193,6 +201,8 @@ public class RobinhoodRhDailyTrackerService {
                 monthCombinedChange,
                 yearCombinedTotal,
                 yearCombinedChange,
+                dailyTrackerProps.snapshotSchedulerActive(),
+                dailyTrackerProps.autoCaptureScheduleLabel(),
                 suffixOrder.stream().map(columnBySuffix::get).filter(Objects::nonNull).toList(),
                 days,
                 notes);

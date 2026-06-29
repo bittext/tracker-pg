@@ -1,9 +1,15 @@
 <section class="rh-daily" aria-labelledby="rh-daily-heading">
   <h2 id="rh-daily-heading" class="rh-daily__title">Robinhood Daily Tracker</h2>
   <p class="muted rh-daily__lead">
-    Each day shows the scheduled <strong>9:00 PM Central</strong> snapshot per account. Use
-    <strong>Capture now</strong> for ad-hoc snapshots — those are kept as timestamped links under the day without
-    replacing the 9 PM row.
+    @if (tracker?.autoCaptureScheduled) {
+      <span class="rh-daily__auto-badge">
+        <mat-icon aria-hidden="true">event_repeat</mat-icon>
+        Auto-capture: {{ tracker!.autoCaptureScheduleLabel }}
+      </span>
+      —
+    }
+    Each day’s <strong>9:00 PM CST</strong> snapshot appears as a row — click to expand. Manual captures are listed
+    inside the expanded day.
     <a routerLink="/finance">Finance</a> → Trading to connect Agentic sync.
   </p>
 
@@ -65,109 +71,151 @@
     @if (!t.days.length) {
       <p class="muted">No daily snapshots for this period. Use <strong>Capture now</strong> or wait for the 9 PM job.</p>
     } @else {
-      @for (day of t.days; track day.snapshotDate) {
-        <article class="rh-daily__day" [attr.aria-label]="'Snapshot ' + day.snapshotDate">
-          <header class="rh-daily__day-head">
-            <h3 class="rh-daily__day-title">
-              {{ day.snapshotDate | date: 'mediumDate' }}
+      <ul class="rh-daily__day-list" role="list">
+        @for (day of t.days; track day.snapshotDate) {
+          <li
+            class="rh-daily__day-item"
+            [class.rh-daily__day-item--open]="isDayExpanded(day)"
+            [attr.aria-expanded]="isDayExpanded(day)"
+          >
+            <button
+              type="button"
+              class="rh-daily__day-row"
+              (click)="toggleDay(day)"
+              [attr.aria-label]="'Toggle ' + (day.snapshotDate | date: 'mediumDate') + ' snapshot'"
+            >
+              <mat-icon class="rh-daily__chevron" aria-hidden="true">
+                {{ isDayExpanded(day) ? 'expand_less' : 'expand_more' }}
+              </mat-icon>
+              <span class="rh-daily__day-row-date">{{ day.snapshotDate | date: 'mediumDate' }}</span>
               @if (day.hasScheduledSnapshot) {
-                <span class="muted">· 9 PM Central</span>
+                <span class="rh-daily__day-row-badge muted">9 PM CST</span>
+                <strong class="rh-daily__day-row-total">{{ day.combinedTotal | currency }}</strong>
+                @if (day.combinedPeriodValueChange !== 0) {
+                  <span class="rh-daily__day-row-delta muted" [class]="pnlClass(day.combinedPeriodValueChange)">
+                    Δ {{ day.combinedPeriodValueChange | currency }}
+                  </span>
+                }
+              } @else {
+                <span class="rh-daily__day-row-badge rh-daily__day-row-badge--pending">9 PM pending</span>
               }
-            </h3>
-            @if (day.hasScheduledSnapshot) {
-              <div class="rh-daily__day-combined">
-                <span class="muted">Combined</span>
-                <strong class="rh-daily__total">{{ day.combinedTotal | currency }}</strong>
-                <span class="muted" [class]="pnlClass(day.combinedPeriodValueChange)">
-                  Δ {{ day.combinedPeriodValueChange | currency }}
+              @if (day.manualCaptures.length) {
+                <span class="rh-daily__day-row-manual muted">
+                  {{ day.manualCaptures.length }} manual
                 </span>
-              </div>
-            } @else {
-              <p class="muted rh-daily__pending">9 PM snapshot pending</p>
-            }
-          </header>
-
-          @if (hasFlowBlock(day)) {
-            <div class="rh-daily__flows" role="region" aria-label="Period cash movements">
-              <h4 class="rh-daily__flows-title">Added / removed since previous 9 PM</h4>
-              <ul class="rh-daily__flows-list">
-                @for (acct of t.accounts; track acct.accountSuffix) {
-                  @if (cellForDay(day, acct.accountSuffix); as cell) {
-                    @if (cell.hasFlowActivity) {
-                      <li>
-                        <strong>{{ acct.label }}</strong>
-                        @if (cell.periodAdded) {
-                          <span class="rh-daily__flow-in">+{{ cell.periodAdded | currency }} in</span>
-                        }
-                        @if (cell.periodRemoved) {
-                          <span class="rh-daily__flow-out">−{{ cell.periodRemoved | currency }} out</span>
-                        }
-                      </li>
-                    }
-                  }
-                }
-                <li class="rh-daily__flows-combined">
-                  <strong>All accounts</strong>
-                  @if (day.combinedPeriodAdded) {
-                    <span class="rh-daily__flow-in">+{{ day.combinedPeriodAdded | currency }} in</span>
-                  }
-                  @if (day.combinedPeriodRemoved) {
-                    <span class="rh-daily__flow-out">−{{ day.combinedPeriodRemoved | currency }} out</span>
-                  }
-                </li>
-              </ul>
-            </div>
-          }
-
-          @if (day.hasScheduledSnapshot) {
-            <div class="rh-daily__accounts">
-              @for (acct of t.accounts; track acct.accountSuffix) {
-                @if (cellForDay(day, acct.accountSuffix); as cell) {
-                  <button
-                    type="button"
-                    class="rh-daily__acct-card"
-                    (click)="openSnapshot(cell, day)"
-                    [attr.aria-label]="'View ' + acct.label + ' details for ' + day.snapshotDate"
-                  >
-                    <span class="rh-daily__acct-kind muted">{{ acct.accountKind }}</span>
-                    <span class="rh-daily__acct-label">{{ acct.label }}</span>
-                    <strong class="rh-daily__acct-total">{{ cell.totalAccountValue | currency }}</strong>
-                    @if (cell.periodValueChange !== 0) {
-                      <span class="rh-daily__acct-delta muted" [class]="pnlClass(cell.periodValueChange)">
-                        Δ {{ cell.periodValueChange | currency }}
-                      </span>
-                    }
-                    <span class="rh-daily__acct-link">View holdings &amp; flows →</span>
-                  </button>
-                }
               }
-            </div>
-          }
+            </button>
 
-          @if (day.manualCaptures.length) {
-            <div class="rh-daily__manual" role="region" aria-label="Manual captures">
-              <h4 class="rh-daily__manual-title">Manual captures</h4>
-              <ul class="rh-daily__manual-list">
-                @for (mc of day.manualCaptures; track mc.capturedAt) {
-                  <li>
-                    <button
-                      type="button"
-                      class="rh-daily__manual-link"
-                      (click)="openManualCapture(mc, day)"
-                      [attr.aria-label]="'View manual capture at ' + (mc.capturedAt | date: 'shortTime')"
-                    >
-                      <mat-icon aria-hidden="true">schedule</mat-icon>
-                      <span>{{ mc.capturedAt | date: 'shortTime' }} Central</span>
-                      <strong>{{ mc.combinedTotal | currency }}</strong>
-                      <span class="rh-daily__manual-view">View →</span>
-                    </button>
-                  </li>
+            @if (isDayExpanded(day)) {
+              <div class="rh-daily__day-panel">
+                @if (day.hasScheduledSnapshot) {
+                  @if (hasFlowBlock(day)) {
+                    <div class="rh-daily__flows" role="region" aria-label="Period cash movements">
+                      <h4 class="rh-daily__flows-title">Added / removed since previous 9 PM</h4>
+                      <ul class="rh-daily__flows-list">
+                        @for (acct of t.accounts; track acct.accountSuffix) {
+                          @if (cellForDay(day, acct.accountSuffix); as cell) {
+                            @if (cell.hasFlowActivity) {
+                              <li>
+                                <strong>{{ acct.label }}</strong>
+                                @if (cell.periodAdded) {
+                                  <span class="rh-daily__flow-in">+{{ cell.periodAdded | currency }} in</span>
+                                }
+                                @if (cell.periodRemoved) {
+                                  <span class="rh-daily__flow-out">−{{ cell.periodRemoved | currency }} out</span>
+                                }
+                              </li>
+                            }
+                          }
+                        }
+                        <li class="rh-daily__flows-combined">
+                          <strong>All accounts</strong>
+                          @if (day.combinedPeriodAdded) {
+                            <span class="rh-daily__flow-in">+{{ day.combinedPeriodAdded | currency }} in</span>
+                          }
+                          @if (day.combinedPeriodRemoved) {
+                            <span class="rh-daily__flow-out">−{{ day.combinedPeriodRemoved | currency }} out</span>
+                          }
+                        </li>
+                      </ul>
+                    </div>
+                  }
+
+                  <div class="rh-daily__accounts">
+                    @for (acct of t.accounts; track acct.accountSuffix) {
+                      @if (cellForDay(day, acct.accountSuffix); as cell) {
+                        <button
+                          type="button"
+                          class="rh-daily__acct-card"
+                          (click)="openSnapshot(cell, day)"
+                          [attr.aria-label]="'View ' + acct.label + ' details for ' + day.snapshotDate"
+                        >
+                          <span class="rh-daily__acct-kind muted">{{ acct.accountKind }}</span>
+                          <span class="rh-daily__acct-label">{{ acct.label }}</span>
+                          <strong class="rh-daily__acct-total">{{ cell.totalAccountValue | currency }}</strong>
+                          @if (cell.periodValueChange !== 0) {
+                            <span class="rh-daily__acct-delta muted" [class]="pnlClass(cell.periodValueChange)">
+                              Δ {{ cell.periodValueChange | currency }}
+                            </span>
+                          }
+                          <span class="rh-daily__acct-link">View holdings &amp; flows →</span>
+                        </button>
+                      }
+                    }
+                  </div>
+                } @else {
+                  <p class="muted rh-daily__pending">Scheduled 9 PM snapshot not captured yet.</p>
                 }
-              </ul>
-            </div>
-          }
-        </article>
-      }
+
+                @if (day.manualCaptures.length) {
+                  <div class="rh-daily__manual" role="region" aria-label="Manual captures">
+                    <h4 class="rh-daily__manual-title">Manual captures</h4>
+                    <ul class="rh-daily__manual-list">
+                      @for (mc of day.manualCaptures; track mc.capturedAt) {
+                        <li
+                          class="rh-daily__manual-item"
+                          [class.rh-daily__manual-item--open]="isManualExpanded(day, mc)"
+                        >
+                          <button
+                            type="button"
+                            class="rh-daily__manual-row"
+                            (click)="toggleManual(day, mc, $event)"
+                            [attr.aria-expanded]="isManualExpanded(day, mc)"
+                          >
+                            <mat-icon class="rh-daily__chevron rh-daily__chevron--sm" aria-hidden="true">
+                              {{ isManualExpanded(day, mc) ? 'expand_less' : 'expand_more' }}
+                            </mat-icon>
+                            <mat-icon class="rh-daily__manual-icon" aria-hidden="true">schedule</mat-icon>
+                            <span>{{ mc.capturedAt | date: 'shortTime' }} CST</span>
+                            <strong>{{ mc.combinedTotal | currency }}</strong>
+                          </button>
+                          @if (isManualExpanded(day, mc)) {
+                            <ul class="rh-daily__manual-accounts">
+                              @for (acct of mc.accounts; track acct.snapshotId) {
+                                <li>
+                                  <button
+                                    type="button"
+                                    class="rh-daily__manual-acct"
+                                    (click)="openManualAccountSnapshot(acct, day, $event)"
+                                  >
+                                    <span>{{ acct.label }}</span>
+                                    <strong>{{ acct.totalAccountValue | currency }}</strong>
+                                    <span class="rh-daily__acct-link">View holdings &amp; flows →</span>
+                                  </button>
+                                </li>
+                              }
+                            </ul>
+                          }
+                        </li>
+                      }
+                    </ul>
+                  </div>
+                }
+              </div>
+            }
+          </li>
+        }
+      </ul>
     }
   }
 </section>

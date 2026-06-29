@@ -5,7 +5,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "tracker.finance.rh-daily-tracker")
 public record RobinhoodRhDailyTrackerProperties(
-        String snapshotCron, String snapshotZone, List<String> excludedAccountSuffixes) {
+        String snapshotCron,
+        String snapshotZone,
+        String snapshotSchedulerEnabledConfig,
+        List<String> excludedAccountSuffixes) {
 
     public RobinhoodRhDailyTrackerProperties {
         if (snapshotCron == null) {
@@ -17,6 +20,11 @@ public record RobinhoodRhDailyTrackerProperties(
             snapshotZone = "America/Chicago";
         } else {
             snapshotZone = snapshotZone.trim();
+        }
+        if (snapshotSchedulerEnabledConfig == null) {
+            snapshotSchedulerEnabledConfig = "true";
+        } else {
+            snapshotSchedulerEnabledConfig = snapshotSchedulerEnabledConfig.trim();
         }
         if (excludedAccountSuffixes == null) {
             excludedAccountSuffixes = List.of();
@@ -31,6 +39,23 @@ public record RobinhoodRhDailyTrackerProperties(
 
     public boolean snapshotCronEnabled() {
         return !snapshotCron.isBlank();
+    }
+
+    /** Whether the daily 9 PM auto-capture job is active. */
+    public boolean snapshotSchedulerActive() {
+        return schedulerEnabledByConfig() && snapshotCronEnabled();
+    }
+
+    private boolean schedulerEnabledByConfig() {
+        String v = snapshotSchedulerEnabledConfig;
+        return "true".equalsIgnoreCase(v) || "1".equals(v) || "yes".equalsIgnoreCase(v);
+    }
+
+    public String autoCaptureScheduleLabel() {
+        if (!snapshotSchedulerActive()) {
+            return "";
+        }
+        return "Daily at 9:00 PM " + snapshotZone;
     }
 
     public boolean isExcludedSuffix(String suffix) {

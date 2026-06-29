@@ -12,6 +12,8 @@ public record RobinhoodRhDailyTrackerReportDto(
         BigDecimal monthCombinedChange,
         BigDecimal yearCombinedTotal,
         BigDecimal yearCombinedChange,
+        boolean autoCaptureScheduled,
+        String autoCaptureScheduleLabel,
         List<RobinhoodRhDailyTrackerAccountColumnDto> accounts,
         List<RobinhoodRhDailyTrackerDayDto> days,
         List<String> notes) {}
