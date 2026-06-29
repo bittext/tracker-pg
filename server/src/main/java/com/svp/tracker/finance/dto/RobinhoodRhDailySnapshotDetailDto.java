@@ -9,6 +9,7 @@ public record RobinhoodRhDailySnapshotDetailDto(
         long id,
         LocalDate snapshotDate,
         Instant snapshotAt,
+        String captureKind,
         LocalDate periodStartDate,
         String accountSuffix,
         String label,

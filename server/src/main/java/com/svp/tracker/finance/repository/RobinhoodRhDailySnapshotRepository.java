@@ -1,6 +1,7 @@
 package com.svp.tracker.finance.repository;
 
 import com.svp.tracker.finance.domain.RobinhoodRhDailySnapshot;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -11,11 +12,14 @@ public interface RobinhoodRhDailySnapshotRepository extends JpaRepository<Robinh
     List<RobinhoodRhDailySnapshot> findByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateDescAccountSuffixAsc(
             long ownerUserId, LocalDate from, LocalDate to);
 
-    Optional<RobinhoodRhDailySnapshot> findByOwnerUserIdAndSnapshotDateAndAccountSuffix(
-            long ownerUserId, LocalDate snapshotDate, String accountSuffix);
+    Optional<RobinhoodRhDailySnapshot> findByOwnerUserIdAndSnapshotDateAndAccountSuffixAndCaptureKind(
+            long ownerUserId, LocalDate snapshotDate, String accountSuffix, String captureKind);
 
-    Optional<RobinhoodRhDailySnapshot> findTopByOwnerUserIdAndAccountSuffixAndSnapshotDateLessThanOrderBySnapshotDateDesc(
-            long ownerUserId, String accountSuffix, LocalDate beforeDate);
+    Optional<RobinhoodRhDailySnapshot> findTopByOwnerUserIdAndAccountSuffixAndCaptureKindAndSnapshotDateLessThanOrderBySnapshotDateDesc(
+            long ownerUserId, String accountSuffix, String captureKind, LocalDate beforeDate);
+
+    Optional<RobinhoodRhDailySnapshot> findTopByOwnerUserIdAndAccountSuffixAndSnapshotAtLessThanOrderBySnapshotAtDesc(
+            long ownerUserId, String accountSuffix, Instant beforeAt);
 
     Optional<RobinhoodRhDailySnapshot> findByIdAndOwnerUserId(long id, long ownerUserId);
 }

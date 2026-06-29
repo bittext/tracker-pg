@@ -1,8 +1,9 @@
 <section class="rh-daily" aria-labelledby="rh-daily-heading">
   <h2 id="rh-daily-heading" class="rh-daily__title">Robinhood Daily Tracker</h2>
   <p class="muted rh-daily__lead">
-    End-of-day snapshot of every Robinhood account at <strong>9:00 PM Central</strong>. Each account is tracked
-    separately. Click an account total to view holdings and cash movements since the previous 9 PM snapshot.
+    Each day shows the scheduled <strong>9:00 PM Central</strong> snapshot per account. Use
+    <strong>Capture now</strong> for ad-hoc snapshots — those are kept as timestamped links under the day without
+    replacing the 9 PM row.
     <a routerLink="/finance">Finance</a> → Trading to connect Agentic sync.
   </p>
 
@@ -69,15 +70,21 @@
           <header class="rh-daily__day-head">
             <h3 class="rh-daily__day-title">
               {{ day.snapshotDate | date: 'mediumDate' }}
-              <span class="muted">· 9 PM Central</span>
+              @if (day.hasScheduledSnapshot) {
+                <span class="muted">· 9 PM Central</span>
+              }
             </h3>
-            <div class="rh-daily__day-combined">
-              <span class="muted">Combined</span>
-              <strong class="rh-daily__total">{{ day.combinedTotal | currency }}</strong>
-              <span class="muted" [class]="pnlClass(day.combinedPeriodValueChange)">
-                Δ {{ day.combinedPeriodValueChange | currency }}
-              </span>
-            </div>
+            @if (day.hasScheduledSnapshot) {
+              <div class="rh-daily__day-combined">
+                <span class="muted">Combined</span>
+                <strong class="rh-daily__total">{{ day.combinedTotal | currency }}</strong>
+                <span class="muted" [class]="pnlClass(day.combinedPeriodValueChange)">
+                  Δ {{ day.combinedPeriodValueChange | currency }}
+                </span>
+              </div>
+            } @else {
+              <p class="muted rh-daily__pending">9 PM snapshot pending</p>
+            }
           </header>
 
           @if (hasFlowBlock(day)) {
@@ -112,28 +119,53 @@
             </div>
           }
 
-          <div class="rh-daily__accounts">
-            @for (acct of t.accounts; track acct.accountSuffix) {
-              @if (cellForDay(day, acct.accountSuffix); as cell) {
-                <button
-                  type="button"
-                  class="rh-daily__acct-card"
-                  (click)="openSnapshot(cell, day)"
-                  [attr.aria-label]="'View ' + acct.label + ' details for ' + day.snapshotDate"
-                >
-                  <span class="rh-daily__acct-kind muted">{{ acct.accountKind }}</span>
-                  <span class="rh-daily__acct-label">{{ acct.label }}</span>
-                  <strong class="rh-daily__acct-total">{{ cell.totalAccountValue | currency }}</strong>
-                  @if (cell.periodValueChange !== 0) {
-                    <span class="rh-daily__acct-delta muted" [class]="pnlClass(cell.periodValueChange)">
-                      Δ {{ cell.periodValueChange | currency }}
-                    </span>
-                  }
-                  <span class="rh-daily__acct-link">View holdings &amp; flows →</span>
-                </button>
+          @if (day.hasScheduledSnapshot) {
+            <div class="rh-daily__accounts">
+              @for (acct of t.accounts; track acct.accountSuffix) {
+                @if (cellForDay(day, acct.accountSuffix); as cell) {
+                  <button
+                    type="button"
+                    class="rh-daily__acct-card"
+                    (click)="openSnapshot(cell, day)"
+                    [attr.aria-label]="'View ' + acct.label + ' details for ' + day.snapshotDate"
+                  >
+                    <span class="rh-daily__acct-kind muted">{{ acct.accountKind }}</span>
+                    <span class="rh-daily__acct-label">{{ acct.label }}</span>
+                    <strong class="rh-daily__acct-total">{{ cell.totalAccountValue | currency }}</strong>
+                    @if (cell.periodValueChange !== 0) {
+                      <span class="rh-daily__acct-delta muted" [class]="pnlClass(cell.periodValueChange)">
+                        Δ {{ cell.periodValueChange | currency }}
+                      </span>
+                    }
+                    <span class="rh-daily__acct-link">View holdings &amp; flows →</span>
+                  </button>
+                }
               }
-            }
-          </div>
+            </div>
+          }
+
+          @if (day.manualCaptures.length) {
+            <div class="rh-daily__manual" role="region" aria-label="Manual captures">
+              <h4 class="rh-daily__manual-title">Manual captures</h4>
+              <ul class="rh-daily__manual-list">
+                @for (mc of day.manualCaptures; track mc.capturedAt) {
+                  <li>
+                    <button
+                      type="button"
+                      class="rh-daily__manual-link"
+                      (click)="openManualCapture(mc, day)"
+                      [attr.aria-label]="'View manual capture at ' + (mc.capturedAt | date: 'shortTime')"
+                    >
+                      <mat-icon aria-hidden="true">schedule</mat-icon>
+                      <span>{{ mc.capturedAt | date: 'shortTime' }} Central</span>
+                      <strong>{{ mc.combinedTotal | currency }}</strong>
+                      <span class="rh-daily__manual-view">View →</span>
+                    </button>
+                  </li>
+                }
+              </ul>
+            </div>
+          }
         </article>
       }
     }

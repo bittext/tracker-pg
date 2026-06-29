@@ -36,7 +36,7 @@ public class RobinhoodRhDailySnapshotScheduler {
                 if (agenticProps.enabled() && agenticProps.serviceConfigured()) {
                     agenticService.syncConnection(conn);
                 }
-                dailyTrackerService.captureSnapshotsForOwner(conn.getOwnerUserId(), java.time.Instant.now());
+                dailyTrackerService.captureScheduledSnapshotsForOwner(conn.getOwnerUserId(), java.time.Instant.now());
                 log.info("RH daily snapshot ok for user {}", conn.getOwnerUserId());
             } catch (Exception e) {
                 log.warn("RH daily snapshot failed for user {}: {}", conn.getOwnerUserId(), e.getMessage());

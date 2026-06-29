@@ -123,11 +123,26 @@ export interface RobinhoodRhDailyTrackerAccountColumnDto {
 export interface RobinhoodRhDailyTrackerDayDto {
   snapshotDate: string;
   snapshotAt: string | null;
+  hasScheduledSnapshot: boolean;
   combinedTotal: number;
   combinedPeriodAdded: number;
   combinedPeriodRemoved: number;
   combinedPeriodValueChange: number;
   accounts: RobinhoodRhDailyTrackerAccountCellDto[];
+  manualCaptures: RobinhoodRhDailyTrackerManualCaptureDto[];
+}
+
+export interface RobinhoodRhDailyTrackerManualCaptureDto {
+  capturedAt: string;
+  combinedTotal: number;
+  accounts: RobinhoodRhDailyTrackerManualCaptureAccountDto[];
+}
+
+export interface RobinhoodRhDailyTrackerManualCaptureAccountDto {
+  snapshotId: number;
+  accountSuffix: string;
+  label: string;
+  totalAccountValue: number;
 }
 
 export interface RobinhoodRhDailyTrackerAccountCellDto {
@@ -144,6 +159,7 @@ export interface RobinhoodRhDailySnapshotDetailDto {
   id: number;
   snapshotDate: string;
   snapshotAt: string;
+  captureKind: string;
   periodStartDate: string | null;
   accountSuffix: string;
   label: string;

@@ -13,10 +13,15 @@ import { RouterLink } from '@angular/router';
 import {
   RobinhoodRhDailyTrackerAccountCellDto,
   RobinhoodRhDailyTrackerDayDto,
+  RobinhoodRhDailyTrackerManualCaptureDto,
   RobinhoodRhDailyTrackerReportDto,
 } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
+import {
+  RobinhoodDailyManualCaptureDialogComponent,
+  RobinhoodDailyManualCaptureDialogData,
+} from './robinhood-daily-manual-capture-dialog.component';
 import {
   RobinhoodDailySnapshotDialogComponent,
   RobinhoodDailySnapshotDialogData,
@@ -109,6 +114,17 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     });
   }
 
+  openManualCapture(capture: RobinhoodRhDailyTrackerManualCaptureDto, day: RobinhoodRhDailyTrackerDayDto): void {
+    this.dialog.open(RobinhoodDailyManualCaptureDialogComponent, {
+      width: 'min(520px, 96vw)',
+      maxHeight: '90vh',
+      data: {
+        dayLabel: day.snapshotDate,
+        capture,
+      } satisfies RobinhoodDailyManualCaptureDialogData,
+    });
+  }
+
   openSnapshot(cell: RobinhoodRhDailyTrackerAccountCellDto, day: RobinhoodRhDailyTrackerDayDto): void {
     if (!cell.snapshotId) {
       return;
@@ -133,6 +149,6 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   }
 
   hasFlowBlock(day: RobinhoodRhDailyTrackerDayDto): boolean {
-    return day.combinedPeriodAdded !== 0 || day.combinedPeriodRemoved !== 0;
+    return day.hasScheduledSnapshot && (day.combinedPeriodAdded !== 0 || day.combinedPeriodRemoved !== 0);
   }
 }

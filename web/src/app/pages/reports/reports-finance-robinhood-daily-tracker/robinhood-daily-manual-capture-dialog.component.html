@@ -1,0 +1,22 @@
+<h2 mat-dialog-title>Manual capture</h2>
+<mat-dialog-content class="rh-manual-dialog">
+  <p class="muted rh-manual-dialog__meta">
+    {{ data.capture.capturedAt | date: 'mediumDate' }}
+    · {{ data.capture.capturedAt | date: 'shortTime' }} Central
+    · Combined {{ data.capture.combinedTotal | currency }}
+  </p>
+  <ul class="rh-manual-dialog__list">
+    @for (acct of data.capture.accounts; track acct.snapshotId) {
+      <li>
+        <button type="button" class="rh-manual-dialog__link" (click)="openAccount(acct.snapshotId, acct.accountSuffix)">
+          <span>{{ acct.label }}</span>
+          <strong>{{ acct.totalAccountValue | currency }}</strong>
+          <span class="rh-manual-dialog__view">View holdings &amp; flows →</span>
+        </button>
+      </li>
+    }
+  </ul>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-button type="button" (click)="close()">Close</button>
+</mat-dialog-actions>

@@ -1,0 +1,35 @@
+.rh-manual-dialog__meta {
+  margin: 0 0 0.75rem;
+}
+
+.rh-manual-dialog__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rh-manual-dialog__link {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.75rem;
+  width: 100%;
+  margin-bottom: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
+  border-radius: 8px;
+  background: var(--app-bg, #f7f7f8);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.rh-manual-dialog__link:hover {
+  border-color: var(--app-accent, #10a37f);
+}
+
+.rh-manual-dialog__view {
+  font-size: 0.75rem;
+  color: var(--app-accent, #10a37f);
+}

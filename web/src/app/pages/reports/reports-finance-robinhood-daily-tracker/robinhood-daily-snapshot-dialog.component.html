@@ -4,9 +4,13 @@
     <mat-spinner diameter="36" aria-label="Loading snapshot" />
   } @else if (detail; as d) {
     <p class="muted rh-snap-dialog__meta">
-      Snapshot {{ d.snapshotDate | date: 'mediumDate' }} · 9 PM Central
+      @if (d.captureKind === 'MANUAL') {
+        Manual capture {{ d.snapshotAt | date: 'mediumDate' }} · {{ d.snapshotAt | date: 'shortTime' }} Central
+      } @else {
+        Snapshot {{ d.snapshotDate | date: 'mediumDate' }} · 9 PM Central
+      }
       @if (d.periodStartDate) {
-        <span> · Period since {{ d.periodStartDate | date: 'mediumDate' }} 9 PM</span>
+        <span> · Period since {{ d.periodStartDate | date: 'mediumDate' }}</span>
       }
     </p>
 
