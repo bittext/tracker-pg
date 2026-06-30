@@ -212,9 +212,7 @@ public class RobinhoodAgenticService {
         logRow.setOwnerUserId(conn.getOwnerUserId());
         logRow.setStartedAt(started);
         try {
-            JsonNode result = tokenService.withFreshToken(
-                    conn,
-                    token -> sidecarClient.sync(token, true));
+            JsonNode result = tokenService.syncAllAccounts(conn);
             if (!result.path("ok").asBoolean(false)) {
                 throw new IllegalStateException("Sidecar sync returned ok=false");
             }

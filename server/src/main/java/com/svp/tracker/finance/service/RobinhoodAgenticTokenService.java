@@ -7,6 +7,7 @@ import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -66,5 +67,14 @@ public class RobinhoodAgenticTokenService {
             refreshAndSave(conn);
             return call.call(requireAccessToken(conn));
         }
+    }
+
+    /**
+     * Sidecar sync HTTP only — runs outside any caller transaction so network failures do not mark
+     * the caller rollback-only before errors are handled.
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public JsonNode syncAllAccounts(RobinhoodAgenticConnection conn) {
+        return withFreshToken(conn, token -> sidecarClient.sync(token, true));
     }
 }

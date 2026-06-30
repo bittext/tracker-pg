@@ -45,6 +45,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -69,6 +70,7 @@ public class RobinhoodRhDailyTrackerService {
     private final RobinhoodRhDailyDayNoteRepository dayNoteRepository;
     private final RobinhoodAgenticProperties agenticProps;
     private final RobinhoodRhDailyTrackerProperties dailyTrackerProps;
+    private final ObjectProvider<RobinhoodRhDailyTrackerService> selfProvider;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional(readOnly = true)
@@ -281,7 +283,6 @@ public class RobinhoodRhDailyTrackerService {
         return new RobinhoodRhDailyManualCaptureDeleteResultDto(true, visible.size(), message);
     }
 
-    @Transactional
     public RobinhoodRhDailyCaptureResultDto captureNow(boolean syncLatest) {
         long ownerUserId = currentUser.requireUserId();
         boolean syncSkipped = false;
@@ -291,7 +292,9 @@ public class RobinhoodRhDailyTrackerService {
                     .map(conn -> !agenticService.syncConnectionBestEffort(conn))
                     .orElse(false);
         }
-        RobinhoodRhDailyCaptureResultDto result = captureManualSnapshotsForOwner(ownerUserId, Instant.now());
+        RobinhoodRhDailyCaptureResultDto result = selfProvider
+                .getObject()
+                .captureManualSnapshotsForOwner(ownerUserId, Instant.now());
         if (!syncSkipped) {
             return result;
         }
