@@ -1,5 +1,7 @@
 .rh-snap-dialog {
-  min-width: min(720px, 90vw);
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .rh-snap-dialog__meta {
@@ -7,8 +9,12 @@
 }
 
 .rh-snap-dialog__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.25rem;
   margin: 0 0 1rem;
-  padding-left: 1.1rem;
+  padding: 0;
+  list-style: none;
 }
 
 .rh-snap-dialog__in {
@@ -34,16 +40,42 @@
   font-size: 0.875rem;
 }
 
+.rh-snap-dialog__table--holdings {
+  min-width: 58rem;
+}
+
+.rh-snap-dialog__table--flows {
+  min-width: 40rem;
+}
+
 .rh-snap-dialog__table th,
 .rh-snap-dialog__table td {
-  padding: 0.35rem 0.5rem;
+  padding: 0.4rem 0.55rem;
   border-bottom: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
   text-align: left;
+  vertical-align: top;
 }
 
 .rh-snap-dialog__table th {
   font-weight: 600;
   color: var(--app-text-muted, #64748b);
+  white-space: nowrap;
+}
+
+.rh-snap-dialog__num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.rh-snap-dialog__nowrap {
+  white-space: nowrap;
+}
+
+.rh-snap-dialog__desc {
+  min-width: 12rem;
+  max-width: 36rem;
+  word-break: break-word;
 }
 
 .rh-snap-dialog__pnl--pos {

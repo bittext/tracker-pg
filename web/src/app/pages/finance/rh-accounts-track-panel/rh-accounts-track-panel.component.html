@@ -132,8 +132,9 @@
                   <th>Type</th>
                   <th>Qty</th>
                   <th>Avg cost</th>
-                  <th>Market value</th>
+                  <th>Current cost</th>
                   <th>Cost basis</th>
+                  <th>Market value</th>
                   <th>Unrealized P&amp;L</th>
                 </tr>
               </thead>
@@ -144,8 +145,9 @@
                     <td>{{ h.positionType }}</td>
                     <td>{{ h.quantity | number: '1.0-4' }}</td>
                     <td>{{ h.averageBuyPrice | currency }}</td>
-                    <td>{{ h.marketValue | currency }}</td>
+                    <td>{{ h.currentUnitPrice | currency }}</td>
                     <td>{{ h.costBasis | currency }}</td>
+                    <td>{{ h.marketValue | currency }}</td>
                     <td [class]="pnlClass(h.unrealizedPnL >= 0)">{{ h.unrealizedPnL | currency }}</td>
                   </tr>
                 }

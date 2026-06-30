@@ -1,7 +1,7 @@
 import { CommonModule, CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogConfig, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { RobinhoodRhDailySnapshotDetailDto } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
@@ -11,6 +11,14 @@ export interface RobinhoodDailySnapshotDialogData {
   dayLabel: string;
   accountSuffix: string;
 }
+
+/** Wide enough for holdings (7 cols) + cash-flow tables without clipping. */
+export const RH_SNAPSHOT_DIALOG_CONFIG: Pick<MatDialogConfig, 'width' | 'maxWidth' | 'maxHeight' | 'panelClass'> = {
+  width: 'min(1400px, 98vw)',
+  maxWidth: '98vw',
+  maxHeight: '92vh',
+  panelClass: 'rh-snap-dialog-panel',
+};
 
 @Component({
   selector: 'app-robinhood-daily-snapshot-dialog',
@@ -61,13 +69,6 @@ export class RobinhoodDailySnapshotDialogComponent implements OnInit {
       default:
         return category || '—';
     }
-  }
-
-  costBasis(h: { marketValue: number; unrealizedPnL: number; costBasis?: number }): number {
-    if (h.costBasis != null && h.costBasis !== 0) {
-      return h.costBasis;
-    }
-    return h.marketValue - h.unrealizedPnL;
   }
 
   pnlClass(positive: boolean): string {

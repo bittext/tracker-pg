@@ -32,16 +32,17 @@
     @if (d.holdings.length) {
       <h3 class="rh-snap-dialog__section">Holdings at snapshot</h3>
       <div class="rh-snap-dialog__table-wrap">
-        <table class="rh-snap-dialog__table">
+        <table class="rh-snap-dialog__table rh-snap-dialog__table--holdings">
           <thead>
             <tr>
               <th>Symbol</th>
               <th>Type</th>
-              <th>Qty</th>
-              <th>Avg cost</th>
-              <th>Market value</th>
-              <th>Cost basis</th>
-              <th>Unrealized P&amp;L</th>
+              <th class="rh-snap-dialog__num">Qty</th>
+              <th class="rh-snap-dialog__num">Avg cost</th>
+              <th class="rh-snap-dialog__num">Current cost</th>
+              <th class="rh-snap-dialog__num">Cost basis</th>
+              <th class="rh-snap-dialog__num">Market value</th>
+              <th class="rh-snap-dialog__num">Unrealized P&amp;L</th>
             </tr>
           </thead>
           <tbody>
@@ -49,11 +50,14 @@
               <tr>
                 <td>{{ h.symbol }}</td>
                 <td>{{ h.positionType }}</td>
-                <td>{{ h.quantity | number: '1.0-4' }}</td>
-                <td>{{ h.averageBuyPrice | currency }}</td>
-                <td>{{ h.marketValue | currency }}</td>
-                <td>{{ costBasis(h) | currency }}</td>
-                <td [class]="pnlClass(h.unrealizedPnL >= 0)">{{ h.unrealizedPnL | currency }}</td>
+                <td class="rh-snap-dialog__num">{{ h.quantity | number: '1.0-4' }}</td>
+                <td class="rh-snap-dialog__num">{{ h.averageBuyPrice | currency }}</td>
+                <td class="rh-snap-dialog__num">{{ h.currentUnitPrice | currency }}</td>
+                <td class="rh-snap-dialog__num">{{ h.costBasis | currency }}</td>
+                <td class="rh-snap-dialog__num">{{ h.marketValue | currency }}</td>
+                <td class="rh-snap-dialog__num" [class]="pnlClass(h.unrealizedPnL >= 0)">
+                  {{ h.unrealizedPnL | currency }}
+                </td>
               </tr>
             }
           </tbody>
@@ -66,24 +70,24 @@
     @if (d.periodFlows.length) {
       <h3 class="rh-snap-dialog__section">Cash movements in period</h3>
       <div class="rh-snap-dialog__table-wrap">
-        <table class="rh-snap-dialog__table">
+        <table class="rh-snap-dialog__table rh-snap-dialog__table--flows">
           <thead>
             <tr>
               <th>Date</th>
               <th>Direction</th>
               <th>Category</th>
-              <th>Amount</th>
+              <th class="rh-snap-dialog__num">Amount</th>
               <th>Description</th>
             </tr>
           </thead>
           <tbody>
             @for (f of d.periodFlows; track $index) {
               <tr>
-                <td>{{ f.activityDate | date: 'mediumDate' }}</td>
+                <td class="rh-snap-dialog__nowrap">{{ f.activityDate | date: 'mediumDate' }}</td>
                 <td>{{ f.direction }}</td>
                 <td>{{ flowCategoryLabel(f.flowCategory) }}</td>
-                <td>{{ f.amount | currency }}</td>
-                <td>{{ f.description ?? f.transCode }}</td>
+                <td class="rh-snap-dialog__num">{{ f.amount | currency }}</td>
+                <td class="rh-snap-dialog__desc">{{ f.description ?? f.transCode }}</td>
               </tr>
             }
           </tbody>

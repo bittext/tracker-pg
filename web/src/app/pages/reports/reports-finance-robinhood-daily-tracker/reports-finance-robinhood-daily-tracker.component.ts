@@ -22,6 +22,7 @@ import { formatHttpErrorDetail } from '../../../util/http-error';
 import {
   RobinhoodDailySnapshotDialogComponent,
   RobinhoodDailySnapshotDialogData,
+  RH_SNAPSHOT_DIALOG_CONFIG,
 } from './robinhood-daily-snapshot-dialog.component';
 
 @Component({
@@ -246,8 +247,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       return;
     }
     this.dialog.open(RobinhoodDailySnapshotDialogComponent, {
-      width: 'min(960px, 96vw)',
-      maxHeight: '90vh',
+      ...RH_SNAPSHOT_DIALOG_CONFIG,
       data: {
         snapshotId: cell.snapshotId,
         dayLabel: day.snapshotDate,

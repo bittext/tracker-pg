@@ -6,6 +6,7 @@ import { RobinhoodRhDailyTrackerManualCaptureDto } from '../../../models/finance
 import {
   RobinhoodDailySnapshotDialogComponent,
   RobinhoodDailySnapshotDialogData,
+  RH_SNAPSHOT_DIALOG_CONFIG,
 } from './robinhood-daily-snapshot-dialog.component';
 
 export interface RobinhoodDailyManualCaptureDialogData {
@@ -31,8 +32,7 @@ export class RobinhoodDailyManualCaptureDialogComponent {
 
   openAccount(snapshotId: number, accountSuffix: string): void {
     this.dialog.open(RobinhoodDailySnapshotDialogComponent, {
-      width: 'min(960px, 96vw)',
-      maxHeight: '90vh',
+      ...RH_SNAPSHOT_DIALOG_CONFIG,
       data: {
         snapshotId,
         dayLabel: this.data.dayLabel,

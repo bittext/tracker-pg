@@ -388,6 +388,20 @@ app-management .rep-cal-table-wrap table.mat-mdc-table {
   max-width: 100vw;
 }
 
+/* Reports → Robinhood Daily Tracker snapshot detail (holdings + flows). */
+.cdk-overlay-container .rh-snap-dialog-panel {
+  max-width: 98vw !important;
+}
+
+.cdk-overlay-container .rh-snap-dialog-panel .mat-mdc-dialog-container {
+  width: min(1400px, 98vw);
+  max-width: 98vw;
+}
+
+.cdk-overlay-container .rh-snap-dialog-panel .mat-mdc-dialog-content {
+  max-height: calc(92vh - 7.5rem);
+}
+
 /* Management → Write-up tab */
 app-management .mgmt-writeup-panel {
   max-width: min(100%, 96rem);

@@ -239,6 +239,7 @@ export interface RobinhoodRhHoldingDto {
   positionType: string;
   quantity: number;
   averageBuyPrice: number;
+  currentUnitPrice: number;
   marketValue: number;
   costBasis: number;
   unrealizedPnL: number;
