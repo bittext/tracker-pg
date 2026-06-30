@@ -1,4 +1,4 @@
-import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
+import { CommonModule, CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -15,7 +15,7 @@ export interface RobinhoodDailySnapshotDialogData {
 @Component({
   selector: 'app-robinhood-daily-snapshot-dialog',
   standalone: true,
-  imports: [CommonModule, MatDialogModule, MatButtonModule, MatProgressSpinnerModule, CurrencyPipe, DatePipe],
+  imports: [CommonModule, MatDialogModule, MatButtonModule, MatProgressSpinnerModule, CurrencyPipe, DatePipe, DecimalPipe],
   templateUrl: './robinhood-daily-snapshot-dialog.component.html',
   styleUrl: './robinhood-daily-snapshot-dialog.component.scss',
 })
@@ -61,5 +61,16 @@ export class RobinhoodDailySnapshotDialogComponent implements OnInit {
       default:
         return category || '—';
     }
+  }
+
+  costBasis(h: { marketValue: number; unrealizedPnL: number; costBasis?: number }): number {
+    if (h.costBasis != null && h.costBasis !== 0) {
+      return h.costBasis;
+    }
+    return h.marketValue - h.unrealizedPnL;
+  }
+
+  pnlClass(positive: boolean): string {
+    return positive ? 'rh-snap-dialog__pnl--pos' : 'rh-snap-dialog__pnl--neg';
   }
 }

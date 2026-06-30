@@ -38,7 +38,9 @@
               <th>Symbol</th>
               <th>Type</th>
               <th>Qty</th>
+              <th>Avg cost</th>
               <th>Market value</th>
+              <th>Cost basis</th>
               <th>Unrealized P&amp;L</th>
             </tr>
           </thead>
@@ -47,9 +49,11 @@
               <tr>
                 <td>{{ h.symbol }}</td>
                 <td>{{ h.positionType }}</td>
-                <td>{{ h.quantity }}</td>
+                <td>{{ h.quantity | number: '1.0-4' }}</td>
+                <td>{{ h.averageBuyPrice | currency }}</td>
                 <td>{{ h.marketValue | currency }}</td>
-                <td>{{ h.unrealizedPnL | currency }}</td>
+                <td>{{ costBasis(h) | currency }}</td>
+                <td [class]="pnlClass(h.unrealizedPnL >= 0)">{{ h.unrealizedPnL | currency }}</td>
               </tr>
             }
           </tbody>

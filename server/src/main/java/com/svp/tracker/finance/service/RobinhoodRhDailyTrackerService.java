@@ -417,6 +417,7 @@ public class RobinhoodRhDailyTrackerService {
 
     private RobinhoodRhDailySnapshotDetailDto toDetailDto(RobinhoodRhDailySnapshot row) {
         List<RobinhoodRhHoldingDto> holdings = readJson(row.getHoldingsJson(), new TypeReference<>() {});
+        holdings = rhAccountsTrackService.finalizeSnapshotHoldings(holdings, row.getEquityMarketValue());
         List<RobinhoodRhCashFlowEventDto> flows = readJson(row.getFlowsJson(), new TypeReference<>() {});
         return new RobinhoodRhDailySnapshotDetailDto(
                 row.getId(),

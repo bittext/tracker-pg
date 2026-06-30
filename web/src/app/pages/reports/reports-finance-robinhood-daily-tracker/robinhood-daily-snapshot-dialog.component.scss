@@ -45,3 +45,11 @@
   font-weight: 600;
   color: var(--app-text-muted, #64748b);
 }
+
+.rh-snap-dialog__pnl--pos {
+  color: var(--app-success, #10a37f);
+}
+
+.rh-snap-dialog__pnl--neg {
+  color: #c0392b;
+}

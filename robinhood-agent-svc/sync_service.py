@@ -122,7 +122,8 @@ def _enrich_market_values(
 ) -> None:
     """Fill missing market_value using row prices, then get_equity_quotes."""
     for position in positions:
-        if position.get("market_value") is not None:
+        existing = _to_float(position.get("market_value") or position.get("equity") or position.get("value"))
+        if existing is not None and existing != 0.0:
             continue
         is_option = position.get("position_type") == "option"
         position["market_value"] = _market_value_from_row(position, option=is_option)
@@ -135,7 +136,7 @@ def _enrich_market_values(
             str(p["symbol"]).strip().upper()
             for p in positions
             if p.get("position_type") == "equity"
-            and p.get("market_value") is None
+            and (_to_float(p.get("market_value")) in (None, 0.0))
             and p.get("symbol")
             and _to_float(p.get("quantity")) is not None
         }
@@ -153,7 +154,10 @@ def _enrich_market_values(
             LOGGER.warning("get_equity_quotes failed for %s: %s", batch, exc)
 
     for position in positions:
-        if position.get("position_type") != "equity" or position.get("market_value") is not None:
+        if position.get("position_type") != "equity":
+            continue
+        mv = _to_float(position.get("market_value"))
+        if mv is not None and mv != 0.0:
             continue
         symbol = str(position.get("symbol", "")).strip().upper()
         price = quote_prices.get(symbol)

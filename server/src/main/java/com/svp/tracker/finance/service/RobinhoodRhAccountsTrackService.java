@@ -60,6 +60,7 @@ public class RobinhoodRhAccountsTrackService {
     private final RobinhoodAgenticService agenticService;
     private final FinanceProperties financeProperties;
     private final CurrentUserService currentUser;
+    private final YahooBatchQuoteService yahooBatchQuoteService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional
@@ -231,13 +232,17 @@ public class RobinhoodRhAccountsTrackService {
 
         FlowTotals flow = summarizeFlows(cashFlows, startingTotal);
 
-        List<RobinhoodRhHoldingDto> holdings = buildHoldings(positions);
-        HoldingsTotals holdingsTotals = summarizeHoldings(holdings);
-
         PortfolioTotals portfolio = parsePortfolio(portfolioNode);
         BigDecimal cash = portfolio.cash != null ? portfolio.cash : BigDecimal.ZERO;
         BigDecimal equityMv =
-                portfolio.equityValue != null ? portfolio.equityValue : holdingsTotals.marketValue;
+                portfolio.equityValue != null ? portfolio.equityValue : BigDecimal.ZERO;
+
+        List<RobinhoodRhHoldingDto> holdings =
+                RobinhoodRhHoldingValues.fromPositions(positions, equityMv, yahooBatchQuoteService);
+        HoldingsTotals holdingsTotals = summarizeHoldings(holdings);
+        if (portfolio.equityValue == null) {
+            equityMv = holdingsTotals.marketValue;
+        }
         BigDecimal totalValue = portfolio.totalValue;
         if (totalValue == null || totalValue.compareTo(BigDecimal.ZERO) == 0) {
             totalValue = equityMv.add(cash);
@@ -337,29 +342,10 @@ public class RobinhoodRhAccountsTrackService {
                 notes);
     }
 
-    private static List<RobinhoodRhHoldingDto> buildHoldings(List<RobinhoodAgenticPosition> positions) {
-        List<RobinhoodRhHoldingDto> out = new ArrayList<>();
-        for (RobinhoodAgenticPosition p : positions) {
-            BigDecimal qty = nullToZero(p.getQuantity());
-            if (qty.compareTo(BigDecimal.ZERO) == 0) {
-                continue;
-            }
-            BigDecimal avg = nullToZero(p.getAverageBuyPrice());
-            BigDecimal mv = nullToZero(p.getMarketValue());
-            BigDecimal cost = qty.abs().multiply(avg).setScale(2, RoundingMode.HALF_UP);
-            BigDecimal unrealized = mv.subtract(cost).setScale(2, RoundingMode.HALF_UP);
-            out.add(
-                    new RobinhoodRhHoldingDto(
-                            p.getSymbol(),
-                            p.getPositionType(),
-                            qty,
-                            avg,
-                            mv,
-                            cost,
-                            unrealized));
-        }
-        out.sort(Comparator.comparing(RobinhoodRhHoldingDto::symbol, String.CASE_INSENSITIVE_ORDER));
-        return out;
+    /** Recompute market values for holdings deserialized from a stored snapshot. */
+    public List<RobinhoodRhHoldingDto> finalizeSnapshotHoldings(
+            List<RobinhoodRhHoldingDto> holdings, BigDecimal accountEquityMarketValue) {
+        return RobinhoodRhHoldingValues.finalizeHoldings(holdings, accountEquityMarketValue, yahooBatchQuoteService);
     }
 
     private static HoldingsTotals summarizeHoldings(List<RobinhoodRhHoldingDto> holdings) {
