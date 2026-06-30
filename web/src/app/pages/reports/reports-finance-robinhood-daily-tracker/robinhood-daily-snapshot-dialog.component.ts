@@ -3,8 +3,9 @@ import { Component, OnInit, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogConfig, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { RobinhoodRhDailySnapshotDetailDto } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
+import { rhHoldingCurrentUnitPrice, rhHoldingPnlPercent } from '../../finance/rh-holding-display.util';
+import { RobinhoodRhDailySnapshotDetailDto, RobinhoodRhHoldingDto } from '../../../models/finance.models';
 
 export interface RobinhoodDailySnapshotDialogData {
   snapshotId: number;
@@ -12,9 +13,9 @@ export interface RobinhoodDailySnapshotDialogData {
   accountSuffix: string;
 }
 
-/** Wide enough for holdings (7 cols) + cash-flow tables without clipping. */
+/** Wide enough for holdings (9 cols) + cash-flow tables without clipping. */
 export const RH_SNAPSHOT_DIALOG_CONFIG: Pick<MatDialogConfig, 'width' | 'maxWidth' | 'maxHeight' | 'panelClass'> = {
-  width: 'min(1400px, 98vw)',
+  width: 'min(1500px, 98vw)',
   maxWidth: '98vw',
   maxHeight: '92vh',
   panelClass: 'rh-snap-dialog-panel',
@@ -73,5 +74,13 @@ export class RobinhoodDailySnapshotDialogComponent implements OnInit {
 
   pnlClass(positive: boolean): string {
     return positive ? 'rh-snap-dialog__pnl--pos' : 'rh-snap-dialog__pnl--neg';
+  }
+
+  currentCost(h: RobinhoodRhHoldingDto): number | null {
+    return rhHoldingCurrentUnitPrice(h);
+  }
+
+  pnlPercent(h: RobinhoodRhHoldingDto): number | null {
+    return rhHoldingPnlPercent(h);
   }
 }

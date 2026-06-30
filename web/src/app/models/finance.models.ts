@@ -243,6 +243,7 @@ export interface RobinhoodRhHoldingDto {
   marketValue: number;
   costBasis: number;
   unrealizedPnL: number;
+  unrealizedPnLPercent?: number;
 }
 
 /** Robinhood Agentic Trading MCP (Phase 1) */

@@ -12,4 +12,6 @@ public record RobinhoodRhHoldingDto(
         BigDecimal currentUnitPrice,
         BigDecimal marketValue,
         BigDecimal costBasis,
-        BigDecimal unrealizedPnL) {}
+        BigDecimal unrealizedPnL,
+        /** Unrealized P&amp;L as a percent of cost basis. */
+        BigDecimal unrealizedPnLPercent) {}

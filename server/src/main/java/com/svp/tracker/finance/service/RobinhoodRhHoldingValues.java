@@ -40,6 +40,7 @@ final class RobinhoodRhHoldingValues {
                     BigDecimal.ZERO,
                     decimalOrZero(p.getMarketValue()),
                     BigDecimal.ZERO,
+                    BigDecimal.ZERO,
                     BigDecimal.ZERO));
         }
         raw.sort(Comparator.comparing(RobinhoodRhHoldingDto::symbol, String.CASE_INSENSITIVE_ORDER));
@@ -55,7 +56,7 @@ final class RobinhoodRhHoldingValues {
         }
         List<RobinhoodRhHoldingDto> working = new ArrayList<>();
         for (RobinhoodRhHoldingDto h : holdings) {
-            working.add(normalizeOptionTotalMarketValue(h));
+            working.add(restoreMarketValueIfMissing(normalizeOptionTotalMarketValue(h)));
         }
 
         Map<String, YahooSimpleQuoteDto> quotes = fetchEquityQuotes(working, quoteService);
@@ -187,7 +188,13 @@ final class RobinhoodRhHoldingValues {
         BigDecimal cost = deriveCostBasis(withAverage(h, avg));
         BigDecimal current = resolveCurrentUnitPrice(h, quotes);
         BigDecimal mv = marketValueFromCurrent(qty, current);
+        if (mv.compareTo(BigDecimal.ZERO) == 0) {
+            mv = effectiveMarketValue(h);
+            current = resolveCurrentUnitPrice(withMarketValue(h, mv), quotes);
+            mv = marketValueFromCurrent(qty, current);
+        }
         BigDecimal unrealized = mv.subtract(cost).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal pnlPercent = unrealizedPnLPercent(unrealized, cost);
         return new RobinhoodRhHoldingDto(
                 h.symbol(),
                 h.positionType(),
@@ -196,7 +203,8 @@ final class RobinhoodRhHoldingValues {
                 scaleUnitPrice(current),
                 scaleMoney(mv),
                 scaleMoney(cost),
-                scaleMoney(unrealized));
+                scaleMoney(unrealized),
+                pnlPercent);
     }
 
     private static RobinhoodRhHoldingDto withAverage(RobinhoodRhHoldingDto h, BigDecimal avg) {
@@ -208,7 +216,8 @@ final class RobinhoodRhHoldingValues {
                 h.currentUnitPrice(),
                 h.marketValue(),
                 h.costBasis(),
-                h.unrealizedPnL());
+                h.unrealizedPnL(),
+                h.unrealizedPnLPercent());
     }
 
     private static BigDecimal resolveCurrentUnitPrice(
@@ -223,7 +232,7 @@ final class RobinhoodRhHoldingValues {
                 return BigDecimal.valueOf(q.regularMarketPrice());
             }
         }
-        BigDecimal mv = nullToZero(h.marketValue());
+        BigDecimal mv = effectiveMarketValue(h);
         if (mv.compareTo(BigDecimal.ZERO) > 0) {
             return mv.divide(qty.abs(), 4, RoundingMode.HALF_UP);
         }
@@ -262,7 +271,42 @@ final class RobinhoodRhHoldingValues {
                 h.currentUnitPrice(),
                 scaleMoney(marketValue),
                 h.costBasis(),
-                h.unrealizedPnL());
+                h.unrealizedPnL(),
+                h.unrealizedPnLPercent());
+    }
+
+    private static RobinhoodRhHoldingDto restoreMarketValueIfMissing(RobinhoodRhHoldingDto h) {
+        if (!marketValueMissing(h)) {
+            return h;
+        }
+        BigDecimal mv = effectiveMarketValue(h);
+        if (mv.compareTo(BigDecimal.ZERO) > 0) {
+            return withMarketValue(h, mv);
+        }
+        return h;
+    }
+
+    private static BigDecimal effectiveMarketValue(RobinhoodRhHoldingDto h) {
+        BigDecimal mv = nullToZero(h.marketValue());
+        if (mv.compareTo(BigDecimal.ZERO) > 0) {
+            return mv;
+        }
+        BigDecimal cost = deriveCostBasis(h);
+        BigDecimal unrealized = h.unrealizedPnL();
+        if (unrealized != null
+                && (cost.compareTo(BigDecimal.ZERO) > 0 || unrealized.compareTo(BigDecimal.ZERO) != 0)) {
+            return cost.add(unrealized).setScale(2, RoundingMode.HALF_UP);
+        }
+        return BigDecimal.ZERO;
+    }
+
+    private static BigDecimal unrealizedPnLPercent(BigDecimal unrealized, BigDecimal cost) {
+        if (cost.compareTo(BigDecimal.ZERO) == 0) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+        return unrealized
+                .multiply(BigDecimal.valueOf(100))
+                .divide(cost, 2, RoundingMode.HALF_UP);
     }
 
     private static boolean marketValueMissing(RobinhoodRhHoldingDto h) {

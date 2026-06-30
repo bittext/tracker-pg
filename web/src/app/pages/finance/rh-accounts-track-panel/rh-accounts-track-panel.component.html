@@ -136,6 +136,7 @@
                   <th>Cost basis</th>
                   <th>Market value</th>
                   <th>Unrealized P&amp;L</th>
+                  <th>P&amp;L %</th>
                 </tr>
               </thead>
               <tbody>
@@ -145,10 +146,23 @@
                     <td>{{ h.positionType }}</td>
                     <td>{{ h.quantity | number: '1.0-4' }}</td>
                     <td>{{ h.averageBuyPrice | currency }}</td>
-                    <td>{{ h.currentUnitPrice | currency }}</td>
+                    <td>
+                      @if (currentCost(h); as price) {
+                        {{ price | currency }}
+                      } @else {
+                        —
+                      }
+                    </td>
                     <td>{{ h.costBasis | currency }}</td>
                     <td>{{ h.marketValue | currency }}</td>
                     <td [class]="pnlClass(h.unrealizedPnL >= 0)">{{ h.unrealizedPnL | currency }}</td>
+                    <td [class]="pnlClass(h.unrealizedPnL >= 0)">
+                      @if (pnlPercent(h); as pct) {
+                        {{ pct | number: '1.2-2' }}%
+                      } @else {
+                        —
+                      }
+                    </td>
                   </tr>
                 }
               </tbody>

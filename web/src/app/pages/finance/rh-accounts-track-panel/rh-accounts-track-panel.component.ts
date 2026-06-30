@@ -2,7 +2,8 @@ import { CommonModule, CurrencyPipe, DatePipe, DecimalPipe } from '@angular/comm
 import { Component, OnInit, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { FinanceApiService } from '../../../services/finance-api.service';
-import { RobinhoodRhAccountsTrackDto, RobinhoodRhCashFlowEventDto } from '../../../models/finance.models';
+import { rhHoldingCurrentUnitPrice, rhHoldingPnlPercent } from '../rh-holding-display.util';
+import { RobinhoodRhAccountsTrackDto, RobinhoodRhCashFlowEventDto, RobinhoodRhHoldingDto } from '../../../models/finance.models';
 
 @Component({
   selector: 'app-rh-accounts-track-panel',
@@ -98,5 +99,13 @@ export class RhAccountsTrackPanelComponent implements OnInit {
       default:
         return category || '—';
     }
+  }
+
+  currentCost(h: RobinhoodRhHoldingDto): number | null {
+    return rhHoldingCurrentUnitPrice(h);
+  }
+
+  pnlPercent(h: RobinhoodRhHoldingDto): number | null {
+    return rhHoldingPnlPercent(h);
   }
 }

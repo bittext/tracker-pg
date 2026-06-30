@@ -43,6 +43,7 @@
               <th class="rh-snap-dialog__num">Cost basis</th>
               <th class="rh-snap-dialog__num">Market value</th>
               <th class="rh-snap-dialog__num">Unrealized P&amp;L</th>
+              <th class="rh-snap-dialog__num">P&amp;L %</th>
             </tr>
           </thead>
           <tbody>
@@ -52,11 +53,24 @@
                 <td>{{ h.positionType }}</td>
                 <td class="rh-snap-dialog__num">{{ h.quantity | number: '1.0-4' }}</td>
                 <td class="rh-snap-dialog__num">{{ h.averageBuyPrice | currency }}</td>
-                <td class="rh-snap-dialog__num">{{ h.currentUnitPrice | currency }}</td>
+                <td class="rh-snap-dialog__num">
+                  @if (currentCost(h); as price) {
+                    {{ price | currency }}
+                  } @else {
+                    —
+                  }
+                </td>
                 <td class="rh-snap-dialog__num">{{ h.costBasis | currency }}</td>
                 <td class="rh-snap-dialog__num">{{ h.marketValue | currency }}</td>
                 <td class="rh-snap-dialog__num" [class]="pnlClass(h.unrealizedPnL >= 0)">
                   {{ h.unrealizedPnL | currency }}
+                </td>
+                <td class="rh-snap-dialog__num" [class]="pnlClass(h.unrealizedPnL >= 0)">
+                  @if (pnlPercent(h); as pct) {
+                    {{ pct | number: '1.2-2' }}%
+                  } @else {
+                    —
+                  }
                 </td>
               </tr>
             }
