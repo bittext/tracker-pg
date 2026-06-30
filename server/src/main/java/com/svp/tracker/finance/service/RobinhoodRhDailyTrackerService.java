@@ -284,10 +284,20 @@ public class RobinhoodRhDailyTrackerService {
     @Transactional
     public RobinhoodRhDailyCaptureResultDto captureNow(boolean syncLatest) {
         long ownerUserId = currentUser.requireUserId();
+        boolean syncSkipped = false;
         if (syncLatest && agenticProps.serviceConfigured() && agenticProps.enabled()) {
-            connectionRepository.findByOwnerUserId(ownerUserId).ifPresent(agenticService::syncConnection);
+            syncSkipped = connectionRepository
+                    .findByOwnerUserId(ownerUserId)
+                    .map(conn -> !agenticService.syncConnectionBestEffort(conn))
+                    .orElse(false);
         }
-        return captureManualSnapshotsForOwner(ownerUserId, Instant.now());
+        RobinhoodRhDailyCaptureResultDto result = captureManualSnapshotsForOwner(ownerUserId, Instant.now());
+        if (!syncSkipped) {
+            return result;
+        }
+        String note = " Live sync skipped — robinhood-agent sidecar unreachable; captured cached holdings.";
+        return new RobinhoodRhDailyCaptureResultDto(
+                result.ok(), result.capturedAt(), result.accountsCaptured(), result.message() + note);
     }
 
     /** Called by scheduled job — no HTTP user context. */

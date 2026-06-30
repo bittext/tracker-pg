@@ -114,7 +114,13 @@ public class RobinhoodAgenticAutoTradeService {
                 return buildResult(true, "Daily trade limit reached", evaluated, generated, reviewed, placed, signals);
             }
 
-            agenticService.syncConnection(connectionRepository.findByOwnerUserId(ownerUserId).orElseThrow());
+            if (!agenticService.syncConnectionBestEffort(
+                    connectionRepository.findByOwnerUserId(ownerUserId).orElseThrow())) {
+                String skipReason =
+                        "Robinhood Agentic sidecar unreachable — ensure robinhood-agent container is running";
+                finishRun(run, settings, ownerUserId, "skipped", evaluated, generated, reviewed, placed, skipReason);
+                return skipped(skipReason);
+            }
             Map<String, BigDecimal> heldQty = heldQuantities(ownerUserId);
             List<PredictsTicker> tickers = tickerRepository.findByOwnerUserIdOrderByAutoSeededAscSymbolAsc(ownerUserId);
             evaluated = tickers.size();
@@ -181,6 +187,14 @@ public class RobinhoodAgenticAutoTradeService {
             finishRun(run, settings, ownerUserId, "ok", evaluated, generated, reviewed, placed, summary);
             return buildResult(true, summary, evaluated, generated, reviewed, placed, signals);
         } catch (Exception e) {
+            if (scheduled && (RobinhoodAgenticSidecarErrors.isUnreachable(e)
+                    || (e instanceof ResponseStatusException rex && RobinhoodAgenticSidecarErrors.isSidecarDown(rex)))) {
+                String skipReason =
+                        "Robinhood Agentic sidecar unreachable — ensure robinhood-agent container is running";
+                log.warn("Auto-trade skipped for user {}: {}", ownerUserId, rootCauseMessage(e));
+                finishRun(run, settings, ownerUserId, "skipped", evaluated, generated, reviewed, placed, skipReason);
+                return skipped(skipReason);
+            }
             log.error("Auto-trade run failed for user {}", ownerUserId, e);
             String err = truncate(e.getMessage(), 500);
             finishRun(run, settings, ownerUserId, "error", evaluated, generated, reviewed, placed, err);
@@ -410,6 +424,15 @@ public class RobinhoodAgenticAutoTradeService {
             return "";
         }
         return s.length() <= max ? s : s.substring(0, max);
+    }
+
+    private static String rootCauseMessage(Throwable e) {
+        Throwable root = e;
+        while (root.getCause() != null) {
+            root = root.getCause();
+        }
+        String message = root.getMessage();
+        return message != null ? message : e.getClass().getSimpleName();
     }
 
     private record SignalDecision(

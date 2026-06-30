@@ -19,6 +19,7 @@
 #   - export TRACKER_ROBINHOOD_AGENTIC=1, or touch .use-lightsail-robinhood-agent, or
 #   - TRACKER_FINANCE_ROBINHOOD_AGENTIC_ENABLED=true in .env.stack (auto-detect).
 # Disable auto-detect while keeping the flag in .env.stack: TRACKER_ROBINHOOD_AGENTIC_DISABLE=1
+# Or touch .use-lightsail-robinhood-agent on the server to force-start the sidecar.
 #   - export TRACKER_ROBINHOOD_NOTEBOOK=1, or touch .use-lightsail-robinhood-notebook, or
 #   - TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_ENABLED=true in .env.stack (auto-detect).
 # Disable auto-detect while keeping the flag in .env.stack: TRACKER_ROBINHOOD_NOTEBOOK_DISABLE=1
@@ -27,6 +28,12 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 env_file="${TRACKER_ENV_FILE:-.env.stack}"
 compose_project=( -p tracker-pg )
+
+# Case-insensitive: true | 1 | yes | on (optional trailing comment).
+env_var_enabled() {
+  local key="$1"
+  [[ -f "$env_file" ]] && grep -qiE "^[[:space:]]*${key}=(true|1|yes|on)([[:space:]#]|$)" "$env_file" 2>/dev/null
+}
 if [[ ! -f "$env_file" ]]; then
   echo "Missing ${env_file}. On the server: cp .env.stack.example .env.stack && edit secrets." >&2
   exit 1
@@ -88,9 +95,15 @@ if [[ "${TRACKER_ROBINHOOD_AGENTIC:-0}" == "1" ]] || [[ -f "${repo_root}/.use-li
   echo "Including robinhood-agent service (TRACKER_ROBINHOOD_AGENTIC=1 or .use-lightsail-robinhood-agent)."
 elif grep -qE '^[[:space:]]*TRACKER_ROBINHOOD_AGENTIC_DISABLE=1' "$env_file" 2>/dev/null; then
   echo "robinhood-agent auto-start disabled (TRACKER_ROBINHOOD_AGENTIC_DISABLE=1 in ${env_file})."
-elif grep -qE '^[[:space:]]*TRACKER_FINANCE_ROBINHOOD_AGENTIC_ENABLED=(true|1|yes)' "$env_file" 2>/dev/null; then
+elif env_var_enabled TRACKER_FINANCE_ROBINHOOD_AGENTIC_ENABLED \
+    || env_var_enabled TRACKER_FINANCE_ROBINHOOD_AGENTIC_AUTO_TRADE_ENABLED \
+    || env_var_enabled TRACKER_FINANCE_ROBINHOOD_AGENTIC_EXECUTION_ENABLED; then
   use_robinhood_agent=1
-  echo "Including robinhood-agent service (TRACKER_FINANCE_ROBINHOOD_AGENTIC_ENABLED in ${env_file})."
+  echo "Including robinhood-agent service (Robinhood Agentic / auto-trade / execution enabled in ${env_file})."
+fi
+if env_var_enabled TRACKER_FINANCE_ROBINHOOD_AGENTIC_ENABLED && [[ "$use_robinhood_agent" -eq 0 ]]; then
+  echo "WARN: TRACKER_FINANCE_ROBINHOOD_AGENTIC_ENABLED is set but robinhood-agent will not be started." >&2
+  echo "      Remove TRACKER_ROBINHOOD_AGENTIC_DISABLE or touch .use-lightsail-robinhood-agent on the server." >&2
 fi
 
 use_robinhood_notebook=0
@@ -118,11 +131,16 @@ for svc in api web; do
   remove_stale_compose_containers "$svc"
 done
 docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" build "${build_services[@]}"
-docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" up -d --no-deps --force-recreate --remove-orphans api web
 if [[ "$use_robinhood_agent" -eq 1 ]]; then
   remove_stale_compose_containers robinhood-agent
   docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" up -d --no-deps --force-recreate robinhood-agent
+  if ! docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" ps --status running --services 2>/dev/null | grep -qx robinhood-agent; then
+    echo "ERROR: robinhood-agent failed to start. Check: docker compose ... logs robinhood-agent" >&2
+    exit 1
+  fi
+  echo "robinhood-agent is running."
 fi
+docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" up -d --no-deps --force-recreate --remove-orphans api web
 # Ensure Caddy (re)starts and stays in the project; picks up Caddyfile bind-mount changes.
 if [[ "$use_caddy" -eq 1 ]] && [[ -f "${repo_root}/docker-compose.https-lightsail.yml" ]]; then
   remove_stale_compose_containers caddy

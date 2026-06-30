@@ -182,6 +182,27 @@ public class RobinhoodAgenticService {
         runSync(conn);
     }
 
+    /**
+     * Sync when the sidecar is reachable; on network/DNS failures log a warning and return false without throwing.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public boolean syncConnectionBestEffort(RobinhoodAgenticConnection conn) {
+        try {
+            runSync(conn);
+            return true;
+        } catch (ResponseStatusException e) {
+            if (RobinhoodAgenticSidecarErrors.isSidecarDown(e) || RobinhoodAgenticSidecarErrors.isUnreachable(e)) {
+                log.warn(
+                        "Robinhood Agentic sync skipped for user {} at {}: {}",
+                        conn.getOwnerUserId(),
+                        props.serviceBaseUrl(),
+                        e.getReason());
+                return false;
+            }
+            throw e;
+        }
+    }
+
     private RobinhoodAgenticSyncResultDto runSync(RobinhoodAgenticConnection conn) {
         requireFeature();
         Instant started = Instant.now();
@@ -208,9 +229,21 @@ public class RobinhoodAgenticService {
             return new RobinhoodAgenticSyncResultDto(
                     true, conn.getLastSyncAt(), conn.getLastSyncMessage(), count, orderCount, logRow.getAccountsSynced());
         } catch (Exception e) {
-            log.error("Robinhood Agentic sync failed for user {}", conn.getOwnerUserId(), e);
+            if (RobinhoodAgenticSidecarErrors.isUnreachable(e)) {
+                log.warn(
+                        "Robinhood Agentic sidecar unreachable for user {} at {}: {}",
+                        conn.getOwnerUserId(),
+                        props.serviceBaseUrl(),
+                        rootCauseMessage(e));
+            } else {
+                log.error("Robinhood Agentic sync failed for user {}", conn.getOwnerUserId(), e);
+            }
             throw new ResponseStatusException(
-                    HttpStatus.BAD_GATEWAY, truncate(rootCauseMessage(e), 500), e);
+                    RobinhoodAgenticSidecarErrors.isUnreachable(e)
+                            ? HttpStatus.SERVICE_UNAVAILABLE
+                            : HttpStatus.BAD_GATEWAY,
+                    truncate(rootCauseMessage(e), 500),
+                    e);
         }
     }
 

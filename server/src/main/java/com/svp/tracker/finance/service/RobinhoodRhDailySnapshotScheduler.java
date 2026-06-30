@@ -54,7 +54,7 @@ public class RobinhoodRhDailySnapshotScheduler {
         for (RobinhoodAgenticConnection conn : connections) {
             try {
                 if (agenticProps.enabled() && agenticProps.serviceConfigured()) {
-                    agenticService.syncConnection(conn);
+                    agenticService.syncConnectionBestEffort(conn);
                 }
                 dailyTrackerService.captureScheduledSnapshotsForOwner(conn.getOwnerUserId(), snapshotAt);
                 log.info("RH daily snapshot ok for user {}", conn.getOwnerUserId());
