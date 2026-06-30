@@ -106,6 +106,21 @@ if env_var_enabled TRACKER_FINANCE_ROBINHOOD_AGENTIC_ENABLED && [[ "$use_robinho
   echo "      Remove TRACKER_ROBINHOOD_AGENTIC_DISABLE or touch .use-lightsail-robinhood-agent on the server." >&2
 fi
 
+use_webull_quote=0
+if [[ "${TRACKER_WEBULL_QUOTE:-0}" == "1" ]] || [[ -f "${repo_root}/.use-lightsail-webull-quote" ]]; then
+  use_webull_quote=1
+  echo "Including webull-quote service (TRACKER_WEBULL_QUOTE=1 or .use-lightsail-webull-quote)."
+elif grep -qE '^[[:space:]]*TRACKER_WEBULL_QUOTE_DISABLE=1' "$env_file" 2>/dev/null; then
+  echo "webull-quote auto-start disabled (TRACKER_WEBULL_QUOTE_DISABLE=1 in ${env_file})."
+elif env_var_enabled TRACKER_FINANCE_WEBULL_QUOTE_ENABLED; then
+  use_webull_quote=1
+  echo "Including webull-quote service (TRACKER_FINANCE_WEBULL_QUOTE_ENABLED in ${env_file})."
+fi
+if env_var_enabled TRACKER_FINANCE_WEBULL_QUOTE_ENABLED && [[ "$use_webull_quote" -eq 0 ]]; then
+  echo "WARN: TRACKER_FINANCE_WEBULL_QUOTE_ENABLED is set but webull-quote will not be started." >&2
+  echo "      Remove TRACKER_WEBULL_QUOTE_DISABLE or touch .use-lightsail-webull-quote on the server." >&2
+fi
+
 use_robinhood_notebook=0
 if [[ "${TRACKER_ROBINHOOD_NOTEBOOK:-0}" == "1" ]] || [[ -f "${repo_root}/.use-lightsail-robinhood-notebook" ]]; then
   use_robinhood_notebook=1
@@ -120,6 +135,9 @@ fi
 build_services=( api web )
 if [[ "$use_robinhood_agent" -eq 1 ]]; then
   build_services+=( robinhood-agent )
+fi
+if [[ "$use_webull_quote" -eq 1 ]]; then
+  build_services+=( webull-quote )
 fi
 if [[ "$use_robinhood_notebook" -eq 1 ]]; then
   build_services+=( robinhood-notebook )
@@ -139,6 +157,15 @@ if [[ "$use_robinhood_agent" -eq 1 ]]; then
     exit 1
   fi
   echo "robinhood-agent is running."
+fi
+if [[ "$use_webull_quote" -eq 1 ]]; then
+  remove_stale_compose_containers webull-quote
+  docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" up -d --no-deps --force-recreate webull-quote
+  if ! docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" ps --status running --services 2>/dev/null | grep -qx webull-quote; then
+    echo "ERROR: webull-quote failed to start. Check: docker compose ... logs webull-quote" >&2
+    exit 1
+  fi
+  echo "webull-quote is running."
 fi
 docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" up -d --no-deps --force-recreate --remove-orphans api web
 # Ensure Caddy (re)starts and stays in the project; picks up Caddyfile bind-mount changes.
