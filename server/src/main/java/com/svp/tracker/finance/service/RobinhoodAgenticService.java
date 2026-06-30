@@ -185,7 +185,9 @@ public class RobinhoodAgenticService {
     /**
      * Sync when the sidecar is reachable; on network/DNS failures log a warning and return false without throwing.
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional(
+            propagation = Propagation.REQUIRES_NEW,
+            noRollbackFor = ResponseStatusException.class)
     public boolean syncConnectionBestEffort(RobinhoodAgenticConnection conn) {
         try {
             runSync(conn);
