@@ -22,4 +22,7 @@ public interface RobinhoodRhDailySnapshotRepository extends JpaRepository<Robinh
             long ownerUserId, String accountSuffix, Instant beforeAt);
 
     Optional<RobinhoodRhDailySnapshot> findByIdAndOwnerUserId(long id, long ownerUserId);
+
+    List<RobinhoodRhDailySnapshot> findByOwnerUserIdAndSnapshotAtAndCaptureKind(
+            long ownerUserId, Instant snapshotAt, String captureKind);
 }

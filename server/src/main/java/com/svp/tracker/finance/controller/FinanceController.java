@@ -27,6 +27,7 @@ import com.svp.tracker.finance.dto.RobinhoodRhAccountsTrackDto;
 import com.svp.tracker.finance.service.RobinhoodAccountTrackerService;
 import com.svp.tracker.finance.service.RobinhoodRhAccountsTrackService;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyCaptureResultDto;
+import com.svp.tracker.finance.dto.RobinhoodRhDailyManualCaptureDeleteResultDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailySnapshotDetailDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerReportDto;
 import com.svp.tracker.finance.service.RobinhoodRhDailyTrackerService;
@@ -37,6 +38,8 @@ import com.svp.tracker.finance.service.Surge52WeekHighsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import java.time.Instant;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -163,6 +166,14 @@ public class FinanceController {
             @RequestParam(name = "sync", defaultValue = "true") boolean sync) {
         log.info("POST /api/finance/robinhood/daily-tracker/capture sync={}", sync);
         return rhDailyTrackerService.captureNow(sync);
+    }
+
+    /** Delete one manual capture batch (all accounts at the same captured-at instant). */
+    @DeleteMapping("/daily-tracker/manual-capture")
+    public RobinhoodRhDailyManualCaptureDeleteResultDto dailyTrackerDeleteManualCapture(
+            @RequestParam(name = "capturedAt") Instant capturedAt) {
+        log.info("DELETE /api/finance/robinhood/daily-tracker/manual-capture capturedAt={}", capturedAt);
+        return rhDailyTrackerService.deleteManualCapture(capturedAt);
     }
 
     /**

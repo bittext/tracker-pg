@@ -16,6 +16,7 @@ import {
   RobinhoodAccountTrackerDto,
   RobinhoodRhAccountsTrackDto,
   RobinhoodRhDailyCaptureResultDto,
+  RobinhoodRhDailyManualCaptureDeleteResultDto,
   RobinhoodRhDailySnapshotDetailDto,
   RobinhoodRhDailyTrackerReportDto,
   RobinhoodCsvImportResultDto,
@@ -124,6 +125,13 @@ export class FinanceApiService {
     return this.http.post<RobinhoodRhDailyCaptureResultDto>(`${this.root}/daily-tracker/capture`, null, {
       params: { sync: String(sync) },
     });
+  }
+
+  robinhoodDailyTrackerDeleteManualCapture(capturedAt: string) {
+    return this.http.delete<RobinhoodRhDailyManualCaptureDeleteResultDto>(
+      `${this.root}/daily-tracker/manual-capture`,
+      { params: { capturedAt } },
+    );
   }
 
   /** Robinhood Agentic MCP connection status (Phase 1). */

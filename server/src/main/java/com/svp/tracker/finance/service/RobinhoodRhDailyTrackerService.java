@@ -11,6 +11,7 @@ import com.svp.tracker.finance.dto.RobinhoodRhAccountSummaryDto;
 import com.svp.tracker.finance.dto.RobinhoodRhAccountsTrackDto;
 import com.svp.tracker.finance.dto.RobinhoodRhCashFlowEventDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyCaptureResultDto;
+import com.svp.tracker.finance.dto.RobinhoodRhDailyManualCaptureDeleteResultDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailySnapshotDetailDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerAccountCellDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerAccountColumnDto;
@@ -218,6 +219,29 @@ public class RobinhoodRhDailyTrackerService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Snapshot not found");
         }
         return toDetailDto(row);
+    }
+
+    @Transactional
+    public RobinhoodRhDailyManualCaptureDeleteResultDto deleteManualCapture(Instant capturedAt) {
+        long ownerUserId = currentUser.requireUserId();
+        List<RobinhoodRhDailySnapshot> rows = snapshotRepository.findByOwnerUserIdAndSnapshotAtAndCaptureKind(
+                ownerUserId, capturedAt, RobinhoodRhDailyCaptureKind.MANUAL);
+        List<RobinhoodRhDailySnapshot> visible = rows.stream()
+                .filter(r -> !dailyTrackerProps.isExcludedSuffix(r.getAccountSuffix()))
+                .toList();
+        if (visible.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Manual capture not found");
+        }
+        snapshotRepository.deleteAll(visible);
+        String message = "Deleted manual capture at "
+                + MANUAL_TIME.format(capturedAt)
+                + " Central ("
+                + visible.size()
+                + " account"
+                + (visible.size() == 1 ? "" : "s")
+                + ").";
+        log.info("RH manual capture delete for user {} at {}: {}", ownerUserId, capturedAt, message);
+        return new RobinhoodRhDailyManualCaptureDeleteResultDto(true, visible.size(), message);
     }
 
     @Transactional

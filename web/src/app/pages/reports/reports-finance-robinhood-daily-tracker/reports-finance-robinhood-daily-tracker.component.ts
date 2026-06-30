@@ -56,8 +56,12 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
 
   /** snapshotDate keys for expanded 9 PM day rows */
   private readonly expandedDays = new Set<string>();
+  /** dayDate keys where the manual-captures section is collapsed */
+  private readonly collapsedManualSections = new Set<string>();
   /** dayDate|capturedAt keys for expanded manual capture rows */
   private readonly expandedManuals = new Set<string>();
+  /** dayDate|capturedAt key currently being deleted */
+  deletingManualKey: string | null = null;
 
   readonly monthChoices = [
     { value: null, label: 'All months' },
@@ -87,6 +91,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   load(): void {
     this.loading = true;
     this.expandedDays.clear();
+    this.collapsedManualSections.clear();
     this.expandedManuals.clear();
     this.financeApi.robinhoodDailyTracker(this.reportYear, this.reportMonth).subscribe({
       next: (t) => {
@@ -123,6 +128,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   toggleDay(day: RobinhoodRhDailyTrackerDayDto): void {
     if (this.expandedDays.has(day.snapshotDate)) {
       this.expandedDays.delete(day.snapshotDate);
+      this.collapsedManualSections.delete(day.snapshotDate);
       for (const key of [...this.expandedManuals]) {
         if (key.startsWith(day.snapshotDate + '|')) {
           this.expandedManuals.delete(key);
@@ -130,6 +136,24 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       }
     } else {
       this.expandedDays.add(day.snapshotDate);
+    }
+  }
+
+  isManualSectionExpanded(day: RobinhoodRhDailyTrackerDayDto): boolean {
+    return !this.collapsedManualSections.has(day.snapshotDate);
+  }
+
+  toggleManualSection(day: RobinhoodRhDailyTrackerDayDto, event: Event): void {
+    event.stopPropagation();
+    if (this.collapsedManualSections.has(day.snapshotDate)) {
+      this.collapsedManualSections.delete(day.snapshotDate);
+    } else {
+      this.collapsedManualSections.add(day.snapshotDate);
+      for (const key of [...this.expandedManuals]) {
+        if (key.startsWith(day.snapshotDate + '|')) {
+          this.expandedManuals.delete(key);
+        }
+      }
     }
   }
 
@@ -145,6 +169,43 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     } else {
       this.expandedManuals.add(key);
     }
+  }
+
+  deleteManualCapture(
+    day: RobinhoodRhDailyTrackerDayDto,
+    capture: RobinhoodRhDailyTrackerManualCaptureDto,
+    event: Event,
+  ): void {
+    event.stopPropagation();
+    const timeLabel = new Date(capture.capturedAt).toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+    if (
+      !window.confirm(
+        `Delete the manual capture from ${timeLabel} (${capture.accounts.length} account${capture.accounts.length === 1 ? '' : 's'})? This cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    const key = this.manualKey(day, capture);
+    this.deletingManualKey = key;
+    this.financeApi.robinhoodDailyTrackerDeleteManualCapture(capture.capturedAt).subscribe({
+      next: (r) => {
+        this.deletingManualKey = null;
+        this.expandedManuals.delete(key);
+        this.snackBar.open(r.message, 'OK', { duration: 5000 });
+        this.load();
+      },
+      error: (err) => {
+        this.deletingManualKey = null;
+        this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
+      },
+    });
+  }
+
+  isDeletingManual(day: RobinhoodRhDailyTrackerDayDto, capture: RobinhoodRhDailyTrackerManualCaptureDto): boolean {
+    return this.deletingManualKey === this.manualKey(day, capture);
   }
 
   openManualAccountSnapshot(

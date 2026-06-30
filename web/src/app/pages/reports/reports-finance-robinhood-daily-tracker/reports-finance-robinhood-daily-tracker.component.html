@@ -8,8 +8,8 @@
       </span>
       —
     }
-    Each day’s <strong>9:00 PM CST</strong> snapshot appears as a row — click to expand. Manual captures are listed
-    inside the expanded day.
+    Each day’s <strong>9:00 PM CST</strong> snapshot appears as a row — click to expand. Manual captures can be
+    expanded, collapsed, or deleted individually inside each day.
     <a routerLink="/finance">Finance</a> → Trading to connect Agentic sync.
   </p>
 
@@ -168,47 +168,80 @@
                 }
 
                 @if (day.manualCaptures.length) {
-                  <div class="rh-daily__manual" role="region" aria-label="Manual captures">
-                    <h4 class="rh-daily__manual-title">Manual captures</h4>
-                    <ul class="rh-daily__manual-list">
-                      @for (mc of day.manualCaptures; track mc.capturedAt) {
-                        <li
-                          class="rh-daily__manual-item"
-                          [class.rh-daily__manual-item--open]="isManualExpanded(day, mc)"
-                        >
-                          <button
-                            type="button"
-                            class="rh-daily__manual-row"
-                            (click)="toggleManual(day, mc, $event)"
-                            [attr.aria-expanded]="isManualExpanded(day, mc)"
+                  <div
+                    class="rh-daily__manual"
+                    role="region"
+                    aria-label="Manual captures"
+                    [class.rh-daily__manual--open]="isManualSectionExpanded(day)"
+                  >
+                    <button
+                      type="button"
+                      class="rh-daily__manual-header"
+                      (click)="toggleManualSection(day, $event)"
+                      [attr.aria-expanded]="isManualSectionExpanded(day)"
+                    >
+                      <mat-icon class="rh-daily__chevron rh-daily__chevron--sm" aria-hidden="true">
+                        {{ isManualSectionExpanded(day) ? 'expand_less' : 'expand_more' }}
+                      </mat-icon>
+                      <h4 class="rh-daily__manual-title">Manual captures</h4>
+                      <span class="rh-daily__manual-count muted">{{ day.manualCaptures.length }}</span>
+                    </button>
+                    @if (isManualSectionExpanded(day)) {
+                      <ul class="rh-daily__manual-list">
+                        @for (mc of day.manualCaptures; track mc.capturedAt) {
+                          <li
+                            class="rh-daily__manual-item"
+                            [class.rh-daily__manual-item--open]="isManualExpanded(day, mc)"
                           >
-                            <mat-icon class="rh-daily__chevron rh-daily__chevron--sm" aria-hidden="true">
-                              {{ isManualExpanded(day, mc) ? 'expand_less' : 'expand_more' }}
-                            </mat-icon>
-                            <mat-icon class="rh-daily__manual-icon" aria-hidden="true">schedule</mat-icon>
-                            <span>{{ mc.capturedAt | date: 'shortTime' }} CST</span>
-                            <strong>{{ mc.combinedTotal | currency }}</strong>
-                          </button>
-                          @if (isManualExpanded(day, mc)) {
-                            <ul class="rh-daily__manual-accounts">
-                              @for (acct of mc.accounts; track acct.snapshotId) {
-                                <li>
-                                  <button
-                                    type="button"
-                                    class="rh-daily__manual-acct"
-                                    (click)="openManualAccountSnapshot(acct, day, $event)"
-                                  >
-                                    <span>{{ acct.label }}</span>
-                                    <strong>{{ acct.totalAccountValue | currency }}</strong>
-                                    <span class="rh-daily__acct-link">View holdings &amp; flows →</span>
-                                  </button>
-                                </li>
-                              }
-                            </ul>
-                          }
-                        </li>
-                      }
-                    </ul>
+                            <div class="rh-daily__manual-row-wrap">
+                              <button
+                                type="button"
+                                class="rh-daily__manual-row"
+                                (click)="toggleManual(day, mc, $event)"
+                                [attr.aria-expanded]="isManualExpanded(day, mc)"
+                              >
+                                <mat-icon class="rh-daily__chevron rh-daily__chevron--sm" aria-hidden="true">
+                                  {{ isManualExpanded(day, mc) ? 'expand_less' : 'expand_more' }}
+                                </mat-icon>
+                                <mat-icon class="rh-daily__manual-icon" aria-hidden="true">schedule</mat-icon>
+                                <span>{{ mc.capturedAt | date: 'shortTime' }} CST</span>
+                                <strong>{{ mc.combinedTotal | currency }}</strong>
+                              </button>
+                              <button
+                                type="button"
+                                class="rh-daily__manual-delete"
+                                (click)="deleteManualCapture(day, mc, $event)"
+                                [disabled]="isDeletingManual(day, mc)"
+                                aria-label="Delete manual capture"
+                              >
+                                @if (isDeletingManual(day, mc)) {
+                                  <mat-spinner diameter="18" aria-hidden="true" />
+                                } @else {
+                                  <mat-icon aria-hidden="true">delete_outline</mat-icon>
+                                }
+                              </button>
+                            </div>
+                            @if (isManualExpanded(day, mc)) {
+                              <ul class="rh-daily__manual-accounts">
+                                @for (acct of mc.accounts; track acct.snapshotId) {
+                                  <li>
+                                    <button
+                                      type="button"
+                                      class="rh-daily__manual-acct"
+                                      (click)="openManualAccountSnapshot(acct, day, $event)"
+                                    >
+                                      <span>{{ acct.label }}</span>
+                                      <strong>{{ acct.totalAccountValue | currency }}</strong>
+                                      <span class="rh-daily__acct-link">View holdings &amp; flows →</span>
+                                    </button>
+                                  </li>
+                                }
+                              </ul>
+                            }
+                          </li>
+                        }
+                      </ul>
+                    }
                   </div>
                 }
               </div>

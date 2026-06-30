@@ -183,6 +183,12 @@ export interface RobinhoodRhDailyCaptureResultDto {
   message: string;
 }
 
+export interface RobinhoodRhDailyManualCaptureDeleteResultDto {
+  ok: boolean;
+  deletedCount: number;
+  message: string;
+}
+
 export interface RobinhoodRhAccountSummaryDto {
   accountNumberMasked: string;
   accountSuffix: string;
