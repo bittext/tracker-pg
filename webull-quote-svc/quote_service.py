@@ -9,6 +9,7 @@ from typing import Any
 
 from occ_symbol import build_occ_symbol
 from webull.core.client import ApiClient
+from webull.core.exception.exceptions import ServerException
 from webull.data.common.category import Category
 from webull.data.data_client import DataClient
 
@@ -71,23 +72,47 @@ def _symbol_from_row(row: dict[str, Any]) -> str | None:
     return None
 
 
-@lru_cache(maxsize=1)
-def _data_client() -> DataClient:
-    user_id = (
-        os.environ.get("WEBULL_USER_ID", "").strip()
-        or os.environ.get("WEBULL_APP_KEY", "").strip()  # legacy alias
+def _webull_api_error_message(exc: Exception) -> str:
+    if isinstance(exc, ServerException):
+        code = exc.get_error_code()
+        if exc.get_http_status() == 401 or str(code).upper() == "UNAUTHORIZED":
+            return (
+                "Webull authentication failed (401). Set WEBULL_APP_KEY to the App Key from "
+                "Developer Tools → Generate Key (not your account User ID). "
+                "WEBULL_USER_ID is optional and separate. Verify WEBULL_APP_SECRET, "
+                "WEBULL_API_HOST (api.webull.com for prod), and Advanced Quotes subscription."
+            )
+        return str(exc)
+    return str(exc)
+
+
+def _resolve_credentials() -> tuple[str, str, str | None, str | None]:
+    app_key = (
+        os.environ.get("WEBULL_APP_KEY", "").strip()
+        or os.environ.get("WEBULL_APP_KEY_ID", "").strip()
     )
     app_secret = (
         os.environ.get("WEBULL_APP_SECRET", "").strip()
         or os.environ.get("WEBULL_APP_KEY_SECRET", "").strip()
     )
-    # OpenAPI signing key when separate from user id; otherwise user id is the AK.
-    app_key = os.environ.get("WEBULL_APP_KEY_ID", "").strip() or user_id
-    if not user_id or not app_secret:
-        raise RuntimeError("WEBULL_USER_ID and WEBULL_APP_SECRET are required")
+    user_id = os.environ.get("WEBULL_USER_ID", "").strip() or None
+    access_token = os.environ.get("WEBULL_ACCESS_TOKEN", "").strip() or None
+    if not app_key or not app_secret:
+        raise RuntimeError("WEBULL_APP_KEY and WEBULL_APP_SECRET are required")
+    return app_key, app_secret, user_id, access_token
+
+
+@lru_cache(maxsize=1)
+def _data_client() -> DataClient:
+    app_key, app_secret, user_id, access_token = _resolve_credentials()
     region = os.environ.get("WEBULL_REGION", "us").strip() or "us"
     api_host = os.environ.get("WEBULL_API_HOST", "api.webull.com").strip() or "api.webull.com"
     api_client = ApiClient(app_key, app_secret, region, user_id=user_id)
+    if access_token:
+        api_client.set_token(access_token)
+    token_dir = os.environ.get("WEBULL_TOKEN_DIR", "").strip()
+    if token_dir:
+        api_client.set_token_dir(token_dir)
     api_client.add_endpoint(region, api_host)
     return DataClient(api_client)
 
@@ -117,7 +142,7 @@ def _fetch_equity_snapshots(symbols: list[str]) -> tuple[dict[str, float], list[
                     prices[symbol] = price
         except Exception as exc:  # noqa: BLE001
             LOGGER.warning("Webull equity snapshot failed for %s: %s", batch, exc)
-            warnings.append(f"Equity snapshot failed for {', '.join(batch)}: {exc}")
+            warnings.append(_webull_api_error_message(exc))
     return prices, warnings
 
 
@@ -165,7 +190,7 @@ def _fetch_option_snapshots(
                     occ_price[symbol.upper()] = price
         except Exception as exc:  # noqa: BLE001
             LOGGER.warning("Webull option snapshot failed for %s: %s", batch, exc)
-            warnings.append(f"Option snapshot failed for {len(batch)} contract(s): {exc}")
+            warnings.append(_webull_api_error_message(exc))
 
     for instrument_id, occ in occ_by_instrument.items():
         price = occ_price.get(occ.upper())
@@ -185,10 +210,11 @@ def run_quotes(
 
     equity_prices, equity_warnings = _fetch_equity_snapshots(equity_symbols)
     option_marks, option_warnings = _fetch_option_snapshots(option_rows)
+    warnings = equity_warnings + option_warnings
 
     return {
         "ok": True,
         "equity_prices": equity_prices,
         "option_marks": option_marks,
-        "warnings": equity_warnings + option_warnings,
+        "warnings": warnings,
     }

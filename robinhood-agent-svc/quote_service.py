@@ -69,32 +69,40 @@ def run_quotes(
     option_ids = sorted({str(i).strip() for i in (option_instrument_ids or []) if i and str(i).strip()})
 
     client = RobinhoodMcpClient(access_token=access_token)
-    tool_names = list_tool_names(client)
     warnings: list[str] = []
     equity_prices: dict[str, float] = {}
     option_marks: dict[str, float] = {}
 
-    if equity_symbols and EQUITY_QUOTES_TOOL not in tool_names:
-        warnings.append("get_equity_quotes unavailable")
-    elif equity_symbols:
-        for batch in _batched(equity_symbols, QUOTE_BATCH_SIZE):
-            try:
-                raw = client.call_tool(EQUITY_QUOTES_TOOL, {"symbols": batch})
-                equity_prices.update(_quotes_by_symbol(parse_tool_payload(raw)))
-            except Exception as exc:  # noqa: BLE001
-                LOGGER.warning("get_equity_quotes failed for %s: %s", batch, exc)
-                warnings.append(f"Equity quotes failed for {', '.join(batch)}: {exc}")
+    try:
+        client.initialize()
+        tool_names = list_tool_names(client.list_tools())
 
-    if option_ids and OPTION_QUOTES_TOOL not in tool_names:
-        warnings.append("get_option_quotes unavailable")
-    elif option_ids:
-        for batch in _batched(option_ids, OPTION_QUOTE_BATCH_SIZE):
-            try:
-                raw = client.call_tool(OPTION_QUOTES_TOOL, {"instrument_ids": batch})
-                option_marks.update(_option_marks_by_instrument(parse_tool_payload(raw)))
-            except Exception as exc:  # noqa: BLE001
-                LOGGER.warning("get_option_quotes failed for %s: %s", batch, exc)
-                warnings.append(f"Option quotes failed for {len(batch)} contract(s): {exc}")
+        if equity_symbols and EQUITY_QUOTES_TOOL not in tool_names:
+            warnings.append("get_equity_quotes unavailable")
+        elif equity_symbols:
+            for batch in _batched(equity_symbols, QUOTE_BATCH_SIZE):
+                try:
+                    raw = client.call_tool(EQUITY_QUOTES_TOOL, {"symbols": batch})
+                    equity_prices.update(_quotes_by_symbol(parse_tool_payload(raw)))
+                except Exception as exc:  # noqa: BLE001
+                    LOGGER.warning("get_equity_quotes failed for %s: %s", batch, exc)
+                    warnings.append(f"Equity quotes failed for {', '.join(batch)}: {exc}")
+
+        if option_ids and OPTION_QUOTES_TOOL not in tool_names:
+            warnings.append("get_option_quotes unavailable")
+        elif option_ids:
+            for batch in _batched(option_ids, OPTION_QUOTE_BATCH_SIZE):
+                try:
+                    raw = client.call_tool(OPTION_QUOTES_TOOL, {"instrument_ids": batch})
+                    option_marks.update(_option_marks_by_instrument(parse_tool_payload(raw)))
+                except Exception as exc:  # noqa: BLE001
+                    LOGGER.warning("get_option_quotes failed for %s: %s", batch, exc)
+                    warnings.append(f"Option quotes failed for {len(batch)} contract(s): {exc}")
+    finally:
+        try:
+            client.close_session()
+        except Exception:  # noqa: BLE001
+            pass
 
     return {
         "equity_prices": equity_prices,

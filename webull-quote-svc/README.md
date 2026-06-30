@@ -4,9 +4,10 @@ Sidecar for live US stock and option marks via [Webull OpenAPI](https://develope
 
 Used by tracker-pg when Robinhood Agentic quotes are unavailable. Requires:
 
-- `WEBULL_USER_ID` — your Webull OpenAPI user id (shown in Developer Tools / API Keys)
+- `WEBULL_APP_KEY` — App Key from Developer Tools → Generate Key (used for request signing)
 - `WEBULL_APP_SECRET` — App Secret from the same screen
-- Optional `WEBULL_APP_KEY_ID` — only if your portal shows a separate App Key id for signing (defaults to user id)
+- `WEBULL_USER_ID` — optional account User ID (separate from App Key; sent as `wb-user-id` header)
+- `WEBULL_ACCESS_TOKEN` — optional pre-approved access token if your account requires 2FA
 - An **OpenAPI Advanced Quotes** subscription (separate from the mobile app)
 
 ## Endpoints

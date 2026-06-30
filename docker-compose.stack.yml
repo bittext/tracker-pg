@@ -190,9 +190,10 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      WEBULL_USER_ID: ${WEBULL_USER_ID:-}
+      WEBULL_APP_KEY: ${WEBULL_APP_KEY:-}
       WEBULL_APP_SECRET: ${WEBULL_APP_SECRET:-}
-      WEBULL_APP_KEY_ID: ${WEBULL_APP_KEY_ID:-}
+      WEBULL_USER_ID: ${WEBULL_USER_ID:-}
+      WEBULL_ACCESS_TOKEN: ${WEBULL_ACCESS_TOKEN:-}
       WEBULL_API_HOST: ${WEBULL_API_HOST:-api.webull.com}
       WEBULL_REGION: ${WEBULL_REGION:-us}
     # Internal only — api reaches http://webull-quote:8030 when TRACKER_FINANCE_WEBULL_QUOTE_ENABLED=true.

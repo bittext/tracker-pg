@@ -32,11 +32,11 @@ class QuotesRequest(BaseModel):
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    user_id = os.environ.get("WEBULL_USER_ID", "").strip() or os.environ.get("WEBULL_APP_KEY", "").strip()
+    app_key = os.environ.get("WEBULL_APP_KEY", "").strip() or os.environ.get("WEBULL_APP_KEY_ID", "").strip()
     app_secret = os.environ.get("WEBULL_APP_SECRET", "").strip() or os.environ.get(
         "WEBULL_APP_KEY_SECRET", ""
     ).strip()
-    configured = bool(user_id) and bool(app_secret)
+    configured = bool(app_key) and bool(app_secret)
     return {
         "status": "ok" if configured else "misconfigured",
         "service": "webull-quote-svc",
