@@ -1,17 +1,14 @@
 import { RobinhoodRhHoldingDto } from '../../models/finance.models';
 
-/** Current per-unit market price; falls back when API omits or zeroes currentUnitPrice. */
+/** Current per-unit market price in the same units as averageBuyPrice. */
 export function rhHoldingCurrentUnitPrice(h: RobinhoodRhHoldingDto): number | null {
-  const current = h.currentUnitPrice;
-  if (current != null && current > 0) {
-    return current;
-  }
   const qty = Math.abs(h.quantity ?? 0);
   if (qty > 0 && h.marketValue != null && h.marketValue > 0) {
     return h.marketValue / qty;
   }
-  if (qty > 0 && h.costBasis != null && h.unrealizedPnL != null) {
-    return (h.costBasis + h.unrealizedPnL) / qty;
+  const current = h.currentUnitPrice;
+  if (current != null && current > 0) {
+    return current;
   }
   return null;
 }

@@ -261,12 +261,15 @@ final class RobinhoodRhHoldingValues {
         }
         BigDecimal unrealized = mv.subtract(cost).setScale(2, RoundingMode.HALF_UP);
         BigDecimal pnlPercent = unrealizedPnLPercent(unrealized, cost);
+        BigDecimal currentUnit = qty.compareTo(BigDecimal.ZERO) > 0 && mv.compareTo(BigDecimal.ZERO) > 0
+                ? mv.divide(qty.abs(), 4, RoundingMode.HALF_UP)
+                : current;
         return new RobinhoodRhHoldingDto(
                 h.symbol(),
                 h.positionType(),
                 qty,
                 avg,
-                scaleUnitPrice(current),
+                scaleUnitPrice(currentUnit),
                 scaleMoney(mv),
                 scaleMoney(cost),
                 scaleMoney(unrealized),
@@ -315,7 +318,20 @@ final class RobinhoodRhHoldingValues {
         if (mv.compareTo(BigDecimal.ZERO) > 0) {
             return mv.divide(qty.abs(), 4, RoundingMode.HALF_UP);
         }
+        BigDecimal cost = deriveCostBasis(h);
+        BigDecimal unrealized = h.unrealizedPnL();
+        if (unrealized != null && qty.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal implied = cost.add(unrealized);
+            if (implied.compareTo(BigDecimal.ZERO) > 0) {
+                return implied.divide(qty.abs(), 4, RoundingMode.HALF_UP);
+            }
+        }
         if (h.currentUnitPrice() != null && h.currentUnitPrice().compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal avg = nullToZero(h.averageBuyPrice());
+            if (avg.compareTo(BigDecimal.ZERO) > 0
+                    && h.currentUnitPrice().subtract(avg).abs().compareTo(new BigDecimal("0.0001")) <= 0) {
+                return BigDecimal.ZERO;
+            }
             return h.currentUnitPrice();
         }
         return BigDecimal.ZERO;

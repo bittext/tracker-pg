@@ -155,10 +155,7 @@
                     <td>{{ h.costBasis | currency }}</td>
                     <td>{{ h.marketValue | currency }}</td>
                     <td class="rh-acct__pnl" [ngClass]="pnlClass(h.unrealizedPnL >= 0)">
-                      <span>{{ h.unrealizedPnL | currency }}</span>
-                      @if (pnlPercent(h) !== null) {
-                        <span class="rh-acct__pnl-pct">({{ pnlPercent(h)! | number: '1.2-2' }}%)</span>
-                      }
+                      {{ h.unrealizedPnL | currency }}@if (pnlPercent(h) !== null) {<span class="rh-acct__pnl-pct">&nbsp;({{ pnlPercent(h)! | number: '1.2-2' }}%)</span>}
                     </td>
                   </tr>
                 }
