@@ -154,6 +154,19 @@
   color: #dc2626;
 }
 
+.rh-acct__pnl {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
+}
+
+.rh-acct__pnl-pct {
+  display: block;
+  font-size: 0.85em;
+  opacity: 0.9;
+}
+
 .rh-acct__empty {
   margin: 0.25rem 0 0.5rem;
 }

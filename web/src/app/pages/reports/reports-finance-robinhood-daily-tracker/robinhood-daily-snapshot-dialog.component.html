@@ -43,7 +43,6 @@
               <th class="rh-snap-dialog__num">Cost basis</th>
               <th class="rh-snap-dialog__num">Market value</th>
               <th class="rh-snap-dialog__num">Unrealized P&amp;L</th>
-              <th class="rh-snap-dialog__num">P&amp;L %</th>
             </tr>
           </thead>
           <tbody>
@@ -62,14 +61,10 @@
                 </td>
                 <td class="rh-snap-dialog__num">{{ h.costBasis | currency }}</td>
                 <td class="rh-snap-dialog__num">{{ h.marketValue | currency }}</td>
-                <td class="rh-snap-dialog__num" [class]="pnlClass(h.unrealizedPnL >= 0)">
-                  {{ h.unrealizedPnL | currency }}
-                </td>
-                <td class="rh-snap-dialog__num" [class]="pnlClass(h.unrealizedPnL >= 0)">
-                  @if (pnlPercent(h); as pct) {
-                    {{ pct | number: '1.2-2' }}%
-                  } @else {
-                    —
+                <td class="rh-snap-dialog__num rh-snap-dialog__pnl" [ngClass]="pnlClass(h.unrealizedPnL >= 0)">
+                  <span>{{ h.unrealizedPnL | currency }}</span>
+                  @if (pnlPercent(h) !== null) {
+                    <span class="rh-snap-dialog__pnl-pct">({{ pnlPercent(h)! | number: '1.2-2' }}%)</span>
                   }
                 </td>
               </tr>

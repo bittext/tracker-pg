@@ -13,7 +13,7 @@ export interface RobinhoodDailySnapshotDialogData {
   accountSuffix: string;
 }
 
-/** Wide enough for holdings (9 cols) + cash-flow tables without clipping. */
+/** Wide enough for holdings (8 cols) + cash-flow tables without clipping. */
 export const RH_SNAPSHOT_DIALOG_CONFIG: Pick<MatDialogConfig, 'width' | 'maxWidth' | 'maxHeight' | 'panelClass'> = {
   width: 'min(1500px, 98vw)',
   maxWidth: '98vw',

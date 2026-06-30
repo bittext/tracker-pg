@@ -2,6 +2,7 @@ package com.svp.tracker.finance.service;
 
 import com.svp.tracker.finance.domain.RobinhoodAgenticPosition;
 import com.svp.tracker.finance.dto.RobinhoodRhHoldingDto;
+import com.svp.tracker.finance.dto.RobinhoodRhLiveQuotesDto;
 import com.svp.tracker.finance.dto.YahooSimpleQuoteDto;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -24,7 +25,8 @@ final class RobinhoodRhHoldingValues {
     static List<RobinhoodRhHoldingDto> fromPositions(
             List<RobinhoodAgenticPosition> positions,
             BigDecimal accountEquityMarketValue,
-            YahooBatchQuoteService quoteService) {
+            YahooBatchQuoteService quoteService,
+            RobinhoodRhLiveQuotesDto liveQuotes) {
         List<RobinhoodRhHoldingDto> raw = new ArrayList<>();
         for (RobinhoodAgenticPosition p : positions) {
             BigDecimal qty = nullToZero(p.getQuantity());
@@ -44,13 +46,29 @@ final class RobinhoodRhHoldingValues {
                     BigDecimal.ZERO));
         }
         raw.sort(Comparator.comparing(RobinhoodRhHoldingDto::symbol, String.CASE_INSENSITIVE_ORDER));
-        return finalizeHoldings(raw, accountEquityMarketValue, quoteService);
+        Map<String, String> optionInstrumentIds = RobinhoodRhHoldingQuoteService.instrumentIdsByMatchKey(positions);
+        return finalizeHoldings(
+                raw, accountEquityMarketValue, quoteService, liveQuotes, optionInstrumentIds);
     }
 
     static List<RobinhoodRhHoldingDto> finalizeHoldings(
             List<RobinhoodRhHoldingDto> holdings,
             BigDecimal accountEquityMarketValue,
             YahooBatchQuoteService quoteService) {
+        return finalizeHoldings(
+                holdings,
+                accountEquityMarketValue,
+                quoteService,
+                RobinhoodRhLiveQuotesDto.empty(),
+                Map.of());
+    }
+
+    static List<RobinhoodRhHoldingDto> finalizeHoldings(
+            List<RobinhoodRhHoldingDto> holdings,
+            BigDecimal accountEquityMarketValue,
+            YahooBatchQuoteService quoteService,
+            RobinhoodRhLiveQuotesDto liveQuotes,
+            Map<String, String> optionInstrumentByMatchKey) {
         if (holdings == null || holdings.isEmpty()) {
             return List.of();
         }
@@ -60,16 +78,19 @@ final class RobinhoodRhHoldingValues {
         }
 
         Map<String, YahooSimpleQuoteDto> quotes = fetchEquityQuotes(working, quoteService);
+        Map<String, String> optionIds =
+                optionInstrumentByMatchKey == null ? Map.of() : optionInstrumentByMatchKey;
+        RobinhoodRhLiveQuotesDto live = liveQuotes == null ? RobinhoodRhLiveQuotesDto.empty() : liveQuotes;
 
         for (int i = 0; i < working.size(); i++) {
-            working.set(i, applyEquityQuoteMarketValue(working.get(i), quotes));
+            working.set(i, applyLiveMarketValue(working.get(i), quotes, live, optionIds));
         }
 
         allocateStockEquityWhenNeeded(working, accountEquityMarketValue);
 
         List<RobinhoodRhHoldingDto> out = new ArrayList<>();
         for (RobinhoodRhHoldingDto h : working) {
-            out.add(buildHolding(h, quotes));
+            out.add(buildHolding(h, quotes, live, optionIds));
         }
         return out;
     }
@@ -146,21 +167,62 @@ final class RobinhoodRhHoldingValues {
         }
     }
 
-    private static RobinhoodRhHoldingDto applyEquityQuoteMarketValue(
-            RobinhoodRhHoldingDto h, Map<String, YahooSimpleQuoteDto> quotes) {
-        if (!"equity".equalsIgnoreCase(h.positionType()) || h.symbol() == null) {
+    private static RobinhoodRhHoldingDto applyLiveMarketValue(
+            RobinhoodRhHoldingDto h,
+            Map<String, YahooSimpleQuoteDto> yahooQuotes,
+            RobinhoodRhLiveQuotesDto liveQuotes,
+            Map<String, String> optionInstrumentByMatchKey) {
+        BigDecimal qty = nullToZero(h.quantity());
+        if (qty.compareTo(BigDecimal.ZERO) == 0) {
             return h;
         }
-        if (!marketValueMissing(h)) {
+        if ("equity".equalsIgnoreCase(h.positionType()) && h.symbol() != null) {
+            BigDecimal current = equityCurrentUnitPrice(h.symbol(), yahooQuotes, liveQuotes);
+            if (current.compareTo(BigDecimal.ZERO) > 0) {
+                return withMarketValue(h, marketValueFromCurrent(qty, current));
+            }
             return h;
         }
-        YahooSimpleQuoteDto q = quotes.get(h.symbol().trim().toUpperCase(Locale.ROOT));
-        if (q == null || q.regularMarketPrice() == null || q.regularMarketPrice() <= 0) {
-            return h;
+        if ("option".equalsIgnoreCase(h.positionType())) {
+            String instrumentId = optionInstrumentByMatchKey.get(RobinhoodRhHoldingQuoteService.matchKey(h));
+            if (instrumentId == null) {
+                return h;
+            }
+            BigDecimal markPerShare = liveQuotes.optionMarkPerShareByInstrumentId().get(instrumentId);
+            if (markPerShare == null || markPerShare.compareTo(BigDecimal.ZERO) <= 0) {
+                return h;
+            }
+            BigDecimal current = optionCurrentUnitPrice(nullToZero(h.averageBuyPrice()), markPerShare);
+            return withMarketValue(h, marketValueFromCurrent(qty, current));
         }
-        BigDecimal current = BigDecimal.valueOf(q.regularMarketPrice());
-        BigDecimal mv = marketValueFromCurrent(nullToZero(h.quantity()), current);
-        return withMarketValue(h, mv);
+        return h;
+    }
+
+    private static BigDecimal equityCurrentUnitPrice(
+            String symbol, Map<String, YahooSimpleQuoteDto> yahooQuotes, RobinhoodRhLiveQuotesDto liveQuotes) {
+        if (symbol == null || symbol.isBlank()) {
+            return BigDecimal.ZERO;
+        }
+        String key = symbol.trim().toUpperCase(Locale.ROOT);
+        BigDecimal rh = liveQuotes.equityPriceBySymbol().get(key);
+        if (rh != null && rh.compareTo(BigDecimal.ZERO) > 0) {
+            return rh;
+        }
+        YahooSimpleQuoteDto q = yahooQuotes.get(key);
+        if (q != null && q.regularMarketPrice() != null && q.regularMarketPrice() > 0) {
+            return BigDecimal.valueOf(q.regularMarketPrice());
+        }
+        return BigDecimal.ZERO;
+    }
+
+    private static BigDecimal optionCurrentUnitPrice(BigDecimal averageBuyPrice, BigDecimal markPerShare) {
+        if (markPerShare == null || markPerShare.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        if (averageBuyPrice != null && averageBuyPrice.compareTo(BigDecimal.valueOf(100)) > 0) {
+            return markPerShare.multiply(BigDecimal.valueOf(100));
+        }
+        return markPerShare;
     }
 
     private static RobinhoodRhHoldingDto normalizeOptionTotalMarketValue(RobinhoodRhHoldingDto h) {
@@ -182,15 +244,19 @@ final class RobinhoodRhHoldingValues {
         return h;
     }
 
-    private static RobinhoodRhHoldingDto buildHolding(RobinhoodRhHoldingDto h, Map<String, YahooSimpleQuoteDto> quotes) {
+    private static RobinhoodRhHoldingDto buildHolding(
+            RobinhoodRhHoldingDto h,
+            Map<String, YahooSimpleQuoteDto> quotes,
+            RobinhoodRhLiveQuotesDto liveQuotes,
+            Map<String, String> optionInstrumentByMatchKey) {
         BigDecimal qty = nullToZero(h.quantity());
         BigDecimal avg = scaleUnitPrice(nullToZero(h.averageBuyPrice()));
         BigDecimal cost = deriveCostBasis(withAverage(h, avg));
-        BigDecimal current = resolveCurrentUnitPrice(h, quotes);
+        BigDecimal current = resolveCurrentUnitPrice(h, quotes, liveQuotes, optionInstrumentByMatchKey);
         BigDecimal mv = marketValueFromCurrent(qty, current);
         if (mv.compareTo(BigDecimal.ZERO) == 0) {
             mv = effectiveMarketValue(h);
-            current = resolveCurrentUnitPrice(withMarketValue(h, mv), quotes);
+            current = resolveCurrentUnitPrice(withMarketValue(h, mv), quotes, liveQuotes, optionInstrumentByMatchKey);
             mv = marketValueFromCurrent(qty, current);
         }
         BigDecimal unrealized = mv.subtract(cost).setScale(2, RoundingMode.HALF_UP);
@@ -221,15 +287,28 @@ final class RobinhoodRhHoldingValues {
     }
 
     private static BigDecimal resolveCurrentUnitPrice(
-            RobinhoodRhHoldingDto h, Map<String, YahooSimpleQuoteDto> quotes) {
+            RobinhoodRhHoldingDto h,
+            Map<String, YahooSimpleQuoteDto> quotes,
+            RobinhoodRhLiveQuotesDto liveQuotes,
+            Map<String, String> optionInstrumentByMatchKey) {
         BigDecimal qty = nullToZero(h.quantity());
         if (qty.compareTo(BigDecimal.ZERO) == 0) {
             return BigDecimal.ZERO;
         }
         if ("equity".equalsIgnoreCase(h.positionType()) && h.symbol() != null) {
-            YahooSimpleQuoteDto q = quotes.get(h.symbol().trim().toUpperCase(Locale.ROOT));
-            if (q != null && q.regularMarketPrice() != null && q.regularMarketPrice() > 0) {
-                return BigDecimal.valueOf(q.regularMarketPrice());
+            BigDecimal current = equityCurrentUnitPrice(h.symbol(), quotes, liveQuotes);
+            if (current.compareTo(BigDecimal.ZERO) > 0) {
+                return current;
+            }
+        }
+        if ("option".equalsIgnoreCase(h.positionType())) {
+            String instrumentId = optionInstrumentByMatchKey.get(RobinhoodRhHoldingQuoteService.matchKey(h));
+            if (instrumentId != null) {
+                BigDecimal markPerShare = liveQuotes.optionMarkPerShareByInstrumentId().get(instrumentId);
+                BigDecimal current = optionCurrentUnitPrice(nullToZero(h.averageBuyPrice()), markPerShare);
+                if (current.compareTo(BigDecimal.ZERO) > 0) {
+                    return current;
+                }
             }
         }
         BigDecimal mv = effectiveMarketValue(h);

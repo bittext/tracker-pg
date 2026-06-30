@@ -41,7 +41,7 @@
 }
 
 .rh-snap-dialog__table--holdings {
-  min-width: 66rem;
+  min-width: 60rem;
 }
 
 .rh-snap-dialog__table--flows {
@@ -84,4 +84,14 @@
 
 .rh-snap-dialog__pnl--neg {
   color: #c0392b;
+}
+
+.rh-snap-dialog__pnl {
+  line-height: 1.35;
+}
+
+.rh-snap-dialog__pnl-pct {
+  display: block;
+  font-size: 0.8em;
+  opacity: 0.9;
 }

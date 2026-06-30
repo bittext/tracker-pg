@@ -126,7 +126,8 @@ def _quotes_by_symbol(payload: Any) -> dict[str, float]:
             if candidate.get("symbol") or candidate.get("instrument_symbol"):
                 quotes.append(candidate)
 
-    for quote in quotes:
+    for row in quotes:
+        quote = row.get("quote") if isinstance(row.get("quote"), dict) else row
         symbol = quote.get("symbol") or quote.get("instrument_symbol")
         if isinstance(quote.get("instrument"), dict):
             symbol = symbol or quote["instrument"].get("symbol")

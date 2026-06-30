@@ -13,6 +13,7 @@ import com.svp.tracker.finance.dto.RobinhoodRhAccountSummaryDto;
 import com.svp.tracker.finance.dto.RobinhoodRhAccountsTrackDto;
 import com.svp.tracker.finance.dto.RobinhoodRhCashFlowEventDto;
 import com.svp.tracker.finance.dto.RobinhoodRhHoldingDto;
+import com.svp.tracker.finance.dto.RobinhoodRhLiveQuotesDto;
 import com.svp.tracker.finance.repository.RobinhoodAccountTrackerConfigRepository;
 import com.svp.tracker.finance.repository.RobinhoodAgenticConnectionRepository;
 import com.svp.tracker.finance.repository.RobinhoodAgenticPositionRepository;
@@ -61,6 +62,7 @@ public class RobinhoodRhAccountsTrackService {
     private final FinanceProperties financeProperties;
     private final CurrentUserService currentUser;
     private final YahooBatchQuoteService yahooBatchQuoteService;
+    private final RobinhoodRhHoldingQuoteService holdingQuoteService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional
@@ -133,6 +135,7 @@ public class RobinhoodRhAccountsTrackService {
             String suffix = resolveSuffix(accountKey, allPositions);
             accounts.add(
                     buildAccountSummary(
+                            ownerUserId,
                             accountKey,
                             suffix,
                             individualSuffix,
@@ -212,6 +215,7 @@ public class RobinhoodRhAccountsTrackService {
     }
 
     private RobinhoodRhAccountSummaryDto buildAccountSummary(
+            long ownerUserId,
             String accountNumber,
             String suffix,
             String individualSuffix,
@@ -237,8 +241,10 @@ public class RobinhoodRhAccountsTrackService {
         BigDecimal equityMv =
                 portfolio.equityValue != null ? portfolio.equityValue : BigDecimal.ZERO;
 
-        List<RobinhoodRhHoldingDto> holdings =
-                RobinhoodRhHoldingValues.fromPositions(positions, equityMv, yahooBatchQuoteService);
+        RobinhoodRhLiveQuotesDto liveQuotes =
+                holdingQuoteService.fetchForHoldings(ownerUserId, List.of(), positions);
+        List<RobinhoodRhHoldingDto> holdings = RobinhoodRhHoldingValues.fromPositions(
+                positions, equityMv, yahooBatchQuoteService, liveQuotes);
         HoldingsTotals holdingsTotals = summarizeHoldings(holdings);
         if (portfolio.equityValue == null) {
             equityMv = holdingsTotals.marketValue;
@@ -344,8 +350,26 @@ public class RobinhoodRhAccountsTrackService {
 
     /** Recompute market values for holdings deserialized from a stored snapshot. */
     public List<RobinhoodRhHoldingDto> finalizeSnapshotHoldings(
-            List<RobinhoodRhHoldingDto> holdings, BigDecimal accountEquityMarketValue) {
-        return RobinhoodRhHoldingValues.finalizeHoldings(holdings, accountEquityMarketValue, yahooBatchQuoteService);
+            long ownerUserId,
+            String accountSuffix,
+            List<RobinhoodRhHoldingDto> holdings,
+            BigDecimal accountEquityMarketValue) {
+        List<RobinhoodAgenticPosition> positions = positionsForAccountSuffix(ownerUserId, accountSuffix);
+        RobinhoodRhLiveQuotesDto liveQuotes =
+                holdingQuoteService.fetchForHoldings(ownerUserId, holdings, positions);
+        Map<String, String> optionInstrumentIds = RobinhoodRhHoldingQuoteService.instrumentIdsByMatchKey(positions);
+        return RobinhoodRhHoldingValues.finalizeHoldings(
+                holdings, accountEquityMarketValue, yahooBatchQuoteService, liveQuotes, optionInstrumentIds);
+    }
+
+    private List<RobinhoodAgenticPosition> positionsForAccountSuffix(long ownerUserId, String accountSuffix) {
+        if (accountSuffix == null || accountSuffix.isBlank()) {
+            return List.of();
+        }
+        String suffix = accountSuffix.trim();
+        return positionRepository.findByOwnerUserIdOrderBySymbolAsc(ownerUserId).stream()
+                .filter(p -> p.getAccountNumber() != null && p.getAccountNumber().endsWith(suffix))
+                .toList();
     }
 
     private static HoldingsTotals summarizeHoldings(List<RobinhoodRhHoldingDto> holdings) {

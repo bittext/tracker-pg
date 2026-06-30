@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -49,6 +50,25 @@ public class RobinhoodAgenticSidecarClient {
     public JsonNode placeOrder(String accessToken, RobinhoodAgenticOrderRequestDto order, String accountNumber) {
         requireConfigured();
         return post("/v1/place-order", orderBody(accessToken, order, accountNumber));
+    }
+
+    public JsonNode fetchQuotes(String accessToken, List<String> symbols, List<String> optionInstrumentIds) {
+        requireConfigured();
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("access_token", accessToken);
+        var equity = body.putArray("symbols");
+        for (String symbol : symbols) {
+            if (symbol != null && !symbol.isBlank()) {
+                equity.add(symbol.trim().toUpperCase());
+            }
+        }
+        var options = body.putArray("option_instrument_ids");
+        for (String id : optionInstrumentIds) {
+            if (id != null && !id.isBlank()) {
+                options.add(id.trim());
+            }
+        }
+        return post("/v1/quotes", body);
     }
 
     private ObjectNode orderBody(String accessToken, RobinhoodAgenticOrderRequestDto order, String accountNumber) {

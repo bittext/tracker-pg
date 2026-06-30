@@ -8,6 +8,7 @@ Endpoints
 - POST /v1/refresh-token  → {refresh_token, client_id?}
 - POST /v1/review-order   → {access_token, symbol, side, type, ...}
 - POST /v1/place-order    → {access_token, symbol, side, type, ...}
+- POST /v1/quotes         → {access_token, symbols?, option_instrument_ids?}
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ from pydantic import BaseModel, Field
 
 from oauth_service import refresh_access_token
 from order_service import run_place, run_review
+from quote_service import run_quotes
 from sync_service import run_sync
 
 LOGGER = logging.getLogger("robinhood-agent-svc")
@@ -49,6 +51,12 @@ class OrderRequest(BaseModel):
     amount: str | float | int | None = None
     limit_price: str | float | int | None = None
     time_in_force: str | None = None
+
+
+class QuotesRequest(BaseModel):
+    access_token: str = Field(min_length=10)
+    symbols: list[str] = Field(default_factory=list)
+    option_instrument_ids: list[str] = Field(default_factory=list)
 
 
 @app.get("/health")
@@ -83,6 +91,23 @@ def refresh_token(body: RefreshTokenRequest) -> dict[str, Any]:
 
 def _order_body(body: OrderRequest) -> dict[str, Any]:
     return body.model_dump(exclude={"access_token"}, exclude_none=True)
+
+
+@app.post("/v1/quotes")
+def quotes(body: QuotesRequest) -> dict[str, Any]:
+    try:
+        return run_quotes(
+            body.access_token,
+            symbols=body.symbols,
+            option_instrument_ids=body.option_instrument_ids,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.exception("quotes failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @app.post("/v1/review-order")

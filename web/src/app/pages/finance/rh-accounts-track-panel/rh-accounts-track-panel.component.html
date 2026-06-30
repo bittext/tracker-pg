@@ -136,7 +136,6 @@
                   <th>Cost basis</th>
                   <th>Market value</th>
                   <th>Unrealized P&amp;L</th>
-                  <th>P&amp;L %</th>
                 </tr>
               </thead>
               <tbody>
@@ -155,12 +154,10 @@
                     </td>
                     <td>{{ h.costBasis | currency }}</td>
                     <td>{{ h.marketValue | currency }}</td>
-                    <td [class]="pnlClass(h.unrealizedPnL >= 0)">{{ h.unrealizedPnL | currency }}</td>
-                    <td [class]="pnlClass(h.unrealizedPnL >= 0)">
-                      @if (pnlPercent(h); as pct) {
-                        {{ pct | number: '1.2-2' }}%
-                      } @else {
-                        —
+                    <td class="rh-acct__pnl" [ngClass]="pnlClass(h.unrealizedPnL >= 0)">
+                      <span>{{ h.unrealizedPnL | currency }}</span>
+                      @if (pnlPercent(h) !== null) {
+                        <span class="rh-acct__pnl-pct">({{ pnlPercent(h)! | number: '1.2-2' }}%)</span>
                       }
                     </td>
                   </tr>
