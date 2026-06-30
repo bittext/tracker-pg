@@ -16,6 +16,9 @@ import java.util.Set;
 /** Derives per-position market value, cost basis, and unrealized P&amp;L for RH holdings displays. */
 final class RobinhoodRhHoldingValues {
 
+    private static final BigDecimal OPTION_INFLATION_RATIO_LOW = BigDecimal.valueOf(75);
+    private static final BigDecimal OPTION_INFLATION_RATIO_HIGH = BigDecimal.valueOf(125);
+
     private RobinhoodRhHoldingValues() {}
 
     static List<RobinhoodRhHoldingDto> fromPositions(
@@ -29,9 +32,18 @@ final class RobinhoodRhHoldingValues {
                 continue;
             }
             BigDecimal avg = nullToZero(p.getAverageBuyPrice());
-            BigDecimal mv = decimalOrZero(p.getMarketValue());
+            BigDecimal mv = normalizeOptionMarketValue(
+                            new RobinhoodRhHoldingDto(
+                                    p.getSymbol(),
+                                    p.getPositionType(),
+                                    qty,
+                                    avg,
+                                    decimalOrZero(p.getMarketValue()),
+                                    BigDecimal.ZERO,
+                                    BigDecimal.ZERO))
+                    .marketValue();
             BigDecimal cost = costBasis(qty, avg, null);
-            BigDecimal unrealized = mv.subtract(cost).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal unrealized = nullToZero(mv).subtract(cost).setScale(2, RoundingMode.HALF_UP);
             raw.add(new RobinhoodRhHoldingDto(
                     p.getSymbol(),
                     p.getPositionType(),
@@ -57,7 +69,7 @@ final class RobinhoodRhHoldingValues {
         for (RobinhoodRhHoldingDto h : holdings) {
             enriched.add(enrichOne(h, quotes));
         }
-        allocateAccountEquityWhenNeeded(enriched, accountEquityMarketValue);
+        allocateStockEquityWhenNeeded(enriched, accountEquityMarketValue);
         List<RobinhoodRhHoldingDto> out = new ArrayList<>();
         for (RobinhoodRhHoldingDto h : enriched) {
             out.add(reconcile(h));
@@ -85,47 +97,68 @@ final class RobinhoodRhHoldingValues {
         return quoteService.fetchBySymbols(List.copyOf(symbols));
     }
 
-    private static void allocateAccountEquityWhenNeeded(
+    /** Allocate stock-only portfolio equity to equity rows that still lack a market value. */
+    private static void allocateStockEquityWhenNeeded(
             List<RobinhoodRhHoldingDto> holdings, BigDecimal accountEquityMarketValue) {
-        BigDecimal equityMv = nullToZero(accountEquityMarketValue);
-        if (equityMv.compareTo(BigDecimal.ZERO) <= 0) {
+        BigDecimal stockPool = nullToZero(accountEquityMarketValue);
+        if (stockPool.compareTo(BigDecimal.ZERO) <= 0) {
             return;
         }
-        BigDecimal sumMv = holdings.stream()
-                .map(h -> nullToZero(h.marketValue()))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        if (sumMv.compareTo(BigDecimal.ZERO) > 0) {
+
+        BigDecimal equityMvKnown = BigDecimal.ZERO;
+        List<Integer> equityNeeding = new ArrayList<>();
+        for (int i = 0; i < holdings.size(); i++) {
+            RobinhoodRhHoldingDto h = holdings.get(i);
+            if (!"equity".equalsIgnoreCase(h.positionType())) {
+                continue;
+            }
+            if (marketValueMissing(h)) {
+                equityNeeding.add(i);
+            } else {
+                equityMvKnown = equityMvKnown.add(nullToZero(h.marketValue()));
+            }
+        }
+
+        BigDecimal remaining = stockPool.subtract(equityMvKnown);
+        if (remaining.compareTo(BigDecimal.ZERO) <= 0 || equityNeeding.isEmpty()) {
             return;
         }
-        BigDecimal totalCost = holdings.stream()
-                .map(h -> costBasis(nullToZero(h.quantity()), nullToZero(h.averageBuyPrice()), h.costBasis()))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalCost = BigDecimal.ZERO;
+        for (int i : equityNeeding) {
+            RobinhoodRhHoldingDto h = holdings.get(i);
+            totalCost = totalCost.add(
+                    costBasis(nullToZero(h.quantity()), nullToZero(h.averageBuyPrice()), h.costBasis()));
+        }
+
         if (totalCost.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal allocated = BigDecimal.ZERO;
-            for (int i = 0; i < holdings.size(); i++) {
+            for (int j = 0; j < equityNeeding.size(); j++) {
+                int i = equityNeeding.get(j);
                 RobinhoodRhHoldingDto h = holdings.get(i);
-                BigDecimal cost = costBasis(nullToZero(h.quantity()), nullToZero(h.averageBuyPrice()), h.costBasis());
+                BigDecimal cost = costBasis(
+                        nullToZero(h.quantity()), nullToZero(h.averageBuyPrice()), h.costBasis());
                 BigDecimal mv;
-                if (i == holdings.size() - 1) {
-                    mv = equityMv.subtract(allocated).setScale(2, RoundingMode.HALF_UP);
+                if (j == equityNeeding.size() - 1) {
+                    mv = remaining.subtract(allocated).setScale(2, RoundingMode.HALF_UP);
                 } else {
-                    mv = equityMv.multiply(cost).divide(totalCost, 2, RoundingMode.HALF_UP);
+                    mv = remaining.multiply(cost).divide(totalCost, 2, RoundingMode.HALF_UP);
                     allocated = allocated.add(mv);
                 }
                 holdings.set(i, withMarketValue(h, mv));
             }
             return;
         }
-        if (holdings.size() == 1) {
-            holdings.set(0, withMarketValue(holdings.get(0), equityMv));
+        if (equityNeeding.size() == 1) {
+            holdings.set(equityNeeding.get(0), withMarketValue(holdings.get(equityNeeding.get(0)), remaining));
         }
     }
 
     private static RobinhoodRhHoldingDto enrichOne(
             RobinhoodRhHoldingDto h, Map<String, YahooSimpleQuoteDto> quotes) {
+        h = normalizeOptionMarketValue(h);
         BigDecimal qty = nullToZero(h.quantity());
         BigDecimal avg = nullToZero(h.averageBuyPrice());
-        BigDecimal cost = costBasis(qty, avg, h.costBasis());
         BigDecimal mv = nullToZero(h.marketValue());
         if (marketValueMissing(h) && qty.compareTo(BigDecimal.ZERO) != 0) {
             if ("equity".equalsIgnoreCase(h.positionType()) && h.symbol() != null) {
@@ -136,13 +169,38 @@ final class RobinhoodRhHoldingValues {
                             .setScale(2, RoundingMode.HALF_UP);
                 }
             } else if ("option".equalsIgnoreCase(h.positionType()) && avg.compareTo(BigDecimal.ZERO) > 0) {
-                mv = qty.abs()
-                        .multiply(avg)
-                        .multiply(BigDecimal.valueOf(100))
-                        .setScale(2, RoundingMode.HALF_UP);
+                mv = optionMarkFromAverage(qty, avg);
             }
         }
         return withMarketValue(h, mv);
+    }
+
+    private static RobinhoodRhHoldingDto normalizeOptionMarketValue(RobinhoodRhHoldingDto h) {
+        if (!"option".equalsIgnoreCase(h.positionType())) {
+            return h;
+        }
+        BigDecimal qty = nullToZero(h.quantity());
+        BigDecimal avg = nullToZero(h.averageBuyPrice());
+        BigDecimal cost = costBasis(qty, avg, h.costBasis());
+        BigDecimal mv = nullToZero(h.marketValue());
+
+        if (cost.compareTo(BigDecimal.ZERO) > 0 && mv.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal ratio = mv.divide(cost, 2, RoundingMode.HALF_UP);
+            if (ratio.compareTo(OPTION_INFLATION_RATIO_LOW) >= 0
+                    && ratio.compareTo(OPTION_INFLATION_RATIO_HIGH) <= 0) {
+                return withMarketValue(h, mv.divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
+            }
+        }
+
+        if (marketValueMissing(h) && avg.compareTo(BigDecimal.ZERO) > 0) {
+            return withMarketValue(h, optionMarkFromAverage(qty, avg));
+        }
+        return h;
+    }
+
+    /** Contract dollars when average_buy_price already matches qty × avg cost basis (no ×100). */
+    private static BigDecimal optionMarkFromAverage(BigDecimal qty, BigDecimal avg) {
+        return qty.abs().multiply(avg).setScale(2, RoundingMode.HALF_UP);
     }
 
     private static RobinhoodRhHoldingDto reconcile(RobinhoodRhHoldingDto h) {

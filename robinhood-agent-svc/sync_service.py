@@ -58,7 +58,19 @@ def _market_value_from_fields(
 
 def _market_value_from_row(row: dict[str, Any], *, option: bool = False) -> float | None:
     existing = _to_float(row.get("market_value") or row.get("equity") or row.get("value"))
-    if existing is not None:
+    if existing is not None and existing != 0.0:
+        if option:
+            qty = _to_float(row.get("quantity") or row.get("contracts") or row.get("qty"))
+            avg = _to_float(
+                row.get("average_buy_price")
+                or row.get("average_price")
+                or row.get("average_open_price")
+                or row.get("avg_cost")
+            )
+            if qty and avg:
+                cost_style = abs(qty * avg)
+                if cost_style > 0 and abs(existing / cost_style - 100.0) < 25.0:
+                    return round(existing / 100.0, 2)
         return existing
     price = (
         row.get("current_price")
@@ -72,6 +84,15 @@ def _market_value_from_row(row: dict[str, Any], *, option: bool = False) -> floa
         mult = _to_float(row.get("trade_value_multiplier"))
         if mult is not None:
             multiplier = mult
+        qty = _to_float(row.get("quantity") or row.get("contracts") or row.get("qty"))
+        avg = _to_float(
+            row.get("average_buy_price")
+            or row.get("average_price")
+            or row.get("average_open_price")
+            or row.get("avg_cost")
+        )
+        if qty and avg and avg > 100:
+            return round(abs(qty * avg), 2)
     return _market_value_from_fields(
         quantity=row.get("quantity") or row.get("contracts") or row.get("qty"),
         price=price,
