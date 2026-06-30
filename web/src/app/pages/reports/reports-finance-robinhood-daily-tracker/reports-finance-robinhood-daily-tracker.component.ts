@@ -5,6 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -34,6 +35,7 @@ import {
     MatDialogModule,
     MatFormFieldModule,
     MatIconModule,
+    MatInputModule,
     MatProgressSpinnerModule,
     MatSelectModule,
     MatSnackBarModule,
@@ -62,6 +64,12 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   private readonly expandedManuals = new Set<string>();
   /** dayDate|capturedAt key currently being deleted */
   deletingManualKey: string | null = null;
+  /** Editable call-summary note drafts keyed by snapshotDate */
+  readonly noteDrafts = new Map<string, string>();
+  /** snapshotDate keys with note save in flight */
+  private readonly savingNoteDays = new Set<string>();
+  /** snapshotDate keys where call-summary notes section is collapsed */
+  private readonly collapsedSummaryNotes = new Set<string>();
 
   readonly monthChoices = [
     { value: null, label: 'All months' },
@@ -92,10 +100,15 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     this.loading = true;
     this.expandedDays.clear();
     this.collapsedManualSections.clear();
+    this.collapsedSummaryNotes.clear();
     this.expandedManuals.clear();
+    this.noteDrafts.clear();
     this.financeApi.robinhoodDailyTracker(this.reportYear, this.reportMonth).subscribe({
       next: (t) => {
         this.tracker = t;
+        for (const day of t.days) {
+          this.noteDrafts.set(day.snapshotDate, day.summaryNote ?? '');
+        }
         this.loading = false;
       },
       error: (err) => {
@@ -253,6 +266,60 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
 
   hasFlowBlock(day: RobinhoodRhDailyTrackerDayDto): boolean {
     return day.hasScheduledSnapshot && (day.combinedPeriodAdded !== 0 || day.combinedPeriodRemoved !== 0);
+  }
+
+  hasSummaryNote(day: RobinhoodRhDailyTrackerDayDto): boolean {
+    return !!(day.summaryNote && day.summaryNote.trim());
+  }
+
+  noteDraft(day: RobinhoodRhDailyTrackerDayDto): string {
+    return this.noteDrafts.get(day.snapshotDate) ?? day.summaryNote ?? '';
+  }
+
+  onNoteDraftChange(day: RobinhoodRhDailyTrackerDayDto, value: string): void {
+    this.noteDrafts.set(day.snapshotDate, value);
+  }
+
+  isNoteDirty(day: RobinhoodRhDailyTrackerDayDto): boolean {
+    return this.noteDraft(day).trim() !== (day.summaryNote ?? '').trim();
+  }
+
+  isSavingNote(day: RobinhoodRhDailyTrackerDayDto): boolean {
+    return this.savingNoteDays.has(day.snapshotDate);
+  }
+
+  isSummaryNotesExpanded(day: RobinhoodRhDailyTrackerDayDto): boolean {
+    return !this.collapsedSummaryNotes.has(day.snapshotDate);
+  }
+
+  toggleSummaryNotes(day: RobinhoodRhDailyTrackerDayDto, event: Event): void {
+    event.stopPropagation();
+    if (this.collapsedSummaryNotes.has(day.snapshotDate)) {
+      this.collapsedSummaryNotes.delete(day.snapshotDate);
+    } else {
+      this.collapsedSummaryNotes.add(day.snapshotDate);
+    }
+  }
+
+  saveSummaryNote(day: RobinhoodRhDailyTrackerDayDto, event: Event): void {
+    event.stopPropagation();
+    if (this.isSavingNote(day)) {
+      return;
+    }
+    const draft = this.noteDraft(day);
+    this.savingNoteDays.add(day.snapshotDate);
+    this.financeApi.robinhoodDailyTrackerSaveDayNote(day.snapshotDate, draft).subscribe({
+      next: (r) => {
+        this.savingNoteDays.delete(day.snapshotDate);
+        day.summaryNote = r.noteText;
+        this.noteDrafts.set(day.snapshotDate, r.noteText);
+        this.snackBar.open(r.message, 'OK', { duration: 4000 });
+      },
+      error: (err) => {
+        this.savingNoteDays.delete(day.snapshotDate);
+        this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
+      },
+    });
   }
 
   private manualKey(day: RobinhoodRhDailyTrackerDayDto, capture: RobinhoodRhDailyTrackerManualCaptureDto): string {

@@ -6,11 +6,13 @@ import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.RobinhoodAgenticProperties;
 import com.svp.tracker.config.RobinhoodRhDailyTrackerProperties;
 import com.svp.tracker.finance.domain.RobinhoodRhDailyCaptureKind;
+import com.svp.tracker.finance.domain.RobinhoodRhDailyDayNote;
 import com.svp.tracker.finance.domain.RobinhoodRhDailySnapshot;
 import com.svp.tracker.finance.dto.RobinhoodRhAccountSummaryDto;
 import com.svp.tracker.finance.dto.RobinhoodRhAccountsTrackDto;
 import com.svp.tracker.finance.dto.RobinhoodRhCashFlowEventDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyCaptureResultDto;
+import com.svp.tracker.finance.dto.RobinhoodRhDailyDayNoteResultDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyManualCaptureDeleteResultDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailySnapshotDetailDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerAccountCellDto;
@@ -21,6 +23,7 @@ import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerManualCaptureDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerReportDto;
 import com.svp.tracker.finance.dto.RobinhoodRhHoldingDto;
 import com.svp.tracker.finance.repository.RobinhoodAgenticConnectionRepository;
+import com.svp.tracker.finance.repository.RobinhoodRhDailyDayNoteRepository;
 import com.svp.tracker.finance.repository.RobinhoodRhDailySnapshotRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -63,6 +66,7 @@ public class RobinhoodRhDailyTrackerService {
     private final RobinhoodAgenticService agenticService;
     private final RobinhoodAgenticConnectionRepository connectionRepository;
     private final RobinhoodRhDailySnapshotRepository snapshotRepository;
+    private final RobinhoodRhDailyDayNoteRepository dayNoteRepository;
     private final RobinhoodAgenticProperties agenticProps;
     private final RobinhoodRhDailyTrackerProperties dailyTrackerProps;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -117,6 +121,15 @@ public class RobinhoodRhDailyTrackerService {
         dayDates.addAll(scheduledByDate.keySet());
         dayDates.addAll(manualByDate.keySet());
 
+        Map<LocalDate, String> summaryNotesByDate = new LinkedHashMap<>();
+        for (RobinhoodRhDailyDayNote noteRow :
+                dayNoteRepository.findByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateDesc(
+                        ownerUserId, filterFrom, filterTo)) {
+            if (noteRow.getNoteText() != null && !noteRow.getNoteText().isBlank()) {
+                summaryNotesByDate.put(noteRow.getSnapshotDate(), noteRow.getNoteText().trim());
+            }
+        }
+
         List<RobinhoodRhDailyTrackerDayDto> days = new ArrayList<>();
         for (LocalDate dayDate : dayDates) {
             List<RobinhoodRhDailySnapshot> dayScheduled =
@@ -164,7 +177,8 @@ public class RobinhoodRhDailyTrackerService {
                     scaleMoney(combinedRemoved),
                     scaleMoney(combinedValueChange),
                     cells,
-                    manualCaptures));
+                    manualCaptures,
+                    summaryNotesByDate.getOrDefault(dayDate, "")));
         }
 
         List<RobinhoodRhDailySnapshot> monthScheduledRows = month != null
@@ -188,7 +202,7 @@ public class RobinhoodRhDailyTrackerService {
             notes.add("Automatic daily capture is disabled — use Capture now or enable the scheduler in server config.");
         }
         notes.add(
-                "Each day shows the scheduled 9 PM snapshot. Manual captures are kept separately with timestamp links.");
+                "Each day shows the scheduled 9 PM snapshot. Add call-summary notes in the expanded day panel.");
         notes.add("Period flows on scheduled rows are cash movements since the previous 9 PM snapshot.");
         if (days.isEmpty()) {
             notes.add(
@@ -219,6 +233,29 @@ public class RobinhoodRhDailyTrackerService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Snapshot not found");
         }
         return toDetailDto(row);
+    }
+
+    @Transactional
+    public RobinhoodRhDailyDayNoteResultDto upsertDaySummaryNote(LocalDate snapshotDate, String noteText) {
+        long ownerUserId = currentUser.requireUserId();
+        String trimmed = noteText == null ? "" : noteText.trim();
+        Optional<RobinhoodRhDailyDayNote> existing =
+                dayNoteRepository.findByOwnerUserIdAndSnapshotDate(ownerUserId, snapshotDate);
+        if (trimmed.isEmpty()) {
+            existing.ifPresent(dayNoteRepository::delete);
+            return new RobinhoodRhDailyDayNoteResultDto(snapshotDate, "", "Summary note cleared.");
+        }
+        Instant now = Instant.now();
+        RobinhoodRhDailyDayNote row = existing.orElseGet(RobinhoodRhDailyDayNote::new);
+        if (row.getCreatedAt() == null) {
+            row.setCreatedAt(now);
+        }
+        row.setOwnerUserId(ownerUserId);
+        row.setSnapshotDate(snapshotDate);
+        row.setNoteText(trimmed);
+        row.setUpdatedAt(now);
+        dayNoteRepository.save(row);
+        return new RobinhoodRhDailyDayNoteResultDto(snapshotDate, trimmed, "Summary note saved.");
     }
 
     @Transactional

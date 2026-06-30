@@ -27,6 +27,8 @@ import com.svp.tracker.finance.dto.RobinhoodRhAccountsTrackDto;
 import com.svp.tracker.finance.service.RobinhoodAccountTrackerService;
 import com.svp.tracker.finance.service.RobinhoodRhAccountsTrackService;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyCaptureResultDto;
+import com.svp.tracker.finance.dto.RobinhoodRhDailyDayNoteResultDto;
+import com.svp.tracker.finance.dto.RobinhoodRhDailyDayNoteUpsertDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyManualCaptureDeleteResultDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailySnapshotDetailDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerReportDto;
@@ -42,6 +44,8 @@ import java.time.Instant;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -174,6 +178,17 @@ public class FinanceController {
             @RequestParam(name = "capturedAt") Instant capturedAt) {
         log.info("DELETE /api/finance/robinhood/daily-tracker/manual-capture capturedAt={}", capturedAt);
         return rhDailyTrackerService.deleteManualCapture(capturedAt);
+    }
+
+    /** Save or clear the 9 PM call-summary note for one calendar day. */
+    @PutMapping("/daily-tracker/day-note")
+    public RobinhoodRhDailyDayNoteResultDto dailyTrackerUpsertDayNote(
+            @RequestBody RobinhoodRhDailyDayNoteUpsertDto body) {
+        if (body == null || body.snapshotDate() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "snapshotDate is required");
+        }
+        log.info("PUT /api/finance/robinhood/daily-tracker/day-note date={}", body.snapshotDate());
+        return rhDailyTrackerService.upsertDaySummaryNote(body.snapshotDate(), body.noteText());
     }
 
     /**

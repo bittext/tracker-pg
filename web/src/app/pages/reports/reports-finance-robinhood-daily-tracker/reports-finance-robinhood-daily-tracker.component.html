@@ -8,8 +8,8 @@
       </span>
       —
     }
-    Each day’s <strong>9:00 PM CST</strong> snapshot appears as a row — click to expand. Manual captures can be
-    expanded, collapsed, or deleted individually inside each day.
+    Each day’s <strong>9:00 PM CST</strong> snapshot appears as a row — click to expand. Add call-summary notes,
+    and manage manual captures, inside each expanded day.
     <a routerLink="/finance">Finance</a> → Trading to connect Agentic sync.
   </p>
 
@@ -104,10 +104,70 @@
                   {{ day.manualCaptures.length }} manual
                 </span>
               }
+              @if (hasSummaryNote(day)) {
+                <mat-icon class="rh-daily__day-row-note" aria-label="Has call summary note" title="Call summary note">
+                  sticky_note_2
+                </mat-icon>
+              }
             </button>
 
             @if (isDayExpanded(day)) {
               <div class="rh-daily__day-panel">
+                <div
+                  class="rh-daily__summary-notes"
+                  role="region"
+                  aria-label="9 PM call summary notes"
+                  [class.rh-daily__summary-notes--open]="isSummaryNotesExpanded(day)"
+                >
+                  <button
+                    type="button"
+                    class="rh-daily__summary-notes-header"
+                    (click)="toggleSummaryNotes(day, $event)"
+                    [attr.aria-expanded]="isSummaryNotesExpanded(day)"
+                  >
+                    <mat-icon class="rh-daily__chevron rh-daily__chevron--sm" aria-hidden="true">
+                      {{ isSummaryNotesExpanded(day) ? 'expand_less' : 'expand_more' }}
+                    </mat-icon>
+                    <h4 class="rh-daily__summary-notes-title">9 PM call summary notes</h4>
+                    @if (hasSummaryNote(day)) {
+                      <span class="rh-daily__summary-notes-badge muted">saved</span>
+                    } @else if (isNoteDirty(day)) {
+                      <span class="rh-daily__summary-notes-badge rh-daily__summary-notes-badge--draft muted">
+                        unsaved
+                      </span>
+                    }
+                  </button>
+                  @if (isSummaryNotesExpanded(day)) {
+                    <div class="rh-daily__summary-notes-body" (click)="$event.stopPropagation()">
+                      <mat-form-field appearance="outline" class="rh-daily__summary-notes-field">
+                        <mat-label>Notes for this day’s review</mat-label>
+                        <textarea
+                          matInput
+                          rows="4"
+                          [ngModel]="noteDraft(day)"
+                          (ngModelChange)="onNoteDraftChange(day, $event)"
+                          name="summaryNote-{{ day.snapshotDate }}"
+                          placeholder="Trades discussed, action items, market context…"
+                        ></textarea>
+                      </mat-form-field>
+                      <div class="rh-daily__summary-notes-actions">
+                        <button
+                          mat-stroked-button
+                          type="button"
+                          (click)="saveSummaryNote(day, $event)"
+                          [disabled]="isSavingNote(day) || !isNoteDirty(day)"
+                        >
+                          @if (isSavingNote(day)) {
+                            <mat-spinner diameter="18" aria-hidden="true" />
+                          } @else {
+                            Save note
+                          }
+                        </button>
+                      </div>
+                    </div>
+                  }
+                </div>
+
                 @if (day.hasScheduledSnapshot) {
                   @if (hasFlowBlock(day)) {
                     <div class="rh-daily__flows" role="region" aria-label="Period cash movements">

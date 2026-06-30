@@ -160,8 +160,74 @@
   font-size: 0.75rem;
 }
 
+.rh-daily__day-row-note {
+  width: 1rem;
+  height: 1rem;
+  font-size: 1rem;
+  color: var(--app-accent, #10a37f);
+  flex-shrink: 0;
+}
+
 .rh-daily__day-panel {
   padding: 0 0.85rem 0.85rem 2.1rem;
+}
+
+.rh-daily__summary-notes {
+  margin-bottom: 0.75rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+  border-radius: 8px;
+  background: var(--app-bg, #fff);
+  overflow: hidden;
+}
+
+.rh-daily__summary-notes-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  width: 100%;
+  padding: 0.45rem 0.55rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+
+  &:hover {
+    background: var(--app-surface-muted, #f7f7f8);
+  }
+}
+
+.rh-daily__summary-notes-title {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.rh-daily__summary-notes-badge {
+  font-size: 0.7rem;
+  text-transform: lowercase;
+
+  &--draft {
+    color: #b45309;
+  }
+}
+
+.rh-daily__summary-notes-body {
+  padding: 0 0.65rem 0.65rem 1.75rem;
+}
+
+.rh-daily__summary-notes-field {
+  width: 100%;
+}
+
+.rh-daily__summary-notes-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -0.25rem;
 }
 
 .rh-daily__total {

@@ -132,6 +132,13 @@ export interface RobinhoodRhDailyTrackerDayDto {
   combinedPeriodValueChange: number;
   accounts: RobinhoodRhDailyTrackerAccountCellDto[];
   manualCaptures: RobinhoodRhDailyTrackerManualCaptureDto[];
+  summaryNote: string;
+}
+
+export interface RobinhoodRhDailyDayNoteResultDto {
+  snapshotDate: string;
+  noteText: string;
+  message: string;
 }
 
 export interface RobinhoodRhDailyTrackerManualCaptureDto {
