@@ -29,7 +29,6 @@ public class RobinhoodRhHoldingQuoteService {
     private final RobinhoodAgenticProperties agenticProps;
     private final RobinhoodAgenticConnectionRepository connectionRepository;
     private final RobinhoodAgenticTokenService tokenService;
-    private final RobinhoodAgenticSidecarClient sidecarClient;
 
     public RobinhoodRhLiveQuotesDto fetchForHoldings(
             long ownerUserId, List<RobinhoodRhHoldingDto> holdings, List<RobinhoodAgenticPosition> positions) {
@@ -79,10 +78,8 @@ public class RobinhoodRhHoldingQuoteService {
                 return RobinhoodRhLiveQuotesDto.empty();
             }
 
-            JsonNode result = tokenService.withFreshToken(
-                    conn,
-                    token -> sidecarClient.fetchQuotes(
-                            token, List.copyOf(equitySymbols), List.copyOf(optionInstrumentIds)));
+            JsonNode result = tokenService.fetchHoldingsQuotes(
+                    conn, List.copyOf(equitySymbols), List.copyOf(optionInstrumentIds));
             return parseQuotes(result);
         } catch (Exception e) {
             log.warn("Robinhood live quotes unavailable for user {}: {}", conn.getOwnerUserId(), e.getMessage());

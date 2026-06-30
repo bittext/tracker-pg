@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.svp.tracker.finance.domain.RobinhoodAgenticConnection;
 import com.svp.tracker.finance.repository.RobinhoodAgenticConnectionRepository;
 import java.time.Instant;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -76,5 +77,13 @@ public class RobinhoodAgenticTokenService {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public JsonNode syncAllAccounts(RobinhoodAgenticConnection conn) {
         return withFreshToken(conn, token -> sidecarClient.sync(token, true));
+    }
+
+    /** Sidecar quote HTTP only — same isolation as {@link #syncAllAccounts}. */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public JsonNode fetchHoldingsQuotes(
+            RobinhoodAgenticConnection conn, List<String> symbols, List<String> optionInstrumentIds) {
+        return withFreshToken(
+                conn, token -> sidecarClient.fetchQuotes(token, symbols, optionInstrumentIds));
     }
 }
