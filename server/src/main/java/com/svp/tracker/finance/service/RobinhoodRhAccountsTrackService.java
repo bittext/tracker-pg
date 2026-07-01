@@ -14,7 +14,6 @@ import com.svp.tracker.finance.dto.RobinhoodRhAccountsTrackDto;
 import com.svp.tracker.finance.dto.RobinhoodRhCashFlowEventDto;
 import com.svp.tracker.finance.dto.RobinhoodRhHoldingDto;
 import com.svp.tracker.finance.dto.RobinhoodRhLiveQuotesDto;
-import com.svp.tracker.finance.repository.RobinhoodAccountTrackerConfigRepository;
 import com.svp.tracker.finance.repository.RobinhoodAgenticConnectionRepository;
 import com.svp.tracker.finance.repository.RobinhoodAgenticPositionRepository;
 import com.svp.tracker.finance.repository.RobinhoodRhAccountStartingBalanceRepository;
@@ -52,7 +51,7 @@ public class RobinhoodRhAccountsTrackService {
     private static final Instant DEFAULT_TRACKING_START =
             ZonedDateTime.of(2026, 4, 5, 0, 0, 0, 0, CENTRAL).toInstant();
 
-    private final RobinhoodAccountTrackerConfigRepository configRepository;
+    private final RobinhoodAccountTrackerConfigService accountTrackerConfigService;
     private final RobinhoodRhSupplementalCashFlowRepository supplementalCashFlowRepository;
     private final RobinhoodRhAccountStartingBalanceRepository startingBalanceRepository;
     private final RobinhoodAgenticConnectionRepository connectionRepository;
@@ -81,7 +80,7 @@ public class RobinhoodRhAccountsTrackService {
         if (syncLatest) {
             syncNotes = agenticService.syncLatestForAccountsTrack();
         }
-        RobinhoodAccountTrackerConfig config = getOrCreateConfig(ownerUserId);
+        RobinhoodAccountTrackerConfig config = accountTrackerConfigService.getOrCreateConfig(ownerUserId);
         Instant trackingStartedAt = resolveTrackingStart(config);
         String individualSuffix = config.getIndividualAccountSuffix();
         String agenticSuffix = config.getAgenticAccountSuffix();
@@ -808,62 +807,6 @@ public class RobinhoodRhAccountsTrackService {
             notes.add(withoutHoldings + " account(s) have no synced holdings — re-sync or check account selection.");
         }
         return notes;
-    }
-
-    private RobinhoodAccountTrackerConfig getOrCreateConfig(long ownerUserId) {
-        return configRepository
-                .findByOwnerUserId(ownerUserId)
-                .map(this::ensureRhTrackStart)
-                .orElseGet(() -> createDefaultConfig(ownerUserId));
-    }
-
-    private RobinhoodAccountTrackerConfig ensureRhTrackStart(RobinhoodAccountTrackerConfig config) {
-        boolean changed = false;
-        if (config.getRhAccountsTrackStartedAt() == null) {
-            config.setRhAccountsTrackStartedAt(DEFAULT_TRACKING_START);
-            changed = true;
-        }
-        if (config.getIndividualStartingTotalValue() == null) {
-            config.setIndividualStartingTotalValue(BigDecimal.ZERO);
-            changed = true;
-        }
-        if (config.getAgenticStartingTotalValue() == null) {
-            config.setAgenticStartingTotalValue(BigDecimal.ZERO);
-            changed = true;
-        }
-        if (config.getManagedAccountSuffix() == null || config.getManagedAccountSuffix().isBlank()) {
-            config.setManagedAccountSuffix("4123");
-            changed = true;
-        }
-        if (config.getManagedStartingTotalValue() == null) {
-            config.setManagedStartingTotalValue(new BigDecimal("100.00"));
-            changed = true;
-        }
-        if (changed) {
-            config.setUpdatedAt(Instant.now());
-            return configRepository.save(config);
-        }
-        return config;
-    }
-
-    private RobinhoodAccountTrackerConfig createDefaultConfig(long ownerUserId) {
-        Instant now = Instant.now();
-        Instant nbisTrackingStart = ZonedDateTime.of(2026, 6, 24, 0, 0, 0, 0, CENTRAL).toInstant();
-
-        RobinhoodAccountTrackerConfig config = new RobinhoodAccountTrackerConfig();
-        config.setOwnerUserId(ownerUserId);
-        config.setTrackingStartedAt(nbisTrackingStart);
-        config.setRhAccountsTrackStartedAt(DEFAULT_TRACKING_START);
-        config.setIndividualAccountSuffix("3370");
-        config.setIndividualBaselineNbis(new BigDecimal("732"));
-        config.setIndividualStartingTotalValue(BigDecimal.ZERO);
-        config.setAgenticAccountSuffix("3550");
-        config.setAgenticStartingTotalValue(BigDecimal.ZERO);
-        config.setManagedAccountSuffix("4123");
-        config.setManagedStartingTotalValue(new BigDecimal("100.00"));
-        config.setCreatedAt(now);
-        config.setUpdatedAt(now);
-        return configRepository.save(config);
     }
 
     private static Instant resolveTrackingStart(RobinhoodAccountTrackerConfig config) {

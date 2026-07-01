@@ -68,6 +68,7 @@ public class RobinhoodRhDailyTrackerService {
     private final RobinhoodAgenticConnectionRepository connectionRepository;
     private final RobinhoodRhDailySnapshotRepository snapshotRepository;
     private final RobinhoodRhDailyDayNoteRepository dayNoteRepository;
+    private final RobinhoodAccountTrackerConfigService accountTrackerConfigService;
     private final RobinhoodAgenticProperties agenticProps;
     private final RobinhoodRhDailyTrackerProperties dailyTrackerProps;
     private final ObjectProvider<RobinhoodRhDailyTrackerService> selfProvider;
@@ -80,6 +81,7 @@ public class RobinhoodRhDailyTrackerService {
         LocalDate yearEnd = LocalDate.of(year, 12, 31);
         List<RobinhoodRhDailySnapshot> allYearRows =
                 visibleSnapshots(
+                        ownerUserId,
                         snapshotRepository.findByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateDescAccountSuffixAsc(
                                 ownerUserId, yearStart, yearEnd));
 
@@ -231,7 +233,7 @@ public class RobinhoodRhDailyTrackerService {
         RobinhoodRhDailySnapshot row = snapshotRepository
                 .findByIdAndOwnerUserId(snapshotId, ownerUserId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Snapshot not found"));
-        if (dailyTrackerProps.isExcludedSuffix(row.getAccountSuffix())) {
+        if (isHiddenAccount(ownerUserId, row.getAccountSuffix())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Snapshot not found");
         }
         return toDetailDto(row);
@@ -266,7 +268,7 @@ public class RobinhoodRhDailyTrackerService {
         List<RobinhoodRhDailySnapshot> rows = snapshotRepository.findByOwnerUserIdAndSnapshotAtAndCaptureKind(
                 ownerUserId, capturedAt, RobinhoodRhDailyCaptureKind.MANUAL);
         List<RobinhoodRhDailySnapshot> visible = rows.stream()
-                .filter(r -> !dailyTrackerProps.isExcludedSuffix(r.getAccountSuffix()))
+                .filter(r -> !isHiddenAccount(ownerUserId, r.getAccountSuffix()))
                 .toList();
         if (visible.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Manual capture not found");
@@ -324,7 +326,7 @@ public class RobinhoodRhDailyTrackerService {
 
         for (RobinhoodRhAccountSummaryDto acct : track.accounts()) {
             String suffix = acct.accountSuffix();
-            if (suffix == null || suffix.isBlank() || dailyTrackerProps.isExcludedSuffix(suffix)) {
+            if (suffix == null || suffix.isBlank() || isHiddenAccount(ownerUserId, suffix)) {
                 continue;
             }
 
@@ -452,10 +454,15 @@ public class RobinhoodRhDailyTrackerService {
                 flows);
     }
 
-    private List<RobinhoodRhDailySnapshot> visibleSnapshots(List<RobinhoodRhDailySnapshot> rows) {
+    private List<RobinhoodRhDailySnapshot> visibleSnapshots(long ownerUserId, List<RobinhoodRhDailySnapshot> rows) {
         return rows.stream()
-                .filter(r -> !dailyTrackerProps.isExcludedSuffix(r.getAccountSuffix()))
+                .filter(r -> !isHiddenAccount(ownerUserId, r.getAccountSuffix()))
                 .toList();
+    }
+
+    private boolean isHiddenAccount(long ownerUserId, String suffix) {
+        return RobinhoodAccountTrackerConfigService.isUnsetSuffix(suffix)
+                || accountTrackerConfigService.isExcludedSuffix(ownerUserId, suffix);
     }
 
     private static List<RobinhoodRhDailySnapshot> scheduledOnly(List<RobinhoodRhDailySnapshot> rows) {

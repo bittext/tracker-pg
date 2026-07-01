@@ -10,7 +10,6 @@ import com.svp.tracker.finance.dto.RobinhoodAccountLedgerEventDto;
 import com.svp.tracker.finance.dto.RobinhoodAccountTrackerDto;
 import com.svp.tracker.finance.dto.RobinhoodAgenticSpxComparisonDto;
 import com.svp.tracker.finance.dto.RobinhoodIndividualNbisTrackerDto;
-import com.svp.tracker.finance.repository.RobinhoodAccountTrackerConfigRepository;
 import com.svp.tracker.finance.repository.RobinhoodAgenticPositionRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -50,7 +49,7 @@ public class RobinhoodAccountTrackerService {
             "https://query1.finance.yahoo.com/v8/finance/chart/%s"
                     + "?range=3mo&interval=1d&includeAdjustedClose=true";
 
-    private final RobinhoodAccountTrackerConfigRepository configRepository;
+    private final RobinhoodAccountTrackerConfigService accountTrackerConfigService;
     private final RobinhoodAgenticPositionRepository positionRepository;
     private final RobinhoodFinanceService financeService;
     private final FinanceProperties financeProperties;
@@ -63,7 +62,7 @@ public class RobinhoodAccountTrackerService {
     @Transactional
     public RobinhoodAccountTrackerDto buildTracker() {
         long ownerUserId = currentUser.requireUserId();
-        RobinhoodAccountTrackerConfig config = getOrCreateConfig(ownerUserId);
+        RobinhoodAccountTrackerConfig config = accountTrackerConfigService.getOrCreateConfig(ownerUserId);
         Instant trackingStartedAt = config.getTrackingStartedAt();
         String individualSuffix = config.getIndividualAccountSuffix();
         String agenticSuffix = config.getAgenticAccountSuffix();
@@ -134,29 +133,6 @@ public class RobinhoodAccountTrackerService {
                 comparison,
                 ledger,
                 notes);
-    }
-
-    private RobinhoodAccountTrackerConfig getOrCreateConfig(long ownerUserId) {
-        return configRepository
-                .findByOwnerUserId(ownerUserId)
-                .orElseGet(() -> createDefaultConfig(ownerUserId));
-    }
-
-    private RobinhoodAccountTrackerConfig createDefaultConfig(long ownerUserId) {
-        Instant now = Instant.now();
-        Instant trackingStart = ZonedDateTime.of(2026, 6, 24, 0, 0, 0, 0, CENTRAL).toInstant();
-
-        RobinhoodAccountTrackerConfig config = new RobinhoodAccountTrackerConfig();
-        config.setOwnerUserId(ownerUserId);
-        config.setTrackingStartedAt(trackingStart);
-        config.setRhAccountsTrackStartedAt(
-                ZonedDateTime.of(2026, 4, 5, 0, 0, 0, 0, CENTRAL).toInstant());
-        config.setIndividualAccountSuffix("3370");
-        config.setIndividualBaselineNbis(DEFAULT_BASELINE_NBIS);
-        config.setAgenticAccountSuffix("3550");
-        config.setCreatedAt(now);
-        config.setUpdatedAt(now);
-        return configRepository.save(config);
     }
 
     private static List<String> buildNotes(int ledgerSize, int ledgerCap, NbisLive liveNbis, BigDecimal variance) {

@@ -51,6 +51,7 @@ public class RobinhoodAgenticService {
     private final RobinhoodAgenticSidecarClient sidecarClient;
     private final RobinhoodAgenticTokenCrypto tokenCrypto;
     private final RobinhoodAgenticTokenService tokenService;
+    private final RobinhoodAccountTrackerConfigService accountTrackerConfigService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional(readOnly = true)
@@ -266,6 +267,8 @@ public class RobinhoodAgenticService {
         conn.setLastSyncMessage(buildSyncMessage(result));
         conn.setUpdatedAt(Instant.now());
         connectionRepository.save(conn);
+
+        accountTrackerConfigService.applyRolesFromSync(conn.getOwnerUserId(), result);
 
         positionRepository.deleteAllByOwnerUserId(conn.getOwnerUserId());
         Map<String, RobinhoodAgenticPosition> byAccountAndKey = new LinkedHashMap<>();

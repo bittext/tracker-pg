@@ -59,6 +59,10 @@ public class RobinhoodAccountTrackerConfig {
     @Column(name = "managed_starting_total_value", precision = 19, scale = 2)
     private BigDecimal managedStartingTotalValue;
 
+    /** Comma-separated last-4 account suffixes hidden from Daily Tracker (other synced RH accounts). */
+    @Column(name = "excluded_account_suffixes", nullable = false, columnDefinition = "TEXT")
+    private String excludedAccountSuffixes = "";
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
