@@ -137,6 +137,29 @@ def _quotes_by_symbol(payload: Any) -> dict[str, float]:
     return prices
 
 
+def _equity_cost_basis(row: dict[str, Any]) -> float | None:
+    qty = _to_float(row.get("quantity") or row.get("shares") or row.get("qty"))
+    avg = _to_float(
+        row.get("average_buy_price")
+        or row.get("average_price")
+        or row.get("avg_cost")
+    )
+    if qty is None or avg is None:
+        return None
+    return round(abs(qty * avg), 2)
+
+
+def _equity_needs_live_quote(position: dict[str, Any]) -> bool:
+    """True when market_value is missing or equals cost (stale avg×qty placeholder)."""
+    mv = _to_float(position.get("market_value") or position.get("equity") or position.get("value"))
+    if mv in (None, 0.0):
+        return True
+    cost = _equity_cost_basis(position)
+    if cost is None or cost == 0.0:
+        return False
+    return abs(mv - cost) < 0.05
+
+
 def _enrich_market_values(
     client: RobinhoodMcpClient,
     positions: list[dict[str, Any]],
@@ -158,9 +181,9 @@ def _enrich_market_values(
             str(p["symbol"]).strip().upper()
             for p in positions
             if p.get("position_type") == "equity"
-            and (_to_float(p.get("market_value")) in (None, 0.0))
             and p.get("symbol")
             and _to_float(p.get("quantity")) is not None
+            and _equity_needs_live_quote(p)
         }
     )
     if not symbols_needing_quotes:

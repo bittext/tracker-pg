@@ -320,7 +320,9 @@ final class RobinhoodRhHoldingValues {
         }
         BigDecimal cost = deriveCostBasis(h);
         BigDecimal unrealized = h.unrealizedPnL();
-        if (unrealized != null && qty.compareTo(BigDecimal.ZERO) > 0) {
+        if (unrealized != null
+                && unrealized.compareTo(BigDecimal.ZERO) != 0
+                && qty.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal implied = cost.add(unrealized);
             if (implied.compareTo(BigDecimal.ZERO) > 0) {
                 return implied.divide(qty.abs(), 4, RoundingMode.HALF_UP);
@@ -375,7 +377,7 @@ final class RobinhoodRhHoldingValues {
             return h;
         }
         BigDecimal mv = effectiveMarketValue(h);
-        if (mv.compareTo(BigDecimal.ZERO) > 0) {
+        if (mv.compareTo(BigDecimal.ZERO) > 0 && !marketValueEqualsCostBasis(h, mv)) {
             return withMarketValue(h, mv);
         }
         return h;
@@ -388,8 +390,11 @@ final class RobinhoodRhHoldingValues {
         }
         BigDecimal cost = deriveCostBasis(h);
         BigDecimal unrealized = h.unrealizedPnL();
+        // Only infer MV from cost + unrealized when unrealized is non-zero (synced P&L).
+        // Placeholder unrealized=0 must not collapse to cost basis when quotes are missing.
         if (unrealized != null
-                && (cost.compareTo(BigDecimal.ZERO) > 0 || unrealized.compareTo(BigDecimal.ZERO) != 0)) {
+                && unrealized.compareTo(BigDecimal.ZERO) != 0
+                && cost.compareTo(BigDecimal.ZERO) > 0) {
             return cost.add(unrealized).setScale(2, RoundingMode.HALF_UP);
         }
         return BigDecimal.ZERO;
@@ -405,7 +410,20 @@ final class RobinhoodRhHoldingValues {
     }
 
     private static boolean marketValueMissing(RobinhoodRhHoldingDto h) {
-        return nullToZero(h.marketValue()).compareTo(BigDecimal.ZERO) == 0;
+        BigDecimal mv = nullToZero(h.marketValue());
+        if (mv.compareTo(BigDecimal.ZERO) == 0) {
+            return true;
+        }
+        return "equity".equalsIgnoreCase(h.positionType()) && marketValueEqualsCostBasis(h, mv);
+    }
+
+    /** Stale sync rows often store qty × avg as market_value when live quotes were unavailable. */
+    private static boolean marketValueEqualsCostBasis(RobinhoodRhHoldingDto h, BigDecimal marketValue) {
+        BigDecimal cost = deriveCostBasis(h);
+        if (cost.compareTo(BigDecimal.ZERO) <= 0 || marketValue.compareTo(BigDecimal.ZERO) <= 0) {
+            return false;
+        }
+        return marketValue.subtract(cost).abs().compareTo(new BigDecimal("0.05")) <= 0;
     }
 
     private static BigDecimal decimalOrZero(BigDecimal v) {
