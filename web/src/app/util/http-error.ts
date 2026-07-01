@@ -9,6 +9,14 @@ export function formatHttpErrorDetail(e: unknown): string {
     if (e.status === 413) {
       return '413: Upload too large (or proxy body limit). Check server limits: `tracker.journal.max-attachment-bytes` (currently 8MB), `spring.servlet.multipart.max-file-size`, and any nginx/Caddy body-size limits. If this is a dev HTML response, also verify `/api` proxying or `apiBaseUrl`.';
     }
+    if (e.status === 502) {
+      const tail = typeof e.error === 'string' ? e.error.trim() : '';
+      const genericProxy =
+        !tail || tail === 'OK' || /bad gateway/i.test(tail) || /^\s*</.test(tail);
+      if (genericProxy) {
+        return '502: API unreachable (nginx/Caddy could not reach Spring). Wait 30–90s after a deploy, hard-refresh, then retry. On the server: docker ps (api should be Up), docker logs tracker-pg-api-1 --tail 40.';
+      }
+    }
     if (typeof e.error === 'string' && e.error.trim()) {
       const body = e.error;
       if (/^\s*</.test(body) || /<title>\s*404/i.test(body)) {

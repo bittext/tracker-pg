@@ -168,6 +168,26 @@ if [[ "$use_webull_quote" -eq 1 ]]; then
   echo "webull-quote is running."
 fi
 docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" up -d --no-deps --force-recreate --remove-orphans api web
+
+wait_for_api_healthy() {
+  local max_attempts="${1:-60}"
+  local attempt=1
+  echo "Waiting for api health (up to ${max_attempts} attempts)…"
+  while (( attempt <= max_attempts )); do
+    if docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" exec -T api \
+      curl -fsS http://127.0.0.1:9091/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then
+      echo "api is healthy."
+      return 0
+    fi
+    sleep 2
+    attempt=$((attempt + 1))
+  done
+  echo "WARN: api did not report healthy in time — UI may show 502 until Spring finishes booting." >&2
+  echo "      Check: docker compose -f docker-compose.stack.yml --env-file ${env_file} logs api --tail 60" >&2
+  return 1
+}
+wait_for_api_healthy 60 || true
+
 # Ensure Caddy (re)starts and stays in the project; picks up Caddyfile bind-mount changes.
 if [[ "$use_caddy" -eq 1 ]] && [[ -f "${repo_root}/docker-compose.https-lightsail.yml" ]]; then
   remove_stale_compose_containers caddy

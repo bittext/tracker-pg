@@ -66,6 +66,17 @@ public class ApiExceptionHandler {
                         "Attachment storage failed. Check server configuration and try again."));
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, String>> illegalState(IllegalStateException ex) {
+        log.error("Illegal state", ex);
+        String message = ex.getMessage();
+        if (message == null || message.isBlank()) {
+            message = "The request could not be completed.";
+        }
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "illegal_state", "message", message));
+    }
+
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, String>> responseStatus(ResponseStatusException ex) {
         HttpStatus status = HttpStatus.valueOf(ex.getStatusCode().value());

@@ -37,6 +37,10 @@ RUN --mount=type=cache,target=/root/.m2 \
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
+# curl for container health checks (docker-compose.stack.yml → /actuator/health).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /workspace/server/target/tracker-pg-server-*.jar /app/app.jar
 
