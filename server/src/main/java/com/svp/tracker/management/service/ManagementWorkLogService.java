@@ -128,7 +128,7 @@ public class ManagementWorkLogService {
                 throw new UncheckedIOException(ex);
             }
         }
-        repository.deleteById(id);
+        repository.delete(e);
     }
 
     @Transactional

@@ -106,6 +106,8 @@ public class ReportCalendarService {
             } catch (IOException ex) {
                 throw new UncheckedIOException(ex);
             }
+            e.getAttachments().remove(a);
+            attachmentRepository.delete(a);
         }
         repository.delete(e);
     }
