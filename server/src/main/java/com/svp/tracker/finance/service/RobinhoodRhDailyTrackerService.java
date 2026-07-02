@@ -229,8 +229,8 @@ public class RobinhoodRhDailyTrackerService {
                         "No snapshots yet — wait for the 9 PM job or click Capture now after connecting Agentic Trading.");
             }
         } else {
-            notes.add("Use Capture now to save your Agentic Trading account after connecting your Robinhood sync.");
-            notes.add("Daily Tracker uses your own Agentic connection — only your Agentic account is captured.");
+            notes.add("Use Capture now after connecting your Robinhood sync and syncing holdings.");
+            notes.add("Daily Tracker captures your own synced accounts (default and Agentic) — not other users' accounts.");
             notes.add("Each day shows captures for that calendar date. Add call-summary notes in the expanded day panel.");
             notes.add("Period flows are cash movements since the previous snapshot on that account.");
             if (days.isEmpty()) {
@@ -410,9 +410,7 @@ public class RobinhoodRhDailyTrackerService {
 
         String message;
         if (captured == 0) {
-            message = isScheduledCaptureOwner(ownerUserId)
-                    ? "No accounts to snapshot — connect Agentic Trading and sync holdings first."
-                    : "No Agentic account to snapshot — connect your Robinhood Agentic Trading and sync first.";
+            message = "No accounts to snapshot — connect Agentic Trading, sync holdings, then try again.";
         } else if (manual) {
             message = "Saved manual capture at "
                     + MANUAL_TIME.format(snapshotAt)
@@ -495,21 +493,12 @@ public class RobinhoodRhDailyTrackerService {
         return !isDailyTrackerAccount(ownerUserId, suffix);
     }
 
-    /**
-     * Daily Tracker accounts: spulickal keeps all tracked RH accounts (individual, agentic, managed); other users
-     * only their Agentic Trading account from their own Robinhood Agentic connection.
-     */
+    /** Accounts this owner tracks from their own Agentic sync (default, agentic, managed — never another user's suffixes). */
     private boolean isDailyTrackerAccount(long ownerUserId, String suffix) {
         if (RobinhoodAccountTrackerConfigService.isUnsetSuffix(suffix)) {
             return false;
         }
-        if (isScheduledCaptureOwner(ownerUserId)) {
-            return accountTrackerConfigService.isTrackedSuffix(ownerUserId, suffix);
-        }
-        String agenticSuffix = accountTrackerConfigService
-                .resolveOwnedAccounts(ownerUserId)
-                .agenticSuffix();
-        return agenticSuffix != null && agenticSuffix.equalsIgnoreCase(suffix.trim());
+        return accountTrackerConfigService.isTrackedSuffix(ownerUserId, suffix);
     }
 
     private static List<RobinhoodRhDailySnapshot> scheduledOnly(List<RobinhoodRhDailySnapshot> rows) {
