@@ -6,8 +6,10 @@
     <p class="muted rh-snap-dialog__meta">
       @if (d.captureKind === 'MANUAL') {
         Manual capture {{ d.snapshotAt | date: 'mediumDate' }} · {{ d.snapshotAt | date: 'shortTime' }} Central
-      } @else {
+      } @else if (data.scheduledCaptureEnabled) {
         Snapshot {{ d.snapshotDate | date: 'mediumDate' }} · 9 PM Central
+      } @else {
+        Snapshot {{ d.snapshotDate | date: 'mediumDate' }}
       }
       @if (d.periodStartDate) {
         <span> · Period since {{ d.periodStartDate | date: 'mediumDate' }}</span>

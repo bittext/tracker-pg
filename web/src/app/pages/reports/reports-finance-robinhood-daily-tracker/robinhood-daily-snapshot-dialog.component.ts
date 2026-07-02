@@ -11,6 +11,7 @@ export interface RobinhoodDailySnapshotDialogData {
   snapshotId: number;
   dayLabel: string;
   accountSuffix: string;
+  scheduledCaptureEnabled?: boolean;
 }
 
 /** Wide enough for holdings (8 cols) + cash-flow tables without clipping. */

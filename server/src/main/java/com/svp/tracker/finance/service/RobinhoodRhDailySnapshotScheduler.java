@@ -52,6 +52,9 @@ public class RobinhoodRhDailySnapshotScheduler {
         Instant snapshotAt = Instant.now();
         log.info("RH daily snapshot job starting for {} connection(s) at {}", connections.size(), snapshotAt);
         for (RobinhoodAgenticConnection conn : connections) {
+            if (!dailyTrackerService.isScheduledCaptureOwner(conn.getOwnerUserId())) {
+                continue;
+            }
             try {
                 if (agenticProps.enabled() && agenticProps.serviceConfigured()) {
                     agenticService.syncConnectionBestEffort(conn);

@@ -29,7 +29,7 @@ WHERE s.account_suffix = '4123'
   );
 
 -- Hide stale Daily Tracker rows for account suffixes this owner does not hold.
-DELETE FROM robinhood_rh_daily_snapshots snap
+DELETE FROM robinhood_rh_daily_snapshot snap
 WHERE EXISTS (
     SELECT 1
     FROM robinhood_agentic_positions p

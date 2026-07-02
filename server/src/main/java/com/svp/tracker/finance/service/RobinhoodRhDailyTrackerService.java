@@ -2,6 +2,7 @@ package com.svp.tracker.finance.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.svp.tracker.auth.repository.AppUserRepository;
 import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.RobinhoodAgenticProperties;
 import com.svp.tracker.config.RobinhoodRhDailyTrackerProperties;
@@ -58,11 +59,15 @@ import org.springframework.web.server.ResponseStatusException;
 @Slf4j
 public class RobinhoodRhDailyTrackerService {
 
+    /** Only this user's Daily Tracker runs the nightly scheduled capture and 9 PM UI labels. */
+    public static final String SCHEDULED_CAPTURE_OWNER_USERNAME = "spulickal";
+
     private static final ZoneId CENTRAL = ZoneId.of("America/Chicago");
     private static final DateTimeFormatter MANUAL_TIME =
             DateTimeFormatter.ofPattern("h:mm a").withZone(CENTRAL);
 
     private final CurrentUserService currentUser;
+    private final AppUserRepository appUserRepository;
     private final RobinhoodRhAccountsTrackService rhAccountsTrackService;
     private final RobinhoodAgenticService agenticService;
     private final RobinhoodAgenticConnectionRepository connectionRepository;
@@ -74,9 +79,18 @@ public class RobinhoodRhDailyTrackerService {
     private final ObjectProvider<RobinhoodRhDailyTrackerService> selfProvider;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    /** Whether nightly scheduled snapshots and 9 PM schedule copy apply to this owner. */
+    public boolean isScheduledCaptureOwner(long ownerUserId) {
+        return appUserRepository
+                .findById(ownerUserId)
+                .map(u -> SCHEDULED_CAPTURE_OWNER_USERNAME.equalsIgnoreCase(u.getUsername().trim()))
+                .orElse(false);
+    }
+
     @Transactional(readOnly = true)
     public RobinhoodRhDailyTrackerReportDto buildReport(int year, Integer month) {
         long ownerUserId = currentUser.requireUserId();
+        boolean scheduledOwner = isScheduledCaptureOwner(ownerUserId);
         LocalDate yearStart = LocalDate.of(year, 1, 1);
         LocalDate yearEnd = LocalDate.of(year, 12, 31);
         List<RobinhoodRhDailySnapshot> allYearRows =
@@ -197,22 +211,33 @@ public class RobinhoodRhDailyTrackerService {
         BigDecimal yearCombinedChange = combinedChange(scheduledYearRows);
 
         List<String> notes = new ArrayList<>();
-        if (dailyTrackerProps.snapshotSchedulerActive()) {
+        if (scheduledOwner) {
+            if (dailyTrackerProps.snapshotSchedulerActive()) {
+                notes.add(
+                        "Automatic capture runs "
+                                + dailyTrackerProps.autoCaptureScheduleLabel()
+                                + " for every connected Agentic account (syncs holdings first).");
+            } else {
+                notes.add(
+                        "Automatic daily capture is disabled — use Capture now or enable the scheduler in server config.");
+            }
             notes.add(
-                    "Automatic capture runs "
-                            + dailyTrackerProps.autoCaptureScheduleLabel()
-                            + " for every connected Agentic account (syncs holdings first).");
+                    "Each day shows the scheduled 9 PM snapshot. Add call-summary notes in the expanded day panel.");
+            notes.add("Period flows on scheduled rows are cash movements since the previous 9 PM snapshot.");
+            if (days.isEmpty()) {
+                notes.add(
+                        "No snapshots yet — wait for the 9 PM job or click Capture now after connecting Agentic Trading.");
+            }
         } else {
-            notes.add("Automatic daily capture is disabled — use Capture now or enable the scheduler in server config.");
-        }
-        notes.add(
-                "Each day shows the scheduled 9 PM snapshot. Add call-summary notes in the expanded day panel.");
-        notes.add("Period flows on scheduled rows are cash movements since the previous 9 PM snapshot.");
-        if (days.isEmpty()) {
-            notes.add(
-                    "No snapshots yet — wait for the 9 PM job or click Capture now after connecting Agentic Trading.");
+            notes.add("Use Capture now to save account snapshots after connecting Agentic Trading.");
+            notes.add("Each day shows captures for that calendar date. Add call-summary notes in the expanded day panel.");
+            notes.add("Period flows are cash movements since the previous snapshot on that account.");
+            if (days.isEmpty()) {
+                notes.add("No snapshots yet — click Capture now after connecting Agentic Trading.");
+            }
         }
 
+        boolean autoCaptureScheduled = scheduledOwner && dailyTrackerProps.snapshotSchedulerActive();
         return new RobinhoodRhDailyTrackerReportDto(
                 year,
                 month,
@@ -220,8 +245,8 @@ public class RobinhoodRhDailyTrackerService {
                 monthCombinedChange,
                 yearCombinedTotal,
                 yearCombinedChange,
-                dailyTrackerProps.snapshotSchedulerActive(),
-                dailyTrackerProps.autoCaptureScheduleLabel(),
+                autoCaptureScheduled,
+                autoCaptureScheduled ? dailyTrackerProps.autoCaptureScheduleLabel() : "",
                 suffixOrder.stream().map(columnBySuffix::get).filter(Objects::nonNull).toList(),
                 days,
                 notes);
@@ -392,7 +417,10 @@ public class RobinhoodRhDailyTrackerService {
                     + captured
                     + " account"
                     + (captured == 1 ? "" : "s")
-                    + "). The daily 9 PM row is unchanged.";
+                    + ").";
+            if (isScheduledCaptureOwner(ownerUserId)) {
+                message += " The daily 9 PM row is unchanged.";
+            }
         } else {
             message = "Captured " + captured + " scheduled snapshot(s) for " + snapshotDate + " Central.";
         }

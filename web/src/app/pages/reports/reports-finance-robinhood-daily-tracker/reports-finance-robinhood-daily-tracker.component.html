@@ -7,9 +7,12 @@
         Auto-capture: {{ tracker!.autoCaptureScheduleLabel }}
       </span>
       —
+      Each day’s <strong>9:00 PM CST</strong> snapshot appears as a row — click to expand. Add call-summary notes,
+      and manage manual captures, inside each expanded day.
+    } @else {
+      Daily snapshots appear as a row — click to expand. Add call-summary notes, and manage manual captures, inside
+      each expanded day.
     }
-    Each day’s <strong>9:00 PM CST</strong> snapshot appears as a row — click to expand. Add call-summary notes,
-    and manage manual captures, inside each expanded day.
     <a routerLink="/finance">Finance</a> → Trading to connect Agentic sync.
   </p>
 
@@ -69,7 +72,11 @@
     </div>
 
     @if (!t.days.length) {
-      <p class="muted">No daily snapshots for this period. Use <strong>Capture now</strong> or wait for the 9 PM job.</p>
+      @if (t.autoCaptureScheduled) {
+        <p class="muted">No daily snapshots for this period. Use <strong>Capture now</strong> or wait for the 9 PM job.</p>
+      } @else {
+        <p class="muted">No daily snapshots for this period. Use <strong>Capture now</strong>.</p>
+      }
     } @else {
       <ul class="rh-daily__day-list" role="list">
         @for (day of t.days; track day.snapshotDate) {
@@ -89,14 +96,16 @@
               </mat-icon>
               <span class="rh-daily__day-row-date">{{ day.snapshotDate | date: 'mediumDate' }}</span>
               @if (day.hasScheduledSnapshot) {
-                <span class="rh-daily__day-row-badge muted">9 PM CST</span>
+                @if (t.autoCaptureScheduled) {
+                  <span class="rh-daily__day-row-badge muted">9 PM CST</span>
+                }
                 <strong class="rh-daily__day-row-total">{{ day.combinedTotal | currency }}</strong>
                 @if (day.combinedPeriodValueChange !== 0) {
                   <span class="rh-daily__day-row-delta muted" [class]="pnlClass(day.combinedPeriodValueChange)">
                     Δ {{ day.combinedPeriodValueChange | currency }}
                   </span>
                 }
-              } @else {
+              } @else if (t.autoCaptureScheduled) {
                 <span class="rh-daily__day-row-badge rh-daily__day-row-badge--pending">9 PM pending</span>
               }
               @if (day.manualCaptures.length) {
@@ -116,7 +125,7 @@
                 <div
                   class="rh-daily__summary-notes"
                   role="region"
-                  aria-label="9 PM call summary notes"
+                  [attr.aria-label]="t.autoCaptureScheduled ? '9 PM call summary notes' : 'Call summary notes'"
                   [class.rh-daily__summary-notes--open]="isSummaryNotesExpanded(day)"
                 >
                   <button
@@ -128,7 +137,13 @@
                     <mat-icon class="rh-daily__chevron rh-daily__chevron--sm" aria-hidden="true">
                       {{ isSummaryNotesExpanded(day) ? 'expand_less' : 'expand_more' }}
                     </mat-icon>
-                    <h4 class="rh-daily__summary-notes-title">9 PM call summary notes</h4>
+                    <h4 class="rh-daily__summary-notes-title">
+                      @if (t.autoCaptureScheduled) {
+                        9 PM call summary notes
+                      } @else {
+                        Call summary notes
+                      }
+                    </h4>
                     @if (hasSummaryNote(day)) {
                       <span class="rh-daily__summary-notes-badge muted">saved</span>
                     } @else if (isNoteDirty(day)) {
@@ -171,7 +186,13 @@
                 @if (day.hasScheduledSnapshot) {
                   @if (hasFlowBlock(day)) {
                     <div class="rh-daily__flows" role="region" aria-label="Period cash movements">
-                      <h4 class="rh-daily__flows-title">Added / removed since previous 9 PM</h4>
+                      <h4 class="rh-daily__flows-title">
+                        @if (t.autoCaptureScheduled) {
+                          Added / removed since previous 9 PM
+                        } @else {
+                          Added / removed since previous snapshot
+                        }
+                      </h4>
                       <ul class="rh-daily__flows-list">
                         @for (acct of t.accounts; track acct.accountSuffix) {
                           @if (cellForDay(day, acct.accountSuffix); as cell) {
@@ -223,7 +244,7 @@
                       }
                     }
                   </div>
-                } @else {
+                } @else if (t.autoCaptureScheduled) {
                   <p class="muted rh-daily__pending">Scheduled 9 PM snapshot not captured yet.</p>
                 }
 

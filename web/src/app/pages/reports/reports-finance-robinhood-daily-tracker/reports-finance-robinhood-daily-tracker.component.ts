@@ -252,6 +252,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         snapshotId: cell.snapshotId,
         dayLabel: day.snapshotDate,
         accountSuffix: cell.accountSuffix,
+        scheduledCaptureEnabled: this.tracker?.autoCaptureScheduled ?? false,
       } satisfies RobinhoodDailySnapshotDialogData,
     });
   }
