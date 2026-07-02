@@ -77,6 +77,10 @@ public class RobinhoodRhDailySnapshot {
     @Column(name = "flows_json", nullable = false, columnDefinition = "TEXT")
     private String flowsJson = "[]";
 
+    /** Executed Robinhood trades during the snapshot period (JSON array of RobinhoodRhDailyTradeDto). */
+    @Column(name = "trades_json", nullable = false, columnDefinition = "TEXT")
+    private String tradesJson = "[]";
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 }

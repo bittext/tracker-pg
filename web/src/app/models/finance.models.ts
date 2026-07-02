@@ -181,6 +181,18 @@ export interface RobinhoodRhDailySnapshotDetailDto {
   periodValueChange: number;
   holdings: RobinhoodRhHoldingDto[];
   periodFlows: RobinhoodRhCashFlowEventDto[];
+  trades: RobinhoodRhDailyTradeDto[];
+}
+
+export interface RobinhoodRhDailyTradeDto {
+  symbol: string;
+  side: string | null;
+  orderType: string | null;
+  quantity: number | null;
+  averagePrice: number | null;
+  limitPrice: number | null;
+  state: string | null;
+  executedAt: string | null;
 }
 
 export interface RobinhoodRhDailyCaptureResultDto {

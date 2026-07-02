@@ -75,6 +75,48 @@
       <p class="muted">No holdings at this snapshot.</p>
     }
 
+    @if (d.trades.length) {
+      <h3 class="rh-snap-dialog__section">Trades in period</h3>
+      <div class="rh-snap-dialog__table-wrap">
+        <table class="rh-snap-dialog__table rh-snap-dialog__table--trades">
+          <thead>
+            <tr>
+              <th>Executed</th>
+              <th>Symbol</th>
+              <th>Side</th>
+              <th>Type</th>
+              <th class="rh-snap-dialog__num">Qty</th>
+              <th class="rh-snap-dialog__num">Avg price</th>
+              <th>State</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (t of d.trades; track $index) {
+              <tr>
+                <td class="rh-snap-dialog__nowrap">{{ t.executedAt | date: 'MMM d, h:mm a' }}</td>
+                <td>{{ t.symbol }}</td>
+                <td [ngClass]="sideClass(t.side)">{{ sideLabel(t.side) }}</td>
+                <td>{{ t.orderType ?? '—' }}</td>
+                <td class="rh-snap-dialog__num">{{ (t.quantity ?? 0) | number: '1.0-4' }}</td>
+                <td class="rh-snap-dialog__num">
+                  @if (t.averagePrice != null) {
+                    {{ t.averagePrice | currency }}
+                  } @else if (t.limitPrice != null) {
+                    {{ t.limitPrice | currency }}
+                  } @else {
+                    —
+                  }
+                </td>
+                <td>{{ t.state ?? '—' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <p class="muted">No trades in this period.</p>
+    }
+
     @if (d.periodFlows.length) {
       <h3 class="rh-snap-dialog__section">Cash movements in period</h3>
       <div class="rh-snap-dialog__table-wrap">

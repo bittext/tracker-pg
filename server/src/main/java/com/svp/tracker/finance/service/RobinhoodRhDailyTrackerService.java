@@ -6,6 +6,7 @@ import com.svp.tracker.auth.repository.AppUserRepository;
 import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.RobinhoodAgenticProperties;
 import com.svp.tracker.config.RobinhoodRhDailyTrackerProperties;
+import com.svp.tracker.finance.domain.RobinhoodAgenticSyncedOrder;
 import com.svp.tracker.finance.domain.RobinhoodRhDailyCaptureKind;
 import com.svp.tracker.finance.domain.RobinhoodRhDailyDayNote;
 import com.svp.tracker.finance.domain.RobinhoodRhDailySnapshot;
@@ -22,8 +23,10 @@ import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerDayDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerManualCaptureAccountDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerManualCaptureDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerReportDto;
+import com.svp.tracker.finance.dto.RobinhoodRhDailyTradeDto;
 import com.svp.tracker.finance.dto.RobinhoodRhHoldingDto;
 import com.svp.tracker.finance.repository.RobinhoodAgenticConnectionRepository;
+import com.svp.tracker.finance.repository.RobinhoodAgenticSyncedOrderRepository;
 import com.svp.tracker.finance.repository.RobinhoodRhDailyDayNoteRepository;
 import com.svp.tracker.finance.repository.RobinhoodRhDailySnapshotRepository;
 import java.math.BigDecimal;
@@ -72,6 +75,7 @@ public class RobinhoodRhDailyTrackerService {
     private final RobinhoodRhAccountsTrackService rhAccountsTrackService;
     private final RobinhoodAgenticService agenticService;
     private final RobinhoodAgenticConnectionRepository connectionRepository;
+    private final RobinhoodAgenticSyncedOrderRepository syncedOrderRepository;
     private final RobinhoodRhDailySnapshotRepository snapshotRepository;
     private final RobinhoodRhDailyDayNoteRepository dayNoteRepository;
     private final RobinhoodAccountTrackerConfigService accountTrackerConfigService;
@@ -378,6 +382,8 @@ public class RobinhoodRhDailyTrackerService {
         Instant now = Instant.now();
         int captured = 0;
         boolean manual = RobinhoodRhDailyCaptureKind.MANUAL.equals(captureKind);
+        List<RobinhoodAgenticSyncedOrder> ownerOrders =
+                syncedOrderRepository.findByOwnerUserIdOrderByUpdatedAtRhDescCreatedAtRhDesc(ownerUserId);
 
         for (RobinhoodRhAccountSummaryDto acct : track.accounts()) {
             String suffix = acct.accountSuffix();
@@ -430,6 +436,7 @@ public class RobinhoodRhDailyTrackerService {
             snapshot.setPeriodStartDate(periodStartDate);
             snapshot.setHoldingsJson(writeJson(acct.holdings()));
             snapshot.setFlowsJson(writeJson(periodFlows));
+            snapshot.setTradesJson(writeJson(tradesInPeriod(ownerOrders, suffix, periodStartDate, snapshotDate)));
             if (snapshot.getCreatedAt() == null) {
                 snapshot.setCreatedAt(now);
             }
@@ -493,6 +500,7 @@ public class RobinhoodRhDailyTrackerService {
         holdings = rhAccountsTrackService.finalizeSnapshotHoldings(
                 row.getOwnerUserId(), row.getAccountSuffix(), holdings, row.getEquityMarketValue());
         List<RobinhoodRhCashFlowEventDto> flows = readJson(row.getFlowsJson(), new TypeReference<>() {});
+        List<RobinhoodRhDailyTradeDto> trades = readJson(row.getTradesJson(), new TypeReference<>() {});
         return new RobinhoodRhDailySnapshotDetailDto(
                 row.getId(),
                 row.getSnapshotDate(),
@@ -509,7 +517,74 @@ public class RobinhoodRhDailyTrackerService {
                 scaleMoney(row.getPeriodRemoved()),
                 scaleMoney(row.getPeriodValueChange()),
                 holdings,
-                flows);
+                flows,
+                trades);
+    }
+
+    /**
+     * Executed trades for one account within the snapshot period (period start exclusive → snapshot date inclusive).
+     * Only filled/executed orders count; open/queued/cancelled states are excluded.
+     */
+    private List<RobinhoodRhDailyTradeDto> tradesInPeriod(
+            List<RobinhoodAgenticSyncedOrder> orders,
+            String accountSuffix,
+            LocalDate periodStartExclusive,
+            LocalDate periodEndInclusive) {
+        if (orders == null || orders.isEmpty() || accountSuffix == null) {
+            return List.of();
+        }
+        String suffix = accountSuffix.trim();
+        List<RobinhoodRhDailyTradeDto> out = new ArrayList<>();
+        for (RobinhoodAgenticSyncedOrder order : orders) {
+            if (!suffix.equals(lastFour(order.getAccountNumber()))) {
+                continue;
+            }
+            if (!isExecutedTrade(order.getState())) {
+                continue;
+            }
+            Instant executedAt = order.getUpdatedAtRh() != null ? order.getUpdatedAtRh() : order.getCreatedAtRh();
+            if (executedAt == null) {
+                continue;
+            }
+            LocalDate tradeDate = executedAt.atZone(CENTRAL).toLocalDate();
+            if (periodStartExclusive != null && !tradeDate.isAfter(periodStartExclusive)) {
+                continue;
+            }
+            if (tradeDate.isAfter(periodEndInclusive)) {
+                continue;
+            }
+            out.add(new RobinhoodRhDailyTradeDto(
+                    order.getSymbol(),
+                    order.getSide(),
+                    order.getOrderType(),
+                    order.getQuantity(),
+                    order.getAveragePrice(),
+                    order.getLimitPrice(),
+                    order.getState(),
+                    executedAt));
+        }
+        out.sort(Comparator.comparing(
+                RobinhoodRhDailyTradeDto::executedAt, Comparator.nullsLast(Comparator.reverseOrder())));
+        return out;
+    }
+
+    private static boolean isExecutedTrade(String state) {
+        if (state == null) {
+            return false;
+        }
+        String s = state.trim().toLowerCase();
+        return s.equals("filled") || s.equals("partially_filled") || s.contains("fill");
+    }
+
+    private static String lastFour(String accountNumber) {
+        if (accountNumber == null) {
+            return null;
+        }
+        String digits = accountNumber.replaceAll("\\D", "");
+        if (digits.length() < 4) {
+            return null;
+        }
+        return digits.substring(digits.length() - 4);
     }
 
     private String buildNoAccountsCaptureMessage(long ownerUserId, RobinhoodRhAccountsTrackDto track) {

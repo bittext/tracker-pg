@@ -21,4 +21,5 @@ public record RobinhoodRhDailySnapshotDetailDto(
         BigDecimal periodRemoved,
         BigDecimal periodValueChange,
         List<RobinhoodRhHoldingDto> holdings,
-        List<RobinhoodRhCashFlowEventDto> periodFlows) {}
+        List<RobinhoodRhCashFlowEventDto> periodFlows,
+        List<RobinhoodRhDailyTradeDto> trades) {}

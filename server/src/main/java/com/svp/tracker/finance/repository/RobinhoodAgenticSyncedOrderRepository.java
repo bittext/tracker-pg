@@ -11,6 +11,8 @@ public interface RobinhoodAgenticSyncedOrderRepository extends JpaRepository<Rob
 
     List<RobinhoodAgenticSyncedOrder> findTop10ByOwnerUserIdOrderByUpdatedAtRhDescCreatedAtRhDesc(long ownerUserId);
 
+    List<RobinhoodAgenticSyncedOrder> findByOwnerUserIdOrderByUpdatedAtRhDescCreatedAtRhDesc(long ownerUserId);
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("delete from RobinhoodAgenticSyncedOrder o where o.ownerUserId = :uid")
     void deleteAllByOwnerUserId(@Param("uid") long ownerUserId);

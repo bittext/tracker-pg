@@ -77,6 +77,24 @@ export class RobinhoodDailySnapshotDialogComponent implements OnInit {
     return positive ? 'rh-snap-dialog__pnl--pos' : 'rh-snap-dialog__pnl--neg';
   }
 
+  sideLabel(side: string | null): string {
+    if (!side) {
+      return '—';
+    }
+    return side.charAt(0).toUpperCase() + side.slice(1).toLowerCase();
+  }
+
+  sideClass(side: string | null): string {
+    const s = (side ?? '').toLowerCase();
+    if (s === 'buy') {
+      return 'rh-snap-dialog__pnl--pos';
+    }
+    if (s === 'sell') {
+      return 'rh-snap-dialog__pnl--neg';
+    }
+    return '';
+  }
+
   currentCost(h: RobinhoodRhHoldingDto): number | null {
     return rhHoldingCurrentUnitPrice(h);
   }
