@@ -64,6 +64,24 @@ class RobinhoodAccountTrackerDailyTrackerSuffixTest {
     }
 
     @Test
+    void nishaSyncRejectsPulickalAgenticToken() {
+        Set<String> pulickal = Set.of("3370", "3550", "4123", "8696", "0440", "2835");
+        assertTrue(RobinhoodRhDailyTrackerAccountPolicy.validateAgenticSyncProfile(
+                        RobinhoodRhDailyTrackerAccountPolicy.NISHA_USERNAME, pulickal)
+                .isPresent());
+        assertTrue(RobinhoodRhDailyTrackerAccountPolicy.validateAgenticSyncProfile(
+                        RobinhoodRhDailyTrackerAccountPolicy.NISHA_USERNAME, Set.of("4190", "7581"))
+                .isEmpty());
+    }
+
+    @Test
+    void spulickalSyncRejectsNishaAgenticToken() {
+        assertTrue(RobinhoodRhDailyTrackerAccountPolicy.validateAgenticSyncProfile(
+                        RobinhoodRhDailyTrackerAccountPolicy.SPULICKAL_USERNAME, Set.of("4190", "7581"))
+                .isPresent());
+    }
+
+    @Test
     void otherUsersDisabledUntilConfigured() {
         Set<String> owned = Set.of("1234", "5678");
         assertFalse(RobinhoodRhDailyTrackerAccountPolicy.isUserEnabled("someone", NO_ADDITIONAL));

@@ -2,6 +2,7 @@ package com.svp.tracker.finance.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.svp.tracker.auth.repository.AppUserRepository;
 import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.RobinhoodAgenticProperties;
 import com.svp.tracker.finance.domain.RobinhoodAgenticConnection;
@@ -25,8 +26,11 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -52,6 +56,7 @@ public class RobinhoodAgenticService {
     private final RobinhoodAgenticTokenCrypto tokenCrypto;
     private final RobinhoodAgenticTokenService tokenService;
     private final RobinhoodAccountTrackerConfigService accountTrackerConfigService;
+    private final AppUserRepository appUserRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional(readOnly = true)
@@ -224,6 +229,22 @@ public class RobinhoodAgenticService {
             if (!result.path("ok").asBoolean(false)) {
                 throw new IllegalStateException("Sidecar sync returned ok=false");
             }
+            Optional<String> profileError = validateSyncProfile(conn.getOwnerUserId(), result);
+            if (profileError.isPresent()) {
+                String msg = profileError.get();
+                clearCachedHoldings(conn);
+                conn.setLastSyncAt(started);
+                conn.setLastSyncStatus("profile_mismatch");
+                conn.setLastSyncMessage(msg);
+                conn.setUpdatedAt(Instant.now());
+                connectionRepository.save(conn);
+                logRow.setStatus("profile_mismatch");
+                logRow.setMessage(msg);
+                logRow.setFinishedAt(Instant.now());
+                syncLogRepository.save(logRow);
+                log.warn("Robinhood Agentic profile mismatch for user {}: {}", conn.getOwnerUserId(), msg);
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, msg);
+            }
             persistSyncResult(conn, result, started);
             logRow.setStatus("ok");
             logRow.setAccountsSynced(result.path("accounts").size());
@@ -236,6 +257,8 @@ public class RobinhoodAgenticService {
                     .size();
             return new RobinhoodAgenticSyncResultDto(
                     true, conn.getLastSyncAt(), conn.getLastSyncMessage(), count, orderCount, logRow.getAccountsSynced());
+        } catch (ResponseStatusException e) {
+            throw e;
         } catch (Exception e) {
             if (RobinhoodAgenticSidecarErrors.isUnreachable(e)) {
                 log.warn(
@@ -262,6 +285,22 @@ public class RobinhoodAgenticService {
         }
         String message = root.getMessage();
         return message != null ? message : e.getClass().getSimpleName();
+    }
+
+    private void clearCachedHoldings(RobinhoodAgenticConnection conn) {
+        long ownerUserId = conn.getOwnerUserId();
+        positionRepository.deleteAllByOwnerUserId(ownerUserId);
+        syncedOrderRepository.deleteAllByOwnerUserId(ownerUserId);
+        conn.setPortfolioJson(null);
+        conn.setAgenticAccountNumber(null);
+        conn.setAgenticNickname(null);
+    }
+
+    private Optional<String> validateSyncProfile(long ownerUserId, JsonNode syncResult) {
+        return appUserRepository
+                .findById(ownerUserId)
+                .flatMap(u -> RobinhoodRhDailyTrackerAccountPolicy.validateAgenticSyncProfile(
+                        u.getUsername(), RobinhoodAccountTrackerConfigService.suffixesFromAgenticSyncResult(syncResult)));
     }
 
     private void persistSyncResult(RobinhoodAgenticConnection conn, JsonNode result, Instant syncedAt) throws Exception {

@@ -433,6 +433,33 @@ public class RobinhoodAccountTrackerConfigService {
                 .collect(Collectors.joining(","));
     }
 
+    static Set<String> suffixesFromAgenticSyncResult(JsonNode syncResult) {
+        LinkedHashSet<String> suffixes = new LinkedHashSet<>();
+        if (syncResult == null) {
+            return Set.of();
+        }
+        for (JsonNode row : syncResult.withArray("accounts")) {
+            String suffix = suffixFromAccountNumber(textOrNull(row.get("account_number")));
+            if (suffix != null) {
+                suffixes.add(suffix);
+            }
+        }
+        JsonNode portfolios = syncResult.get("portfolios");
+        if (portfolios != null && portfolios.isObject()) {
+            portfolios.fieldNames().forEachRemaining(field -> {
+                String suffix = suffixFromAccountNumber(field);
+                if (suffix != null) {
+                    suffixes.add(suffix);
+                }
+            });
+        }
+        String agentic = suffixFromAccountNumber(textOrNull(syncResult.get("agentic_account_number")));
+        if (agentic != null) {
+            suffixes.add(agentic);
+        }
+        return Set.copyOf(suffixes);
+    }
+
     static String suffixFromAccountNumber(String accountNumber) {
         if (accountNumber == null) {
             return null;

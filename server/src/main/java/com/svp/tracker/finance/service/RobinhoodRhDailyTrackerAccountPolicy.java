@@ -2,6 +2,7 @@ package com.svp.tracker.finance.service;
 
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -126,5 +127,42 @@ final class RobinhoodRhDailyTrackerAccountPolicy {
 
     static String normalizeUsername(String username) {
         return username.trim().toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * Rejects Agentic sync when the OAuth token belongs to the wrong MCP profile for spulickal/nisha.
+     */
+    static Optional<String> validateAgenticSyncProfile(String username, Set<String> syncedSuffixes) {
+        if (username == null || username.isBlank() || syncedSuffixes == null || syncedSuffixes.isEmpty()) {
+            return Optional.empty();
+        }
+        String user = normalizeUsername(username);
+        if (NISHA_USERNAME.equals(user)) {
+            if (syncedSuffixes.stream().anyMatch(PULICKAL_AGENTIC_SUFFIXES::contains)) {
+                return Optional.of(
+                        "Wrong Agentic profile: this token syncs pulickal-agentic (••••3370, ••••3550, …). "
+                                + "Finance → Robinhood → Disconnect, then paste nisha-agentic .tokens.json for ••••4190 and ••••7581.");
+            }
+            if (syncedSuffixes.stream().noneMatch(NISHA_PROFILE_SUFFIXES::contains)) {
+                return Optional.of(
+                        "Sync returned no nisha-agentic accounts (••••4190, ••••7581). "
+                                + "Paste tokens from nisha-agentic OAuth, then Sync now.");
+            }
+            return Optional.empty();
+        }
+        if (SPULICKAL_USERNAME.equals(user)) {
+            if (syncedSuffixes.stream().anyMatch(NISHA_PROFILE_SUFFIXES::contains)) {
+                return Optional.of(
+                        "Wrong Agentic profile: this token syncs nisha-agentic (••••4190, ••••7581). "
+                                + "Use pulickal-agentic .tokens.json for spulickal.");
+            }
+            if (syncedSuffixes.stream().noneMatch(SPULICKAL_PROFILE_SUFFIXES::contains)) {
+                return Optional.of(
+                        "Sync returned no pulickal-agentic Daily Tracker accounts. "
+                                + "Use pulickal-agentic .tokens.json, then Sync now.");
+            }
+            return Optional.empty();
+        }
+        return Optional.empty();
     }
 }
