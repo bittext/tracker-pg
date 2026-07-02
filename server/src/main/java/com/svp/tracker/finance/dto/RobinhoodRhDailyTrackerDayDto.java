@@ -15,4 +15,5 @@ public record RobinhoodRhDailyTrackerDayDto(
         BigDecimal combinedPeriodValueChange,
         List<RobinhoodRhDailyTrackerAccountCellDto> accounts,
         List<RobinhoodRhDailyTrackerManualCaptureDto> manualCaptures,
+        List<RobinhoodRhDailyTradeDto> trades,
         String summaryNote) {}

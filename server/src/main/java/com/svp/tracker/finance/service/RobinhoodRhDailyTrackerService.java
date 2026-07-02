@@ -170,6 +170,7 @@ public class RobinhoodRhDailyTrackerService {
             BigDecimal combinedRemoved = BigDecimal.ZERO;
             BigDecimal combinedValueChange = BigDecimal.ZERO;
             List<RobinhoodRhDailyTrackerAccountCellDto> cells = new ArrayList<>();
+            List<RobinhoodRhDailyTradeDto> dayTrades = new ArrayList<>();
 
             for (RobinhoodRhDailySnapshot row : dayScheduled) {
                 combinedTotal = combinedTotal.add(nullToZero(row.getTotalAccountValue()));
@@ -178,6 +179,11 @@ public class RobinhoodRhDailyTrackerService {
                 combinedValueChange = combinedValueChange.add(nullToZero(row.getPeriodValueChange()));
                 boolean flowActivity =
                         row.getPeriodAdded().signum() != 0 || row.getPeriodRemoved().signum() != 0;
+                List<RobinhoodRhDailyTradeDto> rowTrades =
+                        readJson(row.getTradesJson(), new TypeReference<List<RobinhoodRhDailyTradeDto>>() {});
+                for (RobinhoodRhDailyTradeDto trade : rowTrades) {
+                    dayTrades.add(trade.withAccount(row.getAccountSuffix(), row.getLabel()));
+                }
                 cells.add(new RobinhoodRhDailyTrackerAccountCellDto(
                         row.getId(),
                         row.getAccountSuffix(),
@@ -185,8 +191,12 @@ public class RobinhoodRhDailyTrackerService {
                         scaleMoney(row.getPeriodAdded()),
                         scaleMoney(row.getPeriodRemoved()),
                         scaleMoney(row.getPeriodValueChange()),
-                        flowActivity));
+                        flowActivity,
+                        rowTrades.size()));
             }
+
+            dayTrades.sort(Comparator.comparing(
+                    RobinhoodRhDailyTradeDto::executedAt, Comparator.nullsLast(Comparator.reverseOrder())));
 
             List<RobinhoodRhDailyTrackerManualCaptureDto> manualCaptures =
                     buildManualCapturesForDay(manualByDate.getOrDefault(dayDate, List.of()));
@@ -201,6 +211,7 @@ public class RobinhoodRhDailyTrackerService {
                     scaleMoney(combinedValueChange),
                     cells,
                     manualCaptures,
+                    dayTrades,
                     summaryNotesByDate.getOrDefault(dayDate, "")));
         }
 
@@ -496,9 +507,10 @@ public class RobinhoodRhDailyTrackerService {
     }
 
     private RobinhoodRhDailySnapshotDetailDto toDetailDto(RobinhoodRhDailySnapshot row) {
+        // A snapshot is a point-in-time record: show the prices captured at snapshot time.
+        // Re-pricing with live quotes here would corrupt historical rows and diverge from the
+        // stored equity/total values, so the holdings JSON is deserialized as-is.
         List<RobinhoodRhHoldingDto> holdings = readJson(row.getHoldingsJson(), new TypeReference<>() {});
-        holdings = rhAccountsTrackService.finalizeSnapshotHoldings(
-                row.getOwnerUserId(), row.getAccountSuffix(), holdings, row.getEquityMarketValue());
         List<RobinhoodRhCashFlowEventDto> flows = readJson(row.getFlowsJson(), new TypeReference<>() {});
         List<RobinhoodRhDailyTradeDto> trades = readJson(row.getTradesJson(), new TypeReference<>() {});
         return new RobinhoodRhDailySnapshotDetailDto(

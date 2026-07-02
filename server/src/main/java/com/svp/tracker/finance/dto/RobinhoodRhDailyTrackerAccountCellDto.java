@@ -9,4 +9,5 @@ public record RobinhoodRhDailyTrackerAccountCellDto(
         BigDecimal periodAdded,
         BigDecimal periodRemoved,
         BigDecimal periodValueChange,
-        boolean hasFlowActivity) {}
+        boolean hasFlowActivity,
+        int tradeCount) {}

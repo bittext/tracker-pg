@@ -1,4 +1,4 @@
-import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
+import { CommonModule, CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -42,6 +42,7 @@ import {
     MatSnackBarModule,
     CurrencyPipe,
     DatePipe,
+    DecimalPipe,
   ],
   templateUrl: './reports-finance-robinhood-daily-tracker.component.html',
   styleUrl: './reports-finance-robinhood-daily-tracker.component.scss',
@@ -71,6 +72,8 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   private readonly savingNoteDays = new Set<string>();
   /** snapshotDate keys where call-summary notes section is collapsed */
   private readonly collapsedSummaryNotes = new Set<string>();
+  /** snapshotDate keys where the consolidated trades section is expanded */
+  private readonly expandedTrades = new Set<string>();
 
   readonly monthChoices = [
     { value: null, label: 'All months' },
@@ -102,6 +105,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     this.expandedDays.clear();
     this.collapsedManualSections.clear();
     this.collapsedSummaryNotes.clear();
+    this.expandedTrades.clear();
     this.expandedManuals.clear();
     this.noteDrafts.clear();
     this.financeApi.robinhoodDailyTracker(this.reportYear, this.reportMonth).subscribe({
@@ -237,6 +241,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         periodRemoved: 0,
         periodValueChange: 0,
         hasFlowActivity: false,
+        tradeCount: 0,
       },
       day,
     );
@@ -267,6 +272,37 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
 
   hasFlowBlock(day: RobinhoodRhDailyTrackerDayDto): boolean {
     return day.hasScheduledSnapshot && (day.combinedPeriodAdded !== 0 || day.combinedPeriodRemoved !== 0);
+  }
+
+  isTradesExpanded(day: RobinhoodRhDailyTrackerDayDto): boolean {
+    return this.expandedTrades.has(day.snapshotDate);
+  }
+
+  toggleTrades(day: RobinhoodRhDailyTrackerDayDto, event: Event): void {
+    event.stopPropagation();
+    if (this.expandedTrades.has(day.snapshotDate)) {
+      this.expandedTrades.delete(day.snapshotDate);
+    } else {
+      this.expandedTrades.add(day.snapshotDate);
+    }
+  }
+
+  sideLabel(side: string | null): string {
+    if (!side) {
+      return '—';
+    }
+    return side.charAt(0).toUpperCase() + side.slice(1).toLowerCase();
+  }
+
+  sideClass(side: string | null): string {
+    const s = (side ?? '').toLowerCase();
+    if (s === 'buy') {
+      return 'rh-daily__pnl--pos';
+    }
+    if (s === 'sell') {
+      return 'rh-daily__pnl--neg';
+    }
+    return '';
   }
 
   hasSummaryNote(day: RobinhoodRhDailyTrackerDayDto): boolean {

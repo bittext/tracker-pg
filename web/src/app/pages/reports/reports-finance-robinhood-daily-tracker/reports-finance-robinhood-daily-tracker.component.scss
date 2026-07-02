@@ -272,6 +272,98 @@
   font-weight: 600;
 }
 
+.rh-daily__trades {
+  margin-bottom: 0.75rem;
+  border-radius: 8px;
+  background: var(--app-bg, #fff);
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+  overflow: hidden;
+}
+
+.rh-daily__trades-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+}
+
+.rh-daily__trades-header:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.rh-daily__chevron--sm {
+  width: 1.1rem;
+  height: 1.1rem;
+  font-size: 1.1rem;
+}
+
+.rh-daily__trades-title {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.rh-daily__trades-count {
+  margin-left: auto;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  background: var(--app-bg-muted, rgba(15, 23, 42, 0.06));
+}
+
+.rh-daily__trades-table-wrap {
+  overflow-x: auto;
+  padding: 0 0.75rem 0.65rem;
+}
+
+.rh-daily__trades-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.rh-daily__trades-table th,
+.rh-daily__trades-table td {
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--app-border, rgba(15, 23, 42, 0.06));
+  white-space: nowrap;
+}
+
+.rh-daily__trades-table th {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--app-text-muted, #64748b);
+}
+
+.rh-daily__trades-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.rh-daily__num {
+  text-align: right;
+}
+
+.rh-daily__nowrap {
+  white-space: nowrap;
+}
+
+.rh-daily__acct-trades {
+  font-size: 0.75rem;
+}
+
 .rh-daily__accounts {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));

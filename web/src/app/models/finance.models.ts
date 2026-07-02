@@ -132,6 +132,7 @@ export interface RobinhoodRhDailyTrackerDayDto {
   combinedPeriodValueChange: number;
   accounts: RobinhoodRhDailyTrackerAccountCellDto[];
   manualCaptures: RobinhoodRhDailyTrackerManualCaptureDto[];
+  trades: RobinhoodRhDailyTradeDto[];
   summaryNote: string;
 }
 
@@ -162,6 +163,7 @@ export interface RobinhoodRhDailyTrackerAccountCellDto {
   periodRemoved: number;
   periodValueChange: number;
   hasFlowActivity: boolean;
+  tradeCount: number;
 }
 
 export interface RobinhoodRhDailySnapshotDetailDto {
@@ -193,6 +195,8 @@ export interface RobinhoodRhDailyTradeDto {
   limitPrice: number | null;
   state: string | null;
   executedAt: string | null;
+  accountSuffix: string | null;
+  accountLabel: string | null;
 }
 
 export interface RobinhoodRhDailyCaptureResultDto {
