@@ -243,7 +243,7 @@ public class RobinhoodRhDailyTrackerService {
                         "No snapshots yet — wait for the 9 PM job or click Capture now after connecting pulickal-agentic.");
             }
         } else if (RobinhoodRhDailyTrackerAccountPolicy.NISHA_USERNAME.equals(username)) {
-            notes.add("nisha-agentic only — Daily Tracker includes every account on your Agentic connection (e.g. ••••4190 default, ••••7581 Agentic).");
+            notes.add("nisha-agentic only — Daily Tracker: ••••4190 (default), ••••7581 (Agentic). Pulickal-agentic accounts are never shown.");
             notes.add("Use Capture now after syncing holdings from your nisha-agentic profile.");
             notes.add("Each day shows captures for that calendar date. Add call-summary notes in the expanded day panel.");
             notes.add("Period flows are cash movements since the previous snapshot on that account.");

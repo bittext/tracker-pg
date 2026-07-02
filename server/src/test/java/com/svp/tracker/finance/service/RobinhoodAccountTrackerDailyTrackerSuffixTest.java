@@ -22,12 +22,18 @@ class RobinhoodAccountTrackerDailyTrackerSuffixTest {
     }
 
     @Test
-    void nishaRejectsSuffixesNotInHerSync() {
-        Set<String> owned = Set.of("4190", "7581");
+    void nishaRejectsPulickalAgenticSuffixesEvenWhenSyncIsContaminated() {
+        Set<String> owned = Set.of("4190", "7581", "3370", "3550", "4123");
         assertFalse(RobinhoodRhDailyTrackerAccountPolicy.matches(
                 RobinhoodRhDailyTrackerAccountPolicy.NISHA_USERNAME, owned, "3370", NO_ADDITIONAL));
         assertFalse(RobinhoodRhDailyTrackerAccountPolicy.matches(
                 RobinhoodRhDailyTrackerAccountPolicy.NISHA_USERNAME, owned, "3550", NO_ADDITIONAL));
+        assertFalse(RobinhoodRhDailyTrackerAccountPolicy.matches(
+                RobinhoodRhDailyTrackerAccountPolicy.NISHA_USERNAME, owned, "4123", NO_ADDITIONAL));
+        assertTrue(RobinhoodRhDailyTrackerAccountPolicy.matches(
+                RobinhoodRhDailyTrackerAccountPolicy.NISHA_USERNAME, owned, "4190", NO_ADDITIONAL));
+        assertTrue(RobinhoodRhDailyTrackerAccountPolicy.matches(
+                RobinhoodRhDailyTrackerAccountPolicy.NISHA_USERNAME, owned, "7581", NO_ADDITIONAL));
     }
 
     @Test
