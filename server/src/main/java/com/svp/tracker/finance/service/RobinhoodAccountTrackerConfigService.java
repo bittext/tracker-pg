@@ -176,9 +176,17 @@ public class RobinhoodAccountTrackerConfigService {
                 .orElse(false);
     }
 
+    @Transactional(readOnly = true)
+    public Set<String> dailyTrackerProfileSuffixes(long ownerUserId) {
+        return resolveUsername(ownerUserId)
+                .map(username -> RobinhoodRhDailyTrackerAccountPolicy.profileSuffixesForUser(
+                        username, dailyTrackerProps.additionalOwnerSuffixesByUsername()))
+                .orElse(Set.of());
+    }
+
     /**
      * Whether a suffix appears in Daily Tracker for this owner.
-     * spulickal: pulickal-agentic allowlist only. nisha: all nisha-agentic owned suffixes. Others: disabled or configured.
+     * spulickal: pulickal-agentic allowlist only. nisha: nisha-agentic allowlist. Others: disabled or configured.
      */
     @Transactional(readOnly = true)
     public boolean isDailyTrackerSuffix(long ownerUserId, String suffix) {

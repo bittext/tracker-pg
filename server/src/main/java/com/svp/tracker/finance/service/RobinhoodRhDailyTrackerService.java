@@ -356,16 +356,16 @@ public class RobinhoodRhDailyTrackerService {
     /** Called by scheduled job — no HTTP user context. */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public RobinhoodRhDailyCaptureResultDto captureScheduledSnapshotsForOwner(long ownerUserId, Instant snapshotAt) {
-        return captureForOwner(ownerUserId, snapshotAt, RobinhoodRhDailyCaptureKind.SCHEDULED);
+        return captureForOwner(ownerUserId, snapshotAt, RobinhoodRhDailyCaptureKind.SCHEDULED, false);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public RobinhoodRhDailyCaptureResultDto captureManualSnapshotsForOwner(long ownerUserId, Instant snapshotAt) {
-        return captureForOwner(ownerUserId, snapshotAt, RobinhoodRhDailyCaptureKind.MANUAL);
+        return captureForOwner(ownerUserId, snapshotAt, RobinhoodRhDailyCaptureKind.MANUAL, true);
     }
 
     private RobinhoodRhDailyCaptureResultDto captureForOwner(
-            long ownerUserId, Instant snapshotAt, String captureKind) {
+            long ownerUserId, Instant snapshotAt, String captureKind, boolean syncLatest) {
         if (!accountTrackerConfigService.isDailyTrackerEnabled(ownerUserId)) {
             return new RobinhoodRhDailyCaptureResultDto(
                     false,
@@ -373,7 +373,7 @@ public class RobinhoodRhDailyTrackerService {
                     0,
                     "Daily Tracker is not enabled for your account.");
         }
-        RobinhoodRhAccountsTrackDto track = rhAccountsTrackService.buildForOwner(ownerUserId, false);
+        RobinhoodRhAccountsTrackDto track = rhAccountsTrackService.buildForOwner(ownerUserId, syncLatest);
         LocalDate snapshotDate = snapshotAt.atZone(CENTRAL).toLocalDate();
         Instant now = Instant.now();
         int captured = 0;
@@ -439,7 +439,7 @@ public class RobinhoodRhDailyTrackerService {
 
         String message;
         if (captured == 0) {
-            message = "No accounts to snapshot — connect Agentic Trading, sync holdings, then try again.";
+            message = buildNoAccountsCaptureMessage(ownerUserId, track);
         } else if (manual) {
             message = "Saved manual capture at "
                     + MANUAL_TIME.format(snapshotAt)
@@ -510,6 +510,33 @@ public class RobinhoodRhDailyTrackerService {
                 scaleMoney(row.getPeriodValueChange()),
                 holdings,
                 flows);
+    }
+
+    private String buildNoAccountsCaptureMessage(long ownerUserId, RobinhoodRhAccountsTrackDto track) {
+        if (connectionRepository.findByOwnerUserId(ownerUserId).isEmpty()) {
+            return "No Agentic Trading connection — connect your Robinhood Agentic profile first, then Sync now and Capture now.";
+        }
+        Set<String> profileSuffixes = accountTrackerConfigService.dailyTrackerProfileSuffixes(ownerUserId);
+        LinkedHashSet<String> syncedSuffixes = new LinkedHashSet<>();
+        for (RobinhoodRhAccountSummaryDto acct : track.accounts()) {
+            if (acct.accountSuffix() != null && !acct.accountSuffix().isBlank()) {
+                syncedSuffixes.add(acct.accountSuffix().trim());
+            }
+        }
+        if (syncedSuffixes.isEmpty()) {
+            return "No synced Robinhood accounts yet — open Agentic Trading, click Sync now, then Capture now.";
+        }
+        if (!profileSuffixes.isEmpty()) {
+            boolean anyProfileMatch = syncedSuffixes.stream().anyMatch(profileSuffixes::contains);
+            if (!anyProfileMatch) {
+                return "Synced accounts (••••"
+                        + String.join(", ••••", syncedSuffixes)
+                        + ") do not match your Daily Tracker profile (••••"
+                        + String.join(", ••••", profileSuffixes)
+                        + "). Reconnect the correct Agentic profile and Sync now.";
+            }
+        }
+        return "No Daily Tracker accounts to snapshot — sync holdings from your Agentic profile, then try Capture now again.";
     }
 
     private List<RobinhoodRhDailySnapshot> visibleSnapshots(long ownerUserId, List<RobinhoodRhDailySnapshot> rows) {

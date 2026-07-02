@@ -47,25 +47,44 @@ final class RobinhoodRhDailyTrackerAccountPolicy {
         return configured != null && !configured.isEmpty();
     }
 
-    static Set<String> effectiveDailyTrackerSuffixes(
-            String username, Set<String> syncedOwnedSuffixes, Map<String, Set<String>> additionalOwnerSuffixes) {
-        if (username == null || username.isBlank() || syncedOwnedSuffixes == null || syncedOwnedSuffixes.isEmpty()) {
-            return Set.of();
-        }
+    static Set<String> profileSuffixesForUser(String username, Map<String, Set<String>> additionalOwnerSuffixes) {
         if (!isUserEnabled(username, additionalOwnerSuffixes)) {
             return Set.of();
         }
         String user = normalizeUsername(username);
         if (SPULICKAL_USERNAME.equals(user)) {
-            return syncedOwnedSuffixes.stream()
-                    .filter(SPULICKAL_PROFILE_SUFFIXES::contains)
+            return SPULICKAL_PROFILE_SUFFIXES;
+        }
+        if (NISHA_USERNAME.equals(user)) {
+            return NISHA_PROFILE_SUFFIXES;
+        }
+        Set<String> configured = additionalOwnerSuffixes.get(user);
+        return configured == null ? Set.of() : Set.copyOf(configured);
+    }
+
+    static Set<String> effectiveDailyTrackerSuffixes(
+            String username, Set<String> syncedOwnedSuffixes, Map<String, Set<String>> additionalOwnerSuffixes) {
+        if (username == null || username.isBlank() || !isUserEnabled(username, additionalOwnerSuffixes)) {
+            return Set.of();
+        }
+        String user = normalizeUsername(username);
+        if (SPULICKAL_USERNAME.equals(user)) {
+            return SPULICKAL_PROFILE_SUFFIXES.stream()
+                    .filter(s -> syncedOwnedSuffixes == null
+                            || syncedOwnedSuffixes.isEmpty()
+                            || syncedOwnedSuffixes.contains(s))
                     .filter(s -> !SPULICKAL_EXCLUDED_SUFFIXES.contains(s))
                     .collect(java.util.stream.Collectors.toUnmodifiableSet());
         }
         if (NISHA_USERNAME.equals(user)) {
-            return syncedOwnedSuffixes.stream()
-                    .filter(NISHA_PROFILE_SUFFIXES::contains)
+            return NISHA_PROFILE_SUFFIXES.stream()
+                    .filter(s -> syncedOwnedSuffixes == null
+                            || syncedOwnedSuffixes.isEmpty()
+                            || syncedOwnedSuffixes.contains(s))
                     .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        }
+        if (syncedOwnedSuffixes == null || syncedOwnedSuffixes.isEmpty()) {
+            return Set.of();
         }
         Set<String> configured = additionalOwnerSuffixes.get(user);
         if (configured == null || configured.isEmpty()) {
@@ -89,8 +108,20 @@ final class RobinhoodRhDailyTrackerAccountPolicy {
         if (!SPULICKAL_USERNAME.equals(user) && PULICKAL_AGENTIC_SUFFIXES.contains(accountSuffix)) {
             return false;
         }
-        return effectiveDailyTrackerSuffixes(username, ownedSuffixes, additionalOwnerSuffixes)
-                .contains(accountSuffix);
+        if (SPULICKAL_USERNAME.equals(user)) {
+            if (SPULICKAL_EXCLUDED_SUFFIXES.contains(accountSuffix)) {
+                return false;
+            }
+            return SPULICKAL_PROFILE_SUFFIXES.contains(accountSuffix);
+        }
+        if (NISHA_USERNAME.equals(user)) {
+            return NISHA_PROFILE_SUFFIXES.contains(accountSuffix);
+        }
+        Set<String> configured = additionalOwnerSuffixes.get(user);
+        if (configured == null || !configured.contains(accountSuffix)) {
+            return false;
+        }
+        return ownedSuffixes != null && ownedSuffixes.contains(accountSuffix);
     }
 
     static String normalizeUsername(String username) {
