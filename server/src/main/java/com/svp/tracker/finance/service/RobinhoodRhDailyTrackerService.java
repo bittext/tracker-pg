@@ -60,7 +60,8 @@ import org.springframework.web.server.ResponseStatusException;
 public class RobinhoodRhDailyTrackerService {
 
     /** Only this user's Daily Tracker runs the nightly scheduled capture and 9 PM UI labels. */
-    public static final String SCHEDULED_CAPTURE_OWNER_USERNAME = "spulickal";
+    public static final String SCHEDULED_CAPTURE_OWNER_USERNAME =
+            RobinhoodAccountTrackerConfigService.FULL_DAILY_TRACKER_OWNER_USERNAME;
 
     private static final ZoneId CENTRAL = ZoneId.of("America/Chicago");
     private static final DateTimeFormatter MANUAL_TIME =
@@ -230,7 +231,8 @@ public class RobinhoodRhDailyTrackerService {
             }
         } else {
             notes.add("Use Capture now after connecting your Robinhood sync and syncing holdings.");
-            notes.add("Daily Tracker captures your own synced accounts (default and Agentic) — not other users' accounts.");
+            notes.add(
+                    "Daily Tracker captures every account from your own Agentic sync — not other users' accounts.");
             notes.add("Each day shows captures for that calendar date. Add call-summary notes in the expanded day panel.");
             notes.add("Period flows are cash movements since the previous snapshot on that account.");
             if (days.isEmpty()) {
@@ -493,12 +495,9 @@ public class RobinhoodRhDailyTrackerService {
         return !isDailyTrackerAccount(ownerUserId, suffix);
     }
 
-    /** Accounts this owner tracks from their own Agentic sync (default, agentic, managed — never another user's suffixes). */
+    /** See {@link RobinhoodAccountTrackerConfigService#isDailyTrackerSuffix}. */
     private boolean isDailyTrackerAccount(long ownerUserId, String suffix) {
-        if (RobinhoodAccountTrackerConfigService.isUnsetSuffix(suffix)) {
-            return false;
-        }
-        return accountTrackerConfigService.isTrackedSuffix(ownerUserId, suffix);
+        return accountTrackerConfigService.isDailyTrackerSuffix(ownerUserId, suffix);
     }
 
     private static List<RobinhoodRhDailySnapshot> scheduledOnly(List<RobinhoodRhDailySnapshot> rows) {
