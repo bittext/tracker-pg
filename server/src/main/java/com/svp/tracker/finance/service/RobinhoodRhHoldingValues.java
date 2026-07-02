@@ -109,7 +109,7 @@ final class RobinhoodRhHoldingValues {
         if (symbols.isEmpty()) {
             return Map.of();
         }
-        return quoteService.fetchBySymbols(List.copyOf(symbols));
+        return quoteService.fetchFreshBySymbols(List.copyOf(symbols));
     }
 
     /** Allocate stock-only portfolio equity to equity rows that still lack a market value. */
@@ -331,14 +331,6 @@ final class RobinhoodRhHoldingValues {
             if (implied.compareTo(BigDecimal.ZERO) > 0) {
                 return implied.divide(qty.abs(), 4, RoundingMode.HALF_UP);
             }
-        }
-        if (h.currentUnitPrice() != null && h.currentUnitPrice().compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal avg = nullToZero(h.averageBuyPrice());
-            if (avg.compareTo(BigDecimal.ZERO) > 0
-                    && h.currentUnitPrice().subtract(avg).abs().compareTo(new BigDecimal("0.0001")) <= 0) {
-                return BigDecimal.ZERO;
-            }
-            return h.currentUnitPrice();
         }
         return BigDecimal.ZERO;
     }

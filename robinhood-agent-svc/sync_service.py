@@ -182,8 +182,7 @@ def _enrich_market_values(
             for p in positions
             if p.get("position_type") == "equity"
             and p.get("symbol")
-            and _to_float(p.get("quantity")) is not None
-            and _equity_needs_live_quote(p)
+            and _to_float(p.get("quantity")) not in (None, 0.0)
         }
     )
     if not symbols_needing_quotes:
@@ -198,10 +197,8 @@ def _enrich_market_values(
         except Exception as exc:  # noqa: BLE001
             LOGGER.warning("get_equity_quotes failed for %s: %s", batch, exc)
 
-    for (position in positions):
+    for position in positions:
         if position.get("position_type") != "equity":
-            continue
-        if not _equity_needs_live_quote(position):
             continue
         symbol = str(position.get("symbol", "")).strip().upper()
         price = quote_prices.get(symbol)

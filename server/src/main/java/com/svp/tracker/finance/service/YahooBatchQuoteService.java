@@ -67,9 +67,27 @@ public class YahooBatchQuoteService {
             return Map.of();
         }
         ensureFresh(req);
+        return mapCachedQuotes(req);
+    }
+
+    /** Fresh prices for RH holdings display (bypasses hourly cache TTL when Alpha Vantage is enabled). */
+    public Map<String, YahooSimpleQuoteDto> fetchFreshBySymbols(List<String> symbols) {
+        List<String> req = normalizeSymbols(symbols);
+        if (req.isEmpty()) {
+            return Map.of();
+        }
+        if (props.alphaVantageEnabled()) {
+            refreshQuotesForAlerts(req);
+        } else {
+            ensureFresh(req);
+        }
+        return mapCachedQuotes(req);
+    }
+
+    private Map<String, YahooSimpleQuoteDto> mapCachedQuotes(List<String> symbols) {
         Map<String, YahooSimpleQuoteDto> out = new HashMap<>();
         Map<String, AlphaQuote> snap = cache;
-        for (String s : req) {
+        for (String s : symbols) {
             AlphaQuote q = snap.get(s);
             if (q == null) {
                 continue;
