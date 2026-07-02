@@ -74,7 +74,7 @@ final class RobinhoodRhHoldingValues {
         }
         List<RobinhoodRhHoldingDto> working = new ArrayList<>();
         for (RobinhoodRhHoldingDto h : holdings) {
-            working.add(restoreMarketValueIfMissing(normalizeOptionTotalMarketValue(h)));
+            working.add(restoreMarketValueIfMissing(normalizeOptionTotalMarketValue(clearComputedFields(h))));
         }
 
         Map<String, YahooSimpleQuoteDto> quotes = fetchEquityQuotes(working, quoteService);
@@ -136,6 +136,10 @@ final class RobinhoodRhHoldingValues {
 
         BigDecimal remaining = stockPool.subtract(equityMvKnown);
         if (remaining.compareTo(BigDecimal.ZERO) <= 0 || equityNeeding.isEmpty()) {
+            return;
+        }
+        // Do not spread a portfolio total that is smaller than known equity MV — that would shrink live quotes.
+        if (stockPool.compareTo(equityMvKnown) < 0) {
             return;
         }
 
@@ -339,17 +343,30 @@ final class RobinhoodRhHoldingValues {
         return BigDecimal.ZERO;
     }
 
+    private static RobinhoodRhHoldingDto clearComputedFields(RobinhoodRhHoldingDto h) {
+        return new RobinhoodRhHoldingDto(
+                h.symbol(),
+                h.positionType(),
+                h.quantity(),
+                h.averageBuyPrice(),
+                BigDecimal.ZERO,
+                h.marketValue(),
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO);
+    }
+
     private static BigDecimal deriveCostBasis(RobinhoodRhHoldingDto h) {
+        BigDecimal qty = nullToZero(h.quantity());
+        BigDecimal avg = nullToZero(h.averageBuyPrice());
+        if (qty.compareTo(BigDecimal.ZERO) > 0 && avg.compareTo(BigDecimal.ZERO) > 0) {
+            return qty.abs().multiply(avg).setScale(2, RoundingMode.HALF_UP);
+        }
         BigDecimal stored = nullToZero(h.costBasis());
         if (stored.compareTo(BigDecimal.ZERO) > 0) {
             return stored.setScale(2, RoundingMode.HALF_UP);
         }
-        BigDecimal qty = nullToZero(h.quantity());
-        BigDecimal avg = nullToZero(h.averageBuyPrice());
-        if (qty.compareTo(BigDecimal.ZERO) == 0 || avg.compareTo(BigDecimal.ZERO) == 0) {
-            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-        }
-        return qty.abs().multiply(avg).setScale(2, RoundingMode.HALF_UP);
+        return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
     }
 
     private static BigDecimal marketValueFromCurrent(BigDecimal qty, BigDecimal currentUnitPrice) {
