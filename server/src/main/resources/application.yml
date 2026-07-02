@@ -154,7 +154,8 @@ tracker:
       snapshot-scheduler-enabled-config: ${TRACKER_FINANCE_RH_DAILY_TRACKER_SNAPSHOT_ENABLED:true}
       snapshot-cron: ${TRACKER_FINANCE_RH_DAILY_TRACKER_SNAPSHOT_CRON:0 0 21 * * *}
       snapshot-zone: ${TRACKER_FINANCE_RH_DAILY_TRACKER_SNAPSHOT_ZONE:America/Chicago}
-      # Per-user exclusions live in robinhood_account_tracker_config.excluded_account_suffixes (set on Agentic sync).
+      # spulickal/nisha scope is hard-coded; optional map for future users: username -> "1234,5678"
+      additional-owner-suffixes: {}
       excluded-account-suffixes: []
     banking:
       # Host default ~/imports/banking. Production VMs often use TRACKER_BANKING_IMPORT_DIRECTORY=/home/ubuntu/imports/banking (0700).

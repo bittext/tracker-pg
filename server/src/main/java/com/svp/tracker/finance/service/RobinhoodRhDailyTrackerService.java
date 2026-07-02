@@ -212,27 +212,47 @@ public class RobinhoodRhDailyTrackerService {
         BigDecimal yearCombinedChange = combinedChange(scheduledYearRows);
 
         List<String> notes = new ArrayList<>();
-        if (scheduledOwner) {
+        boolean dailyTrackerEnabled = accountTrackerConfigService.isDailyTrackerEnabled(ownerUserId);
+        String username = appUserRepository
+                .findById(ownerUserId)
+                .map(u -> RobinhoodRhDailyTrackerAccountPolicy.normalizeUsername(u.getUsername()))
+                .orElse("");
+
+        if (!dailyTrackerEnabled) {
+            notes.add(
+                    "Daily Tracker is not enabled for your account. Only spulickal (pulickal-agentic) and nisha (nisha-agentic) are configured by default.");
+            notes.add("Other users see no data until an administrator adds your username under tracker.finance.rh-daily-tracker.additional-owner-suffixes.");
+        } else if (RobinhoodRhDailyTrackerAccountPolicy.SPULICKAL_USERNAME.equals(username)) {
             if (dailyTrackerProps.snapshotSchedulerActive()) {
                 notes.add(
                         "Automatic capture runs "
                                 + dailyTrackerProps.autoCaptureScheduleLabel()
-                                + " for every connected Agentic account (syncs holdings first).");
+                                + " for pulickal-agentic accounts (syncs holdings first).");
             } else {
                 notes.add(
                         "Automatic daily capture is disabled — use Capture now or enable the scheduler in server config.");
             }
             notes.add(
+                    "pulickal-agentic Daily Tracker: ••••3550 (Agentic, tradable), ••••3370 (default individual), ••••4123 (managed), ••••8696 (Ammu’s Acc — linked, not agentic-tradable).");
+            notes.add("Excluded from Daily Tracker: ••••0440 (Short Term Idv), ••••2835 (Roth IRA).");
+            notes.add(
                     "Each day shows the scheduled 9 PM snapshot. Add call-summary notes in the expanded day panel.");
             notes.add("Period flows on scheduled rows are cash movements since the previous 9 PM snapshot.");
             if (days.isEmpty()) {
                 notes.add(
-                        "No snapshots yet — wait for the 9 PM job or click Capture now after connecting Agentic Trading.");
+                        "No snapshots yet — wait for the 9 PM job or click Capture now after connecting pulickal-agentic.");
+            }
+        } else if (RobinhoodRhDailyTrackerAccountPolicy.NISHA_USERNAME.equals(username)) {
+            notes.add("nisha-agentic only — Daily Tracker includes every account on your Agentic connection (e.g. ••••4190 default, ••••7581 Agentic).");
+            notes.add("Use Capture now after syncing holdings from your nisha-agentic profile.");
+            notes.add("Each day shows captures for that calendar date. Add call-summary notes in the expanded day panel.");
+            notes.add("Period flows are cash movements since the previous snapshot on that account.");
+            if (days.isEmpty()) {
+                notes.add("No snapshots yet — connect nisha-agentic, sync, then click Capture now.");
             }
         } else {
-            notes.add("Use Capture now after connecting your Robinhood sync and syncing holdings.");
-            notes.add(
-                    "Daily Tracker captures every account from your own Agentic sync — not other users' accounts.");
+            notes.add("Daily Tracker shows only the account suffixes configured for your username in server config.");
+            notes.add("Use Capture now after connecting your Robinhood Agentic sync and syncing holdings.");
             notes.add("Each day shows captures for that calendar date. Add call-summary notes in the expanded day panel.");
             notes.add("Period flows are cash movements since the previous snapshot on that account.");
             if (days.isEmpty()) {
@@ -346,6 +366,13 @@ public class RobinhoodRhDailyTrackerService {
 
     private RobinhoodRhDailyCaptureResultDto captureForOwner(
             long ownerUserId, Instant snapshotAt, String captureKind) {
+        if (!accountTrackerConfigService.isDailyTrackerEnabled(ownerUserId)) {
+            return new RobinhoodRhDailyCaptureResultDto(
+                    false,
+                    snapshotAt,
+                    0,
+                    "Daily Tracker is not enabled for your account.");
+        }
         RobinhoodRhAccountsTrackDto track = rhAccountsTrackService.buildForOwner(ownerUserId, false);
         LocalDate snapshotDate = snapshotAt.atZone(CENTRAL).toLocalDate();
         Instant now = Instant.now();

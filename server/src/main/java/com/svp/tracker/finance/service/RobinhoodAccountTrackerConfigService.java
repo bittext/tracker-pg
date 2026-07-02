@@ -3,6 +3,7 @@ package com.svp.tracker.finance.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.svp.tracker.auth.repository.AppUserRepository;
+import com.svp.tracker.config.RobinhoodRhDailyTrackerProperties;
 import com.svp.tracker.finance.domain.RobinhoodAccountTrackerConfig;
 import com.svp.tracker.finance.domain.RobinhoodAgenticConnection;
 import com.svp.tracker.finance.domain.RobinhoodAgenticPosition;
@@ -17,7 +18,6 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -38,16 +38,15 @@ public class RobinhoodAccountTrackerConfigService {
     /** Placeholder until the first successful Agentic sync fills real suffixes. */
     private static final String UNSET_SUFFIX = "0000";
 
-    /**
-     * spulickal keeps role-based Daily Tracker accounts with per-user exclusions (••••0440, ••••2835).
-     * Every other user gets all account suffixes from their own Agentic sync (e.g. nisha ••••4190 + ••••7581).
-     */
-    public static final String FULL_DAILY_TRACKER_OWNER_USERNAME = "spulickal";
+    /** Nightly 9 PM scheduled capture owner (pulickal-agentic). */
+    public static final String FULL_DAILY_TRACKER_OWNER_USERNAME =
+            RobinhoodRhDailyTrackerAccountPolicy.SPULICKAL_USERNAME;
 
     private final RobinhoodAccountTrackerConfigRepository configRepository;
     private final RobinhoodAgenticPositionRepository positionRepository;
     private final RobinhoodAgenticConnectionRepository connectionRepository;
     private final AppUserRepository appUserRepository;
+    private final RobinhoodRhDailyTrackerProperties dailyTrackerProps;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional(readOnly = true)
@@ -129,15 +128,7 @@ public class RobinhoodAccountTrackerConfigService {
             config.setManagedAccountSuffix(managed);
             changed = true;
         }
-        List<String> excluded;
-        if (isFullDailyTrackerOwner(ownerUserId)) {
-            excluded = owned.ownedSuffixes().stream()
-                    .filter(s -> !owned.trackedSuffixes().contains(s))
-                    .sorted()
-                    .toList();
-        } else {
-            excluded = List.of();
-        }
+        List<String> excluded = spulickalDailyTrackerExcludedSuffixes(ownerUserId, owned.ownedSuffixes());
         String excludedCsv = formatExcludedSuffixes(excluded);
         if (!excludedCsv.equals(config.getExcludedAccountSuffixes())) {
             config.setExcludedAccountSuffixes(excludedCsv);
@@ -176,48 +167,60 @@ public class RobinhoodAccountTrackerConfigService {
         return resolveOwnedAccounts(ownerUserId).trackedSuffixes().contains(suffix.trim());
     }
 
+    /** Whether Daily Tracker is enabled for this owner (spulickal, nisha, or configured additional users). */
+    @Transactional(readOnly = true)
+    public boolean isDailyTrackerEnabled(long ownerUserId) {
+        return resolveUsername(ownerUserId)
+                .map(username -> RobinhoodRhDailyTrackerAccountPolicy.isUserEnabled(
+                        username, dailyTrackerProps.additionalOwnerSuffixesByUsername()))
+                .orElse(false);
+    }
+
     /**
-     * Whether a suffix appears in Daily Tracker for this owner. Never includes another user's accounts.
-     * Non-spulickal owners: every suffix returned by their Agentic sync (all nisha-agentic accounts).
+     * Whether a suffix appears in Daily Tracker for this owner.
+     * spulickal: pulickal-agentic allowlist only. nisha: all nisha-agentic owned suffixes. Others: disabled or configured.
      */
     @Transactional(readOnly = true)
     public boolean isDailyTrackerSuffix(long ownerUserId, String suffix) {
         if (suffix == null || suffix.isBlank() || isUnsetSuffix(suffix)) {
             return false;
         }
-        RobinhoodRhOwnedAccountsDto owned = resolveOwnedAccounts(ownerUserId);
-        return matchesDailyTrackerSuffixPolicy(
-                isFullDailyTrackerOwner(ownerUserId),
-                owned.ownedSuffixes(),
-                owned.trackedSuffixes(),
-                suffix);
-    }
-
-    static boolean matchesDailyTrackerSuffixPolicy(
-            boolean fullDailyTrackerOwner,
-            Set<String> ownedSuffixes,
-            Set<String> trackedSuffixes,
-            String suffix) {
-        String normalized = suffix.trim();
-        if (!ownedSuffixes.contains(normalized)) {
+        Optional<String> username = resolveUsername(ownerUserId);
+        if (username.isEmpty()) {
             return false;
         }
-        if (fullDailyTrackerOwner) {
-            return trackedSuffixes.contains(normalized);
-        }
-        return true;
+        RobinhoodRhOwnedAccountsDto owned = resolveOwnedAccounts(ownerUserId);
+        return RobinhoodRhDailyTrackerAccountPolicy.matches(
+                username.get(),
+                owned.ownedSuffixes(),
+                suffix,
+                dailyTrackerProps.additionalOwnerSuffixesByUsername());
     }
 
-    private boolean isFullDailyTrackerOwner(long ownerUserId) {
-        return appUserRepository
-                .findById(ownerUserId)
-                .map(u -> FULL_DAILY_TRACKER_OWNER_USERNAME.equalsIgnoreCase(u.getUsername().trim()))
+    private Optional<String> resolveUsername(long ownerUserId) {
+        return appUserRepository.findById(ownerUserId).map(u -> u.getUsername().trim());
+    }
+
+    private boolean isSpulickal(long ownerUserId) {
+        return resolveUsername(ownerUserId)
+                .map(u -> RobinhoodRhDailyTrackerAccountPolicy.SPULICKAL_USERNAME.equals(
+                        RobinhoodRhDailyTrackerAccountPolicy.normalizeUsername(u)))
                 .orElse(false);
+    }
+
+    private List<String> spulickalDailyTrackerExcludedSuffixes(long ownerUserId, Set<String> ownedSuffixes) {
+        if (!isSpulickal(ownerUserId)) {
+            return List.of();
+        }
+        return ownedSuffixes.stream()
+                .filter(RobinhoodRhDailyTrackerAccountPolicy.SPULICKAL_EXCLUDED_SUFFIXES::contains)
+                .sorted()
+                .toList();
     }
 
     /**
      * After Agentic sync, align tracked account suffixes with Robinhood roles (default, agentic, managed).
-     * spulickal: auto-exclude other synced accounts (e.g. ••••0440). Other users: keep all synced accounts.
+     * spulickal: exclude ••••0440 and ••••2835 from Daily Tracker. nisha: keep all nisha-agentic accounts.
      */
     @Transactional
     public void applyRolesFromSync(long ownerUserId, JsonNode syncResult) {
@@ -279,29 +282,7 @@ public class RobinhoodAccountTrackerConfigService {
             changed = true;
         }
 
-        Set<String> tracked = new LinkedHashSet<>();
-        if (config.getIndividualAccountSuffix() != null && !isUnsetSuffix(config.getIndividualAccountSuffix())) {
-            tracked.add(config.getIndividualAccountSuffix().trim());
-        }
-        if (config.getAgenticAccountSuffix() != null && !isUnsetSuffix(config.getAgenticAccountSuffix())) {
-            tracked.add(config.getAgenticAccountSuffix().trim());
-        }
-        String managed = config.getManagedAccountSuffix();
-        if (managed != null && !managed.isBlank()) {
-            tracked.add(managed.trim());
-        }
-
-        List<String> excluded = allSuffixes.stream()
-                .filter(s -> !tracked.contains(s))
-                .sorted()
-                .toList();
-        String excludedCsv;
-        if (isFullDailyTrackerOwner(ownerUserId)) {
-            excludedCsv = formatExcludedSuffixes(excluded);
-        } else {
-            // Keep every account from this user's Agentic connection in Daily Tracker.
-            excludedCsv = "";
-        }
+        String excludedCsv = formatExcludedSuffixes(spulickalDailyTrackerExcludedSuffixes(ownerUserId, allSuffixes));
         if (!excludedCsv.equals(config.getExcludedAccountSuffixes())) {
             config.setExcludedAccountSuffixes(excludedCsv);
             changed = true;
@@ -316,7 +297,7 @@ public class RobinhoodAccountTrackerConfigService {
                     config.getIndividualAccountSuffix(),
                     config.getAgenticAccountSuffix(),
                     config.getManagedAccountSuffix(),
-                    excluded);
+                    excludedCsv);
         }
     }
 

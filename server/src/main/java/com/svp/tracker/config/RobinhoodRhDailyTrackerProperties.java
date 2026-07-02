@@ -1,6 +1,10 @@
 package com.svp.tracker.config;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "tracker.finance.rh-daily-tracker")
@@ -8,7 +12,8 @@ public record RobinhoodRhDailyTrackerProperties(
         String snapshotCron,
         String snapshotZone,
         String snapshotSchedulerEnabledConfig,
-        List<String> excludedAccountSuffixes) {
+        List<String> excludedAccountSuffixes,
+        Map<String, String> additionalOwnerSuffixes) {
 
     public RobinhoodRhDailyTrackerProperties {
         if (snapshotCron == null) {
@@ -35,6 +40,32 @@ public record RobinhoodRhDailyTrackerProperties(
                     .distinct()
                     .toList();
         }
+        if (additionalOwnerSuffixes == null) {
+            additionalOwnerSuffixes = Map.of();
+        } else {
+            additionalOwnerSuffixes = additionalOwnerSuffixes.entrySet().stream()
+                    .filter(e -> e.getKey() != null && !e.getKey().isBlank())
+                    .collect(
+                            Collectors.toUnmodifiableMap(
+                                    e -> e.getKey().trim().toLowerCase(Locale.ROOT),
+                                    e -> e.getValue() == null ? "" : e.getValue().trim()));
+        }
+    }
+
+    /** Optional per-username Daily Tracker suffix allowlists for users beyond spulickal/nisha. */
+    public Map<String, Set<String>> additionalOwnerSuffixesByUsername() {
+        return additionalOwnerSuffixes.entrySet().stream()
+                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, e -> parseSuffixCsv(e.getValue())));
+    }
+
+    private static Set<String> parseSuffixCsv(String csv) {
+        if (csv == null || csv.isBlank()) {
+            return Set.of();
+        }
+        return java.util.Arrays.stream(csv.split(","))
+                .map(s -> s == null ? "" : s.trim())
+                .filter(s -> !s.isBlank())
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     public boolean snapshotCronEnabled() {
