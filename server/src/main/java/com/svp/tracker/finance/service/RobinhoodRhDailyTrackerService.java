@@ -462,7 +462,7 @@ public class RobinhoodRhDailyTrackerService {
 
     private boolean isHiddenAccount(long ownerUserId, String suffix) {
         return RobinhoodAccountTrackerConfigService.isUnsetSuffix(suffix)
-                || accountTrackerConfigService.isExcludedSuffix(ownerUserId, suffix);
+                || !accountTrackerConfigService.isTrackedSuffix(ownerUserId, suffix);
     }
 
     private static List<RobinhoodRhDailySnapshot> scheduledOnly(List<RobinhoodRhDailySnapshot> rows) {

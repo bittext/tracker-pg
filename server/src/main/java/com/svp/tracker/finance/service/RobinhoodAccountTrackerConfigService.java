@@ -1,8 +1,14 @@
 package com.svp.tracker.finance.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.svp.tracker.finance.domain.RobinhoodAccountTrackerConfig;
+import com.svp.tracker.finance.domain.RobinhoodAgenticConnection;
+import com.svp.tracker.finance.domain.RobinhoodAgenticPosition;
+import com.svp.tracker.finance.dto.RobinhoodRhOwnedAccountsDto;
 import com.svp.tracker.finance.repository.RobinhoodAccountTrackerConfigRepository;
+import com.svp.tracker.finance.repository.RobinhoodAgenticConnectionRepository;
+import com.svp.tracker.finance.repository.RobinhoodAgenticPositionRepository;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -11,6 +17,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +38,9 @@ public class RobinhoodAccountTrackerConfigService {
     private static final String UNSET_SUFFIX = "0000";
 
     private final RobinhoodAccountTrackerConfigRepository configRepository;
+    private final RobinhoodAgenticPositionRepository positionRepository;
+    private final RobinhoodAgenticConnectionRepository connectionRepository;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional(readOnly = true)
     public RobinhoodAccountTrackerConfig getOrCreateConfig(long ownerUserId) {
@@ -38,6 +48,99 @@ public class RobinhoodAccountTrackerConfigService {
                 .findByOwnerUserId(ownerUserId)
                 .map(this::ensureRhTrackStart)
                 .orElseGet(() -> createDefaultConfig(ownerUserId));
+    }
+
+    @Transactional(readOnly = true)
+    public RobinhoodRhOwnedAccountsDto resolveOwnedAccounts(long ownerUserId) {
+        List<RobinhoodAgenticPosition> positions = positionRepository.findByOwnerUserIdOrderBySymbolAsc(ownerUserId);
+        Optional<RobinhoodAgenticConnection> connectionOpt = connectionRepository.findByOwnerUserId(ownerUserId);
+        LinkedHashSet<String> owned = collectOwnedSuffixes(positions, connectionOpt);
+        RobinhoodAccountTrackerConfig config = getOrCreateConfig(ownerUserId);
+
+        String individual = pickOwnedSuffix(config.getIndividualAccountSuffix(), owned);
+        String agentic = pickOwnedSuffix(config.getAgenticAccountSuffix(), owned);
+        if (agentic == null) {
+            agentic = connectionOpt
+                    .map(RobinhoodAgenticConnection::getAgenticAccountNumber)
+                    .map(RobinhoodAccountTrackerConfigService::suffixFromAccountNumber)
+                    .filter(owned::contains)
+                    .orElse(null);
+        }
+        String managed = pickOwnedSuffix(config.getManagedAccountSuffix(), owned);
+
+        LinkedHashSet<String> tracked = new LinkedHashSet<>();
+        if (individual != null) {
+            tracked.add(individual);
+        }
+        if (agentic != null) {
+            tracked.add(agentic);
+        }
+        if (managed != null) {
+            tracked.add(managed);
+        }
+        List<String> excluded = parseExcludedSuffixes(config.getExcludedAccountSuffixes());
+        for (String suffix : owned) {
+            if (!excluded.contains(suffix)) {
+                tracked.add(suffix);
+            }
+        }
+        return new RobinhoodRhOwnedAccountsDto(
+                individual,
+                agentic,
+                managed,
+                Set.copyOf(owned),
+                Set.copyOf(tracked));
+    }
+
+    @Transactional
+    public void reconcileConfigWithOwnedAccounts(long ownerUserId) {
+        RobinhoodRhOwnedAccountsDto owned = resolveOwnedAccounts(ownerUserId);
+        if (owned.ownedSuffixes().isEmpty()) {
+            return;
+        }
+        RobinhoodAccountTrackerConfig config = getOrCreateConfig(ownerUserId);
+        boolean changed = false;
+        String individual = owned.individualSuffix() != null ? owned.individualSuffix() : UNSET_SUFFIX;
+        if (!individual.equals(config.getIndividualAccountSuffix())) {
+            config.setIndividualAccountSuffix(individual);
+            changed = true;
+        }
+        String agentic = owned.agenticSuffix() != null ? owned.agenticSuffix() : UNSET_SUFFIX;
+        if (!agentic.equals(config.getAgenticAccountSuffix())) {
+            config.setAgenticAccountSuffix(agentic);
+            changed = true;
+        }
+        String managed = owned.managedSuffix();
+        String configManaged = config.getManagedAccountSuffix();
+        if (managed == null) {
+            if (configManaged != null && !configManaged.isBlank()) {
+                config.setManagedAccountSuffix(null);
+                changed = true;
+            }
+        } else if (!managed.equals(configManaged)) {
+            config.setManagedAccountSuffix(managed);
+            changed = true;
+        }
+        List<String> excluded = owned.ownedSuffixes().stream()
+                .filter(s -> !owned.trackedSuffixes().contains(s))
+                .sorted()
+                .toList();
+        String excludedCsv = formatExcludedSuffixes(excluded);
+        if (!excludedCsv.equals(config.getExcludedAccountSuffixes())) {
+            config.setExcludedAccountSuffixes(excludedCsv);
+            changed = true;
+        }
+        if (changed) {
+            config.setUpdatedAt(Instant.now());
+            configRepository.save(config);
+            log.info(
+                    "RH account tracker config reconciled for user {}: individual=••••{} agentic=••••{} managed={} owned={}",
+                    ownerUserId,
+                    config.getIndividualAccountSuffix(),
+                    config.getAgenticAccountSuffix(),
+                    config.getManagedAccountSuffix(),
+                    owned.ownedSuffixes());
+        }
     }
 
     @Transactional(readOnly = true)
@@ -50,6 +153,14 @@ public class RobinhoodAccountTrackerConfigService {
                 .findByOwnerUserId(ownerUserId)
                 .map(cfg -> parseExcludedSuffixes(cfg.getExcludedAccountSuffixes()).contains(normalized))
                 .orElse(false);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isTrackedSuffix(long ownerUserId, String suffix) {
+        if (suffix == null || suffix.isBlank() || isUnsetSuffix(suffix)) {
+            return false;
+        }
+        return resolveOwnedAccounts(ownerUserId).trackedSuffixes().contains(suffix.trim());
     }
 
     /**
@@ -149,6 +260,60 @@ public class RobinhoodAccountTrackerConfigService {
                     config.getManagedAccountSuffix(),
                     excluded);
         }
+    }
+
+    private LinkedHashSet<String> collectOwnedSuffixes(
+            List<RobinhoodAgenticPosition> positions, Optional<RobinhoodAgenticConnection> connectionOpt) {
+        LinkedHashSet<String> owned = new LinkedHashSet<>();
+        for (RobinhoodAgenticPosition position : positions) {
+            String suffix = suffixFromAccountNumber(position.getAccountNumber());
+            if (suffix != null) {
+                owned.add(suffix);
+            }
+        }
+        connectionOpt.ifPresent(conn -> {
+            for (String accountNumber : parsePortfolioAccountNumbers(conn.getPortfolioJson())) {
+                String suffix = suffixFromAccountNumber(accountNumber);
+                if (suffix != null) {
+                    owned.add(suffix);
+                }
+            }
+            String agentic = suffixFromAccountNumber(conn.getAgenticAccountNumber());
+            if (agentic != null) {
+                owned.add(agentic);
+            }
+        });
+        return owned;
+    }
+
+    private List<String> parsePortfolioAccountNumbers(String portfolioJson) {
+        if (portfolioJson == null || portfolioJson.isBlank()) {
+            return List.of();
+        }
+        try {
+            JsonNode root = objectMapper.readTree(portfolioJson);
+            if (!root.isObject()) {
+                return List.of();
+            }
+            List<String> accounts = new ArrayList<>();
+            root.fieldNames().forEachRemaining(field -> {
+                if (field != null && !field.isBlank()) {
+                    accounts.add(field.trim());
+                }
+            });
+            return accounts;
+        } catch (Exception e) {
+            log.warn("Could not parse portfolio_json for owned-account resolution: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    private static String pickOwnedSuffix(String configSuffix, Set<String> owned) {
+        if (configSuffix == null || isUnsetSuffix(configSuffix)) {
+            return null;
+        }
+        String normalized = configSuffix.trim();
+        return owned.contains(normalized) ? normalized : null;
     }
 
     private RobinhoodAccountTrackerConfig ensureRhTrackStart(RobinhoodAccountTrackerConfig config) {

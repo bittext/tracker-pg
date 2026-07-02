@@ -14,6 +14,7 @@ import com.svp.tracker.finance.dto.RobinhoodRhAccountsTrackDto;
 import com.svp.tracker.finance.dto.RobinhoodRhCashFlowEventDto;
 import com.svp.tracker.finance.dto.RobinhoodRhHoldingDto;
 import com.svp.tracker.finance.dto.RobinhoodRhLiveQuotesDto;
+import com.svp.tracker.finance.dto.RobinhoodRhOwnedAccountsDto;
 import com.svp.tracker.finance.repository.RobinhoodAgenticConnectionRepository;
 import com.svp.tracker.finance.repository.RobinhoodAgenticPositionRepository;
 import com.svp.tracker.finance.repository.RobinhoodRhAccountStartingBalanceRepository;
@@ -78,13 +79,15 @@ public class RobinhoodRhAccountsTrackService {
     public RobinhoodRhAccountsTrackDto buildForOwner(long ownerUserId, boolean syncLatest) {
         List<String> syncNotes = List.of();
         if (syncLatest) {
-            syncNotes = agenticService.syncLatestForAccountsTrack();
+            syncNotes = agenticService.syncLatestForOwner(ownerUserId);
         }
+        accountTrackerConfigService.reconcileConfigWithOwnedAccounts(ownerUserId);
+        RobinhoodRhOwnedAccountsDto ownedAccounts = accountTrackerConfigService.resolveOwnedAccounts(ownerUserId);
         RobinhoodAccountTrackerConfig config = accountTrackerConfigService.getOrCreateConfig(ownerUserId);
         Instant trackingStartedAt = resolveTrackingStart(config);
-        String individualSuffix = config.getIndividualAccountSuffix();
-        String agenticSuffix = config.getAgenticAccountSuffix();
-        String managedSuffix = trimOrNull(config.getManagedAccountSuffix());
+        String individualSuffix = ownedAccounts.individualSuffix();
+        String agenticSuffix = ownedAccounts.agenticSuffix();
+        String managedSuffix = ownedAccounts.managedSuffix();
 
         int rowCap = Math.max(financeProperties.maxTransactionRows(), 2_000);
         List<Map<String, Object>> csvRows = financeService.fetchCashFlowMapsSinceForOwner(ownerUserId, trackingStartedAt, rowCap);
@@ -110,10 +113,17 @@ public class RobinhoodRhAccountsTrackService {
 
         Set<String> knownSuffixes =
                 RobinhoodRhCashFlowAllocator.collectKnownSuffixes(
-                        accountNumbers, individualSuffix, agenticSuffix, managedSuffix);
+                        accountNumbers,
+                        nullToEmpty(individualSuffix),
+                        nullToEmpty(agenticSuffix),
+                        managedSuffix);
         Map<String, List<RobinhoodRhCashFlowEventDto>> flowsBySuffix =
                 RobinhoodRhCashFlowAllocator.allocateByAccountSuffix(
-                        rawIndividualFlows, individualSuffix, agenticSuffix, managedSuffix, knownSuffixes);
+                        rawIndividualFlows,
+                        nullToEmpty(individualSuffix),
+                        nullToEmpty(agenticSuffix),
+                        managedSuffix,
+                        knownSuffixes);
         mergeSupplementalCashFlows(flowsBySuffix, ownerUserId);
 
         LocalDate trackingStartDate = trackingStartedAt.atZone(CENTRAL).toLocalDate();
@@ -125,9 +135,6 @@ public class RobinhoodRhAccountsTrackService {
         prependStartingBalances(flowsBySuffix, trackingStartDate, startingBySuffix);
 
         List<String> sortedAccounts = sortAccounts(accountNumbers, individualSuffix, agenticSuffix, managedSuffix, allPositions);
-        if (managedSuffix != null && sortedAccounts.stream().noneMatch(a -> accountEndsWith(a, managedSuffix))) {
-            sortedAccounts.add(managedSuffix);
-        }
 
         List<RobinhoodRhAccountSummaryDto> accounts = new ArrayList<>();
         for (String accountKey : sortedAccounts) {
@@ -148,7 +155,7 @@ public class RobinhoodRhAccountsTrackService {
                             startingBySuffix.getOrDefault(suffix, BigDecimal.ZERO)));
         }
 
-        if (accounts.isEmpty()) {
+        if (accounts.isEmpty() && individualSuffix != null) {
             List<RobinhoodRhCashFlowEventDto> individualFlows =
                     flowsBySuffix.getOrDefault(individualSuffix, List.of());
             accounts.add(
@@ -528,8 +535,12 @@ public class RobinhoodRhAccountsTrackService {
             List<RobinhoodAgenticPosition> allPositions,
             Map<String, List<RobinhoodRhCashFlowEventDto>> flowsBySuffix) {
         LinkedHashSet<String> suffixes = new LinkedHashSet<>();
-        suffixes.add(normalizeAccountSuffix(individualSuffix));
-        suffixes.add(normalizeAccountSuffix(agenticSuffix));
+        if (individualSuffix != null && !RobinhoodAccountTrackerConfigService.isUnsetSuffix(individualSuffix)) {
+            suffixes.add(normalizeAccountSuffix(individualSuffix));
+        }
+        if (agenticSuffix != null && !RobinhoodAccountTrackerConfigService.isUnsetSuffix(agenticSuffix)) {
+            suffixes.add(normalizeAccountSuffix(agenticSuffix));
+        }
         if (managedSuffix != null && !managedSuffix.isBlank()) {
             suffixes.add(normalizeAccountSuffix(managedSuffix.trim()));
         }
@@ -839,6 +850,10 @@ public class RobinhoodRhAccountsTrackService {
 
     private static String norm(String s) {
         return s == null ? "" : s.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private static String nullToEmpty(String s) {
+        return s == null ? "" : s;
     }
 
     private static String trimOrNull(String s) {

@@ -154,11 +154,15 @@ public class RobinhoodAgenticService {
 
     /** Best-effort live sync for RH Accounts Track refresh; never throws. */
     public List<String> syncLatestForAccountsTrack() {
+        return syncLatestForOwner(currentUser.requireUserId());
+    }
+
+    /** Best-effort live sync for a specific owner (scheduler / capture must not use another user's tokens). */
+    public List<String> syncLatestForOwner(long ownerUserId) {
         if (!props.serviceConfigured()) {
             return List.of("Live sync skipped — Robinhood Agentic sidecar not configured.");
         }
-        long uid = currentUser.requireUserId();
-        if (connectionRepository.findByOwnerUserId(uid).isEmpty()) {
+        if (connectionRepository.findByOwnerUserId(ownerUserId).isEmpty()) {
             return List.of(
                     "Live sync skipped — connect Robinhood Agentic Trading to pull latest holdings and options.");
         }
@@ -166,10 +170,13 @@ public class RobinhoodAgenticService {
             return List.of("Live sync skipped — Robinhood Agentic is disabled.");
         }
         try {
-            RobinhoodAgenticSyncResultDto result = syncNow();
+            RobinhoodAgenticConnection conn = connectionRepository
+                    .findByOwnerUserId(ownerUserId)
+                    .orElseThrow();
+            RobinhoodAgenticSyncResultDto result = runSync(conn);
             return List.of(result.message());
         } catch (Exception e) {
-            log.warn("RH Accounts Track live sync failed for user {}", uid, e);
+            log.warn("RH Accounts Track live sync failed for user {}", ownerUserId, e);
             return List.of(
                     "Live sync failed ("
                             + truncate(rootCauseMessage(e), 180)
@@ -269,6 +276,7 @@ public class RobinhoodAgenticService {
         connectionRepository.save(conn);
 
         accountTrackerConfigService.applyRolesFromSync(conn.getOwnerUserId(), result);
+        accountTrackerConfigService.reconcileConfigWithOwnedAccounts(conn.getOwnerUserId());
 
         positionRepository.deleteAllByOwnerUserId(conn.getOwnerUserId());
         Map<String, RobinhoodAgenticPosition> byAccountAndKey = new LinkedHashMap<>();
