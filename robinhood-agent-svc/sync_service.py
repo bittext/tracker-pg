@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from datetime import datetime, timezone
 from typing import Any
@@ -21,8 +22,15 @@ LOGGER = logging.getLogger(__name__)
 OPTION_POSITIONS_TOOL = "get_option_positions"
 EQUITY_ORDERS_TOOL = "get_equity_orders"
 EQUITY_QUOTES_TOOL = "get_equity_quotes"
+OPTION_QUOTES_TOOL = "get_option_quotes"
 QUOTE_BATCH_SIZE = 20
+OPTION_QUOTE_BATCH_SIZE = 20
 ORDERS_SYNC_LIMIT = 10
+
+_UUID_RE = re.compile(
+    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",
+    re.IGNORECASE,
+)
 
 
 def _to_float(value: Any) -> float | None:
@@ -32,6 +40,82 @@ def _to_float(value: Any) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _uuid_from_url(value: str) -> str | None:
+    match = _UUID_RE.search(value)
+    return match.group(0) if match else None
+
+
+def _option_instrument_id_from_row(row: dict[str, Any]) -> str | None:
+    direct = row.get("option_instrument_id") or row.get("instrument_id")
+    if direct:
+        return str(direct).strip()
+    option_id = row.get("option_id")
+    if option_id:
+        return str(option_id).strip()
+    instrument = row.get("instrument")
+    if isinstance(instrument, dict):
+        inst_id = instrument.get("id") or instrument.get("uuid")
+        if inst_id:
+            return str(inst_id).strip()
+        url = instrument.get("url") or instrument.get("href")
+        if url:
+            parsed = _uuid_from_url(str(url))
+            if parsed:
+                return parsed
+    elif isinstance(instrument, str) and instrument.strip():
+        parsed = _uuid_from_url(instrument)
+        if parsed:
+            return parsed
+    option = row.get("option")
+    if isinstance(option, dict):
+        inst_id = option.get("instrument_id") or option.get("id")
+        if inst_id:
+            return str(inst_id).strip()
+    return None
+
+
+def _option_mark_per_share(row: dict[str, Any]) -> float | None:
+    return _to_float(
+        row.get("mark_price")
+        or row.get("adjusted_mark_price")
+        or row.get("current_price")
+        or row.get("last_trade_price")
+        or row.get("price")
+        or row.get("last_extended_hours_trade_price")
+    )
+
+
+def _option_cost_basis_total(row: dict[str, Any]) -> float | None:
+    qty = _to_float(row.get("quantity") or row.get("contracts") or row.get("qty"))
+    avg = _to_float(
+        row.get("average_buy_price")
+        or row.get("average_price")
+        or row.get("average_open_price")
+        or row.get("avg_cost")
+    )
+    if qty is None or avg is None:
+        return None
+    # MCP average_price is per-contract premium when > 100.
+    if avg > 100:
+        return round(abs(qty * avg), 2)
+    return round(abs(qty * avg * 100.0), 2)
+
+
+def _option_market_value_from_mark(row: dict[str, Any]) -> float | None:
+    mark = _option_mark_per_share(row)
+    qty = _to_float(row.get("quantity") or row.get("contracts") or row.get("qty"))
+    if mark is None or qty is None:
+        return None
+    return round(abs(qty * mark * 100.0), 2)
+
+
+def _option_market_value_stale_at_cost(market_value: float, row: dict[str, Any]) -> bool:
+    cost = _option_cost_basis_total(row)
+    if cost is None or cost == 0.0:
+        return False
+    return abs(market_value - cost) < 0.05
 
 
 def _price_from_quote(quote: dict[str, Any]) -> float | None:
@@ -58,6 +142,10 @@ def _market_value_from_fields(
 
 
 def _market_value_from_row(row: dict[str, Any], *, option: bool = False) -> float | None:
+    if option:
+        mv_from_mark = _option_market_value_from_mark(row)
+        if mv_from_mark is not None:
+            return mv_from_mark
     existing = _to_float(row.get("market_value") or row.get("equity") or row.get("value"))
     if existing is not None and existing != 0.0:
         if option:
@@ -166,48 +254,94 @@ def _enrich_market_values(
     positions: list[dict[str, Any]],
     tool_names: set[str],
 ) -> None:
-    """Fill missing market_value using row prices, then get_equity_quotes."""
+    """Fill missing/stale market_value from row marks, then live MCP quotes."""
     for position in positions:
+        is_option = position.get("position_type") == "option"
         existing = _to_float(position.get("market_value") or position.get("equity") or position.get("value"))
+        if is_option:
+            mv_from_mark = _option_market_value_from_mark(position)
+            if mv_from_mark is not None and (
+                existing in (None, 0.0) or _option_market_value_stale_at_cost(existing, position)
+            ):
+                position["market_value"] = mv_from_mark
+                continue
+            if existing is not None and existing != 0.0:
+                continue
+            position["market_value"] = _market_value_from_row(position, option=True)
+            continue
         if existing is not None and existing != 0.0:
             continue
-        is_option = position.get("position_type") == "option"
-        position["market_value"] = _market_value_from_row(position, option=is_option)
+        position["market_value"] = _market_value_from_row(position, option=False)
 
-    if EQUITY_QUOTES_TOOL not in tool_names:
+    if EQUITY_QUOTES_TOOL in tool_names:
+        symbols_needing_quotes = sorted(
+            {
+                str(p["symbol"]).strip().upper()
+                for p in positions
+                if p.get("position_type") == "equity"
+                and p.get("symbol")
+                and _to_float(p.get("quantity")) not in (None, 0.0)
+                and _equity_needs_live_quote(p)
+            }
+        )
+        quote_prices: dict[str, float] = {}
+        for offset in range(0, len(symbols_needing_quotes), QUOTE_BATCH_SIZE):
+            batch = symbols_needing_quotes[offset : offset + QUOTE_BATCH_SIZE]
+            try:
+                raw = client.call_tool(EQUITY_QUOTES_TOOL, {"symbols": batch})
+                quote_prices.update(_quotes_by_symbol(parse_tool_payload(raw)))
+            except Exception as exc:  # noqa: BLE001
+                LOGGER.warning("get_equity_quotes failed for %s: %s", batch, exc)
+
+        for position in positions:
+            if position.get("position_type") != "equity":
+                continue
+            symbol = str(position.get("symbol", "")).strip().upper()
+            price = quote_prices.get(symbol)
+            if price is None:
+                continue
+            position["market_value"] = _market_value_from_fields(
+                quantity=position.get("quantity"),
+                price=price,
+            )
+
+    if OPTION_QUOTES_TOOL not in tool_names:
         return
 
-    symbols_needing_quotes = sorted(
+    option_ids = sorted(
         {
-            str(p["symbol"]).strip().upper()
+            str(p["option_instrument_id"]).strip()
             for p in positions
-            if p.get("position_type") == "equity"
-            and p.get("symbol")
+            if p.get("position_type") == "option"
+            and p.get("option_instrument_id")
             and _to_float(p.get("quantity")) not in (None, 0.0)
         }
     )
-    if not symbols_needing_quotes:
+    if not option_ids:
         return
 
-    quote_prices: dict[str, float] = {}
-    for offset in range(0, len(symbols_needing_quotes), QUOTE_BATCH_SIZE):
-        batch = symbols_needing_quotes[offset : offset + QUOTE_BATCH_SIZE]
+    option_marks: dict[str, float] = {}
+    for offset in range(0, len(option_ids), OPTION_QUOTE_BATCH_SIZE):
+        batch = option_ids[offset : offset + OPTION_QUOTE_BATCH_SIZE]
         try:
-            raw = client.call_tool(EQUITY_QUOTES_TOOL, {"symbols": batch})
-            quote_prices.update(_quotes_by_symbol(parse_tool_payload(raw)))
+            raw = client.call_tool(OPTION_QUOTES_TOOL, {"instrument_ids": batch})
+            from quote_service import _option_marks_by_instrument
+
+            option_marks.update(_option_marks_by_instrument(parse_tool_payload(raw)))
         except Exception as exc:  # noqa: BLE001
-            LOGGER.warning("get_equity_quotes failed for %s: %s", batch, exc)
+            LOGGER.warning("get_option_quotes failed for %s: %s", batch, exc)
 
     for position in positions:
-        if position.get("position_type") != "equity":
+        if position.get("position_type") != "option":
             continue
-        symbol = str(position.get("symbol", "")).strip().upper()
-        price = quote_prices.get(symbol)
-        if price is None:
+        instrument_id = str(position.get("option_instrument_id") or "").strip()
+        mark = option_marks.get(instrument_id)
+        if mark is None:
             continue
         position["market_value"] = _market_value_from_fields(
             quantity=position.get("quantity"),
-            price=price,
+            price=mark,
+            multiplier=100.0,
         )
 
 
@@ -383,16 +517,23 @@ def _normalize_option_position(row: dict[str, Any]) -> dict[str, Any]:
     option_type = row.get("type") or row.get("option_type") or row.get("kind")
     strike = row.get("strike_price") or row.get("strike")
     expiration = row.get("expiration_date") or row.get("expiration") or row.get("expires_at")
-    position_key = row.get("id") or row.get("option_id") or row.get("instrument_id") or row.get("position_id")
-    if not position_key:
+    instrument_id = _option_instrument_id_from_row(row)
+    leg_id = row.get("id") or row.get("position_id")
+    if not leg_id:
+        leg_id = row.get("option_id") if not instrument_id else None
+    if instrument_id and leg_id and option_type:
+        position_key = f"{instrument_id}|{leg_id}|{str(option_type).lower()}"
+    elif leg_id and option_type:
+        position_key = f"{leg_id}|{str(option_type).lower()}"
+    elif instrument_id:
+        position_key = str(instrument_id)
+    else:
         position_key = f"{chain}|{option_type}|{strike}|{expiration}"
-    elif option_type:
-        # Robinhood may return separate long/short legs with the same option_id; keys must be unique per account.
-        position_key = f"{position_key}|{str(option_type).lower()}"
     chain_text = str(chain).strip().upper() if chain else ""
     normalized = {
         "position_type": "option",
         "position_key": str(position_key),
+        "option_instrument_id": instrument_id,
         "symbol": chain_text or chain,
         "chain_symbol": chain_text or chain,
         "option_type": str(option_type).lower() if option_type else None,
@@ -409,9 +550,13 @@ def _normalize_option_position(row: dict[str, Any]) -> dict[str, Any]:
         or row.get("mark_price"),
         "market_value": row.get("market_value") or row.get("value") or row.get("equity"),
     }
-    computed = _market_value_from_row({**row, **normalized}, option=True)
-    if computed is not None:
-        normalized["market_value"] = computed
+    mv_from_mark = _option_market_value_from_mark({**row, **normalized})
+    if mv_from_mark is not None:
+        normalized["market_value"] = mv_from_mark
+    else:
+        computed = _market_value_from_row({**row, **normalized}, option=True)
+        if computed is not None:
+            normalized["market_value"] = computed
     return normalized
 
 

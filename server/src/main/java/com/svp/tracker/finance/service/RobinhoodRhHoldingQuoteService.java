@@ -60,7 +60,7 @@ public class RobinhoodRhHoldingQuoteService {
                 equitySymbols.add(p.getSymbol().trim().toUpperCase(Locale.ROOT));
             }
             if ("option".equalsIgnoreCase(p.getPositionType())) {
-                String instrumentId = optionInstrumentId(p.getPositionKey());
+                String instrumentId = optionInstrumentId(p);
                 if (instrumentId != null) {
                     optionInstrumentIds.add(instrumentId);
                 }
@@ -99,7 +99,7 @@ public class RobinhoodRhHoldingQuoteService {
             if (!"option".equalsIgnoreCase(p.getPositionType())) {
                 continue;
             }
-            String instrumentId = optionInstrumentId(p.getPositionKey());
+            String instrumentId = optionInstrumentId(p);
             if (instrumentId == null) {
                 continue;
             }
@@ -166,8 +166,22 @@ public class RobinhoodRhHoldingQuoteService {
         if (positionKey == null || positionKey.isBlank()) {
             return null;
         }
-        int pipe = positionKey.indexOf('|');
-        return pipe > 0 ? positionKey.substring(0, pipe) : positionKey;
+        String trimmed = positionKey.trim();
+        String[] parts = trimmed.split("\\|");
+        // Sync stores {instrument_id}|{leg_id}|{side} for option quote lookups.
+        if (parts.length >= 3) {
+            return parts[0].trim();
+        }
+        int pipe = trimmed.indexOf('|');
+        return pipe > 0 ? trimmed.substring(0, pipe).trim() : trimmed;
+    }
+
+    /** Quote instrument id from synced position row (preferred over parsing position_key). */
+    static String optionInstrumentId(RobinhoodAgenticPosition position) {
+        if (position == null || !"option".equalsIgnoreCase(position.getPositionType())) {
+            return null;
+        }
+        return optionInstrumentId(position.getPositionKey());
     }
 
     private static void collectQuoteKeys(

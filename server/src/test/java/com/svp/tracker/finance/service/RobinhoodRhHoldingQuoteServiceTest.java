@@ -14,6 +14,14 @@ import org.junit.jupiter.api.Test;
 class RobinhoodRhHoldingQuoteServiceTest {
 
     @Test
+    void optionInstrumentIdUsesInstrumentSegmentForThreePartPositionKey() {
+        assertEquals(
+                "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                RobinhoodRhHoldingQuoteService.optionInstrumentId(
+                        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa|bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb|long"));
+    }
+
+    @Test
     void lookupOptionInstrumentIdMatchesPerShareAverageAfterNormalization() {
         RobinhoodAgenticPosition position = new RobinhoodAgenticPosition();
         position.setPositionType("option");
