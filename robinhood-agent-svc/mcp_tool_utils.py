@@ -6,6 +6,33 @@ import json
 from typing import Any
 
 
+def parse_json_leading_object(text: str) -> Any | None:
+    """Parse JSON when Robinhood appends interpretive prose after the object."""
+    stripped = text.strip()
+    if not stripped:
+        return None
+    try:
+        return json.loads(stripped)
+    except json.JSONDecodeError:
+        pass
+    start = stripped.find("{")
+    if start < 0:
+        return None
+    depth = 0
+    for index in range(start, len(stripped)):
+        char = stripped[index]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                try:
+                    return json.loads(stripped[start : index + 1])
+                except json.JSONDecodeError:
+                    return None
+    return None
+
+
 def parse_tool_payload(result: dict[str, Any]) -> Any:
     """Return parsed business data from a tools/call result."""
     structured = result.get("structuredContent")
@@ -20,10 +47,10 @@ def parse_tool_payload(result: dict[str, Any]) -> Any:
         text = (block.get("text") or "").strip()
         if not text:
             continue
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            return text
+        parsed = parse_json_leading_object(text)
+        if parsed is not None:
+            return parsed
+        return text
     return result
 
 

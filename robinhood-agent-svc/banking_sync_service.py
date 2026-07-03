@@ -108,6 +108,13 @@ def run_banking_sync(access_token: str, *, transaction_limit: int = 20) -> dict[
         if total_spend_micro is None:
             total_spend_micro = policy_payload.get("totalSpendMicro")
 
+        available_balance_micro = balance_payload.get("availableBalance")
+        if available_balance_micro is None and monthly_limit_micro is not None and total_spend_micro is not None:
+            try:
+                available_balance_micro = int(monthly_limit_micro) - int(total_spend_micro)
+            except (TypeError, ValueError):
+                available_balance_micro = None
+
         card_status = str(status_payload.get("cardStatus") or "").strip()
         activation_status = str(status_payload.get("status") or "").strip()
         card_last4 = _parse_card_last4(status_payload)
@@ -123,8 +130,8 @@ def run_banking_sync(access_token: str, *, transaction_limit: int = 20) -> dict[
             "monthly_limit_usd": _micro_to_usd(monthly_limit_micro),
             "total_spend_micro": total_spend_micro,
             "total_spend_usd": _micro_to_usd(total_spend_micro),
-            "available_balance_micro": balance_payload.get("availableBalance"),
-            "available_balance_usd": _micro_to_usd(balance_payload.get("availableBalance")),
+            "available_balance_micro": available_balance_micro,
+            "available_balance_usd": _micro_to_usd(available_balance_micro),
             "transactions": transactions,
             "transaction_count": len(transactions),
         }
