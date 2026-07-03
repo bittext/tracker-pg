@@ -112,6 +112,9 @@
 }
 
 .rh-daily__kpi-sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1rem;
   font-size: 0.875rem;
 }
 
@@ -335,6 +338,11 @@
   font: inherit;
   color: inherit;
   text-align: left;
+
+  &--static {
+    cursor: default;
+    padding-bottom: 0.35rem;
+  }
 }
 
 .rh-daily__trades-header:disabled {
@@ -368,6 +376,12 @@
 .rh-daily__trades-table-wrap {
   overflow-x: auto;
   padding: 0 0.75rem 0.65rem;
+}
+
+.rh-daily__trades-empty {
+  margin: 0;
+  padding: 0 0.75rem 0.65rem;
+  font-size: 0.875rem;
 }
 
 .rh-daily__trades-table {

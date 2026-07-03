@@ -22,6 +22,8 @@ import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerAccountColumnDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerDayDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerManualCaptureAccountDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerManualCaptureDto;
+import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerPriorPullAccountDto;
+import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerPriorPullDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerReportDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTradeDto;
 import com.svp.tracker.finance.dto.RobinhoodRhHoldingDto;
@@ -96,6 +98,8 @@ public class RobinhoodRhDailyTrackerService {
     public RobinhoodRhDailyTrackerReportDto buildReport(int year, Integer month) {
         long ownerUserId = currentUser.requireUserId();
         boolean scheduledOwner = isScheduledCaptureOwner(ownerUserId);
+        List<RobinhoodAgenticSyncedOrder> ownerOrders =
+                syncedOrderRepository.findByOwnerUserIdOrderByUpdatedAtRhDescCreatedAtRhDesc(ownerUserId);
         LocalDate yearStart = LocalDate.of(year, 1, 1);
         LocalDate yearEnd = LocalDate.of(year, 12, 31);
         List<RobinhoodRhDailySnapshot> allYearRows =
@@ -144,6 +148,25 @@ public class RobinhoodRhDailyTrackerService {
         dayDates.addAll(scheduledByDate.keySet());
         dayDates.addAll(manualByDate.keySet());
 
+        Map<LocalDate, List<RobinhoodRhDailySnapshot>> yearScheduledByDate = new TreeMap<>();
+        for (RobinhoodRhDailySnapshot row : scheduledYearRows) {
+            yearScheduledByDate.computeIfAbsent(row.getSnapshotDate(), k -> new ArrayList<>()).add(row);
+        }
+        TreeSet<LocalDate> allYearScheduledDates = new TreeSet<>(yearScheduledByDate.keySet());
+        Map<LocalDate, BigDecimal> yearCombinedTotalByScheduledDate = new LinkedHashMap<>();
+        Map<LocalDate, Map<String, BigDecimal>> yearAccountTotalByScheduledDate = new LinkedHashMap<>();
+        for (LocalDate scheduledDate : allYearScheduledDates) {
+            BigDecimal combined = BigDecimal.ZERO;
+            Map<String, BigDecimal> bySuffix = new LinkedHashMap<>();
+            for (RobinhoodRhDailySnapshot row : yearScheduledByDate.get(scheduledDate)) {
+                BigDecimal total = nullToZero(row.getTotalAccountValue());
+                combined = combined.add(total);
+                bySuffix.put(row.getAccountSuffix(), total);
+            }
+            yearCombinedTotalByScheduledDate.put(scheduledDate, combined);
+            yearAccountTotalByScheduledDate.put(scheduledDate, bySuffix);
+        }
+
         TreeSet<LocalDate> scheduledDates = new TreeSet<>(scheduledByDate.keySet());
         Map<LocalDate, BigDecimal> combinedTotalByScheduledDate = new LinkedHashMap<>();
         Map<LocalDate, Map<String, BigDecimal>> accountTotalByScheduledDate = new LinkedHashMap<>();
@@ -187,11 +210,13 @@ public class RobinhoodRhDailyTrackerService {
             List<RobinhoodRhDailyTrackerAccountCellDto> cells = new ArrayList<>();
             List<RobinhoodRhDailyTradeDto> dayTrades = new ArrayList<>();
 
-            LocalDate previousScheduledDate = scheduledDates.lower(dayDate);
+            RobinhoodRhDailyTrackerPriorPullDto priorPull = buildPriorPullBeforeDay(dayDate, allYearRows);
+            boolean hasPriorPull = priorPull != null;
+            LocalDate previousScheduledDate = allYearScheduledDates.lower(dayDate);
             Map<String, BigDecimal> previousAccountTotals =
                     previousScheduledDate == null
                             ? Map.of()
-                            : accountTotalByScheduledDate.getOrDefault(previousScheduledDate, Map.of());
+                            : yearAccountTotalByScheduledDate.getOrDefault(previousScheduledDate, Map.of());
 
             for (RobinhoodRhDailySnapshot row : dayScheduled) {
                 combinedTotal = combinedTotal.add(nullToZero(row.getTotalAccountValue()));
@@ -200,8 +225,7 @@ public class RobinhoodRhDailyTrackerService {
                 combinedValueChange = combinedValueChange.add(nullToZero(row.getPeriodValueChange()));
                 boolean flowActivity =
                         row.getPeriodAdded().signum() != 0 || row.getPeriodRemoved().signum() != 0;
-                List<RobinhoodRhDailyTradeDto> rowTrades =
-                        readJson(row.getTradesJson(), new TypeReference<List<RobinhoodRhDailyTradeDto>>() {});
+                List<RobinhoodRhDailyTradeDto> rowTrades = resolveTradesForSnapshot(row, ownerOrders);
                 for (RobinhoodRhDailyTradeDto trade : rowTrades) {
                     dayTrades.add(trade.withAccount(row.getAccountSuffix(), row.getLabel()));
                 }
@@ -230,7 +254,7 @@ public class RobinhoodRhDailyTrackerService {
             BigDecimal combinedTotalChangeFromPrevious = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
             if (hasPreviousScheduledSnapshot) {
                 combinedTotalChangeFromPrevious = scaleMoney(combinedTotal.subtract(
-                        combinedTotalByScheduledDate.getOrDefault(previousScheduledDate, BigDecimal.ZERO)));
+                        yearCombinedTotalByScheduledDate.getOrDefault(previousScheduledDate, BigDecimal.ZERO)));
             }
 
             List<RobinhoodRhDailyTrackerManualCaptureDto> manualCaptures =
@@ -246,6 +270,8 @@ public class RobinhoodRhDailyTrackerService {
                     scaleMoney(combinedAdded),
                     scaleMoney(combinedRemoved),
                     scaleMoney(combinedValueChange),
+                    priorPull,
+                    hasPriorPull,
                     cells,
                     manualCaptures,
                     dayTrades,
@@ -513,6 +539,38 @@ public class RobinhoodRhDailyTrackerService {
         return new RobinhoodRhDailyCaptureResultDto(true, snapshotAt, captured, message);
     }
 
+    private RobinhoodRhDailyTrackerPriorPullDto buildPriorPullBeforeDay(
+            LocalDate dayDate, List<RobinhoodRhDailySnapshot> allYearRows) {
+        Instant dayStart = dayDate.atStartOfDay(CENTRAL).toInstant();
+        Map<Instant, List<RobinhoodRhDailySnapshot>> byInstant = new TreeMap<>(Comparator.reverseOrder());
+        for (RobinhoodRhDailySnapshot row : allYearRows) {
+            Instant at = row.getSnapshotAt();
+            if (at == null || !at.isBefore(dayStart)) {
+                continue;
+            }
+            byInstant.computeIfAbsent(at, k -> new ArrayList<>()).add(row);
+        }
+        if (byInstant.isEmpty()) {
+            return null;
+        }
+        List<RobinhoodRhDailySnapshot> batch = new ArrayList<>(byInstant.values().iterator().next());
+        batch.sort(Comparator.comparing(RobinhoodRhDailySnapshot::getAccountSuffix));
+        BigDecimal combined = BigDecimal.ZERO;
+        List<RobinhoodRhDailyTrackerPriorPullAccountDto> accounts = new ArrayList<>();
+        for (RobinhoodRhDailySnapshot row : batch) {
+            combined = combined.add(nullToZero(row.getTotalAccountValue()));
+            accounts.add(new RobinhoodRhDailyTrackerPriorPullAccountDto(
+                    row.getAccountSuffix(), scaleMoney(row.getTotalAccountValue())));
+        }
+        RobinhoodRhDailySnapshot sample = batch.get(0);
+        return new RobinhoodRhDailyTrackerPriorPullDto(
+                sample.getSnapshotDate(),
+                sample.getSnapshotAt(),
+                sample.getCaptureKind(),
+                scaleMoney(combined),
+                List.copyOf(accounts));
+    }
+
     private List<RobinhoodRhDailyTrackerManualCaptureDto> buildManualCapturesForDay(
             List<RobinhoodRhDailySnapshot> dayManualRows) {
         if (dayManualRows.isEmpty()) {
@@ -552,7 +610,9 @@ public class RobinhoodRhDailyTrackerService {
                 RobinhoodRhHoldingValues.normalizeStoredSnapshotHoldings(
                         readJson(row.getHoldingsJson(), new TypeReference<>() {}));
         List<RobinhoodRhCashFlowEventDto> flows = readJson(row.getFlowsJson(), new TypeReference<>() {});
-        List<RobinhoodRhDailyTradeDto> trades = readJson(row.getTradesJson(), new TypeReference<>() {});
+        List<RobinhoodAgenticSyncedOrder> ownerOrders =
+                syncedOrderRepository.findByOwnerUserIdOrderByUpdatedAtRhDescCreatedAtRhDesc(row.getOwnerUserId());
+        List<RobinhoodRhDailyTradeDto> trades = resolveTradesForSnapshot(row, ownerOrders);
         return new RobinhoodRhDailySnapshotDetailDto(
                 row.getId(),
                 row.getSnapshotDate(),
@@ -571,6 +631,15 @@ public class RobinhoodRhDailyTrackerService {
                 holdings,
                 flows,
                 trades);
+    }
+
+    private List<RobinhoodRhDailyTradeDto> resolveTradesForSnapshot(
+            RobinhoodRhDailySnapshot row, List<RobinhoodAgenticSyncedOrder> ownerOrders) {
+        List<RobinhoodRhDailyTradeDto> stored = readJson(row.getTradesJson(), new TypeReference<>() {});
+        if (!stored.isEmpty()) {
+            return stored;
+        }
+        return tradesInPeriod(ownerOrders, row.getAccountSuffix(), row.getPeriodStartDate(), row.getSnapshotDate());
     }
 
     /**

@@ -98,6 +98,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   viewMode: 'classic' | 'timeline' = this.loadViewMode();
 
   private static readonly VIEW_MODE_STORAGE_KEY = 'rh-daily-tracker-view-mode';
+  private static readonly EXPANSION_STORAGE_PREFIX = 'rh-daily-tracker-expansion';
 
   readonly monthChoices = [
     { value: null, label: 'All months' },
@@ -126,18 +127,13 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
 
   load(): void {
     this.loading = true;
-    this.expandedDays.clear();
-    this.collapsedManualSections.clear();
-    this.collapsedSummaryNotes.clear();
-    this.expandedTrades.clear();
-    this.expandedManuals.clear();
-    this.noteDrafts.clear();
     this.financeApi.robinhoodDailyTracker(this.reportYear, this.reportMonth).subscribe({
       next: (t) => {
         this.tracker = t;
-        for (const day of t.days) {
-          this.noteDrafts.set(day.snapshotDate, day.summaryNote ?? '');
-        }
+        const validDates = new Set(t.days.map((d) => d.snapshotDate));
+        this.mergeExpansionStateFromStorage(validDates);
+        this.pruneExpansionState(validDates);
+        this.syncNoteDrafts(t.days);
         this.loading = false;
       },
       error: (err) => {
@@ -179,6 +175,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     } else {
       this.expandedDays.add(day.snapshotDate);
     }
+    this.persistExpansionState();
   }
 
   isManualSectionExpanded(day: RobinhoodRhDailyTrackerDayDto): boolean {
@@ -197,6 +194,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         }
       }
     }
+    this.persistExpansionState();
   }
 
   isManualExpanded(day: RobinhoodRhDailyTrackerDayDto, capture: RobinhoodRhDailyTrackerManualCaptureDto): boolean {
@@ -211,6 +209,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     } else {
       this.expandedManuals.add(key);
     }
+    this.persistExpansionState();
   }
 
   deleteManualCapture(
@@ -368,11 +367,22 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
 
     let priorCombined: number | null = null;
     const priorBySuffix = new Map<string, number>();
+    if (day.hasPriorPull && day.priorPull) {
+      priorCombined = day.priorPull.combinedTotal;
+      for (const acct of day.priorPull.accounts) {
+        priorBySuffix.set(acct.accountSuffix, acct.totalAccountValue);
+      }
+    }
+
     for (const row of rows) {
-      row.changeFromPrior = priorCombined != null ? row.combinedTotal - priorCombined : null;
+      if (priorCombined != null) {
+        row.changeFromPrior = row.combinedTotal - priorCombined;
+      }
       for (const acct of row.accounts) {
-        const prior = priorBySuffix.get(acct.accountSuffix);
-        acct.changeFromPrior = prior != null ? acct.totalAccountValue - prior : null;
+        if (priorCombined != null) {
+          const prior = priorBySuffix.get(acct.accountSuffix) ?? 0;
+          acct.changeFromPrior = acct.totalAccountValue - prior;
+        }
       }
       priorCombined = row.combinedTotal;
       for (const acct of row.accounts) {
@@ -380,17 +390,33 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       }
     }
 
-    if (rows.length === 1 && rows[0].kind === 'scheduled' && day.hasPreviousScheduledSnapshot) {
-      rows[0].changeFromPrior = day.combinedTotalChangeFromPrevious;
-      for (const acct of rows[0].accounts) {
-        const cell = this.cellForDay(day, acct.accountSuffix);
-        if (cell) {
-          acct.changeFromPrior = cell.totalChangeFromPrevious;
-        }
-      }
-    }
+    return rows.reverse();
+  }
 
-    return rows;
+  showTimelineDelta(value: number | null): boolean {
+    return value != null;
+  }
+
+  timelineDeltaClass(value: number | null): string {
+    if (value == null || value === 0) {
+      return 'muted';
+    }
+    return this.pnlClass(value);
+  }
+
+  priorPullHint(day: RobinhoodRhDailyTrackerDayDto): string {
+    if (!day.hasPriorPull || !day.priorPull) {
+      return 'Newest pull at top. First pull on record — no prior pull to compare.';
+    }
+    const when = new Date(day.priorPull.snapshotAt);
+    const kind = day.priorPull.captureKind === 'MANUAL' ? 'manual' : 'scheduled';
+    const whenLabel = when.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+    return `Newest pull at top. The earliest pull today compares to the prior ${kind} pull (${whenLabel}); each row above compares to the pull before it.`;
   }
 
   openTimelineAccountSnapshot(
@@ -449,6 +475,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     } else {
       this.expandedTrades.add(day.snapshotDate);
     }
+    this.persistExpansionState();
   }
 
   sideLabel(side: string | null): string {
@@ -500,6 +527,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     } else {
       this.collapsedSummaryNotes.add(day.snapshotDate);
     }
+    this.persistExpansionState();
   }
 
   saveSummaryNote(day: RobinhoodRhDailyTrackerDayDto, event: Event): void {
@@ -525,6 +553,112 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
 
   private manualKey(day: RobinhoodRhDailyTrackerDayDto, capture: RobinhoodRhDailyTrackerManualCaptureDto): string {
     return `${day.snapshotDate}|${capture.capturedAt}`;
+  }
+
+  private expansionStorageKey(): string {
+    return `${ReportsFinanceRobinhoodDailyTrackerComponent.EXPANSION_STORAGE_PREFIX}-${this.reportYear}-${this.reportMonth ?? 'all'}`;
+  }
+
+  private persistExpansionState(): void {
+    try {
+      sessionStorage.setItem(
+        this.expansionStorageKey(),
+        JSON.stringify({
+          expandedDays: [...this.expandedDays],
+          collapsedManualSections: [...this.collapsedManualSections],
+          expandedManuals: [...this.expandedManuals],
+          collapsedSummaryNotes: [...this.collapsedSummaryNotes],
+          expandedTrades: [...this.expandedTrades],
+        }),
+      );
+    } catch {
+      /* ignore storage errors */
+    }
+  }
+
+  private mergeExpansionStateFromStorage(validDates: Set<string>): void {
+    try {
+      const raw = sessionStorage.getItem(this.expansionStorageKey());
+      if (!raw) {
+        return;
+      }
+      const stored = JSON.parse(raw) as {
+        expandedDays?: string[];
+        collapsedManualSections?: string[];
+        expandedManuals?: string[];
+        collapsedSummaryNotes?: string[];
+        expandedTrades?: string[];
+      };
+      for (const date of stored.expandedDays ?? []) {
+        if (validDates.has(date)) {
+          this.expandedDays.add(date);
+        }
+      }
+      for (const date of stored.collapsedManualSections ?? []) {
+        if (validDates.has(date)) {
+          this.collapsedManualSections.add(date);
+        }
+      }
+      for (const key of stored.expandedManuals ?? []) {
+        if (validDates.has(key.split('|')[0] ?? '')) {
+          this.expandedManuals.add(key);
+        }
+      }
+      for (const date of stored.collapsedSummaryNotes ?? []) {
+        if (validDates.has(date)) {
+          this.collapsedSummaryNotes.add(date);
+        }
+      }
+      for (const date of stored.expandedTrades ?? []) {
+        if (validDates.has(date)) {
+          this.expandedTrades.add(date);
+        }
+      }
+    } catch {
+      /* ignore parse/storage errors */
+    }
+  }
+
+  private pruneExpansionState(validDates: Set<string>): void {
+    for (const date of [...this.expandedDays]) {
+      if (!validDates.has(date)) {
+        this.expandedDays.delete(date);
+      }
+    }
+    for (const date of [...this.collapsedManualSections]) {
+      if (!validDates.has(date)) {
+        this.collapsedManualSections.delete(date);
+      }
+    }
+    for (const key of [...this.expandedManuals]) {
+      if (!validDates.has(key.split('|')[0] ?? '')) {
+        this.expandedManuals.delete(key);
+      }
+    }
+    for (const date of [...this.collapsedSummaryNotes]) {
+      if (!validDates.has(date)) {
+        this.collapsedSummaryNotes.delete(date);
+      }
+    }
+    for (const date of [...this.expandedTrades]) {
+      if (!validDates.has(date)) {
+        this.expandedTrades.delete(date);
+      }
+    }
+  }
+
+  private syncNoteDrafts(days: RobinhoodRhDailyTrackerDayDto[]): void {
+    const validDates = new Set(days.map((d) => d.snapshotDate));
+    for (const key of [...this.noteDrafts.keys()]) {
+      if (!validDates.has(key)) {
+        this.noteDrafts.delete(key);
+      }
+    }
+    for (const day of days) {
+      if (!this.isNoteDirty(day)) {
+        this.noteDrafts.set(day.snapshotDate, day.summaryNote ?? '');
+      }
+    }
   }
 
   private loadViewMode(): 'classic' | 'timeline' {

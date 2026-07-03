@@ -16,6 +16,9 @@ public record RobinhoodRhDailyTrackerDayDto(
         BigDecimal combinedPeriodAdded,
         BigDecimal combinedPeriodRemoved,
         BigDecimal combinedPeriodValueChange,
+        /** Previous scheduled snapshot before this day (for timeline first-row baseline). */
+        RobinhoodRhDailyTrackerPriorPullDto priorPull,
+        boolean hasPriorPull,
         List<RobinhoodRhDailyTrackerAccountCellDto> accounts,
         List<RobinhoodRhDailyTrackerManualCaptureDto> manualCaptures,
         List<RobinhoodRhDailyTradeDto> trades,

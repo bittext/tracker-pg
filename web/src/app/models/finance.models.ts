@@ -133,10 +133,26 @@ export interface RobinhoodRhDailyTrackerDayDto {
   combinedPeriodAdded: number;
   combinedPeriodRemoved: number;
   combinedPeriodValueChange: number;
+  /** Last scheduled snapshot before this day (typically previous 9 PM). */
+  priorPull: RobinhoodRhDailyTrackerPriorPullDto | null;
+  hasPriorPull: boolean;
   accounts: RobinhoodRhDailyTrackerAccountCellDto[];
   manualCaptures: RobinhoodRhDailyTrackerManualCaptureDto[];
   trades: RobinhoodRhDailyTradeDto[];
   summaryNote: string;
+}
+
+export interface RobinhoodRhDailyTrackerPriorPullDto {
+  snapshotDate: string;
+  snapshotAt: string;
+  captureKind: string;
+  combinedTotal: number;
+  accounts: RobinhoodRhDailyTrackerPriorPullAccountDto[];
+}
+
+export interface RobinhoodRhDailyTrackerPriorPullAccountDto {
+  accountSuffix: string;
+  totalAccountValue: number;
 }
 
 export interface RobinhoodRhDailyDayNoteResultDto {
