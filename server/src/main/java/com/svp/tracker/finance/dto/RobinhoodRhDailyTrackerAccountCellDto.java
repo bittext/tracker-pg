@@ -6,6 +6,8 @@ public record RobinhoodRhDailyTrackerAccountCellDto(
         long snapshotId,
         String accountSuffix,
         BigDecimal totalAccountValue,
+        /** Raw total minus same account on the previous scheduled snapshot day. */
+        BigDecimal totalChangeFromPrevious,
         BigDecimal periodAdded,
         BigDecimal periodRemoved,
         BigDecimal periodValueChange,

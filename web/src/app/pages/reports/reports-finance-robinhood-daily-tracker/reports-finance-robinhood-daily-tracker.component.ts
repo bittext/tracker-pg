@@ -12,6 +12,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { RouterLink } from '@angular/router';
 import {
   RobinhoodRhDailyTrackerAccountCellDto,
+  RobinhoodRhDailyTrackerAccountColumnDto,
   RobinhoodRhDailyTrackerDayDto,
   RobinhoodRhDailyTrackerManualCaptureAccountDto,
   RobinhoodRhDailyTrackerManualCaptureDto,
@@ -24,6 +25,24 @@ import {
   RobinhoodDailySnapshotDialogData,
   RH_SNAPSHOT_DIALOG_CONFIG,
 } from './robinhood-daily-snapshot-dialog.component';
+
+/** One row in the intraday capture comparison table. */
+export interface RhDailyCaptureTimelineRow {
+  capturedAt: string;
+  kind: 'scheduled' | 'manual';
+  timeLabel: string;
+  combinedTotal: number;
+  changeFromPrior: number | null;
+  accounts: RhDailyCaptureTimelineAccountCell[];
+}
+
+export interface RhDailyCaptureTimelineAccountCell {
+  snapshotId: number;
+  accountSuffix: string;
+  label: string;
+  totalAccountValue: number;
+  changeFromPrior: number | null;
+}
 
 @Component({
   selector: 'app-reports-finance-robinhood-daily-tracker',
@@ -74,6 +93,11 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   private readonly collapsedSummaryNotes = new Set<string>();
   /** snapshotDate keys where the consolidated trades section is expanded */
   private readonly expandedTrades = new Set<string>();
+
+  /** Classic expandable cards vs side-by-side capture timeline. */
+  viewMode: 'classic' | 'timeline' = this.loadViewMode();
+
+  private static readonly VIEW_MODE_STORAGE_KEY = 'rh-daily-tracker-view-mode';
 
   readonly monthChoices = [
     { value: null, label: 'All months' },
@@ -237,6 +261,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         snapshotId: acct.snapshotId,
         accountSuffix: acct.accountSuffix,
         totalAccountValue: acct.totalAccountValue,
+        totalChangeFromPrevious: 0,
         periodAdded: 0,
         periodRemoved: 0,
         periodValueChange: 0,
@@ -268,6 +293,145 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
 
   pnlClass(value: number): string {
     return value >= 0 ? 'rh-daily__pnl--pos' : 'rh-daily__pnl--neg';
+  }
+
+  trendIcon(value: number): string {
+    return value >= 0 ? 'trending_up' : 'trending_down';
+  }
+
+  setViewMode(mode: 'classic' | 'timeline'): void {
+    this.viewMode = mode;
+    try {
+      localStorage.setItem(ReportsFinanceRobinhoodDailyTrackerComponent.VIEW_MODE_STORAGE_KEY, mode);
+    } catch {
+      /* ignore storage errors */
+    }
+  }
+
+  isClassicView(): boolean {
+    return this.viewMode === 'classic';
+  }
+
+  isTimelineView(): boolean {
+    return this.viewMode === 'timeline';
+  }
+
+  hasCaptureTimeline(day: RobinhoodRhDailyTrackerDayDto): boolean {
+    return day.hasScheduledSnapshot || day.manualCaptures.length > 0;
+  }
+
+  captureTimeline(day: RobinhoodRhDailyTrackerDayDto): RhDailyCaptureTimelineRow[] {
+    const entries: Array<{ at: number; row: RhDailyCaptureTimelineRow }> = [];
+
+    if (day.hasScheduledSnapshot && day.snapshotAt) {
+      entries.push({
+        at: new Date(day.snapshotAt).getTime(),
+        row: {
+          capturedAt: day.snapshotAt,
+          kind: 'scheduled',
+          timeLabel: this.tracker?.autoCaptureScheduled ? '9 PM CST' : 'Scheduled',
+          combinedTotal: day.combinedTotal,
+          changeFromPrior: null,
+          accounts: day.accounts.map((cell) => ({
+            snapshotId: cell.snapshotId,
+            accountSuffix: cell.accountSuffix,
+            label: this.accountLabel(cell.accountSuffix),
+            totalAccountValue: cell.totalAccountValue,
+            changeFromPrior: null,
+          })),
+        },
+      });
+    }
+
+    for (const capture of day.manualCaptures) {
+      entries.push({
+        at: new Date(capture.capturedAt).getTime(),
+        row: {
+          capturedAt: capture.capturedAt,
+          kind: 'manual',
+          timeLabel: this.formatCaptureTime(capture.capturedAt),
+          combinedTotal: capture.combinedTotal,
+          changeFromPrior: null,
+          accounts: capture.accounts.map((acct) => ({
+            snapshotId: acct.snapshotId,
+            accountSuffix: acct.accountSuffix,
+            label: acct.label,
+            totalAccountValue: acct.totalAccountValue,
+            changeFromPrior: null,
+          })),
+        },
+      });
+    }
+
+    entries.sort((a, b) => a.at - b.at);
+    const rows = entries.map((e) => e.row);
+
+    let priorCombined: number | null = null;
+    const priorBySuffix = new Map<string, number>();
+    for (const row of rows) {
+      row.changeFromPrior = priorCombined != null ? row.combinedTotal - priorCombined : null;
+      for (const acct of row.accounts) {
+        const prior = priorBySuffix.get(acct.accountSuffix);
+        acct.changeFromPrior = prior != null ? acct.totalAccountValue - prior : null;
+      }
+      priorCombined = row.combinedTotal;
+      for (const acct of row.accounts) {
+        priorBySuffix.set(acct.accountSuffix, acct.totalAccountValue);
+      }
+    }
+
+    if (rows.length === 1 && rows[0].kind === 'scheduled' && day.hasPreviousScheduledSnapshot) {
+      rows[0].changeFromPrior = day.combinedTotalChangeFromPrevious;
+      for (const acct of rows[0].accounts) {
+        const cell = this.cellForDay(day, acct.accountSuffix);
+        if (cell) {
+          acct.changeFromPrior = cell.totalChangeFromPrevious;
+        }
+      }
+    }
+
+    return rows;
+  }
+
+  openTimelineAccountSnapshot(
+    acct: RhDailyCaptureTimelineAccountCell,
+    day: RobinhoodRhDailyTrackerDayDto,
+    event: Event,
+  ): void {
+    event.stopPropagation();
+    this.openSnapshot(
+      {
+        snapshotId: acct.snapshotId,
+        accountSuffix: acct.accountSuffix,
+        totalAccountValue: acct.totalAccountValue,
+        totalChangeFromPrevious: 0,
+        periodAdded: 0,
+        periodRemoved: 0,
+        periodValueChange: 0,
+        hasFlowActivity: false,
+        tradeCount: 0,
+      },
+      day,
+    );
+  }
+
+  accountLabel(suffix: string): string {
+    return this.tracker?.accounts.find((a) => a.accountSuffix === suffix)?.label ?? `••••${suffix}`;
+  }
+
+  formatCaptureTime(capturedAt: string): string {
+    return new Date(capturedAt).toLocaleTimeString(undefined, {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  }
+
+  accountColumns(): RobinhoodRhDailyTrackerAccountColumnDto[] {
+    return this.tracker?.accounts ?? [];
+  }
+
+  timelineAccountTotal(row: RhDailyCaptureTimelineRow, suffix: string): RhDailyCaptureTimelineAccountCell | undefined {
+    return row.accounts.find((a) => a.accountSuffix === suffix);
   }
 
   hasFlowBlock(day: RobinhoodRhDailyTrackerDayDto): boolean {
@@ -361,5 +525,14 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
 
   private manualKey(day: RobinhoodRhDailyTrackerDayDto, capture: RobinhoodRhDailyTrackerManualCaptureDto): string {
     return `${day.snapshotDate}|${capture.capturedAt}`;
+  }
+
+  private loadViewMode(): 'classic' | 'timeline' {
+    try {
+      const stored = localStorage.getItem(ReportsFinanceRobinhoodDailyTrackerComponent.VIEW_MODE_STORAGE_KEY);
+      return stored === 'timeline' ? 'timeline' : 'classic';
+    } catch {
+      return 'classic';
+    }
   }
 }

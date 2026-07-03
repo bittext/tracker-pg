@@ -7,8 +7,9 @@
         Auto-capture: {{ tracker!.autoCaptureScheduleLabel }}
       </span>
       —
-      Each day’s <strong>9:00 PM CST</strong> snapshot appears as a row — click to expand. Add call-summary notes,
-      and manage manual captures, inside each expanded day.
+      Each day’s <strong>9:00 PM CST</strong> snapshot appears as a row — click to expand. Use
+      <strong>Timeline compare</strong> to see all captures side-by-side, or <strong>Classic</strong> for the original
+      layout. Add call-summary notes and manage manual captures inside each expanded day.
     } @else {
       Daily snapshots appear as a row — click to expand. Add call-summary notes, and manage manual captures, inside
       each expanded day.
@@ -40,6 +41,24 @@
     <button mat-stroked-button type="button" (click)="captureNow()" [disabled]="capturing || loading">
       Capture now
     </button>
+    <span class="rh-daily__view-toggle" role="group" aria-label="Day detail layout">
+      <button
+        mat-stroked-button
+        type="button"
+        [class.rh-daily__view-toggle--active]="isClassicView()"
+        (click)="setViewMode('classic')"
+      >
+        Classic
+      </button>
+      <button
+        mat-stroked-button
+        type="button"
+        [class.rh-daily__view-toggle--active]="isTimelineView()"
+        (click)="setViewMode('timeline')"
+      >
+        Timeline compare
+      </button>
+    </span>
     @if (loading || capturing) {
       <mat-spinner diameter="28" aria-label="Loading" />
     }
@@ -100,9 +119,16 @@
                   <span class="rh-daily__day-row-badge muted">9 PM CST</span>
                 }
                 <strong class="rh-daily__day-row-total">{{ day.combinedTotal | currency }}</strong>
-                @if (day.combinedPeriodValueChange !== 0) {
-                  <span class="rh-daily__day-row-delta muted" [class]="pnlClass(day.combinedPeriodValueChange)">
-                    Δ {{ day.combinedPeriodValueChange | currency }}
+                @if (day.hasPreviousScheduledSnapshot && day.combinedTotalChangeFromPrevious !== 0) {
+                  <span
+                    class="rh-daily__day-row-delta muted"
+                    [class]="pnlClass(day.combinedTotalChangeFromPrevious)"
+                    title="Combined total vs previous 9 PM snapshot"
+                  >
+                    <mat-icon class="rh-daily__trend-icon" aria-hidden="true">
+                      {{ trendIcon(day.combinedTotalChangeFromPrevious) }}
+                    </mat-icon>
+                    {{ day.combinedTotalChangeFromPrevious | currency }}
                   </span>
                 }
               } @else if (t.autoCaptureScheduled) {
@@ -184,6 +210,81 @@
                 </div>
 
                 @if (day.hasScheduledSnapshot) {
+                  @if (isTimelineView() && hasCaptureTimeline(day)) {
+                    <div class="rh-daily__timeline" role="region" aria-label="Intraday capture comparison">
+                      <h4 class="rh-daily__timeline-title">Captures today (compare accounts)</h4>
+                      <p class="muted rh-daily__timeline-hint">
+                        Click any account total to open holdings. Δ is vs the prior capture in this table (or vs
+                        yesterday’s 9 PM when only the scheduled row exists).
+                      </p>
+                      <div class="rh-daily__timeline-table-wrap">
+                        <table class="rh-daily__timeline-table">
+                          <thead>
+                            <tr>
+                              <th>Time</th>
+                              @for (acct of accountColumns(); track acct.accountSuffix) {
+                                <th class="rh-daily__num">{{ acct.label }}</th>
+                              }
+                              <th class="rh-daily__num">Combined</th>
+                              <th class="rh-daily__num">Δ prior</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            @for (row of captureTimeline(day); track row.capturedAt) {
+                              <tr [class.rh-daily__timeline-row--scheduled]="row.kind === 'scheduled'">
+                                <td class="rh-daily__nowrap">
+                                  {{ row.timeLabel }}
+                                  @if (row.kind === 'manual') {
+                                    <span class="muted rh-daily__timeline-kind">manual</span>
+                                  }
+                                </td>
+                                @for (acctCol of accountColumns(); track acctCol.accountSuffix) {
+                                  @if (timelineAccountTotal(row, acctCol.accountSuffix); as acct) {
+                                    <td class="rh-daily__num">
+                                      <button
+                                        type="button"
+                                        class="rh-daily__timeline-cell-btn"
+                                        (click)="openTimelineAccountSnapshot(acct, day, $event)"
+                                      >
+                                        {{ acct.totalAccountValue | currency }}
+                                        @if (acct.changeFromPrior != null && acct.changeFromPrior !== 0) {
+                                          <span
+                                            class="rh-daily__timeline-cell-delta"
+                                            [class]="pnlClass(acct.changeFromPrior)"
+                                          >
+                                            {{ acct.changeFromPrior | currency }}
+                                          </span>
+                                        }
+                                      </button>
+                                    </td>
+                                  } @else {
+                                    <td class="rh-daily__num muted">—</td>
+                                  }
+                                }
+                                <td class="rh-daily__num">
+                                  <strong>{{ row.combinedTotal | currency }}</strong>
+                                </td>
+                                <td class="rh-daily__num">
+                                  @if (row.changeFromPrior != null && row.changeFromPrior !== 0) {
+                                    <span [class]="pnlClass(row.changeFromPrior)">
+                                      <mat-icon class="rh-daily__trend-icon rh-daily__trend-icon--sm" aria-hidden="true">
+                                        {{ trendIcon(row.changeFromPrior) }}
+                                      </mat-icon>
+                                      {{ row.changeFromPrior | currency }}
+                                    </span>
+                                  } @else {
+                                    <span class="muted">—</span>
+                                  }
+                                </td>
+                              </tr>
+                            }
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  }
+
+                  @if (isClassicView()) {
                   @if (hasFlowBlock(day)) {
                     <div class="rh-daily__flows" role="region" aria-label="Period cash movements">
                       <h4 class="rh-daily__flows-title">
@@ -301,9 +402,17 @@
                           <span class="rh-daily__acct-kind muted">{{ acct.accountKind }}</span>
                           <span class="rh-daily__acct-label">{{ acct.label }}</span>
                           <strong class="rh-daily__acct-total">{{ cell.totalAccountValue | currency }}</strong>
+                          @if (day.hasPreviousScheduledSnapshot && cell.totalChangeFromPrevious !== 0) {
+                            <span class="rh-daily__acct-delta muted" [class]="pnlClass(cell.totalChangeFromPrevious)">
+                              <mat-icon class="rh-daily__trend-icon rh-daily__trend-icon--sm" aria-hidden="true">
+                                {{ trendIcon(cell.totalChangeFromPrevious) }}
+                              </mat-icon>
+                              {{ cell.totalChangeFromPrevious | currency }}
+                            </span>
+                          }
                           @if (cell.periodValueChange !== 0) {
-                            <span class="rh-daily__acct-delta muted" [class]="pnlClass(cell.periodValueChange)">
-                              Δ {{ cell.periodValueChange | currency }}
+                            <span class="rh-daily__acct-perf muted" title="Value change excluding cash flows">
+                              perf {{ cell.periodValueChange | currency }}
                             </span>
                           }
                           @if (cell.tradeCount) {
@@ -316,11 +425,9 @@
                       }
                     }
                   </div>
-                } @else if (t.autoCaptureScheduled) {
-                  <p class="muted rh-daily__pending">Scheduled 9 PM snapshot not captured yet.</p>
-                }
+                  }
 
-                @if (day.manualCaptures.length) {
+                  @if (isClassicView() && day.manualCaptures.length) {
                   <div
                     class="rh-daily__manual"
                     role="region"
@@ -395,6 +502,61 @@
                         }
                       </ul>
                     }
+                  </div>
+                }
+                } @else if (t.autoCaptureScheduled) {
+                  <p class="muted rh-daily__pending">Scheduled 9 PM snapshot not captured yet.</p>
+                }
+
+                @if (isTimelineView() && !day.hasScheduledSnapshot && day.manualCaptures.length) {
+                  <div class="rh-daily__timeline" role="region" aria-label="Intraday capture comparison">
+                    <h4 class="rh-daily__timeline-title">Captures today (compare accounts)</h4>
+                    <div class="rh-daily__timeline-table-wrap">
+                      <table class="rh-daily__timeline-table">
+                        <thead>
+                          <tr>
+                            <th>Time</th>
+                            @for (acct of accountColumns(); track acct.accountSuffix) {
+                              <th class="rh-daily__num">{{ acct.label }}</th>
+                            }
+                            <th class="rh-daily__num">Combined</th>
+                            <th class="rh-daily__num">Δ prior</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          @for (row of captureTimeline(day); track row.capturedAt) {
+                            <tr>
+                              <td class="rh-daily__nowrap">{{ row.timeLabel }}</td>
+                              @for (acctCol of accountColumns(); track acctCol.accountSuffix) {
+                                @if (timelineAccountTotal(row, acctCol.accountSuffix); as acct) {
+                                  <td class="rh-daily__num">
+                                    <button
+                                      type="button"
+                                      class="rh-daily__timeline-cell-btn"
+                                      (click)="openTimelineAccountSnapshot(acct, day, $event)"
+                                    >
+                                      {{ acct.totalAccountValue | currency }}
+                                    </button>
+                                  </td>
+                                } @else {
+                                  <td class="rh-daily__num muted">—</td>
+                                }
+                              }
+                              <td class="rh-daily__num"><strong>{{ row.combinedTotal | currency }}</strong></td>
+                              <td class="rh-daily__num">
+                                @if (row.changeFromPrior != null && row.changeFromPrior !== 0) {
+                                  <span [class]="pnlClass(row.changeFromPrior)">
+                                    {{ row.changeFromPrior | currency }}
+                                  </span>
+                                } @else {
+                                  <span class="muted">—</span>
+                                }
+                              </td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 }
               </div>

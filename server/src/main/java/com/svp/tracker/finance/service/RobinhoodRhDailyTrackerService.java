@@ -144,6 +144,21 @@ public class RobinhoodRhDailyTrackerService {
         dayDates.addAll(scheduledByDate.keySet());
         dayDates.addAll(manualByDate.keySet());
 
+        TreeSet<LocalDate> scheduledDates = new TreeSet<>(scheduledByDate.keySet());
+        Map<LocalDate, BigDecimal> combinedTotalByScheduledDate = new LinkedHashMap<>();
+        Map<LocalDate, Map<String, BigDecimal>> accountTotalByScheduledDate = new LinkedHashMap<>();
+        for (LocalDate scheduledDate : scheduledDates) {
+            BigDecimal combined = BigDecimal.ZERO;
+            Map<String, BigDecimal> bySuffix = new LinkedHashMap<>();
+            for (RobinhoodRhDailySnapshot row : scheduledByDate.get(scheduledDate)) {
+                BigDecimal total = nullToZero(row.getTotalAccountValue());
+                combined = combined.add(total);
+                bySuffix.put(row.getAccountSuffix(), total);
+            }
+            combinedTotalByScheduledDate.put(scheduledDate, combined);
+            accountTotalByScheduledDate.put(scheduledDate, bySuffix);
+        }
+
         Map<LocalDate, String> summaryNotesByDate = new LinkedHashMap<>();
         for (RobinhoodRhDailyDayNote noteRow :
                 dayNoteRepository.findByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateDesc(
@@ -172,6 +187,12 @@ public class RobinhoodRhDailyTrackerService {
             List<RobinhoodRhDailyTrackerAccountCellDto> cells = new ArrayList<>();
             List<RobinhoodRhDailyTradeDto> dayTrades = new ArrayList<>();
 
+            LocalDate previousScheduledDate = scheduledDates.lower(dayDate);
+            Map<String, BigDecimal> previousAccountTotals =
+                    previousScheduledDate == null
+                            ? Map.of()
+                            : accountTotalByScheduledDate.getOrDefault(previousScheduledDate, Map.of());
+
             for (RobinhoodRhDailySnapshot row : dayScheduled) {
                 combinedTotal = combinedTotal.add(nullToZero(row.getTotalAccountValue()));
                 combinedAdded = combinedAdded.add(nullToZero(row.getPeriodAdded()));
@@ -184,10 +205,16 @@ public class RobinhoodRhDailyTrackerService {
                 for (RobinhoodRhDailyTradeDto trade : rowTrades) {
                     dayTrades.add(trade.withAccount(row.getAccountSuffix(), row.getLabel()));
                 }
+                BigDecimal accountTotalChange = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+                if (previousScheduledDate != null) {
+                    accountTotalChange = scaleMoney(nullToZero(row.getTotalAccountValue())
+                            .subtract(nullToZero(previousAccountTotals.get(row.getAccountSuffix()))));
+                }
                 cells.add(new RobinhoodRhDailyTrackerAccountCellDto(
                         row.getId(),
                         row.getAccountSuffix(),
                         scaleMoney(row.getTotalAccountValue()),
+                        accountTotalChange,
                         scaleMoney(row.getPeriodAdded()),
                         scaleMoney(row.getPeriodRemoved()),
                         scaleMoney(row.getPeriodValueChange()),
@@ -198,6 +225,14 @@ public class RobinhoodRhDailyTrackerService {
             dayTrades.sort(Comparator.comparing(
                     RobinhoodRhDailyTradeDto::executedAt, Comparator.nullsLast(Comparator.reverseOrder())));
 
+            boolean hasPreviousScheduledSnapshot =
+                    previousScheduledDate != null && !dayScheduled.isEmpty();
+            BigDecimal combinedTotalChangeFromPrevious = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+            if (hasPreviousScheduledSnapshot) {
+                combinedTotalChangeFromPrevious = scaleMoney(combinedTotal.subtract(
+                        combinedTotalByScheduledDate.getOrDefault(previousScheduledDate, BigDecimal.ZERO)));
+            }
+
             List<RobinhoodRhDailyTrackerManualCaptureDto> manualCaptures =
                     buildManualCapturesForDay(manualByDate.getOrDefault(dayDate, List.of()));
 
@@ -206,6 +241,8 @@ public class RobinhoodRhDailyTrackerService {
                     snapshotAt,
                     !dayScheduled.isEmpty(),
                     scaleMoney(combinedTotal),
+                    combinedTotalChangeFromPrevious,
+                    hasPreviousScheduledSnapshot,
                     scaleMoney(combinedAdded),
                     scaleMoney(combinedRemoved),
                     scaleMoney(combinedValueChange),

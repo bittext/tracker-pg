@@ -10,6 +10,9 @@ public record RobinhoodRhDailyTrackerDayDto(
         Instant snapshotAt,
         boolean hasScheduledSnapshot,
         BigDecimal combinedTotal,
+        /** Raw combined total minus previous scheduled snapshot day (same 9 PM cadence). */
+        BigDecimal combinedTotalChangeFromPrevious,
+        boolean hasPreviousScheduledSnapshot,
         BigDecimal combinedPeriodAdded,
         BigDecimal combinedPeriodRemoved,
         BigDecimal combinedPeriodValueChange,

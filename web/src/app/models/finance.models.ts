@@ -127,6 +127,9 @@ export interface RobinhoodRhDailyTrackerDayDto {
   snapshotAt: string | null;
   hasScheduledSnapshot: boolean;
   combinedTotal: number;
+  /** Raw combined total minus previous scheduled snapshot day. */
+  combinedTotalChangeFromPrevious: number;
+  hasPreviousScheduledSnapshot: boolean;
   combinedPeriodAdded: number;
   combinedPeriodRemoved: number;
   combinedPeriodValueChange: number;
@@ -159,6 +162,7 @@ export interface RobinhoodRhDailyTrackerAccountCellDto {
   snapshotId: number;
   accountSuffix: string;
   totalAccountValue: number;
+  totalChangeFromPrevious: number;
   periodAdded: number;
   periodRemoved: number;
   periodValueChange: number;
