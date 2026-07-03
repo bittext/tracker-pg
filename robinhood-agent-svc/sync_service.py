@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from datetime import datetime, timezone
 from typing import Any
 
@@ -452,6 +453,36 @@ def _sync_option_positions(
 
 
 def run_sync(
+    access_token: str,
+    *,
+    sync_default: bool = True,
+    sync_all: bool = True,
+) -> dict[str, Any]:
+    last_error: Exception | None = None
+    for attempt in range(1, 4):
+        try:
+            return _run_sync_once(
+                access_token,
+                sync_default=sync_default,
+                sync_all=sync_all,
+            )
+        except PermissionError:
+            raise
+        except RuntimeError as exc:
+            last_error = exc
+            message = str(exc).lower()
+            transient = "mcp response not json" in message or "unexpected initialize response" in message
+            if attempt < 3 and transient:
+                LOGGER.warning("Robinhood MCP sync attempt %d/3 failed (%s), retrying", attempt, exc)
+                time.sleep(1.5 * attempt)
+                continue
+            raise
+    if last_error is not None:
+        raise last_error
+    raise RuntimeError("Robinhood MCP sync failed without error detail")
+
+
+def _run_sync_once(
     access_token: str,
     *,
     sync_default: bool = True,
