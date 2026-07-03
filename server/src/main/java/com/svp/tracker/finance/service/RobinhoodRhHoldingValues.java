@@ -98,20 +98,30 @@ final class RobinhoodRhHoldingValues {
     }
 
     static RobinhoodRhHoldingDto normalizeStoredSnapshotHolding(RobinhoodRhHoldingDto h) {
-        if (!isOptionType(h.positionType())) {
+        if (!isOptionLike(h)) {
             return h;
         }
-        RobinhoodRhHoldingDto working = normalizeOptionTotalMarketValue(normalizeOptionAverage(h));
+        RobinhoodRhHoldingDto working = withAverage(h, normalizeOptionAveragePerShare(h.averageBuyPrice()));
+        if (!isOptionType(working.positionType())) {
+            working = new RobinhoodRhHoldingDto(
+                    working.symbol(),
+                    "option",
+                    working.quantity(),
+                    working.averageBuyPrice(),
+                    working.currentUnitPrice(),
+                    working.marketValue(),
+                    working.costBasis(),
+                    working.unrealizedPnL(),
+                    working.unrealizedPnLPercent());
+        }
+        working = normalizeOptionTotalMarketValue(working);
         BigDecimal qty = nullToZero(working.quantity());
         BigDecimal avg = scaleUnitPrice(nullToZero(working.averageBuyPrice()));
         BigDecimal cost = deriveCostBasis(withAverage(working, avg));
-        BigDecimal mv = scaleMoney(effectiveMarketValue(working));
-        BigDecimal perShare;
-        if (qty.compareTo(BigDecimal.ZERO) > 0 && mv.compareTo(BigDecimal.ZERO) > 0) {
-            perShare = mv.divide(qty.abs().multiply(OPTION_CONTRACT_MULTIPLIER), 4, RoundingMode.HALF_UP);
-        } else {
-            perShare = normalizeOptionPerShareFromLegacy(working.currentUnitPrice(), avg);
-        }
+        BigDecimal mv = deflateInflatedOptionMarketValue(working, scaleMoney(effectiveMarketValue(working)));
+        BigDecimal perShareFromMv = optionPerShareFromMarketValue(mv, qty, avg);
+        BigDecimal perShareFromCurrent = normalizeOptionPerShareFromLegacy(working.currentUnitPrice(), avg);
+        BigDecimal perShare = resolveOptionSnapshotPerShare(avg, perShareFromMv, perShareFromCurrent);
         BigDecimal unrealized = mv.subtract(cost).setScale(2, RoundingMode.HALF_UP);
         return new RobinhoodRhHoldingDto(
                 working.symbol(),
@@ -123,6 +133,67 @@ final class RobinhoodRhHoldingValues {
                 scaleMoney(cost),
                 scaleMoney(unrealized),
                 unrealizedPnLPercent(unrealized, cost));
+    }
+
+    private static boolean isOptionLike(RobinhoodRhHoldingDto h) {
+        if (isOptionType(h.positionType())) {
+            return true;
+        }
+        BigDecimal qty = nullToZero(h.quantity()).abs();
+        BigDecimal avg = nullToZero(h.averageBuyPrice());
+        return qty.compareTo(BigDecimal.ZERO) > 0
+                && qty.compareTo(BigDecimal.valueOf(20)) <= 0
+                && avg.compareTo(BigDecimal.valueOf(500)) > 0
+                && avg.compareTo(BigDecimal.valueOf(100000)) < 0;
+    }
+
+    private static BigDecimal deflateInflatedOptionMarketValue(RobinhoodRhHoldingDto h, BigDecimal mv) {
+        if (mv.compareTo(BigDecimal.ZERO) <= 0) {
+            return mv;
+        }
+        BigDecimal qty = nullToZero(h.quantity()).abs();
+        BigDecimal avg = normalizeOptionAveragePerShare(h.averageBuyPrice());
+        if (qty.compareTo(BigDecimal.ZERO) <= 0 || avg.compareTo(BigDecimal.ZERO) <= 0) {
+            return mv;
+        }
+        BigDecimal perShare = mv.divide(qty.multiply(OPTION_CONTRACT_MULTIPLIER), 4, RoundingMode.HALF_UP);
+        if (perShare.compareTo(avg.multiply(BigDecimal.valueOf(25))) > 0) {
+            return mv.divide(OPTION_CONTRACT_MULTIPLIER, 2, RoundingMode.HALF_UP);
+        }
+        return mv;
+    }
+
+    private static BigDecimal optionPerShareFromMarketValue(BigDecimal mv, BigDecimal qty, BigDecimal avgPerShare) {
+        if (qty.compareTo(BigDecimal.ZERO) <= 0 || mv.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal perShare = mv.divide(qty.abs().multiply(OPTION_CONTRACT_MULTIPLIER), 4, RoundingMode.HALF_UP);
+        if (avgPerShare.compareTo(BigDecimal.ZERO) > 0
+                && perShare.compareTo(avgPerShare.multiply(BigDecimal.valueOf(25))) > 0) {
+            perShare = perShare.divide(OPTION_CONTRACT_MULTIPLIER, 4, RoundingMode.HALF_UP);
+        }
+        return perShare;
+    }
+
+    private static BigDecimal resolveOptionSnapshotPerShare(
+            BigDecimal avgPerShare, BigDecimal perShareFromMv, BigDecimal perShareFromCurrent) {
+        boolean mvValid = perShareFromMv.compareTo(BigDecimal.ZERO) > 0;
+        boolean currentValid = perShareFromCurrent.compareTo(BigDecimal.ZERO) > 0;
+        if (mvValid && currentValid && avgPerShare.compareTo(BigDecimal.ZERO) > 0) {
+            boolean mvLooksLikeCost =
+                    perShareFromMv.subtract(avgPerShare).abs().compareTo(new BigDecimal("0.05")) <= 0;
+            if (mvLooksLikeCost && perShareFromCurrent.compareTo(avgPerShare) > 0) {
+                return perShareFromCurrent;
+            }
+            if (perShareFromMv.compareTo(avgPerShare.multiply(BigDecimal.valueOf(50))) > 0) {
+                return perShareFromCurrent;
+            }
+            return perShareFromMv;
+        }
+        if (mvValid) {
+            return perShareFromMv;
+        }
+        return perShareFromCurrent;
     }
 
     /** Allocate stock-only portfolio equity to equity rows that still lack a market value. */
