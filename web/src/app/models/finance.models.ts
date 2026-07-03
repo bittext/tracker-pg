@@ -1285,6 +1285,52 @@ export interface FinanceCreditCardStatementRequestDto {
   notes?: string;
 }
 
+/** GET /api/finance/credit/agentic/status */
+export interface RobinhoodAgenticBankingStatusDto {
+  featureEnabled: boolean;
+  serviceConfigured: boolean;
+  connected: boolean;
+  cardLastFour: string;
+  cardStatus: string;
+  activationStatus: string;
+  monthlyLimitUsd: number | null;
+  totalSpendUsd: number | null;
+  availableBalanceUsd: number | null;
+  connectedAt: string | null;
+  lastSyncAt: string | null;
+  lastSyncStatus: string;
+  lastSyncMessage: string;
+  transactionCount: number;
+}
+
+/** POST /api/finance/credit/agentic/sync */
+export interface RobinhoodAgenticBankingSyncResultDto {
+  ok: boolean;
+  syncedAt: string | null;
+  cardLastFour: string;
+  cardStatus: string;
+  activationStatus: string;
+  monthlyLimitUsd: number | null;
+  totalSpendUsd: number | null;
+  availableBalanceUsd: number | null;
+  transactionCount: number;
+  message: string;
+}
+
+/** GET /api/finance/credit/agentic/transactions */
+export interface RobinhoodAgenticBankingTransactionDto {
+  externalId: string;
+  merchantName: string;
+  description: string;
+  amountUsd: number | null;
+  transactionStatus: string;
+  transactionAt: string | null;
+}
+
+export interface RobinhoodAgenticBankingTransactionsDto {
+  transactions: RobinhoodAgenticBankingTransactionDto[];
+}
+
 /** GET /api/finance/insurance-policies */
 export interface FinanceInsurancePolicyDto {
   id: number;

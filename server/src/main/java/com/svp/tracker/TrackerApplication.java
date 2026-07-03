@@ -35,6 +35,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
     ManagementAccountsProperties.class,
     FinancePredictsProperties.class,
     com.svp.tracker.config.RobinhoodAgenticProperties.class,
+    com.svp.tracker.config.RobinhoodAgenticBankingProperties.class,
     com.svp.tracker.config.RobinhoodAgenticAutoTradeProperties.class,
     com.svp.tracker.config.RobinhoodRhDailyTrackerProperties.class
 })

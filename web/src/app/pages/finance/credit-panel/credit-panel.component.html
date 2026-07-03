@@ -290,6 +290,132 @@
           }
         </div>
       </mat-tab>
+
+      <mat-tab label="Robinhood Agentic">
+        <div class="credit-tab-body credit-agentic">
+          <p class="muted credit-agentic__intro">
+            Connect OAuth tokens from
+            <code>python phase0_oauth.py --banking</code> (saves <code>.tokens-banking.json</code>) to sync your
+            Robinhood <strong>Agentic Credit Card</strong> via Banking MCP. Separate from Finance → Robinhood trading sync.
+          </p>
+
+          @if (agenticLoading) {
+            <p class="muted">Loading Agentic card status…</p>
+          } @else if (agenticStatus) {
+            @if (!agenticStatus.featureEnabled) {
+              <p class="muted">
+                Agentic Banking sync is disabled on the server
+                (<code>TRACKER_FINANCE_ROBINHOOD_AGENTIC_BANKING_ENABLED</code>).
+              </p>
+            } @else if (!agenticStatus.serviceConfigured) {
+              <p class="muted">Agentic Banking sidecar or encryption key not configured.</p>
+            } @else if (agenticStatus.connected) {
+              <div class="credit-agentic-summary" aria-label="Agentic credit card">
+                <div class="credit-kpi">
+                  <span class="credit-kpi__label">Card</span>
+                  <span class="credit-kpi__value">{{ agenticCardLabel() }}</span>
+                </div>
+                <div class="credit-kpi">
+                  <span class="credit-kpi__label">Status</span>
+                  <span class="credit-kpi__value">{{ agenticStatus.cardStatus || '—' }}</span>
+                </div>
+                <div class="credit-kpi">
+                  <span class="credit-kpi__label">Monthly limit</span>
+                  <span class="credit-kpi__value">{{ money(agenticStatus.monthlyLimitUsd) }}</span>
+                </div>
+                <div class="credit-kpi">
+                  <span class="credit-kpi__label">Spent MTD</span>
+                  <span class="credit-kpi__value">{{ money(agenticStatus.totalSpendUsd) }}</span>
+                </div>
+                <div class="credit-kpi">
+                  <span class="credit-kpi__label">Remaining</span>
+                  <span class="credit-kpi__value">{{ money(agenticStatus.availableBalanceUsd) }}</span>
+                </div>
+              </div>
+              @if (agenticStatus.activationStatus && agenticStatus.activationStatus !== 'ACTIVATED') {
+                <p class="muted credit-agentic__hint">
+                  Activation: <strong>{{ agenticStatus.activationStatus }}</strong> — finish Agentic Credit Card setup in
+                  the Robinhood app if needed.
+                </p>
+              }
+              <ul class="muted credit-agentic__meta">
+                <li>Last sync: <strong>{{ formatInstant(agenticStatus.lastSyncAt) }}</strong>
+                  @if (agenticStatus.lastSyncStatus) { ({{ agenticStatus.lastSyncStatus }}) }
+                </li>
+                @if (agenticStatus.lastSyncMessage) {
+                  <li>{{ agenticStatus.lastSyncMessage }}</li>
+                }
+              </ul>
+            } @else {
+              <p class="muted">Not connected — paste Banking MCP tokens below.</p>
+            }
+
+            @if (agenticStatus.featureEnabled && agenticStatus.serviceConfigured) {
+              <div class="credit-agentic__toolbar">
+                <button mat-stroked-button type="button" (click)="refreshAgentic()" [disabled]="agenticLoading">
+                  <mat-icon>refresh</mat-icon>
+                  Refresh
+                </button>
+                @if (agenticStatus.connected) {
+                  <button mat-flat-button color="primary" type="button" (click)="syncAgentic()" [disabled]="agenticSyncing">
+                    <mat-icon>sync</mat-icon>
+                    Sync now
+                  </button>
+                  <button mat-stroked-button type="button" (click)="disconnectAgentic()">Disconnect</button>
+                }
+              </div>
+            }
+
+            @if (agenticStatus.featureEnabled && agenticStatus.serviceConfigured && !agenticStatus.connected) {
+              <div class="credit-agentic__connect">
+                <label class="credit-agentic__token-label" for="rhBankingTokens">Paste .tokens-banking.json or access_token</label>
+                <textarea
+                  id="rhBankingTokens"
+                  class="credit-agentic__token-input"
+                  rows="4"
+                  [(ngModel)]="agenticTokenJson"
+                  name="rhBankingTokens"
+                  [disabled]="agenticSavingTokens"
+                  placeholder='{"access_token":"…","refresh_token":"…"}'
+                ></textarea>
+                <button mat-flat-button color="primary" type="button" (click)="saveAgenticTokens()" [disabled]="agenticSavingTokens">
+                  Save tokens
+                </button>
+              </div>
+            }
+
+            @if (agenticStatus.connected) {
+              <h3 class="credit-panel__form-title">Recent transactions</h3>
+              @if (!agenticTransactions.length) {
+                <p class="muted">No transactions on this Agentic card yet.</p>
+              } @else {
+                <div class="table-wrap">
+                  <table mat-table [dataSource]="agenticTransactions" class="full-width">
+                    <ng-container matColumnDef="transactionAt">
+                      <th mat-header-cell *matHeaderCellDef>Date</th>
+                      <td mat-cell *matCellDef="let row">{{ formatInstant(row.transactionAt) }}</td>
+                    </ng-container>
+                    <ng-container matColumnDef="merchantName">
+                      <th mat-header-cell *matHeaderCellDef>Merchant</th>
+                      <td mat-cell *matCellDef="let row">{{ row.merchantName || row.description || '—' }}</td>
+                    </ng-container>
+                    <ng-container matColumnDef="amountUsd">
+                      <th mat-header-cell *matHeaderCellDef>Amount</th>
+                      <td mat-cell *matCellDef="let row">{{ money(row.amountUsd) }}</td>
+                    </ng-container>
+                    <ng-container matColumnDef="transactionStatus">
+                      <th mat-header-cell *matHeaderCellDef>Status</th>
+                      <td mat-cell *matCellDef="let row">{{ row.transactionStatus || '—' }}</td>
+                    </ng-container>
+                    <tr mat-header-row *matHeaderRowDef="agenticTxnColumns"></tr>
+                    <tr mat-row *matRowDef="let row; columns: agenticTxnColumns"></tr>
+                  </table>
+                </div>
+              }
+            }
+          }
+        </div>
+      </mat-tab>
     </mat-tab-group>
   }
 </section>

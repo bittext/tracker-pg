@@ -9,6 +9,8 @@ Endpoints
 - POST /v1/review-order   → {access_token, symbol, side, type, ...}
 - POST /v1/place-order    → {access_token, symbol, side, type, ...}
 - POST /v1/quotes         → {access_token, symbols?, option_instrument_ids?}
+- POST /v1/banking/sync   → {access_token, transaction_limit?}
+- POST /v1/banking/refresh-token → {refresh_token, client_id?}
 """
 
 from __future__ import annotations
@@ -20,6 +22,8 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from oauth_service import refresh_access_token
+from banking_oauth_service import refresh_banking_access_token
+from banking_sync_service import run_banking_sync
 from order_service import run_place, run_review
 from quote_service import run_quotes
 from sync_service import run_sync
@@ -59,6 +63,16 @@ class QuotesRequest(BaseModel):
     option_instrument_ids: list[str] = Field(default_factory=list)
 
 
+class BankingSyncRequest(BaseModel):
+    access_token: str = Field(min_length=10)
+    transaction_limit: int = Field(default=20, ge=1, le=50)
+
+
+class BankingRefreshTokenRequest(BaseModel):
+    refresh_token: str = Field(min_length=10)
+    client_id: str | None = None
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "service": "robinhood-agent-svc", "phase": "2"}
@@ -91,6 +105,31 @@ def refresh_token(body: RefreshTokenRequest) -> dict[str, Any]:
 
 def _order_body(body: OrderRequest) -> dict[str, Any]:
     return body.model_dump(exclude={"access_token"}, exclude_none=True)
+
+
+@app.post("/v1/banking/sync")
+def banking_sync(body: BankingSyncRequest) -> dict:
+    try:
+        return run_banking_sync(body.access_token, transaction_limit=body.transaction_limit)
+    except PermissionError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.exception("banking sync failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/v1/banking/refresh-token")
+def banking_refresh_token(body: BankingRefreshTokenRequest) -> dict[str, Any]:
+    try:
+        tokens = refresh_banking_access_token(body.refresh_token, client_id=body.client_id)
+        return {"ok": True, **tokens}
+    except PermissionError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.exception("banking refresh failed")
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 @app.post("/v1/quotes")

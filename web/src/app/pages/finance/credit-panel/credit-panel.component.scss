@@ -121,3 +121,62 @@
 .full-width {
   width: 100%;
 }
+
+.credit-agentic__intro {
+  max-width: 44rem;
+  margin: 0 0 1rem;
+  line-height: 1.45;
+}
+
+.credit-agentic-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem 0.65rem;
+  margin-bottom: 0.75rem;
+
+  @media (min-width: 720px) {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+.credit-agentic__hint,
+.credit-agentic__meta {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+}
+
+.credit-agentic__meta {
+  list-style: none;
+  padding: 0;
+}
+
+.credit-agentic__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.credit-agentic__connect {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: 36rem;
+  margin-bottom: 1.25rem;
+}
+
+.credit-agentic__token-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.credit-agentic__token-input {
+  width: 100%;
+  min-height: 5rem;
+  padding: 0.5rem 0.65rem;
+  font-family: ui-monospace, monospace;
+  font-size: 0.82rem;
+  border-radius: var(--app-radius-sm, 10px);
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
+  resize: vertical;
+}

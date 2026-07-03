@@ -18,9 +18,12 @@ import {
   FinanceCreditCardStatementDto,
   FinanceCreditCardStatementRequestDto,
   FinanceCreditCardSummaryDto,
+  RobinhoodAgenticBankingStatusDto,
+  RobinhoodAgenticBankingTransactionDto,
 } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { FinanceCreditCardsApiService } from '../../../services/finance-credit-cards-api.service';
+import { FinanceAgenticBankingApiService } from '../../../services/finance-agentic-banking-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
 import { FinanceEntryDocumentsComponent } from '../finance-entry-documents/finance-entry-documents.component';
 
@@ -46,6 +49,7 @@ import { FinanceEntryDocumentsComponent } from '../finance-entry-documents/finan
 })
 export class CreditPanelComponent implements OnInit {
   private readonly api = inject(FinanceCreditCardsApiService);
+  private readonly agenticBankingApi = inject(FinanceAgenticBankingApiService);
   private readonly financeApi = inject(FinanceApiService);
   private readonly snackBar = inject(MatSnackBar);
 
@@ -69,6 +73,15 @@ export class CreditPanelComponent implements OnInit {
 
   /** Month-to-date spending from Banking ledger for linked institutions (institutionId → total debits). */
   ledgerSpendingByInstitution = new Map<number, number>();
+
+  agenticStatus: RobinhoodAgenticBankingStatusDto | null = null;
+  agenticTransactions: RobinhoodAgenticBankingTransactionDto[] = [];
+  agenticLoading = false;
+  agenticSyncing = false;
+  agenticSavingTokens = false;
+  agenticTokenJson = '';
+
+  readonly agenticTxnColumns = ['transactionAt', 'merchantName', 'amountUsd', 'transactionStatus'] as const;
 
   readonly cardColumns = [
     'institution',
@@ -94,6 +107,7 @@ export class CreditPanelComponent implements OnInit {
 
   ngOnInit(): void {
     this.refresh();
+    this.refreshAgentic();
   }
 
   get selectedStatementsCard(): FinanceCreditCardDto | null {
@@ -375,6 +389,116 @@ export class CreditPanelComponent implements OnInit {
 
   cardLabel(row: FinanceCreditCardDto): string {
     return row.lastFour ? `${row.cardName} •••• ${row.lastFour}` : row.cardName;
+  }
+
+  refreshAgentic(): void {
+    this.agenticLoading = true;
+    this.agenticBankingApi.status().subscribe({
+      next: (status) => {
+        this.agenticStatus = status;
+        this.agenticLoading = false;
+        if (status.connected) {
+          this.loadAgenticTransactions();
+        } else {
+          this.agenticTransactions = [];
+        }
+      },
+      error: (e) => {
+        this.agenticLoading = false;
+        this.snackBar.open(`Agentic card status failed — ${formatHttpErrorDetail(e)}`, undefined, {
+          duration: 8000,
+        });
+      },
+    });
+  }
+
+  saveAgenticTokens(): void {
+    const raw = this.agenticTokenJson.trim();
+    if (!raw) {
+      this.snackBar.open('Paste .tokens-banking.json contents or access_token', undefined, { duration: 4500 });
+      return;
+    }
+    let accessToken = raw;
+    let refreshToken = '';
+    try {
+      const parsed = JSON.parse(raw) as { access_token?: string; refresh_token?: string };
+      if (parsed.access_token) {
+        accessToken = parsed.access_token;
+        refreshToken = parsed.refresh_token ?? '';
+      }
+    } catch {
+      // bare access token
+    }
+    this.agenticSavingTokens = true;
+    this.agenticBankingApi.saveTokens(accessToken, refreshToken).subscribe({
+      next: (status) => {
+        this.agenticSavingTokens = false;
+        this.agenticTokenJson = '';
+        this.agenticStatus = status;
+        this.snackBar.open('Robinhood Agentic Banking tokens saved', undefined, { duration: 4500 });
+        this.syncAgentic();
+      },
+      error: (e) => {
+        this.agenticSavingTokens = false;
+        this.snackBar.open(`Save tokens failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 8000 });
+      },
+    });
+  }
+
+  syncAgentic(): void {
+    this.agenticSyncing = true;
+    this.agenticBankingApi.sync().subscribe({
+      next: (r) => {
+        this.agenticSyncing = false;
+        this.snackBar.open(r.message || 'Agentic card sync complete', undefined, { duration: 5000 });
+        this.refreshAgentic();
+      },
+      error: (e) => {
+        this.agenticSyncing = false;
+        this.snackBar.open(`Agentic sync failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 8000 });
+        this.refreshAgentic();
+      },
+    });
+  }
+
+  disconnectAgentic(): void {
+    if (!window.confirm('Disconnect Robinhood Agentic Credit Card from tracker-pg?')) {
+      return;
+    }
+    this.agenticBankingApi.disconnect().subscribe({
+      next: () => {
+        this.agenticStatus = null;
+        this.agenticTransactions = [];
+        this.snackBar.open('Agentic card disconnected', undefined, { duration: 4500 });
+        this.refreshAgentic();
+      },
+      error: (e) => {
+        this.snackBar.open(`Disconnect failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 8000 });
+      },
+    });
+  }
+
+  agenticCardLabel(): string {
+    const last4 = this.agenticStatus?.cardLastFour?.trim();
+    return last4 ? `Robinhood Agentic •••• ${last4}` : 'Robinhood Agentic Credit Card';
+  }
+
+  formatInstant(iso: string | null | undefined): string {
+    if (!iso) {
+      return '—';
+    }
+    return new Date(iso).toLocaleString();
+  }
+
+  private loadAgenticTransactions(): void {
+    this.agenticBankingApi.transactions().subscribe({
+      next: (r) => {
+        this.agenticTransactions = r.transactions ?? [];
+      },
+      error: () => {
+        this.agenticTransactions = [];
+      },
+    });
   }
 
   private loadLedgerSpending(cards: FinanceCreditCardDto[]): void {

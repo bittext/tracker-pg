@@ -3,6 +3,7 @@ package com.svp.tracker.finance.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.svp.tracker.config.RobinhoodAgenticBankingProperties;
 import com.svp.tracker.config.RobinhoodAgenticProperties;
 import com.svp.tracker.finance.dto.RobinhoodAgenticOrderRequestDto;
 import java.io.IOException;
@@ -21,10 +22,13 @@ import org.springframework.stereotype.Component;
 public class RobinhoodAgenticSidecarClient {
 
     private final RobinhoodAgenticProperties props;
+    private final RobinhoodAgenticBankingProperties bankingProps;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public RobinhoodAgenticSidecarClient(RobinhoodAgenticProperties props) {
+    public RobinhoodAgenticSidecarClient(
+            RobinhoodAgenticProperties props, RobinhoodAgenticBankingProperties bankingProps) {
         this.props = props;
+        this.bankingProps = bankingProps;
     }
 
     public JsonNode sync(String accessToken, boolean syncAllAccounts) {
@@ -71,6 +75,21 @@ public class RobinhoodAgenticSidecarClient {
         return post("/v1/quotes", body);
     }
 
+    public JsonNode bankingSync(String accessToken, int transactionLimit) {
+        requireBankingConfigured();
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("access_token", accessToken);
+        body.put("transaction_limit", Math.max(1, Math.min(transactionLimit, 50)));
+        return bankingPost("/v1/banking/sync", body);
+    }
+
+    public JsonNode bankingRefreshToken(String refreshToken) {
+        requireBankingConfigured();
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("refresh_token", refreshToken);
+        return bankingPost("/v1/banking/refresh-token", body);
+    }
+
     private ObjectNode orderBody(String accessToken, RobinhoodAgenticOrderRequestDto order, String accountNumber) {
         ObjectNode body = objectMapper.createObjectNode();
         body.put("access_token", accessToken);
@@ -96,10 +115,19 @@ public class RobinhoodAgenticSidecarClient {
     }
 
     private JsonNode post(String path, ObjectNode body) {
+        return postToBase(stripTrailingSlash(props.serviceBaseUrl()), props.serviceTimeoutMs(), path, body);
+    }
+
+    private JsonNode bankingPost(String path, ObjectNode body) {
+        return postToBase(
+                stripTrailingSlash(bankingProps.serviceBaseUrl()), bankingProps.serviceTimeoutMs(), path, body);
+    }
+
+    private JsonNode postToBase(String baseUrl, int timeoutMs, String path, ObjectNode body) {
         try {
             byte[] bodyBytes = objectMapper.writeValueAsBytes(body);
-            URI uri = URI.create(stripTrailingSlash(props.serviceBaseUrl()) + path);
-            SidecarResponse response = postJson(uri, bodyBytes, props.serviceTimeoutMs());
+            URI uri = URI.create(baseUrl + path);
+            SidecarResponse response = postJson(uri, bodyBytes, timeoutMs);
             if (response.status() / 100 != 2) {
                 if (response.status() == 401) {
                     throw new RobinhoodAgenticUnauthorizedException(response.body());
@@ -115,8 +143,13 @@ public class RobinhoodAgenticSidecarClient {
             if (detail == null || detail.isBlank()) {
                 detail = e.getClass().getSimpleName();
             }
-            throw new IllegalStateException(
-                    "Robinhood Agentic sidecar unreachable at " + props.serviceBaseUrl() + ": " + detail, e);
+            throw new IllegalStateException("Robinhood Agentic sidecar unreachable at " + baseUrl + ": " + detail, e);
+        }
+    }
+
+    private void requireBankingConfigured() {
+        if (!bankingProps.serviceConfigured()) {
+            throw new IllegalStateException("Robinhood Agentic Banking sidecar is not configured");
         }
     }
 
