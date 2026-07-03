@@ -33,6 +33,14 @@ def _option_marks_by_instrument(payload: Any) -> dict[str, float]:
     for candidate in candidates:
         if isinstance(candidate, list):
             rows.extend(row for row in candidate if isinstance(row, dict))
+        elif isinstance(candidate, dict):
+            for key in ("results", "quotes", "items"):
+                items = candidate.get(key)
+                if isinstance(items, list):
+                    rows.extend(row for row in items if isinstance(row, dict))
+            quote = candidate.get("quote")
+            if isinstance(quote, dict) or candidate.get("instrument_id") or candidate.get("mark_price"):
+                rows.append(candidate)
 
     for row in rows:
         quote = row.get("quote") if isinstance(row.get("quote"), dict) else row

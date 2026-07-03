@@ -265,7 +265,9 @@ def _enrich_market_values(
             ):
                 position["market_value"] = mv_from_mark
                 continue
-            if existing is not None and existing != 0.0:
+            if existing is not None and existing != 0.0 and not _option_market_value_stale_at_cost(
+                existing, position
+            ):
                 continue
             position["market_value"] = _market_value_from_row(position, option=True)
             continue
