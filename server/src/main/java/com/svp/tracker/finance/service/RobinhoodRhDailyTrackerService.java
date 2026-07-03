@@ -509,8 +509,11 @@ public class RobinhoodRhDailyTrackerService {
     private RobinhoodRhDailySnapshotDetailDto toDetailDto(RobinhoodRhDailySnapshot row) {
         // A snapshot is a point-in-time record: show the prices captured at snapshot time.
         // Re-pricing with live quotes here would corrupt historical rows and diverge from the
-        // stored equity/total values, so the holdings JSON is deserialized as-is.
-        List<RobinhoodRhHoldingDto> holdings = readJson(row.getHoldingsJson(), new TypeReference<>() {});
+        // stored equity/total values, so the holdings JSON is deserialized as-is then legacy
+        // option rows are normalized to per-share without live re-pricing.
+        List<RobinhoodRhHoldingDto> holdings =
+                RobinhoodRhHoldingValues.normalizeStoredSnapshotHoldings(
+                        readJson(row.getHoldingsJson(), new TypeReference<>() {}));
         List<RobinhoodRhCashFlowEventDto> flows = readJson(row.getFlowsJson(), new TypeReference<>() {});
         List<RobinhoodRhDailyTradeDto> trades = readJson(row.getTradesJson(), new TypeReference<>() {});
         return new RobinhoodRhDailySnapshotDetailDto(

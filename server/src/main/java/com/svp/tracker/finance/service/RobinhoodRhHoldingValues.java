@@ -82,6 +82,49 @@ final class RobinhoodRhHoldingValues {
         return out;
     }
 
+    /**
+     * Fix legacy option rows deserialized from snapshot JSON without re-fetching live quotes.
+     * Stored rows may have contract-premium average_price and an inflated currentUnitPrice.
+     */
+    static List<RobinhoodRhHoldingDto> normalizeStoredSnapshotHoldings(List<RobinhoodRhHoldingDto> holdings) {
+        if (holdings == null || holdings.isEmpty()) {
+            return List.of();
+        }
+        List<RobinhoodRhHoldingDto> out = new ArrayList<>();
+        for (RobinhoodRhHoldingDto h : holdings) {
+            out.add(normalizeStoredSnapshotHolding(h));
+        }
+        return out;
+    }
+
+    static RobinhoodRhHoldingDto normalizeStoredSnapshotHolding(RobinhoodRhHoldingDto h) {
+        if (!isOptionType(h.positionType())) {
+            return h;
+        }
+        RobinhoodRhHoldingDto working = normalizeOptionTotalMarketValue(normalizeOptionAverage(h));
+        BigDecimal qty = nullToZero(working.quantity());
+        BigDecimal avg = scaleUnitPrice(nullToZero(working.averageBuyPrice()));
+        BigDecimal cost = deriveCostBasis(withAverage(working, avg));
+        BigDecimal mv = scaleMoney(effectiveMarketValue(working));
+        BigDecimal perShare;
+        if (qty.compareTo(BigDecimal.ZERO) > 0 && mv.compareTo(BigDecimal.ZERO) > 0) {
+            perShare = mv.divide(qty.abs().multiply(OPTION_CONTRACT_MULTIPLIER), 4, RoundingMode.HALF_UP);
+        } else {
+            perShare = normalizeOptionPerShareFromLegacy(working.currentUnitPrice(), avg);
+        }
+        BigDecimal unrealized = mv.subtract(cost).setScale(2, RoundingMode.HALF_UP);
+        return new RobinhoodRhHoldingDto(
+                working.symbol(),
+                working.positionType(),
+                qty,
+                avg,
+                scaleUnitPrice(perShare),
+                mv,
+                scaleMoney(cost),
+                scaleMoney(unrealized),
+                unrealizedPnLPercent(unrealized, cost));
+    }
+
     /** Allocate stock-only portfolio equity to equity rows that still lack a market value. */
     private static void allocateStockEquityWhenNeeded(
             List<RobinhoodRhHoldingDto> holdings, BigDecimal accountEquityMarketValue) {
@@ -161,8 +204,9 @@ final class RobinhoodRhHoldingValues {
             if (instrumentId == null) {
                 return h;
             }
-            BigDecimal markPerShare = liveQuotes.optionMarkPerShareByInstrumentId().get(instrumentId);
-            if (markPerShare == null || markPerShare.compareTo(BigDecimal.ZERO) <= 0) {
+            BigDecimal markPerShare = normalizeOptionMarkPerShare(
+                    liveQuotes.optionMarkPerShareByInstrumentId().get(instrumentId));
+            if (markPerShare.compareTo(BigDecimal.ZERO) <= 0) {
                 return h;
             }
             return withMarketValue(h, marketValueFromCurrent(h, qty, markPerShare));
@@ -201,6 +245,28 @@ final class RobinhoodRhHoldingValues {
             return raw.divide(OPTION_CONTRACT_MULTIPLIER, 4, RoundingMode.HALF_UP);
         }
         return raw;
+    }
+
+    private static BigDecimal normalizeOptionMarkPerShare(BigDecimal markPerShare) {
+        if (markPerShare == null || markPerShare.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        if (markPerShare.compareTo(BigDecimal.valueOf(100)) > 0) {
+            return markPerShare.divide(OPTION_CONTRACT_MULTIPLIER, 4, RoundingMode.HALF_UP);
+        }
+        return markPerShare;
+    }
+
+    private static BigDecimal normalizeOptionPerShareFromLegacy(BigDecimal raw, BigDecimal normalizedAvg) {
+        BigDecimal v = normalizeOptionAveragePerShare(raw);
+        if (v.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        if (normalizedAvg.compareTo(BigDecimal.ZERO) > 0
+                && v.compareTo(normalizedAvg.multiply(BigDecimal.valueOf(25))) > 0) {
+            v = v.divide(OPTION_CONTRACT_MULTIPLIER, 4, RoundingMode.HALF_UP);
+        }
+        return v;
     }
 
     private static RobinhoodRhHoldingDto normalizeOptionTotalMarketValue(RobinhoodRhHoldingDto h) {
@@ -288,7 +354,7 @@ final class RobinhoodRhHoldingValues {
             if (instrumentId != null) {
                 BigDecimal markPerShare = liveQuotes.optionMarkPerShareByInstrumentId().get(instrumentId);
                 if (markPerShare != null && markPerShare.compareTo(BigDecimal.ZERO) > 0) {
-                    return markPerShare;
+                    return normalizeOptionMarkPerShare(markPerShare);
                 }
             }
         }
