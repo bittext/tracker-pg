@@ -9,6 +9,7 @@ import com.svp.tracker.finance.dto.RobinhoodRhLiveQuotesDto;
 import com.svp.tracker.finance.repository.RobinhoodAgenticConnectionRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.math.RoundingMode;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -102,11 +103,48 @@ public class RobinhoodRhHoldingQuoteService {
             if (instrumentId == null) {
                 continue;
             }
-            out.put(
-                    matchKey(p.getSymbol(), p.getQuantity(), p.getAverageBuyPrice()),
-                    instrumentId);
+            registerOptionInstrumentMatchKey(out, p.getSymbol(), p.getQuantity(), p.getAverageBuyPrice(), instrumentId);
         }
         return out;
+    }
+
+    /** Resolve option instrument id when holdings use per-share avg but positions store contract premium. */
+    static String lookupOptionInstrumentId(
+            RobinhoodRhHoldingDto h, Map<String, String> optionInstrumentByMatchKey) {
+        if (!"option".equalsIgnoreCase(h.positionType()) || optionInstrumentByMatchKey == null) {
+            return null;
+        }
+        String direct = optionInstrumentByMatchKey.get(matchKey(h));
+        if (direct != null) {
+            return direct;
+        }
+        BigDecimal avg = h.averageBuyPrice();
+        if (avg == null || avg.compareTo(BigDecimal.ZERO) <= 0) {
+            return null;
+        }
+        if (avg.compareTo(BigDecimal.valueOf(100)) <= 0) {
+            return optionInstrumentByMatchKey.get(
+                    matchKey(h.symbol(), h.quantity(), avg.multiply(BigDecimal.valueOf(100))));
+        }
+        return optionInstrumentByMatchKey.get(matchKey(
+                h.symbol(),
+                h.quantity(),
+                avg.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP)));
+    }
+
+    private static void registerOptionInstrumentMatchKey(
+            Map<String, String> out,
+            String symbol,
+            BigDecimal quantity,
+            BigDecimal averageBuyPrice,
+            String instrumentId) {
+        out.putIfAbsent(matchKey(symbol, quantity, averageBuyPrice), instrumentId);
+        if (averageBuyPrice == null || averageBuyPrice.compareTo(BigDecimal.valueOf(100)) <= 0) {
+            return;
+        }
+        BigDecimal perShare =
+                averageBuyPrice.divide(BigDecimal.valueOf(100), 4, RoundingMode.HALF_UP);
+        out.putIfAbsent(matchKey(symbol, quantity, perShare), instrumentId);
     }
 
     static String matchKey(RobinhoodRhHoldingDto h) {
@@ -142,7 +180,7 @@ public class RobinhoodRhHoldingQuoteService {
             return;
         }
         if ("option".equalsIgnoreCase(h.positionType())) {
-            String instrumentId = instrumentIdByMatchKey.get(matchKey(h));
+            String instrumentId = lookupOptionInstrumentId(h, instrumentIdByMatchKey);
             if (instrumentId != null) {
                 optionInstrumentIds.add(instrumentId);
             }

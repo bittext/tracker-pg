@@ -27,11 +27,16 @@ function optionPerShareFromMarketValue(h: RobinhoodRhHoldingDto): number | null 
   if (qty <= 0) {
     return null;
   }
-  const mv = h.marketValue ?? 0;
+  let mv = h.marketValue ?? 0;
   if (mv <= 0) {
     return null;
   }
   const avg = rhHoldingAverageBuyPrice(h);
+  const cost = h.costBasis ?? 0;
+  const unrealized = h.unrealizedPnL ?? 0;
+  if (unrealized !== 0 && cost > 0 && Math.abs(mv - cost) < 0.05) {
+    mv = cost + unrealized;
+  }
   let perShare = mv / (qty * 100);
   while (avg > 0 && perShare > avg * 25) {
     perShare = perShare / 100;

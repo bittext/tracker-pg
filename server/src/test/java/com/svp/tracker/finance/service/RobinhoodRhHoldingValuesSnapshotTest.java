@@ -30,6 +30,26 @@ class RobinhoodRhHoldingValuesSnapshotTest {
     }
 
     @Test
+    void legacyOptionUsesUnrealizedWhenMarketValueEqualsCost() {
+        RobinhoodRhHoldingDto raw = new RobinhoodRhHoldingDto(
+                "NBIS",
+                "option",
+                new BigDecimal("1"),
+                new BigDecimal("1000"),
+                new BigDecimal("1000"),
+                new BigDecimal("1000"),
+                new BigDecimal("1000"),
+                new BigDecimal("68.00"),
+                BigDecimal.ZERO);
+
+        RobinhoodRhHoldingDto fixed =
+                RobinhoodRhHoldingValues.normalizeStoredSnapshotHoldings(List.of(raw)).get(0);
+
+        assertEquals(new BigDecimal("10.6800"), fixed.currentUnitPrice());
+        assertEquals(new BigDecimal("1068.00"), fixed.marketValue());
+    }
+
+    @Test
     void legacyOptionWithoutPositionTypeStillNormalizes() {
         RobinhoodRhHoldingDto raw = new RobinhoodRhHoldingDto(
                 "NBIS",

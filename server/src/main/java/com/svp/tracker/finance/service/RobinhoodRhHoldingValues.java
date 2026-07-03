@@ -119,6 +119,12 @@ final class RobinhoodRhHoldingValues {
         BigDecimal avg = scaleUnitPrice(nullToZero(working.averageBuyPrice()));
         BigDecimal cost = deriveCostBasis(withAverage(working, avg));
         BigDecimal mv = deflateInflatedOptionMarketValue(working, scaleMoney(effectiveMarketValue(working)));
+        BigDecimal storedUnrealized = nullToZero(working.unrealizedPnL());
+        if (storedUnrealized.compareTo(BigDecimal.ZERO) != 0
+                && cost.compareTo(BigDecimal.ZERO) > 0
+                && mv.subtract(cost).abs().compareTo(new BigDecimal("0.05")) <= 0) {
+            mv = cost.add(storedUnrealized).setScale(2, RoundingMode.HALF_UP);
+        }
         BigDecimal perShareFromMv = optionPerShareFromMarketValue(mv, qty, avg);
         BigDecimal perShareFromCurrent = normalizeOptionPerShareFromLegacy(working.currentUnitPrice(), avg);
         BigDecimal perShare = resolveOptionSnapshotPerShare(avg, perShareFromMv, perShareFromCurrent);
@@ -271,7 +277,7 @@ final class RobinhoodRhHoldingValues {
             return h;
         }
         if (isOption(h)) {
-            String instrumentId = optionInstrumentByMatchKey.get(RobinhoodRhHoldingQuoteService.matchKey(h));
+            String instrumentId = RobinhoodRhHoldingQuoteService.lookupOptionInstrumentId(h, optionInstrumentByMatchKey);
             if (instrumentId == null) {
                 return h;
             }
@@ -421,7 +427,7 @@ final class RobinhoodRhHoldingValues {
             }
         }
         if (isOption(h)) {
-            String instrumentId = optionInstrumentByMatchKey.get(RobinhoodRhHoldingQuoteService.matchKey(h));
+            String instrumentId = RobinhoodRhHoldingQuoteService.lookupOptionInstrumentId(h, optionInstrumentByMatchKey);
             if (instrumentId != null) {
                 BigDecimal markPerShare = liveQuotes.optionMarkPerShareByInstrumentId().get(instrumentId);
                 if (markPerShare != null && markPerShare.compareTo(BigDecimal.ZERO) > 0) {
