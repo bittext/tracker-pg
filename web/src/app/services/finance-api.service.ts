@@ -108,10 +108,12 @@ export class FinanceApiService {
   }
 
   /** Daily 9 PM Central account snapshots. */
-  robinhoodDailyTracker(year: number, month?: number | null) {
-    const params: Record<string, string> = { year: String(year) };
-    if (month != null) {
-      params['month'] = String(month);
+  robinhoodDailyTracker(year: number, months?: number[] | null) {
+    let params = new HttpParams().set('year', String(year));
+    if (months?.length) {
+      for (const m of months) {
+        params = params.append('months', String(m));
+      }
     }
     return this.http.get<RobinhoodRhDailyTrackerReportDto>(`${this.root}/daily-tracker`, { params });
   }

@@ -72,7 +72,8 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   private readonly dialog = inject(MatDialog);
 
   reportYear = new Date().getFullYear();
-  reportMonth: number | null = new Date().getMonth() + 1;
+  /** Empty = all months in the selected year. */
+  reportMonths: number[] = [new Date().getMonth() + 1];
   loading = false;
   capturing = false;
   tracker: RobinhoodRhDailyTrackerReportDto | null = null;
@@ -91,8 +92,11 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   private readonly savingNoteDays = new Set<string>();
   /** snapshotDate keys where call-summary notes section is collapsed */
   private readonly collapsedSummaryNotes = new Set<string>();
-  /** snapshotDate keys where the consolidated trades section is expanded */
-  private readonly expandedTrades = new Set<string>();
+  /** snapshotDate keys where collapsible sections are collapsed (default expanded) */
+  private readonly collapsedTrades = new Set<string>();
+  private readonly collapsedTimeline = new Set<string>();
+  private readonly collapsedFlows = new Set<string>();
+  private readonly collapsedAccounts = new Set<string>();
 
   /** Classic expandable cards vs side-by-side capture timeline. */
   viewMode: 'classic' | 'timeline' = this.loadViewMode();
@@ -101,7 +105,6 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   private static readonly EXPANSION_STORAGE_PREFIX = 'rh-daily-tracker-expansion';
 
   readonly monthChoices = [
-    { value: null, label: 'All months' },
     { value: 1, label: 'January' },
     { value: 2, label: 'February' },
     { value: 3, label: 'March' },
@@ -127,7 +130,8 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
 
   load(): void {
     this.loading = true;
-    this.financeApi.robinhoodDailyTracker(this.reportYear, this.reportMonth).subscribe({
+    const months = this.normalizedReportMonths();
+    this.financeApi.robinhoodDailyTracker(this.reportYear, months).subscribe({
       next: (t) => {
         this.tracker = t;
         const validDates = new Set(t.days.map((d) => d.snapshotDate));
@@ -465,17 +469,39 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   }
 
   isTradesExpanded(day: RobinhoodRhDailyTrackerDayDto): boolean {
-    return this.expandedTrades.has(day.snapshotDate);
+    return !this.collapsedTrades.has(day.snapshotDate);
   }
 
   toggleTrades(day: RobinhoodRhDailyTrackerDayDto, event: Event): void {
     event.stopPropagation();
-    if (this.expandedTrades.has(day.snapshotDate)) {
-      this.expandedTrades.delete(day.snapshotDate);
-    } else {
-      this.expandedTrades.add(day.snapshotDate);
-    }
-    this.persistExpansionState();
+    this.toggleCollapsed(this.collapsedTrades, day.snapshotDate);
+  }
+
+  isTimelineExpanded(day: RobinhoodRhDailyTrackerDayDto): boolean {
+    return !this.collapsedTimeline.has(day.snapshotDate);
+  }
+
+  toggleTimeline(day: RobinhoodRhDailyTrackerDayDto, event: Event): void {
+    event.stopPropagation();
+    this.toggleCollapsed(this.collapsedTimeline, day.snapshotDate);
+  }
+
+  isFlowsExpanded(day: RobinhoodRhDailyTrackerDayDto): boolean {
+    return !this.collapsedFlows.has(day.snapshotDate);
+  }
+
+  toggleFlows(day: RobinhoodRhDailyTrackerDayDto, event: Event): void {
+    event.stopPropagation();
+    this.toggleCollapsed(this.collapsedFlows, day.snapshotDate);
+  }
+
+  isAccountsExpanded(day: RobinhoodRhDailyTrackerDayDto): boolean {
+    return !this.collapsedAccounts.has(day.snapshotDate);
+  }
+
+  toggleAccounts(day: RobinhoodRhDailyTrackerDayDto, event: Event): void {
+    event.stopPropagation();
+    this.toggleCollapsed(this.collapsedAccounts, day.snapshotDate);
   }
 
   sideLabel(side: string | null): string {
@@ -555,8 +581,61 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     return `${day.snapshotDate}|${capture.capturedAt}`;
   }
 
+  onMonthsChange(): void {
+    this.load();
+  }
+
+  selectAllMonths(): void {
+    this.reportMonths = this.monthChoices.map((m) => m.value);
+    this.load();
+  }
+
+  clearMonthSelection(): void {
+    this.reportMonths = [];
+    this.load();
+  }
+
+  monthsFilterLabel(): string {
+    const months = this.tracker?.months ?? this.normalizedReportMonths();
+    if (!months.length) {
+      return 'All months';
+    }
+    if (months.length === 1) {
+      return this.monthChoices.find((m) => m.value === months[0])?.label ?? `Month ${months[0]}`;
+    }
+    return `${months.length} months selected`;
+  }
+
+  periodKpiLabel(): string {
+    const months = this.tracker?.months ?? this.normalizedReportMonths();
+    if (!months.length) {
+      return 'All months combined total';
+    }
+    if (months.length === 1) {
+      return 'Month combined total';
+    }
+    return 'Selected months combined total';
+  }
+
+  periodChangeHint(): string {
+    const months = this.tracker?.months ?? this.normalizedReportMonths();
+    if (!months.length) {
+      return 'No change in period';
+    }
+    if (months.length === 1) {
+      return 'No change this month';
+    }
+    return 'No change in selected months';
+  }
+
+  private normalizedReportMonths(): number[] {
+    return [...this.reportMonths].sort((a, b) => a - b);
+  }
+
   private expansionStorageKey(): string {
-    return `${ReportsFinanceRobinhoodDailyTrackerComponent.EXPANSION_STORAGE_PREFIX}-${this.reportYear}-${this.reportMonth ?? 'all'}`;
+    const months = this.normalizedReportMonths();
+    const monthKey = months.length ? months.join('-') : 'all';
+    return `${ReportsFinanceRobinhoodDailyTrackerComponent.EXPANSION_STORAGE_PREFIX}-${this.reportYear}-${monthKey}`;
   }
 
   private persistExpansionState(): void {
@@ -568,7 +647,10 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
           collapsedManualSections: [...this.collapsedManualSections],
           expandedManuals: [...this.expandedManuals],
           collapsedSummaryNotes: [...this.collapsedSummaryNotes],
-          expandedTrades: [...this.expandedTrades],
+          collapsedTrades: [...this.collapsedTrades],
+          collapsedTimeline: [...this.collapsedTimeline],
+          collapsedFlows: [...this.collapsedFlows],
+          collapsedAccounts: [...this.collapsedAccounts],
         }),
       );
     } catch {
@@ -588,6 +670,10 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         expandedManuals?: string[];
         collapsedSummaryNotes?: string[];
         expandedTrades?: string[];
+        collapsedTrades?: string[];
+        collapsedTimeline?: string[];
+        collapsedFlows?: string[];
+        collapsedAccounts?: string[];
       };
       for (const date of stored.expandedDays ?? []) {
         if (validDates.has(date)) {
@@ -609,9 +695,31 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
           this.collapsedSummaryNotes.add(date);
         }
       }
-      for (const date of stored.expandedTrades ?? []) {
+      for (const date of stored.collapsedTrades ?? []) {
         if (validDates.has(date)) {
-          this.expandedTrades.add(date);
+          this.collapsedTrades.add(date);
+        }
+      }
+      if (stored.expandedTrades && !stored.collapsedTrades) {
+        for (const date of validDates) {
+          if (!stored.expandedTrades.includes(date)) {
+            this.collapsedTrades.add(date);
+          }
+        }
+      }
+      for (const date of stored.collapsedTimeline ?? []) {
+        if (validDates.has(date)) {
+          this.collapsedTimeline.add(date);
+        }
+      }
+      for (const date of stored.collapsedFlows ?? []) {
+        if (validDates.has(date)) {
+          this.collapsedFlows.add(date);
+        }
+      }
+      for (const date of stored.collapsedAccounts ?? []) {
+        if (validDates.has(date)) {
+          this.collapsedAccounts.add(date);
         }
       }
     } catch {
@@ -640,11 +748,35 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         this.collapsedSummaryNotes.delete(date);
       }
     }
-    for (const date of [...this.expandedTrades]) {
+    for (const date of [...this.collapsedTrades]) {
       if (!validDates.has(date)) {
-        this.expandedTrades.delete(date);
+        this.collapsedTrades.delete(date);
       }
     }
+    for (const date of [...this.collapsedTimeline]) {
+      if (!validDates.has(date)) {
+        this.collapsedTimeline.delete(date);
+      }
+    }
+    for (const date of [...this.collapsedFlows]) {
+      if (!validDates.has(date)) {
+        this.collapsedFlows.delete(date);
+      }
+    }
+    for (const date of [...this.collapsedAccounts]) {
+      if (!validDates.has(date)) {
+        this.collapsedAccounts.delete(date);
+      }
+    }
+  }
+
+  private toggleCollapsed(collapsed: Set<string>, snapshotDate: string): void {
+    if (collapsed.has(snapshotDate)) {
+      collapsed.delete(snapshotDate);
+    } else {
+      collapsed.add(snapshotDate);
+    }
+    this.persistExpansionState();
   }
 
   private syncNoteDrafts(days: RobinhoodRhDailyTrackerDayDto[]): void {

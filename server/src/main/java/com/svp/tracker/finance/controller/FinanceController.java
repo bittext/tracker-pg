@@ -148,13 +148,27 @@ public class FinanceController {
     @GetMapping("/daily-tracker")
     public RobinhoodRhDailyTrackerReportDto dailyTracker(
             @RequestParam(name = "year") int year,
-            @RequestParam(name = "month", required = false) Integer month) {
+            @RequestParam(name = "month", required = false) Integer month,
+            @RequestParam(name = "months", required = false) List<Integer> months) {
         validateYear(year);
-        if (month != null && (month < 1 || month > 12)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "month must be 1–12");
+        List<Integer> resolvedMonths = resolveDailyTrackerMonths(month, months);
+        for (int m : resolvedMonths) {
+            if (m < 1 || m > 12) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "each month must be 1–12");
+            }
         }
-        log.info("GET /api/finance/robinhood/daily-tracker year={} month={}", year, month);
-        return rhDailyTrackerService.buildReport(year, month);
+        log.info("GET /api/finance/robinhood/daily-tracker year={} months={}", year, resolvedMonths);
+        return rhDailyTrackerService.buildReport(year, resolvedMonths);
+    }
+
+    private static List<Integer> resolveDailyTrackerMonths(Integer month, List<Integer> months) {
+        if (months != null && !months.isEmpty()) {
+            return months.stream().distinct().sorted().toList();
+        }
+        if (month != null) {
+            return List.of(month);
+        }
+        return List.of();
     }
 
     /** Holdings + period cash flows for one daily snapshot (popup detail). */

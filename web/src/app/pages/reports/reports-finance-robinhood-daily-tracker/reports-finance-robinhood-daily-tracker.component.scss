@@ -35,6 +35,10 @@
 
 .rh-daily__field {
   min-width: 8rem;
+
+  &--months {
+    min-width: 11rem;
+  }
 }
 
 .rh-daily__view-toggle {
@@ -283,14 +287,33 @@
 
 .rh-daily__flows {
   margin-bottom: 0.75rem;
-  padding: 0.65rem 0.85rem;
   border-radius: 8px;
   background: var(--app-bg, #fff);
   border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
 }
 
+.rh-daily__flows-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.55rem 0.85rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+
+  &:hover {
+    background: var(--app-surface-muted, #f7f7f8);
+  }
+}
+
 .rh-daily__flows-title {
-  margin: 0 0 0.35rem;
+  margin: 0;
+  flex: 1;
+  min-width: 0;
   font-size: 0.8rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -299,7 +322,7 @@
 
 .rh-daily__flows-list {
   margin: 0;
-  padding-left: 1.1rem;
+  padding: 0 0.85rem 0.65rem 2.1rem;
   font-size: 0.875rem;
 }
 
@@ -323,7 +346,6 @@
   border-radius: 8px;
   background: var(--app-bg, #fff);
   border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
-  overflow: hidden;
 }
 
 .rh-daily__trades-header {
@@ -331,7 +353,7 @@
   align-items: center;
   gap: 0.4rem;
   width: 100%;
-  padding: 0.55rem 0.75rem;
+  padding: 0.55rem 0.85rem;
   background: none;
   border: none;
   cursor: pointer;
@@ -339,43 +361,37 @@
   color: inherit;
   text-align: left;
 
-  &--static {
-    cursor: default;
-    padding-bottom: 0.35rem;
+  &:hover {
+    background: var(--app-surface-muted, #f7f7f8);
   }
-}
-
-.rh-daily__trades-header:disabled {
-  cursor: default;
-  opacity: 0.7;
-}
-
-.rh-daily__chevron--sm {
-  width: 1.1rem;
-  height: 1.1rem;
-  font-size: 1.1rem;
 }
 
 .rh-daily__trades-title {
   margin: 0;
+  flex: 1;
+  min-width: 0;
   font-size: 0.8rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
 
-.rh-daily__trades-count {
+.rh-daily__section-count {
+  flex-shrink: 0;
   margin-left: auto;
+  min-width: 1.5rem;
+  padding: 0.1rem 0.55rem;
   font-size: 0.8rem;
   font-weight: 600;
-  padding: 0.05rem 0.5rem;
+  line-height: 1.3;
+  text-align: center;
   border-radius: 999px;
   background: var(--app-bg-muted, rgba(15, 23, 42, 0.06));
 }
 
 .rh-daily__trades-table-wrap {
   overflow-x: auto;
-  padding: 0 0.75rem 0.65rem;
+  padding: 0 0.85rem 0.65rem;
 }
 
 .rh-daily__trades-empty {
@@ -421,11 +437,46 @@
   font-size: 0.75rem;
 }
 
+.rh-daily__accounts-block {
+  margin-bottom: 0.75rem;
+  border-radius: 8px;
+  background: var(--app-bg, #fff);
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+}
+
+.rh-daily__accounts-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.55rem 0.85rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+
+  &:hover {
+    background: var(--app-surface-muted, #f7f7f8);
+  }
+}
+
+.rh-daily__accounts-title {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
 .rh-daily__accounts {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
   gap: 0.65rem;
-  margin-bottom: 0.5rem;
+  padding: 0 0.85rem 0.65rem;
 }
 
 .rh-daily__acct-card {
@@ -476,19 +527,41 @@
 
 .rh-daily__timeline {
   margin-bottom: 0.75rem;
-  padding: 0.65rem 0.75rem;
   border-radius: 8px;
   background: var(--app-bg, #fff);
   border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
-  overflow: hidden;
+}
+
+.rh-daily__timeline-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.55rem 0.85rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+
+  &:hover {
+    background: var(--app-surface-muted, #f7f7f8);
+  }
 }
 
 .rh-daily__timeline-title {
-  margin: 0 0 0.25rem;
+  margin: 0;
+  flex: 1;
+  min-width: 0;
   font-size: 0.8rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
+}
+
+.rh-daily__timeline-body {
+  padding: 0 0.85rem 0.65rem 2.1rem;
 }
 
 .rh-daily__timeline-hint {
@@ -574,8 +647,10 @@
 
 .rh-daily__manual {
   margin-top: 0.5rem;
-  padding-top: 0.65rem;
-  border-top: 1px dashed var(--app-border, rgba(15, 23, 42, 0.15));
+  margin-bottom: 0.75rem;
+  border-radius: 8px;
+  background: var(--app-bg, #fff);
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
 }
 
 .rh-daily__manual-header {
@@ -584,8 +659,8 @@
   align-items: center;
   gap: 0.25rem 0.5rem;
   width: 100%;
-  margin: 0 0 0.35rem;
-  padding: 0.15rem 0;
+  margin: 0;
+  padding: 0.55rem 0.85rem;
   border: none;
   background: transparent;
   cursor: pointer;
@@ -594,20 +669,18 @@
   color: inherit;
 
   &:hover {
-    color: var(--app-accent, #10a37f);
+    background: var(--app-surface-muted, #f7f7f8);
   }
 }
 
 .rh-daily__manual-title {
   margin: 0;
+  flex: 1;
+  min-width: 0;
   font-size: 0.8rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-}
-
-.rh-daily__manual-count {
-  font-size: 0.75rem;
 }
 
 .rh-daily__manual-row-wrap {
@@ -648,7 +721,7 @@
 
 .rh-daily__manual-list {
   margin: 0;
-  padding: 0;
+  padding: 0 0.85rem 0.65rem 2.1rem;
   list-style: none;
 }
 

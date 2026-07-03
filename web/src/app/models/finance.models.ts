@@ -104,7 +104,10 @@ export interface RobinhoodRhAccountsTrackDto {
 /** Reports → Robinhood → Daily Tracker (9 PM Central snapshots). */
 export interface RobinhoodRhDailyTrackerReportDto {
   year: number;
+  /** Set when exactly one month is selected. */
   month: number | null;
+  /** Selected months (1–12); empty means all months in the year. */
+  months: number[];
   monthCombinedTotal: number;
   monthCombinedChange: number;
   yearCombinedTotal: number;

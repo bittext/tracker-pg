@@ -35,11 +35,11 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -95,7 +95,7 @@ public class RobinhoodRhDailyTrackerService {
     }
 
     @Transactional(readOnly = true)
-    public RobinhoodRhDailyTrackerReportDto buildReport(int year, Integer month) {
+    public RobinhoodRhDailyTrackerReportDto buildReport(int year, List<Integer> months) {
         long ownerUserId = currentUser.requireUserId();
         boolean scheduledOwner = isScheduledCaptureOwner(ownerUserId);
         List<RobinhoodAgenticSyncedOrder> ownerOrders =
@@ -111,20 +111,19 @@ public class RobinhoodRhDailyTrackerService {
         List<RobinhoodRhDailySnapshot> scheduledYearRows = scheduledOnly(allYearRows);
         List<RobinhoodRhDailySnapshot> manualYearRows = manualOnly(allYearRows);
 
-        LocalDate filterFrom = month != null ? LocalDate.of(year, month, 1) : yearStart;
-        LocalDate filterTo = month != null ? YearMonth.of(year, month).atEndOfMonth() : yearEnd;
+        Set<Integer> monthFilter = months == null || months.isEmpty() ? null : new HashSet<>(months);
 
         List<RobinhoodRhDailySnapshot> scheduledRows = scheduledYearRows.stream()
-                .filter(r -> !r.getSnapshotDate().isBefore(filterFrom) && !r.getSnapshotDate().isAfter(filterTo))
+                .filter(r -> matchesMonthFilter(r.getSnapshotDate(), monthFilter))
                 .toList();
         List<RobinhoodRhDailySnapshot> manualRows = manualYearRows.stream()
-                .filter(r -> !r.getSnapshotDate().isBefore(filterFrom) && !r.getSnapshotDate().isAfter(filterTo))
+                .filter(r -> matchesMonthFilter(r.getSnapshotDate(), monthFilter))
                 .toList();
 
         LinkedHashSet<String> suffixOrder = new LinkedHashSet<>();
         Map<String, RobinhoodRhDailyTrackerAccountColumnDto> columnBySuffix = new LinkedHashMap<>();
         for (RobinhoodRhDailySnapshot row : allYearRows) {
-            if (row.getSnapshotDate().isBefore(filterFrom) || row.getSnapshotDate().isAfter(filterTo)) {
+            if (!matchesMonthFilter(row.getSnapshotDate(), monthFilter)) {
                 continue;
             }
             suffixOrder.add(row.getAccountSuffix());
@@ -185,7 +184,10 @@ public class RobinhoodRhDailyTrackerService {
         Map<LocalDate, String> summaryNotesByDate = new LinkedHashMap<>();
         for (RobinhoodRhDailyDayNote noteRow :
                 dayNoteRepository.findByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateDesc(
-                        ownerUserId, filterFrom, filterTo)) {
+                        ownerUserId, yearStart, yearEnd)) {
+            if (!matchesMonthFilter(noteRow.getSnapshotDate(), monthFilter)) {
+                continue;
+            }
             if (noteRow.getNoteText() != null && !noteRow.getNoteText().isBlank()) {
                 summaryNotesByDate.put(noteRow.getSnapshotDate(), noteRow.getNoteText().trim());
             }
@@ -278,11 +280,9 @@ public class RobinhoodRhDailyTrackerService {
                     summaryNotesByDate.getOrDefault(dayDate, "")));
         }
 
-        List<RobinhoodRhDailySnapshot> monthScheduledRows = month != null
-                ? scheduledYearRows.stream()
-                        .filter(r -> r.getSnapshotDate().getMonthValue() == month)
-                        .toList()
-                : scheduledYearRows;
+        List<RobinhoodRhDailySnapshot> monthScheduledRows = scheduledYearRows.stream()
+                .filter(r -> matchesMonthFilter(r.getSnapshotDate(), monthFilter))
+                .toList();
 
         BigDecimal monthCombinedTotal = latestCombinedTotal(monthScheduledRows);
         BigDecimal monthCombinedChange = combinedChange(monthScheduledRows);
@@ -339,9 +339,12 @@ public class RobinhoodRhDailyTrackerService {
         }
 
         boolean autoCaptureScheduled = scheduledOwner && dailyTrackerProps.snapshotSchedulerActive();
+        Integer singleMonth = months != null && months.size() == 1 ? months.get(0) : null;
+        List<Integer> responseMonths = months == null ? List.of() : List.copyOf(months);
         return new RobinhoodRhDailyTrackerReportDto(
                 year,
-                month,
+                singleMonth,
+                responseMonths,
                 monthCombinedTotal,
                 monthCombinedChange,
                 yearCombinedTotal,
@@ -798,6 +801,10 @@ public class RobinhoodRhDailyTrackerService {
             }
         }
         return total;
+    }
+
+    private static boolean matchesMonthFilter(LocalDate date, Set<Integer> monthFilter) {
+        return monthFilter == null || monthFilter.contains(date.getMonthValue());
     }
 
     private static BigDecimal latestCombinedTotal(List<RobinhoodRhDailySnapshot> rows) {
