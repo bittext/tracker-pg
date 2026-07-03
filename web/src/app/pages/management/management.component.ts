@@ -225,6 +225,11 @@ export class ManagementComponent implements OnInit {
   noteCalendar: ManagementMonthNoteCalendarDto | null = null;
   monthNotes: ManagementMonthNoteDto[] = [];
   noteEditingId: number | null = null;
+  /** Read saved note vs compose (new/edit) with live preview. */
+  noteViewMode: 'read' | 'compose' = 'read';
+  noteSelectedId: number | null = null;
+  /** Split editor/preview on wide screens; write or preview only on narrow. */
+  noteComposerPane: 'split' | 'write' | 'preview' = 'split';
   noteDraft = {
     year: new Date().getFullYear(),
     month: new Date().getMonth() + 1,
@@ -1520,6 +1525,20 @@ export class ManagementComponent implements OnInit {
     return this.noteCalendar?.months ?? this.emptyNoteCalendarMonths();
   }
 
+  get selectedMonthNote(): ManagementMonthNoteDto | null {
+    if (this.noteSelectedId == null) {
+      return null;
+    }
+    return this.monthNotes.find((n) => n.id === this.noteSelectedId) ?? null;
+  }
+
+  get notePeriodLabel(): string {
+    if (this.noteFilterMonth == null) {
+      return `${this.noteYear} (all months)`;
+    }
+    return `${this.monthName(this.noteFilterMonth)} ${this.noteYear}`;
+  }
+
   private emptyNoteCalendarMonths(): { month: number; noteCount: number }[] {
     return Array.from({ length: 12 }, (_, i) => ({ month: i + 1, noteCount: 0 }));
   }
@@ -1530,20 +1549,60 @@ export class ManagementComponent implements OnInit {
       error: (e) => this.err('Could not load notes calendar', e),
     });
     this.api.listMonthNotes(this.noteYear, this.noteFilterMonth).subscribe({
-      next: (rows) => (this.monthNotes = rows),
+      next: (rows) => {
+        this.monthNotes = rows;
+        this.syncNoteSelectionAfterLoad();
+      },
       error: (e) => this.err('Could not load notes', e),
     });
   }
 
   private reloadMonthNotesListOnly(): void {
     this.api.listMonthNotes(this.noteYear, this.noteFilterMonth).subscribe({
-      next: (rows) => (this.monthNotes = rows),
+      next: (rows) => {
+        this.monthNotes = rows;
+        this.syncNoteSelectionAfterLoad();
+      },
       error: (e) => this.err('Could not load notes', e),
     });
   }
 
+  private syncNoteSelectionAfterLoad(): void {
+    if (this.noteViewMode === 'compose') {
+      return;
+    }
+    if (this.noteSelectedId != null && this.monthNotes.some((n) => n.id === this.noteSelectedId)) {
+      return;
+    }
+    this.noteSelectedId = this.monthNotes[0]?.id ?? null;
+  }
+
+  startNewMonthNote(): void {
+    this.noteEditingId = null;
+    this.noteSelectedId = null;
+    this.noteViewMode = 'compose';
+    this.noteComposerPane = 'split';
+    this.noteDraft = {
+      year: this.noteYear,
+      month: this.noteFilterMonth != null ? this.noteFilterMonth : new Date().getMonth() + 1,
+      subject: '',
+      body: '',
+    };
+  }
+
+  selectMonthNote(n: ManagementMonthNoteDto): void {
+    this.noteSelectedId = n.id;
+    this.noteViewMode = 'read';
+    this.noteEditingId = null;
+  }
+
+  setNoteComposerPane(pane: 'split' | 'write' | 'preview'): void {
+    this.noteComposerPane = pane;
+  }
+
   selectNotesYearOnly(): void {
     this.noteFilterMonth = null;
+    this.noteViewMode = 'read';
     this.reloadMonthNotesListOnly();
   }
 
@@ -1554,6 +1613,8 @@ export class ManagementComponent implements OnInit {
       this.noteFilterMonth = m;
       this.noteDraft.month = m;
     }
+    this.noteViewMode = 'read';
+    this.noteSelectedId = null;
     this.reloadMonthNotesListOnly();
   }
 
@@ -1591,18 +1652,22 @@ export class ManagementComponent implements OnInit {
     };
     if (this.noteEditingId != null) {
       this.api.updateMonthNote(this.noteEditingId, body).subscribe({
-        next: () => {
+        next: (saved) => {
           this.snackBar.open('Note updated', undefined, { duration: 2000 });
-          this.resetMonthNoteForm();
+          this.noteSelectedId = saved.id;
+          this.noteViewMode = 'read';
+          this.noteEditingId = null;
           this.reloadMonthNotesData();
         },
         error: (e) => this.err('Could not update note', e),
       });
     } else {
       this.api.createMonthNote(body).subscribe({
-        next: () => {
+        next: (saved) => {
           this.snackBar.open('Note saved', undefined, { duration: 2000 });
-          this.resetMonthNoteForm();
+          this.noteSelectedId = saved.id;
+          this.noteViewMode = 'read';
+          this.noteEditingId = null;
           this.reloadMonthNotesData();
         },
         error: (e) => this.err('Could not save note', e),
@@ -1618,10 +1683,15 @@ export class ManagementComponent implements OnInit {
       subject: '',
       body: '',
     };
+    this.noteViewMode = 'read';
+    this.syncNoteSelectionAfterLoad();
   }
 
   startEditMonthNote(n: ManagementMonthNoteDto): void {
     this.noteEditingId = n.id;
+    this.noteSelectedId = n.id;
+    this.noteViewMode = 'compose';
+    this.noteComposerPane = 'split';
     this.noteDraft = {
       year: n.year,
       month: n.month,
@@ -1639,6 +1709,9 @@ export class ManagementComponent implements OnInit {
         this.snackBar.open('Note removed', undefined, { duration: 2000 });
         if (this.noteEditingId === n.id) {
           this.resetMonthNoteForm();
+        } else if (this.noteSelectedId === n.id) {
+          this.noteSelectedId = null;
+          this.syncNoteSelectionAfterLoad();
         }
         this.reloadMonthNotesData();
       },
