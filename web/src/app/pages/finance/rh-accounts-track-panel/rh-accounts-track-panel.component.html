@@ -144,7 +144,7 @@
                     <td>{{ h.symbol }}</td>
                     <td>{{ h.positionType }}</td>
                     <td>{{ h.quantity | number: '1.0-4' }}</td>
-                    <td>{{ h.averageBuyPrice | currency }}</td>
+                    <td>{{ averageCost(h) | currency }}</td>
                     <td>
                       @if (currentCost(h); as price) {
                         {{ price | currency }}

@@ -53,7 +53,7 @@
                 <td>{{ h.symbol }}</td>
                 <td>{{ h.positionType }}</td>
                 <td class="rh-snap-dialog__num">{{ h.quantity | number: '1.0-4' }}</td>
-                <td class="rh-snap-dialog__num">{{ h.averageBuyPrice | currency }}</td>
+                <td class="rh-snap-dialog__num">{{ averageCost(h) | currency }}</td>
                 <td class="rh-snap-dialog__num">
                   @if (currentCost(h); as price) {
                     {{ price | currency }}

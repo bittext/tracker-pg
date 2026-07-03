@@ -4,7 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogConfig, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { FinanceApiService } from '../../../services/finance-api.service';
-import { rhHoldingCurrentUnitPrice, rhHoldingPnlPercent } from '../../finance/rh-holding-display.util';
+import { rhHoldingAverageBuyPrice, rhHoldingCurrentUnitPrice, rhHoldingPnlPercent } from '../../finance/rh-holding-display.util';
 import { RobinhoodRhDailySnapshotDetailDto, RobinhoodRhHoldingDto } from '../../../models/finance.models';
 
 export interface RobinhoodDailySnapshotDialogData {
@@ -97,6 +97,10 @@ export class RobinhoodDailySnapshotDialogComponent implements OnInit {
 
   currentCost(h: RobinhoodRhHoldingDto): number | null {
     return rhHoldingCurrentUnitPrice(h);
+  }
+
+  averageCost(h: RobinhoodRhHoldingDto): number {
+    return rhHoldingAverageBuyPrice(h);
   }
 
   pnlPercent(h: RobinhoodRhHoldingDto): number | null {

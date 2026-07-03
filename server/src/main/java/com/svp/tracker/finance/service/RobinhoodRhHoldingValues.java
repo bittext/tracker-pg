@@ -16,6 +16,8 @@ final class RobinhoodRhHoldingValues {
 
     private static final BigDecimal OPTION_INFLATION_RATIO_LOW = BigDecimal.valueOf(75);
     private static final BigDecimal OPTION_INFLATION_RATIO_HIGH = BigDecimal.valueOf(125);
+    /** Robinhood MCP reports option average_price as per-contract premium; app displays per-share. */
+    private static final BigDecimal OPTION_CONTRACT_MULTIPLIER = BigDecimal.valueOf(100);
 
     private RobinhoodRhHoldingValues() {}
 
@@ -30,6 +32,9 @@ final class RobinhoodRhHoldingValues {
                 continue;
             }
             BigDecimal avg = nullToZero(p.getAverageBuyPrice());
+            if (isOptionType(p.getPositionType())) {
+                avg = normalizeOptionAveragePerShare(avg);
+            }
             raw.add(new RobinhoodRhHoldingDto(
                     p.getSymbol(),
                     p.getPositionType(),
@@ -56,7 +61,8 @@ final class RobinhoodRhHoldingValues {
         }
         List<RobinhoodRhHoldingDto> working = new ArrayList<>();
         for (RobinhoodRhHoldingDto h : holdings) {
-            working.add(restoreMarketValueIfMissing(normalizeOptionTotalMarketValue(clearComputedFields(h))));
+            working.add(restoreMarketValueIfMissing(
+                    normalizeOptionTotalMarketValue(clearComputedFields(normalizeOptionAverage(h)))));
         }
 
         Map<String, String> optionIds =
@@ -146,11 +152,11 @@ final class RobinhoodRhHoldingValues {
         if ("equity".equalsIgnoreCase(h.positionType()) && h.symbol() != null) {
             BigDecimal current = equityCurrentUnitPrice(h.symbol(), liveQuotes);
             if (current.compareTo(BigDecimal.ZERO) > 0) {
-                return withMarketValue(h, marketValueFromCurrent(qty, current));
+                return withMarketValue(h, marketValueFromCurrent(h, qty, current));
             }
             return h;
         }
-        if ("option".equalsIgnoreCase(h.positionType())) {
+        if (isOption(h)) {
             String instrumentId = optionInstrumentByMatchKey.get(RobinhoodRhHoldingQuoteService.matchKey(h));
             if (instrumentId == null) {
                 return h;
@@ -159,8 +165,7 @@ final class RobinhoodRhHoldingValues {
             if (markPerShare == null || markPerShare.compareTo(BigDecimal.ZERO) <= 0) {
                 return h;
             }
-            BigDecimal current = optionCurrentUnitPrice(nullToZero(h.averageBuyPrice()), markPerShare);
-            return withMarketValue(h, marketValueFromCurrent(qty, current));
+            return withMarketValue(h, marketValueFromCurrent(h, qty, markPerShare));
         }
         return h;
     }
@@ -177,22 +182,31 @@ final class RobinhoodRhHoldingValues {
         return BigDecimal.ZERO;
     }
 
-    private static BigDecimal optionCurrentUnitPrice(BigDecimal averageBuyPrice, BigDecimal markPerShare) {
-        if (markPerShare == null || markPerShare.compareTo(BigDecimal.ZERO) <= 0) {
-            return BigDecimal.ZERO;
+    private static RobinhoodRhHoldingDto normalizeOptionAverage(RobinhoodRhHoldingDto h) {
+        if (!isOption(h)) {
+            return h;
         }
-        if (averageBuyPrice != null && averageBuyPrice.compareTo(BigDecimal.valueOf(100)) > 0) {
-            return markPerShare.multiply(BigDecimal.valueOf(100));
+        return withAverage(h, normalizeOptionAveragePerShare(h.averageBuyPrice()));
+    }
+
+    /**
+     * Robinhood MCP average_price is per-contract premium (e.g. 1000 = $10.00/share).
+     * Normalize to per-share for display and quote math.
+     */
+    private static BigDecimal normalizeOptionAveragePerShare(BigDecimal raw) {
+        if (raw == null || raw.compareTo(BigDecimal.ZERO) == 0) {
+            return raw == null ? BigDecimal.ZERO : raw;
         }
-        return markPerShare;
+        if (raw.compareTo(BigDecimal.valueOf(100)) > 0) {
+            return raw.divide(OPTION_CONTRACT_MULTIPLIER, 4, RoundingMode.HALF_UP);
+        }
+        return raw;
     }
 
     private static RobinhoodRhHoldingDto normalizeOptionTotalMarketValue(RobinhoodRhHoldingDto h) {
-        if (!"option".equalsIgnoreCase(h.positionType())) {
+        if (!isOption(h)) {
             return h;
         }
-        BigDecimal qty = nullToZero(h.quantity());
-        BigDecimal avg = nullToZero(h.averageBuyPrice());
         BigDecimal cost = deriveCostBasis(h);
         BigDecimal mv = nullToZero(h.marketValue());
 
@@ -200,7 +214,7 @@ final class RobinhoodRhHoldingValues {
             BigDecimal ratio = mv.divide(cost, 2, RoundingMode.HALF_UP);
             if (ratio.compareTo(OPTION_INFLATION_RATIO_LOW) >= 0
                     && ratio.compareTo(OPTION_INFLATION_RATIO_HIGH) <= 0) {
-                return withMarketValue(h, mv.divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP));
+                return withMarketValue(h, mv.divide(OPTION_CONTRACT_MULTIPLIER, 2, RoundingMode.HALF_UP));
             }
         }
         return h;
@@ -214,23 +228,28 @@ final class RobinhoodRhHoldingValues {
         BigDecimal avg = scaleUnitPrice(nullToZero(h.averageBuyPrice()));
         BigDecimal cost = deriveCostBasis(withAverage(h, avg));
         BigDecimal current = resolveCurrentUnitPrice(h, liveQuotes, optionInstrumentByMatchKey);
-        BigDecimal mv = marketValueFromCurrent(qty, current);
+        BigDecimal mv = marketValueFromCurrent(h, qty, current);
         if (mv.compareTo(BigDecimal.ZERO) == 0) {
             mv = effectiveMarketValue(h);
             current = resolveCurrentUnitPrice(withMarketValue(h, mv), liveQuotes, optionInstrumentByMatchKey);
-            mv = marketValueFromCurrent(qty, current);
+            mv = marketValueFromCurrent(h, qty, current);
         }
         BigDecimal unrealized = mv.subtract(cost).setScale(2, RoundingMode.HALF_UP);
         BigDecimal pnlPercent = unrealizedPnLPercent(unrealized, cost);
-        BigDecimal currentUnit = qty.compareTo(BigDecimal.ZERO) > 0 && mv.compareTo(BigDecimal.ZERO) > 0
-                ? mv.divide(qty.abs(), 4, RoundingMode.HALF_UP)
-                : current;
+        BigDecimal currentUnit;
+        if (isOption(h)) {
+            currentUnit = scaleUnitPrice(current);
+        } else if (qty.compareTo(BigDecimal.ZERO) > 0 && mv.compareTo(BigDecimal.ZERO) > 0) {
+            currentUnit = mv.divide(qty.abs(), 4, RoundingMode.HALF_UP);
+        } else {
+            currentUnit = scaleUnitPrice(current);
+        }
         return new RobinhoodRhHoldingDto(
                 h.symbol(),
                 h.positionType(),
                 qty,
                 avg,
-                scaleUnitPrice(currentUnit),
+                currentUnit,
                 scaleMoney(mv),
                 scaleMoney(cost),
                 scaleMoney(unrealized),
@@ -264,19 +283,18 @@ final class RobinhoodRhHoldingValues {
                 return current;
             }
         }
-        if ("option".equalsIgnoreCase(h.positionType())) {
+        if (isOption(h)) {
             String instrumentId = optionInstrumentByMatchKey.get(RobinhoodRhHoldingQuoteService.matchKey(h));
             if (instrumentId != null) {
                 BigDecimal markPerShare = liveQuotes.optionMarkPerShareByInstrumentId().get(instrumentId);
-                BigDecimal current = optionCurrentUnitPrice(nullToZero(h.averageBuyPrice()), markPerShare);
-                if (current.compareTo(BigDecimal.ZERO) > 0) {
-                    return current;
+                if (markPerShare != null && markPerShare.compareTo(BigDecimal.ZERO) > 0) {
+                    return markPerShare;
                 }
             }
         }
         BigDecimal mv = effectiveMarketValue(h);
         if (mv.compareTo(BigDecimal.ZERO) > 0) {
-            return mv.divide(qty.abs(), 4, RoundingMode.HALF_UP);
+            return perShareFromTotal(h, mv, qty);
         }
         BigDecimal cost = deriveCostBasis(h);
         BigDecimal unrealized = h.unrealizedPnL();
@@ -285,10 +303,18 @@ final class RobinhoodRhHoldingValues {
                 && qty.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal implied = cost.add(unrealized);
             if (implied.compareTo(BigDecimal.ZERO) > 0) {
-                return implied.divide(qty.abs(), 4, RoundingMode.HALF_UP);
+                return perShareFromTotal(h, implied, qty);
             }
         }
         return BigDecimal.ZERO;
+    }
+
+    private static BigDecimal perShareFromTotal(RobinhoodRhHoldingDto h, BigDecimal total, BigDecimal qty) {
+        BigDecimal perUnit = total.divide(qty.abs(), 4, RoundingMode.HALF_UP);
+        if (isOption(h)) {
+            return perUnit.divide(OPTION_CONTRACT_MULTIPLIER, 4, RoundingMode.HALF_UP);
+        }
+        return perUnit;
     }
 
     private static RobinhoodRhHoldingDto clearComputedFields(RobinhoodRhHoldingDto h) {
@@ -308,7 +334,11 @@ final class RobinhoodRhHoldingValues {
         BigDecimal qty = nullToZero(h.quantity());
         BigDecimal avg = nullToZero(h.averageBuyPrice());
         if (qty.compareTo(BigDecimal.ZERO) > 0 && avg.compareTo(BigDecimal.ZERO) > 0) {
-            return qty.abs().multiply(avg).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal cost = qty.abs().multiply(avg);
+            if (isOption(h)) {
+                cost = cost.multiply(OPTION_CONTRACT_MULTIPLIER);
+            }
+            return cost.setScale(2, RoundingMode.HALF_UP);
         }
         BigDecimal stored = nullToZero(h.costBasis());
         if (stored.compareTo(BigDecimal.ZERO) > 0) {
@@ -317,11 +347,16 @@ final class RobinhoodRhHoldingValues {
         return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
     }
 
-    private static BigDecimal marketValueFromCurrent(BigDecimal qty, BigDecimal currentUnitPrice) {
-        if (qty.compareTo(BigDecimal.ZERO) == 0 || currentUnitPrice.compareTo(BigDecimal.ZERO) == 0) {
+    private static BigDecimal marketValueFromCurrent(
+            RobinhoodRhHoldingDto h, BigDecimal qty, BigDecimal perSharePrice) {
+        if (qty.compareTo(BigDecimal.ZERO) == 0 || perSharePrice.compareTo(BigDecimal.ZERO) == 0) {
             return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         }
-        return qty.abs().multiply(currentUnitPrice).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal mv = qty.abs().multiply(perSharePrice);
+        if (isOption(h)) {
+            mv = mv.multiply(OPTION_CONTRACT_MULTIPLIER);
+        }
+        return mv.setScale(2, RoundingMode.HALF_UP);
     }
 
     private static RobinhoodRhHoldingDto withMarketValue(RobinhoodRhHoldingDto h, BigDecimal marketValue) {
@@ -389,6 +424,14 @@ final class RobinhoodRhHoldingValues {
             return false;
         }
         return marketValue.subtract(cost).abs().compareTo(new BigDecimal("0.05")) <= 0;
+    }
+
+    private static boolean isOption(RobinhoodRhHoldingDto h) {
+        return isOptionType(h.positionType());
+    }
+
+    private static boolean isOptionType(String positionType) {
+        return positionType != null && "option".equalsIgnoreCase(positionType);
     }
 
     private static BigDecimal decimalOrZero(BigDecimal v) {

@@ -6,7 +6,7 @@ public record RobinhoodRhHoldingDto(
         String symbol,
         String positionType,
         BigDecimal quantity,
-        /** Per-unit purchase price (share or option contract, matching Robinhood sync). */
+/** Per-unit purchase price (per share for equities; per share of underlying for options). */
         BigDecimal averageBuyPrice,
         /** Per-unit current market price in the same units as averageBuyPrice. */
         BigDecimal currentUnitPrice,
