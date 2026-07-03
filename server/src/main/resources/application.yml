@@ -146,10 +146,6 @@ tracker:
         enabled-config: ${TRACKER_FINANCE_ROBINHOOD_AGENTIC_AUTO_TRADE_ENABLED:false}
         poll-fixed-delay-ms: ${TRACKER_FINANCE_ROBINHOOD_AGENTIC_AUTO_TRADE_POLL_MS:300000}
         poll-initial-delay-ms: ${TRACKER_FINANCE_ROBINHOOD_AGENTIC_AUTO_TRADE_INITIAL_DELAY_MS:120000}
-    webull-quote:
-      enabled: ${TRACKER_FINANCE_WEBULL_QUOTE_ENABLED:false}
-      service-base-url: ${TRACKER_FINANCE_WEBULL_QUOTE_SERVICE_BASE_URL:http://webull-quote:8030}
-      service-timeout-ms: ${TRACKER_FINANCE_WEBULL_QUOTE_SERVICE_TIMEOUT_MS:30000}
     rh-daily-tracker:
       snapshot-scheduler-enabled-config: ${TRACKER_FINANCE_RH_DAILY_TRACKER_SNAPSHOT_ENABLED:true}
       snapshot-cron: ${TRACKER_FINANCE_RH_DAILY_TRACKER_SNAPSHOT_CRON:0 0 21 * * *}

@@ -61,7 +61,6 @@ public class RobinhoodRhAccountsTrackService {
     private final RobinhoodAgenticService agenticService;
     private final FinanceProperties financeProperties;
     private final CurrentUserService currentUser;
-    private final YahooBatchQuoteService yahooBatchQuoteService;
     private final RobinhoodRhHoldingQuoteService holdingQuoteService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -250,7 +249,7 @@ public class RobinhoodRhAccountsTrackService {
         RobinhoodRhLiveQuotesDto liveQuotes =
                 holdingQuoteService.fetchForHoldings(ownerUserId, List.of(), positions);
         List<RobinhoodRhHoldingDto> holdings = RobinhoodRhHoldingValues.fromPositions(
-                positions, equityMv, yahooBatchQuoteService, liveQuotes);
+                positions, equityMv, liveQuotes);
         HoldingsTotals holdingsTotals = summarizeHoldings(holdings);
         if (portfolio.equityValue == null) {
             equityMv = holdingsTotals.marketValue;
@@ -365,7 +364,7 @@ public class RobinhoodRhAccountsTrackService {
                 holdingQuoteService.fetchForHoldings(ownerUserId, holdings, positions);
         Map<String, String> optionInstrumentIds = RobinhoodRhHoldingQuoteService.instrumentIdsByMatchKey(positions);
         return RobinhoodRhHoldingValues.finalizeHoldings(
-                holdings, accountEquityMarketValue, yahooBatchQuoteService, liveQuotes, optionInstrumentIds);
+                holdings, accountEquityMarketValue, liveQuotes, optionInstrumentIds);
     }
 
     private List<RobinhoodAgenticPosition> positionsForAccountSuffix(long ownerUserId, String accountSuffix) {

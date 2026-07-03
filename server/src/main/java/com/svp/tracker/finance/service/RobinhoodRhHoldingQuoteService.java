@@ -2,7 +2,6 @@ package com.svp.tracker.finance.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.svp.tracker.config.RobinhoodAgenticProperties;
-import com.svp.tracker.config.WebullQuoteProperties;
 import com.svp.tracker.finance.domain.RobinhoodAgenticConnection;
 import com.svp.tracker.finance.domain.RobinhoodAgenticPosition;
 import com.svp.tracker.finance.dto.RobinhoodRhHoldingDto;
@@ -21,20 +20,16 @@ import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
-/** Fetches live Robinhood MCP quotes with Webull OpenAPI fallback for RH holdings displays. */
+/** Fetches live Robinhood MCP quotes for RH holdings displays. */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class RobinhoodRhHoldingQuoteService {
 
     private final RobinhoodAgenticProperties agenticProps;
-    private final WebullQuoteProperties webullProps;
     private final RobinhoodAgenticConnectionRepository connectionRepository;
     private final RobinhoodAgenticTokenService tokenService;
-    private final WebullQuoteSidecarClient webullQuoteClient;
 
     public RobinhoodRhLiveQuotesDto fetchForHoldings(
             long ownerUserId, List<RobinhoodRhHoldingDto> holdings, List<RobinhoodAgenticPosition> positions) {
@@ -45,9 +40,7 @@ public class RobinhoodRhHoldingQuoteService {
         }
 
         QuoteKeys keys = collectQuoteKeys(safeHoldings, safePositions);
-        RobinhoodRhLiveQuotesDto webull = fetchWebullQuotes(keys, safePositions);
-        RobinhoodRhLiveQuotesDto robinhood = fetchRobinhoodQuotes(ownerUserId, keys);
-        return mergeQuotes(webull, robinhood);
+        return fetchRobinhoodQuotes(ownerUserId, keys);
     }
 
     private QuoteKeys collectQuoteKeys(
@@ -94,41 +87,6 @@ public class RobinhoodRhHoldingQuoteService {
             log.warn("Robinhood live quotes unavailable for user {}: {}", ownerUserId, e.getMessage());
             return RobinhoodRhLiveQuotesDto.empty();
         }
-    }
-
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    RobinhoodRhLiveQuotesDto fetchWebullQuotes(QuoteKeys keys, List<RobinhoodAgenticPosition> positions) {
-        if (!webullProps.serviceConfigured()
-                || (keys.equitySymbols().isEmpty() && positions.isEmpty())) {
-            return RobinhoodRhLiveQuotesDto.empty();
-        }
-        try {
-            JsonNode result = webullQuoteClient.fetchQuotes(keys.equitySymbols(), positions);
-            if (!result.path("ok").asBoolean(false)) {
-                log.warn("Webull live quotes returned ok=false");
-                return RobinhoodRhLiveQuotesDto.empty();
-            }
-            RobinhoodRhLiveQuotesDto parsed = parseQuotes(result);
-            if (!parsed.equityPriceBySymbol().isEmpty() || !parsed.optionMarkPerShareByInstrumentId().isEmpty()) {
-                log.debug(
-                        "Webull live quotes: {} equities, {} options",
-                        parsed.equityPriceBySymbol().size(),
-                        parsed.optionMarkPerShareByInstrumentId().size());
-            }
-            return parsed;
-        } catch (Exception e) {
-            log.warn("Webull live quotes unavailable: {}", e.getMessage());
-            return RobinhoodRhLiveQuotesDto.empty();
-        }
-    }
-
-    private static RobinhoodRhLiveQuotesDto mergeQuotes(
-            RobinhoodRhLiveQuotesDto fallback, RobinhoodRhLiveQuotesDto preferred) {
-        Map<String, BigDecimal> equity = new LinkedHashMap<>(fallback.equityPriceBySymbol());
-        preferred.equityPriceBySymbol().forEach(equity::put);
-        Map<String, BigDecimal> options = new LinkedHashMap<>(fallback.optionMarkPerShareByInstrumentId());
-        preferred.optionMarkPerShareByInstrumentId().forEach(options::put);
-        return new RobinhoodRhLiveQuotesDto(equity, options);
     }
 
     static Map<String, String> instrumentIdsByMatchKey(List<RobinhoodAgenticPosition> positions) {
