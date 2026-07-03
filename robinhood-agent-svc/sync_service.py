@@ -103,12 +103,21 @@ def _option_cost_basis_total(row: dict[str, Any]) -> float | None:
     return round(abs(qty * avg * 100.0), 2)
 
 
+def _round_option_mark_per_share(mark: float) -> float:
+    return round(mark, 2)
+
+
+def _round_option_market_value(value: float) -> float:
+    return round(value, 2)
+
+
 def _option_market_value_from_mark(row: dict[str, Any]) -> float | None:
     mark = _option_mark_per_share(row)
     qty = _to_float(row.get("quantity") or row.get("contracts") or row.get("qty"))
     if mark is None or qty is None:
         return None
-    return round(abs(qty * mark * 100.0), 2)
+    mark = _round_option_mark_per_share(mark)
+    return _round_option_market_value(abs(qty * mark * 100.0))
 
 
 def _option_market_value_stale_at_cost(market_value: float, row: dict[str, Any]) -> bool:
@@ -138,6 +147,9 @@ def _market_value_from_fields(
     px = _to_float(price)
     if qty is None or px is None:
         return None
+    if multiplier != 1.0:
+        px = _round_option_mark_per_share(px)
+        return _round_option_market_value(abs(qty * px * multiplier))
     return round(qty * px * multiplier, 2)
 
 
@@ -159,7 +171,8 @@ def _market_value_from_row(row: dict[str, Any], *, option: bool = False) -> floa
             if qty and avg:
                 cost_style = abs(qty * avg)
                 if cost_style > 0 and abs(existing / cost_style - 100.0) < 25.0:
-                    return round(existing / 100.0, 2)
+                    return _round_option_market_value(existing / 100.0)
+            return _round_option_market_value(existing)
         return existing
     price = (
         row.get("current_price")
