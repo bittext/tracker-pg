@@ -13,7 +13,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 /** Captures RH account snapshots hourly; official daily close at configured hour (default 9 PM Central). */
@@ -40,9 +39,7 @@ public class RobinhoodRhDailySnapshotScheduler {
                 dailyTrackerProps.snapshotClosingHour());
     }
 
-    @Scheduled(
-            cron = "${tracker.finance.rh-daily-tracker.snapshot-cron}",
-            zone = "${tracker.finance.rh-daily-tracker.snapshot-zone:America/Chicago}")
+    /** Invoked by admin cron scheduler ({@code finance.rh-daily-tracker.snapshot}). */
     public void captureDailySnapshots() {
         if (!dailyTrackerProps.snapshotSchedulerActive()) {
             return;

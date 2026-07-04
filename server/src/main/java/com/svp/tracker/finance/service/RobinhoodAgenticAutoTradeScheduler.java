@@ -5,7 +5,6 @@ import com.svp.tracker.config.RobinhoodAgenticProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -19,9 +18,7 @@ public class RobinhoodAgenticAutoTradeScheduler {
     private final RobinhoodAgenticAutoTradeProperties autoTradeProps;
     private final RobinhoodAgenticAutoTradeService autoTradeService;
 
-    @Scheduled(
-            fixedDelayString = "${tracker.finance.robinhood-agentic.auto-trade.poll-fixed-delay-ms:300000}",
-            initialDelayString = "${tracker.finance.robinhood-agentic.auto-trade.poll-initial-delay-ms:120000}")
+    /** Invoked by admin cron scheduler ({@code finance.robinhood-agentic.auto-trade}). */
     public void pollAutoTrade() {
         if (!agenticProps.enabled() || !agenticProps.executionEnabled() || !autoTradeProps.enabled()) {
             return;

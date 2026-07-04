@@ -28,7 +28,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -70,9 +69,7 @@ public class RedditIngestService {
      * cycle resolves the union of tracked tickers across users, then walks every configured subreddit
      * sequentially with a short inter-call pause to keep us under Reddit's per-app QPS guidance.
      */
-    @Scheduled(
-            fixedDelayString = "${tracker.finance.predicts.reddit.poll-interval-seconds:900}000",
-            initialDelayString = "${tracker.finance.predicts.reddit.poll-initial-delay-ms:120000}")
+    /** Invoked by admin cron scheduler ({@code predicts.reddit.poll}). */
     public void pollCycle() {
         if (!props.enabled() || !props.reddit().enabled()) {
             sourceHealth.recordDisabled(PredictsSource.REDDIT);

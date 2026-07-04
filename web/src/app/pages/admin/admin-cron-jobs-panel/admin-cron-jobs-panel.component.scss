@@ -1,0 +1,106 @@
+:host {
+  display: block;
+}
+
+.cron-jobs {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cron-jobs__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cron-jobs__title {
+  margin: 0 0 4px;
+  font-size: 1.25rem;
+}
+
+.cron-jobs__lead {
+  margin: 0;
+  max-width: 80ch;
+  color: rgba(0, 0, 0, 0.66);
+  font-size: 0.92rem;
+}
+
+.cron-jobs__head-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.cron-jobs__error {
+  margin: 0;
+  padding: 10px 12px;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  color: #7f1d1d;
+}
+
+.cron-jobs__form {
+  padding: 14px 16px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.cron-jobs__form-title {
+  margin: 0 0 12px;
+  font-size: 1rem;
+}
+
+.cron-jobs__form-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.cron-jobs__desc {
+  font-size: 0.85rem;
+  margin-top: 2px;
+}
+
+.cron-jobs__key {
+  display: block;
+  font-size: 0.75rem;
+  margin-top: 4px;
+  opacity: 0.75;
+}
+
+.cron-jobs__msg {
+  font-size: 0.78rem;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cron-jobs__status--ok {
+  color: #16a34a;
+  font-weight: 600;
+}
+
+.cron-jobs__status--error {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.cron-jobs__status--neutral {
+  color: rgba(0, 0, 0, 0.55);
+}
+
+mat-chip-set {
+  display: inline-flex;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+mat-chip {
+  --mdc-chip-label-text-size: 0.72rem;
+  min-height: 22px !important;
+}

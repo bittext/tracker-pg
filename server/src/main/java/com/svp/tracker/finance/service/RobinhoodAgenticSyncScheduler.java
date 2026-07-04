@@ -7,7 +7,6 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 /**
@@ -24,7 +23,7 @@ public class RobinhoodAgenticSyncScheduler {
     private final RobinhoodAgenticConnectionRepository connectionRepository;
     private final RobinhoodAgenticService agenticService;
 
-    @Scheduled(cron = "${tracker.finance.robinhood-agentic.sync-cron}", zone = "UTC")
+    /** Invoked by admin cron scheduler ({@code finance.robinhood-agentic.sync}). */
     public void scheduledSync() {
         if (!props.enabled()) {
             return;

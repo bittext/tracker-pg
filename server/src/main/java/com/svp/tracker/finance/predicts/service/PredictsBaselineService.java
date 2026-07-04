@@ -7,7 +7,6 @@ import java.time.temporal.ChronoUnit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,8 +28,7 @@ public class PredictsBaselineService {
     private final JdbcTemplate jdbc;
     private final PredictsMentionRepository mentionRepository;
 
-    /** Nightly at 03:17 UTC; jittered slightly so it doesn't collide with other midnight jobs. */
-    @Scheduled(cron = "0 17 3 * * *", zone = "UTC")
+    /** Invoked by admin cron scheduler ({@code predicts.baseline.nightly}). */
     @Transactional
     public void nightly() {
         if (!props.enabled()) {

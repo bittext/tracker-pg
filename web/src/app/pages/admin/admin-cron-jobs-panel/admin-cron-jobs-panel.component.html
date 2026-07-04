@@ -1,0 +1,185 @@
+<div class="cron-jobs">
+  @if (!isAdmin()) {
+    <p class="cron-jobs__error" role="alert">Cron job management requires the ADMIN role.</p>
+  } @else {
+  <header class="cron-jobs__head">
+    <div>
+      <h2 class="cron-jobs__title">Scheduled jobs</h2>
+      <p class="cron-jobs__lead">
+        All background jobs run through the admin scheduler. Edit schedules, enable or disable jobs, run immediately,
+        or add custom schedules for available runners.
+      </p>
+    </div>
+    <div class="cron-jobs__head-actions">
+      <button mat-stroked-button type="button" (click)="reload()" [disabled]="loading()">
+        <mat-icon>refresh</mat-icon>
+        Refresh
+      </button>
+      <button mat-flat-button color="primary" type="button" (click)="startCreate()">
+        <mat-icon>add</mat-icon>
+        Add job
+      </button>
+    </div>
+  </header>
+
+  @if (loading()) {
+    <mat-progress-bar mode="indeterminate" />
+  }
+
+  @if (errorMessage()) {
+    <p class="cron-jobs__error" role="alert">{{ errorMessage() }}</p>
+  }
+
+  <section class="cron-jobs__form" aria-label="Job editor">
+    <h3 class="cron-jobs__form-title">{{ formTitle() }}</h3>
+    <div class="form-row wrap">
+      <mat-form-field appearance="outline" class="grow">
+        <mat-label>Runner</mat-label>
+        <mat-select
+          [(ngModel)]="form.runnerKey"
+          name="runnerKey"
+          [disabled]="!!editingJobKey()"
+          (selectionChange)="onRunnerChange()"
+        >
+          @for (r of runners(); track r.runnerKey) {
+            <mat-option [value]="r.runnerKey">{{ r.label }} ({{ r.runnerKey }})</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="grow">
+        <mat-label>Display name</mat-label>
+        <input matInput [(ngModel)]="form.displayName" name="displayName" required />
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="narrow">
+        <mat-label>Category</mat-label>
+        <input matInput [(ngModel)]="form.category" name="category" placeholder="Finance" />
+      </mat-form-field>
+    </div>
+    <div class="form-row wrap">
+      <mat-form-field appearance="outline" class="grow">
+        <mat-label>Description</mat-label>
+        <input matInput [(ngModel)]="form.description" name="description" />
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="narrow">
+        <mat-label>Schedule type</mat-label>
+        <mat-select [(ngModel)]="form.scheduleType" name="scheduleType">
+          <mat-option value="FIXED_DELAY">Fixed delay</mat-option>
+          <mat-option value="CRON">Cron</mat-option>
+        </mat-select>
+      </mat-form-field>
+      @if (form.scheduleType === 'CRON') {
+        <mat-form-field appearance="outline" class="grow">
+          <mat-label>Cron expression</mat-label>
+          <input matInput [(ngModel)]="form.cronExpression" name="cronExpression" placeholder="0 0 * * * *" />
+          <mat-hint>Spring 6-field cron (sec min hour dom month dow)</mat-hint>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="narrow">
+          <mat-label>Time zone</mat-label>
+          <input matInput [(ngModel)]="form.zoneId" name="zoneId" placeholder="UTC" />
+        </mat-form-field>
+      } @else {
+        <mat-form-field appearance="outline" class="narrow">
+          <mat-label>Delay (minutes)</mat-label>
+          <input matInput type="number" min="1" [(ngModel)]="form.fixedDelayMinutes" name="fixedDelayMinutes" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="narrow">
+          <mat-label>Initial delay (sec)</mat-label>
+          <input matInput type="number" min="0" [(ngModel)]="form.initialDelaySeconds" name="initialDelaySeconds" />
+        </mat-form-field>
+      }
+      <mat-slide-toggle [(ngModel)]="form.enabled" name="enabled">Enabled</mat-slide-toggle>
+    </div>
+    <div class="cron-jobs__form-actions">
+      <button mat-flat-button color="primary" type="button" (click)="saveForm()" [disabled]="saving()">
+        {{ editingJobKey() ? 'Save changes' : 'Create job' }}
+      </button>
+      @if (editingJobKey()) {
+        <button mat-button type="button" (click)="cancelForm()">Cancel</button>
+      }
+    </div>
+  </section>
+
+  <div class="table-wrap">
+    <table mat-table [dataSource]="jobs()" class="mat-elevation-z1 full-width">
+      <ng-container matColumnDef="name">
+        <th mat-header-cell *matHeaderCellDef>Job</th>
+        <td mat-cell *matCellDef="let row">
+          <strong>{{ row.displayName }}</strong>
+          @if (row.builtIn) {
+            <mat-chip-set><mat-chip>built-in</mat-chip></mat-chip-set>
+          }
+          @if (!row.runnerAvailable) {
+            <mat-chip-set><mat-chip color="warn">runner unavailable</mat-chip></mat-chip-set>
+          }
+          @if (row.description) {
+            <div class="cron-jobs__desc muted">{{ row.description }}</div>
+          }
+          <code class="cron-jobs__key">{{ row.jobKey }}</code>
+        </td>
+      </ng-container>
+      <ng-container matColumnDef="category">
+        <th mat-header-cell *matHeaderCellDef>Category</th>
+        <td mat-cell *matCellDef="let row">{{ row.category }}</td>
+      </ng-container>
+      <ng-container matColumnDef="schedule">
+        <th mat-header-cell *matHeaderCellDef>Schedule</th>
+        <td mat-cell *matCellDef="let row">{{ row.scheduleSummary }}</td>
+      </ng-container>
+      <ng-container matColumnDef="enabled">
+        <th mat-header-cell *matHeaderCellDef>On</th>
+        <td mat-cell *matCellDef="let row">
+          <mat-slide-toggle
+            [checked]="row.enabled"
+            (change)="toggleEnabled(row, $event.checked)"
+            [disabled]="!row.runnerAvailable"
+          />
+        </td>
+      </ng-container>
+      <ng-container matColumnDef="lastRun">
+        <th mat-header-cell *matHeaderCellDef>Last run</th>
+        <td mat-cell *matCellDef="let row">{{ formatInstant(row.lastRunAt) }}</td>
+      </ng-container>
+      <ng-container matColumnDef="nextRun">
+        <th mat-header-cell *matHeaderCellDef>Next run</th>
+        <td mat-cell *matCellDef="let row">{{ formatInstant(row.nextRunAt) }}</td>
+      </ng-container>
+      <ng-container matColumnDef="status">
+        <th mat-header-cell *matHeaderCellDef>Status</th>
+        <td mat-cell *matCellDef="let row">
+          <span [class]="statusClass(row.lastRunStatus)">{{ row.lastRunStatus || '—' }}</span>
+          @if (row.lastRunMessage) {
+            <div class="cron-jobs__msg muted" [matTooltip]="row.lastRunMessage">{{ row.lastRunMessage }}</div>
+          }
+        </td>
+      </ng-container>
+      <ng-container matColumnDef="actions">
+        <th mat-header-cell *matHeaderCellDef></th>
+        <td mat-cell *matCellDef="let row">
+          <button
+            mat-icon-button
+            type="button"
+            matTooltip="Run now"
+            (click)="runNow(row)"
+            [disabled]="!row.runnerAvailable || runningJobKey() === row.jobKey"
+          >
+            <mat-icon>play_arrow</mat-icon>
+          </button>
+          <button mat-icon-button type="button" matTooltip="Edit" (click)="startEdit(row)">
+            <mat-icon>edit</mat-icon>
+          </button>
+          @if (!row.builtIn) {
+            <button mat-icon-button type="button" color="warn" matTooltip="Delete" (click)="deleteJob(row)">
+              <mat-icon>delete</mat-icon>
+            </button>
+          }
+        </td>
+      </ng-container>
+      <tr mat-header-row *matHeaderRowDef="columns"></tr>
+      <tr mat-row *matRowDef="let row; columns: columns"></tr>
+    </table>
+    @if (!jobs().length && !loading()) {
+      <p class="muted empty-hint">No scheduled jobs yet.</p>
+    }
+  </div>
+  }
+</div>

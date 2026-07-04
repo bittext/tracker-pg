@@ -27,7 +27,6 @@ import java.util.Locale;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -73,9 +72,7 @@ public class StockTwitsIngestService {
      * polls each in series with a small inter-symbol pause so we don't burst-trigger StockTwits' rate limit
      * (~200/hr unauthenticated). Each successful poll bumps {@code mentions_ingested_24h} on source health.
      */
-    @Scheduled(
-            fixedDelayString = "${tracker.finance.predicts.stocktwits.poll-interval-seconds:1500}000",
-            initialDelayString = "${tracker.finance.predicts.stocktwits.poll-initial-delay-ms:60000}")
+    /** Invoked by admin cron scheduler ({@code predicts.stocktwits.poll}). */
     public void pollCycle() {
         if (!props.enabled() || !props.stocktwits().enabled()) {
             sourceHealth.recordDisabled(PredictsSource.STOCKTWITS);

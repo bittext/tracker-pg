@@ -271,6 +271,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         periodValueChange: 0,
         hasFlowActivity: false,
         tradeCount: 0,
+        positionsChangedFromPrior: acct.positionsChangedFromPrior ?? false,
       },
       day,
     );
@@ -484,6 +485,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         periodValueChange: 0,
         hasFlowActivity: false,
         tradeCount: 0,
+        positionsChangedFromPrior: acct.positionsChangedFromPrior,
       },
       day,
     );

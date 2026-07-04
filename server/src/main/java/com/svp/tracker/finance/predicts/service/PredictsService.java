@@ -45,7 +45,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -145,9 +144,7 @@ public class PredictsService {
      * every user who's been signed in recently. We rely on `owner_user_id` on the rows; if the table
      * isn't multi-tenant we no-op (the manual flow still works).
      */
-    @Scheduled(
-            fixedDelayString = "${tracker.finance.predicts.auto-seed-fixed-delay-ms:3600000}",
-            initialDelayString = "${tracker.finance.predicts.auto-seed-initial-delay-ms:90000}")
+    /** Invoked by admin cron scheduler ({@code predicts.auto-seed}). */
     public void autoSeedFromRobinhood() {
         if (!props.enabled()) {
             return;

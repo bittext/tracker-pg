@@ -20,7 +20,6 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,7 +36,7 @@ public class FinanceAlertEvaluationService {
     private final FinanceAlertDispatchService dispatchService;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
-    @Scheduled(fixedDelayString = "${tracker.finance.alerts.poll-fixed-delay-ms:300000}")
+    /** Invoked by admin cron scheduler ({@code finance.alerts.evaluate}). */
     public void scheduledEvaluate() {
         if (!props.evaluationEnabled()) {
             return;

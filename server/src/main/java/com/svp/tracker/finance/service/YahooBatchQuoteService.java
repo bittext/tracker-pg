@@ -22,7 +22,6 @@ import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 /**
@@ -51,9 +50,7 @@ public class YahooBatchQuoteService {
      * Single hourly refresh cycle for all tracked symbols (alerts + fixed finance watch/index set).
      * Reads can still trigger a one-shot refresh if a requested symbol is missing from cache.
      */
-    @Scheduled(
-            fixedDelayString = "${tracker.finance.alpha-vantage-refresh-ms:3600000}",
-            initialDelayString = "${tracker.finance.alpha-vantage-initial-delay-ms:45000}")
+    /** Invoked by admin cron scheduler ({@code finance.yahoo.quotes}). */
     public void refreshTrackedSymbolsHourly() {
         if (!props.alphaVantageEnabled()) {
             return;
