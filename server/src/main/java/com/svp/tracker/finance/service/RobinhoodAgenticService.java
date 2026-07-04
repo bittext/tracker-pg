@@ -45,6 +45,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class RobinhoodAgenticService {
 
     private static final int ORDERS_SYNC_LIMIT = 10;
+    private static final int RECENT_SYNCED_ORDERS_LIMIT = 30;
 
     private final RobinhoodAgenticProperties props;
     private final CurrentUserService currentUser;
@@ -139,9 +140,7 @@ public class RobinhoodAgenticService {
     @Transactional(readOnly = true)
     public RobinhoodAgenticSyncedOrdersDto syncedOrders() {
         long uid = currentUser.requireUserId();
-        List<RobinhoodAgenticSyncedOrderDto> rows = syncedOrderRepository
-                .findTop10ByOwnerUserIdOrderByUpdatedAtRhDescCreatedAtRhDesc(uid)
-                .stream()
+        List<RobinhoodAgenticSyncedOrderDto> rows = recentSyncedOrdersForDisplay(uid).stream()
                 .map(this::toSyncedOrderDto)
                 .toList();
         return new RobinhoodAgenticSyncedOrdersDto(rows);
@@ -252,9 +251,7 @@ public class RobinhoodAgenticService {
             logRow.setFinishedAt(Instant.now());
             syncLogRepository.save(logRow);
             int count = openPositionCount(conn.getOwnerUserId());
-            int orderCount = (int) syncedOrderRepository
-                    .findTop10ByOwnerUserIdOrderByUpdatedAtRhDescCreatedAtRhDesc(conn.getOwnerUserId())
-                    .size();
+            int orderCount = recentSyncedOrdersForDisplay(conn.getOwnerUserId()).size();
             return new RobinhoodAgenticSyncResultDto(
                     true, conn.getLastSyncAt(), conn.getLastSyncMessage(), count, orderCount, logRow.getAccountsSynced());
         } catch (ResponseStatusException e) {
@@ -481,6 +478,28 @@ public class RobinhoodAgenticService {
             return accountNumber == null ? "" : accountNumber;
         }
         return "•••" + accountNumber.substring(accountNumber.length() - 4);
+    }
+
+    /** Recent orders for UI — excludes managed ••••4123 (same as Daily Tracker highlight policy). */
+    private List<RobinhoodAgenticSyncedOrder> recentSyncedOrdersForDisplay(long ownerUserId) {
+        String excludedSuffix = RobinhoodRhDailyTrackerAccountPolicy.POSITION_CHANGE_HIGHLIGHT_EXCLUDED_SUFFIX;
+        return syncedOrderRepository
+                .findByOwnerUserIdOrderByUpdatedAtRhDescCreatedAtRhDesc(ownerUserId)
+                .stream()
+                .filter(o -> !excludedSuffix.equals(lastFour(o.getAccountNumber())))
+                .limit(RECENT_SYNCED_ORDERS_LIMIT)
+                .toList();
+    }
+
+    private static String lastFour(String accountNumber) {
+        if (accountNumber == null) {
+            return null;
+        }
+        String digits = accountNumber.replaceAll("\\D", "");
+        if (digits.length() < 4) {
+            return null;
+        }
+        return digits.substring(digits.length() - 4);
     }
 
     private static String textOrNull(JsonNode node) {

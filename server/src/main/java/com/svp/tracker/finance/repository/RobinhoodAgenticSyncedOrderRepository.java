@@ -9,8 +9,6 @@ import org.springframework.data.repository.query.Param;
 
 public interface RobinhoodAgenticSyncedOrderRepository extends JpaRepository<RobinhoodAgenticSyncedOrder, Long> {
 
-    List<RobinhoodAgenticSyncedOrder> findTop10ByOwnerUserIdOrderByUpdatedAtRhDescCreatedAtRhDesc(long ownerUserId);
-
     List<RobinhoodAgenticSyncedOrder> findByOwnerUserIdOrderByUpdatedAtRhDescCreatedAtRhDesc(long ownerUserId);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
