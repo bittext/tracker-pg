@@ -25,7 +25,7 @@ EQUITY_QUOTES_TOOL = "get_equity_quotes"
 OPTION_QUOTES_TOOL = "get_option_quotes"
 QUOTE_BATCH_SIZE = 20
 OPTION_QUOTE_BATCH_SIZE = 20
-ORDERS_SYNC_LIMIT = 10
+ORDERS_SYNC_LIMIT = 100
 
 _UUID_RE = re.compile(
     r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}",

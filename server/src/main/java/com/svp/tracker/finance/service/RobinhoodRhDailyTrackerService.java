@@ -85,7 +85,7 @@ public class RobinhoodRhDailyTrackerService {
     private final RobinhoodAgenticProperties agenticProps;
     private final RobinhoodRhDailyTrackerProperties dailyTrackerProps;
     private final ObjectProvider<RobinhoodRhDailyTrackerService> selfProvider;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     /** Whether nightly scheduled snapshots and 9 PM schedule copy apply to this owner. */
     public boolean isScheduledCaptureOwner(long ownerUserId) {
@@ -221,7 +221,6 @@ public class RobinhoodRhDailyTrackerService {
             BigDecimal combinedRemoved = BigDecimal.ZERO;
             BigDecimal combinedValueChange = BigDecimal.ZERO;
             List<RobinhoodRhDailyTrackerAccountCellDto> cells = new ArrayList<>();
-            List<RobinhoodRhDailyTradeDto> dayTrades = new ArrayList<>();
 
             RobinhoodRhDailyTrackerPriorPullDto priorPull = buildPriorPullBeforeDay(dayDate, allYearRows);
             boolean hasPriorPull = priorPull != null;
@@ -260,8 +259,14 @@ public class RobinhoodRhDailyTrackerService {
                         positionsChangedFromPrior(ownerUserId, row, allYearRows)));
             }
 
-            dayTrades.sort(Comparator.comparing(
-                    RobinhoodRhDailyTradeDto::executedAt, Comparator.nullsLast(Comparator.reverseOrder())));
+            List<RobinhoodRhDailyTradeDto> dayTrades = buildDayTrades(
+                    dayDate,
+                    dayScheduled,
+                    intradayByDate.getOrDefault(dayDate, List.of()),
+                    manualByDate.getOrDefault(dayDate, List.of()),
+                    previousScheduledDate,
+                    ownerOrders,
+                    columnBySuffix);
 
             boolean hasPreviousScheduledSnapshot =
                     previousScheduledDate != null && !dayScheduled.isEmpty();
@@ -670,6 +675,95 @@ public class RobinhoodRhDailyTrackerService {
                 trades);
     }
 
+    /**
+     * Trades for the expanded day panel. Prefer the official {@code SCHEDULED} (9 PM) snapshots; when those
+     * are missing or empty, fall back to stored trades on intraday/manual captures, then live synced orders
+     * for the period since the prior scheduled day.
+     */
+    List<RobinhoodRhDailyTradeDto> buildDayTrades(
+            LocalDate dayDate,
+            List<RobinhoodRhDailySnapshot> dayScheduled,
+            List<RobinhoodRhDailySnapshot> dayIntraday,
+            List<RobinhoodRhDailySnapshot> dayManual,
+            LocalDate previousScheduledDate,
+            List<RobinhoodAgenticSyncedOrder> ownerOrders,
+            Map<String, RobinhoodRhDailyTrackerAccountColumnDto> columnBySuffix) {
+        List<RobinhoodRhDailyTradeDto> fromScheduled = tradesFromSnapshots(dayScheduled, ownerOrders);
+        if (!fromScheduled.isEmpty()) {
+            return fromScheduled;
+        }
+
+        List<RobinhoodRhDailySnapshot> pointInTime = new ArrayList<>(dayIntraday.size() + dayManual.size());
+        pointInTime.addAll(dayIntraday);
+        pointInTime.addAll(dayManual);
+        List<RobinhoodRhDailyTradeDto> fromCaptures = tradesFromLatestCapturePerAccount(pointInTime, ownerOrders);
+        if (!fromCaptures.isEmpty()) {
+            return fromCaptures;
+        }
+
+        List<RobinhoodRhDailyTradeDto> fromOrders = new ArrayList<>();
+        for (RobinhoodRhDailyTrackerAccountColumnDto column : columnBySuffix.values()) {
+            for (RobinhoodRhDailyTradeDto trade :
+                    tradesInPeriod(ownerOrders, column.accountSuffix(), previousScheduledDate, dayDate)) {
+                fromOrders.add(trade.withAccount(column.accountSuffix(), column.label()));
+            }
+        }
+        return dedupeTrades(fromOrders);
+    }
+
+    private List<RobinhoodRhDailyTradeDto> tradesFromSnapshots(
+            List<RobinhoodRhDailySnapshot> rows, List<RobinhoodAgenticSyncedOrder> ownerOrders) {
+        List<RobinhoodRhDailyTradeDto> out = new ArrayList<>();
+        for (RobinhoodRhDailySnapshot row : rows) {
+            for (RobinhoodRhDailyTradeDto trade : resolveTradesForSnapshot(row, ownerOrders)) {
+                out.add(trade.withAccount(row.getAccountSuffix(), row.getLabel()));
+            }
+        }
+        return dedupeTrades(out);
+    }
+
+    private List<RobinhoodRhDailyTradeDto> tradesFromLatestCapturePerAccount(
+            List<RobinhoodRhDailySnapshot> rows, List<RobinhoodAgenticSyncedOrder> ownerOrders) {
+        if (rows.isEmpty()) {
+            return List.of();
+        }
+        Map<String, RobinhoodRhDailySnapshot> latestBySuffix = new LinkedHashMap<>();
+        for (RobinhoodRhDailySnapshot row : rows) {
+            latestBySuffix.merge(
+                    row.getAccountSuffix(),
+                    row,
+                    (left, right) -> {
+                        Instant leftAt = left.getSnapshotAt();
+                        Instant rightAt = right.getSnapshotAt();
+                        if (leftAt == null) {
+                            return right;
+                        }
+                        if (rightAt == null) {
+                            return left;
+                        }
+                        return rightAt.isAfter(leftAt) ? right : left;
+                    });
+        }
+        return tradesFromSnapshots(new ArrayList<>(latestBySuffix.values()), ownerOrders);
+    }
+
+    private static List<RobinhoodRhDailyTradeDto> dedupeTrades(List<RobinhoodRhDailyTradeDto> trades) {
+        Map<String, RobinhoodRhDailyTradeDto> unique = new LinkedHashMap<>();
+        for (RobinhoodRhDailyTradeDto trade : trades) {
+            String key = String.join(
+                    "\u0000",
+                    trade.accountSuffix() == null ? "" : trade.accountSuffix(),
+                    trade.symbol() == null ? "" : trade.symbol(),
+                    trade.side() == null ? "" : trade.side(),
+                    trade.executedAt() == null ? "" : trade.executedAt().toString());
+            unique.putIfAbsent(key, trade);
+        }
+        List<RobinhoodRhDailyTradeDto> out = new ArrayList<>(unique.values());
+        out.sort(Comparator.comparing(
+                RobinhoodRhDailyTradeDto::executedAt, Comparator.nullsLast(Comparator.reverseOrder())));
+        return out;
+    }
+
     private List<RobinhoodRhDailyTradeDto> resolveTradesForSnapshot(
             RobinhoodRhDailySnapshot row, List<RobinhoodAgenticSyncedOrder> ownerOrders) {
         List<RobinhoodRhDailyTradeDto> stored = readJson(row.getTradesJson(), new TypeReference<>() {});
@@ -730,8 +824,12 @@ public class RobinhoodRhDailyTrackerService {
         if (state == null) {
             return false;
         }
-        String s = state.trim().toLowerCase();
-        return s.equals("filled") || s.equals("partially_filled") || s.contains("fill");
+        String s = state.trim().toLowerCase(Locale.ROOT);
+        return s.equals("filled")
+                || s.equals("partially_filled")
+                || s.equals("completed")
+                || s.equals("executed")
+                || s.contains("fill");
     }
 
     private static String lastFour(String accountNumber) {
