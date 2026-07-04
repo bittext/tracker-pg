@@ -278,7 +278,7 @@
                             </thead>
                             <tbody>
                               @for (row of captureTimeline(day); track row.capturedAt) {
-                                <tr [class.rh-daily__timeline-row--scheduled]="row.kind === 'scheduled'">
+                                <tr [class.rh-daily__timeline-row--scheduled]="row.kind === 'scheduled' || row.kind === 'intraday'">
                                   <td class="rh-daily__nowrap">
                                     {{ row.timeLabel }}
                                     @if (row.kind === 'manual') {

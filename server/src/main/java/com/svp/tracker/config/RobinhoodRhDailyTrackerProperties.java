@@ -11,6 +11,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record RobinhoodRhDailyTrackerProperties(
         String snapshotCron,
         String snapshotZone,
+        int snapshotClosingHour,
         String snapshotSchedulerEnabledConfig,
         List<String> excludedAccountSuffixes,
         Map<String, String> additionalOwnerSuffixes) {
@@ -25,6 +26,9 @@ public record RobinhoodRhDailyTrackerProperties(
             snapshotZone = "America/Chicago";
         } else {
             snapshotZone = snapshotZone.trim();
+        }
+        if (snapshotClosingHour < 0 || snapshotClosingHour > 23) {
+            snapshotClosingHour = 21;
         }
         if (snapshotSchedulerEnabledConfig == null) {
             snapshotSchedulerEnabledConfig = "true";
@@ -72,7 +76,7 @@ public record RobinhoodRhDailyTrackerProperties(
         return !snapshotCron.isBlank();
     }
 
-    /** Whether the daily 9 PM auto-capture job is active. */
+    /** Whether the hourly auto-capture job is active. */
     public boolean snapshotSchedulerActive() {
         return schedulerEnabledByConfig() && snapshotCronEnabled();
     }
@@ -86,7 +90,18 @@ public record RobinhoodRhDailyTrackerProperties(
         if (!snapshotSchedulerActive()) {
             return "";
         }
-        return "Daily at 9:00 PM " + snapshotZone;
+        int hour12 = snapshotClosingHour % 12;
+        if (hour12 == 0) {
+            hour12 = 12;
+        }
+        String amPm = snapshotClosingHour < 12 ? "AM" : "PM";
+        return "hourly from 12:00 AM "
+                + snapshotZone
+                + " (daily close "
+                + hour12
+                + ":00 "
+                + amPm
+                + ")";
     }
 
     public boolean isExcludedSuffix(String suffix) {

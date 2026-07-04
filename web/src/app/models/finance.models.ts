@@ -140,6 +140,8 @@ export interface RobinhoodRhDailyTrackerDayDto {
   priorPull: RobinhoodRhDailyTrackerPriorPullDto | null;
   hasPriorPull: boolean;
   accounts: RobinhoodRhDailyTrackerAccountCellDto[];
+  /** Hourly auto-captures (scheduler). */
+  intradayCaptures: RobinhoodRhDailyTrackerManualCaptureDto[];
   manualCaptures: RobinhoodRhDailyTrackerManualCaptureDto[];
   trades: RobinhoodRhDailyTradeDto[];
   summaryNote: string;

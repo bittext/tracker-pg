@@ -5,6 +5,8 @@ import com.svp.tracker.config.RobinhoodRhDailyTrackerProperties;
 import com.svp.tracker.finance.domain.RobinhoodAgenticConnection;
 import com.svp.tracker.finance.repository.RobinhoodAgenticConnectionRepository;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,7 +16,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-/** Captures RH account snapshots daily at 9 PM Central (configurable). */
+/** Captures RH account snapshots hourly; official daily close at configured hour (default 9 PM Central). */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -32,9 +34,10 @@ public class RobinhoodRhDailySnapshotScheduler {
     @EventListener(ApplicationReadyEvent.class)
     public void logSchedulerRegistration() {
         log.info(
-                "RH Daily Tracker auto-capture scheduled: cron='{}' zone='{}'",
+                "RH Daily Tracker auto-capture scheduled: cron='{}' zone='{}' closingHour={}",
                 dailyTrackerProps.snapshotCron(),
-                dailyTrackerProps.snapshotZone());
+                dailyTrackerProps.snapshotZone(),
+                dailyTrackerProps.snapshotClosingHour());
     }
 
     @Scheduled(
@@ -50,7 +53,14 @@ public class RobinhoodRhDailySnapshotScheduler {
             return;
         }
         Instant snapshotAt = Instant.now();
-        log.info("RH daily snapshot job starting for {} connection(s) at {}", connections.size(), snapshotAt);
+        ZoneId zone = ZoneId.of(dailyTrackerProps.snapshotZone());
+        int hour = ZonedDateTime.ofInstant(snapshotAt, zone).getHour();
+        boolean closingHour = hour == dailyTrackerProps.snapshotClosingHour();
+        log.info(
+                "RH daily snapshot job starting for {} connection(s) at {} ({}closing hour)",
+                connections.size(),
+                snapshotAt,
+                closingHour ? "" : "non-");
         for (RobinhoodAgenticConnection conn : connections) {
             if (!dailyTrackerService.isScheduledCaptureOwner(conn.getOwnerUserId())) {
                 continue;
@@ -59,7 +69,11 @@ public class RobinhoodRhDailySnapshotScheduler {
                 if (agenticProps.enabled() && agenticProps.serviceConfigured()) {
                     agenticService.syncConnectionBestEffort(conn);
                 }
-                dailyTrackerService.captureScheduledSnapshotsForOwner(conn.getOwnerUserId(), snapshotAt);
+                if (closingHour) {
+                    dailyTrackerService.captureScheduledSnapshotsForOwner(conn.getOwnerUserId(), snapshotAt);
+                } else {
+                    dailyTrackerService.captureIntradaySnapshotsForOwner(conn.getOwnerUserId(), snapshotAt);
+                }
                 log.info("RH daily snapshot ok for user {}", conn.getOwnerUserId());
             } catch (Exception e) {
                 log.warn("RH daily snapshot failed for user {}: {}", conn.getOwnerUserId(), e.getMessage());

@@ -34,7 +34,7 @@ public class RobinhoodRhDailySnapshot {
     @Column(name = "snapshot_date", nullable = false)
     private LocalDate snapshotDate;
 
-    /** SCHEDULED = daily 9 PM job; MANUAL = ad-hoc Capture now. */
+    /** SCHEDULED = daily close; INTRADAY = hourly job; MANUAL = ad-hoc Capture now. */
     @Column(name = "capture_kind", nullable = false, length = 16)
     private String captureKind = RobinhoodRhDailyCaptureKind.SCHEDULED;
 

@@ -20,6 +20,7 @@ public record RobinhoodRhDailyTrackerDayDto(
         RobinhoodRhDailyTrackerPriorPullDto priorPull,
         boolean hasPriorPull,
         List<RobinhoodRhDailyTrackerAccountCellDto> accounts,
+        List<RobinhoodRhDailyTrackerManualCaptureDto> intradayCaptures,
         List<RobinhoodRhDailyTrackerManualCaptureDto> manualCaptures,
         List<RobinhoodRhDailyTradeDto> trades,
         String summaryNote) {}

@@ -109,11 +109,15 @@ public class RobinhoodRhDailyTrackerService {
                                 ownerUserId, yearStart, yearEnd));
 
         List<RobinhoodRhDailySnapshot> scheduledYearRows = scheduledOnly(allYearRows);
+        List<RobinhoodRhDailySnapshot> intradayYearRows = intradayOnly(allYearRows);
         List<RobinhoodRhDailySnapshot> manualYearRows = manualOnly(allYearRows);
 
         Set<Integer> monthFilter = months == null || months.isEmpty() ? null : new HashSet<>(months);
 
         List<RobinhoodRhDailySnapshot> scheduledRows = scheduledYearRows.stream()
+                .filter(r -> matchesMonthFilter(r.getSnapshotDate(), monthFilter))
+                .toList();
+        List<RobinhoodRhDailySnapshot> intradayRows = intradayYearRows.stream()
                 .filter(r -> matchesMonthFilter(r.getSnapshotDate(), monthFilter))
                 .toList();
         List<RobinhoodRhDailySnapshot> manualRows = manualYearRows.stream()
@@ -143,8 +147,14 @@ public class RobinhoodRhDailyTrackerService {
             manualByDate.computeIfAbsent(row.getSnapshotDate(), k -> new ArrayList<>()).add(row);
         }
 
+        Map<LocalDate, List<RobinhoodRhDailySnapshot>> intradayByDate = new LinkedHashMap<>();
+        for (RobinhoodRhDailySnapshot row : intradayRows) {
+            intradayByDate.computeIfAbsent(row.getSnapshotDate(), k -> new ArrayList<>()).add(row);
+        }
+
         Set<LocalDate> dayDates = new TreeSet<>(Comparator.reverseOrder());
         dayDates.addAll(scheduledByDate.keySet());
+        dayDates.addAll(intradayByDate.keySet());
         dayDates.addAll(manualByDate.keySet());
 
         Map<LocalDate, List<RobinhoodRhDailySnapshot>> yearScheduledByDate = new TreeMap<>();
@@ -259,8 +269,10 @@ public class RobinhoodRhDailyTrackerService {
                         yearCombinedTotalByScheduledDate.getOrDefault(previousScheduledDate, BigDecimal.ZERO)));
             }
 
+            List<RobinhoodRhDailyTrackerManualCaptureDto> intradayCaptures =
+                    buildCapturesGroupedByInstant(intradayByDate.getOrDefault(dayDate, List.of()));
             List<RobinhoodRhDailyTrackerManualCaptureDto> manualCaptures =
-                    buildManualCapturesForDay(manualByDate.getOrDefault(dayDate, List.of()));
+                    buildCapturesGroupedByInstant(manualByDate.getOrDefault(dayDate, List.of()));
 
             days.add(new RobinhoodRhDailyTrackerDayDto(
                     dayDate,
@@ -275,6 +287,7 @@ public class RobinhoodRhDailyTrackerService {
                     priorPull,
                     hasPriorPull,
                     cells,
+                    intradayCaptures,
                     manualCaptures,
                     dayTrades,
                     summaryNotesByDate.getOrDefault(dayDate, "")));
@@ -314,11 +327,11 @@ public class RobinhoodRhDailyTrackerService {
                     "pulickal-agentic Daily Tracker: ••••3550 (Agentic, tradable), ••••3370 (default individual), ••••4123 (managed), ••••8696 (Ammu’s Acc — linked, not agentic-tradable).");
             notes.add("Excluded from Daily Tracker: ••••0440 (Short Term Idv), ••••2835 (Roth IRA).");
             notes.add(
-                    "Each day shows the scheduled 9 PM snapshot. Add call-summary notes in the expanded day panel.");
+                    "Each day shows the scheduled 9 PM snapshot plus hourly pulls under Captures today (Timeline view).");
             notes.add("Period flows on scheduled rows are cash movements since the previous 9 PM snapshot.");
             if (days.isEmpty()) {
                 notes.add(
-                        "No snapshots yet — wait for the 9 PM job or click Capture now after connecting pulickal-agentic.");
+                        "No snapshots yet — wait for the hourly job or click Capture now after connecting pulickal-agentic.");
             }
         } else if (RobinhoodRhDailyTrackerAccountPolicy.NISHA_USERNAME.equals(username)) {
             notes.add("nisha-agentic only — Daily Tracker: ••••4190 (default), ••••7581 (Agentic). Pulickal-agentic accounts are never shown.");
@@ -436,6 +449,12 @@ public class RobinhoodRhDailyTrackerService {
 
     /** Called by scheduled job — no HTTP user context. */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public RobinhoodRhDailyCaptureResultDto captureIntradaySnapshotsForOwner(long ownerUserId, Instant snapshotAt) {
+        return captureForOwner(ownerUserId, snapshotAt, RobinhoodRhDailyCaptureKind.INTRADAY, false);
+    }
+
+    /** Called by scheduled job — no HTTP user context. */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public RobinhoodRhDailyCaptureResultDto captureScheduledSnapshotsForOwner(long ownerUserId, Instant snapshotAt) {
         return captureForOwner(ownerUserId, snapshotAt, RobinhoodRhDailyCaptureKind.SCHEDULED, false);
     }
@@ -458,7 +477,7 @@ public class RobinhoodRhDailyTrackerService {
         LocalDate snapshotDate = snapshotAt.atZone(CENTRAL).toLocalDate();
         Instant now = Instant.now();
         int captured = 0;
-        boolean manual = RobinhoodRhDailyCaptureKind.MANUAL.equals(captureKind);
+        boolean pointInTime = isPointInTimeCaptureKind(captureKind);
         List<RobinhoodAgenticSyncedOrder> ownerOrders =
                 syncedOrderRepository.findByOwnerUserIdOrderByUpdatedAtRhDescCreatedAtRhDesc(ownerUserId);
 
@@ -468,7 +487,7 @@ public class RobinhoodRhDailyTrackerService {
                 continue;
             }
 
-            Optional<RobinhoodRhDailySnapshot> prevOpt = manual
+            Optional<RobinhoodRhDailySnapshot> prevOpt = pointInTime
                     ? snapshotRepository.findTopByOwnerUserIdAndAccountSuffixAndSnapshotAtLessThanOrderBySnapshotAtDesc(
                             ownerUserId, suffix, snapshotAt)
                     : snapshotRepository
@@ -489,7 +508,7 @@ public class RobinhoodRhDailyTrackerService {
             BigDecimal valueChange =
                     currentTotal.subtract(prevTotal).subtract(periodAdded).add(periodRemoved);
 
-            RobinhoodRhDailySnapshot snapshot = manual
+            RobinhoodRhDailySnapshot snapshot = pointInTime
                     ? new RobinhoodRhDailySnapshot()
                     : snapshotRepository
                             .findByOwnerUserIdAndSnapshotDateAndAccountSuffixAndCaptureKind(
@@ -524,7 +543,7 @@ public class RobinhoodRhDailyTrackerService {
         String message;
         if (captured == 0) {
             message = buildNoAccountsCaptureMessage(ownerUserId, track);
-        } else if (manual) {
+        } else if (RobinhoodRhDailyCaptureKind.MANUAL.equals(captureKind)) {
             message = "Saved manual capture at "
                     + MANUAL_TIME.format(snapshotAt)
                     + " Central ("
@@ -535,6 +554,14 @@ public class RobinhoodRhDailyTrackerService {
             if (isScheduledCaptureOwner(ownerUserId)) {
                 message += " The daily 9 PM row is unchanged.";
             }
+        } else if (RobinhoodRhDailyCaptureKind.INTRADAY.equals(captureKind)) {
+            message = "Saved hourly capture at "
+                    + MANUAL_TIME.format(snapshotAt)
+                    + " Central ("
+                    + captured
+                    + " account"
+                    + (captured == 1 ? "" : "s")
+                    + ").";
         } else {
             message = "Captured " + captured + " scheduled snapshot(s) for " + snapshotDate + " Central.";
         }
@@ -574,13 +601,13 @@ public class RobinhoodRhDailyTrackerService {
                 List.copyOf(accounts));
     }
 
-    private List<RobinhoodRhDailyTrackerManualCaptureDto> buildManualCapturesForDay(
-            List<RobinhoodRhDailySnapshot> dayManualRows) {
-        if (dayManualRows.isEmpty()) {
+    private List<RobinhoodRhDailyTrackerManualCaptureDto> buildCapturesGroupedByInstant(
+            List<RobinhoodRhDailySnapshot> dayRows) {
+        if (dayRows.isEmpty()) {
             return List.of();
         }
         Map<Instant, List<RobinhoodRhDailySnapshot>> byInstant = new TreeMap<>(Comparator.reverseOrder());
-        for (RobinhoodRhDailySnapshot row : dayManualRows) {
+        for (RobinhoodRhDailySnapshot row : dayRows) {
             byInstant.computeIfAbsent(row.getSnapshotAt(), k -> new ArrayList<>()).add(row);
         }
 
@@ -763,6 +790,17 @@ public class RobinhoodRhDailyTrackerService {
         return rows.stream()
                 .filter(r -> RobinhoodRhDailyCaptureKind.MANUAL.equals(r.getCaptureKind()))
                 .toList();
+    }
+
+    private static List<RobinhoodRhDailySnapshot> intradayOnly(List<RobinhoodRhDailySnapshot> rows) {
+        return rows.stream()
+                .filter(r -> RobinhoodRhDailyCaptureKind.INTRADAY.equals(r.getCaptureKind()))
+                .toList();
+    }
+
+    private static boolean isPointInTimeCaptureKind(String captureKind) {
+        return RobinhoodRhDailyCaptureKind.MANUAL.equals(captureKind)
+                || RobinhoodRhDailyCaptureKind.INTRADAY.equals(captureKind);
     }
 
     private static List<RobinhoodRhCashFlowEventDto> flowsInPeriod(

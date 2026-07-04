@@ -29,7 +29,7 @@ import {
 /** One row in the intraday capture comparison table. */
 export interface RhDailyCaptureTimelineRow {
   capturedAt: string;
-  kind: 'scheduled' | 'manual';
+  kind: 'scheduled' | 'intraday' | 'manual';
   timeLabel: string;
   combinedTotal: number;
   changeFromPrior: number | null;
@@ -340,7 +340,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   }
 
   hasCaptureTimeline(day: RobinhoodRhDailyTrackerDayDto): boolean {
-    return day.hasScheduledSnapshot || day.manualCaptures.length > 0;
+    return day.hasScheduledSnapshot || day.intradayCaptures.length > 0 || day.manualCaptures.length > 0;
   }
 
   captureTimeline(day: RobinhoodRhDailyTrackerDayDto): RhDailyCaptureTimelineRow[] {
@@ -360,6 +360,26 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
             accountSuffix: cell.accountSuffix,
             label: this.accountLabel(cell.accountSuffix),
             totalAccountValue: cell.totalAccountValue,
+            changeFromPrior: null,
+          })),
+        },
+      });
+    }
+
+    for (const capture of day.intradayCaptures ?? []) {
+      entries.push({
+        at: new Date(capture.capturedAt).getTime(),
+        row: {
+          capturedAt: capture.capturedAt,
+          kind: 'intraday',
+          timeLabel: this.formatCaptureTime(capture.capturedAt),
+          combinedTotal: capture.combinedTotal,
+          changeFromPrior: null,
+          accounts: capture.accounts.map((acct) => ({
+            snapshotId: acct.snapshotId,
+            accountSuffix: acct.accountSuffix,
+            label: acct.label,
+            totalAccountValue: acct.totalAccountValue,
             changeFromPrior: null,
           })),
         },
