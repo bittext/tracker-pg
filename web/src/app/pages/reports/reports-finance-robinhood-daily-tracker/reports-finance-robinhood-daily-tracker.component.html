@@ -126,9 +126,10 @@
       }
     } @else {
       <ul class="rh-daily__day-list" role="list">
-        @for (day of t.days; track day.snapshotDate) {
+        @for (day of t.days; track day.snapshotDate; let dayIndex = $index) {
           <li
             class="rh-daily__day-item"
+            [class.rh-daily__day-item--alt]="dayIndex % 2 === 1"
             [class.rh-daily__day-item--open]="isDayExpanded(day)"
             [attr.aria-expanded]="isDayExpanded(day)"
           >

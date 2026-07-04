@@ -24,6 +24,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -46,7 +47,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class RobinhoodAgenticService {
 
     private static final int ORDERS_SYNC_LIMIT = 10;
-    private static final int RECENT_SYNCED_ORDERS_LIMIT = 50;
+    private static final int RECENT_SYNCED_ORDERS_DAYS = 15;
     private static final int LIVE_OPEN_POSITIONS_LIMIT = 50;
 
     private final RobinhoodAgenticProperties props;
@@ -533,15 +534,32 @@ public class RobinhoodAgenticService {
         return "•••" + accountNumber.substring(accountNumber.length() - 4);
     }
 
-    /** Recent orders for UI — excludes managed ••••4123 (same as Daily Tracker highlight policy). */
+    /** Recent orders for UI — last 15 days, excludes managed ••••4123 and rejected/cancelled. */
     private List<RobinhoodAgenticSyncedOrder> recentSyncedOrdersForDisplay(long ownerUserId) {
+        Instant cutoff = Instant.now().minus(RECENT_SYNCED_ORDERS_DAYS, ChronoUnit.DAYS);
         String excludedSuffix = RobinhoodRhDailyTrackerAccountPolicy.POSITION_CHANGE_HIGHLIGHT_EXCLUDED_SUFFIX;
         return syncedOrderRepository
                 .findByOwnerUserIdOrderByUpdatedAtRhDescCreatedAtRhDesc(ownerUserId)
                 .stream()
                 .filter(o -> !excludedSuffix.equals(lastFour(o.getAccountNumber())))
-                .limit(RECENT_SYNCED_ORDERS_LIMIT)
+                .filter(o -> !isRejectedOrCancelledOrder(o.getState()))
+                .filter(o -> {
+                    Instant activityAt = orderActivityAt(o);
+                    return activityAt != null && !activityAt.isBefore(cutoff);
+                })
                 .toList();
+    }
+
+    private static Instant orderActivityAt(RobinhoodAgenticSyncedOrder order) {
+        return order.getUpdatedAtRh() != null ? order.getUpdatedAtRh() : order.getCreatedAtRh();
+    }
+
+    private static boolean isRejectedOrCancelledOrder(String state) {
+        if (state == null || state.isBlank()) {
+            return false;
+        }
+        String normalized = state.trim().toLowerCase(Locale.ROOT);
+        return normalized.contains("reject") || normalized.contains("cancel");
     }
 
     private static String lastFour(String accountNumber) {

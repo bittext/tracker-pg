@@ -142,13 +142,22 @@
 
 .rh-daily__day-item {
   border-bottom: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+  background: var(--app-surface, #fff);
 
   &:last-child {
     border-bottom: none;
   }
 
+  &--alt {
+    background: var(--app-surface-muted, rgba(15, 23, 42, 0.035));
+  }
+
   &--open {
     background: var(--app-surface-muted, #fafafa);
+
+    &.rh-daily__day-item--alt {
+      background: rgba(15, 23, 42, 0.06);
+    }
   }
 }
 
@@ -169,6 +178,10 @@
 
   &:hover {
     background: var(--app-surface-muted, #f7f7f8);
+  }
+
+  .rh-daily__day-item--alt &:hover {
+    background: rgba(15, 23, 42, 0.055);
   }
 }
 
