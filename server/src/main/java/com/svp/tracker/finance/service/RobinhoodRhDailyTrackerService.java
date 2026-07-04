@@ -238,9 +238,6 @@ public class RobinhoodRhDailyTrackerService {
                 boolean flowActivity =
                         row.getPeriodAdded().signum() != 0 || row.getPeriodRemoved().signum() != 0;
                 List<RobinhoodRhDailyTradeDto> rowTrades = resolveTradesForSnapshot(row, ownerOrders);
-                for (RobinhoodRhDailyTradeDto trade : rowTrades) {
-                    dayTrades.add(trade.withAccount(row.getAccountSuffix(), row.getLabel()));
-                }
                 BigDecimal accountTotalChange = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
                 if (previousScheduledDate != null) {
                     accountTotalChange = scaleMoney(nullToZero(row.getTotalAccountValue())
