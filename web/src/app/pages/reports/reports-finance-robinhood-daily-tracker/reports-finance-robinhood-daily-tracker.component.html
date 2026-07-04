@@ -324,7 +324,7 @@
                                   </td>
                                   <td class="rh-daily__num">
                                     @if (showTimelineDelta(row.changeFromPrior)) {
-                                      <span [class]="timelineDeltaClass(row.changeFromPrior)">
+                                      <span class="rh-daily__timeline-prior-delta" [class]="timelineDeltaClass(row.changeFromPrior)">
                                         @if (row.changeFromPrior !== 0) {
                                           <mat-icon class="rh-daily__trend-icon rh-daily__trend-icon--sm" aria-hidden="true">
                                             {{ trendIcon(row.changeFromPrior!) }}
