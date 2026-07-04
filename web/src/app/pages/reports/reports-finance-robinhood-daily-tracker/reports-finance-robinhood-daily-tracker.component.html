@@ -93,6 +93,9 @@
           @if (t.monthCombinedChange !== 0) {
             <mat-icon class="rh-daily__trend-icon" aria-hidden="true">{{ trendIcon(t.monthCombinedChange) }}</mat-icon>
             {{ t.monthCombinedChange | currency }}
+            @if (deltaPercentForCurrent(t.monthCombinedTotal, t.monthCombinedChange); as cpct) {
+              <span class="rh-daily__delta-pct">&nbsp;({{ cpct | number: '1.2-2' }}%)</span>
+            }
           } @else {
             <span class="muted">{{ periodChangeHint() }}</span>
           }
@@ -105,6 +108,9 @@
           @if (t.yearCombinedChange !== 0) {
             <mat-icon class="rh-daily__trend-icon" aria-hidden="true">{{ trendIcon(t.yearCombinedChange) }}</mat-icon>
             {{ t.yearCombinedChange | currency }}
+            @if (deltaPercentForCurrent(t.yearCombinedTotal, t.yearCombinedChange); as cpct) {
+              <span class="rh-daily__delta-pct">&nbsp;({{ cpct | number: '1.2-2' }}%)</span>
+            }
           } @else {
             <span class="muted">No change this year</span>
           }
@@ -151,6 +157,9 @@
                       {{ trendIcon(day.combinedTotalChangeFromPrevious) }}
                     </mat-icon>
                     {{ day.combinedTotalChangeFromPrevious | currency }}
+                    @if (deltaPercentForCurrent(day.combinedTotal, day.combinedTotalChangeFromPrevious); as cpct) {
+                      <span class="rh-daily__delta-pct">&nbsp;({{ cpct | number: '1.2-2' }}%)</span>
+                    }
                   </span>
                 }
               } @else if (t.autoCaptureScheduled) {
@@ -299,6 +308,9 @@
                                                 </mat-icon>
                                               }
                                               {{ acct.changeFromPrior | currency }}
+                                              @if (deltaPercentForCurrent(acct.totalAccountValue, acct.changeFromPrior); as cpct) {
+                                                <span class="rh-daily__delta-pct">&nbsp;({{ cpct | number: '1.2-2' }}%)</span>
+                                              }
                                             </span>
                                           }
                                         </button>
@@ -319,6 +331,9 @@
                                           </mat-icon>
                                         }
                                         {{ row.changeFromPrior | currency }}
+                                        @if (deltaPercentForCurrent(row.combinedTotal, row.changeFromPrior); as cpct) {
+                                          <span class="rh-daily__delta-pct">&nbsp;({{ cpct | number: '1.2-2' }}%)</span>
+                                        }
                                       </span>
                                     } @else {
                                       <span class="muted">—</span>
@@ -498,6 +513,9 @@
                                 {{ trendIcon(cell.totalChangeFromPrevious) }}
                               </mat-icon>
                               {{ cell.totalChangeFromPrevious | currency }}
+                              @if (deltaPercentForCurrent(cell.totalAccountValue, cell.totalChangeFromPrevious); as cpct) {
+                                <span class="rh-daily__delta-pct">&nbsp;({{ cpct | number: '1.2-2' }}%)</span>
+                              }
                             </span>
                           }
                           @if (cell.periodValueChange !== 0) {

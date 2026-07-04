@@ -302,6 +302,26 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     return value >= 0 ? 'trending_up' : 'trending_down';
   }
 
+  /** Percent change vs prior total; null when prior is zero or change is missing. */
+  changePercent(change: number | null | undefined, priorTotal: number | null | undefined): number | null {
+    if (change == null || priorTotal == null || priorTotal === 0 || !Number.isFinite(change) || !Number.isFinite(priorTotal)) {
+      return null;
+    }
+    return (change / priorTotal) * 100;
+  }
+
+  /** Prior total from current value and absolute change. */
+  priorFromChange(currentTotal: number, change: number | null | undefined): number | null {
+    if (change == null || !Number.isFinite(currentTotal) || !Number.isFinite(change)) {
+      return null;
+    }
+    return currentTotal - change;
+  }
+
+  deltaPercentForCurrent(currentTotal: number, change: number | null | undefined): number | null {
+    return this.changePercent(change, this.priorFromChange(currentTotal, change));
+  }
+
   setViewMode(mode: 'classic' | 'timeline'): void {
     this.viewMode = mode;
     try {
