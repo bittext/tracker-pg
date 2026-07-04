@@ -28,6 +28,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -45,7 +46,8 @@ import org.springframework.web.server.ResponseStatusException;
 public class RobinhoodAgenticService {
 
     private static final int ORDERS_SYNC_LIMIT = 10;
-    private static final int RECENT_SYNCED_ORDERS_LIMIT = 30;
+    private static final int RECENT_SYNCED_ORDERS_LIMIT = 50;
+    private static final int LIVE_OPEN_POSITIONS_LIMIT = 50;
 
     private final RobinhoodAgenticProperties props;
     private final CurrentUserService currentUser;
@@ -129,9 +131,7 @@ public class RobinhoodAgenticService {
                 .findByOwnerUserId(uid)
                 .map(RobinhoodAgenticConnection::getPortfolioJson)
                 .orElse("");
-        List<RobinhoodAgenticPositionDto> rows = trimOpenPositions(
-                        positionRepository.findByOwnerUserIdOrderByPositionTypeAscSymbolAscChainSymbolAsc(uid))
-                .stream()
+        List<RobinhoodAgenticPositionDto> rows = openPositionsForDisplay(uid).stream()
                 .map(this::toPositionDto)
                 .toList();
         return new RobinhoodAgenticPositionsDto(rows, portfolioJson == null ? "" : portfolioJson);
@@ -360,7 +360,7 @@ public class RobinhoodAgenticService {
                 continue;
             }
             rhOrderId = rhOrderId.trim();
-            String symbol = textOrNull(row.get("symbol"));
+            String symbol = orderDisplaySymbol(row);
             if (symbol == null || symbol.isBlank()) {
                 continue;
             }
@@ -437,10 +437,21 @@ public class RobinhoodAgenticService {
     }
 
     private int openPositionCount(long ownerUserId) {
-        return trimOpenPositions(
-                        positionRepository.findByOwnerUserIdOrderByPositionTypeAscSymbolAscChainSymbolAsc(
-                                ownerUserId))
-                .size();
+        return openPositionsForDisplay(ownerUserId).size();
+    }
+
+    /** Open positions for UI — ranked by value, excludes managed ••••4123, capped at 50. */
+    private List<RobinhoodAgenticPosition> openPositionsForDisplay(long ownerUserId) {
+        return openPositionsForDisplay(
+                positionRepository.findByOwnerUserIdOrderByPositionTypeAscSymbolAscChainSymbolAsc(ownerUserId));
+    }
+
+    private List<RobinhoodAgenticPosition> openPositionsForDisplay(List<RobinhoodAgenticPosition> positions) {
+        String excludedSuffix = RobinhoodRhDailyTrackerAccountPolicy.POSITION_CHANGE_HIGHLIGHT_EXCLUDED_SUFFIX;
+        return trimOpenPositions(positions).stream()
+                .filter(p -> !excludedSuffix.equals(lastFour(p.getAccountNumber())))
+                .limit(LIVE_OPEN_POSITIONS_LIMIT)
+                .toList();
     }
 
     private static boolean isOpenPosition(BigDecimal quantity) {
@@ -471,6 +482,48 @@ public class RobinhoodAgenticService {
         if (!props.serviceConfigured()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Robinhood Agentic sidecar not configured");
         }
+    }
+
+    private static String orderDisplaySymbol(JsonNode row) {
+        String symbol = textOrNull(row.get("symbol"));
+        if (symbol != null && !symbol.isBlank()) {
+            return symbol.trim().toUpperCase(Locale.ROOT);
+        }
+        String chain = textOrNull(row.get("chain_symbol"));
+        if (chain == null || chain.isBlank()) {
+            chain = textOrNull(row.get("underlying_symbol"));
+        }
+        if (chain == null || chain.isBlank()) {
+            return null;
+        }
+        StringBuilder sb = new StringBuilder(chain.trim().toUpperCase(Locale.ROOT));
+        String strike = textOrNull(row.get("strike_price"));
+        if (strike == null || strike.isBlank()) {
+            strike = textOrNull(row.get("strike"));
+        }
+        if (strike != null && !strike.isBlank()) {
+            sb.append(' ').append(strike.startsWith("$") ? strike : "$" + strike);
+        }
+        String optionType = textOrNull(row.get("option_type"));
+        if (optionType == null || optionType.isBlank()) {
+            optionType = textOrNull(row.get("type"));
+        }
+        if (optionType != null && !optionType.isBlank()) {
+            String ot = optionType.toLowerCase(Locale.ROOT);
+            if (ot.contains("call")) {
+                sb.append(" Call");
+            } else if (ot.contains("put")) {
+                sb.append(" Put");
+            }
+        }
+        String expiration = textOrNull(row.get("expiration_date"));
+        if (expiration == null || expiration.isBlank()) {
+            expiration = textOrNull(row.get("expiration"));
+        }
+        if (expiration != null && !expiration.isBlank()) {
+            sb.append(' ').append(expiration.length() >= 10 ? expiration.substring(0, 10) : expiration);
+        }
+        return sb.toString();
     }
 
     static String maskAccount(String accountNumber) {

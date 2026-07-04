@@ -21,6 +21,7 @@ LOGGER = logging.getLogger(__name__)
 
 OPTION_POSITIONS_TOOL = "get_option_positions"
 EQUITY_ORDERS_TOOL = "get_equity_orders"
+OPTION_ORDERS_TOOL = "get_option_orders"
 EQUITY_QUOTES_TOOL = "get_equity_quotes"
 OPTION_QUOTES_TOOL = "get_option_quotes"
 QUOTE_BATCH_SIZE = 20
@@ -385,53 +386,169 @@ def _trim_positions_for_sync(positions: list[dict[str, Any]]) -> list[dict[str, 
     return open_positions
 
 
-def _orders_from_payload(payload: Any) -> list[dict[str, Any]]:
-    """Best-effort extract order rows from get_equity_orders payload."""
+def _extract_order_rows(payload: Any, container_keys: tuple[str, ...]) -> list[dict[str, Any]]:
     if not isinstance(payload, dict):
         return []
     data = payload.get("data", payload)
-    rows: list[dict[str, Any]] = []
     if isinstance(data, dict):
-        for key in ("orders", "equity_orders", "results", "items"):
+        for key in container_keys:
             items = data.get(key)
             if isinstance(items, list):
-                rows = [row for row in items if isinstance(row, dict)]
-                break
-    elif isinstance(data, list):
-        rows = [row for row in data if isinstance(row, dict)]
+                return [row for row in items if isinstance(row, dict)]
+    if isinstance(data, list):
+        return [row for row in data if isinstance(row, dict)]
+    return []
 
-    normalized = [_normalize_order(row) for row in rows]
-    normalized = [row for row in normalized if row.get("robinhood_order_id")]
+
+def _dedupe_orders(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     seen_ids: set[str] = set()
     deduped: list[dict[str, Any]] = []
-    for row in normalized:
-        order_id = str(row["robinhood_order_id"])
+    for row in rows:
+        order_id = row.get("robinhood_order_id")
+        if not order_id:
+            continue
+        order_id = str(order_id)
         if order_id in seen_ids:
             continue
         seen_ids.add(order_id)
         deduped.append(row)
-    deduped.sort(key=lambda row: str(row.get("updated_at") or row.get("created_at") or ""), reverse=True)
+    deduped.sort(
+        key=lambda row: str(row.get("updated_at") or row.get("created_at") or ""),
+        reverse=True,
+    )
     return deduped[:ORDERS_SYNC_LIMIT]
 
 
-def _normalize_order(row: dict[str, Any]) -> dict[str, Any]:
-    instrument = row.get("instrument")
+def _orders_from_equity_payload(payload: Any) -> list[dict[str, Any]]:
+    """Best-effort extract order rows from get_equity_orders payload."""
+    rows = _extract_order_rows(payload, ("orders", "equity_orders", "results", "items"))
+    normalized = [_normalize_order(row) for row in rows]
+    return _dedupe_orders(normalized)
+
+
+def _orders_from_option_payload(payload: Any) -> list[dict[str, Any]]:
+    """Best-effort extract order rows from get_option_orders payload."""
+    rows = _extract_order_rows(payload, ("orders", "option_orders", "results", "items"))
+    normalized = [_normalize_order(row) for row in rows]
+    return _dedupe_orders(normalized)
+
+
+def _option_dict(row: dict[str, Any]) -> dict[str, Any] | None:
+    option = row.get("option")
+    return option if isinstance(option, dict) else None
+
+
+def _looks_like_option_order(row: dict[str, Any]) -> bool:
+    if row.get("chain_symbol") or row.get("underlying_symbol"):
+        return True
+    if row.get("option_id") or row.get("option_instrument_id"):
+        return True
+    option = _option_dict(row)
+    if option:
+        return True
+    option_type = row.get("option_type") or row.get("position_type")
+    if option_type and str(option_type).lower() in {"call", "put", "c", "p"}:
+        return True
+    return False
+
+
+def _format_option_symbol(row: dict[str, Any], *, chain_hint: str | None = None) -> str:
+    option = _option_dict(row)
+    chain = chain_hint or row.get("chain_symbol") or row.get("underlying_symbol") or row.get("symbol")
+    if not chain and option:
+        chain = option.get("chain_symbol") or option.get("symbol") or option.get("underlying_symbol")
+    chain_text = str(chain).strip().upper() if chain else ""
+    if not chain_text:
+        return ""
+
+    parts = [chain_text]
+    strike = row.get("strike_price") or row.get("strike")
+    if strike is None and option:
+        strike = option.get("strike_price") or option.get("strike")
+    if strike is not None:
+        strike_text = str(strike).strip()
+        if strike_text and not strike_text.startswith("$"):
+            strike_text = f"${strike_text}"
+        if strike_text:
+            parts.append(strike_text)
+
+    option_type = row.get("option_type") or row.get("type")
+    if not option_type and option:
+        option_type = option.get("type") or option.get("option_type")
+    if option_type:
+        ot = str(option_type).lower()
+        if ot in {"call", "c"}:
+            parts.append("Call")
+        elif ot in {"put", "p"}:
+            parts.append("Put")
+
+    exp = row.get("expiration_date") or row.get("expiration") or row.get("expires_at")
+    if not exp and option:
+        exp = option.get("expiration_date") or option.get("expiration") or option.get("expires_at")
+    if exp:
+        parts.append(str(exp)[:10])
+    return " ".join(parts)
+
+
+def _order_display_symbol(row: dict[str, Any]) -> str:
     symbol = row.get("symbol") or row.get("instrument_symbol")
+    instrument = row.get("instrument")
     if not symbol and isinstance(instrument, dict):
         symbol = instrument.get("symbol")
+    if symbol and not _looks_like_option_order(row):
+        return str(symbol).strip().upper()
+    option_symbol = _format_option_symbol(row, chain_hint=str(symbol).strip().upper() if symbol else None)
+    if option_symbol:
+        return option_symbol
+    if symbol:
+        return str(symbol).strip().upper()
+    return ""
+
+
+def _normalize_order(row: dict[str, Any]) -> dict[str, Any]:
     order_id = row.get("id") or row.get("order_id")
     return {
         "robinhood_order_id": str(order_id) if order_id else None,
-        "symbol": str(symbol).strip().upper() if symbol else "",
+        "symbol": _order_display_symbol(row),
         "side": row.get("side"),
         "order_type": row.get("type") or row.get("order_type"),
-        "quantity": row.get("quantity") or row.get("cumulative_quantity"),
+        "quantity": row.get("quantity") or row.get("cumulative_quantity") or row.get("contracts"),
         "limit_price": row.get("price") or row.get("limit_price"),
         "average_price": row.get("average_price"),
         "state": row.get("state") or row.get("status"),
         "created_at": row.get("created_at"),
         "updated_at": row.get("updated_at") or row.get("last_transaction_at") or row.get("created_at"),
     }
+
+
+def _sync_account_orders(
+    client: RobinhoodMcpClient,
+    acct_num: str,
+    role: str,
+    *,
+    equity_orders_available: bool,
+    option_orders_available: bool,
+    warnings: list[str],
+) -> list[dict[str, Any]]:
+    orders: list[dict[str, Any]] = []
+    if equity_orders_available:
+        try:
+            orders_raw = client.call_tool(EQUITY_ORDERS_TOOL, {"account_number": acct_num})
+            orders.extend(_orders_from_equity_payload(parse_tool_payload(orders_raw)))
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.warning("get_equity_orders failed for •••%s: %s", acct_num[-4:], exc)
+            warnings.append(f"Equity order sync failed for •••{acct_num[-4:]} ({role}): {exc}")
+    if option_orders_available:
+        try:
+            option_orders_raw = client.call_tool(OPTION_ORDERS_TOOL, {"account_number": acct_num})
+            orders.extend(_orders_from_option_payload(parse_tool_payload(option_orders_raw)))
+        except Exception as exc:  # noqa: BLE001
+            LOGGER.warning("get_option_orders failed for •••%s: %s", acct_num[-4:], exc)
+            warnings.append(f"Option order sync failed for •••{acct_num[-4:]} ({role}): {exc}")
+    for order in orders:
+        order["account_number"] = acct_num
+        order["account_role"] = role
+    return orders
 
 
 def _positions_from_payload(payload: Any) -> list[dict[str, Any]]:
@@ -657,11 +774,18 @@ def _run_sync_once(
         tool_names = list_tool_names(tools)
         option_tool_available = OPTION_POSITIONS_TOOL in tool_names
         orders_tool_available = EQUITY_ORDERS_TOOL in tool_names
+        option_orders_tool_available = OPTION_ORDERS_TOOL in tool_names
         if not option_tool_available:
             warnings.append(
                 f"Option positions not synced: MCP exposes {len(tool_names)} tools and "
                 f"does not include {OPTION_POSITIONS_TOOL!r} yet (Robinhood options read rollout). "
                 "Re-run phase0_inventory.py after Robinhood enables option read tools."
+            )
+
+        if not option_orders_tool_available and option_tool_available:
+            warnings.append(
+                f"Option orders not synced: MCP exposes {len(tool_names)} tools and "
+                f"does not include {OPTION_ORDERS_TOOL!r} yet."
             )
 
         raw_accounts = client.call_tool("get_accounts", {})
@@ -709,22 +833,14 @@ def _run_sync_once(
             )
             all_positions.extend(options)
 
-            account_orders: list[dict[str, Any]] = []
-            if orders_tool_available:
-                try:
-                    orders_raw = client.call_tool(
-                        EQUITY_ORDERS_TOOL,
-                        {"account_number": acct_num},
-                    )
-                    account_orders = _orders_from_payload(parse_tool_payload(orders_raw))
-                except Exception as exc:  # noqa: BLE001
-                    LOGGER.warning("get_equity_orders failed for •••%s: %s", acct_num[-4:], exc)
-                    warnings.append(
-                        f"Order sync failed for •••{acct_num[-4:]} ({role}): {exc}"
-                    )
-            for order in account_orders:
-                order["account_number"] = acct_num
-                order["account_role"] = role
+            account_orders = _sync_account_orders(
+                client,
+                acct_num,
+                role,
+                equity_orders_available=orders_tool_available,
+                option_orders_available=option_orders_tool_available,
+                warnings=warnings,
+            )
             all_orders.extend(account_orders)
 
             portfolios[acct_num] = portfolio_data
@@ -771,6 +887,7 @@ def _run_sync_once(
             "agentic_nickname": agentic_account.get("nickname"),
             "mcp_tool_count": len(tool_names),
             "option_positions_tool_available": option_tool_available,
+            "option_orders_tool_available": option_orders_tool_available,
             "orders_sync_limit": ORDERS_SYNC_LIMIT,
             "sync_all_accounts": sync_all,
             "warnings": warnings,

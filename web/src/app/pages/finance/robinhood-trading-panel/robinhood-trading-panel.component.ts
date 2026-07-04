@@ -26,7 +26,8 @@ import { formatHttpErrorDetail } from '../../../util/http-error';
   styleUrl: './robinhood-trading-panel.component.scss',
 })
 export class RobinhoodTradingPanelComponent implements OnInit {
-  private static readonly LIVE_POSITIONS_LIMIT = 10;
+  private static readonly LIVE_POSITIONS_LIMIT = 50;
+  private static readonly EXCLUDED_ACCOUNT_SUFFIX = '4123';
 
   private readonly financeApi = inject(FinanceApiService);
   private readonly snackBar = inject(MatSnackBar);
@@ -471,9 +472,14 @@ export class RobinhoodTradingPanelComponent implements OnInit {
 
   displayedLivePositions(): RobinhoodAgenticPositionDto[] {
     return [...this.agenticPositions]
-      .filter((p) => this.isOpenPosition(p))
+      .filter((p) => this.isOpenPosition(p) && !this.isExcludedAccount(p))
       .sort((a, b) => Math.abs(b.marketValue ?? 0) - Math.abs(a.marketValue ?? 0))
       .slice(0, RobinhoodTradingPanelComponent.LIVE_POSITIONS_LIMIT);
+  }
+
+  private isExcludedAccount(p: RobinhoodAgenticPositionDto): boolean {
+    const masked = p.accountNumberMasked ?? '';
+    return masked.endsWith(RobinhoodTradingPanelComponent.EXCLUDED_ACCOUNT_SUFFIX);
   }
 
   optionContractLabel(p: RobinhoodAgenticPositionDto): string {

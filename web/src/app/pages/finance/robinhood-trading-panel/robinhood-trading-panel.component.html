@@ -129,7 +129,7 @@
               ({{ agenticStatus.lastSyncStatus }})
             }
           </li>
-          <li><strong>{{ agenticStatus.positionCount | number }}</strong> open position(s) shown (max 10)</li>
+          <li><strong>{{ agenticStatus.positionCount | number }}</strong> open position(s) shown (max 50)</li>
         </ul>
         @if (agenticStatus.lastSyncMessage) {
           <p class="muted">{{ agenticStatus.lastSyncMessage }}</p>
@@ -174,7 +174,7 @@
 
   @if (displayedLivePositions().length) {
     <div class="rh-trading__positions" role="region" aria-label="Live Agentic positions">
-      <h4 class="rh-trading__positions-title">Live open positions (top 10)</h4>
+      <h4 class="rh-trading__positions-title">Live open positions (top 50)</h4>
       <p class="muted rh-trading__hint">Open holdings ranked by market value. Closed or zero-qty positions are not shown.</p>
       <table class="rh-trading__table">
         <thead>
@@ -207,7 +207,7 @@
 
   @if (agenticSyncedOrders.length) {
     <div class="rh-trading__positions" role="region" aria-label="Recent Robinhood orders">
-      <h4 class="rh-trading__positions-title">Recent Robinhood orders (last 30)</h4>
+      <h4 class="rh-trading__positions-title">Recent Robinhood orders (last 50)</h4>
       <table class="rh-trading__table">
         <thead>
           <tr>
