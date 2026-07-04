@@ -606,6 +606,18 @@
   background: rgba(16, 163, 127, 0.04);
 }
 
+.rh-daily__timeline-row--positions-changed {
+  background: rgba(245, 158, 11, 0.07);
+}
+
+.rh-daily__timeline-cell--positions-changed {
+  background: rgba(245, 158, 11, 0.14);
+
+  .rh-daily__timeline-cell-btn:hover {
+    background: rgba(245, 158, 11, 0.22);
+  }
+}
+
 .rh-daily__timeline-kind {
   display: block;
   font-size: 0.68rem;

@@ -263,6 +263,7 @@
                       <div class="rh-daily__timeline-body">
                         <p class="muted rh-daily__timeline-hint">
                           Click any account total to open holdings. {{ priorPullHint(day) }}
+                          Highlighted cells had stock or option position changes vs the prior pull (••••4123 excluded).
                         </p>
                         <div class="rh-daily__timeline-table-wrap">
                           <table class="rh-daily__timeline-table">
@@ -278,7 +279,10 @@
                             </thead>
                             <tbody>
                               @for (row of captureTimeline(day); track row.capturedAt) {
-                                <tr [class.rh-daily__timeline-row--scheduled]="row.kind === 'scheduled' || row.kind === 'intraday'">
+                                <tr
+                                  [class.rh-daily__timeline-row--scheduled]="row.kind === 'scheduled' || row.kind === 'intraday'"
+                                  [class.rh-daily__timeline-row--positions-changed]="timelineRowHasPositionChanges(row)"
+                                >
                                   <td class="rh-daily__nowrap">
                                     {{ row.timeLabel }}
                                     @if (row.kind === 'manual') {
@@ -287,7 +291,10 @@
                                   </td>
                                   @for (acctCol of accountColumns(); track acctCol.accountSuffix) {
                                     @if (timelineAccountTotal(row, acctCol.accountSuffix); as acct) {
-                                      <td class="rh-daily__num">
+                                      <td
+                                        class="rh-daily__num"
+                                        [class.rh-daily__timeline-cell--positions-changed]="acct.positionsChangedFromPrior"
+                                      >
                                         <button
                                           type="button"
                                           class="rh-daily__timeline-cell-btn"

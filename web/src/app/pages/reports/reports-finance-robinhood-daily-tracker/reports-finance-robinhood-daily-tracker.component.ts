@@ -42,6 +42,7 @@ export interface RhDailyCaptureTimelineAccountCell {
   label: string;
   totalAccountValue: number;
   changeFromPrior: number | null;
+  positionsChangedFromPrior: boolean;
 }
 
 @Component({
@@ -361,6 +362,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
             label: this.accountLabel(cell.accountSuffix),
             totalAccountValue: cell.totalAccountValue,
             changeFromPrior: null,
+            positionsChangedFromPrior: cell.positionsChangedFromPrior ?? false,
           })),
         },
       });
@@ -381,6 +383,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
             label: acct.label,
             totalAccountValue: acct.totalAccountValue,
             changeFromPrior: null,
+            positionsChangedFromPrior: acct.positionsChangedFromPrior ?? false,
           })),
         },
       });
@@ -401,6 +404,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
             label: acct.label,
             totalAccountValue: acct.totalAccountValue,
             changeFromPrior: null,
+            positionsChangedFromPrior: acct.positionsChangedFromPrior ?? false,
           })),
         },
       });
@@ -502,6 +506,10 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
 
   timelineAccountTotal(row: RhDailyCaptureTimelineRow, suffix: string): RhDailyCaptureTimelineAccountCell | undefined {
     return row.accounts.find((a) => a.accountSuffix === suffix);
+  }
+
+  timelineRowHasPositionChanges(row: RhDailyCaptureTimelineRow): boolean {
+    return row.accounts.some((a) => a.positionsChangedFromPrior);
   }
 
   hasFlowBlock(day: RobinhoodRhDailyTrackerDayDto): boolean {

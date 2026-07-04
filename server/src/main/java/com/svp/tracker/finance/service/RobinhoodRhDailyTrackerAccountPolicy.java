@@ -34,6 +34,9 @@ final class RobinhoodRhDailyTrackerAccountPolicy {
     /** Always hidden for spulickal Daily Tracker (still synced elsewhere). */
     static final Set<String> SPULICKAL_EXCLUDED_SUFFIXES = Set.of("0440", "2835");
 
+    /** Managed account — position-change highlighting is skipped in Daily Tracker timeline. */
+    static final String POSITION_CHANGE_HIGHLIGHT_EXCLUDED_SUFFIX = "4123";
+
     private RobinhoodRhDailyTrackerAccountPolicy() {}
 
     static boolean isUserEnabled(String username, Map<String, Set<String>> additionalOwnerSuffixes) {

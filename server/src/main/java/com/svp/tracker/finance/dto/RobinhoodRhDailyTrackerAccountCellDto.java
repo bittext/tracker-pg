@@ -12,4 +12,6 @@ public record RobinhoodRhDailyTrackerAccountCellDto(
         BigDecimal periodRemoved,
         BigDecimal periodValueChange,
         boolean hasFlowActivity,
-        int tradeCount) {}
+        int tradeCount,
+        /** Stock/option quantity changes vs the immediately prior pull (false for ••••4123). */
+        boolean positionsChangedFromPrior) {}

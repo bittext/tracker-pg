@@ -177,6 +177,8 @@ export interface RobinhoodRhDailyTrackerManualCaptureAccountDto {
   accountSuffix: string;
   label: string;
   totalAccountValue: number;
+  /** Stock/option quantity changes vs prior pull (always false for ••••4123). */
+  positionsChangedFromPrior: boolean;
 }
 
 export interface RobinhoodRhDailyTrackerAccountCellDto {
@@ -189,6 +191,8 @@ export interface RobinhoodRhDailyTrackerAccountCellDto {
   periodValueChange: number;
   hasFlowActivity: boolean;
   tradeCount: number;
+  /** Stock/option quantity changes vs prior pull (always false for ••••4123). */
+  positionsChangedFromPrior: boolean;
 }
 
 export interface RobinhoodRhDailySnapshotDetailDto {

@@ -43,6 +43,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -255,7 +256,8 @@ public class RobinhoodRhDailyTrackerService {
                         scaleMoney(row.getPeriodRemoved()),
                         scaleMoney(row.getPeriodValueChange()),
                         flowActivity,
-                        rowTrades.size()));
+                        rowTrades.size(),
+                        positionsChangedFromPrior(ownerUserId, row, allYearRows)));
             }
 
             dayTrades.sort(Comparator.comparing(
@@ -270,9 +272,11 @@ public class RobinhoodRhDailyTrackerService {
             }
 
             List<RobinhoodRhDailyTrackerManualCaptureDto> intradayCaptures =
-                    buildCapturesGroupedByInstant(intradayByDate.getOrDefault(dayDate, List.of()));
+                    buildCapturesGroupedByInstant(
+                            ownerUserId, intradayByDate.getOrDefault(dayDate, List.of()), allYearRows);
             List<RobinhoodRhDailyTrackerManualCaptureDto> manualCaptures =
-                    buildCapturesGroupedByInstant(manualByDate.getOrDefault(dayDate, List.of()));
+                    buildCapturesGroupedByInstant(
+                            ownerUserId, manualByDate.getOrDefault(dayDate, List.of()), allYearRows);
 
             days.add(new RobinhoodRhDailyTrackerDayDto(
                     dayDate,
@@ -602,7 +606,9 @@ public class RobinhoodRhDailyTrackerService {
     }
 
     private List<RobinhoodRhDailyTrackerManualCaptureDto> buildCapturesGroupedByInstant(
-            List<RobinhoodRhDailySnapshot> dayRows) {
+            long ownerUserId,
+            List<RobinhoodRhDailySnapshot> dayRows,
+            List<RobinhoodRhDailySnapshot> allYearRows) {
         if (dayRows.isEmpty()) {
             return List.of();
         }
@@ -624,7 +630,8 @@ public class RobinhoodRhDailyTrackerService {
                             r.getId(),
                             r.getAccountSuffix(),
                             r.getLabel(),
-                            scaleMoney(r.getTotalAccountValue())))
+                            scaleMoney(r.getTotalAccountValue()),
+                            positionsChangedFromPrior(ownerUserId, r, allYearRows)))
                     .toList();
             out.add(new RobinhoodRhDailyTrackerManualCaptureDto(entry.getKey(), scaleMoney(combined), accounts));
         }
@@ -801,6 +808,70 @@ public class RobinhoodRhDailyTrackerService {
     private static boolean isPointInTimeCaptureKind(String captureKind) {
         return RobinhoodRhDailyCaptureKind.MANUAL.equals(captureKind)
                 || RobinhoodRhDailyCaptureKind.INTRADAY.equals(captureKind);
+    }
+
+    private boolean positionsChangedFromPrior(
+            long ownerUserId, RobinhoodRhDailySnapshot current, List<RobinhoodRhDailySnapshot> allRows) {
+        String suffix = current.getAccountSuffix();
+        if (suffix == null
+                || RobinhoodRhDailyTrackerAccountPolicy.POSITION_CHANGE_HIGHLIGHT_EXCLUDED_SUFFIX.equals(
+                        suffix.trim())) {
+            return false;
+        }
+        Instant at = current.getSnapshotAt();
+        if (at == null) {
+            return false;
+        }
+        Optional<RobinhoodRhDailySnapshot> priorOpt =
+                findPriorSnapshotForSuffix(allRows, ownerUserId, suffix.trim(), at);
+        if (priorOpt.isEmpty()) {
+            return false;
+        }
+        return holdingsPositionsChanged(priorOpt.get(), current);
+    }
+
+    private static Optional<RobinhoodRhDailySnapshot> findPriorSnapshotForSuffix(
+            List<RobinhoodRhDailySnapshot> allRows, long ownerUserId, String suffix, Instant before) {
+        return allRows.stream()
+                .filter(r -> r.getOwnerUserId() == ownerUserId)
+                .filter(r -> suffix.equals(r.getAccountSuffix()))
+                .filter(r -> r.getSnapshotAt() != null && r.getSnapshotAt().isBefore(before))
+                .max(Comparator.comparing(RobinhoodRhDailySnapshot::getSnapshotAt));
+    }
+
+    private boolean holdingsPositionsChanged(RobinhoodRhDailySnapshot prior, RobinhoodRhDailySnapshot current) {
+        return !holdingsQuantityByPositionKey(prior).equals(holdingsQuantityByPositionKey(current));
+    }
+
+    private Map<String, BigDecimal> holdingsQuantityByPositionKey(RobinhoodRhDailySnapshot row) {
+        List<RobinhoodRhHoldingDto> holdings = readJson(row.getHoldingsJson(), new TypeReference<>() {});
+        if (holdings == null || holdings.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, BigDecimal> quantities = new TreeMap<>();
+        for (RobinhoodRhHoldingDto holding : holdings) {
+            String key = holdingPositionKey(holding);
+            if (key.isEmpty()) {
+                continue;
+            }
+            BigDecimal qty = nullToZero(holding.quantity()).setScale(4, RoundingMode.HALF_UP);
+            if (qty.signum() == 0) {
+                continue;
+            }
+            quantities.merge(key, qty, BigDecimal::add);
+        }
+        return quantities;
+    }
+
+    private static String holdingPositionKey(RobinhoodRhHoldingDto holding) {
+        if (holding == null || holding.symbol() == null || holding.symbol().isBlank()) {
+            return "";
+        }
+        String symbol = holding.symbol().trim().toUpperCase(Locale.ROOT);
+        String type = holding.positionType() == null || holding.positionType().isBlank()
+                ? "STOCK"
+                : holding.positionType().trim().toUpperCase(Locale.ROOT);
+        return symbol + "|" + type;
     }
 
     private static List<RobinhoodRhCashFlowEventDto> flowsInPeriod(
