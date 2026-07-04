@@ -19,7 +19,6 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.scheduling.support.CronExpression;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -80,9 +79,9 @@ public class AdminCronJobService {
         job.setJobKey("custom." + UUID.randomUUID().toString().substring(0, 8));
         job.setBuiltIn(false);
         applyUpsert(job, request);
-        jobRepository.save(job);
+        stampTimestampsIfNew(job);
         schedulerManager.rescheduleJob(job);
-        jobRepository.save(job);
+        job = jobRepository.save(job);
         log.info("Created custom cron job {} ({})", job.getJobKey(), job.getRunnerKey());
         return toDto(job);
     }
@@ -93,9 +92,8 @@ public class AdminCronJobService {
         AdminCronJob job = requireJob(jobKey);
         validateUpsert(request, false);
         applyUpsert(job, request);
-        jobRepository.save(job);
         schedulerManager.rescheduleJob(job);
-        jobRepository.save(job);
+        job = jobRepository.save(job);
         log.info("Updated cron job {}", jobKey);
         return toDto(job);
     }
@@ -163,7 +161,7 @@ public class AdminCronJobService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "cronExpression is required for CRON jobs");
             }
             try {
-                CronExpression.parse(request.cronExpression().trim());
+                AdminCronJobScheduleSupport.normalizeCronExpression(request.cronExpression());
             } catch (Exception e) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid cron expression: " + e.getMessage());
             }
@@ -195,7 +193,7 @@ public class AdminCronJobService {
         job.setScheduleType(request.scheduleType());
         job.setRunnerKey(request.runnerKey().trim());
         if ("CRON".equals(request.scheduleType())) {
-            job.setCronExpression(request.cronExpression().trim());
+            job.setCronExpression(AdminCronJobScheduleSupport.normalizeCronExpression(request.cronExpression()));
             job.setFixedDelayMs(null);
             job.setZoneId(request.zoneId().trim());
         } else {
@@ -239,5 +237,13 @@ public class AdminCronJobService {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private static void stampTimestampsIfNew(AdminCronJob job) {
+        Instant now = Instant.now();
+        if (job.getCreatedAt() == null) {
+            job.setCreatedAt(now);
+        }
+        job.setUpdatedAt(now);
     }
 }

@@ -71,7 +71,7 @@
         <mat-form-field appearance="outline" class="grow">
           <mat-label>Cron expression</mat-label>
           <input matInput [(ngModel)]="form.cronExpression" name="cronExpression" placeholder="0 0 * * * *" />
-          <mat-hint>Spring 6-field cron (sec min hour dom month dow)</mat-hint>
+          <mat-hint>5-field Unix (min hour dom month dow) or 6-field Spring (sec min hour dom month dow)</mat-hint>
         </mat-form-field>
         <mat-form-field appearance="outline" class="narrow">
           <mat-label>Time zone</mat-label>

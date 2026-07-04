@@ -75,7 +75,7 @@ public class AdminCronJobSchedulerManager {
                         case "CRON" -> taskScheduler.schedule(
                                 task,
                                 new CronTrigger(
-                                        job.getCronExpression().trim(),
+                                        AdminCronJobScheduleSupport.normalizeCronExpression(job.getCronExpression()),
                                         ZoneId.of(job.getZoneId())));
                         case "FIXED_DELAY" -> taskScheduler.scheduleWithFixedDelay(
                                 task,

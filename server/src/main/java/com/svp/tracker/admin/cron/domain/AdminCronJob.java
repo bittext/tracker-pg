@@ -65,7 +65,7 @@ public class AdminCronJob {
     @Column(name = "next_run_at")
     private Instant nextRunAt;
 
-    @Column(name = "created_at", nullable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
     @Column(name = "updated_at", nullable = false)
@@ -74,9 +74,7 @@ public class AdminCronJob {
     @PrePersist
     void onCreate() {
         Instant now = Instant.now();
-        if (createdAt == null) {
-            createdAt = now;
-        }
+        createdAt = now;
         updatedAt = now;
     }
 
