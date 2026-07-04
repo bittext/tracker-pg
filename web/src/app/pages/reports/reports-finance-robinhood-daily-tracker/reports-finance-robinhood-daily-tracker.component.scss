@@ -588,11 +588,7 @@
 .rh-daily__timeline-table td {
   padding: 0.4rem 0.5rem;
   border-bottom: 1px solid var(--app-border, rgba(15, 23, 42, 0.06));
-  vertical-align: middle;
-}
-
-.rh-daily__timeline-table .rh-daily__num {
-  white-space: nowrap;
+  vertical-align: top;
 }
 
 .rh-daily__timeline-table th {
@@ -611,18 +607,16 @@
 }
 
 .rh-daily__timeline-kind {
-  display: inline;
-  margin-left: 0.25rem;
+  display: block;
   font-size: 0.68rem;
 }
 
 .rh-daily__timeline-cell-btn {
-  display: inline-flex;
-  flex-wrap: nowrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.35rem;
-  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+  width: 100%;
   padding: 0.15rem 0.25rem;
   border: none;
   border-radius: 4px;
@@ -631,7 +625,6 @@
   font: inherit;
   color: inherit;
   text-align: right;
-  white-space: nowrap;
 
   &:hover {
     background: var(--app-surface-muted, #f7f7f8);
