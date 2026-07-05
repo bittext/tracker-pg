@@ -24,7 +24,7 @@ class RobinhoodRhDailyTrackerPositionChangeTest {
                 Instant.parse("2026-07-04T19:00:00Z"),
                 holding("AAPL", "STOCK", "12"));
 
-        assertTrue(positionsChanged(prior, current));
+        assertTrue(RobinhoodRhDailySnapshotCompare.positionsChanged(prior, current));
     }
 
     @Test
@@ -38,11 +38,11 @@ class RobinhoodRhDailyTrackerPositionChangeTest {
                 Instant.parse("2026-07-04T19:00:00Z"),
                 holding("AAPL", "STOCK", "10", "150", "170"));
 
-        assertFalse(positionsChanged(prior, current));
+        assertFalse(RobinhoodRhDailySnapshotCompare.positionsChanged(prior, current));
     }
 
     @Test
-    void excludesManagedAccount4123() {
+    void excludesManagedAccount4123FromHighlightPolicy() {
         RobinhoodRhDailySnapshot prior = snapshot(
                 RobinhoodRhDailyTrackerAccountPolicy.POSITION_CHANGE_HIGHLIGHT_EXCLUDED_SUFFIX,
                 Instant.parse("2026-07-04T18:00:00Z"),
@@ -52,20 +52,7 @@ class RobinhoodRhDailyTrackerPositionChangeTest {
                 Instant.parse("2026-07-04T19:00:00Z"),
                 holding("VOO", "STOCK", "5"));
 
-        assertFalse(positionsChangedForHighlight(prior, current));
-    }
-
-    private static boolean positionsChanged(RobinhoodRhDailySnapshot prior, RobinhoodRhDailySnapshot current) {
-        return !quantities(prior).equals(quantities(current));
-    }
-
-    private static boolean positionsChangedForHighlight(
-            RobinhoodRhDailySnapshot prior, RobinhoodRhDailySnapshot current) {
-        if (RobinhoodRhDailyTrackerAccountPolicy.POSITION_CHANGE_HIGHLIGHT_EXCLUDED_SUFFIX.equals(
-                current.getAccountSuffix())) {
-            return false;
-        }
-        return positionsChanged(prior, current);
+        assertTrue(RobinhoodRhDailySnapshotCompare.positionsChanged(prior, current));
     }
 
     private static RobinhoodRhHoldingDto holding(String symbol, String type, String qty) {
@@ -104,20 +91,5 @@ class RobinhoodRhDailyTrackerPositionChangeTest {
             throw new RuntimeException(e);
         }
         return row;
-    }
-
-    private static java.util.Map<String, BigDecimal> quantities(RobinhoodRhDailySnapshot row) {
-        try {
-            List<RobinhoodRhHoldingDto> holdings = new com.fasterxml.jackson.databind.ObjectMapper()
-                    .readValue(row.getHoldingsJson(), new com.fasterxml.jackson.core.type.TypeReference<>() {});
-            java.util.Map<String, BigDecimal> map = new java.util.TreeMap<>();
-            for (RobinhoodRhHoldingDto h : holdings) {
-                String key = h.symbol().toUpperCase() + "|" + h.positionType().toUpperCase();
-                map.merge(key, h.quantity(), BigDecimal::add);
-            }
-            return map;
-        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
     }
 }

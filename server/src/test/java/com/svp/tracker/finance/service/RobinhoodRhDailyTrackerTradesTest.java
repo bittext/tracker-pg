@@ -31,6 +31,10 @@ class RobinhoodRhDailyTrackerTradesTest {
     void setUp() {
         @SuppressWarnings("unchecked")
         ObjectProvider<RobinhoodRhDailyTrackerService> selfProvider = mock(ObjectProvider.class);
+        @SuppressWarnings("unchecked")
+        ObjectProvider<RobinhoodRhDailyTrackerAlertService> alertServiceProvider = mock(ObjectProvider.class);
+        RobinhoodRhDailyTrackerAlertService alertService = mock(RobinhoodRhDailyTrackerAlertService.class);
+        when(alertServiceProvider.getObject()).thenReturn(alertService);
         service = new RobinhoodRhDailyTrackerService(
                 mock(com.svp.tracker.auth.security.CurrentUserService.class),
                 mock(com.svp.tracker.auth.repository.AppUserRepository.class),
@@ -43,7 +47,8 @@ class RobinhoodRhDailyTrackerTradesTest {
                 mock(RobinhoodAccountTrackerConfigService.class),
                 mock(com.svp.tracker.config.RobinhoodAgenticProperties.class),
                 mock(com.svp.tracker.config.RobinhoodRhDailyTrackerProperties.class),
-                selfProvider);
+                selfProvider,
+                alertServiceProvider);
         when(selfProvider.getObject()).thenReturn(service);
     }
 

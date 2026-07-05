@@ -14,7 +14,8 @@ public record RobinhoodRhDailyTrackerProperties(
         int snapshotClosingHour,
         String snapshotSchedulerEnabledConfig,
         List<String> excludedAccountSuffixes,
-        Map<String, String> additionalOwnerSuffixes) {
+        Map<String, String> additionalOwnerSuffixes,
+        boolean alertsEnabled) {
 
     public RobinhoodRhDailyTrackerProperties {
         if (snapshotCron == null) {

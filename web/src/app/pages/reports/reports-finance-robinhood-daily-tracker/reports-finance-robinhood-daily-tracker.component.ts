@@ -1,6 +1,7 @@
 import { CommonModule, CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -17,6 +18,10 @@ import {
   RobinhoodRhDailyTrackerManualCaptureAccountDto,
   RobinhoodRhDailyTrackerManualCaptureDto,
   RobinhoodRhDailyTrackerReportDto,
+  RhDailyTrackerAccountAlertDto,
+  RhDailyTrackerAccountAlertItemDto,
+  RhDailyTrackerAccountAlertsDto,
+  RhDailyTrackerAlertEventDto,
 } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
@@ -60,6 +65,7 @@ export interface RhDailyCaptureTimelineAccountCell {
     MatProgressSpinnerModule,
     MatSelectModule,
     MatSnackBarModule,
+    MatCheckboxModule,
     CurrencyPipe,
     DatePipe,
     DecimalPipe,
@@ -78,6 +84,14 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   loading = false;
   capturing = false;
   tracker: RobinhoodRhDailyTrackerReportDto | null = null;
+
+  spikeAlertsExpanded = false;
+  alertsLoading = false;
+  alertsSaving = false;
+  alertsTesting = false;
+  alertSettings: RhDailyTrackerAccountAlertsDto | null = null;
+  alertFormRows: RhDailyTrackerAccountAlertDto[] = [];
+  alertEvents: RhDailyTrackerAlertEventDto[] = [];
 
   /** snapshotDate keys for expanded 9 PM day rows */
   private readonly expandedDays = new Set<string>();
@@ -122,6 +136,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
+    this.loadSpikeAlerts();
   }
 
   yearChoices(): number[] {
@@ -875,6 +890,114 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       return stored === 'timeline' ? 'timeline' : 'classic';
     } catch {
       return 'classic';
+    }
+  }
+
+  toggleSpikeAlertsPanel(): void {
+    this.spikeAlertsExpanded = !this.spikeAlertsExpanded;
+    if (this.spikeAlertsExpanded && !this.alertSettings && !this.alertsLoading) {
+      this.loadSpikeAlerts();
+    }
+  }
+
+  loadSpikeAlerts(): void {
+    this.alertsLoading = true;
+    this.financeApi.robinhoodDailyTrackerAlerts().subscribe({
+      next: (settings) => {
+        this.alertSettings = settings;
+        this.alertFormRows = settings.accounts.map((a) => ({ ...a }));
+        this.alertsLoading = false;
+      },
+      error: (err) => {
+        this.alertSettings = null;
+        this.alertFormRows = [];
+        this.alertsLoading = false;
+        this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
+      },
+    });
+    this.financeApi.robinhoodDailyTrackerAlertEvents(10).subscribe({
+      next: (events) => {
+        this.alertEvents = events;
+      },
+      error: () => {
+        this.alertEvents = [];
+      },
+    });
+  }
+
+  saveSpikeAlerts(): void {
+    this.alertsSaving = true;
+    const body = {
+      accounts: this.alertFormRows.map(
+        (row): RhDailyTrackerAccountAlertItemDto => ({
+          accountSuffix: row.accountSuffix,
+          enabled: row.enabled,
+          valueDollarsEnabled: row.valueDollarsEnabled,
+          minValueChangeDollars: row.minValueChangeDollars,
+          valuePercentEnabled: row.valuePercentEnabled,
+          minValueChangePercent: row.minValueChangePercent,
+          positionChangeEnabled: row.positionChangeEnabled,
+          cooldownMinutes: row.cooldownMinutes,
+        }),
+      ),
+    };
+    this.financeApi.robinhoodDailyTrackerSaveAlerts(body).subscribe({
+      next: (settings) => {
+        this.alertSettings = settings;
+        this.alertFormRows = settings.accounts.map((a) => ({ ...a }));
+        this.alertsSaving = false;
+        this.snackBar.open('Spike alert settings saved', undefined, { duration: 2500 });
+      },
+      error: (err) => {
+        this.alertsSaving = false;
+        this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
+      },
+    });
+  }
+
+  testSpikeAlertEmail(): void {
+    this.alertsTesting = true;
+    this.financeApi.robinhoodDailyTrackerAlertTest().subscribe({
+      next: (result) => {
+        this.alertsTesting = false;
+        this.snackBar.open(result.message, undefined, { duration: 5000 });
+        this.loadSpikeAlerts();
+      },
+      error: (err) => {
+        this.alertsTesting = false;
+        this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
+      },
+    });
+  }
+
+  alertTriggerLabel(reasons: string): string {
+    return reasons
+      .split(',')
+      .map((r) => {
+        switch (r.trim()) {
+          case 'VALUE_DOLLARS':
+            return '$ change';
+          case 'VALUE_PERCENT':
+            return '% change';
+          case 'POSITIONS':
+            return 'positions';
+          case 'TEST':
+            return 'test';
+          default:
+            return r.trim();
+        }
+      })
+      .join(', ');
+  }
+
+  alertStatusClass(status: string): string {
+    switch (status) {
+      case 'SENT':
+        return 'rh-daily__alert-status--sent';
+      case 'FAILED':
+        return 'rh-daily__alert-status--failed';
+      default:
+        return 'rh-daily__alert-status--skipped';
     }
   }
 }

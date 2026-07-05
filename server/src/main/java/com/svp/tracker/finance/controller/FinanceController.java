@@ -32,6 +32,11 @@ import com.svp.tracker.finance.dto.RobinhoodRhDailyDayNoteUpsertDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyManualCaptureDeleteResultDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailySnapshotDetailDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerReportDto;
+import com.svp.tracker.finance.dto.RhDailyTrackerAccountAlertSaveRequestDto;
+import com.svp.tracker.finance.dto.RhDailyTrackerAccountAlertsDto;
+import com.svp.tracker.finance.dto.RhDailyTrackerAlertEventDto;
+import com.svp.tracker.finance.dto.RhDailyTrackerAlertTestResultDto;
+import com.svp.tracker.finance.service.RobinhoodRhDailyTrackerAlertService;
 import com.svp.tracker.finance.service.RobinhoodRhDailyTrackerService;
 import com.svp.tracker.finance.service.RobinhoodCsvImportService;
 import com.svp.tracker.finance.service.RobinhoodFinanceService;
@@ -72,6 +77,7 @@ public class FinanceController {
     private final RobinhoodAccountTrackerService accountTrackerService;
     private final RobinhoodRhAccountsTrackService rhAccountsTrackService;
     private final RobinhoodRhDailyTrackerService rhDailyTrackerService;
+    private final RobinhoodRhDailyTrackerAlertService rhDailyTrackerAlertService;
     private final FinanceProperties financeProperties;
 
     /**
@@ -203,6 +209,33 @@ public class FinanceController {
         }
         log.info("PUT /api/finance/robinhood/daily-tracker/day-note date={}", body.snapshotDate());
         return rhDailyTrackerService.upsertDaySummaryNote(body.snapshotDate(), body.noteText());
+    }
+
+    /** Per-account spike email alert settings for Daily Tracker captures. */
+    @GetMapping("/daily-tracker/alerts")
+    public RhDailyTrackerAccountAlertsDto dailyTrackerAlerts() {
+        log.info("GET /api/finance/robinhood/daily-tracker/alerts");
+        return rhDailyTrackerAlertService.listCurrentUserAlerts();
+    }
+
+    @PutMapping("/daily-tracker/alerts")
+    public RhDailyTrackerAccountAlertsDto dailyTrackerSaveAlerts(
+            @RequestBody RhDailyTrackerAccountAlertSaveRequestDto body) {
+        log.info("PUT /api/finance/robinhood/daily-tracker/alerts");
+        return rhDailyTrackerAlertService.saveCurrentUserAlerts(body);
+    }
+
+    @GetMapping("/daily-tracker/alerts/events")
+    public List<RhDailyTrackerAlertEventDto> dailyTrackerAlertEvents(
+            @RequestParam(name = "limit", defaultValue = "20") int limit) {
+        log.info("GET /api/finance/robinhood/daily-tracker/alerts/events limit={}", limit);
+        return rhDailyTrackerAlertService.recentEvents(limit);
+    }
+
+    @PostMapping("/daily-tracker/alerts/test")
+    public RhDailyTrackerAlertTestResultDto dailyTrackerAlertTest() {
+        log.info("POST /api/finance/robinhood/daily-tracker/alerts/test");
+        return rhDailyTrackerAlertService.sendTestEmail();
     }
 
     /**

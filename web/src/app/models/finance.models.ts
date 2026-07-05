@@ -166,6 +166,59 @@ export interface RobinhoodRhDailyDayNoteResultDto {
   message: string;
 }
 
+export interface RhDailyTrackerAccountAlertDto {
+  accountSuffix: string;
+  label: string;
+  accountKind: string;
+  enabled: boolean;
+  valueDollarsEnabled: boolean;
+  minValueChangeDollars: number | null;
+  valuePercentEnabled: boolean;
+  minValueChangePercent: number | null;
+  positionChangeEnabled: boolean;
+  cooldownMinutes: number;
+}
+
+export interface RhDailyTrackerAccountAlertsDto {
+  emailConfigured: boolean;
+  emailHint: string;
+  accounts: RhDailyTrackerAccountAlertDto[];
+}
+
+export interface RhDailyTrackerAccountAlertItemDto {
+  accountSuffix: string;
+  enabled: boolean;
+  valueDollarsEnabled: boolean;
+  minValueChangeDollars: number | null;
+  valuePercentEnabled: boolean;
+  minValueChangePercent: number | null;
+  positionChangeEnabled: boolean;
+  cooldownMinutes: number;
+}
+
+export interface RhDailyTrackerAccountAlertSaveRequestDto {
+  accounts: RhDailyTrackerAccountAlertItemDto[];
+}
+
+export interface RhDailyTrackerAlertEventDto {
+  id: number;
+  accountSuffix: string;
+  snapshotId: number | null;
+  priorSnapshotId: number | null;
+  triggerReasons: string;
+  deltaDollars: number | null;
+  deltaPercent: number | null;
+  emailStatus: string;
+  destinationMasked: string | null;
+  detail: string | null;
+  createdAt: string;
+}
+
+export interface RhDailyTrackerAlertTestResultDto {
+  message: string;
+  event: RhDailyTrackerAlertEventDto;
+}
+
 export interface RobinhoodRhDailyTrackerManualCaptureDto {
   capturedAt: string;
   combinedTotal: number;

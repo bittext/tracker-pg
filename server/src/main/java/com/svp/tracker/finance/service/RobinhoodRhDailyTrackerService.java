@@ -85,6 +85,7 @@ public class RobinhoodRhDailyTrackerService {
     private final RobinhoodAgenticProperties agenticProps;
     private final RobinhoodRhDailyTrackerProperties dailyTrackerProps;
     private final ObjectProvider<RobinhoodRhDailyTrackerService> selfProvider;
+    private final ObjectProvider<RobinhoodRhDailyTrackerAlertService> alertServiceProvider;
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     /** Whether nightly scheduled snapshots and 9 PM schedule copy apply to this owner. */
@@ -484,6 +485,7 @@ public class RobinhoodRhDailyTrackerService {
         Instant now = Instant.now();
         int captured = 0;
         boolean pointInTime = isPointInTimeCaptureKind(captureKind);
+        List<RobinhoodRhDailySnapshot> savedSnapshots = new ArrayList<>();
         List<RobinhoodAgenticSyncedOrder> ownerOrders =
                 syncedOrderRepository.findByOwnerUserIdOrderByUpdatedAtRhDescCreatedAtRhDesc(ownerUserId);
 
@@ -543,7 +545,12 @@ public class RobinhoodRhDailyTrackerService {
                 snapshot.setCreatedAt(now);
             }
             snapshotRepository.save(snapshot);
+            savedSnapshots.add(snapshot);
             captured++;
+        }
+
+        if (captured > 0) {
+            alertServiceProvider.getObject().evaluateAfterCapture(ownerUserId, savedSnapshots);
         }
 
         String message;
@@ -918,55 +925,11 @@ public class RobinhoodRhDailyTrackerService {
             return false;
         }
         Optional<RobinhoodRhDailySnapshot> priorOpt =
-                findPriorSnapshotForSuffix(allRows, ownerUserId, suffix.trim(), at);
+                RobinhoodRhDailySnapshotCompare.findPriorSnapshotInMemory(allRows, ownerUserId, suffix.trim(), at);
         if (priorOpt.isEmpty()) {
             return false;
         }
-        return holdingsPositionsChanged(priorOpt.get(), current);
-    }
-
-    private static Optional<RobinhoodRhDailySnapshot> findPriorSnapshotForSuffix(
-            List<RobinhoodRhDailySnapshot> allRows, long ownerUserId, String suffix, Instant before) {
-        return allRows.stream()
-                .filter(r -> r.getOwnerUserId() == ownerUserId)
-                .filter(r -> suffix.equals(r.getAccountSuffix()))
-                .filter(r -> r.getSnapshotAt() != null && r.getSnapshotAt().isBefore(before))
-                .max(Comparator.comparing(RobinhoodRhDailySnapshot::getSnapshotAt));
-    }
-
-    private boolean holdingsPositionsChanged(RobinhoodRhDailySnapshot prior, RobinhoodRhDailySnapshot current) {
-        return !holdingsQuantityByPositionKey(prior).equals(holdingsQuantityByPositionKey(current));
-    }
-
-    private Map<String, BigDecimal> holdingsQuantityByPositionKey(RobinhoodRhDailySnapshot row) {
-        List<RobinhoodRhHoldingDto> holdings = readJson(row.getHoldingsJson(), new TypeReference<>() {});
-        if (holdings == null || holdings.isEmpty()) {
-            return Map.of();
-        }
-        Map<String, BigDecimal> quantities = new TreeMap<>();
-        for (RobinhoodRhHoldingDto holding : holdings) {
-            String key = holdingPositionKey(holding);
-            if (key.isEmpty()) {
-                continue;
-            }
-            BigDecimal qty = nullToZero(holding.quantity()).setScale(4, RoundingMode.HALF_UP);
-            if (qty.signum() == 0) {
-                continue;
-            }
-            quantities.merge(key, qty, BigDecimal::add);
-        }
-        return quantities;
-    }
-
-    private static String holdingPositionKey(RobinhoodRhHoldingDto holding) {
-        if (holding == null || holding.symbol() == null || holding.symbol().isBlank()) {
-            return "";
-        }
-        String symbol = holding.symbol().trim().toUpperCase(Locale.ROOT);
-        String type = holding.positionType() == null || holding.positionType().isBlank()
-                ? "STOCK"
-                : holding.positionType().trim().toUpperCase(Locale.ROOT);
-        return symbol + "|" + type;
+        return RobinhoodRhDailySnapshotCompare.positionsChanged(priorOpt.get(), current);
     }
 
     private static List<RobinhoodRhCashFlowEventDto> flowsInPeriod(

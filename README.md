@@ -248,6 +248,8 @@ For **`mvn spring-boot:run`** on your Mac, use the **`local`** profile and set `
 - SMS (Amazon SNS): set **`TRACKER_FINANCE_ALERTS_SMS_ENABLED=true`** and the same **`TRACKER_FINANCE_ALERTS_AWS_REGION`**. Ensure SNS SMS is allowed for your account and destination countries; optional **`TRACKER_FINANCE_ALERTS_SMS_SMS_TYPE`** (`TRANSACTIONAL` or `PROMOTIONAL`) and **`TRACKER_FINANCE_ALERTS_SMS_SENDER_ID`** where supported.
 - Polling is controlled by **`TRACKER_FINANCE_ALERTS_EVALUATION_ENABLED`** and **`TRACKER_FINANCE_ALERTS_POLL_FIXED_DELAY_MS`**. Quotes are Yahoo best-effort and may be delayed.
 
+**Robinhood Daily Tracker spike alerts:** per-account email thresholds ($ change, % change, and/or holdings quantity change vs the immediately prior capture) are configured on **Reports → Robinhood Daily Tracker → Spike alerts**. They use the same Finance notification email as stock alerts. Disable globally with **`TRACKER_FINANCE_RH_DAILY_TRACKER_ALERTS_ENABLED=false`**.
+
 1. Copy the env template and set strong values (never commit `.env.stack`; it is gitignored):
 
 ```bash

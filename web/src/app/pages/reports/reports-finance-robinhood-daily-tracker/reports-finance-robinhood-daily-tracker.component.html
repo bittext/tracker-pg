@@ -74,7 +74,149 @@
     @if (loading || capturing) {
       <mat-spinner diameter="28" aria-label="Loading" />
     }
+    <button
+      mat-stroked-button
+      type="button"
+      (click)="toggleSpikeAlertsPanel()"
+      [attr.aria-expanded]="spikeAlertsExpanded"
+    >
+      <mat-icon>{{ spikeAlertsExpanded ? 'expand_less' : 'notifications' }}</mat-icon>
+      Spike alerts
+    </button>
   </div>
+
+  @if (spikeAlertsExpanded) {
+    <section class="rh-daily__alerts" aria-labelledby="rh-daily-alerts-heading">
+      <h3 id="rh-daily-alerts-heading" class="rh-daily__alerts-title">Spike email alerts</h3>
+      <p class="muted rh-daily__alerts-lead">
+        Email when an account’s total or holdings change sharply vs the immediately prior capture (hourly, manual, or
+        scheduled). Uses your registered Finance notification email.
+      </p>
+      @if (alertSettings; as settings) {
+        @if (!settings.emailConfigured) {
+          <p class="rh-daily__alerts-warn">
+            Email is not configured.
+            <a routerLink="/admin">Admin → Finance → Notifications</a>
+            — {{ settings.emailHint }}
+          </p>
+        } @else {
+          <p class="muted rh-daily__alerts-hint">{{ settings.emailHint }}</p>
+        }
+      }
+      @if (alertsLoading) {
+        <mat-spinner diameter="28" aria-label="Loading alerts" />
+      } @else if (alertFormRows.length) {
+        <div class="rh-daily__alerts-table-wrap">
+          <table class="rh-daily__alerts-table">
+            <thead>
+              <tr>
+                <th scope="col">Account</th>
+                <th scope="col">On</th>
+                <th scope="col">Min $</th>
+                <th scope="col">Min %</th>
+                <th scope="col">Positions</th>
+                <th scope="col">Cooldown (min)</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of alertFormRows; track row.accountSuffix) {
+                <tr>
+                  <td>
+                    <span class="rh-daily__alerts-acct">{{ row.label }}</span>
+                    <span class="muted">••••{{ row.accountSuffix }}</span>
+                  </td>
+                  <td>
+                    <mat-checkbox [(ngModel)]="row.enabled" [name]="'alertEn' + row.accountSuffix" />
+                  </td>
+                  <td>
+                    <mat-checkbox
+                      [(ngModel)]="row.valueDollarsEnabled"
+                      [name]="'alertDolEn' + row.accountSuffix"
+                      [disabled]="!row.enabled"
+                    />
+                    <input
+                      class="rh-daily__alerts-input"
+                      type="number"
+                      min="0"
+                      step="100"
+                      [(ngModel)]="row.minValueChangeDollars"
+                      [name]="'alertDol' + row.accountSuffix"
+                      [disabled]="!row.enabled || !row.valueDollarsEnabled"
+                      placeholder="500"
+                    />
+                  </td>
+                  <td>
+                    <mat-checkbox
+                      [(ngModel)]="row.valuePercentEnabled"
+                      [name]="'alertPctEn' + row.accountSuffix"
+                      [disabled]="!row.enabled"
+                    />
+                    <input
+                      class="rh-daily__alerts-input"
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      [(ngModel)]="row.minValueChangePercent"
+                      [name]="'alertPct' + row.accountSuffix"
+                      [disabled]="!row.enabled || !row.valuePercentEnabled"
+                      placeholder="2"
+                    />
+                  </td>
+                  <td>
+                    <mat-checkbox
+                      [(ngModel)]="row.positionChangeEnabled"
+                      [name]="'alertPos' + row.accountSuffix"
+                      [disabled]="!row.enabled"
+                    />
+                  </td>
+                  <td>
+                    <input
+                      class="rh-daily__alerts-input rh-daily__alerts-input--cooldown"
+                      type="number"
+                      min="0"
+                      step="15"
+                      [(ngModel)]="row.cooldownMinutes"
+                      [name]="'alertCd' + row.accountSuffix"
+                      [disabled]="!row.enabled"
+                    />
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <div class="rh-daily__alerts-actions">
+          <button mat-flat-button color="primary" type="button" (click)="saveSpikeAlerts()" [disabled]="alertsSaving">
+            Save alerts
+          </button>
+          <button mat-stroked-button type="button" (click)="testSpikeAlertEmail()" [disabled]="alertsTesting">
+            Test email
+          </button>
+          @if (alertsSaving || alertsTesting) {
+            <mat-spinner diameter="24" aria-label="Saving" />
+          }
+        </div>
+      } @else {
+        <p class="muted">No Daily Tracker accounts available for alerts yet.</p>
+      }
+      @if (alertEvents.length) {
+        <h4 class="rh-daily__alerts-recent-title">Recent alerts</h4>
+        <ul class="rh-daily__alerts-events">
+          @for (ev of alertEvents; track ev.id) {
+            <li>
+              <span class="rh-daily__alert-status" [class]="alertStatusClass(ev.emailStatus)">{{ ev.emailStatus }}</span>
+              <span>••••{{ ev.accountSuffix }}</span>
+              <span class="muted">{{ alertTriggerLabel(ev.triggerReasons) }}</span>
+              @if (ev.deltaDollars != null) {
+                <span [class]="pnlClass(ev.deltaDollars)">{{ ev.deltaDollars | currency }}</span>
+              }
+              <span class="muted">{{ ev.createdAt | date: 'short' }}</span>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  }
 
   @if (tracker; as t) {
     @if (t.notes.length) {

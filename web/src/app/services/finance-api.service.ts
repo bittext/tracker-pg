@@ -20,6 +20,10 @@ import {
   RobinhoodRhDailyManualCaptureDeleteResultDto,
   RobinhoodRhDailySnapshotDetailDto,
   RobinhoodRhDailyTrackerReportDto,
+  RhDailyTrackerAccountAlertSaveRequestDto,
+  RhDailyTrackerAccountAlertsDto,
+  RhDailyTrackerAlertEventDto,
+  RhDailyTrackerAlertTestResultDto,
   RobinhoodCsvImportResultDto,
   RobinhoodNotebookBundleDto,
   RobinhoodNotebookConfigDto,
@@ -142,6 +146,24 @@ export class FinanceApiService {
       snapshotDate,
       noteText,
     });
+  }
+
+  robinhoodDailyTrackerAlerts() {
+    return this.http.get<RhDailyTrackerAccountAlertsDto>(`${this.root}/daily-tracker/alerts`);
+  }
+
+  robinhoodDailyTrackerSaveAlerts(body: RhDailyTrackerAccountAlertSaveRequestDto) {
+    return this.http.put<RhDailyTrackerAccountAlertsDto>(`${this.root}/daily-tracker/alerts`, body);
+  }
+
+  robinhoodDailyTrackerAlertEvents(limit = 20) {
+    return this.http.get<RhDailyTrackerAlertEventDto[]>(`${this.root}/daily-tracker/alerts/events`, {
+      params: { limit: String(limit) },
+    });
+  }
+
+  robinhoodDailyTrackerAlertTest() {
+    return this.http.post<RhDailyTrackerAlertTestResultDto>(`${this.root}/daily-tracker/alerts/test`, null);
   }
 
   /** Robinhood Agentic MCP connection status (Phase 1). */
