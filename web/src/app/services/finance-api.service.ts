@@ -17,7 +17,10 @@ import {
   RobinhoodRhAccountsTrackDto,
   RobinhoodRhDailyCaptureResultDto,
   RobinhoodRhDailyDayNoteResultDto,
+  RobinhoodRhCryptoCaptureResultDto,
   RobinhoodRhCryptoTrackerReportDto,
+  RobinhoodCryptoTradingCredentialsRequestDto,
+  RobinhoodCryptoTradingStatusDto,
   RobinhoodRhDailyManualCaptureDeleteResultDto,
   RobinhoodRhDailySnapshotDetailDto,
   RobinhoodRhDailyTrackerReportDto,
@@ -136,6 +139,24 @@ export class FinanceApiService {
       }
     }
     return this.http.get<RobinhoodRhCryptoTrackerReportDto>(`${this.root}/crypto-tracker`, { params });
+  }
+
+  robinhoodCryptoTradingStatus() {
+    return this.http.get<RobinhoodCryptoTradingStatusDto>(`${this.root}/crypto-trading/status`);
+  }
+
+  robinhoodCryptoTradingSaveCredentials(body: RobinhoodCryptoTradingCredentialsRequestDto) {
+    return this.http.put<RobinhoodCryptoTradingStatusDto>(`${this.root}/crypto-trading/credentials`, body);
+  }
+
+  robinhoodCryptoTradingDisconnect() {
+    return this.http.delete<void>(`${this.root}/crypto-trading/connection`);
+  }
+
+  robinhoodCryptoTrackerCapture(sync = true) {
+    return this.http.post<RobinhoodRhCryptoCaptureResultDto>(`${this.root}/crypto-tracker/capture`, null, {
+      params: { sync: String(sync) },
+    });
   }
 
   robinhoodDailyTrackerSnapshot(id: number) {

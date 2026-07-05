@@ -1,14 +1,18 @@
-import { CommonModule } from '@angular/common';
+import { CommonModule, CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { RouterLink } from '@angular/router';
-import { RobinhoodRhCryptoTrackerReportDto } from '../../../models/finance.models';
+import {
+  RobinhoodCryptoTradingStatusDto,
+  RobinhoodRhCryptoTrackerDayDto,
+  RobinhoodRhCryptoTrackerReportDto,
+} from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
 
@@ -18,13 +22,16 @@ import { formatHttpErrorDetail } from '../../../util/http-error';
   imports: [
     CommonModule,
     FormsModule,
-    RouterLink,
     MatButtonModule,
     MatFormFieldModule,
     MatIconModule,
+    MatInputModule,
     MatProgressSpinnerModule,
     MatSelectModule,
     MatSnackBarModule,
+    CurrencyPipe,
+    DatePipe,
+    DecimalPipe,
   ],
   templateUrl: './reports-finance-robinhood-crypto-tracker.component.html',
   styleUrl: './reports-finance-robinhood-crypto-tracker.component.scss',
@@ -36,7 +43,16 @@ export class ReportsFinanceRobinhoodCryptoTrackerComponent implements OnInit {
   reportYear = new Date().getFullYear();
   reportMonths: number[] = [new Date().getMonth() + 1];
   loading = false;
+  capturing = false;
+  savingCredentials = false;
+  connectExpanded = false;
   tracker: RobinhoodRhCryptoTrackerReportDto | null = null;
+  cryptoStatus: RobinhoodCryptoTradingStatusDto | null = null;
+
+  apiKey = '';
+  privateKeyBase64 = '';
+
+  readonly expandedDays = new Set<string>();
 
   readonly monthChoices = [
     { value: 1, label: 'January' },
@@ -55,6 +71,7 @@ export class ReportsFinanceRobinhoodCryptoTrackerComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
+    this.loadCryptoStatus();
   }
 
   yearChoices(): number[] {
@@ -74,6 +91,20 @@ export class ReportsFinanceRobinhoodCryptoTrackerComponent implements OnInit {
         this.tracker = null;
         this.loading = false;
         this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
+      },
+    });
+  }
+
+  loadCryptoStatus(): void {
+    this.financeApi.robinhoodCryptoTradingStatus().subscribe({
+      next: (s) => {
+        this.cryptoStatus = s;
+        if (!s.connected) {
+          this.connectExpanded = true;
+        }
+      },
+      error: () => {
+        this.cryptoStatus = null;
       },
     });
   }
@@ -103,25 +134,116 @@ export class ReportsFinanceRobinhoodCryptoTrackerComponent implements OnInit {
     return `${this.reportMonths.length} months`;
   }
 
-  isWaitingForMcp(): boolean {
-    return this.tracker?.status === 'WAITING_FOR_MCP';
+  toggleConnect(): void {
+    this.connectExpanded = !this.connectExpanded;
+  }
+
+  saveCredentials(): void {
+    const apiKey = this.apiKey.trim();
+    const privateKeyBase64 = this.privateKeyBase64.trim();
+    if (!apiKey || !privateKeyBase64) {
+      this.snackBar.open('API key and private key are required.', 'Dismiss', { duration: 5000 });
+      return;
+    }
+    this.savingCredentials = true;
+    this.financeApi.robinhoodCryptoTradingSaveCredentials({ apiKey, privateKeyBase64 }).subscribe({
+      next: (s) => {
+        this.cryptoStatus = s;
+        this.savingCredentials = false;
+        this.apiKey = '';
+        this.privateKeyBase64 = '';
+        this.connectExpanded = false;
+        this.snackBar.open('Crypto Trading API credentials saved.', 'Dismiss', { duration: 4000 });
+        this.load();
+      },
+      error: (err) => {
+        this.savingCredentials = false;
+        this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
+      },
+    });
+  }
+
+  disconnect(): void {
+    this.financeApi.robinhoodCryptoTradingDisconnect().subscribe({
+      next: () => {
+        this.cryptoStatus = null;
+        this.loadCryptoStatus();
+        this.load();
+        this.snackBar.open('Crypto Trading API disconnected.', 'Dismiss', { duration: 4000 });
+      },
+      error: (err) => {
+        this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
+      },
+    });
+  }
+
+  captureNow(): void {
+    this.capturing = true;
+    this.financeApi.robinhoodCryptoTrackerCapture(true).subscribe({
+      next: (r) => {
+        this.capturing = false;
+        this.snackBar.open(r.message, 'Dismiss', { duration: 6000 });
+        this.loadCryptoStatus();
+        this.load();
+      },
+      error: (err) => {
+        this.capturing = false;
+        this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
+      },
+    });
+  }
+
+  isConnected(): boolean {
+    return this.tracker?.cryptoConnected === true || this.cryptoStatus?.connected === true;
   }
 
   connectionStatusLabel(): string {
-    if (!this.tracker?.agenticServiceConfigured) {
+    if (!this.tracker?.sidecarConfigured && !this.cryptoStatus?.sidecarConfigured) {
       return 'Sidecar not configured';
     }
-    if (!this.tracker.agenticConnected) {
-      return 'Not connected';
+    if (!this.isConnected()) {
+      return 'Crypto API not connected';
     }
-    return 'Agentic connected';
+    return 'Crypto API connected';
   }
 
   connectionStatusClass(): string {
-    if (!this.tracker?.agenticServiceConfigured) {
+    if (!this.tracker?.sidecarConfigured && !this.cryptoStatus?.sidecarConfigured) {
       return 'rh-crypto__status--muted';
     }
-    return this.tracker.agenticConnected ? 'rh-crypto__status--ok' : 'rh-crypto__status--warn';
+    return this.isConnected() ? 'rh-crypto__status--ok' : 'rh-crypto__status--warn';
+  }
+
+  dayKey(day: RobinhoodRhCryptoTrackerDayDto): string {
+    return day.snapshotAt;
+  }
+
+  isDayExpanded(day: RobinhoodRhCryptoTrackerDayDto): boolean {
+    return this.expandedDays.has(this.dayKey(day));
+  }
+
+  toggleDay(day: RobinhoodRhCryptoTrackerDayDto): void {
+    const key = this.dayKey(day);
+    if (this.expandedDays.has(key)) {
+      this.expandedDays.delete(key);
+    } else {
+      this.expandedDays.add(key);
+    }
+  }
+
+  captureKindLabel(kind: string): string {
+    switch (kind) {
+      case 'MANUAL':
+        return 'manual';
+      case 'SCHEDULED':
+        return 'scheduled';
+      default:
+        return kind.toLowerCase();
+    }
+  }
+
+  pnlClass(value: number): string {
+    return value >= 0 ? 'rh-crypto__pnl--pos' : 'rh-crypto__pnl--neg';
   }
 
   private normalizedReportMonths(): number[] | undefined {

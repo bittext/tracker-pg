@@ -117,3 +117,123 @@
   margin: 1rem 0 0;
   font-size: 0.9rem;
 }
+
+.rh-crypto__connect {
+  margin-bottom: 1rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.rh-crypto__connect-header {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border: none;
+  background: rgba(15, 23, 42, 0.03);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.rh-crypto__connect-body {
+  padding: 0.85rem 1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.rh-crypto__connect-field {
+  width: 100%;
+  max-width: 36rem;
+}
+
+.rh-crypto__connect-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.rh-crypto__connect-badge {
+  margin-left: auto;
+  font-size: 0.72rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+}
+
+.rh-crypto__timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.rh-crypto__day {
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+  border-radius: 8px;
+}
+
+.rh-crypto__day-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.rh-crypto__day-when {
+  flex: 1 1 12rem;
+}
+
+.rh-crypto__day-kind {
+  margin-left: 0.35rem;
+  font-size: 0.75rem;
+}
+
+.rh-crypto__day-total {
+  margin-left: auto;
+}
+
+.rh-crypto__day-delta {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.rh-crypto__holdings {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+
+  th,
+  td {
+    padding: 0.4rem 0.85rem;
+    border-top: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+  }
+
+  th {
+    font-weight: 600;
+    text-align: left;
+    background: rgba(15, 23, 42, 0.02);
+  }
+}
+
+.rh-crypto__num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.rh-crypto__pnl--pos {
+  color: #047857;
+}
+
+.rh-crypto__pnl--neg {
+  color: #b91c1c;
+}

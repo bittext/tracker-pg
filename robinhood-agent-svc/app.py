@@ -11,6 +11,7 @@ Endpoints
 - POST /v1/quotes         → {access_token, symbols?, option_instrument_ids?}
 - POST /v1/banking/sync   → {access_token, transaction_limit?}
 - POST /v1/banking/refresh-token → {refresh_token, client_id?}
+- POST /v1/crypto/sync     → {api_key, private_key_base64}
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ from banking_sync_service import run_banking_sync
 from order_service import run_place, run_review
 from quote_service import run_quotes
 from sync_service import run_sync
+from crypto_trading_service import run_crypto_sync
 
 LOGGER = logging.getLogger("robinhood-agent-svc")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s :: %(message)s")
@@ -73,6 +75,11 @@ class BankingRefreshTokenRequest(BaseModel):
     client_id: str | None = None
 
 
+class CryptoSyncRequest(BaseModel):
+    api_key: str = Field(min_length=8)
+    private_key_base64: str = Field(min_length=16)
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "service": "robinhood-agent-svc", "phase": "2"}
@@ -105,6 +112,19 @@ def refresh_token(body: RefreshTokenRequest) -> dict[str, Any]:
 
 def _order_body(body: OrderRequest) -> dict[str, Any]:
     return body.model_dump(exclude={"access_token"}, exclude_none=True)
+
+
+@app.post("/v1/crypto/sync")
+def crypto_sync(body: CryptoSyncRequest) -> dict:
+    try:
+        return run_crypto_sync(body.api_key, body.private_key_base64)
+    except PermissionError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.exception("crypto sync failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @app.post("/v1/banking/sync")

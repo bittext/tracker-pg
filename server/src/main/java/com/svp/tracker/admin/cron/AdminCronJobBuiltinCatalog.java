@@ -4,6 +4,7 @@ import com.svp.tracker.admin.cron.domain.AdminCronJob;
 import com.svp.tracker.config.FinanceAlertProperties;
 import com.svp.tracker.config.RobinhoodAgenticAutoTradeProperties;
 import com.svp.tracker.config.RobinhoodAgenticProperties;
+import com.svp.tracker.config.RobinhoodRhCryptoTrackerProperties;
 import com.svp.tracker.config.RobinhoodRhDailyTrackerProperties;
 import com.svp.tracker.finance.predicts.config.FinancePredictsProperties;
 import java.util.ArrayList;
@@ -16,6 +17,7 @@ public class AdminCronJobBuiltinCatalog {
     public List<AdminCronJob> builtInDefaults(
             FinanceAlertProperties alertProps,
             RobinhoodRhDailyTrackerProperties rhDailyTrackerProps,
+            RobinhoodRhCryptoTrackerProperties rhCryptoTrackerProps,
             RobinhoodAgenticProperties agenticProps,
             RobinhoodAgenticAutoTradeProperties autoTradeProps,
             FinancePredictsProperties predictsProps) {
@@ -45,6 +47,16 @@ public class AdminCronJobBuiltinCatalog {
                     "finance.rh-daily-tracker.snapshot",
                     rhDailyTrackerProps.snapshotCron(),
                     rhDailyTrackerProps.snapshotZone()));
+        }
+        if (rhCryptoTrackerProps.snapshotSchedulerActive()) {
+            jobs.add(cron(
+                    "finance.rh-crypto-tracker.snapshot",
+                    "Robinhood Crypto Tracker capture",
+                    "Periodic crypto portfolio snapshots via Crypto Trading API.",
+                    "Finance",
+                    "finance.rh-crypto-tracker.snapshot",
+                    rhCryptoTrackerProps.snapshotCron(),
+                    "UTC"));
         }
         if (agenticProps.syncCronEnabled()) {
             jobs.add(cron(

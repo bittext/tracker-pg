@@ -39,6 +39,14 @@ public class RobinhoodAgenticSidecarClient {
         return post("/v1/sync", body);
     }
 
+    public JsonNode cryptoSync(String apiKey, String privateKeyBase64) {
+        requireConfigured();
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("api_key", apiKey);
+        body.put("private_key_base64", privateKeyBase64);
+        return post("/v1/crypto/sync", body);
+    }
+
     public JsonNode refreshToken(String refreshToken) {
         requireConfigured();
         ObjectNode body = objectMapper.createObjectNode();

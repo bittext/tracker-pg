@@ -3,6 +3,7 @@ package com.svp.tracker.admin.cron;
 import com.svp.tracker.config.FinanceAlertProperties;
 import com.svp.tracker.config.RobinhoodAgenticAutoTradeProperties;
 import com.svp.tracker.config.RobinhoodAgenticProperties;
+import com.svp.tracker.config.RobinhoodRhCryptoTrackerProperties;
 import com.svp.tracker.config.RobinhoodRhDailyTrackerProperties;
 import com.svp.tracker.finance.predicts.config.FinancePredictsProperties;
 import com.svp.tracker.finance.predicts.service.PredictsBaselineService;
@@ -12,6 +13,7 @@ import com.svp.tracker.finance.predicts.service.StockTwitsIngestService;
 import com.svp.tracker.finance.service.FinanceAlertEvaluationService;
 import com.svp.tracker.finance.service.RobinhoodAgenticAutoTradeScheduler;
 import com.svp.tracker.finance.service.RobinhoodAgenticSyncScheduler;
+import com.svp.tracker.finance.service.RobinhoodRhCryptoSnapshotScheduler;
 import com.svp.tracker.finance.service.RobinhoodRhDailySnapshotScheduler;
 import com.svp.tracker.finance.service.YahooBatchQuoteService;
 import java.util.Collection;
@@ -31,6 +33,7 @@ public class AdminCronJobRunnerRegistry {
             FinanceAlertEvaluationService financeAlertEvaluationService,
             YahooBatchQuoteService yahooBatchQuoteService,
             ObjectProvider<RobinhoodRhDailySnapshotScheduler> rhDailySnapshotScheduler,
+            ObjectProvider<RobinhoodRhCryptoSnapshotScheduler> rhCryptoSnapshotScheduler,
             ObjectProvider<RobinhoodAgenticSyncScheduler> agenticSyncScheduler,
             RobinhoodAgenticAutoTradeScheduler autoTradeScheduler,
             StockTwitsIngestService stockTwitsIngestService,
@@ -38,6 +41,7 @@ public class AdminCronJobRunnerRegistry {
             PredictsBaselineService predictsBaselineService,
             PredictsService predictsService,
             RobinhoodRhDailyTrackerProperties rhDailyTrackerProps,
+            RobinhoodRhCryptoTrackerProperties rhCryptoTrackerProps,
             RobinhoodAgenticProperties agenticProps) {
         register(new AdminCronJobRunnerDefinition(
                 "finance.alerts.evaluate",
@@ -59,6 +63,14 @@ public class AdminCronJobRunnerRegistry {
                 () -> rhDailySnapshotScheduler.getObject().captureDailySnapshots(),
                 () -> rhDailySnapshotScheduler.getIfAvailable() != null
                         && rhDailyTrackerProps.snapshotSchedulerActive()));
+        register(new AdminCronJobRunnerDefinition(
+                "finance.rh-crypto-tracker.snapshot",
+                "Robinhood Crypto Tracker capture",
+                "Periodic crypto portfolio snapshots via Crypto Trading API.",
+                "Finance",
+                () -> rhCryptoSnapshotScheduler.getObject().captureCryptoSnapshots(),
+                () -> rhCryptoSnapshotScheduler.getIfAvailable() != null
+                        && rhCryptoTrackerProps.snapshotSchedulerActive()));
         register(new AdminCronJobRunnerDefinition(
                 "finance.robinhood-agentic.sync",
                 "Robinhood Agentic sync",

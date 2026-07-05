@@ -26,6 +26,7 @@ import com.svp.tracker.finance.service.MarketOverviewService;
 import com.svp.tracker.finance.dto.RobinhoodRhAccountsTrackDto;
 import com.svp.tracker.finance.service.RobinhoodAccountTrackerService;
 import com.svp.tracker.finance.service.RobinhoodRhAccountsTrackService;
+import com.svp.tracker.finance.dto.RobinhoodRhCryptoCaptureResultDto;
 import com.svp.tracker.finance.dto.RobinhoodRhCryptoTrackerReportDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyCaptureResultDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyDayNoteResultDto;
@@ -177,7 +178,7 @@ public class FinanceController {
         return rhDailyTrackerService.refreshHint();
     }
 
-    /** Crypto holdings timeline (separate from Daily Tracker); scaffold until MCP crypto sync lands. */
+    /** Crypto holdings timeline (separate from Daily Tracker). */
     @GetMapping("/crypto-tracker")
     public RobinhoodRhCryptoTrackerReportDto cryptoTracker(
             @RequestParam(name = "year") int year,
@@ -192,6 +193,13 @@ public class FinanceController {
         }
         log.info("GET /api/finance/robinhood/crypto-tracker year={} months={}", year, resolvedMonths);
         return rhCryptoTrackerService.buildReport(year, resolvedMonths);
+    }
+
+    @PostMapping("/crypto-tracker/capture")
+    public RobinhoodRhCryptoCaptureResultDto cryptoTrackerCapture(
+            @RequestParam(name = "sync", defaultValue = "true") boolean sync) {
+        log.info("POST /api/finance/robinhood/crypto-tracker/capture sync={}", sync);
+        return rhCryptoTrackerService.captureNow(sync);
     }
 
     private static List<Integer> resolveDailyTrackerMonths(Integer month, List<Integer> months) {

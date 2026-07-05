@@ -1,9 +1,9 @@
 <section class="rh-crypto" aria-labelledby="rh-crypto-heading">
   <h2 id="rh-crypto-heading" class="rh-crypto__title">Robinhood Crypto Tracker</h2>
   <p class="muted rh-crypto__lead">
-    Crypto holdings and value changes over time — kept separate from
-    <strong>Daily Tracker</strong> brokerage snapshots.
-    <a routerLink="/finance">Finance</a> → Trading to connect Robinhood Agentic sync.
+    Crypto holdings and value changes over time via Robinhood's official
+    <a href="https://docs.robinhood.com/crypto/trading/" target="_blank" rel="noopener noreferrer">Crypto Trading API</a>
+    — kept separate from <strong>Daily Tracker</strong> brokerage snapshots.
   </p>
 
   <div class="rh-crypto__toolbar">
@@ -35,21 +35,77 @@
       <mat-icon>refresh</mat-icon>
       Refresh
     </button>
+    <button
+      mat-flat-button
+      color="accent"
+      type="button"
+      (click)="captureNow()"
+      [disabled]="capturing || !isConnected()"
+    >
+      @if (capturing) {
+        <mat-spinner diameter="20" aria-hidden="true" />
+      } @else {
+        <mat-icon>photo_camera</mat-icon>
+      }
+      Capture now
+    </button>
     @if (loading) {
       <mat-spinner diameter="28" aria-label="Loading crypto tracker" />
     }
   </div>
 
+  <div class="rh-crypto__connect" [class.rh-crypto__connect--open]="connectExpanded">
+    <button type="button" class="rh-crypto__connect-header" (click)="toggleConnect()">
+      <mat-icon aria-hidden="true">{{ connectExpanded ? 'expand_less' : 'expand_more' }}</mat-icon>
+      <span>Crypto Trading API credentials</span>
+      @if (cryptoStatus?.connected) {
+        <span class="rh-crypto__connect-badge rh-crypto__status--ok">Connected</span>
+      }
+    </button>
+    @if (connectExpanded) {
+      <div class="rh-crypto__connect-body">
+        <p class="muted small">
+          Create a <strong>read-only</strong> API key in
+          <a href="https://robinhood.com/account/crypto" target="_blank" rel="noopener noreferrer">Robinhood crypto account settings</a>
+          (web classic). Paste the API key and base64 private key below.
+        </p>
+        <mat-form-field appearance="outline" class="rh-crypto__connect-field">
+          <mat-label>API key</mat-label>
+          <input matInput [(ngModel)]="apiKey" name="rhCryptoApiKey" autocomplete="off" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="rh-crypto__connect-field">
+          <mat-label>Private key (base64)</mat-label>
+          <textarea matInput rows="3" [(ngModel)]="privateKeyBase64" name="rhCryptoPrivateKey" autocomplete="off"></textarea>
+        </mat-form-field>
+        <div class="rh-crypto__connect-actions">
+          <button mat-flat-button color="primary" type="button" (click)="saveCredentials()" [disabled]="savingCredentials">
+            @if (savingCredentials) {
+              <mat-spinner diameter="20" aria-hidden="true" />
+            }
+            Save credentials
+          </button>
+          @if (cryptoStatus?.connected) {
+            <button mat-stroked-button type="button" (click)="disconnect()">Disconnect</button>
+          }
+        </div>
+        @if (cryptoStatus?.lastSyncMessage) {
+          <p class="muted small">Last sync: {{ cryptoStatus!.lastSyncMessage }}</p>
+        }
+      </div>
+    }
+  </div>
+
   @if (tracker; as t) {
     <div class="rh-crypto__status-row">
-      <span class="rh-crypto__status-pill rh-crypto__status-pill--waiting">
-        <mat-icon aria-hidden="true">hourglass_empty</mat-icon>
-        Waiting for Robinhood crypto sync
-      </span>
       <span class="rh-crypto__status-pill" [class]="connectionStatusClass()">
-        <mat-icon aria-hidden="true">{{ t.agenticConnected ? 'link' : 'link_off' }}</mat-icon>
+        <mat-icon aria-hidden="true">{{ isConnected() ? 'link' : 'link_off' }}</mat-icon>
         {{ connectionStatusLabel() }}
       </span>
+      @if (cryptoStatus?.accountNumberMasked) {
+        <span class="rh-crypto__status-pill rh-crypto__status-pill--muted muted">
+          {{ cryptoStatus!.accountNumberMasked }}
+        </span>
+      }
       @if (t.snapshotCount > 0) {
         <span class="rh-crypto__status-pill rh-crypto__status-pill--muted muted">
           {{ t.snapshotCount }} snapshot{{ t.snapshotCount === 1 ? '' : 's' }} on record
@@ -65,22 +121,62 @@
       </ul>
     }
 
-    @if (isWaitingForMcp() && !t.days.length) {
+    @if (!isConnected()) {
       <div class="rh-crypto__empty" role="status">
         <mat-icon class="rh-crypto__empty-icon" aria-hidden="true">currency_bitcoin</mat-icon>
-        <h3 class="rh-crypto__empty-title">Crypto tracking is not live yet</h3>
+        <h3 class="rh-crypto__empty-title">Connect Crypto Trading API</h3>
         <p class="muted">
-          Robinhood Agentic MCP currently supports equities and options only. When Robinhood enables crypto position
-          reads, this tab will show coin holdings, portfolio totals, and changes between each capture — without mixing
-          crypto into Daily Tracker brokerage rows.
-        </p>
-        <p class="muted rh-crypto__empty-next">
-          <strong>Next steps:</strong> keep Agentic connected under Finance → Trading; captures will start
-          automatically once the sidecar adds crypto sync.
+          Add read-only API credentials above to pull coin holdings and track value changes over time.
         </p>
       </div>
-    } @else if (t.days.length) {
-      <p class="muted">Crypto capture history will render here.</p>
+    } @else if (!t.days.length) {
+      <div class="rh-crypto__empty" role="status">
+        <mat-icon class="rh-crypto__empty-icon" aria-hidden="true">currency_bitcoin</mat-icon>
+        <h3 class="rh-crypto__empty-title">No captures yet</h3>
+        <p class="muted">Use <strong>Capture now</strong> or wait for the scheduled crypto capture job.</p>
+      </div>
+    } @else {
+      <div class="rh-crypto__timeline" role="region" aria-label="Crypto capture history">
+        @for (day of t.days; track day.snapshotAt) {
+          <article class="rh-crypto__day" [class.rh-crypto__day--open]="isDayExpanded(day)">
+            <button type="button" class="rh-crypto__day-header" (click)="toggleDay(day)">
+              <mat-icon aria-hidden="true">{{ isDayExpanded(day) ? 'expand_less' : 'expand_more' }}</mat-icon>
+              <span class="rh-crypto__day-when">
+                {{ day.snapshotAt | date: 'mediumDate' }} · {{ day.snapshotAt | date: 'shortTime' }}
+                <span class="muted rh-crypto__day-kind">{{ captureKindLabel(day.captureKind) }}</span>
+              </span>
+              <strong class="rh-crypto__day-total">{{ day.totalValue | currency }}</strong>
+              @if (day.changeFromPrevious !== 0) {
+                <span class="rh-crypto__day-delta" [class]="pnlClass(day.changeFromPrevious)">
+                  {{ day.changeFromPrevious | currency }}
+                </span>
+              }
+            </button>
+            @if (isDayExpanded(day)) {
+              <table class="rh-crypto__holdings">
+                <thead>
+                  <tr>
+                    <th>Coin</th>
+                    <th class="rh-crypto__num">Qty</th>
+                    <th class="rh-crypto__num">Price</th>
+                    <th class="rh-crypto__num">Market value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (h of day.holdings; track h.symbol) {
+                    <tr>
+                      <td>{{ h.symbol }}</td>
+                      <td class="rh-crypto__num">{{ h.quantity | number: '1.0-8' }}</td>
+                      <td class="rh-crypto__num">{{ h.currentUnitPrice | currency }}</td>
+                      <td class="rh-crypto__num">{{ h.marketValue | currency }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          </article>
+        }
+      </div>
     }
   }
 </section>
