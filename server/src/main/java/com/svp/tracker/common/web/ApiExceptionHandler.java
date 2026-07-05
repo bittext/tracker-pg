@@ -1,5 +1,6 @@
 package com.svp.tracker.common.web;
 
+import com.svp.tracker.finance.service.RobinhoodAgenticUnauthorizedException;
 import com.svp.tracker.fitness.exception.NotFoundException;
 import java.io.UncheckedIOException;
 import java.util.Map;
@@ -27,6 +28,17 @@ public class ApiExceptionHandler {
         log.error("Data access error", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of("error", "data_access", "message", "A database error occurred."));
+    }
+
+    @ExceptionHandler(RobinhoodAgenticUnauthorizedException.class)
+    public ResponseEntity<Map<String, String>> robinhoodUnauthorized(RobinhoodAgenticUnauthorizedException ex) {
+        log.warn("Robinhood sidecar unauthorized: {}", ex.getMessage());
+        String message = ex.getMessage();
+        if (message == null || message.isBlank()) {
+            message = "Robinhood credentials were rejected.";
+        }
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(Map.of("error", "unauthorized", "message", message));
     }
 
     @ExceptionHandler(UnexpectedRollbackException.class)

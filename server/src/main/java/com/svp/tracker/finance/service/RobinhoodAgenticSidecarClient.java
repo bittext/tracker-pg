@@ -138,7 +138,7 @@ public class RobinhoodAgenticSidecarClient {
             SidecarResponse response = postJson(uri, bodyBytes, timeoutMs);
             if (response.status() / 100 != 2) {
                 if (response.status() == 401) {
-                    throw new RobinhoodAgenticUnauthorizedException(response.body());
+                    throw new RobinhoodAgenticUnauthorizedException(extractErrorMessage(response.body()));
                 }
                 throw new IllegalStateException(
                         "Robinhood Agentic sidecar failed (HTTP " + response.status() + "): " + response.body());
@@ -195,6 +195,25 @@ public class RobinhoodAgenticSidecarClient {
             return "";
         }
         return base.endsWith("/") ? base.substring(0, base.length() - 1) : base;
+    }
+
+    private String extractErrorMessage(String body) {
+        if (body == null || body.isBlank()) {
+            return "Unauthorized";
+        }
+        try {
+            JsonNode node = objectMapper.readTree(body);
+            JsonNode detail = node.get("detail");
+            if (detail != null && !detail.isNull()) {
+                if (detail.isTextual()) {
+                    return detail.asText();
+                }
+                return detail.toString();
+            }
+        } catch (Exception ignored) {
+            // fall through to raw body
+        }
+        return body.length() <= 500 ? body : body.substring(0, 497) + "...";
     }
 
     private record SidecarResponse(int status, String body) {}

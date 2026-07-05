@@ -151,9 +151,10 @@ public class RobinhoodCryptoTradingService {
         JsonNode payload;
         try {
             payload = callSidecar(conn);
-        } catch (IllegalStateException e) {
-            markSyncError(conn, e.getMessage());
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, e.getMessage(), e);
+        } catch (IllegalStateException | RobinhoodAgenticUnauthorizedException e) {
+            String message = syncFailureMessage(e);
+            markSyncError(conn, message);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, message, e);
         }
         return persistSyncResult(conn, payload);
     }
@@ -302,6 +303,14 @@ public class RobinhoodCryptoTradingService {
             return "";
         }
         return message.length() <= 500 ? message : message.substring(0, 497) + "...";
+    }
+
+    private static String syncFailureMessage(Exception e) {
+        String message = e.getMessage();
+        if (message == null || message.isBlank()) {
+            return "Robinhood Crypto API sync failed.";
+        }
+        return message;
     }
 
     private static BigDecimal scaleMoney(BigDecimal v) {
