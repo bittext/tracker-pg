@@ -36,7 +36,8 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
     com.svp.tracker.config.RobinhoodAgenticBankingProperties.class,
     com.svp.tracker.config.RobinhoodAgenticAutoTradeProperties.class,
     com.svp.tracker.config.RobinhoodRhDailyTrackerProperties.class,
-    com.svp.tracker.config.RobinhoodRhCryptoTrackerProperties.class
+    com.svp.tracker.config.RobinhoodRhCryptoTrackerProperties.class,
+    com.svp.tracker.config.RobinhoodRhCryptoAutoTradeProperties.class
 })
 public class TrackerApplication {
 

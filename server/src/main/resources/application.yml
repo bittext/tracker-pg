@@ -164,6 +164,9 @@ tracker:
     rh-crypto-tracker:
       snapshot-scheduler-enabled-config: ${TRACKER_FINANCE_RH_CRYPTO_TRACKER_SNAPSHOT_ENABLED:true}
       snapshot-cron: ${TRACKER_FINANCE_RH_CRYPTO_TRACKER_SNAPSHOT_CRON:0 0 */4 * * *}
+    rh-crypto-auto-trade:
+      enabled-config: ${TRACKER_FINANCE_RH_CRYPTO_AUTO_TRADE_ENABLED:false}
+      poll-cron: ${TRACKER_FINANCE_RH_CRYPTO_AUTO_TRADE_POLL_CRON:0 */5 * * * *}
     banking:
       # Host default ~/imports/banking. Production VMs often use TRACKER_BANKING_IMPORT_DIRECTORY=/home/ubuntu/imports/banking (0700).
       import-directory: ${TRACKER_BANKING_IMPORT_DIRECTORY:${user.home}/imports/banking}

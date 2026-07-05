@@ -10,6 +10,7 @@ import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.FinanceAlertProperties;
 import com.svp.tracker.config.RobinhoodAgenticAutoTradeProperties;
 import com.svp.tracker.config.RobinhoodAgenticProperties;
+import com.svp.tracker.config.RobinhoodRhCryptoAutoTradeProperties;
 import com.svp.tracker.config.RobinhoodRhCryptoTrackerProperties;
 import com.svp.tracker.config.RobinhoodRhDailyTrackerProperties;
 import com.svp.tracker.finance.predicts.config.FinancePredictsProperties;
@@ -37,6 +38,7 @@ public class AdminCronJobService {
     private final FinanceAlertProperties alertProps;
     private final RobinhoodRhDailyTrackerProperties rhDailyTrackerProps;
     private final RobinhoodRhCryptoTrackerProperties rhCryptoTrackerProps;
+    private final RobinhoodRhCryptoAutoTradeProperties rhCryptoAutoTradeProps;
     private final RobinhoodAgenticProperties agenticProps;
     private final RobinhoodAgenticAutoTradeProperties autoTradeProps;
     private final FinancePredictsProperties predictsProps;
@@ -44,7 +46,7 @@ public class AdminCronJobService {
     @Transactional
     public void bootstrapAndStart() {
         List<AdminCronJob> defaults = builtinCatalog.builtInDefaults(
-                alertProps, rhDailyTrackerProps, rhCryptoTrackerProps, agenticProps, autoTradeProps, predictsProps);
+                alertProps, rhDailyTrackerProps, rhCryptoTrackerProps, rhCryptoAutoTradeProps, agenticProps, autoTradeProps, predictsProps);
         for (AdminCronJob def : defaults) {
             if (!jobRepository.existsById(def.getJobKey())) {
                 jobRepository.save(def);

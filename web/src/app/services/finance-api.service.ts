@@ -21,6 +21,11 @@ import {
   RobinhoodRhCryptoTrackerReportDto,
   RobinhoodCryptoTradingCredentialsRequestDto,
   RobinhoodCryptoTradingStatusDto,
+  RobinhoodRhCryptoAutoTradeEvaluateDto,
+  RobinhoodRhCryptoAutoTradeRunDto,
+  RobinhoodRhCryptoAutoTradeSettingsDto,
+  RobinhoodRhCryptoAutoTradeSettingsRequestDto,
+  RobinhoodRhCryptoOrderDto,
   RobinhoodRhDailyManualCaptureDeleteResultDto,
   RobinhoodRhDailySnapshotDetailDto,
   RobinhoodRhDailyTrackerReportDto,
@@ -157,6 +162,26 @@ export class FinanceApiService {
     return this.http.post<RobinhoodRhCryptoCaptureResultDto>(`${this.root}/crypto-tracker/capture`, null, {
       params: { sync: String(sync) },
     });
+  }
+
+  robinhoodCryptoAutoTradeSettings() {
+    return this.http.get<RobinhoodRhCryptoAutoTradeSettingsDto>(`${this.root}/crypto-trading/auto-trade/settings`);
+  }
+
+  robinhoodCryptoAutoTradeSaveSettings(body: RobinhoodRhCryptoAutoTradeSettingsRequestDto) {
+    return this.http.put<RobinhoodRhCryptoAutoTradeSettingsDto>(`${this.root}/crypto-trading/auto-trade/settings`, body);
+  }
+
+  robinhoodCryptoAutoTradeEvaluate() {
+    return this.http.post<RobinhoodRhCryptoAutoTradeEvaluateDto>(`${this.root}/crypto-trading/auto-trade/evaluate`, {});
+  }
+
+  robinhoodCryptoAutoTradeRuns() {
+    return this.http.get<RobinhoodRhCryptoAutoTradeRunDto[]>(`${this.root}/crypto-trading/auto-trade/runs`);
+  }
+
+  robinhoodCryptoOrders() {
+    return this.http.get<RobinhoodRhCryptoOrderDto[]>(`${this.root}/crypto-trading/orders`);
   }
 
   robinhoodDailyTrackerSnapshot(id: number) {

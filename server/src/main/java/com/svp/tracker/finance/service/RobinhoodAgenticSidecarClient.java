@@ -47,6 +47,30 @@ public class RobinhoodAgenticSidecarClient {
         return post("/v1/crypto/sync", body);
     }
 
+    public JsonNode cryptoPlaceOrder(
+            String apiKey,
+            String privateKeyBase64,
+            String accountNumber,
+            String symbol,
+            String side,
+            BigDecimal assetQuantity,
+            BigDecimal quoteAmount,
+            String clientOrderId) {
+        requireConfigured();
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("api_key", apiKey);
+        body.put("private_key_base64", privateKeyBase64);
+        body.put("account_number", accountNumber);
+        body.put("symbol", symbol.trim().toUpperCase());
+        body.put("side", side.trim().toLowerCase());
+        putDecimal(body, "asset_quantity", assetQuantity);
+        putDecimal(body, "quote_amount", quoteAmount);
+        if (clientOrderId != null && !clientOrderId.isBlank()) {
+            body.put("client_order_id", clientOrderId);
+        }
+        return post("/v1/crypto/place-order", body);
+    }
+
     public JsonNode refreshToken(String refreshToken) {
         requireConfigured();
         ObjectNode body = objectMapper.createObjectNode();

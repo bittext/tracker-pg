@@ -4,6 +4,7 @@ import com.svp.tracker.admin.cron.domain.AdminCronJob;
 import com.svp.tracker.config.FinanceAlertProperties;
 import com.svp.tracker.config.RobinhoodAgenticAutoTradeProperties;
 import com.svp.tracker.config.RobinhoodAgenticProperties;
+import com.svp.tracker.config.RobinhoodRhCryptoAutoTradeProperties;
 import com.svp.tracker.config.RobinhoodRhCryptoTrackerProperties;
 import com.svp.tracker.config.RobinhoodRhDailyTrackerProperties;
 import com.svp.tracker.finance.predicts.config.FinancePredictsProperties;
@@ -18,6 +19,7 @@ public class AdminCronJobBuiltinCatalog {
             FinanceAlertProperties alertProps,
             RobinhoodRhDailyTrackerProperties rhDailyTrackerProps,
             RobinhoodRhCryptoTrackerProperties rhCryptoTrackerProps,
+            RobinhoodRhCryptoAutoTradeProperties rhCryptoAutoTradeProps,
             RobinhoodAgenticProperties agenticProps,
             RobinhoodAgenticAutoTradeProperties autoTradeProps,
             FinancePredictsProperties predictsProps) {
@@ -56,6 +58,16 @@ public class AdminCronJobBuiltinCatalog {
                     "Finance",
                     "finance.rh-crypto-tracker.snapshot",
                     rhCryptoTrackerProps.snapshotCron(),
+                    "UTC"));
+        }
+        if (rhCryptoAutoTradeProps.schedulerActive()) {
+            jobs.add(cron(
+                    "finance.rh-crypto-auto-trade.poll",
+                    "Robinhood Crypto auto-trade poll",
+                    "Evaluates Predicts-driven crypto auto-trade for connected users.",
+                    "Finance",
+                    "finance.rh-crypto-auto-trade.poll",
+                    rhCryptoAutoTradeProps.pollCron(),
                     "UTC"));
         }
         if (agenticProps.syncCronEnabled()) {

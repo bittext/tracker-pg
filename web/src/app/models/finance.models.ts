@@ -177,6 +177,91 @@ export interface RobinhoodRhCryptoHoldingDto {
   unrealizedPnLPercent: number;
 }
 
+/** Crypto Tracker Predicts-driven auto-trade */
+export interface RobinhoodRhCryptoAutoTradeSettingsDto {
+  serverEnabled: boolean;
+  connected: boolean;
+  autoTradeEnabled: boolean;
+  autoTradeKillSwitch: boolean;
+  autoTradeMinPositivityBuy: number;
+  autoTradeMaxPositivitySell: number;
+  autoTradeMinSpikeZ: number;
+  autoTradeMinMentions24h: number;
+  autoTradeOrderQuoteAmount: number;
+  autoTradeMaxTradesPerDay: number;
+  autoTradeMaxDailyNotional: number | null;
+  autoTradeCooldownMinutes: number;
+  allowedSymbols: string[];
+  autoTradeLastRunAt: string | null;
+  autoTradeLastRunMessage: string;
+}
+
+export interface RobinhoodRhCryptoAutoTradeSettingsRequestDto {
+  autoTradeEnabled?: boolean;
+  autoTradeKillSwitch?: boolean;
+  autoTradeMinPositivityBuy?: number;
+  autoTradeMaxPositivitySell?: number;
+  autoTradeMinSpikeZ?: number;
+  autoTradeMinMentions24h?: number;
+  autoTradeOrderQuoteAmount?: number;
+  autoTradeMaxTradesPerDay?: number;
+  autoTradeMaxDailyNotional?: number | null;
+  autoTradeCooldownMinutes?: number;
+  allowedSymbols?: string[];
+}
+
+export interface RobinhoodRhCryptoAutoTradeEvaluateDto {
+  ran: boolean;
+  message: string;
+  tickersEvaluated: number;
+  signalsGenerated: number;
+  ordersAttempted: number;
+  ordersPlaced: number;
+  signals: RobinhoodRhCryptoAutoTradeSignalDto[];
+  finishedAt: string;
+}
+
+export interface RobinhoodRhCryptoAutoTradeSignalDto {
+  symbol: string;
+  tradingPair: string;
+  side: string;
+  reason: string;
+  overallPositivityPct: number;
+  overallSpikeZ: number;
+  mentions24h: number;
+  acted: boolean;
+  result: string;
+}
+
+export interface RobinhoodRhCryptoAutoTradeRunDto {
+  id: number;
+  startedAt: string;
+  finishedAt: string | null;
+  status: string;
+  tickersEvaluated: number;
+  signalsGenerated: number;
+  ordersAttempted: number;
+  ordersPlaced: number;
+  message: string;
+}
+
+export interface RobinhoodRhCryptoOrderDto {
+  id: number;
+  status: string;
+  symbol: string;
+  tradingPair: string;
+  side: string;
+  orderType: string;
+  quoteAmount: number | null;
+  assetQuantity: number | null;
+  estimatedNotional: number | null;
+  source: string;
+  robinhoodOrderId: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+  placedAt: string | null;
+}
+
 /** GET /api/finance/robinhood/daily-tracker/refresh-hint — lightweight poll for new captures. */
 export interface RobinhoodRhDailyTrackerRefreshHintDto {
   latestSnapshotAt: string | null;

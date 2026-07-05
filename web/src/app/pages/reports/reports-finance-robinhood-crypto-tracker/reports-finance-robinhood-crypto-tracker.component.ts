@@ -10,6 +10,10 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import {
   RobinhoodCryptoTradingStatusDto,
+  RobinhoodRhCryptoAutoTradeRunDto,
+  RobinhoodRhCryptoAutoTradeSettingsDto,
+  RobinhoodRhCryptoAutoTradeSettingsRequestDto,
+  RobinhoodRhCryptoOrderDto,
   RobinhoodRhCryptoTrackerDayDto,
   RobinhoodRhCryptoTrackerReportDto,
 } from '../../../models/finance.models';
@@ -48,13 +52,35 @@ export class ReportsFinanceRobinhoodCryptoTrackerComponent implements OnInit {
   capturing = false;
   savingCredentials = false;
   connectExpanded = false;
+  autoTradeExpanded = false;
+  autoTradeAdvancedExpanded = false;
   tracker: RobinhoodRhCryptoTrackerReportDto | null = null;
   cryptoStatus: RobinhoodCryptoTradingStatusDto | null = null;
+  autoTradeSettings: RobinhoodRhCryptoAutoTradeSettingsDto | null = null;
+  autoTradeRuns: RobinhoodRhCryptoAutoTradeRunDto[] = [];
+  cryptoOrders: RobinhoodRhCryptoOrderDto[] = [];
 
   apiKey = '';
   privateKeyBase64 = '';
   connectError: string | null = null;
   captureFeedback: { kind: FeedbackKind; message: string } | null = null;
+
+  autoTradeEnabled = false;
+  autoTradeKillSwitch = false;
+  autoTradeOrderQuoteAmount = 25;
+  autoTradeMaxTradesPerDay = 3;
+  autoTradeMaxDailyNotional: number | null = 500;
+  autoTradeCooldownMinutes = 60;
+  autoTradeMinPositivityBuy = 15;
+  autoTradeMaxPositivitySell = -15;
+  autoTradeMinSpikeZ = 1.5;
+  autoTradeMinMentions24h = 5;
+  allowedSymbols: string[] = ['BTC', 'ETH'];
+  autoTradeSaving = false;
+  autoTradeEvaluating = false;
+  autoTradeLastMessage = '';
+
+  readonly coinChoices = ['BTC', 'ETH', 'SOL', 'DOGE', 'ADA', 'XRP', 'AVAX', 'LINK'] as const;
 
   readonly expandedDays = new Set<string>();
 
@@ -105,12 +131,131 @@ export class ReportsFinanceRobinhoodCryptoTrackerComponent implements OnInit {
         this.cryptoStatus = s;
         if (!s.connected) {
           this.connectExpanded = true;
+        } else {
+          this.loadAutoTradePanel();
         }
       },
       error: () => {
         this.cryptoStatus = null;
       },
     });
+  }
+
+  loadAutoTradePanel(): void {
+    this.financeApi.robinhoodCryptoAutoTradeSettings().subscribe({
+      next: (s) => {
+        this.autoTradeSettings = s;
+        this.applyAutoTradeSettings(s);
+        if (s.autoTradeEnabled) {
+          this.autoTradeExpanded = true;
+        }
+      },
+      error: () => {
+        this.autoTradeSettings = null;
+      },
+    });
+    this.financeApi.robinhoodCryptoAutoTradeRuns().subscribe({
+      next: (runs) => {
+        this.autoTradeRuns = runs;
+      },
+      error: () => {
+        this.autoTradeRuns = [];
+      },
+    });
+    this.financeApi.robinhoodCryptoOrders().subscribe({
+      next: (orders) => {
+        this.cryptoOrders = orders;
+      },
+      error: () => {
+        this.cryptoOrders = [];
+      },
+    });
+  }
+
+  toggleAutoTrade(): void {
+    this.autoTradeExpanded = !this.autoTradeExpanded;
+  }
+
+  toggleAutoTradeAdvanced(): void {
+    this.autoTradeAdvancedExpanded = !this.autoTradeAdvancedExpanded;
+  }
+
+  isCoinAllowed(coin: string): boolean {
+    return this.allowedSymbols.includes(coin);
+  }
+
+  toggleCoin(coin: string): void {
+    if (this.isCoinAllowed(coin)) {
+      this.allowedSymbols = this.allowedSymbols.filter((c) => c !== coin);
+    } else {
+      this.allowedSymbols = [...this.allowedSymbols, coin];
+    }
+  }
+
+  saveAutoTradeSettings(): void {
+    this.autoTradeSaving = true;
+    const body: RobinhoodRhCryptoAutoTradeSettingsRequestDto = {
+      autoTradeEnabled: this.autoTradeEnabled,
+      autoTradeKillSwitch: this.autoTradeKillSwitch,
+      autoTradeMinPositivityBuy: this.autoTradeMinPositivityBuy,
+      autoTradeMaxPositivitySell: this.autoTradeMaxPositivitySell,
+      autoTradeMinSpikeZ: this.autoTradeMinSpikeZ,
+      autoTradeMinMentions24h: this.autoTradeMinMentions24h,
+      autoTradeOrderQuoteAmount: this.autoTradeOrderQuoteAmount,
+      autoTradeMaxTradesPerDay: this.autoTradeMaxTradesPerDay,
+      autoTradeMaxDailyNotional: this.autoTradeMaxDailyNotional,
+      autoTradeCooldownMinutes: this.autoTradeCooldownMinutes,
+      allowedSymbols: this.allowedSymbols,
+    };
+    this.financeApi.robinhoodCryptoAutoTradeSaveSettings(body).subscribe({
+      next: (s) => {
+        this.autoTradeSettings = s;
+        this.applyAutoTradeSettings(s);
+        this.autoTradeSaving = false;
+        this.snackBar.open('Auto-trade settings saved.', 'Dismiss', { duration: 4000 });
+      },
+      error: (err) => {
+        this.autoTradeSaving = false;
+        this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
+      },
+    });
+  }
+
+  evaluateAutoTradeNow(): void {
+    this.autoTradeEvaluating = true;
+    this.financeApi.robinhoodCryptoAutoTradeEvaluate().subscribe({
+      next: (r) => {
+        this.autoTradeEvaluating = false;
+        this.autoTradeLastMessage = r.message;
+        this.loadAutoTradePanel();
+        this.snackBar.open(r.message || 'Evaluate complete.', 'Dismiss', { duration: 6000 });
+      },
+      error: (err) => {
+        this.autoTradeEvaluating = false;
+        this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
+      },
+    });
+  }
+
+  panicStopAutoTrade(): void {
+    this.autoTradeKillSwitch = true;
+    this.autoTradeEnabled = false;
+    this.saveAutoTradeSettings();
+  }
+
+  private applyAutoTradeSettings(s: RobinhoodRhCryptoAutoTradeSettingsDto): void {
+    this.autoTradeEnabled = s.autoTradeEnabled;
+    this.autoTradeKillSwitch = s.autoTradeKillSwitch;
+    this.autoTradeMinPositivityBuy = s.autoTradeMinPositivityBuy;
+    this.autoTradeMaxPositivitySell = s.autoTradeMaxPositivitySell;
+    this.autoTradeMinSpikeZ = s.autoTradeMinSpikeZ;
+    this.autoTradeMinMentions24h = s.autoTradeMinMentions24h;
+    this.autoTradeOrderQuoteAmount = s.autoTradeOrderQuoteAmount;
+    this.autoTradeMaxTradesPerDay = s.autoTradeMaxTradesPerDay;
+    this.autoTradeMaxDailyNotional = s.autoTradeMaxDailyNotional;
+    this.autoTradeCooldownMinutes = s.autoTradeCooldownMinutes;
+    this.allowedSymbols = s.allowedSymbols?.length ? [...s.allowedSymbols] : ['BTC', 'ETH'];
+    this.autoTradeLastMessage = s.autoTradeLastRunMessage ?? '';
   }
 
   onMonthsChange(): void {
@@ -160,6 +305,7 @@ export class ReportsFinanceRobinhoodCryptoTrackerComponent implements OnInit {
         this.connectExpanded = false;
         this.showCaptureFeedback('ok', 'Crypto Trading API credentials saved.');
         this.load();
+        this.loadAutoTradePanel();
       },
       error: (err) => {
         this.savingCredentials = false;

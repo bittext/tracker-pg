@@ -1,10 +1,12 @@
-"""Robinhood Crypto Trading API sync (read-only accounts, holdings, quotes)."""
+"""Robinhood Crypto Trading API sync and orders."""
 
 from __future__ import annotations
 
 import base64
 import datetime
+import json
 import logging
+import uuid
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Optional
 from urllib.parse import urlencode
@@ -85,6 +87,65 @@ class RobinhoodCryptoTradingClient:
                 f"Robinhood Crypto API error HTTP {response.status_code}: {response.text[:500]}"
             )
         return response.json()
+
+    def _post(self, path: str, body: str) -> Any:
+        headers = self._auth_headers("POST", path, body)
+        headers["Content-Type"] = "application/json"
+        response = self._client.post(path, headers=headers, content=body.encode("utf-8"))
+        if response.status_code == 401:
+            raise PermissionError("Robinhood Crypto API rejected credentials (401)")
+        if response.status_code == 403:
+            raise PermissionError("Robinhood Crypto API forbidden (403) — check key permissions")
+        if response.status_code >= 400:
+            raise RuntimeError(
+                f"Robinhood Crypto API error HTTP {response.status_code}: {response.text[:500]}"
+            )
+        if not response.text.strip():
+            return {}
+        return response.json()
+
+    def place_market_order(
+        self,
+        account_number: str,
+        symbol: str,
+        side: str,
+        *,
+        asset_quantity: str | None = None,
+        quote_amount: str | None = None,
+        client_order_id: str | None = None,
+    ) -> dict[str, Any]:
+        pair = str(symbol).strip().upper()
+        if not pair.endswith("-USD"):
+            pair = f"{pair}-USD"
+        order_side = str(side).strip().lower()
+        if order_side not in {"buy", "sell"}:
+            raise ValueError("side must be buy or sell")
+        if asset_quantity and quote_amount:
+            raise ValueError("Specify asset_quantity or quote_amount, not both")
+        if not asset_quantity and not quote_amount:
+            raise ValueError("asset_quantity or quote_amount is required")
+
+        market_config: dict[str, str] = {}
+        if asset_quantity:
+            market_config["asset_quantity"] = str(asset_quantity)
+        else:
+            market_config["quote_amount"] = str(quote_amount)
+
+        payload = {
+            "client_order_id": client_order_id or str(uuid.uuid4()),
+            "side": order_side,
+            "type": "market",
+            "symbol": pair,
+            "market_order_config": market_config,
+        }
+        body = json.dumps(payload, separators=(",", ":"))
+        query = urlencode({"account_number": account_number.strip()})
+        path = f"/api/v2/crypto/trading/orders/?{query}"
+        result = self._post(path, body)
+        if isinstance(result, dict):
+            result.setdefault("client_order_id", payload["client_order_id"])
+            result.setdefault("symbol", pair)
+        return result if isinstance(result, dict) else {"result": result}
 
     @staticmethod
     def _paginate_results(initial: Any) -> list[dict[str, Any]]:

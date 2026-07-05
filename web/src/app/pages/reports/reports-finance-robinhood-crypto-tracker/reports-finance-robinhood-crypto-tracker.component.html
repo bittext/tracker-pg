@@ -114,7 +114,8 @@
               <span>
                 In
                 <a href="https://robinhood.com/account/crypto" target="_blank" rel="noopener noreferrer">crypto account settings</a>,
-                add a <strong>read-only</strong> API key with your public key.
+                create an API key with your public key. Use <strong>read-only</strong> for snapshots only, or enable
+                <strong>place order</strong> if you want Predicts auto-trade below.
               </span>
             </li>
             <li>
@@ -208,6 +209,193 @@
       </div>
     }
   </div>
+
+  @if (isConnected()) {
+    <div class="rh-crypto__autotrade" [class.rh-crypto__autotrade--open]="autoTradeExpanded">
+      <button type="button" class="rh-crypto__connect-header" (click)="toggleAutoTrade()">
+        <mat-icon aria-hidden="true">smart_toy</mat-icon>
+        <span class="rh-crypto__connect-title">Predicts auto-trade</span>
+        @if (autoTradeEnabled && !autoTradeKillSwitch) {
+          <span class="rh-crypto__connect-badge rh-crypto__status--ok">Enabled</span>
+        } @else if (autoTradeKillSwitch) {
+          <span class="rh-crypto__connect-badge rh-crypto__status--warn">Paused</span>
+        } @else {
+          <span class="rh-crypto__connect-badge rh-crypto__status--muted">Off</span>
+        }
+        <mat-icon class="rh-crypto__connect-chevron" aria-hidden="true">
+          {{ autoTradeExpanded ? 'expand_less' : 'expand_more' }}
+        </mat-icon>
+      </button>
+      @if (autoTradeExpanded) {
+        <div class="rh-crypto__connect-body">
+          <div class="rh-crypto__callout rh-crypto__callout--warn">
+            <mat-icon aria-hidden="true">warning_amber</mat-icon>
+            <p>
+              Auto-trade places <strong>real market orders</strong> with no approval step. Your API key must include
+              <strong>place order</strong> permission — reconnect above if you only used read-only.
+            </p>
+          </div>
+          @if (autoTradeSettings; as ats) {
+            <p class="muted rh-crypto__autotrade-meta">
+              Server auto-trade:
+              @if (ats.serverEnabled) {
+                <strong>on</strong>
+              } @else {
+                <strong>off</strong> (admin must enable <code>TRACKER_FINANCE_RH_CRYPTO_AUTO_TRADE_ENABLED</code>)
+              }
+            </p>
+          }
+          @if (autoTradeLastMessage) {
+            <p class="muted">Last run: {{ autoTradeLastMessage }}</p>
+          }
+          <div class="rh-crypto__autotrade-toggles">
+            <label class="rh-crypto__check">
+              <input type="checkbox" [(ngModel)]="autoTradeEnabled" name="rhCryptoAutoEnabled" [disabled]="autoTradeSaving" />
+              Enable auto-trade (scheduled + manual evaluate)
+            </label>
+            <label class="rh-crypto__check">
+              <input type="checkbox" [(ngModel)]="autoTradeKillSwitch" name="rhCryptoKillSwitch" [disabled]="autoTradeSaving" />
+              Kill switch (pause all auto orders)
+            </label>
+          </div>
+          <div class="rh-crypto__autotrade-presets">
+            <mat-form-field appearance="outline" class="rh-crypto__preset-field">
+              <mat-label>Buy size (USD)</mat-label>
+              <input matInput type="number" min="1" [(ngModel)]="autoTradeOrderQuoteAmount" name="rhCryptoQuoteAmt" [disabled]="autoTradeSaving" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="rh-crypto__preset-field">
+              <mat-label>Max trades / day</mat-label>
+              <input matInput type="number" min="1" [(ngModel)]="autoTradeMaxTradesPerDay" name="rhCryptoMaxTrades" [disabled]="autoTradeSaving" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="rh-crypto__preset-field">
+              <mat-label>Max daily $</mat-label>
+              <input matInput type="number" min="0" [(ngModel)]="autoTradeMaxDailyNotional" name="rhCryptoMaxDaily" [disabled]="autoTradeSaving" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="rh-crypto__preset-field">
+              <mat-label>Cooldown (min)</mat-label>
+              <input matInput type="number" min="1" [(ngModel)]="autoTradeCooldownMinutes" name="rhCryptoCooldown" [disabled]="autoTradeSaving" />
+            </mat-form-field>
+          </div>
+          <div class="rh-crypto__coin-chips">
+            <span class="muted rh-crypto__coin-chips-label">Allowed coins (track in Finance → Predicts):</span>
+            <div class="rh-crypto__coin-chips-row">
+              @for (coin of coinChoices; track coin) {
+                <button
+                  type="button"
+                  class="rh-crypto__coin-chip"
+                  [class.rh-crypto__coin-chip--on]="isCoinAllowed(coin)"
+                  (click)="toggleCoin(coin)"
+                  [disabled]="autoTradeSaving"
+                >
+                  {{ coin }}
+                </button>
+              }
+            </div>
+          </div>
+          <button type="button" class="rh-crypto__advanced-toggle" (click)="toggleAutoTradeAdvanced()">
+            <mat-icon aria-hidden="true">{{ autoTradeAdvancedExpanded ? 'expand_less' : 'expand_more' }}</mat-icon>
+            Advanced thresholds
+          </button>
+          @if (autoTradeAdvancedExpanded) {
+            <div class="rh-crypto__autotrade-presets">
+              <mat-form-field appearance="outline" class="rh-crypto__preset-field">
+                <mat-label>Buy positivity ≥</mat-label>
+                <input matInput type="number" [(ngModel)]="autoTradeMinPositivityBuy" name="rhCryptoMinBuy" [disabled]="autoTradeSaving" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="rh-crypto__preset-field">
+                <mat-label>Sell positivity ≤</mat-label>
+                <input matInput type="number" [(ngModel)]="autoTradeMaxPositivitySell" name="rhCryptoMaxSell" [disabled]="autoTradeSaving" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="rh-crypto__preset-field">
+                <mat-label>Min spike Z</mat-label>
+                <input matInput type="number" step="0.1" [(ngModel)]="autoTradeMinSpikeZ" name="rhCryptoMinSpike" [disabled]="autoTradeSaving" />
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="rh-crypto__preset-field">
+                <mat-label>Min mentions 24h</mat-label>
+                <input matInput type="number" min="1" [(ngModel)]="autoTradeMinMentions24h" name="rhCryptoMinMentions" [disabled]="autoTradeSaving" />
+              </mat-form-field>
+            </div>
+          }
+          <div class="rh-crypto__connect-actions">
+            <button mat-flat-button color="primary" type="button" (click)="saveAutoTradeSettings()" [disabled]="autoTradeSaving">
+              @if (autoTradeSaving) {
+                <mat-spinner diameter="20" aria-hidden="true" />
+              } @else {
+                <mat-icon>save</mat-icon>
+              }
+              Save auto-trade settings
+            </button>
+            <button mat-flat-button color="accent" type="button" (click)="evaluateAutoTradeNow()" [disabled]="autoTradeEvaluating || autoTradeSaving">
+              @if (autoTradeEvaluating) {
+                <mat-spinner diameter="20" aria-hidden="true" />
+              } @else {
+                <mat-icon>play_arrow</mat-icon>
+              }
+              Run evaluate now
+            </button>
+            <button mat-stroked-button color="warn" type="button" (click)="panicStopAutoTrade()" [disabled]="autoTradeSaving">
+              <mat-icon>block</mat-icon>
+              Panic stop
+            </button>
+          </div>
+          @if (autoTradeRuns.length || cryptoOrders.length) {
+            <div class="rh-crypto__autotrade-history">
+              @if (autoTradeRuns.length) {
+                <h4 class="rh-crypto__history-title">Recent runs</h4>
+                <table class="rh-crypto__history-table">
+                  <thead>
+                    <tr>
+                      <th>When</th>
+                      <th>Status</th>
+                      <th>Signals</th>
+                      <th>Orders</th>
+                      <th>Message</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (run of autoTradeRuns.slice(0, 5); track run.id) {
+                      <tr>
+                        <td>{{ run.startedAt | date: 'short' }}</td>
+                        <td>{{ run.status }}</td>
+                        <td>{{ run.signalsGenerated }}</td>
+                        <td>{{ run.ordersPlaced }}/{{ run.ordersAttempted }}</td>
+                        <td class="rh-crypto__history-msg">{{ run.message }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              }
+              @if (cryptoOrders.length) {
+                <h4 class="rh-crypto__history-title">Recent orders</h4>
+                <table class="rh-crypto__history-table">
+                  <thead>
+                    <tr>
+                      <th>When</th>
+                      <th>Coin</th>
+                      <th>Side</th>
+                      <th>Status</th>
+                      <th>Source</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (order of cryptoOrders.slice(0, 10); track order.id) {
+                      <tr>
+                        <td>{{ order.createdAt | date: 'short' }}</td>
+                        <td>{{ order.symbol }}</td>
+                        <td>{{ order.side }}</td>
+                        <td>{{ order.status }}</td>
+                        <td>{{ order.source }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              }
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
 
   @if (tracker; as t) {
     <div class="rh-crypto__status-row">

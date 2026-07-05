@@ -12,6 +12,7 @@ Endpoints
 - POST /v1/banking/sync   → {access_token, transaction_limit?}
 - POST /v1/banking/refresh-token → {refresh_token, client_id?}
 - POST /v1/crypto/sync     → {api_key, private_key_base64}
+- POST /v1/crypto/place-order → {api_key, private_key_base64, account_number, symbol, side, ...}
 """
 
 from __future__ import annotations
@@ -29,6 +30,7 @@ from order_service import run_place, run_review
 from quote_service import run_quotes
 from sync_service import run_sync
 from crypto_trading_service import run_crypto_sync
+from crypto_order_service import run_crypto_place_order
 
 LOGGER = logging.getLogger("robinhood-agent-svc")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s :: %(message)s")
@@ -80,6 +82,17 @@ class CryptoSyncRequest(BaseModel):
     private_key_base64: str = Field(min_length=16)
 
 
+class CryptoPlaceOrderRequest(BaseModel):
+    api_key: str = Field(min_length=8)
+    private_key_base64: str = Field(min_length=16)
+    account_number: str = Field(min_length=4)
+    symbol: str = Field(min_length=2)
+    side: str = Field(min_length=3)
+    asset_quantity: str | None = None
+    quote_amount: str | None = None
+    client_order_id: str | None = None
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "service": "robinhood-agent-svc", "phase": "2"}
@@ -126,6 +139,30 @@ def crypto_sync(body: CryptoSyncRequest) -> dict:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         LOGGER.exception("crypto sync failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/v1/crypto/place-order")
+def crypto_place_order(body: CryptoPlaceOrderRequest) -> dict:
+    try:
+        return run_crypto_place_order(
+            body.api_key,
+            body.private_key_base64,
+            body.account_number,
+            body.symbol,
+            body.side,
+            asset_quantity=body.asset_quantity,
+            quote_amount=body.quote_amount,
+            client_order_id=body.client_order_id,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.exception("crypto place-order failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
