@@ -1,10 +1,30 @@
 <section class="rh-crypto" aria-labelledby="rh-crypto-heading">
-  <h2 id="rh-crypto-heading" class="rh-crypto__title">Robinhood Crypto Tracker</h2>
-  <p class="muted rh-crypto__lead">
-    Crypto holdings and value changes over time via Robinhood's official
-    <a href="https://docs.robinhood.com/crypto/trading/" target="_blank" rel="noopener noreferrer">Crypto Trading API</a>
-    — kept separate from <strong>Daily Tracker</strong> brokerage snapshots.
-  </p>
+  <header class="rh-crypto__header">
+    <div class="rh-crypto__header-text">
+      <h2 id="rh-crypto-heading" class="rh-crypto__title">Robinhood Crypto Tracker</h2>
+      <p class="muted rh-crypto__lead">
+        Holdings and value changes via Robinhood's
+        <a href="https://docs.robinhood.com/crypto/trading/" target="_blank" rel="noopener noreferrer">Crypto Trading API</a>
+        — separate from Daily Tracker brokerage snapshots.
+      </p>
+    </div>
+    @if (tracker; as t) {
+      <div class="rh-crypto__header-stats">
+        @if (isConnected()) {
+          <span class="rh-crypto__stat rh-crypto__stat--ok">
+            <mat-icon aria-hidden="true">verified</mat-icon>
+            Connected
+          </span>
+        }
+        @if (t.snapshotCount > 0) {
+          <span class="rh-crypto__stat">
+            <mat-icon aria-hidden="true">history</mat-icon>
+            {{ t.snapshotCount }} capture{{ t.snapshotCount === 1 ? '' : 's' }}
+          </span>
+        }
+      </div>
+    }
+  </header>
 
   <div class="rh-crypto__toolbar">
     <mat-form-field appearance="outline" class="rh-crypto__field">
@@ -54,44 +74,136 @@
     }
   </div>
 
+  @if (captureFeedback; as fb) {
+    <div class="rh-crypto__banner" [class]="bannerClass(fb.kind)" role="status">
+      <mat-icon aria-hidden="true">{{ bannerIcon(fb.kind) }}</mat-icon>
+      <span>{{ fb.message }}</span>
+      <button type="button" class="rh-crypto__banner-dismiss" (click)="dismissCaptureFeedback()" aria-label="Dismiss">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+  }
+
   <div class="rh-crypto__connect" [class.rh-crypto__connect--open]="connectExpanded">
     <button type="button" class="rh-crypto__connect-header" (click)="toggleConnect()">
-      <mat-icon aria-hidden="true">{{ connectExpanded ? 'expand_less' : 'expand_more' }}</mat-icon>
-      <span>Crypto Trading API credentials</span>
+      <mat-icon aria-hidden="true">vpn_key</mat-icon>
+      <span class="rh-crypto__connect-title">Crypto Trading API credentials</span>
       @if (cryptoStatus?.connected) {
         <span class="rh-crypto__connect-badge rh-crypto__status--ok">Connected</span>
+      } @else {
+        <span class="rh-crypto__connect-badge rh-crypto__status--warn">Setup required</span>
       }
+      <mat-icon class="rh-crypto__connect-chevron" aria-hidden="true">
+        {{ connectExpanded ? 'expand_less' : 'expand_more' }}
+      </mat-icon>
     </button>
     @if (connectExpanded) {
       <div class="rh-crypto__connect-body">
-        <p class="muted small">
-          Create a <strong>read-only</strong> API key in
-          <a href="https://robinhood.com/account/crypto" target="_blank" rel="noopener noreferrer">Robinhood crypto account settings</a>
-          (web classic). When Robinhood prompts for your public key, use a key pair you generate locally.
-          Save the <strong>base64 private key</strong> (~44 characters, e.g. <code>AmkImtzG…6CA=</code>) — Robinhood never shows this again.
-          Paste the Robinhood <strong>API key</strong> and your saved <strong>private key</strong> below (they are different values).
-        </p>
-        <mat-form-field appearance="outline" class="rh-crypto__connect-field">
-          <mat-label>API key</mat-label>
-          <input matInput [(ngModel)]="apiKey" name="rhCryptoApiKey" autocomplete="off" />
-        </mat-form-field>
-        <mat-form-field appearance="outline" class="rh-crypto__connect-field">
-          <mat-label>Private key (base64)</mat-label>
-          <textarea matInput rows="3" [(ngModel)]="privateKeyBase64" name="rhCryptoPrivateKey" autocomplete="off"></textarea>
-        </mat-form-field>
+        <div class="rh-crypto__guide">
+          <h3 class="rh-crypto__guide-title">How to connect</h3>
+          <ol class="rh-crypto__steps">
+            <li>
+              <span class="rh-crypto__step-num">1</span>
+              <span>
+                Generate an Ed25519 key pair locally (Robinhood docs or
+                <code>PyNaCl</code>). Save the <strong>base64 private key</strong> — Robinhood never stores it.
+              </span>
+            </li>
+            <li>
+              <span class="rh-crypto__step-num">2</span>
+              <span>
+                In
+                <a href="https://robinhood.com/account/crypto" target="_blank" rel="noopener noreferrer">crypto account settings</a>,
+                add a <strong>read-only</strong> API key with your public key.
+              </span>
+            </li>
+            <li>
+              <span class="rh-crypto__step-num">3</span>
+              <span>Copy Robinhood's <strong>API key</strong> and paste both values below — they are different fields.</span>
+            </li>
+          </ol>
+          <div class="rh-crypto__key-compare" aria-hidden="true">
+            <div class="rh-crypto__key-card rh-crypto__key-card--api">
+              <span class="rh-crypto__key-label">Robinhood API key</span>
+              <code>xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</code>
+              <span class="muted">Issued by Robinhood</span>
+            </div>
+            <div class="rh-crypto__key-card rh-crypto__key-card--private">
+              <span class="rh-crypto__key-label">Your private key (base64)</span>
+              <code>AmkImtzGG3lW5BKXhqvJ…6CA=</code>
+              <span class="muted">~44 chars · you saved this locally</span>
+            </div>
+          </div>
+        </div>
+
+        @if (connectError) {
+          <div class="rh-crypto__banner rh-crypto__banner--error" role="alert">
+            <mat-icon aria-hidden="true">error_outline</mat-icon>
+            <span>{{ connectError }}</span>
+            <button type="button" class="rh-crypto__banner-dismiss" (click)="connectError = null" aria-label="Dismiss">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+        }
+
+        <div class="rh-crypto__fields">
+          <mat-form-field appearance="outline" class="rh-crypto__connect-field">
+            <mat-label>Robinhood API key</mat-label>
+            <input
+              matInput
+              [(ngModel)]="apiKey"
+              name="rhCryptoApiKey"
+              autocomplete="off"
+              placeholder="Paste API key from Robinhood"
+              (input)="connectError = null"
+            />
+            <mat-hint>From Robinhood after registering your public key</mat-hint>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="rh-crypto__connect-field">
+            <mat-label>Private key (base64)</mat-label>
+            <textarea
+              matInput
+              rows="2"
+              [(ngModel)]="privateKeyBase64"
+              name="rhCryptoPrivateKey"
+              autocomplete="off"
+              placeholder="Paste your saved Ed25519 private key"
+              (input)="connectError = null"
+            ></textarea>
+            <mat-hint>32-byte seed, base64-encoded (~44 characters). Not the API key.</mat-hint>
+          </mat-form-field>
+        </div>
+
         <div class="rh-crypto__connect-actions">
           <button mat-flat-button color="primary" type="button" (click)="saveCredentials()" [disabled]="savingCredentials">
             @if (savingCredentials) {
               <mat-spinner diameter="20" aria-hidden="true" />
+            } @else {
+              <mat-icon>save</mat-icon>
             }
             Save credentials
           </button>
           @if (cryptoStatus?.connected) {
-            <button mat-stroked-button type="button" (click)="disconnect()">Disconnect</button>
+            <button mat-stroked-button type="button" (click)="disconnect()">
+              <mat-icon>link_off</mat-icon>
+              Disconnect
+            </button>
           }
         </div>
-        @if (cryptoStatus?.lastSyncMessage) {
-          <p class="muted small">Last sync: {{ cryptoStatus!.lastSyncMessage }}</p>
+
+        @if (cryptoStatus?.lastSyncAt || cryptoStatus?.lastSyncMessage) {
+          <div class="rh-crypto__sync" [class]="syncStatusClass()">
+            <mat-icon aria-hidden="true">{{ syncStatusIcon() }}</mat-icon>
+            <div class="rh-crypto__sync-text">
+              <strong>Last sync</strong>
+              @if (cryptoStatus?.lastSyncAt) {
+                <span class="rh-crypto__sync-when">{{ cryptoStatus!.lastSyncAt | date: 'medium' }}</span>
+              }
+              @if (cryptoStatus?.lastSyncMessage) {
+                <p class="rh-crypto__sync-message">{{ cryptoStatus!.lastSyncMessage }}</p>
+              }
+            </div>
+          </div>
         }
       </div>
     }
@@ -108,19 +220,20 @@
           {{ cryptoStatus!.accountNumberMasked }}
         </span>
       }
-      @if (t.snapshotCount > 0) {
-        <span class="rh-crypto__status-pill rh-crypto__status-pill--muted muted">
-          {{ t.snapshotCount }} snapshot{{ t.snapshotCount === 1 ? '' : 's' }} on record
-        </span>
-      }
     </div>
 
     @if (t.notes.length) {
-      <ul class="rh-crypto__notes muted">
-        @for (note of t.notes; track note) {
-          <li>{{ note }}</li>
-        }
-      </ul>
+      <details class="rh-crypto__info">
+        <summary>
+          <mat-icon aria-hidden="true">info</mat-icon>
+          About this tracker
+        </summary>
+        <ul>
+          @for (note of t.notes; track note) {
+            <li>{{ note }}</li>
+          }
+        </ul>
+      </details>
     }
 
     @if (!isConnected()) {
@@ -128,53 +241,74 @@
         <mat-icon class="rh-crypto__empty-icon" aria-hidden="true">currency_bitcoin</mat-icon>
         <h3 class="rh-crypto__empty-title">Connect Crypto Trading API</h3>
         <p class="muted">
-          Add read-only API credentials above to pull coin holdings and track value changes over time.
+          Expand <strong>Crypto Trading API credentials</strong> above and follow the three steps to start tracking holdings.
         </p>
+        <button mat-stroked-button type="button" (click)="connectExpanded = true">
+          <mat-icon>vpn_key</mat-icon>
+          Open setup
+        </button>
       </div>
     } @else if (!t.days.length) {
-      <div class="rh-crypto__empty" role="status">
-        <mat-icon class="rh-crypto__empty-icon" aria-hidden="true">currency_bitcoin</mat-icon>
+      <div class="rh-crypto__empty rh-crypto__empty--ready" role="status">
+        <mat-icon class="rh-crypto__empty-icon" aria-hidden="true">photo_camera</mat-icon>
         <h3 class="rh-crypto__empty-title">No captures yet</h3>
-        <p class="muted">Use <strong>Capture now</strong> or wait for the scheduled crypto capture job.</p>
+        <p class="muted">Pull your first snapshot with <strong>Capture now</strong>, or wait for the scheduled job (every 4 hours).</p>
+        <button mat-flat-button color="accent" type="button" (click)="captureNow()" [disabled]="capturing">
+          @if (capturing) {
+            <mat-spinner diameter="20" aria-hidden="true" />
+          } @else {
+            <mat-icon>photo_camera</mat-icon>
+          }
+          Capture now
+        </button>
       </div>
     } @else {
       <div class="rh-crypto__timeline" role="region" aria-label="Crypto capture history">
         @for (day of t.days; track day.snapshotAt) {
           <article class="rh-crypto__day" [class.rh-crypto__day--open]="isDayExpanded(day)">
             <button type="button" class="rh-crypto__day-header" (click)="toggleDay(day)">
-              <mat-icon aria-hidden="true">{{ isDayExpanded(day) ? 'expand_less' : 'expand_more' }}</mat-icon>
+              <mat-icon class="rh-crypto__day-chevron" aria-hidden="true">
+                {{ isDayExpanded(day) ? 'expand_less' : 'expand_more' }}
+              </mat-icon>
               <span class="rh-crypto__day-when">
-                {{ day.snapshotAt | date: 'mediumDate' }} · {{ day.snapshotAt | date: 'shortTime' }}
-                <span class="muted rh-crypto__day-kind">{{ captureKindLabel(day.captureKind) }}</span>
+                <span class="rh-crypto__day-date">{{ day.snapshotAt | date: 'mediumDate' }}</span>
+                <span class="rh-crypto__day-time muted">{{ day.snapshotAt | date: 'shortTime' }}</span>
+                <span class="rh-crypto__day-kind">{{ captureKindLabel(day.captureKind) }}</span>
               </span>
-              <strong class="rh-crypto__day-total">{{ day.totalValue | currency }}</strong>
-              @if (day.changeFromPrevious !== 0) {
-                <span class="rh-crypto__day-delta" [class]="pnlClass(day.changeFromPrevious)">
-                  {{ day.changeFromPrevious | currency }}
-                </span>
-              }
+              <span class="rh-crypto__day-values">
+                <strong class="rh-crypto__day-total">{{ day.totalValue | currency }}</strong>
+                @if (day.changeFromPrevious !== 0) {
+                  <span class="rh-crypto__day-delta" [class]="pnlClass(day.changeFromPrevious)">
+                    {{ formatDelta(day.changeFromPrevious) }}
+                  </span>
+                }
+              </span>
             </button>
             @if (isDayExpanded(day)) {
-              <table class="rh-crypto__holdings">
-                <thead>
-                  <tr>
-                    <th>Coin</th>
-                    <th class="rh-crypto__num">Qty</th>
-                    <th class="rh-crypto__num">Price</th>
-                    <th class="rh-crypto__num">Market value</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (h of day.holdings; track h.symbol) {
+              <div class="rh-crypto__holdings-wrap">
+                <table class="rh-crypto__holdings">
+                  <thead>
                     <tr>
-                      <td>{{ h.symbol }}</td>
-                      <td class="rh-crypto__num">{{ h.quantity | number: '1.0-8' }}</td>
-                      <td class="rh-crypto__num">{{ h.currentUnitPrice | currency }}</td>
-                      <td class="rh-crypto__num">{{ h.marketValue | currency }}</td>
+                      <th>Coin</th>
+                      <th class="rh-crypto__num">Qty</th>
+                      <th class="rh-crypto__num">Price</th>
+                      <th class="rh-crypto__num">Market value</th>
                     </tr>
-                  }
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    @for (h of day.holdings; track h.symbol) {
+                      <tr>
+                        <td>
+                          <span class="rh-crypto__coin">{{ h.symbol }}</span>
+                        </td>
+                        <td class="rh-crypto__num">{{ h.quantity | number: '1.0-8' }}</td>
+                        <td class="rh-crypto__num">{{ h.currentUnitPrice | currency }}</td>
+                        <td class="rh-crypto__num rh-crypto__mv">{{ h.marketValue | currency }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
             }
           </article>
         }

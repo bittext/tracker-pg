@@ -49,3 +49,13 @@ export function formatHttpErrorDetail(e: unknown): string {
   }
   return String(e);
 }
+
+/** User-facing message without leading status code — for inline banners and form errors. */
+export function formatHttpErrorMessage(e: unknown): string {
+  const detail = formatHttpErrorDetail(e);
+  const withoutStatus = detail.replace(/^\d{3}:\s*/, '').trim();
+  if (withoutStatus) {
+    return withoutStatus;
+  }
+  return detail;
+}

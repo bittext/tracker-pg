@@ -14,7 +14,9 @@ import {
   RobinhoodRhCryptoTrackerReportDto,
 } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
-import { formatHttpErrorDetail } from '../../../util/http-error';
+import { formatHttpErrorDetail, formatHttpErrorMessage } from '../../../util/http-error';
+
+type FeedbackKind = 'ok' | 'error' | 'info';
 
 @Component({
   selector: 'app-reports-finance-robinhood-crypto-tracker',
@@ -51,6 +53,8 @@ export class ReportsFinanceRobinhoodCryptoTrackerComponent implements OnInit {
 
   apiKey = '';
   privateKeyBase64 = '';
+  connectError: string | null = null;
+  captureFeedback: { kind: FeedbackKind; message: string } | null = null;
 
   readonly expandedDays = new Set<string>();
 
@@ -142,9 +146,10 @@ export class ReportsFinanceRobinhoodCryptoTrackerComponent implements OnInit {
     const apiKey = this.apiKey.trim();
     const privateKeyBase64 = this.privateKeyBase64.trim();
     if (!apiKey || !privateKeyBase64) {
-      this.snackBar.open('API key and private key are required.', 'Dismiss', { duration: 5000 });
+      this.connectError = 'API key and private key are both required.';
       return;
     }
+    this.connectError = null;
     this.savingCredentials = true;
     this.financeApi.robinhoodCryptoTradingSaveCredentials({ apiKey, privateKeyBase64 }).subscribe({
       next: (s) => {
@@ -153,12 +158,12 @@ export class ReportsFinanceRobinhoodCryptoTrackerComponent implements OnInit {
         this.apiKey = '';
         this.privateKeyBase64 = '';
         this.connectExpanded = false;
-        this.snackBar.open('Crypto Trading API credentials saved.', 'Dismiss', { duration: 4000 });
+        this.showCaptureFeedback('ok', 'Crypto Trading API credentials saved.');
         this.load();
       },
       error: (err) => {
         this.savingCredentials = false;
-        this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
+        this.connectError = formatHttpErrorMessage(err);
       },
     });
   }
@@ -179,16 +184,17 @@ export class ReportsFinanceRobinhoodCryptoTrackerComponent implements OnInit {
 
   captureNow(): void {
     this.capturing = true;
+    this.captureFeedback = null;
     this.financeApi.robinhoodCryptoTrackerCapture(true).subscribe({
       next: (r) => {
         this.capturing = false;
-        this.snackBar.open(r.message, 'Dismiss', { duration: 6000 });
+        this.showCaptureFeedback(r.ok ? 'ok' : 'error', r.message);
         this.loadCryptoStatus();
         this.load();
       },
       error: (err) => {
         this.capturing = false;
-        this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
+        this.showCaptureFeedback('error', formatHttpErrorMessage(err));
       },
     });
   }
@@ -244,6 +250,62 @@ export class ReportsFinanceRobinhoodCryptoTrackerComponent implements OnInit {
 
   pnlClass(value: number): string {
     return value >= 0 ? 'rh-crypto__pnl--pos' : 'rh-crypto__pnl--neg';
+  }
+
+  formatDelta(value: number): string {
+    const abs = Math.abs(value);
+    const formatted = new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(abs);
+    return value >= 0 ? `+${formatted}` : `−${formatted}`;
+  }
+
+  syncStatusClass(): string {
+    const status = this.cryptoStatus?.lastSyncStatus?.toLowerCase() ?? '';
+    if (status === 'ok') {
+      return 'rh-crypto__sync rh-crypto__sync--ok';
+    }
+    if (status === 'error') {
+      return 'rh-crypto__sync rh-crypto__sync--error';
+    }
+    return 'rh-crypto__sync rh-crypto__sync--muted';
+  }
+
+  syncStatusIcon(): string {
+    const status = this.cryptoStatus?.lastSyncStatus?.toLowerCase() ?? '';
+    if (status === 'ok') {
+      return 'check_circle';
+    }
+    if (status === 'error') {
+      return 'error_outline';
+    }
+    return 'sync';
+  }
+
+  bannerClass(kind: FeedbackKind): string {
+    return `rh-crypto__banner rh-crypto__banner--${kind}`;
+  }
+
+  bannerIcon(kind: FeedbackKind): string {
+    switch (kind) {
+      case 'ok':
+        return 'check_circle';
+      case 'error':
+        return 'error_outline';
+      default:
+        return 'info';
+    }
+  }
+
+  dismissCaptureFeedback(): void {
+    this.captureFeedback = null;
+  }
+
+  private showCaptureFeedback(kind: FeedbackKind, message: string): void {
+    this.captureFeedback = { kind, message };
   }
 
   private normalizedReportMonths(): number[] | undefined {
