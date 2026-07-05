@@ -118,7 +118,7 @@ public class RobinhoodCryptoTradingService {
         log.info("Robinhood Crypto Trading disconnected for user {}", uid);
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = ResponseStatusException.class)
     public RobinhoodCryptoTradingSyncResultDto syncNow() {
         requireSidecar();
         long uid = currentUser.requireUserId();
@@ -129,7 +129,7 @@ public class RobinhoodCryptoTradingService {
         return syncConnection(conn);
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = ResponseStatusException.class)
     public RobinhoodCryptoTradingSyncResultDto syncForOwner(long ownerUserId) {
         requireSidecar();
         RobinhoodCryptoTradingConnection conn = connectionRepository

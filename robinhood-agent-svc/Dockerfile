@@ -15,7 +15,7 @@ RUN apt-get update \
 COPY requirements.txt /app/requirements.txt
 RUN pip install --upgrade pip && pip install -r /app/requirements.txt
 
-COPY mcp_client.py mcp_tool_utils.py sync_service.py oauth_service.py order_service.py quote_service.py banking_oauth_service.py banking_sync_service.py app.py /app/
+COPY mcp_client.py mcp_tool_utils.py sync_service.py oauth_service.py order_service.py quote_service.py banking_oauth_service.py banking_sync_service.py crypto_trading_service.py app.py /app/
 
 EXPOSE 8020
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \

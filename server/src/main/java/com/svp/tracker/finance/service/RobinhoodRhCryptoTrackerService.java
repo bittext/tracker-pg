@@ -100,12 +100,12 @@ public class RobinhoodRhCryptoTrackerService {
                 .captureForOwner(ownerUserId, Instant.now(), RobinhoodRhDailyCaptureKind.MANUAL, syncLatest);
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, noRollbackFor = ResponseStatusException.class)
     public RobinhoodRhCryptoCaptureResultDto captureScheduledForOwner(long ownerUserId, Instant snapshotAt) {
         return captureForOwner(ownerUserId, snapshotAt, RobinhoodRhDailyCaptureKind.SCHEDULED, true);
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.REQUIRES_NEW, noRollbackFor = ResponseStatusException.class)
     public RobinhoodRhCryptoCaptureResultDto captureForOwner(
             long ownerUserId, Instant snapshotAt, String captureKind, boolean syncLatest) {
         if (!cryptoTradingService.isConnected(ownerUserId)) {
