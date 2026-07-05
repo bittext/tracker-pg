@@ -1,5 +1,6 @@
 import { CommonModule, CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatButtonModule } from '@angular/material/button';
@@ -11,17 +12,20 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { RouterLink } from '@angular/router';
+import { filter, interval, switchMap } from 'rxjs';
 import {
   RobinhoodRhDailyTrackerAccountCellDto,
   RobinhoodRhDailyTrackerAccountColumnDto,
   RobinhoodRhDailyTrackerDayDto,
   RobinhoodRhDailyTrackerManualCaptureAccountDto,
   RobinhoodRhDailyTrackerManualCaptureDto,
+  RobinhoodRhDailyTrackerRefreshHintDto,
   RobinhoodRhDailyTrackerReportDto,
   RhDailyTrackerAccountAlertDto,
   RhDailyTrackerAccountAlertItemDto,
   RhDailyTrackerAccountAlertsDto,
   RhDailyTrackerAlertEventDto,
+  RhDailyTrackerSnapshotAlertDto,
 } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
@@ -48,6 +52,7 @@ export interface RhDailyCaptureTimelineAccountCell {
   totalAccountValue: number;
   changeFromPrior: number | null;
   positionsChangedFromPrior: boolean;
+  spikeAlert: RhDailyTrackerSnapshotAlertDto;
 }
 
 @Component({
@@ -77,11 +82,14 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   private readonly financeApi = inject(FinanceApiService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
+  private readonly destroyRef = inject(DestroyRef);
 
   reportYear = new Date().getFullYear();
   /** Empty = all months in the selected year. */
   reportMonths: number[] = [new Date().getMonth() + 1];
   loading = false;
+  /** Background refresh after scheduled/manual capture (no full-page spinner). */
+  softRefreshing = false;
   capturing = false;
   tracker: RobinhoodRhDailyTrackerReportDto | null = null;
 
@@ -118,6 +126,11 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
 
   private static readonly VIEW_MODE_STORAGE_KEY = 'rh-daily-tracker-view-mode';
   private static readonly EXPANSION_STORAGE_PREFIX = 'rh-daily-tracker-expansion';
+  /** Poll for new snapshots from hourly cron or admin "Run now". */
+  private static readonly AUTO_REFRESH_MS = 25_000;
+
+  private lastKnownSnapshotId = 0;
+  private refreshPollReady = false;
 
   readonly monthChoices = [
     { value: 1, label: 'January' },
@@ -134,18 +147,90 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     { value: 12, label: 'December' },
   ];
 
-  ngOnInit(): void {
-    this.load();
-    this.loadSpikeAlerts();
-  }
-
   yearChoices(): number[] {
     const y = new Date().getFullYear();
     return [y, y - 1, y - 2];
   }
 
-  load(): void {
-    this.loading = true;
+  ngOnInit(): void {
+    this.load();
+    this.loadSpikeAlerts();
+    this.startAutoRefresh();
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
+    this.destroyRef.onDestroy(() => {
+      document.removeEventListener('visibilitychange', this.onVisibilityChange);
+    });
+  }
+
+  private readonly onVisibilityChange = (): void => {
+    if (document.hidden || !this.refreshPollReady || this.loading || this.capturing) {
+      return;
+    }
+    this.financeApi.robinhoodDailyTrackerRefreshHint().subscribe({
+      next: (hint) => this.onRefreshHint(hint, true),
+    });
+  };
+
+  private startAutoRefresh(): void {
+    interval(ReportsFinanceRobinhoodDailyTrackerComponent.AUTO_REFRESH_MS)
+      .pipe(
+        filter(
+          () =>
+            this.refreshPollReady &&
+            !document.hidden &&
+            !this.loading &&
+            !this.capturing &&
+            !this.softRefreshing,
+        ),
+        switchMap(() => this.financeApi.robinhoodDailyTrackerRefreshHint()),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe({
+        next: (hint) => this.onRefreshHint(hint, true),
+        error: () => {
+          /* ignore transient poll failures */
+        },
+      });
+  }
+
+  private onRefreshHint(hint: RobinhoodRhDailyTrackerRefreshHintDto, fromPoll: boolean): void {
+    const id = hint.latestSnapshotId ?? 0;
+    if (fromPoll && id === this.lastKnownSnapshotId) {
+      return;
+    }
+    this.lastKnownSnapshotId = id;
+    if (!fromPoll || !this.tracker) {
+      return;
+    }
+    this.load({ silent: true });
+    if (this.spikeAlertsExpanded) {
+      this.loadSpikeAlerts();
+    }
+  }
+
+  private syncRefreshHint(markPollReady: boolean): void {
+    this.financeApi.robinhoodDailyTrackerRefreshHint().subscribe({
+      next: (hint) => {
+        this.onRefreshHint(hint, false);
+        if (markPollReady) {
+          this.refreshPollReady = true;
+        }
+      },
+      error: () => {
+        if (markPollReady) {
+          this.refreshPollReady = true;
+        }
+      },
+    });
+  }
+
+  load(opts?: { silent?: boolean }): void {
+    const silent = opts?.silent ?? false;
+    if (silent) {
+      this.softRefreshing = true;
+    } else {
+      this.loading = true;
+    }
     const months = this.normalizedReportMonths();
     this.financeApi.robinhoodDailyTracker(this.reportYear, months).subscribe({
       next: (t) => {
@@ -155,11 +240,18 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         this.pruneExpansionState(validDates);
         this.syncNoteDrafts(t.days);
         this.loading = false;
+        this.softRefreshing = false;
+        if (!silent) {
+          this.syncRefreshHint(true);
+        }
       },
       error: (err) => {
         this.tracker = null;
         this.loading = false;
-        this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
+        this.softRefreshing = false;
+        if (!silent) {
+          this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
+        }
       },
     });
   }
@@ -313,6 +405,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         hasFlowActivity: false,
         tradeCount: 0,
         positionsChangedFromPrior: acct.positionsChangedFromPrior ?? false,
+        spikeAlert: acct.spikeAlert,
       },
       day,
     );
@@ -405,6 +498,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
             totalAccountValue: cell.totalAccountValue,
             changeFromPrior: null,
             positionsChangedFromPrior: cell.positionsChangedFromPrior ?? false,
+            spikeAlert: cell.spikeAlert,
           })),
         },
       });
@@ -426,6 +520,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
             totalAccountValue: acct.totalAccountValue,
             changeFromPrior: null,
             positionsChangedFromPrior: acct.positionsChangedFromPrior ?? false,
+            spikeAlert: acct.spikeAlert,
           })),
         },
       });
@@ -447,6 +542,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
             totalAccountValue: acct.totalAccountValue,
             changeFromPrior: null,
             positionsChangedFromPrior: acct.positionsChangedFromPrior ?? false,
+            spikeAlert: acct.spikeAlert,
           })),
         },
       });
@@ -527,6 +623,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         hasFlowActivity: false,
         tradeCount: 0,
         positionsChangedFromPrior: acct.positionsChangedFromPrior,
+        spikeAlert: acct.spikeAlert,
       },
       day,
     );
@@ -553,6 +650,31 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
 
   timelineRowHasPositionChanges(row: RhDailyCaptureTimelineRow): boolean {
     return row.accounts.some((a) => a.positionsChangedFromPrior);
+  }
+
+  timelineRowHasSpikeAlerts(row: RhDailyCaptureTimelineRow): boolean {
+    return row.accounts.some((a) => this.hasSpikeAlert(a.spikeAlert));
+  }
+
+  hasSpikeAlert(alert: RhDailyTrackerSnapshotAlertDto | null | undefined): boolean {
+    return alert?.fired === true;
+  }
+
+  spikeAlertTitle(alert: RhDailyTrackerSnapshotAlertDto): string {
+    const parts = ['Spike alert'];
+    if (alert.triggerReasons) {
+      parts.push(this.alertTriggerLabel(alert.triggerReasons));
+    }
+    if (alert.deltaDollars != null) {
+      parts.push(`Δ ${alert.deltaDollars.toLocaleString(undefined, { style: 'currency', currency: 'USD' })}`);
+    }
+    if (alert.deltaPercent != null) {
+      parts.push(`${alert.deltaPercent.toFixed(2)}%`);
+    }
+    if (alert.emailStatus) {
+      parts.push(`Email ${alert.emailStatus}`);
+    }
+    return parts.join(' · ');
   }
 
   hasFlowBlock(day: RobinhoodRhDailyTrackerDayDto): boolean {

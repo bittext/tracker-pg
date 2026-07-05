@@ -6,6 +6,7 @@
         <mat-icon aria-hidden="true">event_repeat</mat-icon>
         Auto-capture: {{ tracker!.autoCaptureScheduleLabel }}
       </span>
+      <span class="rh-daily__live-badge muted">Live sync — updates automatically after each capture</span>
       —
       Each day’s <strong>9:00 PM CST</strong> snapshot appears as a row — click to expand. Use
       <strong>Timeline compare</strong> to see all captures side-by-side, or <strong>Classic</strong> for the original
@@ -73,6 +74,8 @@
     </span>
     @if (loading || capturing) {
       <mat-spinner diameter="28" aria-label="Loading" />
+    } @else if (softRefreshing) {
+      <mat-spinner diameter="22" aria-label="Syncing captures" class="rh-daily__sync-spinner" />
     }
     <button
       mat-stroked-button
@@ -445,6 +448,7 @@
                                 <tr
                                   [class.rh-daily__timeline-row--scheduled]="row.kind === 'scheduled' || row.kind === 'intraday'"
                                   [class.rh-daily__timeline-row--positions-changed]="timelineRowHasPositionChanges(row)"
+                                  [class.rh-daily__timeline-row--spike-alert]="timelineRowHasSpikeAlerts(row)"
                                 >
                                   <td class="rh-daily__nowrap">
                                     {{ row.timeLabel }}
@@ -457,12 +461,22 @@
                                       <td
                                         class="rh-daily__num"
                                         [class.rh-daily__timeline-cell--positions-changed]="acct.positionsChangedFromPrior"
+                                        [class.rh-daily__timeline-cell--spike-alert]="hasSpikeAlert(acct.spikeAlert)"
                                       >
                                         <button
                                           type="button"
                                           class="rh-daily__timeline-cell-btn"
                                           (click)="openTimelineAccountSnapshot(acct, day, $event)"
                                         >
+                                          @if (hasSpikeAlert(acct.spikeAlert)) {
+                                            <span
+                                              class="rh-daily__spike-alert rh-daily__spike-alert--inline"
+                                              [title]="spikeAlertTitle(acct.spikeAlert!)"
+                                            >
+                                              <mat-icon class="rh-daily__spike-alert-icon" aria-hidden="true">notifications_active</mat-icon>
+                                              <span class="rh-daily__spike-alert-label">{{ alertTriggerLabel(acct.spikeAlert!.triggerReasons!) }}</span>
+                                            </span>
+                                          }
                                           {{ acct.totalAccountValue | currency }}
                                           @if (showTimelineDelta(acct.changeFromPrior)) {
                                             <span
@@ -698,6 +712,23 @@
                               {{ cell.tradeCount }} trade{{ cell.tradeCount === 1 ? '' : 's' }}
                             </span>
                           }
+                          @if (hasSpikeAlert(cell.spikeAlert)) {
+                            <span
+                              class="rh-daily__spike-alert"
+                              [title]="spikeAlertTitle(cell.spikeAlert!)"
+                            >
+                              <mat-icon class="rh-daily__spike-alert-icon" aria-hidden="true">notifications_active</mat-icon>
+                              <span class="rh-daily__spike-alert-label">{{ alertTriggerLabel(cell.spikeAlert!.triggerReasons!) }}</span>
+                              @if (cell.spikeAlert!.emailStatus) {
+                                <span
+                                  class="rh-daily__spike-alert-status"
+                                  [class]="alertStatusClass(cell.spikeAlert!.emailStatus!)"
+                                >
+                                  {{ cell.spikeAlert!.emailStatus }}
+                                </span>
+                              }
+                            </span>
+                          }
                           <span class="rh-daily__acct-link">View holdings, trades &amp; flows →</span>
                         </button>
                       }
@@ -773,6 +804,15 @@
                                     >
                                       <span>{{ acct.label }}</span>
                                       <strong>{{ acct.totalAccountValue | currency }}</strong>
+                                      @if (hasSpikeAlert(acct.spikeAlert)) {
+                                        <span
+                                          class="rh-daily__spike-alert rh-daily__spike-alert--compact"
+                                          [title]="spikeAlertTitle(acct.spikeAlert!)"
+                                        >
+                                          <mat-icon class="rh-daily__spike-alert-icon" aria-hidden="true">notifications_active</mat-icon>
+                                          <span class="rh-daily__spike-alert-label">{{ alertTriggerLabel(acct.spikeAlert!.triggerReasons!) }}</span>
+                                        </span>
+                                      }
                                       <span class="rh-daily__acct-link">View holdings &amp; flows →</span>
                                     </button>
                                   </li>

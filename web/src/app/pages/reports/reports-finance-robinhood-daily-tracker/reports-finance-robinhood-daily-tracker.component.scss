@@ -25,6 +25,15 @@
   }
 }
 
+.rh-daily__live-badge {
+  margin-left: 0.35rem;
+  font-size: 0.78rem;
+}
+
+.rh-daily__sync-spinner {
+  opacity: 0.75;
+}
+
 .rh-daily__toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -655,6 +664,58 @@
   .rh-daily__timeline-cell-btn:hover {
     background: rgba(245, 158, 11, 0.22);
   }
+}
+
+.rh-daily__timeline-row--spike-alert {
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.rh-daily__timeline-cell--spike-alert {
+  background: rgba(239, 68, 68, 0.12);
+
+  .rh-daily__timeline-cell-btn:hover {
+    background: rgba(239, 68, 68, 0.18);
+  }
+}
+
+.rh-daily__spike-alert {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.35rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #b91c1c;
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.rh-daily__spike-alert--inline {
+  margin-top: 0;
+  margin-bottom: 0.2rem;
+  align-self: flex-end;
+}
+
+.rh-daily__spike-alert--compact {
+  margin-top: 0;
+}
+
+.rh-daily__spike-alert-icon {
+  width: 0.95rem;
+  height: 0.95rem;
+  font-size: 0.95rem;
+}
+
+.rh-daily__spike-alert-label {
+  white-space: nowrap;
+}
+
+.rh-daily__spike-alert-status {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .rh-daily__timeline-kind {

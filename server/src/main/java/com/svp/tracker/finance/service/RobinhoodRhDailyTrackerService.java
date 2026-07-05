@@ -6,10 +6,12 @@ import com.svp.tracker.auth.repository.AppUserRepository;
 import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.RobinhoodAgenticProperties;
 import com.svp.tracker.config.RobinhoodRhDailyTrackerProperties;
+import com.svp.tracker.finance.domain.RhDailyTrackerAlertEvent;
 import com.svp.tracker.finance.domain.RobinhoodAgenticSyncedOrder;
 import com.svp.tracker.finance.domain.RobinhoodRhDailyCaptureKind;
 import com.svp.tracker.finance.domain.RobinhoodRhDailyDayNote;
 import com.svp.tracker.finance.domain.RobinhoodRhDailySnapshot;
+import com.svp.tracker.finance.dto.RhDailyTrackerSnapshotAlertDto;
 import com.svp.tracker.finance.dto.RobinhoodRhAccountSummaryDto;
 import com.svp.tracker.finance.dto.RobinhoodRhAccountsTrackDto;
 import com.svp.tracker.finance.dto.RobinhoodRhCashFlowEventDto;
@@ -24,9 +26,11 @@ import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerManualCaptureAccountDt
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerManualCaptureDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerPriorPullAccountDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerPriorPullDto;
+import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerRefreshHintDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerReportDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTradeDto;
 import com.svp.tracker.finance.dto.RobinhoodRhHoldingDto;
+import com.svp.tracker.finance.repository.RhDailyTrackerAlertEventRepository;
 import com.svp.tracker.finance.repository.RobinhoodAgenticConnectionRepository;
 import com.svp.tracker.finance.repository.RobinhoodAgenticSyncedOrderRepository;
 import com.svp.tracker.finance.repository.RobinhoodRhDailyDayNoteRepository;
@@ -40,6 +44,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -81,6 +86,7 @@ public class RobinhoodRhDailyTrackerService {
     private final RobinhoodAgenticSyncedOrderRepository syncedOrderRepository;
     private final RobinhoodRhDailySnapshotRepository snapshotRepository;
     private final RobinhoodRhDailyDayNoteRepository dayNoteRepository;
+    private final RhDailyTrackerAlertEventRepository alertEventRepository;
     private final RobinhoodAccountTrackerConfigService accountTrackerConfigService;
     private final RobinhoodAgenticProperties agenticProps;
     private final RobinhoodRhDailyTrackerProperties dailyTrackerProps;
@@ -113,6 +119,13 @@ public class RobinhoodRhDailyTrackerService {
         List<RobinhoodRhDailySnapshot> scheduledYearRows = scheduledOnly(allYearRows);
         List<RobinhoodRhDailySnapshot> intradayYearRows = intradayOnly(allYearRows);
         List<RobinhoodRhDailySnapshot> manualYearRows = manualOnly(allYearRows);
+
+        Set<Long> snapshotIds = new HashSet<>();
+        for (RobinhoodRhDailySnapshot row : allYearRows) {
+            snapshotIds.add(row.getId());
+        }
+        Map<Long, RhDailyTrackerAlertEvent> alertsBySnapshotId =
+                loadSpikeAlertsBySnapshotId(ownerUserId, snapshotIds);
 
         Set<Integer> monthFilter = months == null || months.isEmpty() ? null : new HashSet<>(months);
 
@@ -254,7 +267,8 @@ public class RobinhoodRhDailyTrackerService {
                         scaleMoney(row.getPeriodValueChange()),
                         flowActivity,
                         rowTrades.size(),
-                        positionsChangedFromPrior(ownerUserId, row, allYearRows)));
+                        positionsChangedFromPrior(ownerUserId, row, allYearRows),
+                        spikeAlertFor(alertsBySnapshotId, row.getId())));
             }
 
             List<RobinhoodRhDailyTradeDto> dayTrades = buildDayTrades(
@@ -276,10 +290,16 @@ public class RobinhoodRhDailyTrackerService {
 
             List<RobinhoodRhDailyTrackerManualCaptureDto> intradayCaptures =
                     buildCapturesGroupedByInstant(
-                            ownerUserId, intradayByDate.getOrDefault(dayDate, List.of()), allYearRows);
+                            ownerUserId,
+                            intradayByDate.getOrDefault(dayDate, List.of()),
+                            allYearRows,
+                            alertsBySnapshotId);
             List<RobinhoodRhDailyTrackerManualCaptureDto> manualCaptures =
                     buildCapturesGroupedByInstant(
-                            ownerUserId, manualByDate.getOrDefault(dayDate, List.of()), allYearRows);
+                            ownerUserId,
+                            manualByDate.getOrDefault(dayDate, List.of()),
+                            allYearRows,
+                            alertsBySnapshotId);
 
             days.add(new RobinhoodRhDailyTrackerDayDto(
                     dayDate,
@@ -386,6 +406,22 @@ public class RobinhoodRhDailyTrackerService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Snapshot not found");
         }
         return toDetailDto(row);
+    }
+
+    /** Latest stored snapshot id/at for UI polling after scheduled or manual captures. */
+    @Transactional(readOnly = true)
+    public RobinhoodRhDailyTrackerRefreshHintDto refreshHint() {
+        long ownerUserId = currentUser.requireUserId();
+        return refreshHintForOwner(ownerUserId);
+    }
+
+    @Transactional(readOnly = true)
+    public RobinhoodRhDailyTrackerRefreshHintDto refreshHintForOwner(long ownerUserId) {
+        return snapshotRepository
+                .findTopByOwnerUserIdOrderBySnapshotAtDescIdDesc(ownerUserId)
+                .map(row -> new RobinhoodRhDailyTrackerRefreshHintDto(
+                        row.getSnapshotAt(), row.getId(), row.getCaptureKind()))
+                .orElseGet(() -> new RobinhoodRhDailyTrackerRefreshHintDto(null, 0L, ""));
     }
 
     @Transactional
@@ -617,7 +653,8 @@ public class RobinhoodRhDailyTrackerService {
     private List<RobinhoodRhDailyTrackerManualCaptureDto> buildCapturesGroupedByInstant(
             long ownerUserId,
             List<RobinhoodRhDailySnapshot> dayRows,
-            List<RobinhoodRhDailySnapshot> allYearRows) {
+            List<RobinhoodRhDailySnapshot> allYearRows,
+            Map<Long, RhDailyTrackerAlertEvent> alertsBySnapshotId) {
         if (dayRows.isEmpty()) {
             return List.of();
         }
@@ -640,7 +677,8 @@ public class RobinhoodRhDailyTrackerService {
                             r.getAccountSuffix(),
                             r.getLabel(),
                             scaleMoney(r.getTotalAccountValue()),
-                            positionsChangedFromPrior(ownerUserId, r, allYearRows)))
+                            positionsChangedFromPrior(ownerUserId, r, allYearRows),
+                            spikeAlertFor(alertsBySnapshotId, r.getId())))
                     .toList();
             out.add(new RobinhoodRhDailyTrackerManualCaptureDto(entry.getKey(), scaleMoney(combined), accounts));
         }
@@ -910,6 +948,36 @@ public class RobinhoodRhDailyTrackerService {
     private static boolean isPointInTimeCaptureKind(String captureKind) {
         return RobinhoodRhDailyCaptureKind.MANUAL.equals(captureKind)
                 || RobinhoodRhDailyCaptureKind.INTRADAY.equals(captureKind);
+    }
+
+    private Map<Long, RhDailyTrackerAlertEvent> loadSpikeAlertsBySnapshotId(
+            long ownerUserId, Set<Long> snapshotIds) {
+        if (snapshotIds.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, RhDailyTrackerAlertEvent> out = new HashMap<>();
+        for (RhDailyTrackerAlertEvent event :
+                alertEventRepository.findByOwnerUserIdAndSnapshotIdIn(ownerUserId, snapshotIds)) {
+            if (event.getSnapshotId() == null || "TEST".equals(event.getTriggerReasons())) {
+                continue;
+            }
+            out.putIfAbsent(event.getSnapshotId(), event);
+        }
+        return out;
+    }
+
+    private static RhDailyTrackerSnapshotAlertDto spikeAlertFor(
+            Map<Long, RhDailyTrackerAlertEvent> alertsBySnapshotId, long snapshotId) {
+        RhDailyTrackerAlertEvent event = alertsBySnapshotId.get(snapshotId);
+        if (event == null) {
+            return RhDailyTrackerSnapshotAlertDto.none();
+        }
+        return new RhDailyTrackerSnapshotAlertDto(
+                true,
+                event.getEmailStatus(),
+                event.getTriggerReasons(),
+                event.getDeltaDollars() == null ? null : scaleMoney(event.getDeltaDollars()),
+                event.getDeltaPercent());
     }
 
     private boolean positionsChangedFromPrior(

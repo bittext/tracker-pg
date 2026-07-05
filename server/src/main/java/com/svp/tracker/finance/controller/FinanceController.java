@@ -32,6 +32,7 @@ import com.svp.tracker.finance.dto.RobinhoodRhDailyDayNoteUpsertDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyManualCaptureDeleteResultDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailySnapshotDetailDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerReportDto;
+import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerRefreshHintDto;
 import com.svp.tracker.finance.dto.RhDailyTrackerAccountAlertSaveRequestDto;
 import com.svp.tracker.finance.dto.RhDailyTrackerAccountAlertsDto;
 import com.svp.tracker.finance.dto.RhDailyTrackerAlertEventDto;
@@ -165,6 +166,12 @@ public class FinanceController {
         }
         log.info("GET /api/finance/robinhood/daily-tracker year={} months={}", year, resolvedMonths);
         return rhDailyTrackerService.buildReport(year, resolvedMonths);
+    }
+
+    /** Poll for new snapshots (scheduled cron or manual capture) without loading the full report. */
+    @GetMapping("/daily-tracker/refresh-hint")
+    public RobinhoodRhDailyTrackerRefreshHintDto dailyTrackerRefreshHint() {
+        return rhDailyTrackerService.refreshHint();
     }
 
     private static List<Integer> resolveDailyTrackerMonths(Integer month, List<Integer> months) {

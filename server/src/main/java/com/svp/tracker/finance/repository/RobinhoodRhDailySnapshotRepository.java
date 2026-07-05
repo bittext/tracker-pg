@@ -6,6 +6,8 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface RobinhoodRhDailySnapshotRepository extends JpaRepository<RobinhoodRhDailySnapshot, Long> {
 
@@ -25,4 +27,9 @@ public interface RobinhoodRhDailySnapshotRepository extends JpaRepository<Robinh
 
     List<RobinhoodRhDailySnapshot> findByOwnerUserIdAndSnapshotAtAndCaptureKind(
             long ownerUserId, Instant snapshotAt, String captureKind);
+
+    Optional<RobinhoodRhDailySnapshot> findTopByOwnerUserIdOrderBySnapshotAtDescIdDesc(long ownerUserId);
+
+    @Query("SELECT COUNT(s) FROM RobinhoodRhDailySnapshot s WHERE s.ownerUserId = :ownerUserId")
+    long countByOwnerUserId(@Param("ownerUserId") long ownerUserId);
 }

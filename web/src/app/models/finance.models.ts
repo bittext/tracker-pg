@@ -119,6 +119,13 @@ export interface RobinhoodRhDailyTrackerReportDto {
   notes: string[];
 }
 
+/** GET /api/finance/robinhood/daily-tracker/refresh-hint — lightweight poll for new captures. */
+export interface RobinhoodRhDailyTrackerRefreshHintDto {
+  latestSnapshotAt: string | null;
+  latestSnapshotId: number;
+  latestCaptureKind: string;
+}
+
 export interface RobinhoodRhDailyTrackerAccountColumnDto {
   accountSuffix: string;
   label: string;
@@ -232,6 +239,15 @@ export interface RobinhoodRhDailyTrackerManualCaptureAccountDto {
   totalAccountValue: number;
   /** Stock/option quantity changes vs prior pull (always false for ••••4123). */
   positionsChangedFromPrior: boolean;
+  spikeAlert: RhDailyTrackerSnapshotAlertDto;
+}
+
+export interface RhDailyTrackerSnapshotAlertDto {
+  fired: boolean;
+  emailStatus: string | null;
+  triggerReasons: string | null;
+  deltaDollars: number | null;
+  deltaPercent: number | null;
 }
 
 export interface RobinhoodRhDailyTrackerAccountCellDto {
@@ -246,6 +262,7 @@ export interface RobinhoodRhDailyTrackerAccountCellDto {
   tradeCount: number;
   /** Stock/option quantity changes vs prior pull (always false for ••••4123). */
   positionsChangedFromPrior: boolean;
+  spikeAlert: RhDailyTrackerSnapshotAlertDto;
 }
 
 export interface RobinhoodRhDailySnapshotDetailDto {

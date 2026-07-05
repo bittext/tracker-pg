@@ -20,6 +20,7 @@ import {
   RobinhoodRhDailyManualCaptureDeleteResultDto,
   RobinhoodRhDailySnapshotDetailDto,
   RobinhoodRhDailyTrackerReportDto,
+  RobinhoodRhDailyTrackerRefreshHintDto,
   RhDailyTrackerAccountAlertSaveRequestDto,
   RhDailyTrackerAccountAlertsDto,
   RhDailyTrackerAlertEventDto,
@@ -120,6 +121,10 @@ export class FinanceApiService {
       }
     }
     return this.http.get<RobinhoodRhDailyTrackerReportDto>(`${this.root}/daily-tracker`, { params });
+  }
+
+  robinhoodDailyTrackerRefreshHint() {
+    return this.http.get<RobinhoodRhDailyTrackerRefreshHintDto>(`${this.root}/daily-tracker/refresh-hint`);
   }
 
   robinhoodDailyTrackerSnapshot(id: number) {
