@@ -1,0 +1,86 @@
+<section class="rh-crypto" aria-labelledby="rh-crypto-heading">
+  <h2 id="rh-crypto-heading" class="rh-crypto__title">Robinhood Crypto Tracker</h2>
+  <p class="muted rh-crypto__lead">
+    Crypto holdings and value changes over time — kept separate from
+    <strong>Daily Tracker</strong> brokerage snapshots.
+    <a routerLink="/finance">Finance</a> → Trading to connect Robinhood Agentic sync.
+  </p>
+
+  <div class="rh-crypto__toolbar">
+    <mat-form-field appearance="outline" class="rh-crypto__field">
+      <mat-label>Year</mat-label>
+      <mat-select [(ngModel)]="reportYear" name="rhCryptoYear" (selectionChange)="load()">
+        @for (y of yearChoices(); track y) {
+          <mat-option [value]="y">{{ y }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="rh-crypto__field rh-crypto__field--months">
+      <mat-label>Months</mat-label>
+      <mat-select
+        multiple
+        [(ngModel)]="reportMonths"
+        name="rhCryptoMonths"
+        (selectionChange)="onMonthsChange()"
+        [placeholder]="monthsFilterLabel()"
+      >
+        @for (m of monthChoices; track m.value) {
+          <mat-option [value]="m.value">{{ m.label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <button mat-stroked-button type="button" (click)="selectAllMonths()" [disabled]="loading">All months</button>
+    <button mat-stroked-button type="button" (click)="clearMonthSelection()" [disabled]="loading">Clear</button>
+    <button mat-flat-button color="primary" type="button" (click)="load()" [disabled]="loading">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+    @if (loading) {
+      <mat-spinner diameter="28" aria-label="Loading crypto tracker" />
+    }
+  </div>
+
+  @if (tracker; as t) {
+    <div class="rh-crypto__status-row">
+      <span class="rh-crypto__status-pill rh-crypto__status-pill--waiting">
+        <mat-icon aria-hidden="true">hourglass_empty</mat-icon>
+        Waiting for Robinhood crypto sync
+      </span>
+      <span class="rh-crypto__status-pill" [class]="connectionStatusClass()">
+        <mat-icon aria-hidden="true">{{ t.agenticConnected ? 'link' : 'link_off' }}</mat-icon>
+        {{ connectionStatusLabel() }}
+      </span>
+      @if (t.snapshotCount > 0) {
+        <span class="rh-crypto__status-pill rh-crypto__status-pill--muted muted">
+          {{ t.snapshotCount }} snapshot{{ t.snapshotCount === 1 ? '' : 's' }} on record
+        </span>
+      }
+    </div>
+
+    @if (t.notes.length) {
+      <ul class="rh-crypto__notes muted">
+        @for (note of t.notes; track note) {
+          <li>{{ note }}</li>
+        }
+      </ul>
+    }
+
+    @if (isWaitingForMcp() && !t.days.length) {
+      <div class="rh-crypto__empty" role="status">
+        <mat-icon class="rh-crypto__empty-icon" aria-hidden="true">currency_bitcoin</mat-icon>
+        <h3 class="rh-crypto__empty-title">Crypto tracking is not live yet</h3>
+        <p class="muted">
+          Robinhood Agentic MCP currently supports equities and options only. When Robinhood enables crypto position
+          reads, this tab will show coin holdings, portfolio totals, and changes between each capture — without mixing
+          crypto into Daily Tracker brokerage rows.
+        </p>
+        <p class="muted rh-crypto__empty-next">
+          <strong>Next steps:</strong> keep Agentic connected under Finance → Trading; captures will start
+          automatically once the sidecar adds crypto sync.
+        </p>
+      </div>
+    } @else if (t.days.length) {
+      <p class="muted">Crypto capture history will render here.</p>
+    }
+  }
+</section>

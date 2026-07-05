@@ -17,6 +17,7 @@ import {
   RobinhoodRhAccountsTrackDto,
   RobinhoodRhDailyCaptureResultDto,
   RobinhoodRhDailyDayNoteResultDto,
+  RobinhoodRhCryptoTrackerReportDto,
   RobinhoodRhDailyManualCaptureDeleteResultDto,
   RobinhoodRhDailySnapshotDetailDto,
   RobinhoodRhDailyTrackerReportDto,
@@ -125,6 +126,16 @@ export class FinanceApiService {
 
   robinhoodDailyTrackerRefreshHint() {
     return this.http.get<RobinhoodRhDailyTrackerRefreshHintDto>(`${this.root}/daily-tracker/refresh-hint`);
+  }
+
+  robinhoodCryptoTracker(year: number, months?: number[]) {
+    let params = new HttpParams().set('year', String(year));
+    if (months?.length) {
+      for (const m of months) {
+        params = params.append('months', String(m));
+      }
+    }
+    return this.http.get<RobinhoodRhCryptoTrackerReportDto>(`${this.root}/crypto-tracker`, { params });
   }
 
   robinhoodDailyTrackerSnapshot(id: number) {

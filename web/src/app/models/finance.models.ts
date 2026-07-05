@@ -119,6 +119,41 @@ export interface RobinhoodRhDailyTrackerReportDto {
   notes: string[];
 }
 
+/** GET /api/finance/robinhood/crypto-tracker — crypto holdings timeline (separate from Daily Tracker). */
+export type RobinhoodRhCryptoTrackerStatus = 'WAITING_FOR_MCP' | 'READY';
+
+export interface RobinhoodRhCryptoTrackerReportDto {
+  year: number;
+  months: number[];
+  status: RobinhoodRhCryptoTrackerStatus;
+  agenticServiceConfigured: boolean;
+  agenticConnected: boolean;
+  cryptoSyncAvailable: boolean;
+  snapshotCount: number;
+  days: RobinhoodRhCryptoTrackerDayDto[];
+  notes: string[];
+}
+
+export interface RobinhoodRhCryptoTrackerDayDto {
+  snapshotDate: string;
+  snapshotAt: string;
+  captureKind: string;
+  totalValue: number;
+  changeFromPrevious: number;
+  holdings: RobinhoodRhCryptoHoldingDto[];
+}
+
+export interface RobinhoodRhCryptoHoldingDto {
+  symbol: string;
+  quantity: number;
+  averageBuyPrice: number;
+  currentUnitPrice: number;
+  marketValue: number;
+  costBasis: number;
+  unrealizedPnL: number;
+  unrealizedPnLPercent: number;
+}
+
 /** GET /api/finance/robinhood/daily-tracker/refresh-hint — lightweight poll for new captures. */
 export interface RobinhoodRhDailyTrackerRefreshHintDto {
   latestSnapshotAt: string | null;

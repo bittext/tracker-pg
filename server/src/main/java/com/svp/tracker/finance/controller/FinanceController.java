@@ -26,6 +26,7 @@ import com.svp.tracker.finance.service.MarketOverviewService;
 import com.svp.tracker.finance.dto.RobinhoodRhAccountsTrackDto;
 import com.svp.tracker.finance.service.RobinhoodAccountTrackerService;
 import com.svp.tracker.finance.service.RobinhoodRhAccountsTrackService;
+import com.svp.tracker.finance.dto.RobinhoodRhCryptoTrackerReportDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyCaptureResultDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyDayNoteResultDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyDayNoteUpsertDto;
@@ -37,6 +38,7 @@ import com.svp.tracker.finance.dto.RhDailyTrackerAccountAlertSaveRequestDto;
 import com.svp.tracker.finance.dto.RhDailyTrackerAccountAlertsDto;
 import com.svp.tracker.finance.dto.RhDailyTrackerAlertEventDto;
 import com.svp.tracker.finance.dto.RhDailyTrackerAlertTestResultDto;
+import com.svp.tracker.finance.service.RobinhoodRhCryptoTrackerService;
 import com.svp.tracker.finance.service.RobinhoodRhDailyTrackerAlertService;
 import com.svp.tracker.finance.service.RobinhoodRhDailyTrackerService;
 import com.svp.tracker.finance.service.RobinhoodCsvImportService;
@@ -78,6 +80,7 @@ public class FinanceController {
     private final RobinhoodAccountTrackerService accountTrackerService;
     private final RobinhoodRhAccountsTrackService rhAccountsTrackService;
     private final RobinhoodRhDailyTrackerService rhDailyTrackerService;
+    private final RobinhoodRhCryptoTrackerService rhCryptoTrackerService;
     private final RobinhoodRhDailyTrackerAlertService rhDailyTrackerAlertService;
     private final FinanceProperties financeProperties;
 
@@ -172,6 +175,23 @@ public class FinanceController {
     @GetMapping("/daily-tracker/refresh-hint")
     public RobinhoodRhDailyTrackerRefreshHintDto dailyTrackerRefreshHint() {
         return rhDailyTrackerService.refreshHint();
+    }
+
+    /** Crypto holdings timeline (separate from Daily Tracker); scaffold until MCP crypto sync lands. */
+    @GetMapping("/crypto-tracker")
+    public RobinhoodRhCryptoTrackerReportDto cryptoTracker(
+            @RequestParam(name = "year") int year,
+            @RequestParam(name = "month", required = false) Integer month,
+            @RequestParam(name = "months", required = false) List<Integer> months) {
+        validateYear(year);
+        List<Integer> resolvedMonths = resolveDailyTrackerMonths(month, months);
+        for (int m : resolvedMonths) {
+            if (m < 1 || m > 12) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "each month must be 1–12");
+            }
+        }
+        log.info("GET /api/finance/robinhood/crypto-tracker year={} months={}", year, resolvedMonths);
+        return rhCryptoTrackerService.buildReport(year, resolvedMonths);
     }
 
     private static List<Integer> resolveDailyTrackerMonths(Integer month, List<Integer> months) {

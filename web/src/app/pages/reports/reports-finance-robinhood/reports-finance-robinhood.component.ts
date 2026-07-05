@@ -14,6 +14,7 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MatTableModule } from '@angular/material/table';
 import { MatTabsModule } from '@angular/material/tabs';
 import { ReportsFinanceRobinhoodDailyTrackerComponent } from '../reports-finance-robinhood-daily-tracker/reports-finance-robinhood-daily-tracker.component';
+import { ReportsFinanceRobinhoodCryptoTrackerComponent } from '../reports-finance-robinhood-crypto-tracker/reports-finance-robinhood-crypto-tracker.component';
 import {
   RobinhoodClosedTradeDto,
   RobinhoodNotebookConfigDto,
@@ -70,6 +71,7 @@ interface TradeTimelineBar {
     MatExpansionModule,
     MatTabsModule,
     ReportsFinanceRobinhoodDailyTrackerComponent,
+    ReportsFinanceRobinhoodCryptoTrackerComponent,
   ],
   templateUrl: './reports-finance-robinhood.component.html',
   styleUrl: './reports-finance-robinhood.component.scss',
