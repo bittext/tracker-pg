@@ -168,6 +168,32 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     return this.expandedDays.has(day.snapshotDate);
   }
 
+  hasAnyDayExpanded(): boolean {
+    return this.expandedDays.size > 0;
+  }
+
+  allDaysExpanded(): boolean {
+    const days = this.tracker?.days ?? [];
+    return days.length > 0 && days.every((day) => this.expandedDays.has(day.snapshotDate));
+  }
+
+  expandAllDays(): void {
+    if (!this.tracker?.days.length) {
+      return;
+    }
+    for (const day of this.tracker.days) {
+      this.expandedDays.add(day.snapshotDate);
+    }
+    this.persistExpansionState();
+  }
+
+  collapseAllDays(): void {
+    this.expandedDays.clear();
+    this.collapsedManualSections.clear();
+    this.expandedManuals.clear();
+    this.persistExpansionState();
+  }
+
   toggleDay(day: RobinhoodRhDailyTrackerDayDto): void {
     if (this.expandedDays.has(day.snapshotDate)) {
       this.expandedDays.delete(day.snapshotDate);

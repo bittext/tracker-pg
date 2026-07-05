@@ -125,6 +125,26 @@
         <p class="muted">No daily snapshots for this period. Use <strong>Capture now</strong>.</p>
       }
     } @else {
+      <div class="rh-daily__day-list-actions">
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="expandAllDays()"
+          [disabled]="loading || allDaysExpanded()"
+        >
+          <mat-icon>unfold_more</mat-icon>
+          Expand all
+        </button>
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="collapseAllDays()"
+          [disabled]="loading || !hasAnyDayExpanded()"
+        >
+          <mat-icon>unfold_less</mat-icon>
+          Collapse all
+        </button>
+      </div>
       <ul class="rh-daily__day-list" role="list">
         @for (day of t.days; track day.snapshotDate; let dayIndex = $index) {
           <li

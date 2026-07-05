@@ -130,6 +130,24 @@
   white-space: nowrap;
 }
 
+.rh-daily__day-list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+
+  button {
+    min-width: auto;
+  }
+
+  mat-icon {
+    width: 1.1rem;
+    height: 1.1rem;
+    font-size: 1.1rem;
+    margin-right: 0.2rem;
+  }
+}
+
 .rh-daily__day-list {
   margin: 0;
   padding: 0;
@@ -138,25 +156,33 @@
   border-radius: 10px;
   overflow: hidden;
   background: var(--app-surface, #fff);
+  --rh-daily-day-even: var(--app-surface, #fff);
+  --rh-daily-day-odd: #eef2f8;
+  --rh-daily-day-even-open: #f6f8fb;
+  --rh-daily-day-odd-open: #e3eaf4;
+  --rh-daily-day-even-hover: #f3f6fa;
+  --rh-daily-day-odd-hover: #e4ebf5;
 }
 
 .rh-daily__day-item {
   border-bottom: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
-  background: var(--app-surface, #fff);
+  background: var(--rh-daily-day-even);
 
   &:last-child {
     border-bottom: none;
   }
 
   &--alt {
-    background: var(--app-surface-muted, rgba(15, 23, 42, 0.035));
+    background: var(--rh-daily-day-odd);
+    box-shadow: inset 3px 0 0 rgba(59, 99, 148, 0.14);
   }
 
   &--open {
-    background: var(--app-surface-muted, #fafafa);
+    background: var(--rh-daily-day-even-open);
 
     &.rh-daily__day-item--alt {
-      background: rgba(15, 23, 42, 0.06);
+      background: var(--rh-daily-day-odd-open);
+      box-shadow: inset 3px 0 0 rgba(59, 99, 148, 0.22);
     }
   }
 }
@@ -177,11 +203,11 @@
   transition: background 0.15s;
 
   &:hover {
-    background: var(--app-surface-muted, #f7f7f8);
+    background: var(--rh-daily-day-even-hover);
   }
 
   .rh-daily__day-item--alt &:hover {
-    background: rgba(15, 23, 42, 0.055);
+    background: var(--rh-daily-day-odd-hover);
   }
 }
 
