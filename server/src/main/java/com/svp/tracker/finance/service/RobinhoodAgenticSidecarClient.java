@@ -140,11 +140,16 @@ public class RobinhoodAgenticSidecarClient {
                 if (response.status() == 401) {
                     throw new RobinhoodAgenticUnauthorizedException(extractErrorMessage(response.body()));
                 }
+                if (response.status() == 400) {
+                    throw new IllegalArgumentException(extractErrorMessage(response.body()));
+                }
                 throw new IllegalStateException(
                         "Robinhood Agentic sidecar failed (HTTP " + response.status() + "): " + response.body());
             }
             return objectMapper.readTree(response.body());
         } catch (RobinhoodAgenticUnauthorizedException | IllegalStateException e) {
+            throw e;
+        } catch (IllegalArgumentException e) {
             throw e;
         } catch (Exception e) {
             String detail = e.getMessage();

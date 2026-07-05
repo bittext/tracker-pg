@@ -8,7 +8,13 @@ from unittest.mock import MagicMock, patch
 
 from nacl.signing import SigningKey
 
-from crypto_trading_service import RobinhoodCryptoTradingClient, _select_account_number, run_crypto_sync
+from crypto_trading_service import (
+    RobinhoodCryptoTradingClient,
+    _select_account_number,
+    decode_ed25519_seed,
+    normalize_base64,
+    run_crypto_sync,
+)
 
 
 def test_auth_message_format() -> None:
@@ -57,3 +63,17 @@ def test_run_crypto_sync_normalizes_holdings(mock_client_cls: MagicMock) -> None
     assert len(result["holdings"]) == 1
     assert result["holdings"][0]["symbol"] == "BTC"
     mock_client.close.assert_called_once()
+
+
+def test_decode_ed25519_seed_rejects_api_key_length() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="not the Robinhood API key"):
+        decode_ed25519_seed("not-valid-base64!!!")
+
+
+def test_normalize_base64_adds_padding() -> None:
+    key = SigningKey.generate()
+    raw = base64.b64encode(key.encode()).decode("utf-8").rstrip("=")
+    assert len(normalize_base64(raw)) % 4 == 0
+    assert decode_ed25519_seed(raw) == key.encode()

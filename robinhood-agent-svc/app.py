@@ -120,6 +120,8 @@ def crypto_sync(body: CryptoSyncRequest) -> dict:
         return run_crypto_sync(body.api_key, body.private_key_base64)
     except PermissionError as exc:
         raise HTTPException(status_code=401, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001

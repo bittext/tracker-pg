@@ -15,6 +15,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -95,13 +96,14 @@ public class RobinhoodCryptoTradingService {
         if (request.privateKeyBase64() == null || request.privateKeyBase64().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "privateKeyBase64 is required");
         }
+        String privateKeyBase64 = normalizeAndValidatePrivateKeyBase64(request.privateKeyBase64());
         long uid = currentUser.requireUserId();
         RobinhoodCryptoTradingConnection conn = connectionRepository
                 .findByOwnerUserId(uid)
                 .orElseGet(RobinhoodCryptoTradingConnection::new);
         conn.setOwnerUserId(uid);
         conn.setApiKeyEnc(tokenCrypto.seal(request.apiKey().trim()));
-        conn.setPrivateKeyEnc(tokenCrypto.seal(request.privateKeyBase64().trim()));
+        conn.setPrivateKeyEnc(tokenCrypto.seal(privateKeyBase64));
         if (conn.getConnectedAt() == null) {
             conn.setConnectedAt(Instant.now());
         }
@@ -151,10 +153,13 @@ public class RobinhoodCryptoTradingService {
         JsonNode payload;
         try {
             payload = callSidecar(conn);
-        } catch (IllegalStateException | RobinhoodAgenticUnauthorizedException e) {
+        } catch (IllegalStateException | RobinhoodAgenticUnauthorizedException | IllegalArgumentException e) {
             String message = syncFailureMessage(e);
             markSyncError(conn, message);
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, message, e);
+            HttpStatus status = e instanceof IllegalArgumentException
+                    ? HttpStatus.BAD_REQUEST
+                    : HttpStatus.BAD_GATEWAY;
+            throw new ResponseStatusException(status, message, e);
         }
         return persistSyncResult(conn, payload);
     }
@@ -311,6 +316,26 @@ public class RobinhoodCryptoTradingService {
             return "Robinhood Crypto API sync failed.";
         }
         return message;
+    }
+
+    private static String normalizeAndValidatePrivateKeyBase64(String raw) {
+        String normalized = raw.trim().replaceAll("\\s+", "");
+        byte[] decoded;
+        try {
+            decoded = Base64.getDecoder().decode(normalized);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "privateKeyBase64 is not valid base64. Paste the full Ed25519 private key (~44 characters) "
+                            + "saved when you created the key pair — not the Robinhood API key.");
+        }
+        if (decoded.length != 32) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "privateKeyBase64 must decode to 32 bytes (Ed25519 seed). "
+                            + "You may have pasted the API key into the private key field.");
+        }
+        return normalized;
     }
 
     private static BigDecimal scaleMoney(BigDecimal v) {

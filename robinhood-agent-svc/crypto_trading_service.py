@@ -16,11 +16,43 @@ LOGGER = logging.getLogger(__name__)
 
 BASE_URL = "https://trading.robinhood.com"
 
+ED25519_SEED_BYTES = 32
+
+
+def normalize_base64(value: str) -> str:
+    """Strip whitespace and restore padding for Robinhood-style pasted keys."""
+    cleaned = "".join(value.split())
+    if not cleaned:
+        return ""
+    pad = (-len(cleaned)) % 4
+    if pad:
+        cleaned += "=" * pad
+    return cleaned
+
+
+def decode_ed25519_seed(private_key_base64: str) -> bytes:
+    normalized = normalize_base64(private_key_base64)
+    if not normalized:
+        raise ValueError("privateKeyBase64 is required")
+    try:
+        seed = base64.b64decode(normalized, validate=True)
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError(
+            "Private key must be the base64 Ed25519 seed (~44 characters) saved when you "
+            "created the key pair — not the Robinhood API key. Paste the full string with no spaces."
+        ) from exc
+    if len(seed) != ED25519_SEED_BYTES:
+        raise ValueError(
+            f"Private key decoded to {len(seed)} bytes; Ed25519 seed must be exactly "
+            f"{ED25519_SEED_BYTES} bytes. Check you pasted the private key, not the API key."
+        )
+    return seed
+
 
 class RobinhoodCryptoTradingClient:
     def __init__(self, api_key: str, private_key_base64: str) -> None:
         self.api_key = api_key.strip()
-        seed = base64.b64decode(private_key_base64.strip())
+        seed = decode_ed25519_seed(private_key_base64)
         self._signing_key = SigningKey(seed)
         self._client = httpx.Client(base_url=BASE_URL, timeout=30.0)
 
