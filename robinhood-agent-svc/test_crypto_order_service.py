@@ -52,3 +52,10 @@ def test_place_market_order_buy_quote_amount(mock_ask: MagicMock, mock_post: Mag
     assert body["market_order_config"]["asset_quantity"] == "0.01"
     assert "quote_amount" not in body["market_order_config"]
     client.close()
+
+
+def test_format_asset_quantity_six_decimal_places() -> None:
+    from crypto_trading_service import _format_asset_quantity
+
+    assert _format_asset_quantity(Decimal("0.0040123456")) == "0.004012"
+    assert _format_asset_quantity(Decimal("122.123541")) == "122.123541"
