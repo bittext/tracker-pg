@@ -140,6 +140,17 @@ public class RobinhoodRhCryptoOrderService {
             boolean ok = result.path("ok").asBoolean(false);
             String rhOrderId = textOrNull(result, "order_id");
             String state = textOrNull(result, "state");
+            JsonNode rhResult = result.path("result");
+            if (!rhResult.isMissingNode() && !rhResult.isNull()) {
+                String resolvedQty = textOrNull(rhResult, "asset_quantity");
+                if (resolvedQty != null) {
+                    try {
+                        order.setAssetQuantity(new BigDecimal(resolvedQty));
+                    } catch (NumberFormatException ignored) {
+                        // keep null
+                    }
+                }
+            }
             if (ok) {
                 order.setStatus(state != null && !state.isBlank() ? state : STATUS_PLACED);
                 order.setRobinhoodOrderId(rhOrderId);

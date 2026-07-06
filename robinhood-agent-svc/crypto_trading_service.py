@@ -300,8 +300,9 @@ def _money(value: Decimal) -> str:
 
 
 def _format_asset_quantity(qty: Decimal) -> str:
-    q = qty.quantize(Decimal("0.00000001"), rounding=ROUND_DOWN)
-    text = f"{q:.8f}".rstrip("0").rstrip(".")
+    # Robinhood API: round to nearest 0.000001 for market orders.
+    q = qty.quantize(Decimal("0.000001"), rounding=ROUND_DOWN)
+    text = f"{q:.6f}".rstrip("0").rstrip(".")
     return text if text else "0"
 
 
