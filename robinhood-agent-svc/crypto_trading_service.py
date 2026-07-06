@@ -7,7 +7,7 @@ import datetime
 import json
 import logging
 import uuid
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, ROUND_DOWN, ROUND_HALF_UP
 from typing import Any, Optional
 from urllib.parse import urlencode
 
@@ -125,11 +125,14 @@ class RobinhoodCryptoTradingClient:
         if not asset_quantity and not quote_amount:
             raise ValueError("asset_quantity or quote_amount is required")
 
-        market_config: dict[str, str] = {}
-        if asset_quantity:
-            market_config["asset_quantity"] = str(asset_quantity)
-        else:
-            market_config["quote_amount"] = str(quote_amount)
+        resolved_qty = asset_quantity
+        if not resolved_qty:
+            if order_side == "buy":
+                resolved_qty = self._quote_to_buy_quantity(pair, quote_amount)
+            else:
+                raise ValueError("asset_quantity is required for sell market orders via API")
+
+        market_config = {"asset_quantity": _format_asset_quantity(Decimal(str(resolved_qty)))}
 
         payload = {
             "client_order_id": client_order_id or str(uuid.uuid4()),
@@ -145,7 +148,43 @@ class RobinhoodCryptoTradingClient:
         if isinstance(result, dict):
             result.setdefault("client_order_id", payload["client_order_id"])
             result.setdefault("symbol", pair)
+            result.setdefault("asset_quantity", market_config["asset_quantity"])
         return result if isinstance(result, dict) else {"result": result}
+
+    def _quote_to_buy_quantity(self, pair: str, quote_amount: str) -> str:
+        ask = self._ask_price(pair)
+        if ask is None or ask <= 0:
+            raise ValueError(f"No ask price available for {pair}")
+        notional = Decimal(str(quote_amount))
+        if notional <= 0:
+            raise ValueError("quote_amount must be positive")
+        qty = notional / ask
+        formatted = _format_asset_quantity(qty)
+        if Decimal(formatted) <= 0:
+            raise ValueError(f"quote_amount {quote_amount} is too small for current {pair} price")
+        return formatted
+
+    def _ask_price(self, pair: str) -> Optional[Decimal]:
+        base_path = "/api/v2/crypto/marketdata/best_bid_ask/"
+        path = f"{base_path}?{urlencode([('symbol', pair)])}"
+        payload = self._get(path)
+        if not isinstance(payload, dict):
+            return None
+        results = payload.get("results")
+        if not isinstance(results, list):
+            return None
+        for row in results:
+            if not isinstance(row, dict):
+                continue
+            if str(row.get("symbol") or "").strip().upper() != pair:
+                continue
+            ask = _to_decimal(row.get("ask"))
+            if ask is not None and ask > 0:
+                return ask
+            bid = _to_decimal(row.get("bid"))
+            if bid is not None and bid > 0:
+                return bid
+        return None
 
     @staticmethod
     def _paginate_results(initial: Any) -> list[dict[str, Any]]:
@@ -258,6 +297,12 @@ def _to_decimal(value: Any) -> Optional[Decimal]:
 
 def _money(value: Decimal) -> str:
     return str(value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+
+def _format_asset_quantity(qty: Decimal) -> str:
+    q = qty.quantize(Decimal("0.00000001"), rounding=ROUND_DOWN)
+    text = f"{q:.8f}".rstrip("0").rstrip(".")
+    return text if text else "0"
 
 
 def _select_account_number(accounts: list[dict[str, Any]]) -> str:
