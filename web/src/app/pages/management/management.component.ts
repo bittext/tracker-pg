@@ -1078,6 +1078,16 @@ export class ManagementComponent implements OnInit {
     this.openRepCalEditDialog(browseEntries[0], browseEntries, 0);
   }
 
+  /** Open an entry from a list-row click, browsing through all currently displayed entries. */
+  openRepCalRowDialog(row: ReportCalendarEntryDto): void {
+    const browseEntries = this.repCalDisplayedEntries;
+    const index = Math.max(
+      0,
+      browseEntries.findIndex((e) => e.id === row.id),
+    );
+    this.openRepCalEditDialog(row, browseEntries, index);
+  }
+
   repCalAttachmentSummary(row: ReportCalendarEntryDto): string {
     const n = row.attachments?.length ?? 0;
     if (!n) {

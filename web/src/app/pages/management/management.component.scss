@@ -551,6 +551,18 @@
   background: rgba(37, 99, 235, 0.06);
 }
 
+.rep-cal-table-row {
+  cursor: pointer;
+}
+
+.rep-cal-table-row:hover {
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.rep-cal-table-row.rep-cal-row--selected:hover {
+  background: rgba(37, 99, 235, 0.1);
+}
+
 .rep-cal-attach-cell {
   white-space: nowrap;
   font-size: 0.82rem;
