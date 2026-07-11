@@ -18,6 +18,158 @@
     <a routerLink="/finance">Finance</a> → Trading to connect Agentic sync.
   </p>
 
+  <section class="rh-daily-ai" aria-labelledby="rh-daily-ai-heading">
+    <div class="rh-daily-ai__head">
+      <h3 id="rh-daily-ai-heading" class="rh-daily-ai__title">AI Insights</h3>
+      <p class="muted rh-daily-ai__disclaimer">
+        Habit and account-value coaching from Daily Tracker activity — not realized P&amp;L or win rate.
+      </p>
+    </div>
+
+    @if (aiStatus && !aiStatus.configured) {
+      <p class="muted rh-daily-ai__disabled">
+        AI is not configured. Set
+        <code>TRACKER_FINANCE_RH_DAILY_TRACKER_AI_ENABLED=true</code> and
+        <code>TRACKER_FINANCE_RH_DAILY_TRACKER_AI_API_KEY</code> on the server.
+      </p>
+    } @else {
+      <div class="rh-daily-ai__toolbar">
+        <span class="rh-daily-ai__scopes" role="group" aria-label="Insight period">
+          @for (s of aiScopes; track s) {
+            <button
+              mat-stroked-button
+              type="button"
+              [class.rh-daily-ai__scope--active]="aiScope === s"
+              (click)="setAiScope(s)"
+            >
+              {{ s === 'YEAR' ? 'Year' : s === 'MONTH' ? 'Month' : s === 'WEEK' ? 'Week' : 'Day' }}
+            </button>
+          }
+        </span>
+        @if (aiScope === 'WEEK') {
+          <mat-form-field appearance="outline" class="rh-daily__field">
+            <mat-label>Week of</mat-label>
+            <input matInput type="date" [(ngModel)]="aiWeekStart" name="aiWeekStart" />
+          </mat-form-field>
+        }
+        @if (aiScope === 'DAY') {
+          <mat-form-field appearance="outline" class="rh-daily__field">
+            <mat-label>Day</mat-label>
+            <input matInput type="date" [(ngModel)]="aiDay" name="aiDay" />
+          </mat-form-field>
+        }
+        @if (aiScope === 'MONTH') {
+          <span class="muted rh-daily-ai__hint">Uses {{ monthChoices[aiMonthForRequest() - 1]?.label }} {{ reportYear }}</span>
+        }
+        @if (aiScope === 'YEAR') {
+          <span class="muted rh-daily-ai__hint">Uses {{ reportYear }}</span>
+        }
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          (click)="generateAiInsight(false)"
+          [disabled]="aiLoading || (aiStatus !== null && !aiStatus.configured)"
+        >
+          <mat-icon>auto_awesome</mat-icon>
+          Generate
+        </button>
+        @if (aiInsight) {
+          <button mat-stroked-button type="button" (click)="generateAiInsight(true)" [disabled]="aiLoading">
+            Refresh
+          </button>
+        }
+        @if (aiLoading) {
+          <mat-spinner diameter="24" aria-label="Generating insights" />
+        }
+      </div>
+
+      @if (aiError) {
+        <p class="load-error rh-daily-ai__error" role="alert">{{ aiError }}</p>
+      }
+
+      @if (aiInsight) {
+        <div class="rh-daily-ai__result">
+          <p class="rh-daily-ai__summary">{{ aiInsight.summary }}</p>
+          <p class="muted rh-daily-ai__meta">
+            {{ aiInsight.periodLabel }}
+            @if (aiInsight.cached) {
+              · cached
+            }
+            · {{ aiInsight.model }}
+          </p>
+
+          @if (aiInsight.factsDigest; as dig) {
+            <div class="rh-daily-ai__kpis" role="group" aria-label="Period activity figures">
+              <div class="rh-daily-ai__kpi">
+                <span class="rh-daily-ai__kpi-label">Trades</span>
+                <span class="rh-daily-ai__kpi-value">{{ dig.tradeCount }}</span>
+              </div>
+              <div class="rh-daily-ai__kpi">
+                <span class="rh-daily-ai__kpi-label">Buy / Sell</span>
+                <span class="rh-daily-ai__kpi-value">{{ dig.buyCount }} / {{ dig.sellCount }}</span>
+              </div>
+              <div class="rh-daily-ai__kpi">
+                <span class="rh-daily-ai__kpi-label">Symbols</span>
+                <span class="rh-daily-ai__kpi-value">{{ dig.uniqueSymbols }}</span>
+              </div>
+              <div class="rh-daily-ai__kpi">
+                <span class="rh-daily-ai__kpi-label">Value Δ</span>
+                <span class="rh-daily-ai__kpi-value">
+                  @if (dig.accountValueChange != null) {
+                    {{ dig.accountValueChange | currency: 'USD' : 'symbol' : '1.0-0' }}
+                  } @else {
+                    —
+                  }
+                </span>
+              </div>
+            </div>
+            @if (dig.topSymbolsByCount?.length) {
+              <p class="muted rh-daily-ai__tops">
+                Top by activity: {{ dig.topSymbolsByCount.join(', ') }}
+              </p>
+            }
+          }
+
+          <div class="rh-daily-ai__sections">
+            <div class="rh-daily-ai__section">
+              <h4>Leanings</h4>
+              <ul>
+                @for (item of aiInsight.leanings; track item) {
+                  <li>{{ item }}</li>
+                }
+              </ul>
+            </div>
+            <div class="rh-daily-ai__section">
+              <h4>Trends</h4>
+              <ul>
+                @for (item of aiInsight.trends; track item) {
+                  <li>{{ item }}</li>
+                }
+              </ul>
+            </div>
+            <div class="rh-daily-ai__section">
+              <h4>Improvements</h4>
+              <ul>
+                @for (item of aiInsight.improvements; track item) {
+                  <li>{{ item }}</li>
+                }
+              </ul>
+            </div>
+            <div class="rh-daily-ai__section">
+              <h4>Do next</h4>
+              <ul>
+                @for (item of aiInsight.nextActions; track item) {
+                  <li>{{ item }}</li>
+                }
+              </ul>
+            </div>
+          </div>
+        </div>
+      }
+    }
+  </section>
+
   <div class="rh-daily__toolbar">
     <mat-form-field appearance="outline" class="rh-daily__field">
       <mat-label>Year</mat-label>

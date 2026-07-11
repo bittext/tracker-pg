@@ -39,8 +39,12 @@ import com.svp.tracker.finance.dto.RhDailyTrackerAccountAlertSaveRequestDto;
 import com.svp.tracker.finance.dto.RhDailyTrackerAccountAlertsDto;
 import com.svp.tracker.finance.dto.RhDailyTrackerAlertEventDto;
 import com.svp.tracker.finance.dto.RhDailyTrackerAlertTestResultDto;
+import com.svp.tracker.finance.dto.RhDailyTrackerAiInsightDto;
+import com.svp.tracker.finance.dto.RhDailyTrackerAiInsightRequestDto;
+import com.svp.tracker.finance.dto.RhDailyTrackerAiInsightStatusDto;
 import com.svp.tracker.finance.service.RobinhoodRhCryptoTrackerService;
 import com.svp.tracker.finance.service.RobinhoodRhDailyTrackerAlertService;
+import com.svp.tracker.finance.service.RhDailyTrackerAiInsightService;
 import com.svp.tracker.finance.service.RobinhoodRhDailyTrackerService;
 import com.svp.tracker.finance.service.RobinhoodCsvImportService;
 import com.svp.tracker.finance.service.RobinhoodFinanceService;
@@ -83,6 +87,7 @@ public class FinanceController {
     private final RobinhoodRhDailyTrackerService rhDailyTrackerService;
     private final RobinhoodRhCryptoTrackerService rhCryptoTrackerService;
     private final RobinhoodRhDailyTrackerAlertService rhDailyTrackerAlertService;
+    private final RhDailyTrackerAiInsightService rhDailyTrackerAiInsightService;
     private final FinanceProperties financeProperties;
 
     /**
@@ -271,6 +276,27 @@ public class FinanceController {
     public RhDailyTrackerAlertTestResultDto dailyTrackerAlertTest() {
         log.info("POST /api/finance/robinhood/daily-tracker/alerts/test");
         return rhDailyTrackerAlertService.sendTestEmail();
+    }
+
+    /** Whether Daily Tracker AI coaching is enabled and has an API key. */
+    @GetMapping("/daily-tracker/ai-insights/status")
+    public RhDailyTrackerAiInsightStatusDto dailyTrackerAiInsightStatus() {
+        return rhDailyTrackerAiInsightService.status();
+    }
+
+    /**
+     * On-demand LLM coaching from Daily Tracker activity (habits / account-value trajectory — not realized
+     * P&amp;L). Cached per owner+period when facts are unchanged.
+     */
+    @PostMapping("/daily-tracker/ai-insights")
+    public RhDailyTrackerAiInsightDto dailyTrackerAiInsights(@RequestBody RhDailyTrackerAiInsightRequestDto body) {
+        log.info(
+                "POST /api/finance/robinhood/daily-tracker/ai-insights scope={} year={} month={} force={}",
+                body == null ? null : body.scope(),
+                body == null ? null : body.year(),
+                body == null ? null : body.month(),
+                body == null ? null : body.forceRefresh());
+        return rhDailyTrackerAiInsightService.generate(body);
     }
 
     /**

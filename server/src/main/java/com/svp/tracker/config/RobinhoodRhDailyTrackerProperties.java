@@ -15,7 +15,8 @@ public record RobinhoodRhDailyTrackerProperties(
         String snapshotSchedulerEnabledConfig,
         List<String> excludedAccountSuffixes,
         Map<String, String> additionalOwnerSuffixes,
-        boolean alertsEnabled) {
+        boolean alertsEnabled,
+        Ai ai) {
 
     public RobinhoodRhDailyTrackerProperties {
         if (snapshotCron == null) {
@@ -54,6 +55,56 @@ public record RobinhoodRhDailyTrackerProperties(
                             Collectors.toUnmodifiableMap(
                                     e -> e.getKey().trim().toLowerCase(Locale.ROOT),
                                     e -> e.getValue() == null ? "" : e.getValue().trim()));
+        }
+        if (ai == null) {
+            ai = new Ai(false, "", "https://api.openai.com/v1", "gpt-4o-mini", 60_000, 1200);
+        }
+    }
+
+    /**
+     * OpenAI-backed Daily Tracker habit insights.
+     *
+     * @param enabled master switch (also requires a non-blank apiKey to be usable)
+     * @param apiKey OpenAI API key (never logged)
+     * @param baseUrl API root, default https://api.openai.com/v1
+     * @param model chat model id
+     * @param timeoutMs HTTP timeout
+     * @param maxOutputTokens completion cap
+     */
+    public record Ai(
+            boolean enabled,
+            String apiKey,
+            String baseUrl,
+            String model,
+            int timeoutMs,
+            int maxOutputTokens) {
+
+        public Ai {
+            if (apiKey == null) {
+                apiKey = "";
+            } else {
+                apiKey = apiKey.trim();
+            }
+            if (baseUrl == null || baseUrl.isBlank()) {
+                baseUrl = "https://api.openai.com/v1";
+            } else {
+                baseUrl = baseUrl.trim().replaceAll("/+$", "");
+            }
+            if (model == null || model.isBlank()) {
+                model = "gpt-4o-mini";
+            } else {
+                model = model.trim();
+            }
+            if (timeoutMs <= 0) {
+                timeoutMs = 60_000;
+            }
+            if (maxOutputTokens <= 0) {
+                maxOutputTokens = 1200;
+            }
+        }
+
+        public boolean configured() {
+            return enabled && apiKey != null && !apiKey.isBlank();
         }
     }
 

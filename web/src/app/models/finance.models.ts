@@ -448,6 +448,54 @@ export interface RobinhoodRhDailyCaptureResultDto {
   message: string;
 }
 
+/** GET /api/finance/robinhood/daily-tracker/ai-insights/status */
+export interface RhDailyTrackerAiInsightStatusDto {
+  enabled: boolean;
+  configured: boolean;
+}
+
+export type RhDailyTrackerAiInsightScope = 'YEAR' | 'MONTH' | 'WEEK' | 'DAY';
+
+/** POST /api/finance/robinhood/daily-tracker/ai-insights */
+export interface RhDailyTrackerAiInsightRequestDto {
+  scope: RhDailyTrackerAiInsightScope;
+  year: number;
+  month?: number | null;
+  weekStart?: string | null;
+  day?: string | null;
+  forceRefresh?: boolean | null;
+}
+
+export interface RhDailyTrackerAiFactsDigestDto {
+  tradeCount: number;
+  buyCount: number;
+  sellCount: number;
+  uniqueSymbols: number;
+  activeTradeDays: number;
+  accountValueStart: number | null;
+  accountValueEnd: number | null;
+  accountValueChange: number | null;
+  periodAdded: number | null;
+  periodRemoved: number | null;
+  topSymbolsByCount: string[];
+  topSymbolsByNotional: string[];
+}
+
+export interface RhDailyTrackerAiInsightDto {
+  scope: string;
+  periodKey: string;
+  periodLabel: string;
+  generatedAt: string;
+  model: string;
+  cached: boolean;
+  summary: string;
+  leanings: string[];
+  trends: string[];
+  improvements: string[];
+  nextActions: string[];
+  factsDigest: RhDailyTrackerAiFactsDigestDto;
+}
+
 export interface RobinhoodRhDailyManualCaptureDeleteResultDto {
   ok: boolean;
   deletedCount: number;

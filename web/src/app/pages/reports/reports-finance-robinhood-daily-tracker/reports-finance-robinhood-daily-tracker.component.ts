@@ -25,6 +25,9 @@ import {
   RhDailyTrackerAccountAlertItemDto,
   RhDailyTrackerAccountAlertsDto,
   RhDailyTrackerAlertEventDto,
+  RhDailyTrackerAiInsightDto,
+  RhDailyTrackerAiInsightScope,
+  RhDailyTrackerAiInsightStatusDto,
   RhDailyTrackerSnapshotAlertDto,
 } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
@@ -101,6 +104,17 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   alertFormRows: RhDailyTrackerAccountAlertDto[] = [];
   alertEvents: RhDailyTrackerAlertEventDto[] = [];
 
+  readonly aiScopes: RhDailyTrackerAiInsightScope[] = ['YEAR', 'MONTH', 'WEEK', 'DAY'];
+
+  /** AI coaching panel (on-demand LLM over Daily Tracker facts). */
+  aiStatus: RhDailyTrackerAiInsightStatusDto | null = null;
+  aiScope: RhDailyTrackerAiInsightScope = 'MONTH';
+  aiWeekStart = '';
+  aiDay = '';
+  aiInsight: RhDailyTrackerAiInsightDto | null = null;
+  aiLoading = false;
+  aiError: string | null = null;
+
   /** snapshotDate keys for expanded 9 PM day rows */
   private readonly expandedDays = new Set<string>();
   /** dayDate keys where the manual-captures section is collapsed */
@@ -153,8 +167,11 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.aiWeekStart = this.mondayOf(this.todayIso());
+    this.aiDay = this.todayIso();
     this.load();
     this.loadSpikeAlerts();
+    this.loadAiStatus();
     this.startAutoRefresh();
     document.addEventListener('visibilitychange', this.onVisibilityChange);
     this.destroyRef.onDestroy(() => {
@@ -1121,5 +1138,88 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       default:
         return 'rh-daily__alert-status--skipped';
     }
+  }
+
+  loadAiStatus(): void {
+    this.financeApi.robinhoodDailyTrackerAiInsightStatus().subscribe({
+      next: (s) => {
+        this.aiStatus = s;
+      },
+      error: () => {
+        this.aiStatus = { enabled: false, configured: false };
+      },
+    });
+  }
+
+  setAiScope(scope: RhDailyTrackerAiInsightScope): void {
+    this.aiScope = scope;
+    if (scope === 'WEEK' && !this.aiWeekStart) {
+      this.aiWeekStart = this.mondayOf(this.todayIso());
+    }
+    if (scope === 'DAY' && !this.aiDay) {
+      this.aiDay = this.latestTrackerDayOrToday();
+    }
+  }
+
+  aiMonthForRequest(): number {
+    const months = this.normalizedReportMonths();
+    if (months.length === 1) {
+      return months[0];
+    }
+    if (months.length > 1) {
+      return Math.max(...months);
+    }
+    return new Date().getMonth() + 1;
+  }
+
+  generateAiInsight(forceRefresh = false): void {
+    if (this.aiLoading) {
+      return;
+    }
+    this.aiLoading = true;
+    this.aiError = null;
+    const body = {
+      scope: this.aiScope,
+      year: this.reportYear,
+      month: this.aiScope === 'MONTH' ? this.aiMonthForRequest() : null,
+      weekStart: this.aiScope === 'WEEK' ? this.aiWeekStart || this.mondayOf(this.todayIso()) : null,
+      day: this.aiScope === 'DAY' ? this.aiDay || this.latestTrackerDayOrToday() : null,
+      forceRefresh,
+    };
+    this.financeApi.robinhoodDailyTrackerAiInsights(body).subscribe({
+      next: (insight) => {
+        this.aiInsight = insight;
+        this.aiLoading = false;
+      },
+      error: (err) => {
+        this.aiLoading = false;
+        this.aiError = formatHttpErrorDetail(err);
+        this.snackBar.open(this.aiError, 'Dismiss', { duration: 10_000 });
+      },
+    });
+  }
+
+  private latestTrackerDayOrToday(): string {
+    const days = this.tracker?.days ?? [];
+    if (days.length) {
+      return days[0].snapshotDate;
+    }
+    return this.todayIso();
+  }
+
+  private todayIso(): string {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  private mondayOf(iso: string): string {
+    const y = Number(iso.slice(0, 4));
+    const m = Number(iso.slice(5, 7));
+    const d = Number(iso.slice(8, 10));
+    const dt = new Date(y, m - 1, d);
+    const dow = dt.getDay(); // 0 Sun
+    const diff = dow === 0 ? -6 : 1 - dow;
+    dt.setDate(dt.getDate() + diff);
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
   }
 }

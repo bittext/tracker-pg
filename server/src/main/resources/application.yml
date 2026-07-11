@@ -161,6 +161,13 @@ tracker:
       additional-owner-suffixes: {}
       excluded-account-suffixes: []
       alerts-enabled: ${TRACKER_FINANCE_RH_DAILY_TRACKER_ALERTS_ENABLED:true}
+      ai:
+        enabled: ${TRACKER_FINANCE_RH_DAILY_TRACKER_AI_ENABLED:false}
+        api-key: ${TRACKER_FINANCE_RH_DAILY_TRACKER_AI_API_KEY:}
+        base-url: ${TRACKER_FINANCE_RH_DAILY_TRACKER_AI_BASE_URL:https://api.openai.com/v1}
+        model: ${TRACKER_FINANCE_RH_DAILY_TRACKER_AI_MODEL:gpt-4o-mini}
+        timeout-ms: ${TRACKER_FINANCE_RH_DAILY_TRACKER_AI_TIMEOUT_MS:60000}
+        max-output-tokens: ${TRACKER_FINANCE_RH_DAILY_TRACKER_AI_MAX_OUTPUT_TOKENS:1200}
     rh-crypto-tracker:
       snapshot-scheduler-enabled-config: ${TRACKER_FINANCE_RH_CRYPTO_TRACKER_SNAPSHOT_ENABLED:true}
       snapshot-cron: ${TRACKER_FINANCE_RH_CRYPTO_TRACKER_SNAPSHOT_CRON:0 0 */4 * * *}

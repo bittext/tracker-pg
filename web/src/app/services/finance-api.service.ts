@@ -30,6 +30,9 @@ import {
   RobinhoodRhDailySnapshotDetailDto,
   RobinhoodRhDailyTrackerReportDto,
   RobinhoodRhDailyTrackerRefreshHintDto,
+  RhDailyTrackerAiInsightDto,
+  RhDailyTrackerAiInsightRequestDto,
+  RhDailyTrackerAiInsightStatusDto,
   RhDailyTrackerAccountAlertSaveRequestDto,
   RhDailyTrackerAccountAlertsDto,
   RhDailyTrackerAlertEventDto,
@@ -134,6 +137,14 @@ export class FinanceApiService {
 
   robinhoodDailyTrackerRefreshHint() {
     return this.http.get<RobinhoodRhDailyTrackerRefreshHintDto>(`${this.root}/daily-tracker/refresh-hint`);
+  }
+
+  robinhoodDailyTrackerAiInsightStatus() {
+    return this.http.get<RhDailyTrackerAiInsightStatusDto>(`${this.root}/daily-tracker/ai-insights/status`);
+  }
+
+  robinhoodDailyTrackerAiInsights(body: RhDailyTrackerAiInsightRequestDto) {
+    return this.http.post<RhDailyTrackerAiInsightDto>(`${this.root}/daily-tracker/ai-insights`, body);
   }
 
   robinhoodCryptoTracker(year: number, months?: number[]) {
