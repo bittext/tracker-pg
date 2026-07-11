@@ -60,9 +60,13 @@ public class RhDailyTrackerOpenAiClient {
             HttpResponse<String> response =
                     httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                log.warn("OpenAI chat completions failed status={} bodyLen={}", response.statusCode(), response.body() == null ? 0 : response.body().length());
+                log.warn(
+                        "OpenAI chat completions failed status={} bodyLen={}",
+                        response.statusCode(),
+                        response.body() == null ? 0 : response.body().length());
                 throw new ResponseStatusException(
-                        HttpStatus.BAD_GATEWAY, "OpenAI request failed (HTTP " + response.statusCode() + ")");
+                        mapOpenAiHttpStatus(response.statusCode()),
+                        openAiFailureMessage(response.statusCode(), response.body()));
             }
             JsonNode root = objectMapper.readTree(response.body());
             JsonNode content = root.path("choices").path(0).path("message").path("content");
@@ -79,5 +83,36 @@ public class RhDailyTrackerOpenAiClient {
             log.warn("OpenAI chat completions error: {}", e.toString());
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "OpenAI request failed: " + e.getMessage());
         }
+    }
+
+    private static HttpStatus mapOpenAiHttpStatus(int status) {
+        if (status == 401 || status == 403) {
+            return HttpStatus.BAD_REQUEST;
+        }
+        if (status == 429) {
+            return HttpStatus.TOO_MANY_REQUESTS;
+        }
+        if (status >= 500) {
+            return HttpStatus.BAD_GATEWAY;
+        }
+        return HttpStatus.BAD_GATEWAY;
+    }
+
+    private static String openAiFailureMessage(int status, String body) {
+        if (status == 429) {
+            return "OpenAI rate limit (HTTP 429). Wait a minute and retry, or check usage/billing at platform.openai.com.";
+        }
+        if (status == 401 || status == 403) {
+            return "OpenAI rejected the API key (HTTP " + status + "). Check TRACKER_FINANCE_RH_DAILY_TRACKER_AI_API_KEY.";
+        }
+        String hint = "";
+        if (body != null && !body.isBlank()) {
+            String trimmed = body.trim();
+            if (trimmed.length() > 180) {
+                trimmed = trimmed.substring(0, 180) + "…";
+            }
+            hint = " — " + trimmed;
+        }
+        return "OpenAI request failed (HTTP " + status + ")" + hint;
     }
 }

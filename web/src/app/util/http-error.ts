@@ -10,6 +10,13 @@ export function formatHttpErrorDetail(e: unknown): string {
       return '413: Upload too large (or proxy body limit). Check server limits: `tracker.journal.max-attachment-bytes` (currently 8MB), `spring.servlet.multipart.max-file-size`, and any nginx/Caddy body-size limits. If this is a dev HTML response, also verify `/api` proxying or `apiBaseUrl`.';
     }
     if (e.status === 502) {
+      // Prefer Spring JSON { message } over the generic nginx/Caddy unreachable copy.
+      if (e.error && typeof e.error === 'object' && 'message' in e.error) {
+        const m = (e.error as { message?: unknown }).message;
+        if (typeof m === 'string' && m.trim()) {
+          return `502: ${m.trim()}`;
+        }
+      }
       const tail = typeof e.error === 'string' ? e.error.trim() : '';
       const genericProxy =
         !tail || tail === 'OK' || /bad gateway/i.test(tail) || /^\s*</.test(tail);
