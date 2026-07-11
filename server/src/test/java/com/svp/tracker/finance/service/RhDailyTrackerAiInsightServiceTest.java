@@ -79,13 +79,13 @@ class RhDailyTrackerAiInsightServiceTest {
     @Test
     void statusReflectsConfiguration() {
         service = new RhDailyTrackerAiInsightService(
-                propsDisabled, dailyTrackerService, openAiClient, insightRepository, currentUser, objectMapper);
+                propsDisabled, dailyTrackerService, openAiClient, insightRepository, currentUser);
         var status = service.status();
         assertFalse(status.enabled());
         assertFalse(status.configured());
 
         service = new RhDailyTrackerAiInsightService(
-                propsConfigured, dailyTrackerService, openAiClient, insightRepository, currentUser, objectMapper);
+                propsConfigured, dailyTrackerService, openAiClient, insightRepository, currentUser);
         status = service.status();
         assertTrue(status.enabled());
         assertTrue(status.configured());
@@ -94,7 +94,7 @@ class RhDailyTrackerAiInsightServiceTest {
     @Test
     void generateWhenDisabledThrows() {
         service = new RhDailyTrackerAiInsightService(
-                propsDisabled, dailyTrackerService, openAiClient, insightRepository, currentUser, objectMapper);
+                propsDisabled, dailyTrackerService, openAiClient, insightRepository, currentUser);
         when(currentUser.requireUserId()).thenReturn(1L);
         when(dailyTrackerService.buildReport(anyInt(), any())).thenReturn(emptyReport(2026));
         when(insightRepository.findByOwnerUserIdAndScopeAndPeriodKey(anyLong(), anyString(), anyString()))
@@ -109,7 +109,7 @@ class RhDailyTrackerAiInsightServiceTest {
     @Test
     void cacheHitSkipsOpenAi() throws Exception {
         service = new RhDailyTrackerAiInsightService(
-                propsConfigured, dailyTrackerService, openAiClient, insightRepository, currentUser, objectMapper);
+                propsConfigured, dailyTrackerService, openAiClient, insightRepository, currentUser);
         when(currentUser.requireUserId()).thenReturn(9L);
         when(dailyTrackerService.buildReport(eq(2026), eq(List.of(7)))).thenReturn(emptyReport(2026));
 

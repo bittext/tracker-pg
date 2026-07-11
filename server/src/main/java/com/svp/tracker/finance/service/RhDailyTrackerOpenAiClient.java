@@ -22,12 +22,11 @@ import org.springframework.web.server.ResponseStatusException;
 public class RhDailyTrackerOpenAiClient {
 
     private final RobinhoodRhDailyTrackerProperties props;
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private final HttpClient httpClient;
 
-    public RhDailyTrackerOpenAiClient(RobinhoodRhDailyTrackerProperties props, ObjectMapper objectMapper) {
+    public RhDailyTrackerOpenAiClient(RobinhoodRhDailyTrackerProperties props) {
         this.props = props;
-        this.objectMapper = objectMapper;
         this.httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     }
 

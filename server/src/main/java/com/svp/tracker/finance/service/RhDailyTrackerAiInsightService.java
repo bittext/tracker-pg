@@ -57,7 +57,7 @@ public class RhDailyTrackerAiInsightService {
     private final RhDailyTrackerOpenAiClient openAiClient;
     private final RhDailyTrackerAiInsightRepository insightRepository;
     private final CurrentUserService currentUser;
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     public RhDailyTrackerAiInsightStatusDto status() {
         var ai = props.ai();
