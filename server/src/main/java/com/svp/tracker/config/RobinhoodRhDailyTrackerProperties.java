@@ -57,7 +57,7 @@ public record RobinhoodRhDailyTrackerProperties(
                                     e -> e.getValue() == null ? "" : e.getValue().trim()));
         }
         if (ai == null) {
-            ai = new Ai(false, "", "https://api.openai.com/v1", "gpt-4o-mini", 60_000, 1200);
+            ai = new Ai(false, "", "https://api.openai.com/v1", "gpt-4o-mini", 60_000, 1200, List.of("3370", "3550", "8696"));
         }
     }
 
@@ -70,6 +70,7 @@ public record RobinhoodRhDailyTrackerProperties(
      * @param model chat model id
      * @param timeoutMs HTTP timeout
      * @param maxOutputTokens completion cap
+     * @param accountSuffixes last-4 account suffixes included in AI facts (default ••••3370, ••••3550, ••••8696)
      */
     public record Ai(
             boolean enabled,
@@ -77,7 +78,8 @@ public record RobinhoodRhDailyTrackerProperties(
             String baseUrl,
             String model,
             int timeoutMs,
-            int maxOutputTokens) {
+            int maxOutputTokens,
+            List<String> accountSuffixes) {
 
         public Ai {
             if (apiKey == null) {
@@ -101,10 +103,27 @@ public record RobinhoodRhDailyTrackerProperties(
             if (maxOutputTokens <= 0) {
                 maxOutputTokens = 1200;
             }
+            if (accountSuffixes == null || accountSuffixes.isEmpty()) {
+                accountSuffixes = List.of("3370", "3550", "8696");
+            } else {
+                accountSuffixes = accountSuffixes.stream()
+                        .flatMap(s -> java.util.Arrays.stream((s == null ? "" : s).split(",")))
+                        .map(String::trim)
+                        .filter(s -> !s.isBlank())
+                        .distinct()
+                        .toList();
+                if (accountSuffixes.isEmpty()) {
+                    accountSuffixes = List.of("3370", "3550", "8696");
+                }
+            }
         }
 
         public boolean configured() {
             return enabled && apiKey != null && !apiKey.isBlank();
+        }
+
+        public Set<String> accountSuffixSet() {
+            return Set.copyOf(accountSuffixes);
         }
     }
 

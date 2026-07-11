@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.svp.tracker.finance.dto.RhDailyTrackerAiFactsDigestDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTradeDto;
+import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerAccountCellDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerDayDto;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -20,6 +21,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Builds a bounded JSON facts bundle from Daily Tracker days for LLM coaching.
@@ -40,8 +42,13 @@ public final class RhDailyTrackerAiFactsBuilder {
             String scope,
             String periodKey,
             String periodLabel,
-            List<RobinhoodRhDailyTrackerDayDto> daysInRange)
+            List<RobinhoodRhDailyTrackerDayDto> daysInRange,
+            Set<String> accountSuffixes)
             throws Exception {
+        Set<String> allowed =
+                accountSuffixes == null || accountSuffixes.isEmpty()
+                        ? Set.of("3370", "3550", "8696")
+                        : Set.copyOf(accountSuffixes);
         List<RobinhoodRhDailyTrackerDayDto> days = daysInRange == null ? List.of() : daysInRange.stream()
                 .filter(Objects::nonNull)
                 .sorted(Comparator.comparing(RobinhoodRhDailyTrackerDayDto::snapshotDate))
@@ -49,8 +56,13 @@ public final class RhDailyTrackerAiFactsBuilder {
 
         List<RobinhoodRhDailyTradeDto> allTrades = new ArrayList<>();
         for (RobinhoodRhDailyTrackerDayDto day : days) {
-            if (day.trades() != null) {
-                allTrades.addAll(day.trades());
+            if (day.trades() == null) {
+                continue;
+            }
+            for (RobinhoodRhDailyTradeDto t : day.trades()) {
+                if (tradeAllowed(t, allowed)) {
+                    allTrades.add(t);
+                }
             }
         }
 
@@ -103,14 +115,19 @@ public final class RhDailyTrackerAiFactsBuilder {
             if (!day.hasScheduledSnapshot()) {
                 continue;
             }
-            BigDecimal total = nz(day.combinedTotal());
+            BigDecimal total = sumAllowedAccountValue(day, allowed);
+            BigDecimal added = sumAllowedFlow(day, allowed, true);
+            BigDecimal removed = sumAllowedFlow(day, allowed, false);
+            BigDecimal chg = sumAllowedChange(day, allowed);
+            int dayTradeCount = day.trades() == null
+                    ? 0
+                    : (int) day.trades().stream().filter(t -> tradeAllowed(t, allowed)).count();
             if (valueStart == null) {
                 valueStart = total;
             }
             valueEnd = total;
-            periodAdded = periodAdded.add(nz(day.combinedPeriodAdded()));
-            periodRemoved = periodRemoved.add(nz(day.combinedPeriodRemoved()));
-            BigDecimal chg = nz(day.combinedTotalChangeFromPrevious());
+            periodAdded = periodAdded.add(added);
+            periodRemoved = periodRemoved.add(removed);
             if (day.hasPreviousScheduledSnapshot()) {
                 if (largestUp == null || chg.compareTo(largestUp) > 0) {
                     largestUp = chg;
@@ -125,7 +142,7 @@ public final class RhDailyTrackerAiFactsBuilder {
             pt.put("date", day.snapshotDate().toString());
             pt.put("combinedTotal", total);
             pt.put("changeFromPrevious", chg);
-            pt.put("tradeCount", day.trades() == null ? 0 : day.trades().size());
+            pt.put("tradeCount", dayTradeCount);
             valueSeries.add(pt);
         }
 
@@ -165,10 +182,16 @@ public final class RhDailyTrackerAiFactsBuilder {
         BigDecimal medianNotional = median(notionals);
 
         ObjectNode root = mapper.createObjectNode();
-        root.put("disclaimer", "Facts describe Daily Tracker activity and account-value movement only. There is no realized P&L or win rate in this data.");
+        root.put(
+                "disclaimer",
+                "Facts describe Daily Tracker activity and account-value movement only for accounts "
+                        + allowed.stream().sorted().map(s -> "••••" + s).reduce((a, b) -> a + ", " + b).orElse("")
+                        + ". There is no realized P&L or win rate in this data. Other accounts are excluded.");
         root.put("scope", scope);
         root.put("periodKey", periodKey);
         root.put("periodLabel", periodLabel);
+        ArrayNode included = root.putArray("includedAccountSuffixes");
+        allowed.stream().sorted().forEach(included::add);
         root.put("dayCount", days.size());
         root.put("scheduledSnapshotDays", (int) days.stream().filter(RobinhoodRhDailyTrackerDayDto::hasScheduledSnapshot).count());
         root.put("tradeCount", allTrades.size());
@@ -307,6 +330,53 @@ public final class RhDailyTrackerAiFactsBuilder {
         public int compareTo(InstantSafe o) {
             return Long.compare(epoch, o.epoch);
         }
+    }
+
+    private static boolean tradeAllowed(RobinhoodRhDailyTradeDto t, Set<String> allowed) {
+        if (t == null || t.accountSuffix() == null || t.accountSuffix().isBlank()) {
+            return false;
+        }
+        return allowed.contains(t.accountSuffix().trim());
+    }
+
+    private static BigDecimal sumAllowedAccountValue(RobinhoodRhDailyTrackerDayDto day, Set<String> allowed) {
+        if (day.accounts() == null) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal sum = BigDecimal.ZERO;
+        for (RobinhoodRhDailyTrackerAccountCellDto cell : day.accounts()) {
+            if (cell != null && cell.accountSuffix() != null && allowed.contains(cell.accountSuffix().trim())) {
+                sum = sum.add(nz(cell.totalAccountValue()));
+            }
+        }
+        return sum;
+    }
+
+    private static BigDecimal sumAllowedChange(RobinhoodRhDailyTrackerDayDto day, Set<String> allowed) {
+        if (day.accounts() == null) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal sum = BigDecimal.ZERO;
+        for (RobinhoodRhDailyTrackerAccountCellDto cell : day.accounts()) {
+            if (cell != null && cell.accountSuffix() != null && allowed.contains(cell.accountSuffix().trim())) {
+                sum = sum.add(nz(cell.totalChangeFromPrevious()));
+            }
+        }
+        return sum;
+    }
+
+    private static BigDecimal sumAllowedFlow(
+            RobinhoodRhDailyTrackerDayDto day, Set<String> allowed, boolean added) {
+        if (day.accounts() == null) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal sum = BigDecimal.ZERO;
+        for (RobinhoodRhDailyTrackerAccountCellDto cell : day.accounts()) {
+            if (cell != null && cell.accountSuffix() != null && allowed.contains(cell.accountSuffix().trim())) {
+                sum = sum.add(nz(added ? cell.periodAdded() : cell.periodRemoved()));
+            }
+        }
+        return sum;
     }
 
     private static BigDecimal tradeNotional(RobinhoodRhDailyTradeDto t) {

@@ -63,7 +63,8 @@ class RhDailyTrackerAiInsightServiceTest {
                 List.of(),
                 java.util.Map.of(),
                 true,
-                new RobinhoodRhDailyTrackerProperties.Ai(false, "", "https://api.openai.com/v1", "gpt-4o-mini", 60000, 1200));
+                new RobinhoodRhDailyTrackerProperties.Ai(
+                        false, "", "https://api.openai.com/v1", "gpt-4o-mini", 60000, 1200, List.of("3370", "3550", "8696")));
         propsConfigured = new RobinhoodRhDailyTrackerProperties(
                 "",
                 "America/Chicago",
@@ -73,7 +74,7 @@ class RhDailyTrackerAiInsightServiceTest {
                 java.util.Map.of(),
                 true,
                 new RobinhoodRhDailyTrackerProperties.Ai(
-                        true, "sk-test", "https://api.openai.com/v1", "gpt-4o-mini", 60000, 1200));
+                        true, "sk-test", "https://api.openai.com/v1", "gpt-4o-mini", 60000, 1200, List.of("3370", "3550", "8696")));
     }
 
     @Test
@@ -114,7 +115,7 @@ class RhDailyTrackerAiInsightServiceTest {
         when(dailyTrackerService.buildReport(eq(2026), eq(List.of(7)))).thenReturn(emptyReport(2026));
 
         var bundle = RhDailyTrackerAiFactsBuilder.build(
-                objectMapper, "MONTH", "2026-07", "July 2026", List.of());
+                objectMapper, "MONTH", "2026-07", "July 2026", List.of(), java.util.Set.of("3370", "3550", "8696"));
         RhDailyTrackerAiInsight cached = new RhDailyTrackerAiInsight();
         cached.setOwnerUserId(9L);
         cached.setScope("MONTH");

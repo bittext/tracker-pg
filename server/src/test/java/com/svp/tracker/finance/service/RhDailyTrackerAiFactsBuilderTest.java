@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class RhDailyTrackerAiFactsBuilderTest {
@@ -27,11 +28,12 @@ class RhDailyTrackerAiFactsBuilderTest {
                 "10000",
                 "150",
                 List.of(
-                        trade("AAPL", "buy", "10", "150", Instant.parse("2026-07-10T15:00:00Z")),
-                        trade("AAPL", "buy", "5", "151", Instant.parse("2026-07-10T16:00:00Z")),
-                        trade("TSLA", "sell", "2", "250", Instant.parse("2026-07-10T17:00:00Z"))));
+                        trade("AAPL", "buy", "10", "150", Instant.parse("2026-07-10T15:00:00Z"), "3370"),
+                        trade("AAPL", "buy", "5", "151", Instant.parse("2026-07-10T16:00:00Z"), "3550"),
+                        trade("TSLA", "sell", "2", "250", Instant.parse("2026-07-10T17:00:00Z"), "8696")));
 
-        var bundle = RhDailyTrackerAiFactsBuilder.build(mapper, "DAY", "2026-07-10", "Jul 10", List.of(day));
+        var bundle = RhDailyTrackerAiFactsBuilder.build(
+                mapper, "DAY", "2026-07-10", "Jul 10", List.of(day), Set.of("3370", "3550", "8696"));
         assertEquals(3, bundle.digest().tradeCount());
         assertEquals(2, bundle.digest().buyCount());
         assertEquals(1, bundle.digest().sellCount());
@@ -43,6 +45,22 @@ class RhDailyTrackerAiFactsBuilderTest {
         JsonNode root = mapper.readTree(bundle.factsJson());
         assertTrue(root.path("disclaimer").asText().contains("no realized P&L"));
         assertEquals(3, root.path("tradeCount").asInt());
+        assertEquals(3, root.path("includedAccountSuffixes").size());
+    }
+
+    @Test
+    void excludesTradesOutsideAllowedSuffixes() throws Exception {
+        RobinhoodRhDailyTrackerDayDto day = day(
+                LocalDate.of(2026, 7, 10),
+                "10000",
+                "150",
+                List.of(
+                        trade("AAPL", "buy", "10", "150", Instant.parse("2026-07-10T15:00:00Z"), "3370"),
+                        trade("META", "buy", "1", "500", Instant.parse("2026-07-10T16:00:00Z"), "4123")));
+        var bundle = RhDailyTrackerAiFactsBuilder.build(
+                mapper, "DAY", "2026-07-10", "Jul 10", List.of(day), Set.of("3370", "3550", "8696"));
+        assertEquals(1, bundle.digest().tradeCount());
+        assertEquals(List.of("AAPL"), bundle.digest().topSymbolsByCount());
     }
 
     @Test
@@ -51,9 +69,11 @@ class RhDailyTrackerAiFactsBuilderTest {
                 LocalDate.of(2026, 7, 1),
                 "9000",
                 "0",
-                List.of(trade("MSFT", "buy", "1", "400", Instant.parse("2026-07-01T14:00:00Z"))));
-        var a = RhDailyTrackerAiFactsBuilder.build(mapper, "MONTH", "2026-07", "July 2026", List.of(day));
-        var b = RhDailyTrackerAiFactsBuilder.build(mapper, "MONTH", "2026-07", "July 2026", List.of(day));
+                List.of(trade("MSFT", "buy", "1", "400", Instant.parse("2026-07-01T14:00:00Z"), "3370")));
+        var a = RhDailyTrackerAiFactsBuilder.build(
+                mapper, "MONTH", "2026-07", "July 2026", List.of(day), Set.of("3370", "3550", "8696"));
+        var b = RhDailyTrackerAiFactsBuilder.build(
+                mapper, "MONTH", "2026-07", "July 2026", List.of(day), Set.of("3370", "3550", "8696"));
         assertEquals(a.factsHash(), b.factsHash());
         assertEquals(a.factsJson(), b.factsJson());
     }
@@ -80,7 +100,7 @@ class RhDailyTrackerAiFactsBuilderTest {
     }
 
     private static RobinhoodRhDailyTradeDto trade(
-            String symbol, String side, String qty, String price, Instant at) {
+            String symbol, String side, String qty, String price, Instant at, String accountSuffix) {
         return new RobinhoodRhDailyTradeDto(
                 symbol,
                 side,
@@ -90,7 +110,7 @@ class RhDailyTrackerAiFactsBuilderTest {
                 null,
                 "filled",
                 at,
-                "1234",
+                accountSuffix,
                 "Test");
     }
 }

@@ -168,6 +168,9 @@ tracker:
         model: ${TRACKER_FINANCE_RH_DAILY_TRACKER_AI_MODEL:gpt-4o-mini}
         timeout-ms: ${TRACKER_FINANCE_RH_DAILY_TRACKER_AI_TIMEOUT_MS:60000}
         max-output-tokens: ${TRACKER_FINANCE_RH_DAILY_TRACKER_AI_MAX_OUTPUT_TOKENS:1200}
+        # Last-4 suffixes included in AI facts (Individual 3370, Agentic 3550, Ammu 8696).
+        # Override with comma-separated TRACKER_FINANCE_RH_DAILY_TRACKER_AI_ACCOUNT_SUFFIXES if needed.
+        account-suffixes: ${TRACKER_FINANCE_RH_DAILY_TRACKER_AI_ACCOUNT_SUFFIXES:3370,3550,8696}
     rh-crypto-tracker:
       snapshot-scheduler-enabled-config: ${TRACKER_FINANCE_RH_CRYPTO_TRACKER_SNAPSHOT_ENABLED:true}
       snapshot-cron: ${TRACKER_FINANCE_RH_CRYPTO_TRACKER_SNAPSHOT_CRON:0 0 */4 * * *}

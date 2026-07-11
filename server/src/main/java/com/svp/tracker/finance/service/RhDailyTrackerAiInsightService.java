@@ -38,7 +38,8 @@ public class RhDailyTrackerAiInsightService {
     private static final String SYSTEM_PROMPT =
             """
             You are a trading coach analyzing Robinhood Daily Tracker activity facts.
-            The facts describe executions (symbol, side, size, order type, timing), account-value trajectory, and cash flows.
+            The facts describe executions (symbol, side, size, order type, timing), account-value trajectory, and cash flows
+            for ONLY these accounts: Individual ••••3370, Agentic ••••3550, and ••••8696 (Ammu). Other accounts are excluded.
             There is NO realized P&L and NO win rate in the data — never invent profits, losses, or win rates.
             Speak factually and encouragingly. Focus on leanings (habits), trends, areas to improve, and concrete next actions.
             Return ONLY a JSON object with this exact shape:
@@ -77,7 +78,12 @@ public class RhDailyTrackerAiInsightService {
         RhDailyTrackerAiFactsBuilder.FactsBundle bundle;
         try {
             bundle = RhDailyTrackerAiFactsBuilder.build(
-                    objectMapper, period.scope(), period.periodKey(), period.periodLabel(), days);
+                    objectMapper,
+                    period.scope(),
+                    period.periodKey(),
+                    period.periodLabel(),
+                    days,
+                    props.ai().accountSuffixSet());
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Could not build AI facts: " + e.getMessage());
         }
