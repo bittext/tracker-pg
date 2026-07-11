@@ -1,0 +1,304 @@
+<div class="exercise-report">
+  @if (dayDetailError) {
+    <p class="load-error ex-report-error" role="alert">{{ dayDetailError }}</p>
+  }
+
+  <div class="cal-toolbar ex-month-nav">
+    <button mat-icon-button type="button" (click)="prevMonth()" aria-label="Previous month">
+      <mat-icon>chevron_left</mat-icon>
+    </button>
+    <h2 class="cal-title">{{ calendarTitle }}</h2>
+    <button mat-icon-button type="button" (click)="nextMonth()" aria-label="Next month">
+      <mat-icon>chevron_right</mat-icon>
+    </button>
+  </div>
+
+  @if (hasTrendData()) {
+    <section class="ex-progress-story" aria-labelledby="ex-story-heading">
+      <h2 id="ex-story-heading" class="ex-story-title">Progress this month</h2>
+      <p class="ex-story-weight">{{ persistenceStory().weightLine }}</p>
+      <p class="ex-story-consistency">{{ persistenceStory().consistencyLine }}</p>
+      @if (persistenceStory().insight; as insight) {
+        <p class="ex-story-insight">{{ insight }}</p>
+      }
+    </section>
+
+    <section class="ex-trends" aria-label="Weight and exercise trends">
+      <div class="ex-trend-card">
+        <h3 class="ex-trend-title">Body weight</h3>
+        @if (weightTrend().weighInCount >= 1) {
+          <div
+            class="ex-weight-line-wrap"
+            role="img"
+            [attr.aria-label]="
+              'Body weight trend: start ' +
+              (weightTrend().startLb != null ? weightTrend().startLb!.toFixed(1) + ' lb' : 'none') +
+              ', end ' +
+              (weightTrend().endLb != null ? weightTrend().endLb!.toFixed(1) + ' lb' : 'none') +
+              ', change ' +
+              formatWeightDelta(weightTrend().deltaLb)
+            "
+          >
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="ex-weight-line-svg">
+              <line x1="0" y1="100" x2="100" y2="100" class="ex-weight-axis" />
+              @if (weightTrend().areaPath) {
+                <path [attr.d]="weightTrend().areaPath" class="ex-weight-area" />
+              }
+              <path [attr.d]="weightTrend().linePath" class="ex-weight-path" />
+            </svg>
+          </div>
+          <div class="ex-trend-meta">
+            <span>Start {{ weightTrend().startLb != null ? (weightTrend().startLb | number: '1.1-1') + ' lb' : '—' }}</span>
+            <span
+              class="ex-trend-delta"
+              [class.ex-trend-delta--down]="(weightTrend().deltaLb ?? 0) < -0.05"
+              [class.ex-trend-delta--up]="(weightTrend().deltaLb ?? 0) > 0.05"
+            >
+              {{ formatWeightDelta(weightTrend().deltaLb) }}
+            </span>
+            <span>End {{ weightTrend().endLb != null ? (weightTrend().endLb | number: '1.1-1') + ' lb' : '—' }}</span>
+          </div>
+        } @else {
+          <p class="muted empty-hint ex-trend-empty">No weigh-ins this month.</p>
+        }
+      </div>
+
+      <div class="ex-trend-card">
+        <h3 class="ex-trend-title">Exercise minutes / day</h3>
+        @if (monthExerciseMinutes() > 0) {
+          <div
+            class="ex-trend-bars"
+            [style.--bar-count]="durationBars().length"
+            role="img"
+            [attr.aria-label]="'Daily exercise duration for ' + calendarTitle + ', total ' + formatCalendarExerciseMinutes(monthExerciseMinutes())"
+          >
+            @for (bar of durationBars(); track bar.iso) {
+              <div
+                class="ex-trend-bars__col"
+                [attr.title]="bar.iso + ': ' + formatCalendarExerciseMinutes(bar.minutes)"
+              >
+                <div
+                  class="ex-trend-bars__bar"
+                  [class.ex-trend-bars__bar--empty]="bar.minutes <= 0"
+                  [style.height.%]="bar.heightPct"
+                ></div>
+                @if (bar.day === 1 || bar.day % 5 === 0 || bar.day === durationBars().length) {
+                  <span class="ex-trend-bars__label">{{ bar.day }}</span>
+                } @else {
+                  <span class="ex-trend-bars__label ex-trend-bars__label--spacer" aria-hidden="true"></span>
+                }
+              </div>
+            }
+          </div>
+        } @else {
+          <p class="muted empty-hint ex-trend-empty">No timed workouts this month.</p>
+        }
+      </div>
+    </section>
+  }
+
+  @if (monthlyReport() && monthCal()) {
+    <div class="ex-kpi-strip ex-kpi-strip--month" role="group" aria-label="Consistency summary">
+      <div class="ex-kpi">
+        <span class="ex-kpi-label">Exercise days</span>
+        <span class="ex-kpi-value">{{ monthlyReport()!.workoutDays }}</span>
+      </div>
+      <div class="ex-kpi">
+        <span class="ex-kpi-label">Exercise time</span>
+        <span class="ex-kpi-value ex-kpi-value--duration">{{
+          formatCalendarExerciseMinutes(monthExerciseMinutes())
+        }}</span>
+      </div>
+      <div class="ex-kpi">
+        <span class="ex-kpi-label">Current streak</span>
+        <span class="ex-kpi-value">{{ streakStats().currentStreak }}</span>
+      </div>
+      <div class="ex-kpi">
+        <span class="ex-kpi-label">Best streak</span>
+        <span class="ex-kpi-value">{{ streakStats().bestStreakMonth }}</span>
+      </div>
+      <div class="ex-kpi">
+        <span class="ex-kpi-label">Weight change</span>
+        <span
+          class="ex-kpi-value"
+          [class.ex-kpi-value--down]="(weightTrend().deltaLb ?? 0) < -0.05"
+          [class.ex-kpi-value--up]="(weightTrend().deltaLb ?? 0) > 0.05"
+        >
+          {{ formatWeightDelta(weightTrend().deltaLb) }}
+        </span>
+      </div>
+      <div class="ex-kpi">
+        <span class="ex-kpi-label">Weigh-ins</span>
+        <span class="ex-kpi-value">{{ weightTrend().weighInCount }}</span>
+      </div>
+    </div>
+  }
+
+  <div class="ex-report-grid">
+    <section class="ex-report-column ex-report-column--month" aria-labelledby="ex-month-heading">
+      <mat-card appearance="outlined" class="ex-report-card">
+        <mat-card-header class="ex-report-card-header">
+          <mat-card-title id="ex-month-heading">Month calendar</mat-card-title>
+          <mat-card-subtitle>Select a day for details · tiles show weight and exercise time</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content class="ex-report-card-body">
+          <div class="calendar-shell">
+            <div class="cal-weekdays" role="row">
+              @for (wd of weekDays; track wd) {
+                <span class="cal-weekday" role="columnheader">{{ wd }}</span>
+              }
+            </div>
+            @for (row of calendarRows(); track $index) {
+              <div class="cal-week" role="row">
+                @for (cell of row; track cell.trackKey) {
+                  @if (cell.type === 'pad') {
+                    <div class="cal-slot cal-slot--pad" aria-hidden="true"></div>
+                  } @else {
+                    <button
+                      type="button"
+                      class="cal-slot cal-day"
+                      [class.cal-day--empty]="cell.kind === 'empty'"
+                      [class.cal-day--strength]="cell.kind === 'strength'"
+                      [class.cal-day--weight]="cell.kind === 'weight'"
+                      [class.cal-day--both]="cell.kind === 'both'"
+                      [class.cal-day--selected]="isSelected(cell.iso)"
+                      [attr.aria-pressed]="isSelected(cell.iso)"
+                      [attr.aria-label]="
+                        'Day ' +
+                        cell.label +
+                        ', ' +
+                        (cell.iso || '') +
+                        ', weight ' +
+                        (cell.weightKg != null ? formatCalendarWeightLb(cell.weightKg) : 'none') +
+                        ', exercise time ' +
+                        formatCalendarExerciseMinutes(cell.exerciseMinutes)
+                      "
+                      (click)="selectDay(cell)"
+                    >
+                      <div class="cal-day-main">
+                        <span class="cal-day-num">{{ cell.label }}</span>
+                        <span class="cal-day-summary">
+                          @if (cell.weightKg != null) {
+                            <span class="cal-day-summary-line">{{ formatCalendarWeightLb(cell.weightKg) }}</span>
+                          }
+                          @if ((cell.exerciseMinutes ?? 0) > 0) {
+                            <span class="cal-day-summary-line">{{
+                              formatCalendarExerciseMinutes(cell.exerciseMinutes)
+                            }}</span>
+                          }
+                        </span>
+                      </div>
+                    </button>
+                  }
+                }
+              </div>
+            }
+          </div>
+
+          @if (monthlyReport(); as monthly) {
+            <div class="ex-subsection">
+              <h3 class="ex-subsection-title">Month totals by exercise</h3>
+              <div class="table-wrap table-wrap--nested">
+                <table mat-table [dataSource]="monthly.exercises" class="full-width">
+                  <ng-container matColumnDef="monthExName">
+                    <th mat-header-cell *matHeaderCellDef>Exercise</th>
+                    <td mat-cell *matCellDef="let row">{{ row.exerciseName }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="monthLogCount">
+                    <th mat-header-cell *matHeaderCellDef>Logs</th>
+                    <td mat-cell *matCellDef="let row">{{ row.logCount }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="monthDaysTrained">
+                    <th mat-header-cell *matHeaderCellDef>Days</th>
+                    <td mat-cell *matCellDef="let row">{{ row.daysTrained }}</td>
+                  </ng-container>
+                  <tr mat-header-row *matHeaderRowDef="monthlyExColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: monthlyExColumns"></tr>
+                </table>
+                @if (!monthly.exercises.length) {
+                  <p class="muted empty-hint">No exercise logs in this month.</p>
+                }
+              </div>
+            </div>
+          }
+        </mat-card-content>
+      </mat-card>
+    </section>
+
+    <section class="ex-report-column ex-report-column--day" aria-labelledby="ex-day-heading">
+      <mat-card appearance="outlined" class="ex-report-card ex-report-card--day">
+        <mat-card-header class="ex-report-card-header">
+          <mat-card-title id="ex-day-heading">Selected day</mat-card-title>
+          <mat-card-subtitle>{{ selectedDayDisplayLabel() }}</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content class="ex-report-card-body">
+          @if (dailyReport) {
+            <div class="ex-kpi-strip ex-kpi-strip--day" role="group" aria-label="Day summary">
+              <div class="ex-kpi">
+                <span class="ex-kpi-label">Exercise time</span>
+                <span class="ex-kpi-value ex-kpi-value--duration">{{
+                  formatCalendarExerciseMinutes(selectedDayExerciseMinutes())
+                }}</span>
+              </div>
+              <div class="ex-kpi">
+                <span class="ex-kpi-label">Log lines</span>
+                <span class="ex-kpi-value">{{ dailyReport.totalLogs }}</span>
+              </div>
+              <div class="ex-kpi">
+                <span class="ex-kpi-label">Body weight</span>
+                <span class="ex-kpi-value">
+                  @if (dailyReport.bodyWeightKg != null) {
+                    {{ kgToLb(dailyReport.bodyWeightKg) | number: '1.1-2' }} lb
+                  } @else {
+                    —
+                  }
+                </span>
+              </div>
+              @if (selectedDayWeightDeltaLb(); as dayDelta) {
+                <div class="ex-kpi">
+                  <span class="ex-kpi-label">Vs prior weigh-in</span>
+                  <span
+                    class="ex-kpi-value"
+                    [class.ex-kpi-value--down]="dayDelta < -0.05"
+                    [class.ex-kpi-value--up]="dayDelta > 0.05"
+                  >
+                    {{ formatWeightDelta(dayDelta) }}
+                  </span>
+                </div>
+              }
+            </div>
+
+            <div class="ex-subsection">
+              <h3 class="ex-subsection-title">Exercise entries</h3>
+              <div class="table-wrap table-wrap--nested">
+                <table mat-table [dataSource]="dailyReport.logLines" class="full-width daily-log-table">
+                  <ng-container matColumnDef="dailyExName">
+                    <th mat-header-cell *matHeaderCellDef>Exercise</th>
+                    <td mat-cell *matCellDef="let row">{{ row.exerciseName }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="dailyDuration">
+                    <th mat-header-cell *matHeaderCellDef>Time</th>
+                    <td mat-cell *matCellDef="let row">{{ formatDurationMinutes(row.durationMinutes) }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="dailyNotes">
+                    <th mat-header-cell *matHeaderCellDef>Notes</th>
+                    <td mat-cell *matCellDef="let row" class="daily-log-notes">{{ row.notes }}</td>
+                  </ng-container>
+                  <tr mat-header-row *matHeaderRowDef="dailyLogColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: dailyLogColumns"></tr>
+                </table>
+                @if (dailyReport.totalLogs === 0) {
+                  <p class="muted empty-hint">No exercise logs for this day.</p>
+                }
+              </div>
+            </div>
+          } @else if (dayDetailError) {
+            <p class="muted ex-day-placeholder" role="alert">Day detail could not be loaded. See the message above.</p>
+          } @else {
+            <p class="muted ex-day-placeholder">Loading day detail…</p>
+          }
+        </mat-card-content>
+      </mat-card>
+    </section>
+  </div>
+</div>
