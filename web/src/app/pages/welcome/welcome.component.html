@@ -115,18 +115,18 @@
           </mat-card-content>
         </mat-card>
       </a>
-      <a routerLink="/life/insights/exercise" class="welcome-feature-link">
+      <a routerLink="/life/insights" class="welcome-feature-link">
         <mat-card class="welcome-card welcome-card--rose" appearance="outlined">
           <mat-card-header>
             <div mat-card-avatar class="welcome-card__avatar"><mat-icon>analytics</mat-icon></div>
             <mat-card-title>Insights</mat-card-title>
-            <mat-card-subtitle>Exercise, management, journal &amp; banking</mat-card-subtitle>
+            <mat-card-subtitle>Trends, tasks, journal search &amp; banking</mat-card-subtitle>
           </mat-card-header>
           <mat-card-content>
             <p>
-              Pull together exercise and journal views. On this page, open the <strong>Finance</strong> tab and
-              <strong>Banking</strong> for yearly money-flow summaries—including roll-ups <strong>by institution type</strong>
-              when your institutions are tagged in Admin → Finance → Banking.
+              Exercise trends, management task reports, journal search, and banking money-flow summaries—in one place.
+              Use the <strong>Banking</strong> tab for yearly roll-ups <strong>by institution type</strong> when institutions
+              are tagged in Admin → Finance config → Banking.
             </p>
           </mat-card-content>
         </mat-card>
@@ -210,7 +210,7 @@
             Open <a routerLink="/life/money">Money</a> for banking (ledger and filters by institution or type), tax helpers,
             and personal finance tabs. Configure banking <strong>institution types</strong> under
             <a routerLink="/admin">Admin</a> → Finance → Banking. Use <a routerLink="/life/journal">Journal</a> for dated entries
-            and <a routerLink="/life/insights/banking">Insights</a> for rollups—including banking summaries by type.
+            and <a routerLink="/life/insights">Insights</a> for rollups—including banking summaries by type.
             @if (canAccessMarkets) {
               Open <a routerLink="/markets/overview">Markets</a> for trading tools and analytics.
             }

@@ -14,12 +14,13 @@
         </div>
 
         <nav class="app-sidebar__nav">
-          @for (item of navItems; track item.path) {
+          @for (item of primaryNav; track item.id) {
             <a
               class="app-sidebar__link"
               [routerLink]="item.path"
               routerLinkActive="app-sidebar__link--active"
               [routerLinkActiveOptions]="{ exact: item.exact !== false }"
+              [attr.aria-label]="navAriaLabel(item)"
             >
               <mat-icon aria-hidden="true">{{ item.icon }}</mat-icon>
               <span>{{ item.label }}</span>
@@ -27,14 +28,17 @@
           }
 
           <div class="app-sidebar__group-title app-sidebar__group-title--switch">Switch workspace</div>
-          <a class="app-sidebar__link app-sidebar__link--switch" routerLink="/life/welcome">
-            <mat-icon aria-hidden="true">home</mat-icon>
-            <span>Life</span>
-          </a>
-          <a class="app-sidebar__link" routerLink="/life/settings">
-            <mat-icon aria-hidden="true">settings</mat-icon>
-            <span>Settings</span>
-          </a>
+          @for (item of footerNav; track item.id) {
+            <a
+              class="app-sidebar__link"
+              [class.app-sidebar__link--switch]="item.id === 'life-switch'"
+              [routerLink]="item.path"
+              [attr.aria-label]="navAriaLabel(item)"
+            >
+              <mat-icon aria-hidden="true">{{ item.icon }}</mat-icon>
+              <span>{{ item.label }}</span>
+            </a>
+          }
         </nav>
 
         <div class="app-sidebar__footer">
@@ -67,7 +71,7 @@
         <button mat-button type="button" (click)="logout()">Log out</button>
       </header>
       <nav class="markets-classic-shell__tabs">
-        @for (item of navItems; track item.path) {
+        @for (item of primaryNav; track item.id) {
           <a
             class="markets-classic-shell__tab"
             [routerLink]="item.path"
@@ -75,8 +79,14 @@
             >{{ item.label }}</a
           >
         }
-        <a class="markets-classic-shell__tab markets-classic-shell__tab--switch" routerLink="/life/welcome">Life</a>
-        <a class="markets-classic-shell__tab" routerLink="/life/settings">Settings</a>
+        @for (item of footerNav; track item.id) {
+          <a
+            class="markets-classic-shell__tab"
+            [class.markets-classic-shell__tab--switch]="item.id === 'life-switch'"
+            [routerLink]="item.path"
+            >{{ item.label }}</a
+          >
+        }
       </nav>
       <main class="markets-classic-shell__main">
         <router-outlet />

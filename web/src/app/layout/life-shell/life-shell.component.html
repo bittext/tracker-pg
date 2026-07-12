@@ -8,53 +8,45 @@
       </a>
 
       <nav class="app-sidebar__nav">
-        @for (group of navGroups; track group.title ?? group.items[0].path) {
-          @if (visibleItems(group).length) {
-            @if (group.title) {
-              <div class="app-sidebar__group-title">{{ group.title }}</div>
-            }
-            @for (item of visibleItems(group); track item.path) {
-              <a
-                class="app-sidebar__link"
-                [routerLink]="item.path"
-                routerLinkActive="app-sidebar__link--active"
-                [routerLinkActiveOptions]="{ exact: item.exact !== false }"
-              >
-                <mat-icon aria-hidden="true">{{ item.icon }}</mat-icon>
-                <span>{{ item.label }}</span>
-              </a>
-            }
-          }
+        @for (item of primaryNav; track item.id) {
+          <a
+            class="app-sidebar__link"
+            [routerLink]="item.path"
+            routerLinkActive="app-sidebar__link--active"
+            [routerLinkActiveOptions]="{ exact: item.exact !== false }"
+            [attr.aria-label]="navAriaLabel(item)"
+          >
+            <mat-icon aria-hidden="true">{{ item.icon }}</mat-icon>
+            <span>{{ item.label }}</span>
+          </a>
         }
 
         @if (auth.canAccessMarkets()) {
           <div class="app-sidebar__group-title app-sidebar__group-title--switch">Switch workspace</div>
-          <a class="app-sidebar__link app-sidebar__link--switch" routerLink="/markets/overview">
-            <mat-icon aria-hidden="true">candlestick_chart</mat-icon>
-            <span>Markets</span>
+          <a
+            class="app-sidebar__link app-sidebar__link--switch"
+            [routerLink]="marketsSwitch.path"
+            [attr.aria-label]="navAriaLabel(marketsSwitch)"
+          >
+            <mat-icon aria-hidden="true">{{ marketsSwitch.icon }}</mat-icon>
+            <span>{{ marketsSwitch.label }}</span>
           </a>
         }
 
         @if (auth.isAdmin()) {
           <div class="app-sidebar__group-title">Administration</div>
-          <a
-            class="app-sidebar__link"
-            routerLink="/admin"
-            routerLinkActive="app-sidebar__link--active"
-            [routerLinkActiveOptions]="{ exact: true }"
-          >
-            <mat-icon aria-hidden="true">admin_panel_settings</mat-icon>
-            <span>Admin</span>
-          </a>
-          <a
-            class="app-sidebar__link"
-            routerLink="/logs"
-            routerLinkActive="app-sidebar__link--active"
-            [routerLinkActiveOptions]="{ exact: true }"
-          >
-            <mat-icon aria-hidden="true">article</mat-icon>
-            <span>Logs</span>
-          </a>
+          @for (item of visibleNav(adminNav); track item.id) {
+            <a
+              class="app-sidebar__link"
+              [routerLink]="item.path"
+              routerLinkActive="app-sidebar__link--active"
+              [routerLinkActiveOptions]="{ exact: item.exact !== false }"
+              [attr.aria-label]="navAriaLabel(item)"
+            >
+              <mat-icon aria-hidden="true">{{ item.icon }}</mat-icon>
+              <span>{{ item.label }}</span>
+            </a>
+          }
         }
       </nav>
 
@@ -90,27 +82,29 @@
       <button mat-button type="button" (click)="logout()">Log out</button>
     </header>
     <nav class="life-classic-shell__tabs">
-      @for (group of navGroups; track group.title ?? group.items[0].path) {
-        @for (item of visibleItems(group); track item.path) {
+      @for (item of primaryNav; track item.id) {
+        <a
+          class="life-classic-shell__tab"
+          [routerLink]="item.path"
+          routerLinkActive="life-classic-shell__tab--active"
+          [routerLinkActiveOptions]="{ exact: item.exact !== false }"
+          >{{ item.label }}</a
+        >
+      }
+      @if (auth.canAccessMarkets()) {
+        <a class="life-classic-shell__tab life-classic-shell__tab--switch" [routerLink]="marketsSwitch.path">{{
+          marketsSwitch.label
+        }}</a>
+      }
+      @if (auth.isAdmin()) {
+        @for (item of visibleNav(adminNav); track item.id) {
           <a
             class="life-classic-shell__tab"
             [routerLink]="item.path"
             routerLinkActive="life-classic-shell__tab--active"
-            [routerLinkActiveOptions]="{ exact: item.exact !== false }"
             >{{ item.label }}</a
           >
         }
-      }
-      @if (auth.canAccessMarkets()) {
-        <a class="life-classic-shell__tab life-classic-shell__tab--switch" routerLink="/markets/overview">Markets</a>
-      }
-      @if (auth.isAdmin()) {
-        <a class="life-classic-shell__tab" routerLink="/admin" routerLinkActive="life-classic-shell__tab--active"
-          >Admin</a
-        >
-        <a class="life-classic-shell__tab" routerLink="/logs" routerLinkActive="life-classic-shell__tab--active"
-          >Logs</a
-        >
       }
     </nav>
     <main class="life-classic-shell__main">

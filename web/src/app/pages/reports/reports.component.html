@@ -2,9 +2,10 @@
   <h1 class="page-title">{{ pageTitle }}</h1>
   @if (!showMarketsOnly) {
     <p class="muted">
-      <strong>Exercise</strong>: weight and consistency trends, streaks, month calendar, and day detail.
-      <strong>Management</strong>: tasks and the Now roadmap. <strong>Finance</strong>: banking money-flow summaries.
-      <strong>Journal</strong>: search entries by date, tags, and keywords. For dated notes, use
+      <strong>{{ insightsTabs.trends }}</strong>: weight and consistency trends, streaks, month calendar, and day detail.
+      <strong>{{ insightsTabs.tasksAndNow }}</strong>: full task listing and the Now roadmap.
+      <strong>{{ insightsTabs.banking }}</strong>: banking money-flow summaries.
+      <strong>{{ insightsTabs.search }}</strong>: journal entries by date, tags, and keywords. For dated notes, use
       <a routerLink="/life/management">Management</a> → <strong>Calendar</strong>.
     </p>
   } @else {
@@ -28,13 +29,13 @@
       [(selectedIndex)]="reportsTabIndex"
     >
       @if (showExerciseTab) {
-        <mat-tab label="Exercise">
+        <mat-tab [label]="insightsTabs.trends">
           <app-reports-exercise />
         </mat-tab>
       }
 
       @if (showManagementTab) {
-        <mat-tab label="Management">
+        <mat-tab [label]="insightsTabs.tasksAndNow">
           <mat-tab-group animationDuration="180ms" class="reports-mgmt-inner-tabs" mat-stretch-tabs>
             <mat-tab label="Tasks">
               <div class="tab-panel tab-panel--nested mgmt-report-panel">
@@ -119,7 +120,7 @@
       }
 
       @if (showFinanceTab) {
-        <mat-tab label="Finance">
+        <mat-tab [label]="insightsTabs.banking">
           <div class="tab-panel finance-report-panel">
             <app-reports-finance-banking />
           </div>
@@ -127,7 +128,7 @@
       }
 
       @if (showJournalTab) {
-        <mat-tab label="Journal">
+        <mat-tab [label]="insightsTabs.search">
           <div class="tab-panel journal-report-panel">
             <section class="journal-report-section" aria-labelledby="journal-report-heading">
               <h2 id="journal-report-heading" class="mgmt-report-title">Journal search</h2>

@@ -6,6 +6,9 @@ import { provideAnimations } from '@angular/platform-browser/animations';
 import { authInterceptor } from './interceptors/auth.interceptor';
 import { stepUpInterceptor } from './interceptors/step-up.interceptor';
 import { routes } from './app.routes';
+import { assertAppNavRegistryValid } from './config/app-nav.config';
+
+assertAppNavRegistryValid();
 
 export const appConfig: ApplicationConfig = {
   providers: [

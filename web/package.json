@@ -10,7 +10,8 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "test:nav": "ng test --no-watch --browsers=ChromeHeadless --include=**/app-nav.config.spec.ts"
   },
   "private": true,
   "dependencies": {

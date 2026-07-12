@@ -66,26 +66,11 @@ export const routes: Routes = [
       { path: 'contact', component: ContactComponent },
       { path: 'money', component: FinanceComponent, data: { workspace: 'money' } },
       { path: 'settings', component: SettingsComponent },
-      {
-        path: 'insights/exercise',
-        component: ReportsComponent,
-        data: { section: 'life', focus: 'exercise' },
-      },
-      {
-        path: 'insights/management',
-        component: ReportsComponent,
-        data: { section: 'life', focus: 'management' },
-      },
-      {
-        path: 'insights/journal',
-        component: ReportsComponent,
-        data: { section: 'life', focus: 'journal' },
-      },
-      {
-        path: 'insights/banking',
-        component: ReportsComponent,
-        data: { section: 'life', focus: 'banking' },
-      },
+      { path: 'insights', component: ReportsComponent, data: { section: 'life' } },
+      { path: 'insights/exercise', redirectTo: 'insights', pathMatch: 'full' },
+      { path: 'insights/management', redirectTo: 'insights', pathMatch: 'full' },
+      { path: 'insights/journal', redirectTo: 'insights', pathMatch: 'full' },
+      { path: 'insights/banking', redirectTo: 'insights', pathMatch: 'full' },
     ],
   },
   {
@@ -122,7 +107,7 @@ export const routes: Routes = [
   { path: 'finance', redirectTo: 'life/money', pathMatch: 'full' },
   { path: 'management', redirectTo: 'life/management', pathMatch: 'full' },
   { path: 'journal', redirectTo: 'life/journal', pathMatch: 'full' },
-  { path: 'reports', redirectTo: 'life/insights/exercise', pathMatch: 'full' },
+  { path: 'reports', redirectTo: 'life/insights', pathMatch: 'full' },
   { path: 'contact', redirectTo: 'life/contact', pathMatch: 'full' },
   { path: '**', redirectTo: 'life/welcome' },
 ];

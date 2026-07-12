@@ -48,6 +48,7 @@ import { formatHttpErrorDetail } from '../../util/http-error';
 import { GithubRepositoryInsightsDto } from '../../models/github-insights.models';
 import { MemberProfilePanelComponent } from '../member/member-profile-panel.component';
 import { AdminMemberProfilesApiService } from '../../services/admin-member-profiles-api.service';
+import { ADMIN_TAB_LABELS } from '../../config/app-nav.config';
 import { AdminUsersApiService } from '../../services/admin-users-api.service';
 import {
   AdminCreateUserRequest,
@@ -90,6 +91,8 @@ import {
   styleUrl: './admin.component.scss',
 })
 export class AdminComponent implements OnInit {
+  readonly adminTabs = ADMIN_TAB_LABELS;
+
   private readonly route = inject(ActivatedRoute);
   private readonly destroyRef = inject(DestroyRef);
   private readonly fitnessApi = inject(FitnessApiService);

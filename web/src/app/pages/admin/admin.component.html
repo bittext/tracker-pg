@@ -2,7 +2,8 @@
   <h1 class="page-title">Admin</h1>
   <p class="muted">
     Use this area for <strong>account-level configuration and monitoring</strong> (exercise catalog, journal tags,
-    finance notification channels, banking imports, and more). <strong>Sign-in log</strong> shows
+    finance notification channels, banking imports, and more). Config tabs are labeled separately from Life workspaces
+    (e.g. <strong>Exercise config</strong> vs <strong>Exercise</strong> in the sidebar). <strong>Sign-in log</strong> shows
     @if (isAppAdmin) {
       <span>the <strong>full audit</strong> for every account.</span>
     } @else {
@@ -19,7 +20,7 @@
     [(selectedIndex)]="adminTabIndex"
     (selectedTabChange)="onAdminTabChange($event)"
   >
-    <mat-tab label="Sign-in log">
+    <mat-tab [label]="adminTabs.signInLog">
       <div class="tab-panel">
         <section class="admin-section">
           <h2 class="section-title">Sign-in and sign-out events</h2>
@@ -109,7 +110,7 @@
     </mat-tab>
 
     @if (isAppAdmin) {
-      <mat-tab label="Users">
+      <mat-tab [label]="adminTabs.users">
         <div class="tab-panel">
           <section class="admin-section">
             <h2 class="section-title">User accounts</h2>
@@ -174,7 +175,7 @@
         </div>
       </mat-tab>
 
-      <mat-tab label="Create user">
+      <mat-tab [label]="adminTabs.createUser">
         <div class="tab-panel">
           <section class="admin-section">
             <h2 class="section-title">Create user account</h2>
@@ -288,7 +289,7 @@
       </mat-tab>
     }
 
-    <mat-tab label="My profile">
+    <mat-tab [label]="adminTabs.myProfile">
       <div class="tab-panel">
         <section class="admin-section">
           <h2 class="section-title">Member details</h2>
@@ -301,7 +302,7 @@
       </div>
     </mat-tab>
 
-    <mat-tab label="Exercise">
+    <mat-tab [label]="adminTabs.exerciseConfig">
       <div class="tab-panel">
         <section class="admin-section">
           <h2 class="section-title">Add exercise</h2>
@@ -370,7 +371,7 @@
       </div>
     </mat-tab>
 
-    <mat-tab label="Journal">
+    <mat-tab [label]="adminTabs.journalConfig">
       <div class="tab-panel">
         <section class="admin-section">
           <h2 class="section-title">Journal tags</h2>
@@ -426,7 +427,7 @@
       </div>
     </mat-tab>
 
-    <mat-tab label="Finance">
+    <mat-tab [label]="adminTabs.financeConfig">
       <div class="tab-panel">
         <mat-tab-group animationDuration="180ms" class="admin-finance-inner-tabs">
           <mat-tab label="Notifications">
@@ -560,7 +561,7 @@
       </div>
     </mat-tab>
 
-    <mat-tab label="Management">
+    <mat-tab [label]="adminTabs.managementConfig">
       <div class="tab-panel">
         <mat-tab-group animationDuration="180ms" mat-stretch-tabs class="admin-mgmt-inner-tabs">
           <mat-tab label="Tasks">
@@ -861,19 +862,19 @@
     </mat-tab>
 
     @if (isAppAdmin) {
-      <mat-tab label="Usage">
+      <mat-tab [label]="adminTabs.usage">
         <div class="tab-panel">
           <app-admin-usage-panel></app-admin-usage-panel>
         </div>
       </mat-tab>
 
-      <mat-tab label="Features">
+      <mat-tab [label]="adminTabs.features">
         <div class="tab-panel">
           <app-admin-features-panel />
         </div>
       </mat-tab>
 
-      <mat-tab label="Repository (GitHub)">
+      <mat-tab [label]="adminTabs.repository">
         <div class="tab-panel">
           <section class="admin-section">
             <h2 class="section-title">Repository (GitHub)</h2>

@@ -8,6 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { catchError, of } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { APP_DISPLAY_NAME, APP_SHORT_NAME } from '../../app-branding';
+import { MARKETS_FOOTER_NAV, MARKETS_PRIMARY_NAV, NavEntry } from '../../config/app-nav.config';
 import { ThemeSettingsComponent } from '../../components/theme-settings/theme-settings.component';
 import { WEB_RELEASE_VERSION } from '../../release-version';
 import { AuthService } from '../../services/auth.service';
@@ -16,13 +17,6 @@ import { ThemeService } from '../../services/theme.service';
 interface ApiVersionPayload {
   version: string;
   buildTime: string | null;
-}
-
-interface MarketsNavItem {
-  path: string;
-  label: string;
-  icon: string;
-  exact?: boolean;
 }
 
 @Component({
@@ -48,15 +42,9 @@ export class MarketsShellComponent implements OnInit {
 
   readonly brandTitle = APP_SHORT_NAME;
   readonly webReleaseVersion = WEB_RELEASE_VERSION;
+  readonly primaryNav = MARKETS_PRIMARY_NAV;
+  readonly footerNav = MARKETS_FOOTER_NAV;
   apiRelease: ApiVersionPayload | null = null;
-
-  readonly navItems: MarketsNavItem[] = [
-    { path: '/markets/overview', label: 'Overview', icon: 'dashboard', exact: true },
-    { path: '/markets/workspace', label: 'Workspace', icon: 'work', exact: true },
-    { path: '/markets/analytics', label: 'Analytics', icon: 'analytics', exact: true },
-    { path: '/markets/execution', label: 'Execution', icon: 'bolt', exact: true },
-    { path: '/markets/alerts', label: 'Alerts', icon: 'notifications', exact: true },
-  ];
 
   ngOnInit(): void {
     this.documentTitle.setTitle(`${APP_DISPLAY_NAME} · Markets`);
@@ -72,6 +60,10 @@ export class MarketsShellComponent implements OnInit {
 
   get username(): string {
     return this.auth.username ?? '';
+  }
+
+  navAriaLabel(item: NavEntry): string | null {
+    return item.ariaLabel ?? null;
   }
 
   logout(): void {

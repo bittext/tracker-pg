@@ -34,6 +34,7 @@ import { ReportsExerciseComponent } from './reports-exercise/reports-exercise.co
 import { ReportsFinanceBankingComponent } from './reports-finance-banking/reports-finance-banking.component';
 import { ReportsFinanceRobinhoodComponent } from './reports-finance-robinhood/reports-finance-robinhood.component';
 import { ReportsManagementNowPanelComponent } from './reports-management-now-panel/reports-management-now-panel.component';
+import { INSIGHTS_TAB_LABELS } from '../../config/app-nav.config';
 
 export type ReportsSection = 'all' | 'life' | 'markets';
 export type ReportsFocus = 'exercise' | 'management' | 'journal' | 'banking';
@@ -69,6 +70,8 @@ export class ReportsComponent implements OnInit {
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
   private readonly route = inject(ActivatedRoute);
+
+  readonly insightsTabs = INSIGHTS_TAB_LABELS;
 
   @Input() section: ReportsSection = 'all';
   @Input() focus: ReportsFocus | null = null;
@@ -124,19 +127,19 @@ export class ReportsComponent implements OnInit {
   }
 
   get showExerciseTab(): boolean {
-    return (this.section === 'all' || this.section === 'life') && (!this.focus || this.focus === 'exercise');
+    return this.section === 'all' || this.section === 'life';
   }
 
   get showManagementTab(): boolean {
-    return (this.section === 'all' || this.section === 'life') && (!this.focus || this.focus === 'management');
+    return this.section === 'all' || this.section === 'life';
   }
 
   get showFinanceTab(): boolean {
-    return (this.section === 'all' || this.section === 'life') && (!this.focus || this.focus === 'banking');
+    return this.section === 'all' || this.section === 'life';
   }
 
   get showJournalTab(): boolean {
-    return (this.section === 'all' || this.section === 'life') && (!this.focus || this.focus === 'journal');
+    return this.section === 'all' || this.section === 'life';
   }
 
   get showMarketsOnly(): boolean {
@@ -147,17 +150,8 @@ export class ReportsComponent implements OnInit {
     if (this.section === 'markets') {
       return 'Markets analytics';
     }
-    if (this.focus === 'exercise') {
-      return 'Exercise insights';
-    }
-    if (this.focus === 'management') {
-      return 'Management insights';
-    }
-    if (this.focus === 'journal') {
-      return 'Journal insights';
-    }
-    if (this.focus === 'banking') {
-      return 'Banking insights';
+    if (this.section === 'life') {
+      return 'Insights';
     }
     return 'Reports';
   }
