@@ -10,7 +10,7 @@ export const onboardingMemberIdGuard: CanActivateFn = () => {
   return api.getOnboardingStatus().pipe(
     map((s) => {
       if (s.onboardingCompleted) {
-        return router.createUrlTree(['/welcome']);
+        return router.createUrlTree(['/life/welcome']);
       }
       if (!s.credentialsStepCompleted) {
         return router.createUrlTree(['/onboarding/credentials']);

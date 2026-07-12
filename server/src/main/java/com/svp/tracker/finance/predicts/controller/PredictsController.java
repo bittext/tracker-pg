@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
  * data isn't owned by any one user — it's normalized social chatter for each ticker.
  */
 @RestController
-@RequestMapping("/api/finance/predicts")
+@RequestMapping({"/api/finance/predicts", "/api/markets/predicts"})
 @RequiredArgsConstructor
 @Slf4j
 public class PredictsController {

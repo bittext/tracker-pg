@@ -2,6 +2,7 @@ package com.svp.tracker.auth.config;
 
 import com.svp.tracker.auth.security.JwtAuthenticationFilter;
 import com.svp.tracker.config.SecurityProperties;
+import com.svp.tracker.markets.security.MarketsAccessFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -26,7 +27,11 @@ public class SecurityConfig {
     }
 
     @Bean
-    SecurityFilterChain apiSecurity(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
+    SecurityFilterChain apiSecurity(
+            HttpSecurity http,
+            JwtAuthenticationFilter jwtAuthenticationFilter,
+            MarketsAccessFilter marketsAccessFilter)
+            throws Exception {
         http.csrf(csrf -> csrf.disable())
                 .cors(Customizer.withDefaults())
                 .headers(headers -> {
@@ -70,7 +75,8 @@ public class SecurityConfig {
                             }
                             writeJson(response, HttpServletResponse.SC_FORBIDDEN, "{\"error\":\"forbidden\"}");
                         }))
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(marketsAccessFilter, JwtAuthenticationFilter.class);
         return http.build();
     }
 

@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/finance/robinhood/crypto-trading")
+@RequestMapping({"/api/finance/robinhood/crypto-trading", "/api/markets/crypto-trading"})
 @RequiredArgsConstructor
 public class RobinhoodCryptoTradingController {
 

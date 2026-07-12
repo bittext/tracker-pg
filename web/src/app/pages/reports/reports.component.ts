@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, Input, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -35,6 +35,9 @@ import { ReportsFinanceBankingComponent } from './reports-finance-banking/report
 import { ReportsFinanceRobinhoodComponent } from './reports-finance-robinhood/reports-finance-robinhood.component';
 import { ReportsManagementNowPanelComponent } from './reports-management-now-panel/reports-management-now-panel.component';
 
+export type ReportsSection = 'all' | 'life' | 'markets';
+export type ReportsFocus = 'exercise' | 'management' | 'journal' | 'banking';
+
 @Component({
   selector: 'app-reports',
   standalone: true,
@@ -65,6 +68,13 @@ export class ReportsComponent implements OnInit {
   private readonly journalApi = inject(JournalApiService);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly route = inject(ActivatedRoute);
+
+  @Input() section: ReportsSection = 'all';
+  @Input() focus: ReportsFocus | null = null;
+
+  /** Top-level tab index for the reports mat-tab-group. */
+  reportsTabIndex = 0;
 
   /** Management → Tasks report (full task list). */
   managementTasks: ManagementTaskDto[] = [];
@@ -89,6 +99,16 @@ export class ReportsComponent implements OnInit {
   journalSearched = false;
 
   ngOnInit(): void {
+    const routeSection = this.route.snapshot.data['section'] as ReportsSection | undefined;
+    if (routeSection) {
+      this.section = routeSection;
+    }
+    const routeFocus = this.route.snapshot.data['focus'] as ReportsFocus | undefined;
+    if (routeFocus) {
+      this.focus = routeFocus;
+    }
+    this.reportsTabIndex = this.initialTabIndex();
+
     const t = this.todayIso();
     this.journalTo = t;
     this.journalFrom = `${t.slice(0, 7)}-01`;
@@ -101,6 +121,49 @@ export class ReportsComponent implements OnInit {
       error: (e) => this.err('Could not load journal tags', e),
     });
     this.loadManagementTasksReport();
+  }
+
+  get showExerciseTab(): boolean {
+    return (this.section === 'all' || this.section === 'life') && (!this.focus || this.focus === 'exercise');
+  }
+
+  get showManagementTab(): boolean {
+    return (this.section === 'all' || this.section === 'life') && (!this.focus || this.focus === 'management');
+  }
+
+  get showFinanceTab(): boolean {
+    return (this.section === 'all' || this.section === 'life') && (!this.focus || this.focus === 'banking');
+  }
+
+  get showJournalTab(): boolean {
+    return (this.section === 'all' || this.section === 'life') && (!this.focus || this.focus === 'journal');
+  }
+
+  get showMarketsOnly(): boolean {
+    return this.section === 'markets';
+  }
+
+  get pageTitle(): string {
+    if (this.section === 'markets') {
+      return 'Markets analytics';
+    }
+    if (this.focus === 'exercise') {
+      return 'Exercise insights';
+    }
+    if (this.focus === 'management') {
+      return 'Management insights';
+    }
+    if (this.focus === 'journal') {
+      return 'Journal insights';
+    }
+    if (this.focus === 'banking') {
+      return 'Banking insights';
+    }
+    return 'Reports';
+  }
+
+  private initialTabIndex(): number {
+    return 0;
   }
 
   private todayIso(): string {

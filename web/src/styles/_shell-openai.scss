@@ -1,5 +1,6 @@
-/* OpenAI Platform shell — sidebar navigation (platform.openai.com) */
-[data-theme-preset='openai'] {
+/* OpenAI / Phoenix platform shell — sidebar navigation */
+[data-theme-preset='openai'],
+[data-theme-preset='phoenix'] {
   .app-platform-layout {
     display: flex;
     min-height: 100vh;
@@ -133,8 +134,51 @@
   }
 }
 
+[data-theme-preset='phoenix'] {
+  .app-sidebar {
+    color: #d8e3dc;
+  }
+
+  .app-sidebar__brand,
+  .app-sidebar__link {
+    color: #c5d3ca;
+  }
+
+  .app-sidebar__link--active,
+  .app-sidebar__link:hover {
+    color: #eef4ef;
+  }
+
+  .app-sidebar__group-title {
+    color: rgba(197, 211, 202, 0.65);
+  }
+
+  .app-sidebar__user {
+    color: rgba(197, 211, 202, 0.75);
+  }
+}
+
+[data-shell='markets'] {
+  .app-platform-main {
+    max-width: 1400px;
+    padding: 1.15rem 1.35rem 2rem;
+  }
+
+  .app-sidebar__link {
+    padding-top: 0.42rem;
+    padding-bottom: 0.42rem;
+    font-size: 0.8125rem;
+  }
+
+  .finance-category-tabs .mat-mdc-tab,
+  .finance-inner-tabs .mat-mdc-tab {
+    min-width: 0;
+  }
+}
+
 @media (max-width: 768px) {
-  [data-theme-preset='openai'] {
+  [data-theme-preset='openai'],
+  [data-theme-preset='phoenix'] {
     .app-platform-layout {
       flex-direction: column;
     }

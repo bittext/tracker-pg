@@ -12,4 +12,5 @@ public record AdminCreateUserRequestDto(
         @NotBlank @Size(min = 8, max = 200) String password,
         @NotNull AppUserRole role,
         boolean mfaEnabled,
-        boolean active) {}
+        boolean active,
+        boolean marketsEnabled) {}

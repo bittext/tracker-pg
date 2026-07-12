@@ -60,6 +60,10 @@ public class AppUser {
     @Column(nullable = false)
     private boolean active = true;
 
+    /** When true, user may open Markets shell and call trading APIs. ADMIN always allowed. */
+    @Column(name = "markets_enabled", nullable = false)
+    private boolean marketsEnabled = false;
+
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 

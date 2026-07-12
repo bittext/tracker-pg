@@ -1,14 +1,13 @@
 <div class="page-head">
-  <h1 class="page-title">Finance</h1>
-  <p class="muted">
-    Banking, investments, loans, market, money, credit, trading, insurance, and taxes are grouped under one Finance page.
-    Trading includes news, crawler, 52-week-high risers, break-out setup scan, alerts, transactions, screeners, and summary tools.
-    Import Robinhood CSV under <strong>Trading → Robinhood</strong>; performance reports are under <strong>Reports → Finance → Robinhood</strong>.
-  </p>
+  <h1 class="page-title">{{ pageTitle }}</h1>
+  <p class="muted">{{ pageLead }}</p>
 </div>
 
 <mat-card class="card">
   <mat-card-content class="finance-card-content">
+    @if (isTradingWorkspace) {
+      <ng-container *ngTemplateOutlet="tradingTabs" />
+    } @else {
     <mat-tab-group
       class="finance-category-tabs"
       animationDuration="180ms"
@@ -24,7 +23,7 @@
 
       <mat-tab label="Investments">
         <div class="finance-panel">
-          @if (financeCategoryTabIndex === 1) {
+          @if (categoryActive('investments')) {
             <app-investments-panel />
           }
         </div>
@@ -32,23 +31,25 @@
 
       <mat-tab label="Loans">
         <div class="finance-panel">
-          @if (financeCategoryTabIndex === 2) {
+          @if (categoryActive('loans')) {
             <app-loans-panel />
           }
         </div>
       </mat-tab>
 
+      @if (!isMoneyWorkspace) {
       <mat-tab label="Market">
         <div class="finance-panel">
-          @if (financeCategoryTabIndex === 3) {
+          @if (categoryActive('market')) {
             <app-market-overview-panel />
           }
         </div>
       </mat-tab>
+      }
 
       <mat-tab label="Money">
         <div class="finance-panel">
-          @if (financeCategoryTabIndex === 4) {
+          @if (categoryActive('money')) {
             <app-money-panel />
           }
         </div>
@@ -56,14 +57,42 @@
 
       <mat-tab label="Credit">
         <div class="finance-panel">
-          @if (financeCategoryTabIndex === 5) {
+          @if (categoryActive('credit')) {
             <app-credit-panel />
           }
         </div>
       </mat-tab>
 
+      @if (!isMoneyWorkspace) {
       <mat-tab label="Trading">
         <div class="finance-panel">
+          <ng-container *ngTemplateOutlet="tradingTabs" />
+        </div>
+      </mat-tab>
+      }
+
+      <mat-tab label="Insurance">
+        <div class="finance-panel">
+          @if (categoryActive('insurance')) {
+            <app-insurance-panel />
+          }
+        </div>
+      </mat-tab>
+
+      <mat-tab label="Taxes">
+        <div class="finance-panel">
+          @if (categoryActive('taxes')) {
+            <h2>Taxes — Form 1040</h2>
+            <app-finance-tax-1040-panel></app-finance-tax-1040-panel>
+          }
+        </div>
+      </mat-tab>
+    </mat-tab-group>
+    }
+  </mat-card-content>
+</mat-card>
+
+<ng-template #tradingTabs>
           <mat-tab-group
             class="finance-inner-tabs"
             animationDuration="180ms"
@@ -1120,7 +1149,7 @@
 
       <mat-tab label="Screeners">
         <div class="finance-panel">
-          @if (financeCategoryTabIndex === 6 && financeSubTabIndex === 9) {
+          @if (tradingSubTabActive(9)) {
             <app-trading-screeners-panel />
           }
         </div>
@@ -1269,30 +1298,11 @@
 
       <mat-tab label="Predicts">
         <div class="finance-panel">
-          @if (financeCategoryTabIndex === 6 && financeSubTabIndex === 11) {
+          @if (tradingSubTabActive(11)) {
             <app-predicts-panel />
           }
         </div>
       </mat-tab>
 
           </mat-tab-group>
-        </div>
-      </mat-tab>
-
-      <mat-tab label="Insurance">
-        <div class="finance-panel">
-          @if (financeCategoryTabIndex === 7) {
-            <app-insurance-panel />
-          }
-        </div>
-      </mat-tab>
-
-      <mat-tab label="Taxes">
-        <div class="finance-panel">
-          <h2>Taxes — Form 1040</h2>
-          <app-finance-tax-1040-panel></app-finance-tax-1040-panel>
-        </div>
-      </mat-tab>
-    </mat-tab-group>
-  </mat-card-content>
-</mat-card>
+</ng-template>

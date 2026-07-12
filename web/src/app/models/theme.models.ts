@@ -1,5 +1,5 @@
 /** Visual preset — maps to token bundles in src/styles/themes/. */
-export type ThemePreset = 'openai' | 'classic';
+export type ThemePreset = 'phoenix' | 'openai' | 'classic';
 
 /** Color scheme; `system` follows OS preference. */
 export type ThemeMode = 'light' | 'dark' | 'system';
@@ -15,7 +15,7 @@ export interface ThemeConfig {
 export const THEME_STORAGE_KEY = 'tracker.theme.v1';
 
 export const DEFAULT_THEME_CONFIG: ThemeConfig = {
-  preset: 'openai',
+  preset: 'phoenix',
   mode: 'system',
 };
 
@@ -31,6 +31,11 @@ export interface ThemeModeMeta {
 }
 
 export const THEME_PRESETS: ThemePresetMeta[] = [
+  {
+    id: 'phoenix',
+    label: 'Phoenix',
+    description: 'Deep slate sidebar, soft sage accent — Life & Markets default',
+  },
   {
     id: 'openai',
     label: 'OpenAI Platform',
@@ -54,7 +59,8 @@ export function parseThemeConfig(raw: unknown): ThemeConfig {
     return { ...DEFAULT_THEME_CONFIG };
   }
   const o = raw as Record<string, unknown>;
-  const preset = o['preset'] === 'classic' ? 'classic' : 'openai';
+  const preset =
+    o['preset'] === 'classic' ? 'classic' : o['preset'] === 'openai' ? 'openai' : 'phoenix';
   const mode =
     o['mode'] === 'light' || o['mode'] === 'dark' || o['mode'] === 'system' ? o['mode'] : 'system';
   return { preset, mode };

@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, Input, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -41,6 +42,18 @@ import { MoneyPanelComponent } from './money-panel/money-panel.component';
 import { CreditPanelComponent } from './credit-panel/credit-panel.component';
 import { InsurancePanelComponent } from './insurance-panel/insurance-panel.component';
 
+type FinanceWorkspace = 'all' | 'money' | 'trading';
+type FinanceCategory =
+  | 'banking'
+  | 'investments'
+  | 'loans'
+  | 'market'
+  | 'money'
+  | 'credit'
+  | 'trading'
+  | 'insurance'
+  | 'taxes';
+
 @Component({
   selector: 'app-finance',
   standalone: true,
@@ -77,9 +90,32 @@ export class FinanceComponent implements OnInit {
   private static readonly STOCK_NEWS_LIMIT = 10;
   private static readonly RISING_52W_LIMIT = 5;
   private static readonly BREAKOUT_CANDIDATES_LIMIT = 20;
+  private static readonly ALL_CATEGORY_ORDER: FinanceCategory[] = [
+    'banking',
+    'investments',
+    'loans',
+    'market',
+    'money',
+    'credit',
+    'trading',
+    'insurance',
+    'taxes',
+  ];
+  private static readonly MONEY_CATEGORY_ORDER: FinanceCategory[] = [
+    'banking',
+    'investments',
+    'loans',
+    'money',
+    'credit',
+    'insurance',
+    'taxes',
+  ];
 
   private readonly financeApi = inject(FinanceApiService);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly route = inject(ActivatedRoute);
+
+  @Input() workspace: FinanceWorkspace = 'all';
 
   /** Finance category tabs: 0=banking, 1=investments, 2=loans, 3=market, 4=money, 5=credit, 6=trading, 7=insurance, 8=taxes. */
   financeCategoryTabIndex = 0;
@@ -150,7 +186,62 @@ export class FinanceComponent implements OnInit {
   ];
 
   ngOnInit(): void {
+    const routeWorkspace = this.route.snapshot.data['workspace'] as FinanceWorkspace | undefined;
+    if (routeWorkspace === 'money' || routeWorkspace === 'trading') {
+      this.workspace = routeWorkspace;
+    }
     this.ensureStockSymbolsLoaded(undefined, true);
+  }
+
+  get isTradingWorkspace(): boolean {
+    return this.workspace === 'trading';
+  }
+
+  get isMoneyWorkspace(): boolean {
+    return this.workspace === 'money';
+  }
+
+  get pageTitle(): string {
+    if (this.isTradingWorkspace) {
+      return 'Trading workspace';
+    }
+    if (this.isMoneyWorkspace) {
+      return 'Money';
+    }
+    return 'Finance';
+  }
+
+  get pageLead(): string {
+    if (this.isTradingWorkspace) {
+      return 'News, screeners, alerts, transactions, and Robinhood tools for Markets.';
+    }
+    if (this.isMoneyWorkspace) {
+      return 'Banking, investments, loans, money, credit, insurance, and taxes — personal finance without trading tabs.';
+    }
+    return 'Banking, investments, loans, market, money, credit, trading, insurance, and taxes are grouped under one Finance page.';
+  }
+
+  private effectiveCategories(): FinanceCategory[] {
+    if (this.isMoneyWorkspace) {
+      return FinanceComponent.MONEY_CATEGORY_ORDER;
+    }
+    if (this.isTradingWorkspace) {
+      return [];
+    }
+    return FinanceComponent.ALL_CATEGORY_ORDER;
+  }
+
+  categoryActive(category: FinanceCategory): boolean {
+    const idx = this.effectiveCategories().indexOf(category);
+    return idx >= 0 && this.financeCategoryTabIndex === idx;
+  }
+
+  isTradingTabActive(): boolean {
+    return this.isTradingWorkspace || this.categoryActive('trading');
+  }
+
+  tradingSubTabActive(index: number): boolean {
+    return this.isTradingTabActive() && this.financeSubTabIndex === index;
   }
 
   onInstrumentSelectChange(): void {
@@ -158,7 +249,8 @@ export class FinanceComponent implements OnInit {
   }
 
   onFinanceCategoryTabIndexChange(index: number): void {
-    if (index === 6) {
+    const cat = this.effectiveCategories()[index];
+    if (cat === 'trading') {
       this.onFinanceSubTabIndexChange(this.financeSubTabIndex);
     }
   }
@@ -188,7 +280,7 @@ export class FinanceComponent implements OnInit {
   }
 
   onFinanceFilterSelectionChange(): void {
-    if (this.financeCategoryTabIndex !== 6) {
+    if (!this.isTradingTabActive()) {
       return;
     }
     if (this.financeSubTabIndex === 7) {
@@ -201,7 +293,7 @@ export class FinanceComponent implements OnInit {
   }
 
   onStocksSummaryFilterChange(): void {
-    if (this.financeCategoryTabIndex === 6 && this.financeSubTabIndex === 10) {
+    if (this.isTradingTabActive() && this.financeSubTabIndex === 10) {
       this.loadStocksSummary();
     }
   }

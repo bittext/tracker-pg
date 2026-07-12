@@ -20,6 +20,17 @@ export interface AdminMemberProfileDetailDto {
   profile: MeMemberProfileResponseDto;
 }
 
+/** GET /api/admin/users */
+export interface AdminUserListItemDto {
+  id: number;
+  username: string;
+  email: string;
+  role: string;
+  active: boolean;
+  mfaEnabled: boolean;
+  marketsEnabled: boolean;
+}
+
 export interface AdminCreateUserRequest {
   username: string;
   email: string;
@@ -27,6 +38,13 @@ export interface AdminCreateUserRequest {
   role: AdminProvisionRole;
   mfaEnabled: boolean;
   active: boolean;
+  marketsEnabled?: boolean;
+}
+
+export interface AdminUpdateUserRequest {
+  active?: boolean;
+  marketsEnabled?: boolean;
+  mfaEnabled?: boolean;
 }
 
 export interface AdminCreatedUserResponse {

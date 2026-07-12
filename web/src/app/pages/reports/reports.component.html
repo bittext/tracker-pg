@@ -1,217 +1,235 @@
 <div class="page-head">
-  <h1 class="page-title">Reports</h1>
-  <p class="muted">
-    <strong>Exercise</strong>: weight and consistency trends, streaks, month calendar, and day detail.
-    <strong>Management</strong>: tasks and the Now roadmap. <strong>Finance</strong>: banking money-flow and Robinhood performance (CSV import).
-    <strong>Journal</strong>: search entries by date, tags, and keywords. For
-    dated notes (trades, banking, payments, opinion & strategies, and more), use
-    <a routerLink="/management">Management</a> → <strong>Calendar</strong>.
-  </p>
+  <h1 class="page-title">{{ pageTitle }}</h1>
+  @if (!showMarketsOnly) {
+    <p class="muted">
+      <strong>Exercise</strong>: weight and consistency trends, streaks, month calendar, and day detail.
+      <strong>Management</strong>: tasks and the Now roadmap. <strong>Finance</strong>: banking money-flow summaries.
+      <strong>Journal</strong>: search entries by date, tags, and keywords. For dated notes, use
+      <a routerLink="/life/management">Management</a> → <strong>Calendar</strong>.
+    </p>
+  } @else {
+    <p class="muted">
+      Robinhood performance, daily tracker, and crypto analytics. Import CSV under
+      <a routerLink="/markets/workspace">Markets → Workspace</a>.
+    </p>
+  }
 </div>
 
 <mat-card class="card reports-card">
-  <mat-tab-group animationDuration="220ms" class="reports-tab-group" [dynamicHeight]="true">
-    <mat-tab label="Exercise">
-      <app-reports-exercise />
-    </mat-tab>
+  @if (showMarketsOnly) {
+    <div class="tab-panel finance-report-panel">
+      <app-reports-finance-robinhood />
+    </div>
+  } @else {
+    <mat-tab-group
+      animationDuration="220ms"
+      class="reports-tab-group"
+      [dynamicHeight]="true"
+      [(selectedIndex)]="reportsTabIndex"
+    >
+      @if (showExerciseTab) {
+        <mat-tab label="Exercise">
+          <app-reports-exercise />
+        </mat-tab>
+      }
 
-    <mat-tab label="Management">
-      <mat-tab-group animationDuration="180ms" class="reports-mgmt-inner-tabs" mat-stretch-tabs>
-        <mat-tab label="Tasks">
-          <div class="tab-panel tab-panel--nested mgmt-report-panel">
-            <section class="mgmt-report-section" aria-labelledby="mgmt-report-heading">
-              <h2 id="mgmt-report-heading" class="mgmt-report-title">Tasks</h2>
-              <p class="muted mgmt-report-lead">
-                Full listing of management to-dos: balance category, type, urgency, due date, and completion. Rows are
-                color-coded by whether work is done, due later, due today, or overdue (severity by days past due). Edit
-                tasks on the <a routerLink="/management">Management</a> page.
-              </p>
-              <div class="mgmt-due-legend mgmt-due-legend--report" aria-label="Due date color legend">
-                <span class="mgmt-due-legend__title">Row colors</span>
-                <span class="mgmt-due-legend__item mgmt-due-legend__item--done">Done</span>
-                <span class="mgmt-due-legend__item mgmt-due-legend__item--nodue">No due date</span>
-                <span class="mgmt-due-legend__item mgmt-due-legend__item--future">Due later</span>
-                <span class="mgmt-due-legend__item mgmt-due-legend__item--today">Due today</span>
-                <span class="mgmt-due-legend__item mgmt-due-legend__item--od1">1–7d overdue</span>
-                <span class="mgmt-due-legend__item mgmt-due-legend__item--od2">8–30d</span>
-                <span class="mgmt-due-legend__item mgmt-due-legend__item--od3">31d+</span>
-              </div>
-              <div class="table-wrap table-wrap--mgmt">
-                <table mat-table [dataSource]="managementTasks" class="full-width">
-                  <ng-container matColumnDef="mtTitle">
-                    <th mat-header-cell *matHeaderCellDef>Title</th>
-                    <td mat-cell *matCellDef="let row">{{ row.title }}</td>
-                  </ng-container>
-                  <ng-container matColumnDef="mtDue">
-                    <th mat-header-cell *matHeaderCellDef>Due</th>
-                    <td mat-cell *matCellDef="let row">
-                      <span>{{ formatMgmtDate(row.dueDate) }}</span>
-                      @if (mgmtDueColumnHint(row); as hint) {
-                        <span class="rep-mgmt-due-note">{{ hint }}</span>
-                      }
-                    </td>
-                  </ng-container>
-                  <ng-container matColumnDef="mtUrgency">
-                    <th mat-header-cell *matHeaderCellDef>Urgency</th>
-                    <td mat-cell *matCellDef="let row">
-                      <span class="rep-urgency-pill" [ngClass]="urgencyClass(row.urgency)">{{ row.urgency }}</span>
-                    </td>
-                  </ng-container>
-                  <ng-container matColumnDef="mtCategory">
-                    <th mat-header-cell *matHeaderCellDef>Balance category</th>
-                    <td mat-cell *matCellDef="let row">{{ row.categoryName || '—' }}</td>
-                  </ng-container>
-                  <ng-container matColumnDef="mtType">
-                    <th mat-header-cell *matHeaderCellDef>Task type</th>
-                    <td mat-cell *matCellDef="let row">{{ row.taskTypeName || '—' }}</td>
-                  </ng-container>
-                  <ng-container matColumnDef="mtDone">
-                    <th mat-header-cell *matHeaderCellDef>Done</th>
-                    <td mat-cell *matCellDef="let row">{{ row.completed ? 'Yes' : 'No' }}</td>
-                  </ng-container>
-                  <ng-container matColumnDef="mtCreated">
-                    <th mat-header-cell *matHeaderCellDef>Created</th>
-                    <td mat-cell *matCellDef="let row">{{ formatMgmtInstant(row.createdAt) }}</td>
-                  </ng-container>
-                  <tr mat-header-row *matHeaderRowDef="managementTaskColumns"></tr>
-                  <tr mat-row *matRowDef="let row; columns: managementTaskColumns" [ngClass]="taskDueRowClass(row)"></tr>
-                </table>
-                @if (!managementTasks.length) {
-                  <p class="muted empty-hint mgmt-report-empty">
-                    No management tasks yet. Add balance categories under Admin → Management, then create tasks on
-                    Management.
+      @if (showManagementTab) {
+        <mat-tab label="Management">
+          <mat-tab-group animationDuration="180ms" class="reports-mgmt-inner-tabs" mat-stretch-tabs>
+            <mat-tab label="Tasks">
+              <div class="tab-panel tab-panel--nested mgmt-report-panel">
+                <section class="mgmt-report-section" aria-labelledby="mgmt-report-heading">
+                  <h2 id="mgmt-report-heading" class="mgmt-report-title">Tasks</h2>
+                  <p class="muted mgmt-report-lead">
+                    Full listing of management to-dos: balance category, type, urgency, due date, and completion. Rows
+                    are color-coded by whether work is done, due later, due today, or overdue (severity by days past
+                    due). Edit tasks on the <a routerLink="/life/management">Management</a> page.
                   </p>
+                  <div class="mgmt-due-legend mgmt-due-legend--report" aria-label="Due date color legend">
+                    <span class="mgmt-due-legend__title">Row colors</span>
+                    <span class="mgmt-due-legend__item mgmt-due-legend__item--done">Done</span>
+                    <span class="mgmt-due-legend__item mgmt-due-legend__item--nodue">No due date</span>
+                    <span class="mgmt-due-legend__item mgmt-due-legend__item--future">Due later</span>
+                    <span class="mgmt-due-legend__item mgmt-due-legend__item--today">Due today</span>
+                    <span class="mgmt-due-legend__item mgmt-due-legend__item--od1">1–7d overdue</span>
+                    <span class="mgmt-due-legend__item mgmt-due-legend__item--od2">8–30d</span>
+                    <span class="mgmt-due-legend__item mgmt-due-legend__item--od3">31d+</span>
+                  </div>
+                  <div class="table-wrap table-wrap--mgmt">
+                    <table mat-table [dataSource]="managementTasks" class="full-width">
+                      <ng-container matColumnDef="mtTitle">
+                        <th mat-header-cell *matHeaderCellDef>Title</th>
+                        <td mat-cell *matCellDef="let row">{{ row.title }}</td>
+                      </ng-container>
+                      <ng-container matColumnDef="mtDue">
+                        <th mat-header-cell *matHeaderCellDef>Due</th>
+                        <td mat-cell *matCellDef="let row">
+                          <span>{{ formatMgmtDate(row.dueDate) }}</span>
+                          @if (mgmtDueColumnHint(row); as hint) {
+                            <span class="rep-mgmt-due-note">{{ hint }}</span>
+                          }
+                        </td>
+                      </ng-container>
+                      <ng-container matColumnDef="mtUrgency">
+                        <th mat-header-cell *matHeaderCellDef>Urgency</th>
+                        <td mat-cell *matCellDef="let row">
+                          <span class="rep-urgency-pill" [ngClass]="urgencyClass(row.urgency)">{{ row.urgency }}</span>
+                        </td>
+                      </ng-container>
+                      <ng-container matColumnDef="mtCategory">
+                        <th mat-header-cell *matHeaderCellDef>Balance category</th>
+                        <td mat-cell *matCellDef="let row">{{ row.categoryName || '—' }}</td>
+                      </ng-container>
+                      <ng-container matColumnDef="mtType">
+                        <th mat-header-cell *matHeaderCellDef>Task type</th>
+                        <td mat-cell *matCellDef="let row">{{ row.taskTypeName || '—' }}</td>
+                      </ng-container>
+                      <ng-container matColumnDef="mtDone">
+                        <th mat-header-cell *matHeaderCellDef>Done</th>
+                        <td mat-cell *matCellDef="let row">{{ row.completed ? 'Yes' : 'No' }}</td>
+                      </ng-container>
+                      <ng-container matColumnDef="mtCreated">
+                        <th mat-header-cell *matHeaderCellDef>Created</th>
+                        <td mat-cell *matCellDef="let row">{{ formatMgmtInstant(row.createdAt) }}</td>
+                      </ng-container>
+                      <tr mat-header-row *matHeaderRowDef="managementTaskColumns"></tr>
+                      <tr
+                        mat-row
+                        *matRowDef="let row; columns: managementTaskColumns"
+                        [ngClass]="taskDueRowClass(row)"
+                      ></tr>
+                    </table>
+                    @if (!managementTasks.length) {
+                      <p class="muted empty-hint mgmt-report-empty">
+                        No management tasks yet. Add balance categories under Admin → Management, then create tasks on
+                        Management.
+                      </p>
+                    }
+                  </div>
+                </section>
+              </div>
+            </mat-tab>
+            <mat-tab label="Now">
+              <div class="tab-panel tab-panel--nested mgmt-report-panel">
+                <app-reports-management-now-panel />
+              </div>
+            </mat-tab>
+          </mat-tab-group>
+        </mat-tab>
+      }
+
+      @if (showFinanceTab) {
+        <mat-tab label="Finance">
+          <div class="tab-panel finance-report-panel">
+            <app-reports-finance-banking />
+          </div>
+        </mat-tab>
+      }
+
+      @if (showJournalTab) {
+        <mat-tab label="Journal">
+          <div class="tab-panel journal-report-panel">
+            <section class="journal-report-section" aria-labelledby="journal-report-heading">
+              <h2 id="journal-report-heading" class="mgmt-report-title">Journal search</h2>
+              <p class="muted mgmt-report-lead">
+                Filter your Markdown journal by <strong>date range</strong>, <strong>tags</strong> (all selected must
+                apply), and <strong>keywords</strong> (space-separated, all must appear in the entry). Open the
+                <a routerLink="/life/journal">Journal</a> tab to write entries.
+              </p>
+              <div class="journal-report-filters">
+                <mat-form-field appearance="outline" class="jr-field">
+                  <mat-label>From</mat-label>
+                  <input matInput type="date" [(ngModel)]="journalFrom" name="jrFrom" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="jr-field">
+                  <mat-label>To</mat-label>
+                  <input matInput type="date" [(ngModel)]="journalTo" name="jrTo" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="jr-grow">
+                  <mat-label>Keywords</mat-label>
+                  <input matInput [(ngModel)]="journalQ" name="jrQ" placeholder="e.g. project review" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="jr-grow">
+                  <mat-label>Tags (match all)</mat-label>
+                  <mat-select multiple [(ngModel)]="journalTagIds" name="jrTags">
+                    @for (t of journalTagDefs; track t.id) {
+                      <mat-option [value]="t.id">{{ t.name }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+                <div class="jr-actions">
+                  <button mat-flat-button color="primary" type="button" (click)="runJournalSearch()">Search</button>
+                </div>
+              </div>
+              @if (journalSummary) {
+                <p class="journal-summary">
+                  <strong>{{ journalSummary.totalCount }}</strong> matching
+                  @if (journalSummary.byMonth.length) {
+                    <span class="muted"
+                      >— by month: @for (m of journalSummary.byMonth; track m.yearMonth) {
+                        <span class="sum-chip">{{ m.yearMonth }}: {{ m.count }}</span>
+                      }</span
+                    >
+                  }
+                </p>
+              }
+              <div class="table-wrap table-wrap--mgmt">
+                <table mat-table [dataSource]="journalReportRows" class="full-width">
+                  <ng-container matColumnDef="jDate">
+                    <th mat-header-cell *matHeaderCellDef>Date</th>
+                    <td mat-cell *matCellDef="let row">{{ row.loggedOn }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="jTags">
+                    <th mat-header-cell *matHeaderCellDef>Tags</th>
+                    <td mat-cell *matCellDef="let row">{{ formatJournalTagNames(row) }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="jAtt">
+                    <th mat-header-cell *matHeaderCellDef class="jr-att-header">Files</th>
+                    <td mat-cell *matCellDef="let row" class="jr-att-cell">{{ journalAttachmentCount(row) }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="jExcerpt">
+                    <th mat-header-cell *matHeaderCellDef>Excerpt</th>
+                    <td mat-cell *matCellDef="let row" class="jr-excerpt">{{ journalExcerpt(row.bodyMarkdown) }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="jMenu">
+                    <th mat-header-cell *matHeaderCellDef class="jr-menu-header" aria-label="Entry actions"></th>
+                    <td mat-cell *matCellDef="let row" class="jr-menu-cell">
+                      <button
+                        mat-icon-button
+                        type="button"
+                        [matMenuTriggerFor]="journalRowMenu"
+                        [matMenuTriggerData]="{ row: row }"
+                        (click)="$event.stopPropagation()"
+                        aria-label="Open journal entry actions"
+                      >
+                        <mat-icon>menu</mat-icon>
+                      </button>
+                    </td>
+                  </ng-container>
+                  <tr mat-header-row *matHeaderRowDef="journalReportColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: journalReportColumns"></tr>
+                </table>
+                @if (journalSearched && !journalReportRows.length) {
+                  <p class="muted empty-hint mgmt-report-empty">No journal entries match these filters.</p>
                 }
               </div>
+              <mat-menu #journalRowMenu="matMenu">
+                <ng-template matMenuContent let-row="row">
+                  <button mat-menu-item type="button" (click)="openJournalBodyDialog(row)">View full entry</button>
+                  <button
+                    mat-menu-item
+                    type="button"
+                    (click)="openJournalAttachmentsDialog(row)"
+                    [disabled]="journalAttachmentCount(row) < 1"
+                  >
+                    View attachments
+                  </button>
+                </ng-template>
+              </mat-menu>
             </section>
           </div>
         </mat-tab>
-        <mat-tab label="Now">
-          <div class="tab-panel tab-panel--nested mgmt-report-panel">
-            <app-reports-management-now-panel />
-          </div>
-        </mat-tab>
-      </mat-tab-group>
-    </mat-tab>
-
-    <mat-tab label="Finance">
-      <div class="tab-panel finance-report-panel">
-        <mat-tab-group animationDuration="180ms" class="reports-finance-inner-tabs" mat-stretch-tabs>
-          <mat-tab label="Banking">
-            <div class="tab-panel tab-panel--nested">
-              <app-reports-finance-banking />
-            </div>
-          </mat-tab>
-          <mat-tab label="Robinhood">
-            <div class="tab-panel tab-panel--nested">
-              <app-reports-finance-robinhood />
-            </div>
-          </mat-tab>
-        </mat-tab-group>
-      </div>
-    </mat-tab>
-
-    <mat-tab label="Journal">
-      <div class="tab-panel journal-report-panel">
-        <section class="journal-report-section" aria-labelledby="journal-report-heading">
-          <h2 id="journal-report-heading" class="mgmt-report-title">Journal search</h2>
-          <p class="muted mgmt-report-lead">
-            Filter your Markdown journal by <strong>date range</strong>, <strong>tags</strong> (all selected must apply), and
-            <strong>keywords</strong> (space-separated, all must appear in the entry). Open the
-            <a routerLink="/journal">Journal</a> tab to write entries.
-          </p>
-          <div class="journal-report-filters">
-            <mat-form-field appearance="outline" class="jr-field">
-              <mat-label>From</mat-label>
-              <input matInput type="date" [(ngModel)]="journalFrom" name="jrFrom" />
-            </mat-form-field>
-            <mat-form-field appearance="outline" class="jr-field">
-              <mat-label>To</mat-label>
-              <input matInput type="date" [(ngModel)]="journalTo" name="jrTo" />
-            </mat-form-field>
-            <mat-form-field appearance="outline" class="jr-grow">
-              <mat-label>Keywords</mat-label>
-              <input matInput [(ngModel)]="journalQ" name="jrQ" placeholder="e.g. project review" />
-            </mat-form-field>
-            <mat-form-field appearance="outline" class="jr-grow">
-              <mat-label>Tags (match all)</mat-label>
-              <mat-select multiple [(ngModel)]="journalTagIds" name="jrTags">
-                @for (t of journalTagDefs; track t.id) {
-                  <mat-option [value]="t.id">{{ t.name }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-            <div class="jr-actions">
-              <button mat-flat-button color="primary" type="button" (click)="runJournalSearch()">Search</button>
-            </div>
-          </div>
-          @if (journalSummary) {
-            <p class="journal-summary">
-              <strong>{{ journalSummary.totalCount }}</strong> matching
-              @if (journalSummary.byMonth.length) {
-                <span class="muted"
-                  >— by month: @for (m of journalSummary.byMonth; track m.yearMonth) {
-                    <span class="sum-chip">{{ m.yearMonth }}: {{ m.count }}</span>
-                  }</span
-                >
-              }
-            </p>
-          }
-          <div class="table-wrap table-wrap--mgmt">
-            <table mat-table [dataSource]="journalReportRows" class="full-width">
-              <ng-container matColumnDef="jDate">
-                <th mat-header-cell *matHeaderCellDef>Date</th>
-                <td mat-cell *matCellDef="let row">{{ row.loggedOn }}</td>
-              </ng-container>
-              <ng-container matColumnDef="jTags">
-                <th mat-header-cell *matHeaderCellDef>Tags</th>
-                <td mat-cell *matCellDef="let row">{{ formatJournalTagNames(row) }}</td>
-              </ng-container>
-              <ng-container matColumnDef="jAtt">
-                <th mat-header-cell *matHeaderCellDef class="jr-att-header">Files</th>
-                <td mat-cell *matCellDef="let row" class="jr-att-cell">{{ journalAttachmentCount(row) }}</td>
-              </ng-container>
-              <ng-container matColumnDef="jExcerpt">
-                <th mat-header-cell *matHeaderCellDef>Excerpt</th>
-                <td mat-cell *matCellDef="let row" class="jr-excerpt">{{ journalExcerpt(row.bodyMarkdown) }}</td>
-              </ng-container>
-              <ng-container matColumnDef="jMenu">
-                <th mat-header-cell *matHeaderCellDef class="jr-menu-header" aria-label="Entry actions"></th>
-                <td mat-cell *matCellDef="let row" class="jr-menu-cell">
-                  <button
-                    mat-icon-button
-                    type="button"
-                    [matMenuTriggerFor]="journalRowMenu"
-                    [matMenuTriggerData]="{ row: row }"
-                    (click)="$event.stopPropagation()"
-                    aria-label="Open journal entry actions"
-                  >
-                    <mat-icon>menu</mat-icon>
-                  </button>
-                </td>
-              </ng-container>
-              <tr mat-header-row *matHeaderRowDef="journalReportColumns"></tr>
-              <tr mat-row *matRowDef="let row; columns: journalReportColumns"></tr>
-            </table>
-            @if (journalSearched && !journalReportRows.length) {
-              <p class="muted empty-hint mgmt-report-empty">No journal entries match these filters.</p>
-            }
-          </div>
-          <mat-menu #journalRowMenu="matMenu">
-            <ng-template matMenuContent let-row="row">
-              <button mat-menu-item type="button" (click)="openJournalBodyDialog(row)">View full entry</button>
-              <button
-                mat-menu-item
-                type="button"
-                (click)="openJournalAttachmentsDialog(row)"
-                [disabled]="journalAttachmentCount(row) < 1"
-              >
-                View attachments
-              </button>
-            </ng-template>
-          </mat-menu>
-        </section>
-      </div>
-    </mat-tab>
-  </mat-tab-group>
+      }
+    </mat-tab-group>
+  }
 </mat-card>

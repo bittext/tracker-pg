@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("/api/finance/robinhood/agentic")
+@RequestMapping({"/api/finance/robinhood/agentic", "/api/markets/agentic"})
 @RequiredArgsConstructor
 public class RobinhoodAgenticController {
 

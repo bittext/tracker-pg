@@ -1,0 +1,86 @@
+<div class="markets-shell" data-shell="markets">
+  @if (theme.usesSidebarShell()) {
+    <div class="app-platform-layout">
+      <aside class="app-sidebar" aria-label="Markets navigation">
+        <a routerLink="/markets/overview" class="app-sidebar__brand" aria-label="Markets overview">
+          <img src="/tracker-app-icon-192.png" width="28" height="28" alt="" />
+          <span>{{ brandTitle }}</span>
+          <span class="app-sidebar__mode">Markets</span>
+        </a>
+
+        <div class="markets-secured-banner" role="note">
+          <mat-icon aria-hidden="true">lock</mat-icon>
+          <span>Trading mode — secured</span>
+        </div>
+
+        <nav class="app-sidebar__nav">
+          @for (item of navItems; track item.path) {
+            <a
+              class="app-sidebar__link"
+              [routerLink]="item.path"
+              routerLinkActive="app-sidebar__link--active"
+              [routerLinkActiveOptions]="{ exact: item.exact !== false }"
+            >
+              <mat-icon aria-hidden="true">{{ item.icon }}</mat-icon>
+              <span>{{ item.label }}</span>
+            </a>
+          }
+
+          <div class="app-sidebar__group-title app-sidebar__group-title--switch">Switch workspace</div>
+          <a class="app-sidebar__link app-sidebar__link--switch" routerLink="/life/welcome">
+            <mat-icon aria-hidden="true">home</mat-icon>
+            <span>Life</span>
+          </a>
+          <a class="app-sidebar__link" routerLink="/life/settings">
+            <mat-icon aria-hidden="true">settings</mat-icon>
+            <span>Settings</span>
+          </a>
+        </nav>
+
+        <div class="app-sidebar__footer">
+          <span class="app-sidebar__user">{{ username }}</span>
+          <button mat-stroked-button type="button" (click)="logout()">Log out</button>
+        </div>
+      </aside>
+
+      <div class="app-content-column">
+        <header class="app-content-header">
+          <span class="app-release-hint">v{{ webReleaseVersion }}</span>
+          <app-theme-settings />
+        </header>
+        <main class="app-platform-main markets-main">
+          <router-outlet />
+        </main>
+      </div>
+    </div>
+  } @else {
+    <div class="markets-classic-shell">
+      <header class="markets-classic-shell__bar">
+        <a routerLink="/markets/overview" class="markets-classic-shell__brand">
+          <img src="/tracker-app-icon-192.png" width="32" height="32" alt="" />
+          <span>{{ brandTitle }} · Markets</span>
+        </a>
+        <span class="markets-secured-chip">Trading mode — secured</span>
+        <span class="spacer"></span>
+        <app-theme-settings />
+        <span class="markets-classic-shell__user">{{ username }}</span>
+        <button mat-button type="button" (click)="logout()">Log out</button>
+      </header>
+      <nav class="markets-classic-shell__tabs">
+        @for (item of navItems; track item.path) {
+          <a
+            class="markets-classic-shell__tab"
+            [routerLink]="item.path"
+            routerLinkActive="markets-classic-shell__tab--active"
+            >{{ item.label }}</a
+          >
+        }
+        <a class="markets-classic-shell__tab markets-classic-shell__tab--switch" routerLink="/life/welcome">Life</a>
+        <a class="markets-classic-shell__tab" routerLink="/life/settings">Settings</a>
+      </nav>
+      <main class="markets-classic-shell__main">
+        <router-outlet />
+      </main>
+    </div>
+  }
+</div>

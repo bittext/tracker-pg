@@ -15,6 +15,7 @@ import { MatTabChangeEvent, MatTabsModule } from '@angular/material/tabs';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatOption, MatSelectModule } from '@angular/material/select';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { Exercise } from '../../models/fitness.models';
 import { FinanceNotificationSettingsDto, FinanceNotificationSettingsRequestDto } from '../../models/finance.models';
 import { AuthLoginEventDto } from '../../models/auth-audit.models';
@@ -52,6 +53,7 @@ import {
   AdminCreateUserRequest,
   AdminMemberProfileListItemDto,
   AdminProvisionRole,
+  AdminUserListItemDto,
 } from '../../models/admin-users.models';
 
 @Component({
@@ -72,6 +74,7 @@ import {
     MatDividerModule,
     MatSelectModule,
     MatOption,
+    MatSlideToggleModule,
     RouterLink,
     BankingPanelComponent,
     AdminFinanceRobinhoodCsvComponent,
@@ -96,7 +99,7 @@ export class AdminComponent implements OnInit {
     this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((qm) => {
       if (qm.get('onboardingProfile') === '1') {
         // Tab "My profile" shifts when the admin-only "Create user" tab is present.
-        this.adminTabIndex = this.auth.isAdmin() ? 2 : 1;
+        this.adminTabIndex = this.auth.isAdmin() ? 3 : 1;
       }
     });
   }
@@ -160,11 +163,16 @@ export class AdminComponent implements OnInit {
 
   /**
    * Tab indices when {@link #isAppAdmin}. Features and Repository (GitHub) are admin-only.
-   * 0 Sign-in log · 1 Create user · 2 My profile · 3 Exercise · 4 Journal · 5 Finance · 6 Management · 7 Usage · 8 Features · 9 Repository (GitHub)
+   * 0 Sign-in log · 1 Users · 2 Create user · 3 My profile · 4 Exercise · 5 Journal · 6 Finance · 7 Management · 8 Usage · 9 Features · 10 Repository (GitHub)
    */
-  private static readonly USAGE_TAB_INDEX = 7;
-  private static readonly FEATURES_TAB_INDEX = 8;
-  private static readonly GITHUB_TAB_INDEX = 9;
+  private static readonly USAGE_TAB_INDEX = 8;
+  private static readonly FEATURES_TAB_INDEX = 9;
+  private static readonly GITHUB_TAB_INDEX = 10;
+
+  usersList: AdminUserListItemDto[] = [];
+  usersListLoading = false;
+  usersListColumns = ['username', 'email', 'role', 'active', 'marketsEnabled', 'mfaEnabled'];
+  userMarketsSavingId: number | null = null;
 
   createUserSaving = false;
   newProvisionedUser: {
@@ -174,6 +182,7 @@ export class AdminComponent implements OnInit {
     role: AdminProvisionRole;
     mfaEnabled: boolean;
     active: boolean;
+    marketsEnabled: boolean;
   } = {
     username: '',
     email: '',
@@ -181,6 +190,7 @@ export class AdminComponent implements OnInit {
     role: 'USER',
     mfaEnabled: false,
     active: true,
+    marketsEnabled: false,
   };
 
   /** Admin → Create user tab: members who saved a profile (browse read-only). */
@@ -254,7 +264,51 @@ export class AdminComponent implements OnInit {
     this.loadLoginEvents();
     if (this.isAppAdmin) {
       this.loadAdminMemberProfileList();
+      this.loadUsersList();
     }
+  }
+
+  loadUsersList(): void {
+    if (!this.isAppAdmin) {
+      return;
+    }
+    this.usersListLoading = true;
+    this.adminUsersApi.listUsers().subscribe({
+      next: (rows) => {
+        this.usersListLoading = false;
+        this.usersList = [...rows].sort((a, b) =>
+          (a.username || '').localeCompare(b.username || '', undefined, { sensitivity: 'base' }),
+        );
+      },
+      error: (e) => {
+        this.usersListLoading = false;
+        this.usersList = [];
+        this.err('Could not load users', e);
+      },
+    });
+  }
+
+  toggleUserMarketsEnabled(row: AdminUserListItemDto, enabled: boolean): void {
+    if (!this.isAppAdmin || row.role === 'ADMIN') {
+      return;
+    }
+    this.userMarketsSavingId = row.id;
+    this.adminUsersApi.updateUser(row.id, { marketsEnabled: enabled }).subscribe({
+      next: (updated) => {
+        this.userMarketsSavingId = null;
+        this.usersList = this.usersList.map((u) => (u.id === updated.id ? updated : u));
+        this.snackBar.open(
+          enabled ? `Markets enabled for ${updated.username}` : `Markets disabled for ${updated.username}`,
+          undefined,
+          { duration: 3000 },
+        );
+      },
+      error: (e) => {
+        this.userMarketsSavingId = null;
+        this.err('Could not update Markets access', e);
+        this.loadUsersList();
+      },
+    });
   }
 
   loadAdminMemberProfileList(): void {
@@ -644,6 +698,7 @@ export class AdminComponent implements OnInit {
       role: this.newProvisionedUser.role,
       mfaEnabled: this.newProvisionedUser.mfaEnabled,
       active: this.newProvisionedUser.active,
+      marketsEnabled: this.newProvisionedUser.marketsEnabled,
     };
     this.createUserSaving = true;
     this.adminUsersApi.createUser(body).subscribe({
@@ -656,7 +711,9 @@ export class AdminComponent implements OnInit {
           role: 'USER',
           mfaEnabled: false,
           active: true,
+          marketsEnabled: false,
         };
+        this.loadUsersList();
         this.snackBar.open(
           'User created. A welcome email was sent when outbound email (SES) is configured on the server.',
           undefined,

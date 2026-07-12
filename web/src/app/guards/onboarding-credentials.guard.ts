@@ -10,7 +10,7 @@ export const onboardingCredentialsGuard: CanActivateFn = () => {
   return api.getOnboardingStatus().pipe(
     map((s) => {
       if (s.onboardingCompleted) {
-        return router.createUrlTree(['/welcome']);
+        return router.createUrlTree(['/life/welcome']);
       }
       if (s.credentialsStepCompleted && !s.profileSubmitted) {
         return router.createUrlTree(['/admin'], { queryParams: { onboardingProfile: '1' } });

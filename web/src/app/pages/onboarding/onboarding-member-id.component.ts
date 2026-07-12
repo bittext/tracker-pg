@@ -59,7 +59,7 @@ export class OnboardingMemberIdComponent implements OnInit {
     this.api.completeOnboarding().subscribe({
       next: () => {
         this.finishing = false;
-        this.router.navigate(['/welcome']);
+        this.router.navigate(['/life/welcome']);
       },
       error: (e) => {
         this.finishing = false;

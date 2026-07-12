@@ -79,6 +79,106 @@ export function getThemeTokens(preset: ThemePreset, mode: ResolvedThemeMode): Ap
   return THEME_TOKEN_REGISTRY[preset][mode];
 }
 
+/** Phoenix — deep slate sidebar, soft sage accent, warm neutral canvas. */
+const PHOENIX_LIGHT: AppThemeTokens = {
+  fontDisplay: "'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif",
+  fontBody: "'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif",
+
+  bg: '#eef1ef',
+  bgGradient: 'linear-gradient(165deg, #eef1ef 0%, #e8ece9 48%, #eef0ed 100%)',
+  surface: '#ffffff',
+  surfaceMuted: '#f3f5f4',
+  surfaceTint: '#f8faf9',
+  surfaceHover: '#e4e9e6',
+  surfaceSidebar: '#1e2933',
+  surfaceNavActive: 'rgba(134, 168, 143, 0.22)',
+
+  text: '#1a2421',
+  textMuted: '#5c6b65',
+  textSubtle: '#7a8a83',
+
+  border: '#d5ddd8',
+  borderStrong: '#bcc9c2',
+
+  accent: '#4a7c59',
+  accentSoft: 'rgba(74, 124, 89, 0.12)',
+  accentOn: '#ffffff',
+
+  colorSuccess: '#3d8b63',
+  colorWarning: '#b8860b',
+  colorChartSecondary: '#5b8a72',
+  heroGradient:
+    'linear-gradient(135deg, rgba(74, 124, 89, 0.18) 0%, rgba(134, 168, 143, 0.22) 45%, rgba(238, 241, 239, 0.9) 100%)',
+
+  toolbarBg: '#eef1ef',
+  toolbarBorder: '#d5ddd8',
+  focusRing: 'rgba(74, 124, 89, 0.4)',
+
+  shellMaxWidth: 'none',
+  frameShadow: 'none',
+  sidebarWidth: '248px',
+
+  radiusLg: '12px',
+  radius: '8px',
+  radiusSm: '6px',
+  radiusPill: '9999px',
+
+  shadowSm: '0 1px 2px rgba(26, 36, 33, 0.05)',
+  shadowMd: '0 2px 8px rgba(26, 36, 33, 0.07)',
+
+  tableStripe: 'rgba(74, 124, 89, 0.04)',
+
+  calStrength: 'rgba(74, 124, 89, 0.16)',
+  calWeight: 'rgba(91, 138, 114, 0.14)',
+  calBoth: 'rgba(30, 41, 51, 0.08)',
+
+  themeColor: '#1e2933',
+};
+
+const PHOENIX_DARK: AppThemeTokens = {
+  ...PHOENIX_LIGHT,
+  bg: '#121816',
+  bgGradient: 'linear-gradient(165deg, #0f1412 0%, #141a18 50%, #121816 100%)',
+  surface: '#1a2220',
+  surfaceMuted: '#222b28',
+  surfaceTint: '#1e2623',
+  surfaceHover: '#2a3531',
+  surfaceSidebar: '#0f1412',
+  surfaceNavActive: 'rgba(134, 168, 143, 0.18)',
+
+  text: '#e8eee9',
+  textMuted: '#a3b0a8',
+  textSubtle: '#7d8d85',
+
+  border: 'rgba(163, 176, 168, 0.14)',
+  borderStrong: 'rgba(163, 176, 168, 0.22)',
+
+  accent: '#86a88f',
+  accentSoft: 'rgba(134, 168, 143, 0.16)',
+  accentOn: '#0f1412',
+
+  colorSuccess: '#6db88a',
+  colorWarning: '#d4af37',
+  colorChartSecondary: '#86a88f',
+  heroGradient:
+    'linear-gradient(135deg, rgba(30, 41, 51, 0.65) 0%, rgba(74, 124, 89, 0.25) 55%, rgba(18, 24, 22, 0.95) 100%)',
+
+  toolbarBg: '#121816',
+  toolbarBorder: 'rgba(163, 176, 168, 0.14)',
+  focusRing: 'rgba(134, 168, 143, 0.45)',
+
+  shadowSm: '0 1px 2px rgba(0, 0, 0, 0.35)',
+  shadowMd: '0 4px 14px rgba(0, 0, 0, 0.4)',
+
+  tableStripe: 'rgba(134, 168, 143, 0.05)',
+
+  calStrength: 'rgba(134, 168, 143, 0.22)',
+  calWeight: 'rgba(109, 184, 138, 0.18)',
+  calBoth: 'rgba(232, 238, 233, 0.08)',
+
+  themeColor: '#0f1412',
+};
+
 /** platform.openai.com — light dashboard */
 const OPENAI_LIGHT: AppThemeTokens = {
   fontDisplay: "'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif",
@@ -277,6 +377,10 @@ export const THEME_TOKEN_REGISTRY: Record<
   ThemePreset,
   Record<ResolvedThemeMode, AppThemeTokens>
 > = {
+  phoenix: {
+    light: PHOENIX_LIGHT,
+    dark: PHOENIX_DARK,
+  },
   openai: {
     light: OPENAI_LIGHT,
     dark: OPENAI_DARK,
@@ -288,4 +392,4 @@ export const THEME_TOKEN_REGISTRY: Record<
 };
 
 /** Boot-time defaults (matches {@link DEFAULT_THEME_CONFIG} + system fallback to light). */
-export const THEME_BOOT_TOKENS = OPENAI_LIGHT;
+export const THEME_BOOT_TOKENS = PHOENIX_LIGHT;

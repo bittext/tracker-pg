@@ -1,0 +1,120 @@
+@if (theme.usesSidebarShell()) {
+  <div class="app-platform-layout">
+    <aside class="app-sidebar" aria-label="Life navigation">
+      <a routerLink="/life/welcome" class="app-sidebar__brand" aria-label="Home — Welcome">
+        <img src="/tracker-app-icon-192.png" width="28" height="28" alt="" />
+        <span>{{ brandTitle }}</span>
+        <span class="app-sidebar__mode">Life</span>
+      </a>
+
+      <nav class="app-sidebar__nav">
+        @for (group of navGroups; track group.title ?? group.items[0].path) {
+          @if (visibleItems(group).length) {
+            @if (group.title) {
+              <div class="app-sidebar__group-title">{{ group.title }}</div>
+            }
+            @for (item of visibleItems(group); track item.path) {
+              <a
+                class="app-sidebar__link"
+                [routerLink]="item.path"
+                routerLinkActive="app-sidebar__link--active"
+                [routerLinkActiveOptions]="{ exact: item.exact !== false }"
+              >
+                <mat-icon aria-hidden="true">{{ item.icon }}</mat-icon>
+                <span>{{ item.label }}</span>
+              </a>
+            }
+          }
+        }
+
+        @if (auth.canAccessMarkets()) {
+          <div class="app-sidebar__group-title app-sidebar__group-title--switch">Switch workspace</div>
+          <a class="app-sidebar__link app-sidebar__link--switch" routerLink="/markets/overview">
+            <mat-icon aria-hidden="true">candlestick_chart</mat-icon>
+            <span>Markets</span>
+          </a>
+        }
+
+        @if (auth.isAdmin()) {
+          <div class="app-sidebar__group-title">Administration</div>
+          <a
+            class="app-sidebar__link"
+            routerLink="/admin"
+            routerLinkActive="app-sidebar__link--active"
+            [routerLinkActiveOptions]="{ exact: true }"
+          >
+            <mat-icon aria-hidden="true">admin_panel_settings</mat-icon>
+            <span>Admin</span>
+          </a>
+          <a
+            class="app-sidebar__link"
+            routerLink="/logs"
+            routerLinkActive="app-sidebar__link--active"
+            [routerLinkActiveOptions]="{ exact: true }"
+          >
+            <mat-icon aria-hidden="true">article</mat-icon>
+            <span>Logs</span>
+          </a>
+        }
+      </nav>
+
+      <div class="app-sidebar__footer">
+        <span class="app-sidebar__user">{{ username }}</span>
+        <button mat-stroked-button type="button" (click)="logout()">Log out</button>
+      </div>
+    </aside>
+
+    <div class="app-content-column">
+      <header class="app-content-header">
+        <span class="app-release-hint" [attr.title]="releaseHintTooltip" tabindex="-1" aria-hidden="true"
+          >v{{ webReleaseVersion }}</span
+        >
+        <app-theme-settings />
+      </header>
+      <main class="app-platform-main">
+        <router-outlet />
+      </main>
+    </div>
+  </div>
+} @else {
+  <div class="life-classic-shell">
+    <header class="life-classic-shell__bar">
+      <a routerLink="/life/welcome" class="life-classic-shell__brand">
+        <img src="/tracker-app-icon-192.png" width="32" height="32" alt="" />
+        <span>{{ brandTitle }} · Life</span>
+      </a>
+      <span class="spacer"></span>
+      <span class="app-release-hint" [attr.title]="releaseHintTooltip">v{{ webReleaseVersion }}</span>
+      <app-theme-settings />
+      <span class="life-classic-shell__user">{{ username }}</span>
+      <button mat-button type="button" (click)="logout()">Log out</button>
+    </header>
+    <nav class="life-classic-shell__tabs">
+      @for (group of navGroups; track group.title ?? group.items[0].path) {
+        @for (item of visibleItems(group); track item.path) {
+          <a
+            class="life-classic-shell__tab"
+            [routerLink]="item.path"
+            routerLinkActive="life-classic-shell__tab--active"
+            [routerLinkActiveOptions]="{ exact: item.exact !== false }"
+            >{{ item.label }}</a
+          >
+        }
+      }
+      @if (auth.canAccessMarkets()) {
+        <a class="life-classic-shell__tab life-classic-shell__tab--switch" routerLink="/markets/overview">Markets</a>
+      }
+      @if (auth.isAdmin()) {
+        <a class="life-classic-shell__tab" routerLink="/admin" routerLinkActive="life-classic-shell__tab--active"
+          >Admin</a
+        >
+        <a class="life-classic-shell__tab" routerLink="/logs" routerLinkActive="life-classic-shell__tab--active"
+          >Logs</a
+        >
+      }
+    </nav>
+    <main class="life-classic-shell__main">
+      <router-outlet />
+    </main>
+  </div>
+}

@@ -5,6 +5,8 @@ import static org.springframework.http.HttpStatus.CONFLICT;
 
 import com.svp.tracker.admin.dto.AdminCreateUserRequestDto;
 import com.svp.tracker.admin.dto.AdminCreatedUserResponseDto;
+import com.svp.tracker.admin.dto.AdminUpdateUserRequestDto;
+import com.svp.tracker.admin.dto.AdminUserListItemDto;
 import com.svp.tracker.auth.domain.AppUser;
 import com.svp.tracker.auth.domain.AppUserRole;
 import com.svp.tracker.auth.repository.AppUserRepository;
@@ -60,6 +62,7 @@ public class AdminUserProvisioningService {
         user.setRole(role);
         user.setMfaEnabled(req.mfaEnabled());
         user.setActive(req.active());
+        user.setMarketsEnabled(req.marketsEnabled());
         user.setPhoneE164(null);
         user = appUserRepository.save(user);
 
@@ -69,6 +72,46 @@ public class AdminUserProvisioningService {
         runAfterCommit(() -> memberTransactionalEmailService.sendAdminProvisionedWelcome(mailTo, uname, roleName));
 
         return new AdminCreatedUserResponseDto(user.getId(), user.getUsername(), user.getEmail(), user.getRole().name());
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.List<AdminUserListItemDto> listUsers() {
+        return appUserRepository.findAll().stream()
+                .sorted(java.util.Comparator.comparing(AppUser::getUsername, String.CASE_INSENSITIVE_ORDER))
+                .map(u -> new AdminUserListItemDto(
+                        u.getId(),
+                        u.getUsername(),
+                        u.getEmail(),
+                        u.getRole().name(),
+                        u.isActive(),
+                        u.isMfaEnabled(),
+                        u.isMarketsEnabled()))
+                .toList();
+    }
+
+    @Transactional
+    public AdminUserListItemDto updateUser(long id, AdminUpdateUserRequestDto req) {
+        AppUser user = appUserRepository
+                .findById(id)
+                .orElseThrow(() -> new ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "User not found."));
+        if (req.active() != null) {
+            user.setActive(req.active());
+        }
+        if (req.marketsEnabled() != null) {
+            user.setMarketsEnabled(req.marketsEnabled());
+        }
+        if (req.mfaEnabled() != null) {
+            user.setMfaEnabled(req.mfaEnabled());
+        }
+        user = appUserRepository.save(user);
+        return new AdminUserListItemDto(
+                user.getId(),
+                user.getUsername(),
+                user.getEmail(),
+                user.getRole().name(),
+                user.isActive(),
+                user.isMfaEnabled(),
+                user.isMarketsEnabled());
     }
 
     private static void runAfterCommit(Runnable action) {

@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { BehaviorSubject, finalize, map, tap } from 'rxjs';
+import { BehaviorSubject, Observable, finalize, map, tap } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { buildLoginLocationContext } from '../util/login-location';
 
@@ -10,6 +10,15 @@ export interface AuthTokenDto {
   expiresAt: string;
   username: string;
   role: string;
+  marketsEnabled?: boolean;
+}
+
+export interface MeSessionDto {
+  userId: number;
+  username: string;
+  role: string;
+  marketsEnabled: boolean;
+  admin: boolean;
 }
 
 interface LoginResponseDto {
@@ -22,6 +31,7 @@ interface LoginResponseDto {
 const TOKEN_KEY = 'tracker.auth.token';
 const USER_KEY = 'tracker.auth.user';
 const ROLE_KEY = 'tracker.auth.role';
+const MARKETS_KEY = 'tracker.auth.markets';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -54,6 +64,27 @@ export class AuthService {
     return r != null && r.trim().toUpperCase() === 'ADMIN';
   }
 
+  canAccessMarkets(): boolean {
+    if (this.isAdmin()) {
+      return true;
+    }
+    return localStorage.getItem(MARKETS_KEY) === 'true';
+  }
+
+  setMarketsEnabled(enabled: boolean): void {
+    localStorage.setItem(MARKETS_KEY, enabled ? 'true' : 'false');
+  }
+
+  refreshSession(): Observable<MeSessionDto> {
+    return this.http.get<MeSessionDto>(`${this.apiBase}/me`).pipe(
+      tap((session) => {
+        localStorage.setItem(USER_KEY, session.username);
+        localStorage.setItem(ROLE_KEY, session.role);
+        this.setMarketsEnabled(session.marketsEnabled || session.admin);
+      }),
+    );
+  }
+
   login(username: string, password: string) {
     const location = buildLoginLocationContext();
     return this.http
@@ -81,6 +112,8 @@ export class AuthService {
     localStorage.setItem(TOKEN_KEY, token.token);
     localStorage.setItem(USER_KEY, token.username);
     localStorage.setItem(ROLE_KEY, token.role);
+    const markets = this.isAdminRole(token.role) || !!token.marketsEnabled;
+    this.setMarketsEnabled(markets);
     this.authState$.next(true);
   }
 
@@ -91,6 +124,7 @@ export class AuthService {
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
       localStorage.removeItem(ROLE_KEY);
+      localStorage.removeItem(MARKETS_KEY);
       this.authState$.next(false);
       if (redirectToLogin) {
         this.router.navigate(['/login']);
@@ -109,6 +143,10 @@ export class AuthService {
       })
       .pipe(finalize(finish))
       .subscribe({ error: () => {} });
+  }
+
+  private isAdminRole(role: string | null | undefined): boolean {
+    return role != null && role.trim().toUpperCase() === 'ADMIN';
   }
 
   private hasStoredToken(): boolean {

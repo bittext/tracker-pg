@@ -109,6 +109,71 @@
     </mat-tab>
 
     @if (isAppAdmin) {
+      <mat-tab label="Users">
+        <div class="tab-panel">
+          <section class="admin-section">
+            <h2 class="section-title">User accounts</h2>
+            <p class="muted">
+              Toggle <strong>Markets</strong> access per user. Admins always have Markets. Changes take effect on the
+              user’s next session refresh or login.
+            </p>
+            @if (usersListLoading) {
+              <div class="admin-member-profile-loading">
+                <mat-progress-spinner mode="indeterminate" diameter="36" />
+              </div>
+            } @else {
+              <div class="table-wrap">
+                <table mat-table [dataSource]="usersList" class="mat-elevation-z1 full-width">
+                  <ng-container matColumnDef="username">
+                    <th mat-header-cell *matHeaderCellDef>Username</th>
+                    <td mat-cell *matCellDef="let row">{{ row.username }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="email">
+                    <th mat-header-cell *matHeaderCellDef>Email</th>
+                    <td mat-cell *matCellDef="let row">{{ row.email }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="role">
+                    <th mat-header-cell *matHeaderCellDef>Role</th>
+                    <td mat-cell *matCellDef="let row">{{ row.role }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="active">
+                    <th mat-header-cell *matHeaderCellDef>Active</th>
+                    <td mat-cell *matCellDef="let row">{{ row.active ? 'Yes' : 'No' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="marketsEnabled">
+                    <th mat-header-cell *matHeaderCellDef>Markets</th>
+                    <td mat-cell *matCellDef="let row">
+                      @if (row.role === 'ADMIN') {
+                        <span class="muted">Always on</span>
+                      } @else {
+                        <mat-slide-toggle
+                          [checked]="row.marketsEnabled"
+                          [disabled]="userMarketsSavingId === row.id"
+                          (change)="toggleUserMarketsEnabled(row, $event.checked)"
+                          aria-label="Markets access for {{ row.username }}"
+                        />
+                      }
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="mfaEnabled">
+                    <th mat-header-cell *matHeaderCellDef>MFA</th>
+                    <td mat-cell *matCellDef="let row">{{ row.mfaEnabled ? 'Yes' : 'No' }}</td>
+                  </ng-container>
+                  <tr mat-header-row *matHeaderRowDef="usersListColumns"></tr>
+                  <tr mat-row *matRowDef="let row; columns: usersListColumns"></tr>
+                </table>
+                @if (!usersList.length) {
+                  <p class="muted empty-hint">No users found.</p>
+                }
+              </div>
+              <button mat-stroked-button type="button" (click)="loadUsersList()" [disabled]="usersListLoading">
+                Refresh
+              </button>
+            }
+          </section>
+        </div>
+      </mat-tab>
+
       <mat-tab label="Create user">
         <div class="tab-panel">
           <section class="admin-section">
@@ -167,6 +232,10 @@
                   <label class="admin-check">
                     <input type="checkbox" name="provActive" [(ngModel)]="newProvisionedUser.active" />
                     Active
+                  </label>
+                  <label class="admin-check">
+                    <input type="checkbox" name="provMarkets" [(ngModel)]="newProvisionedUser.marketsEnabled" />
+                    Markets enabled
                   </label>
                   <button
                     mat-flat-button

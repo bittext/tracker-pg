@@ -48,7 +48,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 AppUser user = appUserRepository.findByUsernameIgnoreCase(username).orElse(null);
                 if (user != null && user.isActive()) {
-                    var principal = new TrackerUserPrincipal(user.getId(), user.getUsername(), user.getRole());
+                    var principal = new TrackerUserPrincipal(
+                            user.getId(), user.getUsername(), user.getRole(), user.isMarketsEnabled());
                     var auth = new UsernamePasswordAuthenticationToken(
                             principal,
                             null,

@@ -4,13 +4,14 @@ import { provideRouter } from '@angular/router';
 import { provideAnimations } from '@angular/platform-browser/animations';
 
 import { authInterceptor } from './interceptors/auth.interceptor';
+import { stepUpInterceptor } from './interceptors/step-up.interceptor';
 import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
-    provideHttpClient(withInterceptors([authInterceptor])),
+    provideHttpClient(withInterceptors([authInterceptor, stepUpInterceptor])),
     provideAnimations(),
   ],
 };

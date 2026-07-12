@@ -24,6 +24,10 @@ export class WelcomeComponent implements OnInit {
 
   readonly dailyQuote = signal<InspirationalQuote>(pickRandomQuote());
 
+  get canAccessMarkets(): boolean {
+    return this.auth.canAccessMarkets();
+  }
+
   ngOnInit(): void {
     const u = (this.auth.username ?? '').trim();
     this.displayName = u || 'there';

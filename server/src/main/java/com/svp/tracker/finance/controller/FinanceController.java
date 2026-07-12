@@ -68,7 +68,7 @@ import java.util.List;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
-@RequestMapping("/api/finance/robinhood")
+@RequestMapping({"/api/finance/robinhood", "/api/markets"})
 @RequiredArgsConstructor
 @Slf4j
 public class FinanceController {

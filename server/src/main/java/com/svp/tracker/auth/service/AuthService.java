@@ -220,7 +220,14 @@ public class AuthService {
 
     private AuthTokenDto issueToken(AppUser user) {
         var issued = jwtTokenService.issue(user);
-        return new AuthTokenDto(issued.token(), issued.expiresAt(), user.getUsername(), user.getRole().name());
+        boolean markets =
+                user.getRole() == com.svp.tracker.auth.domain.AppUserRole.ADMIN || user.isMarketsEnabled();
+        return new AuthTokenDto(
+                issued.token(),
+                issued.expiresAt(),
+                user.getUsername(),
+                user.getRole().name(),
+                markets);
     }
 
     private String generateOtp() {

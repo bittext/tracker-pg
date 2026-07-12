@@ -1,0 +1,100 @@
+:host {
+  display: block;
+  min-height: 100vh;
+}
+
+.app-sidebar__mode {
+  margin-left: auto;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--app-text-subtle);
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--app-radius-pill);
+  background: var(--app-accent-soft);
+}
+
+.app-sidebar__group-title {
+  margin: 0.65rem 0.65rem 0.2rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--app-text-subtle);
+}
+
+.app-sidebar__group-title--switch {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--app-border);
+}
+
+.app-sidebar__link--switch {
+  color: var(--app-color-success);
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.life-classic-shell__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 1rem;
+  min-height: 56px;
+  border-bottom: 1px solid var(--app-border);
+  background: var(--app-toolbar-bg);
+}
+
+.life-classic-shell__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-decoration: none;
+  color: var(--app-text);
+  font-weight: 600;
+}
+
+.life-classic-shell__user {
+  font-size: 0.85rem;
+  color: var(--app-text-muted);
+}
+
+.life-classic-shell__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--app-border);
+  background: var(--app-surface);
+}
+
+.life-classic-shell__tab {
+  padding: 0.4rem 0.75rem;
+  border-radius: var(--app-radius-sm);
+  text-decoration: none;
+  color: var(--app-text-muted);
+  font-size: 0.875rem;
+}
+
+.life-classic-shell__tab--active,
+.life-classic-shell__tab:hover {
+  color: var(--app-accent);
+  background: var(--app-accent-soft);
+}
+
+.life-classic-shell__tab--switch {
+  color: var(--app-color-success);
+}
+
+.life-classic-shell__main {
+  padding: 1.25rem 1.5rem 2rem;
+}
+
+.app-release-hint {
+  font-size: 0.625rem;
+  color: var(--app-text-subtle);
+  opacity: 0.55;
+}

@@ -37,11 +37,16 @@
         Your hub for training, money, planning, and notes.
       </p>
       <div class="welcome-hero__actions">
-        <a mat-flat-button color="primary" routerLink="/exercise" class="welcome-hero__cta">Get started → Exercise</a>
-        <a mat-stroked-button routerLink="/finance" class="welcome-hero__cta welcome-hero__cta--alt">Open Finance</a>
-        <a mat-stroked-button routerLink="/management" class="welcome-hero__cta welcome-hero__cta--alt"
+        <a mat-flat-button color="primary" routerLink="/life/exercise" class="welcome-hero__cta">Get started → Exercise</a>
+        <a mat-stroked-button routerLink="/life/money" class="welcome-hero__cta welcome-hero__cta--alt">Open Money</a>
+        <a mat-stroked-button routerLink="/life/management" class="welcome-hero__cta welcome-hero__cta--alt"
           >Plan with Management</a
         >
+        @if (canAccessMarkets) {
+          <a mat-stroked-button routerLink="/markets/overview" class="welcome-hero__cta welcome-hero__cta--markets"
+            >Open Markets</a
+          >
+        }
       </div>
     </div>
   </header>
@@ -52,7 +57,7 @@
       Each top tab is a workspace. Use them in any order—data is saved as you go.
     </p>
     <div class="welcome-features">
-      <a routerLink="/exercise" class="welcome-feature-link">
+      <a routerLink="/life/exercise" class="welcome-feature-link">
         <mat-card class="welcome-card welcome-card--indigo" appearance="outlined">
           <mat-card-header>
             <div mat-card-avatar class="welcome-card__avatar"><mat-icon>fitness_center</mat-icon></div>
@@ -64,12 +69,12 @@
           </mat-card-content>
         </mat-card>
       </a>
-      <a routerLink="/finance" class="welcome-feature-link">
+      <a routerLink="/life/money" class="welcome-feature-link">
         <mat-card class="welcome-card welcome-card--emerald" appearance="outlined">
           <mat-card-header>
             <div mat-card-avatar class="welcome-card__avatar"><mat-icon>account_balance_wallet</mat-icon></div>
-            <mat-card-title>Finance</mat-card-title>
-            <mat-card-subtitle>Banking, trading, taxes &amp; alerts</mat-card-subtitle>
+            <mat-card-title>Money</mat-card-title>
+            <mat-card-subtitle>Banking, credit, insurance &amp; taxes</mat-card-subtitle>
           </mat-card-header>
           <mat-card-content>
             <p>
@@ -82,7 +87,7 @@
           </mat-card-content>
         </mat-card>
       </a>
-      <a routerLink="/management" class="welcome-feature-link">
+      <a routerLink="/life/management" class="welcome-feature-link">
         <mat-card class="welcome-card welcome-card--amber" appearance="outlined">
           <mat-card-header>
             <div mat-card-avatar class="welcome-card__avatar"><mat-icon>task_alt</mat-icon></div>
@@ -98,7 +103,7 @@
           </mat-card-content>
         </mat-card>
       </a>
-      <a routerLink="/journal" class="welcome-feature-link">
+      <a routerLink="/life/journal" class="welcome-feature-link">
         <mat-card class="welcome-card welcome-card--violet" appearance="outlined">
           <mat-card-header>
             <div mat-card-avatar class="welcome-card__avatar"><mat-icon>menu_book</mat-icon></div>
@@ -110,12 +115,12 @@
           </mat-card-content>
         </mat-card>
       </a>
-      <a routerLink="/reports" class="welcome-feature-link">
+      <a routerLink="/life/insights/exercise" class="welcome-feature-link">
         <mat-card class="welcome-card welcome-card--rose" appearance="outlined">
           <mat-card-header>
             <div mat-card-avatar class="welcome-card__avatar"><mat-icon>analytics</mat-icon></div>
-            <mat-card-title>Reports</mat-card-title>
-            <mat-card-subtitle>Summaries &amp; exports</mat-card-subtitle>
+            <mat-card-title>Insights</mat-card-title>
+            <mat-card-subtitle>Exercise, management, journal &amp; banking</mat-card-subtitle>
           </mat-card-header>
           <mat-card-content>
             <p>
@@ -126,6 +131,23 @@
           </mat-card-content>
         </mat-card>
       </a>
+      @if (canAccessMarkets) {
+        <a routerLink="/markets/overview" class="welcome-feature-link">
+          <mat-card class="welcome-card welcome-card--markets" appearance="outlined">
+            <mat-card-header>
+              <div mat-card-avatar class="welcome-card__avatar"><mat-icon>candlestick_chart</mat-icon></div>
+              <mat-card-title>Markets</mat-card-title>
+              <mat-card-subtitle>Trading workspace &amp; analytics</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+              <p>
+                Screeners, alerts, Robinhood tools, and performance analytics in a secured Markets shell with step-up
+                for sensitive actions.
+              </p>
+            </mat-card-content>
+          </mat-card>
+        </a>
+      }
       <a routerLink="/admin" class="welcome-feature-link">
         <mat-card class="welcome-card welcome-card--cyan" appearance="outlined">
           <mat-card-header>
@@ -164,7 +186,7 @@
         <div class="welcome-step__body">
           <h3 class="welcome-step__title">Log a workout</h3>
           <p>
-            Open <a routerLink="/exercise">Exercise</a>, choose an exercise from the catalog (or add one under
+            Open <a routerLink="/life/exercise">Exercise</a>, choose an exercise from the catalog (or add one under
             <a routerLink="/admin">Admin</a> if you have access), and record today’s session.
           </p>
         </div>
@@ -174,7 +196,7 @@
         <div class="welcome-step__body">
           <h3 class="welcome-step__title">Shape your week</h3>
           <p>
-            In <a routerLink="/management">Management</a>, create tasks with balance categories and due dates, use the
+            In <a routerLink="/life/management">Management</a>, create tasks with balance categories and due dates, use the
             calendar to see what needs attention, and try <strong>Travel</strong> for trip planning on the map when you
             want it.
           </p>
@@ -185,13 +207,13 @@
         <div class="welcome-step__body">
           <h3 class="welcome-step__title">Optional: Finance, screeners, predicts &amp; journal</h3>
           <p>
-            Open <a routerLink="/finance">Finance</a> for banking (ledger and filters by institution or type), tax helpers,
-            and the <strong>Trading</strong> tab—try <strong>Screeners</strong> for curated Yahoo-backed lists (including a
-            NASDAQ mid-cap band) and <strong>Predicts</strong> for community sentiment (StockTwits + FinBERT) and attention
-            spikes against per-ticker baselines. Configure banking <strong>institution types</strong> under
-            <a routerLink="/admin">Admin</a> → Finance → Banking. Use <a routerLink="/journal">Journal</a> for dated entries
-            and <a routerLink="/reports">Reports</a> for rollups—including <strong>Finance → Banking</strong> summaries by
-            type.
+            Open <a routerLink="/life/money">Money</a> for banking (ledger and filters by institution or type), tax helpers,
+            and personal finance tabs. Configure banking <strong>institution types</strong> under
+            <a routerLink="/admin">Admin</a> → Finance → Banking. Use <a routerLink="/life/journal">Journal</a> for dated entries
+            and <a routerLink="/life/insights/banking">Insights</a> for rollups—including banking summaries by type.
+            @if (canAccessMarkets) {
+              Open <a routerLink="/markets/overview">Markets</a> for trading tools and analytics.
+            }
           </p>
         </div>
       </li>
@@ -207,7 +229,7 @@
       </li>
     </ol>
     <div class="welcome-footer-cta">
-      <a mat-flat-button color="primary" routerLink="/exercise">Continue to Exercise</a>
+      <a mat-flat-button color="primary" routerLink="/life/exercise">Continue to Exercise</a>
     </div>
   </section>
 </div>

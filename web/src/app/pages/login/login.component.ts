@@ -60,6 +60,7 @@ export class LoginComponent {
     this.auth
       .login(username.trim(), password)
       .pipe(
+        switchMap(() => this.auth.refreshSession().pipe(catchError(() => of(null)))),
         switchMap(() => this.meMemberApi.getOnboardingStatus()),
         switchMap((status) => {
           if (!status.onboardingCompleted && !status.credentialsStepCompleted) {
@@ -121,5 +122,5 @@ function postLoginPath(status: MeOnboardingStatusDto, redirect: string | null): 
   if (r && r !== '/login' && !r.startsWith('/login?')) {
     return r;
   }
-  return '/welcome';
+  return '/life/welcome';
 }

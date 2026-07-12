@@ -39,6 +39,7 @@ public class DevAdminBootstrap implements ApplicationRunner {
         admin.setRole(AppUserRole.ADMIN);
         admin.setMfaEnabled(false);
         admin.setActive(true);
+        admin.setMarketsEnabled(true);
         Instant now = Instant.now();
         admin.setCredentialsStepCompletedAt(now);
         // Leave onboarding_completed_at null until member profile + member-ID step (same as other accounts).
