@@ -245,6 +245,9 @@ export class ManagementComponent implements OnInit {
   writeupSearch = '';
   writeupEditingId: number | null = null;
   writeupSelectedId: number | null = null;
+  /** Read saved write-up vs compose (new/edit) with live preview. */
+  writeupViewMode: 'read' | 'compose' = 'read';
+  writeupComposerPane: 'split' | 'write' | 'preview' = 'split';
   writeupDraft = {
     topic: '',
     highlight: '',
@@ -1315,14 +1318,6 @@ export class ManagementComponent implements OnInit {
     return (this.writeupSearch || '').trim().toLowerCase();
   }
 
-  get writeupHasDocPreview(): boolean {
-    return !!(
-      (this.writeupDraft.topic || '').trim() ||
-      (this.writeupDraft.body || '').trim() ||
-      (this.writeupDraft.highlight || '').trim()
-    );
-  }
-
   get writeupFilteredEntries(): ManagementWriteupDto[] {
     const q = this.writeupSearchTrim;
     if (!q) {
@@ -1330,6 +1325,17 @@ export class ManagementComponent implements OnInit {
     }
     const tokens = q.split(/\s+/).filter(Boolean);
     return this.writeupsRaw.filter((w) => this.writeupMatchesSearchTokens(w, tokens));
+  }
+
+  get selectedWriteup(): ManagementWriteupDto | null {
+    if (this.writeupSelectedId == null) {
+      return null;
+    }
+    return this.writeupsRaw.find((w) => w.id === this.writeupSelectedId) ?? null;
+  }
+
+  get writeupPeriodLabel(): string {
+    return `${this.writeupYear}`;
   }
 
   /** Each token must appear in at least one of topic, highlight, body, or attachment filenames (same idea as banking txn filter). */
@@ -1348,12 +1354,20 @@ export class ManagementComponent implements OnInit {
     this.api.listWriteups(this.writeupYear).subscribe({
       next: (rows) => {
         this.writeupsRaw = rows;
-        if (this.writeupEditingId != null) {
+        if (this.writeupViewMode === 'compose' && this.writeupEditingId != null) {
           const found = rows.find((r) => r.id === this.writeupEditingId);
           if (!found) {
             this.resetWriteupForm();
           } else {
             this.writeupSelectedAttachments = [...(found.attachments ?? [])];
+          }
+        } else {
+          this.syncWriteupSelectionAfterLoad();
+          if (this.writeupSelectedId != null) {
+            const found = rows.find((r) => r.id === this.writeupSelectedId);
+            if (found) {
+              this.writeupSelectedAttachments = [...(found.attachments ?? [])];
+            }
           }
         }
       },
@@ -1361,19 +1375,63 @@ export class ManagementComponent implements OnInit {
     });
   }
 
+  private syncWriteupSelectionAfterLoad(): void {
+    if (this.writeupViewMode === 'compose') {
+      return;
+    }
+    if (
+      this.writeupSelectedId != null &&
+      this.writeupFilteredEntries.some((w) => w.id === this.writeupSelectedId)
+    ) {
+      return;
+    }
+    this.writeupSelectedId = this.writeupFilteredEntries[0]?.id ?? null;
+  }
+
   prevWriteupYear(): void {
     this.writeupYear -= 1;
+    this.writeupViewMode = 'read';
+    this.writeupEditingId = null;
+    this.writeupSelectedId = null;
     this.loadWriteups();
   }
 
   nextWriteupYear(): void {
     this.writeupYear += 1;
+    this.writeupViewMode = 'read';
+    this.writeupEditingId = null;
+    this.writeupSelectedId = null;
     this.loadWriteups();
+  }
+
+  startNewWriteup(): void {
+    this.writeupEditingId = null;
+    this.writeupSelectedId = null;
+    this.writeupViewMode = 'compose';
+    this.writeupComposerPane = 'split';
+    this.writeupSelectedAttachments = [];
+    this.writeupDraft = {
+      topic: '',
+      highlight: '',
+      body: '',
+    };
   }
 
   selectWriteup(w: ManagementWriteupDto): void {
     this.writeupSelectedId = w.id;
+    this.writeupViewMode = 'read';
+    this.writeupEditingId = null;
+    this.writeupSelectedAttachments = [...(w.attachments ?? [])];
+  }
+
+  startEditWriteup(): void {
+    const w = this.selectedWriteup;
+    if (!w) {
+      return;
+    }
     this.writeupEditingId = w.id;
+    this.writeupViewMode = 'compose';
+    this.writeupComposerPane = 'split';
     this.writeupSelectedAttachments = [...(w.attachments ?? [])];
     this.writeupDraft = {
       topic: w.topic ?? '',
@@ -1382,9 +1440,27 @@ export class ManagementComponent implements OnInit {
     };
   }
 
+  cancelWriteupCompose(): void {
+    if (this.writeupEditingId != null && this.writeupsRaw.some((w) => w.id === this.writeupEditingId)) {
+      this.writeupSelectedId = this.writeupEditingId;
+      this.writeupViewMode = 'read';
+      this.writeupEditingId = null;
+      const found = this.writeupsRaw.find((w) => w.id === this.writeupSelectedId);
+      this.writeupSelectedAttachments = [...(found?.attachments ?? [])];
+      return;
+    }
+    this.resetWriteupForm();
+  }
+
+  setWriteupComposerPane(pane: 'split' | 'write' | 'preview'): void {
+    this.writeupComposerPane = pane;
+  }
+
   resetWriteupForm(): void {
     this.writeupEditingId = null;
     this.writeupSelectedId = null;
+    this.writeupViewMode = 'read';
+    this.writeupComposerPane = 'split';
     this.writeupSelectedAttachments = [];
     this.writeupUploading = false;
     this.writeupDraft = {
@@ -1392,6 +1468,7 @@ export class ManagementComponent implements OnInit {
       highlight: '',
       body: '',
     };
+    this.syncWriteupSelectionAfterLoad();
   }
 
   writeupAttachmentCountLabel(w: ManagementWriteupDto): string {
@@ -1480,7 +1557,8 @@ export class ManagementComponent implements OnInit {
           this.writeupSaving = false;
           this.snackBar.open('Write-up saved', undefined, { duration: 2000 });
           this.writeupSelectedId = row.id;
-          this.writeupEditingId = row.id;
+          this.writeupEditingId = null;
+          this.writeupViewMode = 'read';
           this.loadWriteups();
         },
         error: (e) => {
@@ -1494,7 +1572,8 @@ export class ManagementComponent implements OnInit {
           this.writeupSaving = false;
           this.snackBar.open('Write-up created', undefined, { duration: 2000 });
           this.writeupSelectedId = row.id;
-          this.writeupEditingId = row.id;
+          this.writeupEditingId = null;
+          this.writeupViewMode = 'read';
           this.loadWriteups();
         },
         error: (e) => {
@@ -1506,13 +1585,13 @@ export class ManagementComponent implements OnInit {
   }
 
   deleteWriteup(): void {
-    if (this.writeupEditingId == null) {
+    const id = this.writeupEditingId ?? this.writeupSelectedId;
+    if (id == null) {
       return;
     }
     if (typeof window !== 'undefined' && !window.confirm('Delete this write-up permanently?')) {
       return;
     }
-    const id = this.writeupEditingId;
     this.api.deleteWriteup(id).subscribe({
       next: () => {
         this.snackBar.open('Write-up removed', undefined, { duration: 2000 });

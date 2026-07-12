@@ -660,38 +660,263 @@ app-management .wu-count-hint .wu-count-total {
   color: var(--app-text, #0f172a);
 }
 
-app-management .wu-search-field {
-  width: 100%;
-  margin-bottom: 0.25rem;
+app-management .wu-intro {
+  margin-bottom: 0.75rem;
+  max-width: 52rem;
+  line-height: 1.5;
 }
 
-app-management .wu-layout {
+app-management .wu-search-field {
+  width: 100%;
+}
+
+app-management .wu-workspace {
   display: grid;
-  gap: 1.25rem;
+  gap: 1rem;
   grid-template-columns: 1fr;
   align-items: start;
 }
 
-@media (min-width: 1100px) {
-  app-management .wu-layout {
-    grid-template-columns: minmax(0, 1fr) minmax(14rem, 20rem);
+@media (min-width: 960px) {
+  app-management .wu-workspace {
+    grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
   }
 }
 
-app-management .wu-composer-card {
-  border: 1px solid rgba(14, 165, 233, 0.22) !important;
-  background: linear-gradient(180deg, #fff 0%, rgba(240, 249, 255, 0.75) 100%) !important;
+app-management .wu-index {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.85rem;
+  border-radius: var(--app-radius, 12px);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  background: linear-gradient(180deg, #fff 0%, rgba(255, 251, 235, 0.65) 100%);
 }
 
-app-management .wu-preview-card {
-  margin-top: 1rem;
-  border: 1px solid rgba(15, 23, 42, 0.1) !important;
-  background: var(--app-surface, #fff) !important;
+app-management .wu-index-empty {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
 }
 
-app-management .wu-index-card {
-  border: 1px solid rgba(245, 158, 11, 0.25) !important;
-  background: linear-gradient(180deg, #fff 0%, rgba(255, 251, 235, 0.65) 100%) !important;
+app-management .wu-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+app-management .wu-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+app-management .wu-toolbar-primary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+app-management .wu-toolbar-meta {
+  font-size: 0.88rem;
+}
+
+app-management .wu-compose,
+app-management .wu-read {
+  border-radius: var(--app-radius, 12px);
+  border: 1px solid rgba(14, 165, 233, 0.22);
+  background: linear-gradient(180deg, #fff 0%, rgba(240, 249, 255, 0.75) 100%);
+  box-shadow: var(--app-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.05));
+}
+
+app-management .wu-compose {
+  padding: 1rem 1.1rem 1.1rem;
+}
+
+app-management .wu-pane-toggle {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.65rem 0;
+}
+
+app-management .wu-pane-toggle button {
+  min-width: auto;
+}
+
+app-management .wu-pane-toggle .wu-pane-toggle--active {
+  background: rgba(37, 99, 235, 0.1);
+  border-color: rgba(37, 99, 235, 0.35);
+  color: var(--app-accent, #2563eb);
+}
+
+app-management .wu-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.85rem;
+  min-height: min(62vh, 36rem);
+}
+
+@media (min-width: 960px) {
+  app-management .wu-split {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  app-management .wu-split.wu-split--write,
+  app-management .wu-split.wu-split--preview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+app-management .wu-split.wu-split--write .wu-preview-pane {
+  display: none;
+}
+
+app-management .wu-split.wu-split--preview .wu-editor-pane {
+  display: none;
+}
+
+app-management .wu-editor-pane,
+app-management .wu-preview-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: min(58vh, 34rem);
+  border-radius: var(--app-radius-sm, 10px);
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+  overflow: hidden;
+  background: var(--app-surface, #fff);
+}
+
+app-management .wu-pane-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.65rem;
+  padding: 0.55rem 0.85rem;
+  border-bottom: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+  background: var(--app-surface-muted, #f8fafc);
+  flex-shrink: 0;
+}
+
+app-management .wu-pane-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--app-text-muted, #64748b);
+}
+
+app-management .wu-pane-hint {
+  font-size: 0.78rem;
+}
+
+app-management .wu-editor-input {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  padding: 0.85rem 1rem;
+  border: none;
+  resize: vertical;
+  line-height: 1.55;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 0.92rem;
+  color: var(--app-text, #0f172a);
+  background: var(--app-surface, #fff);
+}
+
+app-management .wu-editor-input:focus {
+  outline: none;
+}
+
+app-management .wu-preview-body {
+  flex: 1;
+  overflow: auto;
+  padding: 0.85rem 1rem;
+  min-height: 0;
+}
+
+app-management .wu-preview-empty {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+app-management .wu-compose-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+}
+
+app-management .wu-read {
+  padding: 1.1rem 1.25rem 1.25rem;
+  background: var(--app-surface, #fff);
+}
+
+app-management .wu-read-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+}
+
+app-management .wu-read-subject {
+  margin: 0 0 0.25rem;
+  font-size: clamp(1.15rem, 2vw, 1.45rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0c4a6e;
+  line-height: 1.25;
+  font-family: var(--app-font-display, 'Plus Jakarta Sans', sans-serif);
+}
+
+app-management .wu-read-meta {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+app-management .wu-read-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+app-management .wu-read-body {
+  max-width: none;
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+app-management .wu-read-body--empty {
+  margin: 0;
+}
+
+app-management .wu-read-attach {
+  margin-top: 1.25rem;
+  padding-top: 0.85rem;
+  border-top: 1px dashed var(--app-border, rgba(15, 23, 42, 0.12));
+}
+
+app-management .wu-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 2rem 1rem;
+  border-radius: var(--app-radius, 12px);
+  border: 1px dashed var(--app-border, rgba(15, 23, 42, 0.15));
+  background: var(--app-surface-muted, #f8fafc);
+}
+
+app-management .wu-empty p {
+  margin: 0;
 }
 
 app-management .wu-topic-field .mat-mdc-input-element {
@@ -701,7 +926,7 @@ app-management .wu-topic-field .mat-mdc-input-element {
 }
 
 app-management .wu-highlight-field textarea.mat-mdc-input-element {
-  min-height: 5.5rem;
+  min-height: 4.5rem;
   resize: vertical;
   line-height: 1.45;
 }
@@ -732,30 +957,6 @@ app-management .wu-highlight-banner-inner {
 app-management .wu-highlight-banner-inner--empty {
   font-weight: 500;
   color: var(--app-text-muted, #94a3b8);
-}
-
-app-management .wu-body-field textarea.mat-mdc-input-element {
-  min-height: 22rem;
-  resize: vertical;
-  line-height: 1.5;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-  font-size: 0.9rem;
-}
-
-app-management .wu-read-topic {
-  margin: 0 0 0.5rem;
-  font-size: 1.35rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1.25;
-  color: #0c4a6e;
-  font-family: var(--app-font-display, 'Plus Jakarta Sans', sans-serif);
-}
-
-app-management .wu-read-body {
-  margin-top: 0.5rem;
-  font-size: 0.95rem;
-  line-height: 1.55;
 }
 
 app-management .wu-pick-list {
@@ -818,18 +1019,10 @@ app-management .wu-pick-meta {
   color: var(--app-text-muted, #64748b);
 }
 
-app-management .wu-form-actions {
-  margin-top: 0.25rem;
-}
-
 app-management .wu-attach-hint {
-  margin: 0.75rem 0 0.35rem;
+  margin: 0 0 0.35rem;
   font-size: 0.86rem;
   line-height: 1.45;
-}
-
-app-management .wu-attach-row {
-  margin: 0.15rem 0 0.35rem;
 }
 
 app-management .wu-file-label {
@@ -877,15 +1070,6 @@ app-management .wu-att-link {
   cursor: pointer;
   font: inherit;
   font-weight: 500;
-}
-
-app-management .wu-attach-read-title {
-  margin: 1rem 0 0.35rem;
-  font-size: 0.82rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--app-text-muted, #64748b);
 }
 
 app-management .wu-pick-files {
