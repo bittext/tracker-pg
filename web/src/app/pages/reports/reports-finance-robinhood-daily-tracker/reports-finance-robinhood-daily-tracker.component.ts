@@ -847,6 +847,32 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     return 'Selected months combined total';
   }
 
+  /** Latest scheduled combined total in the loaded period (matches top day row). */
+  periodCombinedTotal(): number {
+    const t = this.tracker;
+    if (!t) {
+      return 0;
+    }
+    const scheduled = this.scheduledDaysNewestFirst(t.days);
+    if (scheduled.length) {
+      return scheduled[0].combinedTotal;
+    }
+    return t.monthCombinedTotal ?? 0;
+  }
+
+  /** Combined change from first to last scheduled day in the loaded period. */
+  periodCombinedChange(): number {
+    const t = this.tracker;
+    if (!t) {
+      return 0;
+    }
+    const scheduled = this.scheduledDaysNewestFirst(t.days);
+    if (scheduled.length >= 2) {
+      return scheduled[0].combinedTotal - scheduled[scheduled.length - 1].combinedTotal;
+    }
+    return t.monthCombinedChange ?? 0;
+  }
+
   periodChangeHint(): string {
     const months = this.tracker?.months ?? this.normalizedReportMonths();
     if (!months.length) {
@@ -860,6 +886,10 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
 
   private normalizedReportMonths(): number[] {
     return [...this.reportMonths].sort((a, b) => a - b);
+  }
+
+  private scheduledDaysNewestFirst(days: RobinhoodRhDailyTrackerDayDto[]): RobinhoodRhDailyTrackerDayDto[] {
+    return days.filter((day) => day.hasScheduledSnapshot);
   }
 
   private expansionStorageKey(): string {

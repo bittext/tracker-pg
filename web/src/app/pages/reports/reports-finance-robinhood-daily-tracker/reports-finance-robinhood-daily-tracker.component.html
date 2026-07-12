@@ -174,7 +174,7 @@
   <div class="rh-daily__toolbar">
     <mat-form-field appearance="outline" class="rh-daily__field">
       <mat-label>Year</mat-label>
-      <mat-select [(ngModel)]="reportYear" name="rhDailyYear" (selectionChange)="load()">
+      <mat-select [(ngModel)]="reportYear" name="rhDailyYear" (ngModelChange)="load()">
         @for (y of yearChoices(); track y) {
           <mat-option [value]="y">{{ y }}</mat-option>
         }
@@ -186,7 +186,7 @@
         multiple
         [(ngModel)]="reportMonths"
         name="rhDailyMonths"
-        (selectionChange)="onMonthsChange()"
+        (ngModelChange)="onMonthsChange()"
         [placeholder]="monthsFilterLabel()"
       >
         @for (m of monthChoices; track m.value) {
@@ -386,12 +386,12 @@
     <div class="rh-daily__running" role="region" aria-label="Running totals">
       <div class="rh-daily__kpi">
         <span class="rh-daily__kpi-label">{{ periodKpiLabel() }}</span>
-        <strong>{{ t.monthCombinedTotal | currency }}</strong>
-        <span class="rh-daily__kpi-sub" [class]="pnlClass(t.monthCombinedChange)">
-          @if (t.monthCombinedChange !== 0) {
-            <mat-icon class="rh-daily__trend-icon" aria-hidden="true">{{ trendIcon(t.monthCombinedChange) }}</mat-icon>
-            {{ t.monthCombinedChange | currency }}
-            @if (deltaPercentForCurrent(t.monthCombinedTotal, t.monthCombinedChange); as cpct) {
+        <strong>{{ periodCombinedTotal() | currency }}</strong>
+        <span class="rh-daily__kpi-sub" [class]="pnlClass(periodCombinedChange())">
+          @if (periodCombinedChange() !== 0) {
+            <mat-icon class="rh-daily__trend-icon" aria-hidden="true">{{ trendIcon(periodCombinedChange()) }}</mat-icon>
+            {{ periodCombinedChange() | currency }}
+            @if (deltaPercentForCurrent(periodCombinedTotal(), periodCombinedChange()); as cpct) {
               <span class="rh-daily__delta-pct">&nbsp;({{ cpct | number: '1.2-2' }}%)</span>
             }
           } @else {
