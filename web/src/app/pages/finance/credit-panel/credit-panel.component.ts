@@ -10,7 +10,9 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatTabsModule } from '@angular/material/tabs';
-import { forkJoin } from 'rxjs';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import { forkJoin, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import {
   FinanceCreditCardBankingInstitutionOptionDto,
   FinanceCreditCardDto,
@@ -27,6 +29,16 @@ import { FinanceAgenticBankingApiService } from '../../../services/finance-agent
 import { formatHttpErrorDetail } from '../../../util/http-error';
 import { FinanceEntryDocumentsComponent } from '../finance-entry-documents/finance-entry-documents.component';
 
+export interface CreditStatementWithCard extends FinanceCreditCardStatementDto {
+  card: FinanceCreditCardDto;
+}
+
+export interface CreditStatementGroupSection {
+  key: string;
+  label: string;
+  rows: CreditStatementWithCard[];
+}
+
 @Component({
   selector: 'app-credit-panel',
   standalone: true,
@@ -42,6 +54,7 @@ import { FinanceEntryDocumentsComponent } from '../finance-entry-documents/finan
     MatIconModule,
     MatSnackBarModule,
     MatTableModule,
+    MatButtonToggleModule,
     FinanceEntryDocumentsComponent,
   ],
   templateUrl: './credit-panel.component.html',
@@ -67,6 +80,12 @@ export class CreditPanelComponent implements OnInit {
   statementsCardId: number | null = null;
   statements: FinanceCreditCardStatementDto[] = [];
   statementsLoading = false;
+  statementsAllLoading = false;
+  allStatements: CreditStatementWithCard[] = [];
+  statementsViewMode: 'card' | 'grouped' = 'grouped';
+  statementsPeriodMode: 'month' | 'year' = 'month';
+  statementsYear = new Date().getFullYear();
+  statementsMonth = new Date().getMonth() + 1;
   statementSaving = false;
   editingStatementId: number | null = null;
   statementForm: FinanceCreditCardStatementRequestDto = this.emptyStatementForm();
@@ -105,6 +124,15 @@ export class CreditPanelComponent implements OnInit {
     'actions',
   ] as const;
 
+  readonly groupedStatementColumns = [
+    'card',
+    'statementDate',
+    'statementBalance',
+    'minimumPayment',
+    'paymentDueDate',
+    'actions',
+  ] as const;
+
   ngOnInit(): void {
     this.refresh();
     this.refreshAgentic();
@@ -115,6 +143,56 @@ export class CreditPanelComponent implements OnInit {
       return null;
     }
     return this.cards.find((c) => c.id === this.statementsCardId) ?? null;
+  }
+
+  get statementsPeriodLabel(): string {
+    if (this.statementsPeriodMode === 'month') {
+      return new Date(this.statementsYear, this.statementsMonth - 1, 1).toLocaleDateString(undefined, {
+        month: 'long',
+        year: 'numeric',
+      });
+    }
+    return String(this.statementsYear);
+  }
+
+  get cardModeStatements(): FinanceCreditCardStatementDto[] {
+    return this.statements.filter((s) => this.statementMatchesPeriod(s.statementDate));
+  }
+
+  get groupedStatementSections(): CreditStatementGroupSection[] {
+    const rows = this.allStatements.filter((s) => this.statementMatchesPeriod(s.statementDate));
+    if (!rows.length) {
+      return [];
+    }
+    if (this.statementsPeriodMode === 'month') {
+      return [
+        {
+          key: `${this.statementsYear}-${String(this.statementsMonth).padStart(2, '0')}`,
+          label: this.statementsPeriodLabel,
+          rows: this.sortStatementsWithCard(rows),
+        },
+      ];
+    }
+    const byMonth = new Map<number, CreditStatementWithCard[]>();
+    for (const row of rows) {
+      const month = this.parseStatementMonth(row.statementDate);
+      if (month == null) {
+        continue;
+      }
+      const bucket = byMonth.get(month) ?? [];
+      bucket.push(row);
+      byMonth.set(month, bucket);
+    }
+    return [...byMonth.entries()]
+      .sort(([a], [b]) => b - a)
+      .map(([month, sectionRows]) => ({
+        key: `${this.statementsYear}-${String(month).padStart(2, '0')}`,
+        label: new Date(this.statementsYear, month - 1, 1).toLocaleDateString(undefined, {
+          month: 'long',
+          year: 'numeric',
+        }),
+        rows: this.sortStatementsWithCard(sectionRows),
+      }));
   }
 
   refresh(): void {
@@ -131,10 +209,15 @@ export class CreditPanelComponent implements OnInit {
         this.loading = false;
         this.loadLedgerSpending(cards);
         if (this.statementsCardId != null && !cards.some((c) => c.id === this.statementsCardId)) {
-          this.statementsCardId = null;
+          this.statementsCardId = cards[0]?.id ?? null;
           this.statements = [];
-        } else if (this.statementsCardId != null) {
-          this.loadStatements(this.statementsCardId);
+        }
+        if (this.creditSubTabIndex === 1) {
+          this.ensureStatementsCardSelected();
+          if (this.statementsCardId != null) {
+            this.loadStatements(this.statementsCardId);
+          }
+          this.loadAllStatements();
         }
       },
       error: (e) => {
@@ -243,12 +326,61 @@ export class CreditPanelComponent implements OnInit {
     });
   }
 
+  onCreditSubTabChange(index: number): void {
+    if (index !== 1) {
+      return;
+    }
+    this.ensureStatementsCardSelected();
+    if (this.statementsCardId != null) {
+      this.loadStatements(this.statementsCardId);
+    }
+    this.loadAllStatements();
+  }
+
   openStatements(row: FinanceCreditCardDto): void {
+    this.statementsViewMode = 'card';
+    this.selectStatementsCard(row);
+    this.creditSubTabIndex = 1;
+  }
+
+  selectStatementsCard(row: FinanceCreditCardDto): void {
     this.statementsCardId = row.id;
     this.editingStatementId = null;
     this.statementForm = this.emptyStatementForm();
-    this.creditSubTabIndex = 1;
     this.loadStatements(row.id);
+  }
+
+  setStatementsViewMode(mode: 'card' | 'grouped'): void {
+    this.statementsViewMode = mode;
+    if (mode === 'grouped') {
+      this.loadAllStatements();
+    }
+  }
+
+  prevStatementsPeriod(): void {
+    if (this.statementsPeriodMode === 'month') {
+      if (this.statementsMonth === 1) {
+        this.statementsMonth = 12;
+        this.statementsYear -= 1;
+      } else {
+        this.statementsMonth -= 1;
+      }
+      return;
+    }
+    this.statementsYear -= 1;
+  }
+
+  nextStatementsPeriod(): void {
+    if (this.statementsPeriodMode === 'month') {
+      if (this.statementsMonth === 12) {
+        this.statementsMonth = 1;
+        this.statementsYear += 1;
+      } else {
+        this.statementsMonth += 1;
+      }
+      return;
+    }
+    this.statementsYear += 1;
   }
 
   loadStatements(cardId: number): void {
@@ -260,6 +392,31 @@ export class CreditPanelComponent implements OnInit {
       },
       error: (e) => {
         this.statementsLoading = false;
+        this.snackBar.open(`Could not load statements — ${formatHttpErrorDetail(e)}`, undefined, { duration: 8000 });
+      },
+    });
+  }
+
+  loadAllStatements(): void {
+    if (!this.cards.length) {
+      this.allStatements = [];
+      return;
+    }
+    this.statementsAllLoading = true;
+    forkJoin(
+      this.cards.map((card) =>
+        this.api.listStatements(card.id).pipe(
+          map((rows) => rows.map((row) => ({ ...row, card }))),
+          catchError(() => of([] as CreditStatementWithCard[])),
+        ),
+      ),
+    ).subscribe({
+      next: (results) => {
+        this.allStatements = this.sortStatementsWithCard(results.flat());
+        this.statementsAllLoading = false;
+      },
+      error: (e) => {
+        this.statementsAllLoading = false;
         this.snackBar.open(`Could not load statements — ${formatHttpErrorDetail(e)}`, undefined, { duration: 8000 });
       },
     });
@@ -313,6 +470,7 @@ export class CreditPanelComponent implements OnInit {
         this.editingStatementId = null;
         this.statementForm = this.emptyStatementForm();
         this.loadStatements(this.statementsCardId!);
+        this.loadAllStatements();
         this.refresh();
       },
       error: (e) => {
@@ -322,20 +480,30 @@ export class CreditPanelComponent implements OnInit {
     });
   }
 
-  deleteStatement(row: FinanceCreditCardStatementDto): void {
-    if (!this.statementsCardId) {
+  startEditStatementFromGrouped(row: CreditStatementWithCard): void {
+    this.statementsViewMode = 'card';
+    this.selectStatementsCard(row.card);
+    this.startEditStatement(row);
+  }
+
+  deleteStatement(row: FinanceCreditCardStatementDto, cardId?: number): void {
+    const targetCardId = cardId ?? this.statementsCardId;
+    if (targetCardId == null) {
       return;
     }
     if (!window.confirm(`Delete statement dated ${this.formatDate(row.statementDate)}?`)) {
       return;
     }
-    this.api.deleteStatement(this.statementsCardId, row.id).subscribe({
+    this.api.deleteStatement(targetCardId, row.id).subscribe({
       next: () => {
         if (this.editingStatementId === row.id) {
           this.cancelStatementEdit();
         }
         this.snackBar.open('Statement deleted', undefined, { duration: 4500 });
-        this.loadStatements(this.statementsCardId!);
+        if (this.statementsCardId === targetCardId) {
+          this.loadStatements(targetCardId);
+        }
+        this.loadAllStatements();
       },
       error: (e) => {
         this.snackBar.open(`Delete failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 8000 });
@@ -526,6 +694,46 @@ export class CreditPanelComponent implements OnInit {
       error: () => {
         this.ledgerSpendingByInstitution = new Map();
       },
+    });
+  }
+
+  private ensureStatementsCardSelected(): void {
+    if (this.statementsCardId != null && this.cards.some((c) => c.id === this.statementsCardId)) {
+      return;
+    }
+    this.statementsCardId = this.cards[0]?.id ?? null;
+  }
+
+  private statementMatchesPeriod(date: string | null | undefined): boolean {
+    if (!date) {
+      return false;
+    }
+    const [year, month] = date.split('-').map(Number);
+    if (year !== this.statementsYear) {
+      return false;
+    }
+    if (this.statementsPeriodMode === 'year') {
+      return true;
+    }
+    return month === this.statementsMonth;
+  }
+
+  private parseStatementMonth(date: string): number | null {
+    const parts = date.split('-');
+    if (parts.length < 2) {
+      return null;
+    }
+    const month = Number(parts[1]);
+    return Number.isFinite(month) ? month : null;
+  }
+
+  private sortStatementsWithCard(rows: CreditStatementWithCard[]): CreditStatementWithCard[] {
+    return [...rows].sort((a, b) => {
+      const byDate = b.statementDate.localeCompare(a.statementDate);
+      if (byDate !== 0) {
+        return byDate;
+      }
+      return this.cardLabel(a.card).localeCompare(this.cardLabel(b.card));
     });
   }
 
