@@ -4,6 +4,8 @@ import com.svp.tracker.config.FinanceProperties;
 import com.svp.tracker.finance.dto.BreakoutCandidatesDto;
 import com.svp.tracker.finance.dto.FinanceCrawlSnapshotDto;
 import com.svp.tracker.finance.dto.MarketOverviewDto;
+import com.svp.tracker.finance.dto.OptionsBacktestRequestDto;
+import com.svp.tracker.finance.dto.OptionsBacktestResultDto;
 import com.svp.tracker.finance.dto.RobinhoodCsvDirectoryImportDto;
 import com.svp.tracker.finance.dto.RobinhoodCsvImportResultDto;
 import com.svp.tracker.finance.dto.RobinhoodCsvSavedImportDto;
@@ -23,6 +25,7 @@ import com.svp.tracker.finance.dto.Surge52WeekHighsDto;
 import com.svp.tracker.finance.service.BreakoutScanService;
 import com.svp.tracker.finance.service.FinanceCrawlService;
 import com.svp.tracker.finance.service.MarketOverviewService;
+import com.svp.tracker.finance.service.OptionsBacktestService;
 import com.svp.tracker.finance.dto.RobinhoodRhAccountsTrackDto;
 import com.svp.tracker.finance.service.RobinhoodAccountTrackerService;
 import com.svp.tracker.finance.service.RobinhoodRhAccountsTrackService;
@@ -89,6 +92,7 @@ public class FinanceController {
     private final RobinhoodRhDailyTrackerAlertService rhDailyTrackerAlertService;
     private final RhDailyTrackerAiInsightService rhDailyTrackerAiInsightService;
     private final FinanceProperties financeProperties;
+    private final OptionsBacktestService optionsBacktestService;
 
     /**
      * Rows from the configured table, optional {@code year} / {@code month} filter on {@code
@@ -543,6 +547,26 @@ public class FinanceController {
         } catch (Exception e) {
             log.warn("market-overview failed", e);
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Could not load market overview", e);
+        }
+    }
+
+    /**
+     * Markets Workspace → Backtest: cash-secured put / covered-call wheel on Yahoo underlying history.
+     * Premiums are Black–Scholes proxies (realized vol as IV) — not live option chains. Not investment advice.
+     */
+    @PostMapping("/options-backtest")
+    public OptionsBacktestResultDto optionsBacktest(@RequestBody(required = false) OptionsBacktestRequestDto body) {
+        String symbol = body == null ? null : body.symbol();
+        log.info("POST /api/markets/options-backtest symbol={}", symbol);
+        try {
+            return optionsBacktestService.run(body == null ? new OptionsBacktestRequestDto(null, null, null, null, null, null, null) : body);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
+        } catch (IllegalStateException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, e.getMessage(), e);
+        } catch (Exception e) {
+            log.warn("options-backtest failed for {}", symbol, e);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Options backtest failed", e);
         }
     }
 

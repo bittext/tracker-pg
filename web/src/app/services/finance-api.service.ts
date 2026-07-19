@@ -48,6 +48,8 @@ import {
   StockNewsDto,
   Surge52WeekHighsDto,
   BreakoutCandidatesDto,
+  OptionsBacktestRequestDto,
+  OptionsBacktestResultDto,
   RobinhoodCsvSavedImportDto,
   RobinhoodCsvUploadStatusDto,
   RobinhoodAgenticStatusDto,
@@ -412,6 +414,11 @@ export class FinanceApiService {
       params = params.set('limit', String(Math.floor(limit)));
     }
     return this.http.get<BreakoutCandidatesDto>(`${this.root}/breakout-candidates`, { params });
+  }
+
+  /** Markets Workspace → Backtest: options wheel simulation on Yahoo underlying history. */
+  optionsBacktest(body: OptionsBacktestRequestDto) {
+    return this.http.post<OptionsBacktestResultDto>(`${this.root}/options-backtest`, body);
   }
 
   /** Whether robinhood CSV import directory is configured (for UI uploads). */

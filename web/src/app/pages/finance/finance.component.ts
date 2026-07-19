@@ -36,6 +36,7 @@ import { PredictsPanelComponent } from './predicts-panel/predicts-panel.componen
 import { RhAccountsTrackPanelComponent } from './rh-accounts-track-panel/rh-accounts-track-panel.component';
 import { RobinhoodTradingPanelComponent } from './robinhood-trading-panel/robinhood-trading-panel.component';
 import { TradingScreenersPanelComponent } from './trading-screeners-panel/trading-screeners-panel.component';
+import { OptionsBacktestPanelComponent } from './options-backtest-panel/options-backtest-panel.component';
 import { LoansPanelComponent } from './loans-panel/loans-panel.component';
 import { InvestmentsPanelComponent } from './investments-panel/investments-panel.component';
 import { MoneyPanelComponent } from './money-panel/money-panel.component';
@@ -76,6 +77,7 @@ type FinanceCategory =
     RobinhoodTradingPanelComponent,
     RhAccountsTrackPanelComponent,
     TradingScreenersPanelComponent,
+    OptionsBacktestPanelComponent,
     LoansPanelComponent,
     InvestmentsPanelComponent,
     MoneyPanelComponent,
@@ -119,7 +121,7 @@ export class FinanceComponent implements OnInit {
 
   /** Finance category tabs: 0=banking, 1=investments, 2=loans, 3=market, 4=money, 5=credit, 6=trading, 7=insurance, 8=taxes. */
   financeCategoryTabIndex = 0;
-  /** Trading tabs: 0=robinhood, 1=news, 2=crawler, 3=52w, 4=break outs, 5=alerts, 6=transactions, 7=by symbol, 8=screeners, 9=summary, 10=predicts. */
+  /** Trading tabs: 0=robinhood … 9=screeners, 10=summary, 11=predicts, 12=backtest. */
   financeSubTabIndex = 0;
 
   stockSymbols: string[] = [];
@@ -213,7 +215,7 @@ export class FinanceComponent implements OnInit {
 
   get pageLead(): string {
     if (this.isTradingWorkspace) {
-      return 'News, screeners, alerts, transactions, and Robinhood tools for Markets.';
+      return 'News, screeners, backtest, alerts, transactions, and Robinhood tools for Markets.';
     }
     if (this.isMoneyWorkspace) {
       return 'Banking, investments, loans, money, credit, insurance, and taxes — personal finance without trading tabs.';

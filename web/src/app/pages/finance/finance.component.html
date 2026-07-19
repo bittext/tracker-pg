@@ -1304,5 +1304,13 @@
         </div>
       </mat-tab>
 
+      <mat-tab label="Backtest">
+        <div class="finance-panel">
+          @if (tradingSubTabActive(12)) {
+            <app-options-backtest-panel />
+          }
+        </div>
+      </mat-tab>
+
           </mat-tab-group>
 </ng-template>

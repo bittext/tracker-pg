@@ -1016,6 +1016,54 @@ export interface BreakoutCandidateRowDto {
   externalDetailUrl: string;
 }
 
+/** POST /api/markets/options-backtest — cash-secured put / covered-call wheel. */
+export interface OptionsBacktestRequestDto {
+  symbol: string;
+  lookbackDays?: number | null;
+  startingCapital?: number | null;
+  putOtmPercent?: number | null;
+  callOtmPercent?: number | null;
+  daysToExpiration?: number | null;
+  riskFreeRate?: number | null;
+}
+
+export interface OptionsBacktestTradeDto {
+  openDate: string;
+  closeDate: string;
+  action: string;
+  optionType: string;
+  strike: number;
+  underlyingOpen: number;
+  underlyingClose: number;
+  premiumPerShare: number;
+  pnl: number;
+  outcome: string;
+  equityAfter: number;
+}
+
+export interface OptionsBacktestEquityPointDto {
+  date: string;
+  equity: number;
+}
+
+export interface OptionsBacktestResultDto {
+  strategyId: string;
+  strategyName: string;
+  symbol: string;
+  notes: string;
+  startingCapital: number;
+  endingEquity: number;
+  totalReturnPct: number;
+  maxDrawdownPct: number;
+  tradeCount: number;
+  winCount: number;
+  lossCount: number;
+  winRatePct: number;
+  totalPremiumCollected: number;
+  equityCurve: OptionsBacktestEquityPointDto[];
+  trades: OptionsBacktestTradeDto[];
+}
+
 /** GET /api/finance/robinhood/crawl-snapshot */
 export interface FinanceCrawlSnapshotDto {
   fetchedAt: string;

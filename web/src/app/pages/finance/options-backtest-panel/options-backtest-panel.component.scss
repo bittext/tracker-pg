@@ -1,0 +1,122 @@
+.oback {
+  padding: 0.25rem 0 1rem;
+}
+
+.oback__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.15rem;
+}
+
+.oback__lead {
+  margin: 0 0 1rem;
+  max-width: 52rem;
+  line-height: 1.45;
+}
+
+.oback__form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 0.75rem;
+  margin-bottom: 0.65rem;
+}
+
+.oback__field {
+  width: 9.5rem;
+}
+
+.oback__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.oback__kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+}
+
+.oback__kpi-label {
+  display: block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--app-muted, #64748b);
+  margin-bottom: 0.15rem;
+}
+
+.oback__pnl--pos {
+  color: var(--app-success, #10a37f);
+}
+
+.oback__pnl--neg {
+  color: #c0392b;
+}
+
+.oback__chart-wrap {
+  margin-bottom: 0.85rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+  border-radius: 8px;
+  background: var(--app-surface-muted, #f8fafc);
+}
+
+.oback__chart-title {
+  display: block;
+  font-size: 0.78rem;
+  margin-bottom: 0.35rem;
+}
+
+.oback__chart {
+  display: block;
+  width: 100%;
+  height: 7rem;
+}
+
+.oback__chart-line {
+  fill: none;
+  stroke: #2563eb;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.oback__notes {
+  margin: 0 0 0.85rem;
+  max-width: 52rem;
+  font-size: 0.82rem;
+}
+
+.oback__table-wrap {
+  overflow-x: auto;
+}
+
+.oback__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+
+  th,
+  td {
+    padding: 0.4rem 0.5rem;
+    border-bottom: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--app-muted, #64748b);
+  }
+}
+
+.oback__num {
+  text-align: right;
+  white-space: nowrap;
+}
