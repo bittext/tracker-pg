@@ -97,6 +97,8 @@ export interface RhDailyBenchmarkPoint {
   value: number;
   indexClose: number;
   marketDate: string;
+  launchInvestment: number;
+  launchDate: string;
   x: number;
   y: number;
 }
@@ -794,7 +796,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         ): item is {
           day: RobinhoodRhDailyTrackerDayDto;
           cell: RobinhoodRhDailyTrackerAccountCellDto;
-        } => !!item.cell,
+        } => !!item.cell && item.day.hasScheduledSnapshot,
       )
       .reverse();
     if (!raw.length) {
@@ -804,25 +806,50 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     const benchmarkByDate = new Map(
       (this.tracker?.sp500Benchmark ?? []).map((point) => [point.snapshotDate, point]),
     );
-    const initialBenchmark = benchmarkByDate.get(raw[0].day.snapshotDate);
-    const benchmarkValues = initialBenchmark
-      ? raw
-          .map(({ day }, index) => {
-            const benchmark = benchmarkByDate.get(day.snapshotDate);
-            if (!benchmark || initialBenchmark.close <= 0) {
-              return null;
-            }
-            return {
-              key: day.snapshotDate,
-              label: day.snapshotDate.slice(5),
-              value: raw[0].cell.totalAccountValue * (benchmark.close / initialBenchmark.close),
-              indexClose: benchmark.close,
-              marketDate: benchmark.marketDate,
-              index,
-            };
-          })
-          .filter((point): point is NonNullable<typeof point> => point != null)
-      : [];
+
+    // Launch day = first 9 PM snapshot that also has an S&P close. Invest 100% of that
+    // account value in the index and hold; later points = launch × (close_t / close_launch).
+    let launchIndex = -1;
+    let launchInvestment = 0;
+    let launchClose = 0;
+    let launchDate = '';
+    for (let i = 0; i < raw.length; i++) {
+      const benchmark = benchmarkByDate.get(raw[i].day.snapshotDate);
+      const accountValue = raw[i].cell.totalAccountValue;
+      if (benchmark && benchmark.close > 0 && accountValue > 0) {
+        launchIndex = i;
+        launchInvestment = accountValue;
+        launchClose = benchmark.close;
+        launchDate = raw[i].day.snapshotDate;
+        break;
+      }
+    }
+
+    const benchmarkValues =
+      launchIndex < 0
+        ? []
+        : raw
+            .map(({ day }, index) => {
+              if (index < launchIndex) {
+                return null;
+              }
+              const benchmark = benchmarkByDate.get(day.snapshotDate);
+              if (!benchmark || launchClose <= 0) {
+                return null;
+              }
+              return {
+                key: day.snapshotDate,
+                label: day.snapshotDate.slice(5),
+                value: launchInvestment * (benchmark.close / launchClose),
+                indexClose: benchmark.close,
+                marketDate: benchmark.marketDate,
+                launchInvestment,
+                launchDate,
+                index,
+              };
+            })
+            .filter((point): point is NonNullable<typeof point> => point != null);
+
     const values = [
       ...raw.map(({ cell }) => cell.totalAccountValue),
       ...benchmarkValues.map((point) => point.value),
@@ -854,6 +881,8 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         value: point.value,
         indexClose: point.indexClose,
         marketDate: point.marketDate,
+        launchInvestment: point.launchInvestment,
+        launchDate: point.launchDate,
         x: (point.index / xDenominator) * 100,
         y: 36 - ((point.value - min) / range) * 32,
       })),
@@ -875,18 +904,33 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       .join(' ');
   }
 
-  sp500BenchmarkSummary(): { latestValue: number; change: number; changePercent: number } | null {
+  sp500BenchmarkSummary(): {
+    latestValue: number;
+    change: number;
+    changePercent: number;
+    launchInvestment: number;
+    launchDate: string;
+    vsAccount: number;
+    vsAccountPercent: number | null;
+  } | null {
     const points = this.sp500BenchmarkPoints();
-    if (points.length < 2) {
+    const account = this.focusPoints();
+    if (!points.length || !account.length) {
       return null;
     }
-    const start = points[0].value;
-    const latest = points[points.length - 1].value;
-    const change = latest - start;
+    const start = points[0];
+    const latest = points[points.length - 1];
+    const change = latest.value - start.value;
+    const accountLatest = account[account.length - 1].value;
+    const vsAccount = accountLatest - latest.value;
     return {
-      latestValue: latest,
+      latestValue: latest.value,
       change,
-      changePercent: start === 0 ? 0 : (change / start) * 100,
+      changePercent: start.value === 0 ? 0 : (change / start.value) * 100,
+      launchInvestment: start.launchInvestment,
+      launchDate: start.launchDate,
+      vsAccount,
+      vsAccountPercent: latest.value === 0 ? null : (vsAccount / latest.value) * 100,
     };
   }
 
