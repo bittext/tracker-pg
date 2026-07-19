@@ -516,10 +516,16 @@
               <div>
                 <strong>9 PM account value</strong>
                 <span class="muted rh-daily__focus-chart-sub">
-                  Each point is the scheduled value of ••••{{ focusAccountSuffix }} on that date.
+                  Each point is the scheduled value of ••••{{ focusAccountSuffix }}. Click a point to inspect it.
                 </span>
               </div>
-              <span class="muted">Blue = value trend · red point = alert fired</span>
+              <div class="rh-daily__focus-chart-actions">
+                <span class="muted">Blue = value trend · red point = alert fired</span>
+                <button mat-stroked-button type="button" (click)="toggleFocusDetails()">
+                  <mat-icon>{{ focusDetailsExpanded ? 'expand_less' : 'table_rows' }}</mat-icon>
+                  {{ focusDetailsExpanded ? 'Hide breakdown' : 'View full breakdown' }}
+                </button>
+              </div>
             </div>
             <div class="rh-daily__focus-chart-stage">
               <div class="rh-daily__focus-y-labels" aria-hidden="true">
@@ -544,9 +550,16 @@
                     <circle
                       [attr.cx]="point.x"
                       [attr.cy]="point.y"
-                      [attr.r]="point.hasAlert ? 1.7 : 0.75"
+                      [attr.r]="isFocusPointSelected(point.key) ? 2.2 : point.hasAlert ? 1.7 : 1.1"
                       [class.rh-daily__focus-point--alert]="point.hasAlert"
+                      [class.rh-daily__focus-point--selected]="isFocusPointSelected(point.key)"
                       class="rh-daily__focus-point"
+                      role="button"
+                      tabindex="0"
+                      [attr.aria-label]="'Open details for ' + point.key + ', value ' + (point.value | currency)"
+                      (click)="selectFocusPoint(point.key, $event)"
+                      (keydown.enter)="selectFocusPoint(point.key, $event)"
+                      (keydown.space)="selectFocusPoint(point.key, $event)"
                     >
                       <title>
                         {{ point.key }} · value {{ point.value | currency }} · change {{ point.change | currency }}
@@ -592,19 +605,32 @@
             </div>
           </div>
 
-          <details class="rh-daily__focus-details">
-            <summary>
-              <span>Open detailed snapshot breakdown</span>
+          <section
+            id="rh-daily-focus-details"
+            class="rh-daily__focus-details"
+            [class.rh-daily__focus-details--open]="focusDetailsExpanded"
+            aria-labelledby="rh-daily-focus-details-title"
+          >
+            <button
+              type="button"
+              class="rh-daily__focus-details-toggle"
+              (click)="toggleFocusDetails()"
+              [attr.aria-expanded]="focusDetailsExpanded"
+            >
+              <mat-icon aria-hidden="true">{{ focusDetailsExpanded ? 'expand_less' : 'expand_more' }}</mat-icon>
+              <span id="rh-daily-focus-details-title">Detailed snapshot breakdown</span>
               <span class="muted">{{ focusDetailRows().length }} scheduled snapshots</span>
-            </summary>
-            <div class="rh-daily__focus-detail-body">
-              <p class="muted rh-daily__focus-detail-help">
-                <strong>Δ previous</strong> compares this 9 PM value with the previous scheduled snapshot.
-                <strong>Added/removed</strong> are cash flows. <strong>Value change</strong> is the tracker’s
-                flow-adjusted movement. Click an account value to inspect that stored snapshot.
-              </p>
-              <div class="rh-daily__focus-table-wrap">
-                <table class="rh-daily__focus-table">
+            </button>
+            @if (focusDetailsExpanded) {
+              <div class="rh-daily__focus-detail-body">
+                <p class="muted rh-daily__focus-detail-help">
+                  <strong>Δ previous</strong> compares this 9 PM value with the previous scheduled snapshot.
+                  <strong>Added/removed</strong> are cash flows. <strong>Value change</strong> is the tracker’s
+                  flow-adjusted movement. Click any account value to inspect holdings, prices, and positions in that
+                  stored snapshot.
+                </p>
+                <div class="rh-daily__focus-table-wrap">
+                  <table class="rh-daily__focus-table">
                   <thead>
                     <tr>
                       <th>Date</th>
@@ -620,7 +646,11 @@
                   </thead>
                   <tbody>
                     @for (row of focusDetailRows(); track row.day.snapshotDate) {
-                      <tr [class.rh-daily__focus-table-row--alert]="hasSpikeAlert(row.cell.spikeAlert)">
+                      <tr
+                        id="rh-daily-focus-row-{{ row.day.snapshotDate }}"
+                        [class.rh-daily__focus-table-row--alert]="hasSpikeAlert(row.cell.spikeAlert)"
+                        [class.rh-daily__focus-table-row--selected]="isFocusPointSelected(row.day.snapshotDate)"
+                      >
                         <td>{{ row.day.snapshotDate | date: 'mediumDate' }}</td>
                         <td class="rh-daily__num">
                           <button type="button" class="rh-daily__focus-value-link" (click)="openSnapshot(row.cell, row.day)">
@@ -660,10 +690,11 @@
                       </tr>
                     }
                   </tbody>
-                </table>
+                  </table>
+                </div>
               </div>
-            </div>
-          </details>
+            }
+          </section>
         </section>
       }
       <ul class="rh-daily__day-list" role="list">

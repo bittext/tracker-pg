@@ -156,6 +156,8 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   alertEvents: RhDailyTrackerAlertEventDto[] = [];
   /** Expanded recent-alert rows showing destination/detail. */
   private readonly expandedAlertEventIds = new Set<number>();
+  focusDetailsExpanded = false;
+  selectedFocusDate: string | null = null;
 
   readonly aiScopes: RhDailyTrackerAiInsightScope[] = ['YEAR', 'MONTH', 'WEEK', 'DAY'];
 
@@ -954,6 +956,43 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         cell,
         changePercent: this.deltaPercentForCurrent(cell.totalAccountValue, cell.totalChangeFromPrevious),
       }));
+  }
+
+  toggleFocusDetails(): void {
+    this.focusDetailsExpanded = !this.focusDetailsExpanded;
+    if (this.focusDetailsExpanded) {
+      this.scrollToFocusDetails();
+    }
+  }
+
+  selectFocusPoint(snapshotDate: string, event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.selectedFocusDate = snapshotDate;
+    this.focusDetailsExpanded = true;
+    this.scrollToFocusRow(snapshotDate);
+  }
+
+  isFocusPointSelected(snapshotDate: string): boolean {
+    return this.selectedFocusDate === snapshotDate;
+  }
+
+  private scrollToFocusDetails(): void {
+    setTimeout(() => {
+      document.getElementById('rh-daily-focus-details')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    });
+  }
+
+  private scrollToFocusRow(snapshotDate: string): void {
+    setTimeout(() => {
+      document.getElementById(`rh-daily-focus-row-${snapshotDate}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    });
   }
 
   focusMetrics(): RhDailyFocusMetrics | null {
