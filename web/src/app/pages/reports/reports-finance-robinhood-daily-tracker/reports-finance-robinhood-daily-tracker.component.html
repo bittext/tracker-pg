@@ -513,41 +513,157 @@
 
           <div class="rh-daily__focus-chart-wrap">
             <div class="rh-daily__focus-chart-head">
-              <span>Account value trend</span>
-              <span class="muted">Red markers = ••••{{ focusAccountSuffix }} alert</span>
+              <div>
+                <strong>9 PM account value</strong>
+                <span class="muted rh-daily__focus-chart-sub">
+                  Each point is the scheduled value of ••••{{ focusAccountSuffix }} on that date.
+                </span>
+              </div>
+              <span class="muted">Blue = value trend · red point = alert fired</span>
             </div>
-            <svg
-              class="rh-daily__focus-chart"
-              viewBox="0 0 100 40"
-              preserveAspectRatio="none"
-              role="img"
-              [attr.aria-label]="'Account value trend for ••••' + focusAccountSuffix"
-            >
-              <line x1="0" y1="36" x2="100" y2="36" class="rh-daily__focus-axis" />
-              <path [attr.d]="focusTrendPath()" class="rh-daily__focus-line" />
-              @for (point of focusPoints(); track point.key) {
-                <circle
-                  [attr.cx]="point.x"
-                  [attr.cy]="point.y"
-                  [attr.r]="point.hasAlert ? 1.7 : 0.75"
-                  [class.rh-daily__focus-point--alert]="point.hasAlert"
-                  class="rh-daily__focus-point"
-                >
-                  <title>
-                    {{ point.key }} · {{ point.value | currency }} · Δ {{ point.change | currency }}
-                    @if (point.hasAlert) { · alert fired }
-                  </title>
-                </circle>
-              }
-            </svg>
-            <div class="rh-daily__focus-labels">
-              @for (point of focusPoints(); track point.key; let i = $index) {
-                @if (i === 0 || i === focusPoints().length - 1 || point.hasAlert) {
-                  <span [style.left.%]="point.x">{{ point.label }}</span>
+            <div class="rh-daily__focus-chart-stage">
+              <div class="rh-daily__focus-y-labels" aria-hidden="true">
+                @for (tick of focusYAxisLabels(); track tick.y) {
+                  <span [style.top.%]="(tick.y / 40) * 100">{{ tick.value | currency: 'USD':'symbol':'1.0-0' }}</span>
                 }
-              }
+              </div>
+              <div class="rh-daily__focus-plot">
+                <svg
+                  class="rh-daily__focus-chart"
+                  viewBox="0 0 100 40"
+                  preserveAspectRatio="none"
+                  role="img"
+                  [attr.aria-label]="'Scheduled account value chart for ••••' + focusAccountSuffix"
+                >
+                  <line x1="0" y1="4" x2="100" y2="4" class="rh-daily__focus-grid" />
+                  <line x1="0" y1="20" x2="100" y2="20" class="rh-daily__focus-grid" />
+                  <line x1="0" y1="36" x2="100" y2="36" class="rh-daily__focus-axis" />
+                  <path [attr.d]="focusAreaPath()" class="rh-daily__focus-area" />
+                  <path [attr.d]="focusTrendPath()" class="rh-daily__focus-line" />
+                  @for (point of focusPoints(); track point.key) {
+                    <circle
+                      [attr.cx]="point.x"
+                      [attr.cy]="point.y"
+                      [attr.r]="point.hasAlert ? 1.7 : 0.75"
+                      [class.rh-daily__focus-point--alert]="point.hasAlert"
+                      class="rh-daily__focus-point"
+                    >
+                      <title>
+                        {{ point.key }} · value {{ point.value | currency }} · change {{ point.change | currency }}
+                        @if (point.changePercent != null) { ({{ point.changePercent | number: '1.2-2' }}%) }
+                        @if (point.hasAlert) { · alert fired: {{ alertTriggerLabel(point.alert.triggerReasons || '') }} }
+                      </title>
+                    </circle>
+                  }
+                </svg>
+                <div class="rh-daily__focus-labels" aria-hidden="true">
+                  @for (point of focusXAxisLabels(); track point.key) {
+                    <span [style.left.%]="point.x">{{ point.label }}</span>
+                  }
+                </div>
+              </div>
             </div>
           </div>
+
+          <div class="rh-daily__focus-explain">
+            <div>
+              <span class="rh-daily__focus-kpi-label">Period starts</span>
+              <strong>{{ metrics.startValue | currency }}</strong>
+              <p>First visible 9 PM snapshot in the selected period.</p>
+            </div>
+            <div>
+              <span class="rh-daily__focus-kpi-label">Cash added / removed</span>
+              <strong>{{ metrics.totalAdded | currency }} / {{ metrics.totalRemoved | currency }}</strong>
+              <p>Recorded account flows, separate from investment value movement.</p>
+            </div>
+            <div>
+              <span class="rh-daily__focus-kpi-label">Value movement</span>
+              <strong [class]="pnlClass(metrics.totalValueChange)">{{ metrics.totalValueChange | currency }}</strong>
+              <p>Sum of recorded value changes after the tracker’s flow calculation.</p>
+            </div>
+            <div>
+              <span class="rh-daily__focus-kpi-label">Best / worst 9 PM move</span>
+              <strong>
+                <span class="rh-daily__pnl--pos">{{ metrics.bestDay.change | currency }}</span>
+                /
+                <span class="rh-daily__pnl--neg">{{ metrics.worstDay.change | currency }}</span>
+              </strong>
+              <p>{{ metrics.bestDay.key }} / {{ metrics.worstDay.key }}</p>
+            </div>
+          </div>
+
+          <details class="rh-daily__focus-details">
+            <summary>
+              <span>Open detailed snapshot breakdown</span>
+              <span class="muted">{{ focusDetailRows().length }} scheduled snapshots</span>
+            </summary>
+            <div class="rh-daily__focus-detail-body">
+              <p class="muted rh-daily__focus-detail-help">
+                <strong>Δ previous</strong> compares this 9 PM value with the previous scheduled snapshot.
+                <strong>Added/removed</strong> are cash flows. <strong>Value change</strong> is the tracker’s
+                flow-adjusted movement. Click an account value to inspect that stored snapshot.
+              </p>
+              <div class="rh-daily__focus-table-wrap">
+                <table class="rh-daily__focus-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th class="rh-daily__num">Value</th>
+                      <th class="rh-daily__num">Δ previous</th>
+                      <th class="rh-daily__num">Δ %</th>
+                      <th class="rh-daily__num">Added</th>
+                      <th class="rh-daily__num">Removed</th>
+                      <th class="rh-daily__num">Value change</th>
+                      <th class="rh-daily__num">Trades</th>
+                      <th>Signals</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (row of focusDetailRows(); track row.day.snapshotDate) {
+                      <tr [class.rh-daily__focus-table-row--alert]="hasSpikeAlert(row.cell.spikeAlert)">
+                        <td>{{ row.day.snapshotDate | date: 'mediumDate' }}</td>
+                        <td class="rh-daily__num">
+                          <button type="button" class="rh-daily__focus-value-link" (click)="openSnapshot(row.cell, row.day)">
+                            {{ row.cell.totalAccountValue | currency }}
+                          </button>
+                        </td>
+                        <td class="rh-daily__num" [class]="pnlClass(row.cell.totalChangeFromPrevious)">
+                          {{ row.cell.totalChangeFromPrevious | currency }}
+                        </td>
+                        <td class="rh-daily__num" [class]="pnlClass(row.cell.totalChangeFromPrevious)">
+                          @if (row.changePercent != null) {
+                            {{ row.changePercent | number: '1.2-2' }}%
+                          } @else {
+                            —
+                          }
+                        </td>
+                        <td class="rh-daily__num">{{ row.cell.periodAdded | currency }}</td>
+                        <td class="rh-daily__num">{{ row.cell.periodRemoved | currency }}</td>
+                        <td class="rh-daily__num" [class]="pnlClass(row.cell.periodValueChange)">
+                          {{ row.cell.periodValueChange | currency }}
+                        </td>
+                        <td class="rh-daily__num">{{ row.cell.tradeCount }}</td>
+                        <td>
+                          @if (hasSpikeAlert(row.cell.spikeAlert)) {
+                            <span class="rh-daily__focus-signal rh-daily__focus-signal--alert" [title]="spikeAlertTitle(row.cell.spikeAlert)">
+                              <mat-icon aria-hidden="true">notifications_active</mat-icon>
+                              {{ alertTriggerLabel(row.cell.spikeAlert.triggerReasons || '') }}
+                            </span>
+                          }
+                          @if (row.cell.positionsChangedFromPrior) {
+                            <span class="rh-daily__focus-signal">positions</span>
+                          }
+                          @if (!hasSpikeAlert(row.cell.spikeAlert) && !row.cell.positionsChangedFromPrior) {
+                            <span class="muted">—</span>
+                          }
+                        </td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </details>
         </section>
       }
       <ul class="rh-daily__day-list" role="list">

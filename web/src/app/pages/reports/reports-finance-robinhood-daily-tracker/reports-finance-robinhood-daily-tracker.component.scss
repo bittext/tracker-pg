@@ -1314,8 +1314,7 @@
 }
 
 .rh-daily__focus-chart-wrap {
-  position: relative;
-  padding: 0.55rem 0.55rem 1.25rem;
+  padding: 0.65rem 0.7rem 0.55rem;
   border-radius: 9px;
   border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
   background: var(--app-surface-muted, #f8fafc);
@@ -1331,6 +1330,40 @@
   font-weight: 650;
 }
 
+.rh-daily__focus-chart-sub {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.68rem;
+  font-weight: 400;
+}
+
+.rh-daily__focus-chart-stage {
+  display: grid;
+  grid-template-columns: 5rem minmax(0, 1fr);
+  gap: 0.45rem;
+  align-items: stretch;
+}
+
+.rh-daily__focus-y-labels {
+  position: relative;
+  height: 8rem;
+
+  span {
+    position: absolute;
+    right: 0;
+    transform: translateY(-50%);
+    font-size: 0.62rem;
+    color: var(--app-text-muted, #64748b);
+    white-space: nowrap;
+  }
+}
+
+.rh-daily__focus-plot {
+  position: relative;
+  min-width: 0;
+  padding-bottom: 1rem;
+}
+
 .rh-daily__focus-chart {
   display: block;
   width: 100%;
@@ -1338,10 +1371,20 @@
   overflow: visible;
 }
 
+.rh-daily__focus-grid,
 .rh-daily__focus-axis {
   stroke: rgba(100, 116, 139, 0.25);
   stroke-width: 0.35;
   vector-effect: non-scaling-stroke;
+}
+
+.rh-daily__focus-grid {
+  stroke-dasharray: 3 3;
+}
+
+.rh-daily__focus-area {
+  fill: rgba(37, 99, 235, 0.09);
+  stroke: none;
 }
 
 .rh-daily__focus-line {
@@ -1368,9 +1411,9 @@
 
 .rh-daily__focus-labels {
   position: absolute;
-  right: 0.55rem;
-  bottom: 0.25rem;
-  left: 0.55rem;
+  right: 0;
+  bottom: 0;
+  left: 0;
   height: 0.8rem;
 
   span {
@@ -1379,6 +1422,129 @@
     font-size: 0.6rem;
     color: var(--app-text-muted, #64748b);
     white-space: nowrap;
+  }
+}
+
+.rh-daily__focus-explain {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+
+  @media (min-width: 760px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @media (min-width: 1100px) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  > div {
+    padding: 0.55rem 0.65rem;
+    border-radius: 8px;
+    border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+    background: rgba(248, 250, 252, 0.68);
+  }
+
+  strong {
+    display: block;
+    margin-top: 0.15rem;
+    font-size: 0.82rem;
+  }
+
+  p {
+    margin: 0.2rem 0 0;
+    font-size: 0.68rem;
+    line-height: 1.35;
+    color: var(--app-text-muted, #64748b);
+  }
+}
+
+.rh-daily__focus-details {
+  margin-top: 0.65rem;
+  border-radius: 9px;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+  background: var(--app-surface, #fff);
+
+  summary {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.6rem 0.7rem;
+    cursor: pointer;
+    font-size: 0.78rem;
+    font-weight: 650;
+  }
+}
+
+.rh-daily__focus-detail-body {
+  padding: 0 0.7rem 0.7rem;
+}
+
+.rh-daily__focus-detail-help {
+  margin: 0 0 0.55rem;
+  font-size: 0.72rem;
+}
+
+.rh-daily__focus-table-wrap {
+  overflow-x: auto;
+}
+
+.rh-daily__focus-table {
+  width: 100%;
+  min-width: 60rem;
+  border-collapse: collapse;
+  font-size: 0.74rem;
+
+  th,
+  td {
+    padding: 0.4rem 0.45rem;
+    border-bottom: 1px solid var(--app-border, rgba(15, 23, 42, 0.07));
+    white-space: nowrap;
+  }
+
+  th {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.035em;
+    color: var(--app-text-muted, #64748b);
+  }
+}
+
+.rh-daily__focus-table-row--alert {
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.rh-daily__focus-value-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--app-accent, #2563eb);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 650;
+}
+
+.rh-daily__focus-signal {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin-right: 0.25rem;
+  padding: 0.1rem 0.3rem;
+  border-radius: 999px;
+  color: #92400e;
+  background: rgba(245, 158, 11, 0.12);
+
+  mat-icon {
+    width: 0.75rem;
+    height: 0.75rem;
+    font-size: 0.75rem;
+  }
+
+  &--alert {
+    color: #b91c1c;
+    background: rgba(239, 68, 68, 0.12);
   }
 }
 

@@ -80,19 +80,32 @@ export interface RhDailyFocusPoint {
   label: string;
   value: number;
   change: number;
+  changePercent: number | null;
+  periodAdded: number;
+  periodRemoved: number;
+  periodValueChange: number;
+  tradeCount: number;
+  positionsChanged: boolean;
   hasAlert: boolean;
+  alert: RhDailyTrackerSnapshotAlertDto;
   x: number;
   y: number;
 }
 
 export interface RhDailyFocusMetrics {
+  startValue: number;
   latestValue: number;
   latestChange: number;
   periodChange: number;
   periodChangePercent: number | null;
+  totalAdded: number;
+  totalRemoved: number;
+  totalValueChange: number;
   high: number;
   low: number;
   alertCount: number;
+  bestDay: RhDailyFocusPoint;
+  worstDay: RhDailyFocusPoint;
 }
 
 @Component({
@@ -862,7 +875,14 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       label: day.snapshotDate.slice(5),
       value: cell.totalAccountValue,
       change: cell.totalChangeFromPrevious,
+      changePercent: this.deltaPercentForCurrent(cell.totalAccountValue, cell.totalChangeFromPrevious),
+      periodAdded: cell.periodAdded,
+      periodRemoved: cell.periodRemoved,
+      periodValueChange: cell.periodValueChange,
+      tradeCount: cell.tradeCount,
+      positionsChanged: cell.positionsChangedFromPrior,
       hasAlert: this.hasSpikeAlert(cell.spikeAlert),
+      alert: cell.spikeAlert,
       x: (index / xDenominator) * 100,
       y: 36 - ((cell.totalAccountValue - min) / range) * 32,
     }));
@@ -876,6 +896,66 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     return points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(' ');
   }
 
+  focusAreaPath(): string {
+    const points = this.focusPoints();
+    if (!points.length) {
+      return '';
+    }
+    const line = this.focusTrendPath();
+    const first = points[0];
+    const last = points[points.length - 1];
+    return `${line} L ${last.x.toFixed(2)} 36 L ${first.x.toFixed(2)} 36 Z`;
+  }
+
+  focusYAxisLabels(): Array<{ y: number; value: number }> {
+    const points = this.focusPoints();
+    if (!points.length) {
+      return [];
+    }
+    const values = points.map((point) => point.value);
+    const high = Math.max(...values);
+    const low = Math.min(...values);
+    return [
+      { y: 4, value: high },
+      { y: 20, value: low + (high - low) / 2 },
+      { y: 36, value: low },
+    ];
+  }
+
+  focusXAxisLabels(): RhDailyFocusPoint[] {
+    const points = this.focusPoints();
+    if (points.length <= 3) {
+      return points;
+    }
+    const middle = points[Math.floor((points.length - 1) / 2)];
+    return [points[0], middle, points[points.length - 1]];
+  }
+
+  focusDetailRows(): Array<{
+    day: RobinhoodRhDailyTrackerDayDto;
+    cell: RobinhoodRhDailyTrackerAccountCellDto;
+    changePercent: number | null;
+  }> {
+    return (this.tracker?.days ?? [])
+      .map((day) => ({
+        day,
+        cell: day.accounts.find((account) => account.accountSuffix === this.focusAccountSuffix),
+      }))
+      .filter(
+        (
+          item,
+        ): item is {
+          day: RobinhoodRhDailyTrackerDayDto;
+          cell: RobinhoodRhDailyTrackerAccountCellDto;
+        } => !!item.cell,
+      )
+      .map(({ day, cell }) => ({
+        day,
+        cell,
+        changePercent: this.deltaPercentForCurrent(cell.totalAccountValue, cell.totalChangeFromPrevious),
+      }));
+  }
+
   focusMetrics(): RhDailyFocusMetrics | null {
     const points = this.focusPoints();
     if (!points.length) {
@@ -884,14 +964,21 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     const first = points[0];
     const latest = points[points.length - 1];
     const periodChange = latest.value - first.value;
+    const byChange = [...points].sort((a, b) => b.change - a.change);
     return {
+      startValue: first.value,
       latestValue: latest.value,
       latestChange: latest.change,
       periodChange,
       periodChangePercent: first.value === 0 ? null : (periodChange / first.value) * 100,
+      totalAdded: points.reduce((total, point) => total + point.periodAdded, 0),
+      totalRemoved: points.reduce((total, point) => total + point.periodRemoved, 0),
+      totalValueChange: points.reduce((total, point) => total + point.periodValueChange, 0),
       high: Math.max(...points.map((point) => point.value)),
       low: Math.min(...points.map((point) => point.value)),
       alertCount: (this.tracker?.days ?? []).reduce((count, day) => count + this.daySpikeAlertCount(day), 0),
+      bestDay: byChange[0],
+      worstDay: byChange[byChange.length - 1],
     };
   }
 
