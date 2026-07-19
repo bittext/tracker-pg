@@ -75,6 +75,26 @@ export interface RhDailyMovementBar {
   title: string;
 }
 
+export interface RhDailyFocusPoint {
+  key: string;
+  label: string;
+  value: number;
+  change: number;
+  hasAlert: boolean;
+  x: number;
+  y: number;
+}
+
+export interface RhDailyFocusMetrics {
+  latestValue: number;
+  latestChange: number;
+  periodChange: number;
+  periodChangePercent: number | null;
+  high: number;
+  low: number;
+  alertCount: number;
+}
+
 @Component({
   selector: 'app-reports-finance-robinhood-daily-tracker',
   standalone: true,
@@ -99,6 +119,7 @@ export interface RhDailyMovementBar {
   styleUrl: './reports-finance-robinhood-daily-tracker.component.scss',
 })
 export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
+  readonly focusAccountSuffix = '3370';
   private readonly financeApi = inject(FinanceApiService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
@@ -689,7 +710,8 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   }
 
   timelineRowHasSpikeAlerts(row: RhDailyCaptureTimelineRow): boolean {
-    return row.accounts.some((a) => this.hasSpikeAlert(a.spikeAlert));
+    const acct = row.accounts.find((a) => a.accountSuffix === this.focusAccountSuffix);
+    return this.hasSpikeAlert(acct?.spikeAlert);
   }
 
   hasSpikeAlert(alert: RhDailyTrackerSnapshotAlertDto | null | undefined): boolean {
@@ -704,40 +726,37 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     return this.daySpikeAlertCount(day) > 0;
   }
 
-  periodMovementBars(): RhDailyMovementBar[] {
-    const days = this.tracker?.days ?? [];
-    const candidates = days
-      .filter((d) => d.hasScheduledSnapshot && d.hasPreviousScheduledSnapshot)
-      .map((d) => ({
-        key: d.snapshotDate,
-        label: d.snapshotDate.slice(5),
-        change: d.combinedTotalChangeFromPrevious,
-        hasAlert: this.dayHasSpikeAlerts(d),
-        title: `${d.snapshotDate}: ${this.formatMoney(d.combinedTotalChangeFromPrevious)}${
-          this.dayHasSpikeAlerts(d) ? ` · ${this.daySpikeAlertCount(d)} alert(s)` : ''
-        }`,
-      }))
-      .reverse();
-    return this.toMovementBars(candidates);
-  }
-
   captureMovementBars(day: RobinhoodRhDailyTrackerDayDto): RhDailyMovementBar[] {
     const timeline = [...this.captureTimeline(day)].reverse();
     const candidates = timeline
-      .filter((row) => row.changeFromPrior != null)
       .map((row) => ({
+        row,
+        acct: row.accounts.find((a) => a.accountSuffix === this.focusAccountSuffix),
+      }))
+      .filter(
+        (
+          item,
+        ): item is {
+          row: RhDailyCaptureTimelineRow;
+          acct: RhDailyCaptureTimelineAccountCell;
+        } => !!item.acct && item.acct.changeFromPrior != null,
+      )
+      .map(({ row, acct }) => ({
         key: row.capturedAt,
         label: row.timeLabel,
-        change: row.changeFromPrior!,
-        hasAlert: this.timelineRowHasSpikeAlerts(row),
-        title: `${row.timeLabel}: ${this.formatMoney(row.changeFromPrior!)}${
-          this.timelineRowHasSpikeAlerts(row) ? ' · spike alert' : ''
+        change: acct.changeFromPrior!,
+        hasAlert: this.hasSpikeAlert(acct.spikeAlert),
+        title: `${row.timeLabel} · ••••${this.focusAccountSuffix}: ${this.formatMoney(acct.changeFromPrior!)}${
+          this.hasSpikeAlert(acct.spikeAlert) ? ' · spike alert' : ''
         }`,
       }));
     return this.toMovementBars(candidates);
   }
 
   alertProgressForAccount(acct: RhDailyCaptureTimelineAccountCell): RhDailyAlertProgress | null {
+    if (acct.accountSuffix !== this.focusAccountSuffix) {
+      return null;
+    }
     if (this.hasSpikeAlert(acct.spikeAlert)) {
       const parts = ['Alert fired'];
       if (acct.spikeAlert.triggerReasons) {
@@ -804,6 +823,78 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     return this.expandedAlertEventIds.has(id);
   }
 
+  focusAlertEvents(): RhDailyTrackerAlertEventDto[] {
+    return this.alertEvents.filter((event) => event.accountSuffix === this.focusAccountSuffix);
+  }
+
+  focusAccountLabel(): string {
+    return (
+      this.tracker?.accounts.find((account) => account.accountSuffix === this.focusAccountSuffix)?.label ??
+      `Account ••••${this.focusAccountSuffix}`
+    );
+  }
+
+  focusPoints(): RhDailyFocusPoint[] {
+    const raw = (this.tracker?.days ?? [])
+      .map((day) => ({
+        day,
+        cell: day.accounts.find((account) => account.accountSuffix === this.focusAccountSuffix),
+      }))
+      .filter(
+        (
+          item,
+        ): item is {
+          day: RobinhoodRhDailyTrackerDayDto;
+          cell: RobinhoodRhDailyTrackerAccountCellDto;
+        } => !!item.cell,
+      )
+      .reverse();
+    if (!raw.length) {
+      return [];
+    }
+    const values = raw.map(({ cell }) => cell.totalAccountValue);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = Math.max(max - min, 1);
+    const xDenominator = Math.max(raw.length - 1, 1);
+    return raw.map(({ day, cell }, index) => ({
+      key: day.snapshotDate,
+      label: day.snapshotDate.slice(5),
+      value: cell.totalAccountValue,
+      change: cell.totalChangeFromPrevious,
+      hasAlert: this.hasSpikeAlert(cell.spikeAlert),
+      x: (index / xDenominator) * 100,
+      y: 36 - ((cell.totalAccountValue - min) / range) * 32,
+    }));
+  }
+
+  focusTrendPath(): string {
+    const points = this.focusPoints();
+    if (!points.length) {
+      return '';
+    }
+    return points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(' ');
+  }
+
+  focusMetrics(): RhDailyFocusMetrics | null {
+    const points = this.focusPoints();
+    if (!points.length) {
+      return null;
+    }
+    const first = points[0];
+    const latest = points[points.length - 1];
+    const periodChange = latest.value - first.value;
+    return {
+      latestValue: latest.value,
+      latestChange: latest.change,
+      periodChange,
+      periodChangePercent: first.value === 0 ? null : (periodChange / first.value) * 100,
+      high: Math.max(...points.map((point) => point.value)),
+      low: Math.min(...points.map((point) => point.value)),
+      alertCount: (this.tracker?.days ?? []).reduce((count, day) => count + this.daySpikeAlertCount(day), 0),
+    };
+  }
+
   toggleAlertEventDetail(id: number, event?: Event): void {
     event?.stopPropagation();
     if (this.expandedAlertEventIds.has(id)) {
@@ -833,13 +924,13 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   private collectDaySpikeAlerts(day: RobinhoodRhDailyTrackerDayDto): RhDailyTrackerSnapshotAlertDto[] {
     const alerts: RhDailyTrackerSnapshotAlertDto[] = [];
     for (const cell of day.accounts ?? []) {
-      if (this.hasSpikeAlert(cell.spikeAlert)) {
+      if (cell.accountSuffix === this.focusAccountSuffix && this.hasSpikeAlert(cell.spikeAlert)) {
         alerts.push(cell.spikeAlert);
       }
     }
     for (const capture of [...(day.intradayCaptures ?? []), ...(day.manualCaptures ?? [])]) {
       for (const acct of capture.accounts ?? []) {
-        if (this.hasSpikeAlert(acct.spikeAlert)) {
+        if (acct.accountSuffix === this.focusAccountSuffix && this.hasSpikeAlert(acct.spikeAlert)) {
           alerts.push(acct.spikeAlert);
         }
       }

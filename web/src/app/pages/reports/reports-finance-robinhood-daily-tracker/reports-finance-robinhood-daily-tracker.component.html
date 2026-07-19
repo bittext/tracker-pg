@@ -238,8 +238,8 @@
     >
       <mat-icon>{{ spikeAlertsExpanded ? 'expand_less' : 'notifications' }}</mat-icon>
       Spike alerts
-      @if (alertEvents.length) {
-        <span class="rh-daily__toolbar-badge">{{ alertEvents.length }}</span>
+      @if (focusAlertEvents().length) {
+        <span class="rh-daily__toolbar-badge">{{ focusAlertEvents().length }}</span>
       }
     </button>
   </div>
@@ -358,10 +358,10 @@
       } @else {
         <p class="muted">No Daily Tracker accounts available for alerts yet.</p>
       }
-      @if (alertEvents.length) {
-        <h4 class="rh-daily__alerts-recent-title">Recent alerts</h4>
+      @if (focusAlertEvents().length) {
+        <h4 class="rh-daily__alerts-recent-title">Recent alerts · ••••{{ focusAccountSuffix }}</h4>
         <ul class="rh-daily__alerts-events">
-          @for (ev of alertEvents; track ev.id) {
+          @for (ev of focusAlertEvents(); track ev.id) {
             <li class="rh-daily__alerts-event" [class.rh-daily__alerts-event--open]="isAlertEventExpanded(ev.id)">
               <button
                 type="button"
@@ -471,34 +471,84 @@
           Collapse all
         </button>
       </div>
-      @if (periodMovementBars(); as bars) {
-        @if (bars.length) {
-          <div class="rh-daily__period-strip" role="img" aria-label="Period day-to-day movement with alert markers">
-            <div class="rh-daily__period-strip-head">
-              <span class="rh-daily__period-strip-title">Period movement</span>
-              <span class="muted rh-daily__period-strip-legend">
-                Bar = day Δ vs prior 9 PM · red dot = spike alert that day
-              </span>
+      @if (focusMetrics(); as metrics) {
+        <section class="rh-daily__focus" aria-labelledby="rh-daily-focus-title">
+          <header class="rh-daily__focus-head">
+            <div>
+              <span class="rh-daily__focus-eyebrow">Focused account</span>
+              <h3 id="rh-daily-focus-title" class="rh-daily__focus-title">
+                {{ focusAccountLabel() }} · ••••{{ focusAccountSuffix }}
+              </h3>
             </div>
-            <div class="rh-daily__move-chart" [style.--bar-count]="bars.length">
-              @for (bar of bars; track bar.key) {
-                <div class="rh-daily__move-col" [attr.title]="bar.title">
-                  <span
-                    class="rh-daily__move-bar"
-                    [class.rh-daily__move-bar--pos]="bar.positive"
-                    [class.rh-daily__move-bar--neg]="!bar.positive"
-                    [class.rh-daily__move-bar--alert]="bar.hasAlert"
-                    [style.height.%]="bar.heightPct"
-                  ></span>
-                  @if (bar.hasAlert) {
-                    <span class="rh-daily__move-dot" aria-hidden="true"></span>
-                  }
-                  <span class="rh-daily__move-label">{{ bar.label }}</span>
-                </div>
+            <span class="muted rh-daily__focus-period">{{ monthsFilterLabel() }} {{ reportYear }}</span>
+          </header>
+
+          <div class="rh-daily__focus-kpis">
+            <div class="rh-daily__focus-kpi">
+              <span class="rh-daily__focus-kpi-label">Latest value</span>
+              <strong>{{ metrics.latestValue | currency }}</strong>
+            </div>
+            <div class="rh-daily__focus-kpi">
+              <span class="rh-daily__focus-kpi-label">Latest 9 PM Δ</span>
+              <strong [class]="pnlClass(metrics.latestChange)">{{ metrics.latestChange | currency }}</strong>
+            </div>
+            <div class="rh-daily__focus-kpi">
+              <span class="rh-daily__focus-kpi-label">Period change</span>
+              <strong [class]="pnlClass(metrics.periodChange)">
+                {{ metrics.periodChange | currency }}
+                @if (metrics.periodChangePercent != null) {
+                  <small>({{ metrics.periodChangePercent | number: '1.2-2' }}%)</small>
+                }
+              </strong>
+            </div>
+            <div class="rh-daily__focus-kpi">
+              <span class="rh-daily__focus-kpi-label">Range</span>
+              <strong>{{ metrics.low | currency }} – {{ metrics.high | currency }}</strong>
+            </div>
+            <div class="rh-daily__focus-kpi rh-daily__focus-kpi--alerts">
+              <span class="rh-daily__focus-kpi-label">Alerts</span>
+              <strong>{{ metrics.alertCount }}</strong>
+            </div>
+          </div>
+
+          <div class="rh-daily__focus-chart-wrap">
+            <div class="rh-daily__focus-chart-head">
+              <span>Account value trend</span>
+              <span class="muted">Red markers = ••••{{ focusAccountSuffix }} alert</span>
+            </div>
+            <svg
+              class="rh-daily__focus-chart"
+              viewBox="0 0 100 40"
+              preserveAspectRatio="none"
+              role="img"
+              [attr.aria-label]="'Account value trend for ••••' + focusAccountSuffix"
+            >
+              <line x1="0" y1="36" x2="100" y2="36" class="rh-daily__focus-axis" />
+              <path [attr.d]="focusTrendPath()" class="rh-daily__focus-line" />
+              @for (point of focusPoints(); track point.key) {
+                <circle
+                  [attr.cx]="point.x"
+                  [attr.cy]="point.y"
+                  [attr.r]="point.hasAlert ? 1.7 : 0.75"
+                  [class.rh-daily__focus-point--alert]="point.hasAlert"
+                  class="rh-daily__focus-point"
+                >
+                  <title>
+                    {{ point.key }} · {{ point.value | currency }} · Δ {{ point.change | currency }}
+                    @if (point.hasAlert) { · alert fired }
+                  </title>
+                </circle>
+              }
+            </svg>
+            <div class="rh-daily__focus-labels">
+              @for (point of focusPoints(); track point.key; let i = $index) {
+                @if (i === 0 || i === focusPoints().length - 1 || point.hasAlert) {
+                  <span [style.left.%]="point.x">{{ point.label }}</span>
+                }
               }
             </div>
           </div>
-        }
+        </section>
       }
       <ul class="rh-daily__day-list" role="list">
         @for (day of t.days; track day.snapshotDate; let dayIndex = $index) {
@@ -650,14 +700,14 @@
                         <p class="muted rh-daily__timeline-hint">
                           Click any account total to open holdings. {{ priorPullHint(day) }}
                           Highlighted cells had stock or option position changes vs the prior pull (••••4123 excluded).
-                          Progress bars show movement toward your spike alert thresholds; red marks fired alerts.
+                          The progress rail and red alert markers focus on ••••{{ focusAccountSuffix }} only.
                         </p>
                         @if (captureMovementBars(day); as moveBars) {
                           @if (moveBars.length) {
                             <div
                               class="rh-daily__capture-strip"
                               role="img"
-                              aria-label="Capture-to-capture movement with alert markers"
+                              [attr.aria-label]="'Capture-to-capture movement for account ••••' + focusAccountSuffix"
                             >
                               <div class="rh-daily__move-chart rh-daily__move-chart--compact" [style.--bar-count]="moveBars.length">
                                 @for (bar of moveBars; track bar.key) {
