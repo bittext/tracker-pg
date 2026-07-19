@@ -58,6 +58,23 @@ export interface RhDailyCaptureTimelineAccountCell {
   spikeAlert: RhDailyTrackerSnapshotAlertDto;
 }
 
+export interface RhDailyAlertProgress {
+  ratio: number;
+  widthPct: number;
+  level: 'idle' | 'warn' | 'hot' | 'fired';
+  title: string;
+}
+
+export interface RhDailyMovementBar {
+  key: string;
+  label: string;
+  change: number;
+  heightPct: number;
+  positive: boolean;
+  hasAlert: boolean;
+  title: string;
+}
+
 @Component({
   selector: 'app-reports-finance-robinhood-daily-tracker',
   standalone: true,
@@ -103,6 +120,8 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   alertSettings: RhDailyTrackerAccountAlertsDto | null = null;
   alertFormRows: RhDailyTrackerAccountAlertDto[] = [];
   alertEvents: RhDailyTrackerAlertEventDto[] = [];
+  /** Expanded recent-alert rows showing destination/detail. */
+  private readonly expandedAlertEventIds = new Set<number>();
 
   readonly aiScopes: RhDailyTrackerAiInsightScope[] = ['YEAR', 'MONTH', 'WEEK', 'DAY'];
 
@@ -170,7 +189,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     this.aiWeekStart = this.mondayOf(this.todayIso());
     this.aiDay = this.todayIso();
     this.load();
-    this.loadSpikeAlerts();
+    this.loadSpikeAlerts({ silent: true });
     this.loadAiStatus();
     this.startAutoRefresh();
     document.addEventListener('visibilitychange', this.onVisibilityChange);
@@ -677,6 +696,123 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     return alert?.fired === true;
   }
 
+  daySpikeAlertCount(day: RobinhoodRhDailyTrackerDayDto): number {
+    return this.collectDaySpikeAlerts(day).length;
+  }
+
+  dayHasSpikeAlerts(day: RobinhoodRhDailyTrackerDayDto): boolean {
+    return this.daySpikeAlertCount(day) > 0;
+  }
+
+  periodMovementBars(): RhDailyMovementBar[] {
+    const days = this.tracker?.days ?? [];
+    const candidates = days
+      .filter((d) => d.hasScheduledSnapshot && d.hasPreviousScheduledSnapshot)
+      .map((d) => ({
+        key: d.snapshotDate,
+        label: d.snapshotDate.slice(5),
+        change: d.combinedTotalChangeFromPrevious,
+        hasAlert: this.dayHasSpikeAlerts(d),
+        title: `${d.snapshotDate}: ${this.formatMoney(d.combinedTotalChangeFromPrevious)}${
+          this.dayHasSpikeAlerts(d) ? ` · ${this.daySpikeAlertCount(d)} alert(s)` : ''
+        }`,
+      }))
+      .reverse();
+    return this.toMovementBars(candidates);
+  }
+
+  captureMovementBars(day: RobinhoodRhDailyTrackerDayDto): RhDailyMovementBar[] {
+    const timeline = [...this.captureTimeline(day)].reverse();
+    const candidates = timeline
+      .filter((row) => row.changeFromPrior != null)
+      .map((row) => ({
+        key: row.capturedAt,
+        label: row.timeLabel,
+        change: row.changeFromPrior!,
+        hasAlert: this.timelineRowHasSpikeAlerts(row),
+        title: `${row.timeLabel}: ${this.formatMoney(row.changeFromPrior!)}${
+          this.timelineRowHasSpikeAlerts(row) ? ' · spike alert' : ''
+        }`,
+      }));
+    return this.toMovementBars(candidates);
+  }
+
+  alertProgressForAccount(acct: RhDailyCaptureTimelineAccountCell): RhDailyAlertProgress | null {
+    if (this.hasSpikeAlert(acct.spikeAlert)) {
+      const parts = ['Alert fired'];
+      if (acct.spikeAlert.triggerReasons) {
+        parts.push(this.alertTriggerLabel(acct.spikeAlert.triggerReasons));
+      }
+      if (acct.spikeAlert.deltaDollars != null) {
+        parts.push(this.formatMoney(acct.spikeAlert.deltaDollars));
+      }
+      if (acct.spikeAlert.deltaPercent != null) {
+        parts.push(`${acct.spikeAlert.deltaPercent.toFixed(2)}%`);
+      }
+      return {
+        ratio: 1,
+        widthPct: 100,
+        level: 'fired',
+        title: parts.join(' · '),
+      };
+    }
+    if (acct.changeFromPrior == null) {
+      return null;
+    }
+    const cfg = this.alertSettings?.accounts.find((a) => a.accountSuffix === acct.accountSuffix);
+    if (!cfg?.enabled) {
+      return null;
+    }
+    const absDelta = Math.abs(acct.changeFromPrior);
+    const pct = Math.abs(this.deltaPercentForCurrent(acct.totalAccountValue, acct.changeFromPrior) ?? 0);
+    let ratio = 0;
+    const parts: string[] = [];
+    if (cfg.valueDollarsEnabled && cfg.minValueChangeDollars != null && cfg.minValueChangeDollars > 0) {
+      const r = absDelta / cfg.minValueChangeDollars;
+      ratio = Math.max(ratio, r);
+      parts.push(`$${absDelta.toFixed(0)} / $${cfg.minValueChangeDollars.toFixed(0)}`);
+    }
+    if (cfg.valuePercentEnabled && cfg.minValueChangePercent != null && cfg.minValueChangePercent > 0) {
+      const r = pct / cfg.minValueChangePercent;
+      ratio = Math.max(ratio, r);
+      parts.push(`${pct.toFixed(2)}% / ${cfg.minValueChangePercent}%`);
+    }
+    if (ratio <= 0 && !cfg.positionChangeEnabled) {
+      return null;
+    }
+    if (ratio <= 0 && cfg.positionChangeEnabled) {
+      if (!acct.positionsChangedFromPrior) {
+        return null;
+      }
+      return {
+        ratio: 1,
+        widthPct: 100,
+        level: 'hot',
+        title: 'Position change trigger ready',
+      };
+    }
+    const level: RhDailyAlertProgress['level'] = ratio >= 1 ? 'hot' : ratio >= 0.7 ? 'warn' : 'idle';
+    return {
+      ratio,
+      widthPct: Math.min(100, Math.round(ratio * 100)),
+      level,
+      title: `Alert progress ${Math.round(ratio * 100)}% · ${parts.join(' · ')}`,
+    };
+  }
+
+  isAlertEventExpanded(id: number): boolean {
+    return this.expandedAlertEventIds.has(id);
+  }
+
+  toggleAlertEventDetail(id: number, event?: Event): void {
+    event?.stopPropagation();
+    if (this.expandedAlertEventIds.has(id)) {
+      this.expandedAlertEventIds.delete(id);
+    } else {
+      this.expandedAlertEventIds.add(id);
+    }
+  }
+
   spikeAlertTitle(alert: RhDailyTrackerSnapshotAlertDto): string {
     const parts = ['Spike alert'];
     if (alert.triggerReasons) {
@@ -692,6 +828,45 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       parts.push(`Email ${alert.emailStatus}`);
     }
     return parts.join(' · ');
+  }
+
+  private collectDaySpikeAlerts(day: RobinhoodRhDailyTrackerDayDto): RhDailyTrackerSnapshotAlertDto[] {
+    const alerts: RhDailyTrackerSnapshotAlertDto[] = [];
+    for (const cell of day.accounts ?? []) {
+      if (this.hasSpikeAlert(cell.spikeAlert)) {
+        alerts.push(cell.spikeAlert);
+      }
+    }
+    for (const capture of [...(day.intradayCaptures ?? []), ...(day.manualCaptures ?? [])]) {
+      for (const acct of capture.accounts ?? []) {
+        if (this.hasSpikeAlert(acct.spikeAlert)) {
+          alerts.push(acct.spikeAlert);
+        }
+      }
+    }
+    return alerts;
+  }
+
+  private toMovementBars(
+    candidates: Array<{ key: string; label: string; change: number; hasAlert: boolean; title: string }>,
+  ): RhDailyMovementBar[] {
+    if (!candidates.length) {
+      return [];
+    }
+    const maxAbs = Math.max(...candidates.map((c) => Math.abs(c.change)), 1);
+    return candidates.map((c) => ({
+      key: c.key,
+      label: c.label,
+      change: c.change,
+      heightPct: Math.max(8, Math.round((Math.abs(c.change) / maxAbs) * 100)),
+      positive: c.change >= 0,
+      hasAlert: c.hasAlert,
+      title: c.title,
+    }));
+  }
+
+  private formatMoney(v: number): string {
+    return v.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
   }
 
   hasFlowBlock(day: RobinhoodRhDailyTrackerDayDto): boolean {
@@ -1069,8 +1244,11 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     }
   }
 
-  loadSpikeAlerts(): void {
-    this.alertsLoading = true;
+  loadSpikeAlerts(opts?: { silent?: boolean }): void {
+    const silent = opts?.silent ?? false;
+    if (!silent) {
+      this.alertsLoading = true;
+    }
     this.financeApi.robinhoodDailyTrackerAlerts().subscribe({
       next: (settings) => {
         this.alertSettings = settings;
@@ -1078,10 +1256,14 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         this.alertsLoading = false;
       },
       error: (err) => {
-        this.alertSettings = null;
-        this.alertFormRows = [];
-        this.alertsLoading = false;
-        this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
+        if (!silent) {
+          this.alertSettings = null;
+          this.alertFormRows = [];
+          this.alertsLoading = false;
+          this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
+        } else {
+          this.alertsLoading = false;
+        }
       },
     });
     this.financeApi.robinhoodDailyTrackerAlertEvents(10).subscribe({
@@ -1089,7 +1271,9 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         this.alertEvents = events;
       },
       error: () => {
-        this.alertEvents = [];
+        if (!silent) {
+          this.alertEvents = [];
+        }
       },
     });
   }

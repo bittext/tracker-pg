@@ -238,6 +238,9 @@
     >
       <mat-icon>{{ spikeAlertsExpanded ? 'expand_less' : 'notifications' }}</mat-icon>
       Spike alerts
+      @if (alertEvents.length) {
+        <span class="rh-daily__toolbar-badge">{{ alertEvents.length }}</span>
+      }
     </button>
   </div>
 
@@ -359,14 +362,39 @@
         <h4 class="rh-daily__alerts-recent-title">Recent alerts</h4>
         <ul class="rh-daily__alerts-events">
           @for (ev of alertEvents; track ev.id) {
-            <li>
-              <span class="rh-daily__alert-status" [class]="alertStatusClass(ev.emailStatus)">{{ ev.emailStatus }}</span>
-              <span>••••{{ ev.accountSuffix }}</span>
-              <span class="muted">{{ alertTriggerLabel(ev.triggerReasons) }}</span>
-              @if (ev.deltaDollars != null) {
-                <span [class]="pnlClass(ev.deltaDollars)">{{ ev.deltaDollars | currency }}</span>
+            <li class="rh-daily__alerts-event" [class.rh-daily__alerts-event--open]="isAlertEventExpanded(ev.id)">
+              <button
+                type="button"
+                class="rh-daily__alerts-event-main"
+                (click)="toggleAlertEventDetail(ev.id)"
+                [attr.aria-expanded]="isAlertEventExpanded(ev.id)"
+              >
+                <span class="rh-daily__alert-status" [class]="alertStatusClass(ev.emailStatus)">{{ ev.emailStatus }}</span>
+                <span>••••{{ ev.accountSuffix }}</span>
+                <span class="muted">{{ alertTriggerLabel(ev.triggerReasons) }}</span>
+                @if (ev.deltaDollars != null) {
+                  <span [class]="pnlClass(ev.deltaDollars)">{{ ev.deltaDollars | currency }}</span>
+                }
+                @if (ev.deltaPercent != null) {
+                  <span class="muted">{{ ev.deltaPercent | number: '1.2-2' }}%</span>
+                }
+                <span class="muted">{{ ev.createdAt | date: 'short' }}</span>
+                <mat-icon class="rh-daily__chevron rh-daily__chevron--sm" aria-hidden="true">
+                  {{ isAlertEventExpanded(ev.id) ? 'expand_less' : 'expand_more' }}
+                </mat-icon>
+              </button>
+              @if (isAlertEventExpanded(ev.id)) {
+                <div class="rh-daily__alerts-event-detail">
+                  @if (ev.destinationMasked) {
+                    <div><span class="muted">To</span> {{ ev.destinationMasked }}</div>
+                  }
+                  @if (ev.detail) {
+                    <pre class="rh-daily__alerts-event-pre">{{ ev.detail }}</pre>
+                  } @else {
+                    <p class="muted">No extra detail recorded for this alert.</p>
+                  }
+                </div>
               }
-              <span class="muted">{{ ev.createdAt | date: 'short' }}</span>
             </li>
           }
         </ul>
@@ -443,12 +471,42 @@
           Collapse all
         </button>
       </div>
+      @if (periodMovementBars(); as bars) {
+        @if (bars.length) {
+          <div class="rh-daily__period-strip" role="img" aria-label="Period day-to-day movement with alert markers">
+            <div class="rh-daily__period-strip-head">
+              <span class="rh-daily__period-strip-title">Period movement</span>
+              <span class="muted rh-daily__period-strip-legend">
+                Bar = day Δ vs prior 9 PM · red dot = spike alert that day
+              </span>
+            </div>
+            <div class="rh-daily__move-chart" [style.--bar-count]="bars.length">
+              @for (bar of bars; track bar.key) {
+                <div class="rh-daily__move-col" [attr.title]="bar.title">
+                  <span
+                    class="rh-daily__move-bar"
+                    [class.rh-daily__move-bar--pos]="bar.positive"
+                    [class.rh-daily__move-bar--neg]="!bar.positive"
+                    [class.rh-daily__move-bar--alert]="bar.hasAlert"
+                    [style.height.%]="bar.heightPct"
+                  ></span>
+                  @if (bar.hasAlert) {
+                    <span class="rh-daily__move-dot" aria-hidden="true"></span>
+                  }
+                  <span class="rh-daily__move-label">{{ bar.label }}</span>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      }
       <ul class="rh-daily__day-list" role="list">
         @for (day of t.days; track day.snapshotDate; let dayIndex = $index) {
           <li
             class="rh-daily__day-item"
             [class.rh-daily__day-item--alt]="dayIndex % 2 === 1"
             [class.rh-daily__day-item--open]="isDayExpanded(day)"
+            [class.rh-daily__day-item--alert]="dayHasSpikeAlerts(day)"
             [attr.aria-expanded]="isDayExpanded(day)"
           >
             <button
@@ -487,6 +545,15 @@
               @if (day.manualCaptures.length) {
                 <span class="rh-daily__day-row-manual muted">
                   {{ day.manualCaptures.length }} manual
+                </span>
+              }
+              @if (dayHasSpikeAlerts(day)) {
+                <span
+                  class="rh-daily__day-row-alert"
+                  [attr.title]="daySpikeAlertCount(day) + ' spike alert(s) on this day'"
+                >
+                  <mat-icon aria-hidden="true">notifications_active</mat-icon>
+                  {{ daySpikeAlertCount(day) }}
                 </span>
               }
               @if (hasSummaryNote(day)) {
@@ -583,7 +650,34 @@
                         <p class="muted rh-daily__timeline-hint">
                           Click any account total to open holdings. {{ priorPullHint(day) }}
                           Highlighted cells had stock or option position changes vs the prior pull (••••4123 excluded).
+                          Progress bars show movement toward your spike alert thresholds; red marks fired alerts.
                         </p>
+                        @if (captureMovementBars(day); as moveBars) {
+                          @if (moveBars.length) {
+                            <div
+                              class="rh-daily__capture-strip"
+                              role="img"
+                              aria-label="Capture-to-capture movement with alert markers"
+                            >
+                              <div class="rh-daily__move-chart rh-daily__move-chart--compact" [style.--bar-count]="moveBars.length">
+                                @for (bar of moveBars; track bar.key) {
+                                  <div class="rh-daily__move-col" [attr.title]="bar.title">
+                                    <span
+                                      class="rh-daily__move-bar"
+                                      [class.rh-daily__move-bar--pos]="bar.positive"
+                                      [class.rh-daily__move-bar--neg]="!bar.positive"
+                                      [class.rh-daily__move-bar--alert]="bar.hasAlert"
+                                      [style.height.%]="bar.heightPct"
+                                    ></span>
+                                    @if (bar.hasAlert) {
+                                      <span class="rh-daily__move-dot" aria-hidden="true"></span>
+                                    }
+                                  </div>
+                                }
+                              </div>
+                            </div>
+                          }
+                        }
                         <div class="rh-daily__timeline-table-wrap">
                           <table class="rh-daily__timeline-table">
                             <thead>
@@ -648,6 +742,20 @@
                                               @if (deltaPercentForCurrent(acct.totalAccountValue, acct.changeFromPrior); as cpct) {
                                                 <span class="rh-daily__delta-pct">&nbsp;({{ cpct | number: '1.2-2' }}%)</span>
                                               }
+                                            </span>
+                                          }
+                                          @if (alertProgressForAccount(acct); as progress) {
+                                            <span
+                                              class="rh-daily__alert-progress"
+                                              [class]="'rh-daily__alert-progress--' + progress.level"
+                                              [attr.title]="progress.title"
+                                              role="meter"
+                                              [attr.aria-valuenow]="progress.widthPct"
+                                              aria-valuemin="0"
+                                              aria-valuemax="100"
+                                              [attr.aria-label]="progress.title"
+                                            >
+                                              <span class="rh-daily__alert-progress-fill" [style.width.%]="progress.widthPct"></span>
                                             </span>
                                           }
                                         </button>
