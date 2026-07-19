@@ -587,12 +587,17 @@
             <div>
               <span class="rh-daily__focus-kpi-label">Cash added / removed</span>
               <strong>{{ metrics.totalAdded | currency }} / {{ metrics.totalRemoved | currency }}</strong>
-              <p>Recorded account flows, separate from investment value movement.</p>
+              <p>
+                ACH deposits, withdrawals, and account transfers from the RH CSV — not buys/sells that only move
+                cash ↔ equity.
+              </p>
             </div>
             <div>
               <span class="rh-daily__focus-kpi-label">Value movement</span>
               <strong [class]="pnlClass(metrics.totalValueChange)">{{ metrics.totalValueChange | currency }}</strong>
-              <p>Sum of recorded value changes after the tracker’s flow calculation.</p>
+              <p>
+                Sum of 9 PM value changes after subtracting those CSV flows (marks, trading P&amp;L, options).
+              </p>
             </div>
             <div>
               <span class="rh-daily__focus-kpi-label">Best / worst 9 PM move</span>
@@ -625,9 +630,9 @@
               <div class="rh-daily__focus-detail-body">
                 <p class="muted rh-daily__focus-detail-help">
                   <strong>Δ previous</strong> compares this 9 PM value with the previous scheduled snapshot.
-                  <strong>Added/removed</strong> are cash flows. <strong>Value change</strong> is the tracker’s
-                  flow-adjusted movement. Click any account value to inspect holdings, prices, and positions in that
-                  stored snapshot.
+                  <strong>Added/removed</strong> are CSV cash transfers (not stock buys/sells).
+                  <strong>Value change</strong> is the tracker’s flow-adjusted movement. Click any account value to
+                  inspect holdings, prices, and the flows table for that stored snapshot.
                 </p>
                 <div class="rh-daily__focus-table-wrap">
                   <table class="rh-daily__focus-table">
