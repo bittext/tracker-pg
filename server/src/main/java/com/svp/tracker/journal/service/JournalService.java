@@ -50,7 +50,7 @@ public class JournalService {
     private final CurrentUserService currentUser;
 
     public List<JournalTagDefDto> listTagDefinitions() {
-        long owner = effectiveOwnerId(null);
+        long owner = currentUser.requireUserId();
         return tagDefRepository.findByOwnerUserIdOrderByNameAsc(owner).stream()
                 .map(this::toTagDefDto)
                 .toList();
@@ -82,8 +82,8 @@ public class JournalService {
         tagDefRepository.deleteById(id);
     }
 
-    public List<JournalCalendarDayDto> calendar(int year, int month, Long filterOwnerId) {
-        long owner = effectiveOwnerId(filterOwnerId);
+    public List<JournalCalendarDayDto> calendar(int year, int month) {
+        long owner = currentUser.requireUserId();
         YearMonth ym = YearMonth.of(year, month);
         LocalDate from = ym.atDay(1);
         LocalDate to = ym.atEndOfMonth();
@@ -106,8 +106,8 @@ public class JournalService {
     }
 
     @Transactional(readOnly = true)
-    public List<JournalEntryDto> listEntriesForDay(LocalDate day, Long filterOwnerId) {
-        long owner = effectiveOwnerId(filterOwnerId);
+    public List<JournalEntryDto> listEntriesForDay(LocalDate day) {
+        long owner = currentUser.requireUserId();
         List<JournalEntry> list = entryRepository.findDayForOwner(owner, day);
         if (list.isEmpty()) {
             return List.of();
@@ -126,15 +126,14 @@ public class JournalService {
             LocalDate from,
             LocalDate to,
             String q,
-            List<Long> tagIds,
-            Long filterOwnerId) {
+            List<Long> tagIds) {
         if (from == null || to == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "from and to required");
         }
         if (to.isBefore(from)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid date range");
         }
-        long owner = effectiveOwnerId(filterOwnerId);
+        long owner = currentUser.requireUserId();
         List<String> tokens = tokenize(q);
         List<Long> tids = tagIds == null ? List.of() : tagIds.stream().filter(Objects::nonNull).distinct().toList();
         // Use SQL to enforce "all selected tags" so filtering does not depend on lazy-loaded tag collections
@@ -159,9 +158,8 @@ public class JournalService {
             LocalDate from,
             LocalDate to,
             String q,
-            List<Long> tagIds,
-            Long filterOwnerId) {
-        List<JournalEntryDto> rows = search(from, to, q, tagIds, filterOwnerId);
+            List<Long> tagIds) {
+        List<JournalEntryDto> rows = search(from, to, q, tagIds);
         Map<String, Long> byMonth = new HashMap<>();
         Map<String, Long> byDay = new HashMap<>();
         for (JournalEntryDto e : rows) {
@@ -311,10 +309,6 @@ public class JournalService {
         if (!Objects.equals(ownerUserId, currentUser.requireUserId())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not allowed");
         }
-    }
-
-    private long effectiveOwnerId(Long filterOwnerId) {
-        return currentUser.requireUserId();
     }
 
     private int levelForCount(int count, int maxInMonth) {

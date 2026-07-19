@@ -61,16 +61,13 @@ public class JournalController {
 
     @GetMapping("/calendar")
     public List<JournalCalendarDayDto> calendar(
-            @RequestParam int year,
-            @RequestParam int month,
-            @RequestParam(required = false) @Nullable Long ownerUserId) {
-        return journalService.calendar(year, month, ownerUserId);
+            @RequestParam int year, @RequestParam int month) {
+        return journalService.calendar(year, month);
     }
 
     @GetMapping("/entries/day")
-    public List<JournalEntryDto> listForDay(
-            @RequestParam LocalDate date, @RequestParam(required = false) @Nullable Long ownerUserId) {
-        return journalService.listEntriesForDay(date, ownerUserId);
+    public List<JournalEntryDto> listForDay(@RequestParam LocalDate date) {
+        return journalService.listEntriesForDay(date);
     }
 
     @GetMapping("/entries/search")
@@ -78,9 +75,8 @@ public class JournalController {
             @RequestParam LocalDate from,
             @RequestParam LocalDate to,
             @RequestParam(required = false) @Nullable String q,
-            @RequestParam(name = "tagIds", required = false) @Nullable Long[] tagIds,
-            @RequestParam(required = false) @Nullable Long ownerUserId) {
-        return journalService.search(from, to, q, toTagIdList(tagIds), ownerUserId);
+            @RequestParam(name = "tagIds", required = false) @Nullable Long[] tagIds) {
+        return journalService.search(from, to, q, toTagIdList(tagIds));
     }
 
     @GetMapping("/summary")
@@ -88,9 +84,8 @@ public class JournalController {
             @RequestParam LocalDate from,
             @RequestParam LocalDate to,
             @RequestParam(required = false) @Nullable String q,
-            @RequestParam(name = "tagIds", required = false) @Nullable Long[] tagIds,
-            @RequestParam(required = false) @Nullable Long ownerUserId) {
-        return journalService.summarize(from, to, q, toTagIdList(tagIds), ownerUserId);
+            @RequestParam(name = "tagIds", required = false) @Nullable Long[] tagIds) {
+        return journalService.summarize(from, to, q, toTagIdList(tagIds));
     }
 
     /** Binds each {@code &tagIds=} query parameter; more reliable for multi-value GET than {@link List} on some servers. */

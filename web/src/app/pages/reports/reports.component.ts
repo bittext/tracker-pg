@@ -249,14 +249,12 @@ export class ReportsComponent implements OnInit {
         this.journalTo,
         this.journalQ.trim() || null,
         this.journalTagIds.length ? this.journalTagIds : null,
-        null,
       ),
       sum: this.journalApi.summary(
         this.journalFrom,
         this.journalTo,
         this.journalQ.trim() || null,
         this.journalTagIds.length ? this.journalTagIds : null,
-        null,
       ),
     }).subscribe({
       next: ({ rows, sum }) => {

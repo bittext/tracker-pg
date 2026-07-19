@@ -20,7 +20,6 @@ import {
   JournalCalendarDayDto,
 } from '../../models/journal.models';
 import { JournalApiService } from '../../services/journal-api.service';
-import { AuthService } from '../../services/auth.service';
 import { formatHttpErrorDetail } from '../../util/http-error';
 import { SafeMarkdownPipe } from '../../pipes/safe-markdown.pipe';
 import {
@@ -59,7 +58,6 @@ interface CalCell {
 export class JournalComponent implements OnInit {
   private readonly api = inject(JournalApiService);
   private readonly snackBar = inject(MatSnackBar);
-  private readonly auth = inject(AuthService);
   private readonly dialog = inject(MatDialog);
 
   readonly weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -71,15 +69,8 @@ export class JournalComponent implements OnInit {
   dayEntries: JournalEntryDto[] = [];
   tagDefs: JournalTagDefDto[] = [];
 
-  /** Admin-only: view another user’s data */
-  filterOwnerId: string = '';
-
   form: JournalEntryWriteBody = { loggedOn: '', bodyMarkdown: '', tagIds: [] };
   editingId: number | null = null;
-
-  get isAdmin(): boolean {
-    return this.auth.isAdmin();
-  }
 
   ngOnInit(): void {
     const t = this.todayIso();
@@ -97,18 +88,10 @@ export class JournalComponent implements OnInit {
     });
   }
 
-  private ownerParam(): number | null {
-    if (!this.isAdmin || !this.filterOwnerId.trim()) {
-      return null;
-    }
-    const n = Number(this.filterOwnerId);
-    return Number.isFinite(n) && n > 0 ? n : null;
-  }
-
   reloadTagsAndCalendar(): void {
     forkJoin({
       tags: this.api.listTagDefinitions().pipe(catchError(() => of<JournalTagDefDto[]>([]))),
-      cal: this.api.calendar(this.calendarYear, this.calendarMonth, this.ownerParam()).pipe(
+      cal: this.api.calendar(this.calendarYear, this.calendarMonth).pipe(
         catchError(() => of<JournalCalendarDayDto[]>([])),
       ),
     }).subscribe({
@@ -122,7 +105,7 @@ export class JournalComponent implements OnInit {
   }
 
   loadDay(): void {
-    this.api.listEntriesForDay(this.selectedDateIso, this.ownerParam()).subscribe({
+    this.api.listEntriesForDay(this.selectedDateIso).subscribe({
       next: (rows) => (this.dayEntries = rows),
       error: (e) => this.err('Could not load entries', e),
     });
@@ -199,7 +182,7 @@ export class JournalComponent implements OnInit {
     this.calendarYear = y;
     this.calendarMonth = mo;
     this.clampSelectedToMonth();
-    this.api.calendar(y, mo, this.ownerParam()).subscribe({
+    this.api.calendar(y, mo).subscribe({
       next: (c) => (this.calendarDays = c),
       error: (e) => this.err('Could not load calendar', e),
     });
@@ -216,7 +199,7 @@ export class JournalComponent implements OnInit {
     this.calendarYear = y;
     this.calendarMonth = mo;
     this.clampSelectedToMonth();
-    this.api.calendar(y, mo, this.ownerParam()).subscribe({
+    this.api.calendar(y, mo).subscribe({
       next: (c) => (this.calendarDays = c),
       error: (e) => this.err('Could not load calendar', e),
     });
@@ -348,7 +331,7 @@ export class JournalComponent implements OnInit {
       next: () => {
         this.snackBar.open('Attachment uploaded', undefined, { duration: 2000 });
         this.loadDay();
-        this.api.calendar(this.calendarYear, this.calendarMonth, this.ownerParam()).subscribe({
+        this.api.calendar(this.calendarYear, this.calendarMonth).subscribe({
           next: (c) => (this.calendarDays = c),
         });
       },
@@ -376,10 +359,6 @@ export class JournalComponent implements OnInit {
         contentType: a.contentType ?? null,
       },
     });
-  }
-
-  onAdminFilterChange(): void {
-    this.reloadTagsAndCalendar();
   }
 
   private err(msg: string, e: unknown): void {

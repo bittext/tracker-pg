@@ -7,22 +7,6 @@
 </div>
 
 <mat-card class="card journal-card">
-  @if (isAdmin) {
-    <div class="admin-filter">
-      <mat-form-field appearance="outline" class="owner-field">
-        <mat-label>User ID (admin view)</mat-label>
-        <input
-          matInput
-          type="number"
-          [(ngModel)]="filterOwnerId"
-          (ngModelChange)="onAdminFilterChange()"
-          name="ownerFilter"
-          placeholder="Leave empty for your own data"
-        />
-      </mat-form-field>
-    </div>
-  }
-
   <div class="journal-layout">
     <section class="journal-cal" aria-label="Calendar">
       <mat-card appearance="outlined" class="journal-nested">

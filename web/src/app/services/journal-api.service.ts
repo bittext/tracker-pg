@@ -27,19 +27,13 @@ export class JournalApiService {
     return this.http.delete<void>(`${this.root}/tag-definitions/${id}`);
   }
 
-  calendar(year: number, month: number, ownerUserId?: number | null) {
-    let p = new HttpParams().set('year', String(year)).set('month', String(month));
-    if (ownerUserId != null) {
-      p = p.set('ownerUserId', String(ownerUserId));
-    }
+  calendar(year: number, month: number) {
+    const p = new HttpParams().set('year', String(year)).set('month', String(month));
     return this.http.get<JournalCalendarDayDto[]>(`${this.root}/calendar`, { params: p });
   }
 
-  listEntriesForDay(dateIso: string, ownerUserId?: number | null) {
-    let p = new HttpParams().set('date', dateIso);
-    if (ownerUserId != null) {
-      p = p.set('ownerUserId', String(ownerUserId));
-    }
+  listEntriesForDay(dateIso: string) {
+    const p = new HttpParams().set('date', dateIso);
     return this.http.get<JournalEntryDto[]>(`${this.root}/entries/day`, { params: p });
   }
 
@@ -48,7 +42,6 @@ export class JournalApiService {
     to: string,
     q?: string | null,
     tagIds?: (number | string)[] | null,
-    ownerUserId?: number | null,
   ) {
     let p = this.appendTagIdParams(
       new HttpParams().set('from', from).set('to', to),
@@ -56,9 +49,6 @@ export class JournalApiService {
     );
     if (q) {
       p = p.set('q', q);
-    }
-    if (ownerUserId != null) {
-      p = p.set('ownerUserId', String(ownerUserId));
     }
     return this.http.get<JournalEntryDto[]>(`${this.root}/entries/search`, { params: p });
   }
@@ -68,7 +58,6 @@ export class JournalApiService {
     to: string,
     q?: string | null,
     tagIds?: (number | string)[] | null,
-    ownerUserId?: number | null,
   ) {
     let p = this.appendTagIdParams(
       new HttpParams().set('from', from).set('to', to),
@@ -76,9 +65,6 @@ export class JournalApiService {
     );
     if (q) {
       p = p.set('q', q);
-    }
-    if (ownerUserId != null) {
-      p = p.set('ownerUserId', String(ownerUserId));
     }
     return this.http.get<JournalSummaryDto>(`${this.root}/summary`, { params: p });
   }
