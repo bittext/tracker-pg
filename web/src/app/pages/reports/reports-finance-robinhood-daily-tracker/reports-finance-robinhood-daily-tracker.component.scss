@@ -268,7 +268,7 @@
 }
 
 .rh-daily__day-item {
-  border-bottom: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+  border-bottom: none;
   background: var(--rh-daily-day-even);
 
   &:last-child {
@@ -296,11 +296,11 @@
 
 .rh-daily__day-row {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 0.35rem 0.65rem;
+  gap: 0.35rem 0.5rem;
   width: 100%;
-  padding: 0.65rem 0.85rem;
+  padding: 0.55rem 0.85rem;
   border: none;
   background: transparent;
   cursor: pointer;
@@ -335,13 +335,19 @@
 .rh-daily__day-row-date {
   font-weight: 600;
   min-width: 7.5rem;
+  line-height: 1.2;
+  flex-shrink: 0;
 }
 
 .rh-daily__day-row-badge {
+  display: inline-flex;
+  align-items: center;
   font-size: 0.75rem;
-  padding: 0.1rem 0.4rem;
+  line-height: 1;
+  padding: 0.15rem 0.4rem;
   border-radius: 4px;
   background: var(--app-surface-muted, #f0f0f0);
+  flex-shrink: 0;
 
   &--pending {
     color: var(--app-text-muted, #64748b);
@@ -352,12 +358,24 @@
 
 .rh-daily__day-row-total {
   font-size: 1rem;
+  line-height: 1.2;
   color: var(--app-accent, #10a37f);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.rh-daily__day-row-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  margin-left: 0.15rem;
 }
 
 .rh-daily__day-row-manual {
-  margin-left: auto;
   font-size: 0.75rem;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .rh-daily__day-row-alert {
@@ -368,8 +386,10 @@
   border-radius: 999px;
   font-size: 0.72rem;
   font-weight: 700;
+  line-height: 1;
   color: #b91c1c;
   background: rgba(239, 68, 68, 0.12);
+  flex-shrink: 0;
 
   mat-icon {
     width: 0.9rem;

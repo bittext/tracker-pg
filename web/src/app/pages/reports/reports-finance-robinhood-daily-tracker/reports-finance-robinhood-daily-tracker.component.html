@@ -761,25 +761,27 @@
               } @else if (t.autoCaptureScheduled) {
                 <span class="rh-daily__day-row-badge rh-daily__day-row-badge--pending">9 PM pending</span>
               }
-              @if (day.manualCaptures.length) {
-                <span class="rh-daily__day-row-manual muted">
-                  {{ day.manualCaptures.length }} manual
-                </span>
-              }
-              @if (dayHasSpikeAlerts(day)) {
-                <span
-                  class="rh-daily__day-row-alert"
-                  [attr.title]="daySpikeAlertCount(day) + ' spike alert(s) on this day'"
-                >
-                  <mat-icon aria-hidden="true">notifications_active</mat-icon>
-                  {{ daySpikeAlertCount(day) }}
-                </span>
-              }
-              @if (hasSummaryNote(day)) {
-                <mat-icon class="rh-daily__day-row-note" aria-label="Has call summary note" title="Call summary note">
-                  sticky_note_2
-                </mat-icon>
-              }
+              <span class="rh-daily__day-row-meta">
+                @if (day.manualCaptures.length) {
+                  <span class="rh-daily__day-row-manual muted">
+                    {{ day.manualCaptures.length }} manual
+                  </span>
+                }
+                @if (dayHasSpikeAlerts(day)) {
+                  <span
+                    class="rh-daily__day-row-alert"
+                    [attr.title]="daySpikeAlertCount(day) + ' spike alert(s) on this day'"
+                  >
+                    <mat-icon aria-hidden="true">notifications_active</mat-icon>
+                    {{ daySpikeAlertCount(day) }}
+                  </span>
+                }
+                @if (hasSummaryNote(day)) {
+                  <mat-icon class="rh-daily__day-row-note" aria-label="Has call summary note" title="Call summary note">
+                    sticky_note_2
+                  </mat-icon>
+                }
+              </span>
             </button>
 
             @if (isDayExpanded(day)) {
