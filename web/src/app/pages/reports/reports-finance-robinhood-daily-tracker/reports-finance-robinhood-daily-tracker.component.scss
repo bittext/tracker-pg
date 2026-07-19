@@ -1404,6 +1404,24 @@
   vector-effect: non-scaling-stroke;
 }
 
+.rh-daily__benchmark-line {
+  fill: none;
+  stroke: #ea580c;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 5 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.rh-daily__benchmark-point {
+  fill: #ea580c;
+  stroke: #fff;
+  stroke-width: 0.5;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
 .rh-daily__focus-point {
   fill: #2563eb;
   stroke: #fff;

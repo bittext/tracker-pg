@@ -520,7 +520,13 @@
                 </span>
               </div>
               <div class="rh-daily__focus-chart-actions">
-                <span class="muted">Blue = value trend · red point = alert fired</span>
+                <span class="muted">
+                  Blue = ••••{{ focusAccountSuffix }}
+                  @if (sp500BenchmarkPoints().length) {
+                    · orange dashed = S&amp;P 500
+                  }
+                  · red point = alert
+                </span>
                 <button mat-stroked-button type="button" (click)="toggleFocusDetails()">
                   <mat-icon>{{ focusDetailsExpanded ? 'expand_less' : 'table_rows' }}</mat-icon>
                   {{ focusDetailsExpanded ? 'Hide breakdown' : 'View full breakdown' }}
@@ -546,6 +552,23 @@
                   <line x1="0" y1="36" x2="100" y2="36" class="rh-daily__focus-axis" />
                   <path [attr.d]="focusAreaPath()" class="rh-daily__focus-area" />
                   <path [attr.d]="focusTrendPath()" class="rh-daily__focus-line" />
+                  @if (sp500TrendPath()) {
+                    <path [attr.d]="sp500TrendPath()" class="rh-daily__benchmark-line" />
+                    @for (point of sp500BenchmarkPoints(); track point.key) {
+                      <circle
+                        [attr.cx]="point.x"
+                        [attr.cy]="point.y"
+                        r="0.85"
+                        class="rh-daily__benchmark-point"
+                      >
+                        <title>
+                          {{ point.key }} · hypothetical S&amp;P value {{ point.value | currency }} · index close
+                          {{ point.indexClose | number: '1.2-2' }}
+                          @if (point.marketDate !== point.key) { · market close from {{ point.marketDate }} }
+                        </title>
+                      </circle>
+                    }
+                  }
                   @for (point of focusPoints(); track point.key) {
                     <circle
                       [attr.cx]="point.x"
@@ -584,6 +607,19 @@
               <strong>{{ metrics.startValue | currency }}</strong>
               <p>First visible 9 PM snapshot in the selected period.</p>
             </div>
+            @if (sp500BenchmarkSummary(); as benchmark) {
+              <div>
+                <span class="rh-daily__focus-kpi-label">S&amp;P 500 benchmark</span>
+                <strong [class]="pnlClass(benchmark.change)">
+                  {{ benchmark.latestValue | currency }}
+                  <small>({{ benchmark.changePercent | number: '1.2-2' }}%)</small>
+                </strong>
+                <p>
+                  Hypothetical {{ metrics.startValue | currency }} invested at the first aligned S&amp;P close; price
+                  return only, excluding dividends, fees, and taxes.
+                </p>
+              </div>
+            }
             <div>
               <span class="rh-daily__focus-kpi-label">Cash added / removed</span>
               <strong>{{ metrics.totalAdded | currency }} / {{ metrics.totalRemoved | currency }}</strong>

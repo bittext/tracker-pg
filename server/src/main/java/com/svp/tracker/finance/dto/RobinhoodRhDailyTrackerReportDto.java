@@ -1,8 +1,6 @@
 package com.svp.tracker.finance.dto;
 
 import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.LocalDate;
 import java.util.List;
 
 public record RobinhoodRhDailyTrackerReportDto(
@@ -19,4 +17,5 @@ public record RobinhoodRhDailyTrackerReportDto(
         String autoCaptureScheduleLabel,
         List<RobinhoodRhDailyTrackerAccountColumnDto> accounts,
         List<RobinhoodRhDailyTrackerDayDto> days,
+        List<RobinhoodRhDailyBenchmarkPointDto> sp500Benchmark,
         List<String> notes) {}

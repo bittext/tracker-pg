@@ -92,6 +92,16 @@ export interface RhDailyFocusPoint {
   y: number;
 }
 
+export interface RhDailyBenchmarkPoint {
+  key: string;
+  label: string;
+  value: number;
+  indexClose: number;
+  marketDate: string;
+  x: number;
+  y: number;
+}
+
 export interface RhDailyFocusMetrics {
   startValue: number;
   latestValue: number;
@@ -850,6 +860,14 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   }
 
   focusPoints(): RhDailyFocusPoint[] {
+    return this.focusChartSeries().account;
+  }
+
+  sp500BenchmarkPoints(): RhDailyBenchmarkPoint[] {
+    return this.focusChartSeries().benchmark;
+  }
+
+  private focusChartSeries(): { account: RhDailyFocusPoint[]; benchmark: RhDailyBenchmarkPoint[] } {
     const raw = (this.tracker?.days ?? [])
       .map((day) => ({
         day,
@@ -865,29 +883,66 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       )
       .reverse();
     if (!raw.length) {
-      return [];
+      return { account: [], benchmark: [] };
     }
-    const values = raw.map(({ cell }) => cell.totalAccountValue);
+
+    const benchmarkByDate = new Map(
+      (this.tracker?.sp500Benchmark ?? []).map((point) => [point.snapshotDate, point]),
+    );
+    const initialBenchmark = benchmarkByDate.get(raw[0].day.snapshotDate);
+    const benchmarkValues = initialBenchmark
+      ? raw
+          .map(({ day }, index) => {
+            const benchmark = benchmarkByDate.get(day.snapshotDate);
+            if (!benchmark || initialBenchmark.close <= 0) {
+              return null;
+            }
+            return {
+              key: day.snapshotDate,
+              label: day.snapshotDate.slice(5),
+              value: raw[0].cell.totalAccountValue * (benchmark.close / initialBenchmark.close),
+              indexClose: benchmark.close,
+              marketDate: benchmark.marketDate,
+              index,
+            };
+          })
+          .filter((point): point is NonNullable<typeof point> => point != null)
+      : [];
+    const values = [
+      ...raw.map(({ cell }) => cell.totalAccountValue),
+      ...benchmarkValues.map((point) => point.value),
+    ];
     const min = Math.min(...values);
     const max = Math.max(...values);
     const range = Math.max(max - min, 1);
     const xDenominator = Math.max(raw.length - 1, 1);
-    return raw.map(({ day, cell }, index) => ({
-      key: day.snapshotDate,
-      label: day.snapshotDate.slice(5),
-      value: cell.totalAccountValue,
-      change: cell.totalChangeFromPrevious,
-      changePercent: this.deltaPercentForCurrent(cell.totalAccountValue, cell.totalChangeFromPrevious),
-      periodAdded: cell.periodAdded,
-      periodRemoved: cell.periodRemoved,
-      periodValueChange: cell.periodValueChange,
-      tradeCount: cell.tradeCount,
-      positionsChanged: cell.positionsChangedFromPrior,
-      hasAlert: this.hasSpikeAlert(cell.spikeAlert),
-      alert: cell.spikeAlert,
-      x: (index / xDenominator) * 100,
-      y: 36 - ((cell.totalAccountValue - min) / range) * 32,
-    }));
+    return {
+      account: raw.map(({ day, cell }, index) => ({
+        key: day.snapshotDate,
+        label: day.snapshotDate.slice(5),
+        value: cell.totalAccountValue,
+        change: cell.totalChangeFromPrevious,
+        changePercent: this.deltaPercentForCurrent(cell.totalAccountValue, cell.totalChangeFromPrevious),
+        periodAdded: cell.periodAdded,
+        periodRemoved: cell.periodRemoved,
+        periodValueChange: cell.periodValueChange,
+        tradeCount: cell.tradeCount,
+        positionsChanged: cell.positionsChangedFromPrior,
+        hasAlert: this.hasSpikeAlert(cell.spikeAlert),
+        alert: cell.spikeAlert,
+        x: (index / xDenominator) * 100,
+        y: 36 - ((cell.totalAccountValue - min) / range) * 32,
+      })),
+      benchmark: benchmarkValues.map((point) => ({
+        key: point.key,
+        label: point.label,
+        value: point.value,
+        indexClose: point.indexClose,
+        marketDate: point.marketDate,
+        x: (point.index / xDenominator) * 100,
+        y: 36 - ((point.value - min) / range) * 32,
+      })),
+    };
   }
 
   focusTrendPath(): string {
@@ -896,6 +951,28 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       return '';
     }
     return points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(' ');
+  }
+
+  sp500TrendPath(): string {
+    const points = this.sp500BenchmarkPoints();
+    return points
+      .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
+      .join(' ');
+  }
+
+  sp500BenchmarkSummary(): { latestValue: number; change: number; changePercent: number } | null {
+    const points = this.sp500BenchmarkPoints();
+    if (points.length < 2) {
+      return null;
+    }
+    const start = points[0].value;
+    const latest = points[points.length - 1].value;
+    const change = latest - start;
+    return {
+      latestValue: latest,
+      change,
+      changePercent: start === 0 ? 0 : (change / start) * 100,
+    };
   }
 
   focusAreaPath(): string {
@@ -910,11 +987,11 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   }
 
   focusYAxisLabels(): Array<{ y: number; value: number }> {
-    const points = this.focusPoints();
-    if (!points.length) {
+    const series = this.focusChartSeries();
+    const values = [...series.account.map((point) => point.value), ...series.benchmark.map((point) => point.value)];
+    if (!values.length) {
       return [];
     }
-    const values = points.map((point) => point.value);
     const high = Math.max(...values);
     const low = Math.min(...values);
     return [

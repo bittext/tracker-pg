@@ -116,7 +116,15 @@ export interface RobinhoodRhDailyTrackerReportDto {
   autoCaptureScheduleLabel: string;
   accounts: RobinhoodRhDailyTrackerAccountColumnDto[];
   days: RobinhoodRhDailyTrackerDayDto[];
+  sp500Benchmark: RobinhoodRhDailyBenchmarkPointDto[];
   notes: string[];
+}
+
+export interface RobinhoodRhDailyBenchmarkPointDto {
+  snapshotDate: string;
+  /** Actual market session used (previous close on weekends/holidays). */
+  marketDate: string;
+  close: number;
 }
 
 /** GET /api/finance/robinhood/crypto-tracker — crypto holdings timeline (separate from Daily Tracker). */

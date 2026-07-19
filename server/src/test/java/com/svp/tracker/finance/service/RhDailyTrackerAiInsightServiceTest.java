@@ -150,6 +150,7 @@ class RhDailyTrackerAiInsightServiceTest {
                 "",
                 List.of(),
                 List.of(),
+                List.of(),
                 List.of());
     }
 }

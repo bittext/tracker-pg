@@ -88,6 +88,7 @@ public class RobinhoodRhDailyTrackerService {
     private final RobinhoodRhDailyDayNoteRepository dayNoteRepository;
     private final RhDailyTrackerAlertEventRepository alertEventRepository;
     private final RobinhoodAccountTrackerConfigService accountTrackerConfigService;
+    private final Sp500DailyBenchmarkService sp500DailyBenchmarkService;
     private final RobinhoodAgenticProperties agenticProps;
     private final RobinhoodRhDailyTrackerProperties dailyTrackerProps;
     private final ObjectProvider<RobinhoodRhDailyTrackerService> selfProvider;
@@ -393,6 +394,7 @@ public class RobinhoodRhDailyTrackerService {
                 autoCaptureScheduled ? dailyTrackerProps.autoCaptureScheduleLabel() : "",
                 suffixOrder.stream().map(columnBySuffix::get).filter(Objects::nonNull).toList(),
                 days,
+                sp500DailyBenchmarkService.alignedCloses(scheduledDates),
                 notes);
     }
 
