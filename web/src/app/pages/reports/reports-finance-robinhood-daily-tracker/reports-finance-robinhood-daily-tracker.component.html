@@ -8,9 +8,8 @@
       </span>
       <span class="rh-daily__live-badge muted">Live sync — updates automatically after each capture</span>
       —
-      Each day’s <strong>9:00 PM CST</strong> snapshot appears as a row — click to expand. Use
-      <strong>Timeline compare</strong> to see all captures side-by-side, or <strong>Classic</strong> for the original
-      layout. Add call-summary notes and manage manual captures inside each expanded day.
+      Each day’s <strong>9:00 PM CST</strong> snapshot appears as a row — click to expand the day board (captures,
+      accounts, trades, and notes). Add call-summary notes and manage manual captures inside each expanded day.
     } @else {
       Daily snapshots appear as a row — click to expand. Add call-summary notes, and manage manual captures, inside
       each expanded day.
@@ -207,24 +206,6 @@
     <button mat-stroked-button type="button" (click)="captureNow()" [disabled]="capturing || loading">
       Capture now
     </button>
-    <span class="rh-daily__view-toggle" role="group" aria-label="Day detail layout">
-      <button
-        mat-stroked-button
-        type="button"
-        [class.rh-daily__view-toggle--active]="isClassicView()"
-        (click)="setViewMode('classic')"
-      >
-        Classic
-      </button>
-      <button
-        mat-stroked-button
-        type="button"
-        [class.rh-daily__view-toggle--active]="isTimelineView()"
-        (click)="setViewMode('timeline')"
-      >
-        Timeline compare
-      </button>
-    </span>
     @if (loading || capturing) {
       <mat-spinner diameter="28" aria-label="Loading" />
     } @else if (softRefreshing) {
@@ -864,7 +845,7 @@
                   }
                 </div>
 
-                @if (isTimelineView() && hasCaptureTimeline(day)) {
+                @if (hasCaptureTimeline(day)) {
                   <div
                     class="rh-daily__timeline"
                     role="region"
@@ -880,7 +861,7 @@
                       <mat-icon class="rh-daily__chevron rh-daily__chevron--sm" aria-hidden="true">
                         {{ isTimelineExpanded(day) ? 'expand_less' : 'expand_more' }}
                       </mat-icon>
-                      <h4 class="rh-daily__timeline-title">Captures today (compare accounts)</h4>
+                      <h4 class="rh-daily__timeline-title">Capture pulse</h4>
                       <span class="rh-daily__section-count muted">{{ captureTimeline(day).length }}</span>
                     </button>
                     @if (isTimelineExpanded(day)) {
@@ -936,9 +917,26 @@
                                   [class.rh-daily__timeline-row--spike-alert]="timelineRowHasSpikeAlerts(row)"
                                 >
                                   <td class="rh-daily__nowrap">
-                                    {{ row.timeLabel }}
+                                    <span class="rh-daily__timeline-time">
+                                      {{ row.timeLabel }}
+                                      @if (row.kind === 'manual') {
+                                        <span class="muted rh-daily__timeline-kind">manual</span>
+                                      }
+                                    </span>
                                     @if (row.kind === 'manual') {
-                                      <span class="muted rh-daily__timeline-kind">manual</span>
+                                      <button
+                                        type="button"
+                                        class="rh-daily__timeline-delete"
+                                        (click)="deleteManualTimelineRow(day, row, $event)"
+                                        [disabled]="isDeletingManualTimelineRow(day, row)"
+                                        aria-label="Delete manual capture"
+                                      >
+                                        @if (isDeletingManualTimelineRow(day, row)) {
+                                          <mat-spinner diameter="16" aria-hidden="true" />
+                                        } @else {
+                                          <mat-icon aria-hidden="true">delete_outline</mat-icon>
+                                        }
+                                      </button>
                                     }
                                   </td>
                                   @for (acctCol of accountColumns(); track acctCol.accountSuffix) {
@@ -1033,6 +1031,101 @@
                 }
 
                 @if (day.hasScheduledSnapshot) {
+                  <div
+                    class="rh-daily__accounts-block"
+                    role="region"
+                    aria-label="Account snapshots"
+                    [class.rh-daily__accounts-block--open]="isAccountsExpanded(day)"
+                  >
+                    <button
+                      type="button"
+                      class="rh-daily__accounts-header"
+                      (click)="toggleAccounts(day, $event)"
+                      [attr.aria-expanded]="isAccountsExpanded(day)"
+                    >
+                      <mat-icon class="rh-daily__chevron rh-daily__chevron--sm" aria-hidden="true">
+                        {{ isAccountsExpanded(day) ? 'expand_less' : 'expand_more' }}
+                      </mat-icon>
+                      <h4 class="rh-daily__accounts-title">Accounts</h4>
+                      <span class="rh-daily__section-count muted">{{ t.accounts.length }}</span>
+                    </button>
+                    @if (isAccountsExpanded(day)) {
+                      <div class="rh-daily__accounts-strip-wrap">
+                        <table class="rh-daily__accounts-strip">
+                          <thead>
+                            <tr>
+                              <th>Account</th>
+                              <th>Kind</th>
+                              <th class="rh-daily__num">Value</th>
+                              <th class="rh-daily__num">Δ previous</th>
+                              <th class="rh-daily__num">Value change</th>
+                              <th class="rh-daily__num">Trades</th>
+                              <th>Signals</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            @for (acct of t.accounts; track acct.accountSuffix) {
+                              @if (cellForDay(day, acct.accountSuffix); as cell) {
+                                <tr
+                                  class="rh-daily__accounts-strip-row"
+                                  [class.rh-daily__accounts-strip-row--focus]="acct.accountSuffix === focusAccountSuffix"
+                                  [class.rh-daily__accounts-strip-row--alert]="hasSpikeAlert(cell.spikeAlert)"
+                                  (click)="openSnapshot(cell, day)"
+                                  (keydown.enter)="openSnapshot(cell, day)"
+                                  (keydown.space)="$event.preventDefault(); openSnapshot(cell, day)"
+                                  tabindex="0"
+                                  role="button"
+                                  [attr.aria-label]="'View ' + acct.label + ' details for ' + day.snapshotDate"
+                                >
+                                  <td>
+                                    <span class="rh-daily__acct-label">{{ acct.label }}</span>
+                                  </td>
+                                  <td>
+                                    <span class="rh-daily__acct-kind muted">{{ acct.accountKind }}</span>
+                                  </td>
+                                  <td class="rh-daily__num">
+                                    <strong>{{ cell.totalAccountValue | currency }}</strong>
+                                  </td>
+                                  <td class="rh-daily__num" [class]="pnlClass(cell.totalChangeFromPrevious)">
+                                    @if (day.hasPreviousScheduledSnapshot) {
+                                      {{ cell.totalChangeFromPrevious | currency }}
+                                      @if (deltaPercentForCurrent(cell.totalAccountValue, cell.totalChangeFromPrevious); as cpct) {
+                                        <span class="rh-daily__delta-pct">&nbsp;({{ cpct | number: '1.2-2' }}%)</span>
+                                      }
+                                    } @else {
+                                      <span class="muted">—</span>
+                                    }
+                                  </td>
+                                  <td class="rh-daily__num" [class]="pnlClass(cell.periodValueChange)">
+                                    {{ cell.periodValueChange | currency }}
+                                  </td>
+                                  <td class="rh-daily__num">{{ cell.tradeCount }}</td>
+                                  <td>
+                                    @if (hasSpikeAlert(cell.spikeAlert)) {
+                                      <span
+                                        class="rh-daily__spike-alert rh-daily__spike-alert--compact"
+                                        [title]="spikeAlertTitle(cell.spikeAlert!)"
+                                      >
+                                        <mat-icon class="rh-daily__spike-alert-icon" aria-hidden="true">notifications_active</mat-icon>
+                                        <span class="rh-daily__spike-alert-label">{{ alertTriggerLabel(cell.spikeAlert!.triggerReasons!) }}</span>
+                                      </span>
+                                    }
+                                    @if (cell.positionsChangedFromPrior) {
+                                      <span class="rh-daily__focus-signal">positions</span>
+                                    }
+                                    @if (!hasSpikeAlert(cell.spikeAlert) && !cell.positionsChangedFromPrior) {
+                                      <span class="muted">—</span>
+                                    }
+                                  </td>
+                                </tr>
+                              }
+                            }
+                          </tbody>
+                        </table>
+                      </div>
+                    }
+                  </div>
+
                   @if (hasFlowBlock(day)) {
                     <div
                       class="rh-daily__flows"
@@ -1158,171 +1251,6 @@
                     }
                   </div>
 
-                  @if (isClassicView()) {
-                  <div
-                    class="rh-daily__accounts-block"
-                    role="region"
-                    aria-label="Account snapshots"
-                    [class.rh-daily__accounts-block--open]="isAccountsExpanded(day)"
-                  >
-                    <button
-                      type="button"
-                      class="rh-daily__accounts-header"
-                      (click)="toggleAccounts(day, $event)"
-                      [attr.aria-expanded]="isAccountsExpanded(day)"
-                    >
-                      <mat-icon class="rh-daily__chevron rh-daily__chevron--sm" aria-hidden="true">
-                        {{ isAccountsExpanded(day) ? 'expand_less' : 'expand_more' }}
-                      </mat-icon>
-                      <h4 class="rh-daily__accounts-title">Account snapshots</h4>
-                      <span class="rh-daily__section-count muted">{{ t.accounts.length }}</span>
-                    </button>
-                    @if (isAccountsExpanded(day)) {
-                  <div class="rh-daily__accounts">
-                    @for (acct of t.accounts; track acct.accountSuffix) {
-                      @if (cellForDay(day, acct.accountSuffix); as cell) {
-                        <button
-                          type="button"
-                          class="rh-daily__acct-card"
-                          (click)="openSnapshot(cell, day)"
-                          [attr.aria-label]="'View ' + acct.label + ' details for ' + day.snapshotDate"
-                        >
-                          <span class="rh-daily__acct-kind muted">{{ acct.accountKind }}</span>
-                          <span class="rh-daily__acct-label">{{ acct.label }}</span>
-                          <strong class="rh-daily__acct-total">{{ cell.totalAccountValue | currency }}</strong>
-                          @if (day.hasPreviousScheduledSnapshot && cell.totalChangeFromPrevious !== 0) {
-                            <span class="rh-daily__acct-delta muted" [class]="pnlClass(cell.totalChangeFromPrevious)">
-                              <mat-icon class="rh-daily__trend-icon rh-daily__trend-icon--sm" aria-hidden="true">
-                                {{ trendIcon(cell.totalChangeFromPrevious) }}
-                              </mat-icon>
-                              {{ cell.totalChangeFromPrevious | currency }}
-                              @if (deltaPercentForCurrent(cell.totalAccountValue, cell.totalChangeFromPrevious); as cpct) {
-                                <span class="rh-daily__delta-pct">&nbsp;({{ cpct | number: '1.2-2' }}%)</span>
-                              }
-                            </span>
-                          }
-                          @if (cell.periodValueChange !== 0) {
-                            <span class="rh-daily__acct-perf muted" title="Value change excluding cash flows">
-                              perf {{ cell.periodValueChange | currency }}
-                            </span>
-                          }
-                          @if (cell.tradeCount) {
-                            <span class="rh-daily__acct-trades muted">
-                              {{ cell.tradeCount }} trade{{ cell.tradeCount === 1 ? '' : 's' }}
-                            </span>
-                          }
-                          @if (hasSpikeAlert(cell.spikeAlert)) {
-                            <span
-                              class="rh-daily__spike-alert"
-                              [title]="spikeAlertTitle(cell.spikeAlert!)"
-                            >
-                              <mat-icon class="rh-daily__spike-alert-icon" aria-hidden="true">notifications_active</mat-icon>
-                              <span class="rh-daily__spike-alert-label">{{ alertTriggerLabel(cell.spikeAlert!.triggerReasons!) }}</span>
-                              @if (cell.spikeAlert!.emailStatus) {
-                                <span
-                                  class="rh-daily__spike-alert-status"
-                                  [class]="alertStatusClass(cell.spikeAlert!.emailStatus!)"
-                                >
-                                  {{ cell.spikeAlert!.emailStatus }}
-                                </span>
-                              }
-                            </span>
-                          }
-                          <span class="rh-daily__acct-link">View holdings, trades &amp; flows →</span>
-                        </button>
-                      }
-                    }
-                  </div>
-                    }
-                  </div>
-                  }
-                }
-
-                @if (isClassicView() && day.manualCaptures.length) {
-                  <div
-                    class="rh-daily__manual"
-                    role="region"
-                    aria-label="Manual captures"
-                    [class.rh-daily__manual--open]="isManualSectionExpanded(day)"
-                  >
-                    <button
-                      type="button"
-                      class="rh-daily__manual-header"
-                      (click)="toggleManualSection(day, $event)"
-                      [attr.aria-expanded]="isManualSectionExpanded(day)"
-                    >
-                      <mat-icon class="rh-daily__chevron rh-daily__chevron--sm" aria-hidden="true">
-                        {{ isManualSectionExpanded(day) ? 'expand_less' : 'expand_more' }}
-                      </mat-icon>
-                      <h4 class="rh-daily__manual-title">Manual captures</h4>
-                      <span class="rh-daily__section-count muted">{{ day.manualCaptures.length }}</span>
-                    </button>
-                    @if (isManualSectionExpanded(day)) {
-                      <ul class="rh-daily__manual-list">
-                        @for (mc of day.manualCaptures; track mc.capturedAt) {
-                          <li
-                            class="rh-daily__manual-item"
-                            [class.rh-daily__manual-item--open]="isManualExpanded(day, mc)"
-                          >
-                            <div class="rh-daily__manual-row-wrap">
-                              <button
-                                type="button"
-                                class="rh-daily__manual-row"
-                                (click)="toggleManual(day, mc, $event)"
-                                [attr.aria-expanded]="isManualExpanded(day, mc)"
-                              >
-                                <mat-icon class="rh-daily__chevron rh-daily__chevron--sm" aria-hidden="true">
-                                  {{ isManualExpanded(day, mc) ? 'expand_less' : 'expand_more' }}
-                                </mat-icon>
-                                <mat-icon class="rh-daily__manual-icon" aria-hidden="true">schedule</mat-icon>
-                                <span>{{ mc.capturedAt | date: 'shortTime' }} CST</span>
-                                <strong>{{ mc.combinedTotal | currency }}</strong>
-                              </button>
-                              <button
-                                type="button"
-                                class="rh-daily__manual-delete"
-                                (click)="deleteManualCapture(day, mc, $event)"
-                                [disabled]="isDeletingManual(day, mc)"
-                                aria-label="Delete manual capture"
-                              >
-                                @if (isDeletingManual(day, mc)) {
-                                  <mat-spinner diameter="18" aria-hidden="true" />
-                                } @else {
-                                  <mat-icon aria-hidden="true">delete_outline</mat-icon>
-                                }
-                              </button>
-                            </div>
-                            @if (isManualExpanded(day, mc)) {
-                              <ul class="rh-daily__manual-accounts">
-                                @for (acct of mc.accounts; track acct.snapshotId) {
-                                  <li>
-                                    <button
-                                      type="button"
-                                      class="rh-daily__manual-acct"
-                                      (click)="openManualAccountSnapshot(acct, day, $event)"
-                                    >
-                                      <span>{{ acct.label }}</span>
-                                      <strong>{{ acct.totalAccountValue | currency }}</strong>
-                                      @if (hasSpikeAlert(acct.spikeAlert)) {
-                                        <span
-                                          class="rh-daily__spike-alert rh-daily__spike-alert--compact"
-                                          [title]="spikeAlertTitle(acct.spikeAlert!)"
-                                        >
-                                          <mat-icon class="rh-daily__spike-alert-icon" aria-hidden="true">notifications_active</mat-icon>
-                                          <span class="rh-daily__spike-alert-label">{{ alertTriggerLabel(acct.spikeAlert!.triggerReasons!) }}</span>
-                                        </span>
-                                      }
-                                      <span class="rh-daily__acct-link">View holdings &amp; flows →</span>
-                                    </button>
-                                  </li>
-                                }
-                              </ul>
-                            }
-                          </li>
-                        }
-                      </ul>
-                    }
-                  </div>
                 }
 
                 @if (!day.hasScheduledSnapshot && t.autoCaptureScheduled) {

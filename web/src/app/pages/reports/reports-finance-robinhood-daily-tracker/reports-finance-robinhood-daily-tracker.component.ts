@@ -17,7 +17,6 @@ import {
   RobinhoodRhDailyTrackerAccountCellDto,
   RobinhoodRhDailyTrackerAccountColumnDto,
   RobinhoodRhDailyTrackerDayDto,
-  RobinhoodRhDailyTrackerManualCaptureAccountDto,
   RobinhoodRhDailyTrackerManualCaptureDto,
   RobinhoodRhDailyTrackerRefreshHintDto,
   RobinhoodRhDailyTrackerReportDto,
@@ -182,10 +181,6 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
 
   /** snapshotDate keys for expanded 9 PM day rows */
   private readonly expandedDays = new Set<string>();
-  /** dayDate keys where the manual-captures section is collapsed */
-  private readonly collapsedManualSections = new Set<string>();
-  /** dayDate|capturedAt keys for expanded manual capture rows */
-  private readonly expandedManuals = new Set<string>();
   /** dayDate|capturedAt key currently being deleted */
   deletingManualKey: string | null = null;
   /** Editable call-summary note drafts keyed by snapshotDate */
@@ -200,10 +195,6 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   private readonly collapsedFlows = new Set<string>();
   private readonly collapsedAccounts = new Set<string>();
 
-  /** Classic expandable cards vs side-by-side capture timeline. */
-  viewMode: 'classic' | 'timeline' = this.loadViewMode();
-
-  private static readonly VIEW_MODE_STORAGE_KEY = 'rh-daily-tracker-view-mode';
   private static readonly EXPANSION_STORAGE_PREFIX = 'rh-daily-tracker-expansion';
   /** Poll for new snapshots from hourly cron or admin "Run now". */
   private static readonly AUTO_REFRESH_MS = 25_000;
@@ -378,56 +369,14 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
 
   collapseAllDays(): void {
     this.expandedDays.clear();
-    this.collapsedManualSections.clear();
-    this.expandedManuals.clear();
     this.persistExpansionState();
   }
 
   toggleDay(day: RobinhoodRhDailyTrackerDayDto): void {
     if (this.expandedDays.has(day.snapshotDate)) {
       this.expandedDays.delete(day.snapshotDate);
-      this.collapsedManualSections.delete(day.snapshotDate);
-      for (const key of [...this.expandedManuals]) {
-        if (key.startsWith(day.snapshotDate + '|')) {
-          this.expandedManuals.delete(key);
-        }
-      }
     } else {
       this.expandedDays.add(day.snapshotDate);
-    }
-    this.persistExpansionState();
-  }
-
-  isManualSectionExpanded(day: RobinhoodRhDailyTrackerDayDto): boolean {
-    return !this.collapsedManualSections.has(day.snapshotDate);
-  }
-
-  toggleManualSection(day: RobinhoodRhDailyTrackerDayDto, event: Event): void {
-    event.stopPropagation();
-    if (this.collapsedManualSections.has(day.snapshotDate)) {
-      this.collapsedManualSections.delete(day.snapshotDate);
-    } else {
-      this.collapsedManualSections.add(day.snapshotDate);
-      for (const key of [...this.expandedManuals]) {
-        if (key.startsWith(day.snapshotDate + '|')) {
-          this.expandedManuals.delete(key);
-        }
-      }
-    }
-    this.persistExpansionState();
-  }
-
-  isManualExpanded(day: RobinhoodRhDailyTrackerDayDto, capture: RobinhoodRhDailyTrackerManualCaptureDto): boolean {
-    return this.expandedManuals.has(this.manualKey(day, capture));
-  }
-
-  toggleManual(day: RobinhoodRhDailyTrackerDayDto, capture: RobinhoodRhDailyTrackerManualCaptureDto, event: Event): void {
-    event.stopPropagation();
-    const key = this.manualKey(day, capture);
-    if (this.expandedManuals.has(key)) {
-      this.expandedManuals.delete(key);
-    } else {
-      this.expandedManuals.add(key);
     }
     this.persistExpansionState();
   }
@@ -454,7 +403,6 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     this.financeApi.robinhoodDailyTrackerDeleteManualCapture(capture.capturedAt).subscribe({
       next: (r) => {
         this.deletingManualKey = null;
-        this.expandedManuals.delete(key);
         this.snackBar.open(r.message, 'OK', { duration: 5000 });
         this.load();
       },
@@ -465,32 +413,16 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     });
   }
 
-  isDeletingManual(day: RobinhoodRhDailyTrackerDayDto, capture: RobinhoodRhDailyTrackerManualCaptureDto): boolean {
-    return this.deletingManualKey === this.manualKey(day, capture);
+  deleteManualTimelineRow(day: RobinhoodRhDailyTrackerDayDto, row: RhDailyCaptureTimelineRow, event: Event): void {
+    const capture = day.manualCaptures.find((mc) => mc.capturedAt === row.capturedAt);
+    if (!capture) {
+      return;
+    }
+    this.deleteManualCapture(day, capture, event);
   }
 
-  openManualAccountSnapshot(
-    acct: RobinhoodRhDailyTrackerManualCaptureAccountDto,
-    day: RobinhoodRhDailyTrackerDayDto,
-    event: Event,
-  ): void {
-    event.stopPropagation();
-    this.openSnapshot(
-      {
-        snapshotId: acct.snapshotId,
-        accountSuffix: acct.accountSuffix,
-        totalAccountValue: acct.totalAccountValue,
-        totalChangeFromPrevious: 0,
-        periodAdded: 0,
-        periodRemoved: 0,
-        periodValueChange: 0,
-        hasFlowActivity: false,
-        tradeCount: 0,
-        positionsChangedFromPrior: acct.positionsChangedFromPrior ?? false,
-        spikeAlert: acct.spikeAlert,
-      },
-      day,
-    );
+  isDeletingManualTimelineRow(day: RobinhoodRhDailyTrackerDayDto, row: RhDailyCaptureTimelineRow): boolean {
+    return this.deletingManualKey === `${day.snapshotDate}|${row.capturedAt}`;
   }
 
   openSnapshot(cell: RobinhoodRhDailyTrackerAccountCellDto, day: RobinhoodRhDailyTrackerDayDto): void {
@@ -538,23 +470,6 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
 
   deltaPercentForCurrent(currentTotal: number, change: number | null | undefined): number | null {
     return this.changePercent(change, this.priorFromChange(currentTotal, change));
-  }
-
-  setViewMode(mode: 'classic' | 'timeline'): void {
-    this.viewMode = mode;
-    try {
-      localStorage.setItem(ReportsFinanceRobinhoodDailyTrackerComponent.VIEW_MODE_STORAGE_KEY, mode);
-    } catch {
-      /* ignore storage errors */
-    }
-  }
-
-  isClassicView(): boolean {
-    return this.viewMode === 'classic';
-  }
-
-  isTimelineView(): boolean {
-    return this.viewMode === 'timeline';
   }
 
   hasCaptureTimeline(day: RobinhoodRhDailyTrackerDayDto): boolean {
@@ -1373,8 +1288,6 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         this.expansionStorageKey(),
         JSON.stringify({
           expandedDays: [...this.expandedDays],
-          collapsedManualSections: [...this.collapsedManualSections],
-          expandedManuals: [...this.expandedManuals],
           collapsedSummaryNotes: [...this.collapsedSummaryNotes],
           collapsedTrades: [...this.collapsedTrades],
           collapsedTimeline: [...this.collapsedTimeline],
@@ -1395,8 +1308,6 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       }
       const stored = JSON.parse(raw) as {
         expandedDays?: string[];
-        collapsedManualSections?: string[];
-        expandedManuals?: string[];
         collapsedSummaryNotes?: string[];
         expandedTrades?: string[];
         collapsedTrades?: string[];
@@ -1407,16 +1318,6 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       for (const date of stored.expandedDays ?? []) {
         if (validDates.has(date)) {
           this.expandedDays.add(date);
-        }
-      }
-      for (const date of stored.collapsedManualSections ?? []) {
-        if (validDates.has(date)) {
-          this.collapsedManualSections.add(date);
-        }
-      }
-      for (const key of stored.expandedManuals ?? []) {
-        if (validDates.has(key.split('|')[0] ?? '')) {
-          this.expandedManuals.add(key);
         }
       }
       for (const date of stored.collapsedSummaryNotes ?? []) {
@@ -1460,16 +1361,6 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     for (const date of [...this.expandedDays]) {
       if (!validDates.has(date)) {
         this.expandedDays.delete(date);
-      }
-    }
-    for (const date of [...this.collapsedManualSections]) {
-      if (!validDates.has(date)) {
-        this.collapsedManualSections.delete(date);
-      }
-    }
-    for (const key of [...this.expandedManuals]) {
-      if (!validDates.has(key.split('|')[0] ?? '')) {
-        this.expandedManuals.delete(key);
       }
     }
     for (const date of [...this.collapsedSummaryNotes]) {
@@ -1519,15 +1410,6 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       if (!this.isNoteDirty(day)) {
         this.noteDrafts.set(day.snapshotDate, day.summaryNote ?? '');
       }
-    }
-  }
-
-  private loadViewMode(): 'classic' | 'timeline' {
-    try {
-      const stored = localStorage.getItem(ReportsFinanceRobinhoodDailyTrackerComponent.VIEW_MODE_STORAGE_KEY);
-      return stored === 'timeline' ? 'timeline' : 'classic';
-    } catch {
-      return 'classic';
     }
   }
 
