@@ -1021,7 +1021,7 @@ export interface OptionsBacktestRequestDto {
   symbol: string;
   lookbackDays?: number | null;
   startingCapital?: number | null;
-  putOtmPercent?: number | null;
+  /** Call strike percent above spot (0 = ATM). */
   callOtmPercent?: number | null;
   daysToExpiration?: number | null;
   riskFreeRate?: number | null;

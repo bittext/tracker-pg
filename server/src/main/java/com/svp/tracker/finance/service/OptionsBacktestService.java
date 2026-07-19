@@ -27,7 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * Options wheel backtest: cash-secured short put → (if assigned) covered call, rolling on expiry.
+ * Long-call backtest: repeatedly buy one call, hold to expiry, settle intrinsic, then roll.
  *
  * <p>Uses Yahoo daily underlying closes. Option premiums are Black–Scholes estimates with realized
  * volatility from a trailing window — not exchange option quotes. Not investment advice.
@@ -37,13 +37,13 @@ import org.springframework.stereotype.Service;
 @Slf4j
 public class OptionsBacktestService {
 
-    public static final String STRATEGY_ID = "OPTIONS_WHEEL";
-    public static final String STRATEGY_NAME = "Cash-secured put / covered-call wheel";
+    public static final String STRATEGY_ID = "LONG_CALL";
+    public static final String STRATEGY_NAME = "Long call";
 
     private static final String NOTES =
-            "Simulates short puts while flat, then covered calls while long 100 shares. "
+            "Buys one call each cycle, holds to expiry, settles intrinsic value (max(spot − strike, 0)), then rolls. "
                     + "Premiums use Black–Scholes with trailing realized volatility as IV (not live option chains). "
-                    + "Assumes 100-share contracts, European-style expiry settlement, no dividends, fees, or early assignment. "
+                    + "Assumes 100-share contracts, European-style expiry settlement, no dividends, fees, or early exercise. "
                     + "Educational only — not investment advice.";
 
     private static final ZoneId NY = ZoneId.of("America/New_York");
@@ -55,7 +55,6 @@ public class OptionsBacktestService {
 
     private static final int DEFAULT_LOOKBACK = 252;
     private static final double DEFAULT_CAPITAL = 100_000.0;
-    private static final double DEFAULT_PUT_OTM = 5.0;
     private static final double DEFAULT_CALL_OTM = 5.0;
     private static final int DEFAULT_DTE = 30;
     private static final double DEFAULT_RF = 0.04;
@@ -72,7 +71,6 @@ public class OptionsBacktestService {
         }
         int lookback = clamp(request == null ? null : request.lookbackDays(), 60, 1000, DEFAULT_LOOKBACK);
         double capital = clampDouble(request == null ? null : request.startingCapital(), 5_000, 10_000_000, DEFAULT_CAPITAL);
-        double putOtm = clampDouble(request == null ? null : request.putOtmPercent(), 0, 40, DEFAULT_PUT_OTM) / 100.0;
         double callOtm = clampDouble(request == null ? null : request.callOtmPercent(), 0, 40, DEFAULT_CALL_OTM) / 100.0;
         int dte = clamp(request == null ? null : request.daysToExpiration(), 7, 90, DEFAULT_DTE);
         double rf = clampDouble(request == null ? null : request.riskFreeRate(), 0, 0.15, DEFAULT_RF);
@@ -83,26 +81,23 @@ public class OptionsBacktestService {
                     + (VOL_WINDOW + dte + 5) + " sessions, got " + bars.size() + ")");
         }
 
-        return simulateWheel(symbol, bars, capital, putOtm, callOtm, dte, rf);
+        return simulateLongCalls(symbol, bars, capital, callOtm, dte, rf);
     }
 
-    OptionsBacktestResultDto simulateWheel(
+    OptionsBacktestResultDto simulateLongCalls(
             String symbol,
             List<Bar> bars,
             double startingCapital,
-            double putOtm,
             double callOtm,
             int dte,
             double riskFreeRate) {
         double cash = startingCapital;
-        boolean longShares = false;
-        double shareCostBasis = 0;
         int i = VOL_WINDOW;
         List<OptionsBacktestTradeDto> trades = new ArrayList<>();
         List<OptionsBacktestEquityPointDto> curve = new ArrayList<>();
         double peak = startingCapital;
         double maxDrawdown = 0;
-        double premiumTotal = 0;
+        double premiumPaid = 0;
         int wins = 0;
         int losses = 0;
 
@@ -119,105 +114,52 @@ public class OptionsBacktestService {
                 sigma = 0.20;
             }
             double tYears = Math.max(dte / 365.0, 1.0 / 365.0);
+            double strike = roundStrike(open.close * (1.0 + callOtm));
+            double premium = blackScholesCall(open.close, strike, tYears, riskFreeRate, sigma);
+            double debit = premium * CONTRACT_MULTIPLIER;
 
-            if (!longShares) {
-                if (cash < open.close * CONTRACT_MULTIPLIER * 0.5) {
-                    // Not enough cash buffer for another CSP — mark equity and stop rolling.
-                    double equity = markEquity(cash, longShares, open.close);
-                    curve.add(new OptionsBacktestEquityPointDto(open.date, money(equity)));
-                    break;
-                }
-                double strike = roundStrike(open.close * (1.0 - putOtm));
-                double premium = blackScholesPut(open.close, strike, tYears, riskFreeRate, sigma);
-                cash += premium * CONTRACT_MULTIPLIER;
-                premiumTotal += premium * CONTRACT_MULTIPLIER;
-
-                double pnl;
-                String outcome;
-                if (close.close < strike) {
-                    // Assigned: buy 100 shares at strike (cash already boosted by premium).
-                    cash -= strike * CONTRACT_MULTIPLIER;
-                    longShares = true;
-                    shareCostBasis = strike;
-                    pnl = premium * CONTRACT_MULTIPLIER;
-                    outcome = "Assigned — now long 100 shares";
-                } else {
-                    pnl = premium * CONTRACT_MULTIPLIER;
-                    outcome = "Expired OTM — keep premium";
-                }
-                if (pnl >= 0) {
-                    wins++;
-                } else {
-                    losses++;
-                }
-                double equity = markEquity(cash, longShares, close.close);
-                trades.add(trade(
-                        open.date,
-                        close.date,
-                        "SELL_PUT",
-                        "PUT",
-                        strike,
-                        open.close,
-                        close.close,
-                        premium,
-                        pnl,
-                        outcome,
-                        equity));
-                peak = Math.max(peak, equity);
-                maxDrawdown = Math.max(maxDrawdown, peak > 0 ? (peak - equity) / peak : 0);
-                curve.add(new OptionsBacktestEquityPointDto(close.date, money(equity)));
-            } else {
-                double strike = roundStrike(open.close * (1.0 + callOtm));
-                double premium = blackScholesCall(open.close, strike, tYears, riskFreeRate, sigma);
-                cash += premium * CONTRACT_MULTIPLIER;
-                premiumTotal += premium * CONTRACT_MULTIPLIER;
-
-                double pnl;
-                String outcome;
-                if (close.close > strike) {
-                    // Called away
-                    double sale = strike * CONTRACT_MULTIPLIER;
-                    double stockPnl = (strike - shareCostBasis) * CONTRACT_MULTIPLIER;
-                    pnl = stockPnl + premium * CONTRACT_MULTIPLIER;
-                    cash += sale;
-                    longShares = false;
-                    shareCostBasis = 0;
-                    outcome = "Called away — shares sold at strike";
-                } else {
-                    pnl = premium * CONTRACT_MULTIPLIER;
-                    outcome = "Expired OTM — keep shares + premium";
-                }
-                if (pnl >= 0) {
-                    wins++;
-                } else {
-                    losses++;
-                }
-                double equity = markEquity(cash, longShares, close.close);
-                trades.add(trade(
-                        open.date,
-                        close.date,
-                        "SELL_CALL",
-                        "CALL",
-                        strike,
-                        open.close,
-                        close.close,
-                        premium,
-                        pnl,
-                        outcome,
-                        equity));
-                peak = Math.max(peak, equity);
-                maxDrawdown = Math.max(maxDrawdown, peak > 0 ? (peak - equity) / peak : 0);
-                curve.add(new OptionsBacktestEquityPointDto(close.date, money(equity)));
+            if (cash < debit) {
+                curve.add(new OptionsBacktestEquityPointDto(open.date, money(cash)));
+                break;
             }
+
+            cash -= debit;
+            premiumPaid += debit;
+
+            double intrinsicPerShare = Math.max(close.close - strike, 0);
+            double settlement = intrinsicPerShare * CONTRACT_MULTIPLIER;
+            cash += settlement;
+            double pnl = settlement - debit;
+            String outcome;
+            if (intrinsicPerShare > 0) {
+                outcome = "Expired ITM — settled for intrinsic";
+            } else {
+                outcome = "Expired OTM — premium lost";
+            }
+            if (pnl >= 0) {
+                wins++;
+            } else {
+                losses++;
+            }
+
+            peak = Math.max(peak, cash);
+            maxDrawdown = Math.max(maxDrawdown, peak > 0 ? (peak - cash) / peak : 0);
+            curve.add(new OptionsBacktestEquityPointDto(close.date, money(cash)));
+            trades.add(trade(
+                    open.date,
+                    close.date,
+                    "BUY_CALL",
+                    "CALL",
+                    strike,
+                    open.close,
+                    close.close,
+                    premium,
+                    pnl,
+                    outcome,
+                    cash));
             i = closeIdx + 1;
         }
 
-        // Liquidate leftover shares at last close for ending equity.
-        Bar last = bars.get(bars.size() - 1);
-        if (longShares) {
-            cash += last.close * CONTRACT_MULTIPLIER;
-            longShares = false;
-        }
         double ending = cash;
         double retPct = startingCapital == 0 ? 0 : (ending - startingCapital) / startingCapital * 100.0;
         int tradeCount = trades.size();
@@ -236,7 +178,7 @@ public class OptionsBacktestService {
                 wins,
                 losses,
                 pct(winRate),
-                money(premiumTotal),
+                money(premiumPaid),
                 List.copyOf(curve),
                 List.copyOf(trades));
     }
@@ -265,10 +207,6 @@ public class OptionsBacktestService {
                 money(pnl),
                 outcome,
                 money(equity));
-    }
-
-    private static double markEquity(double cash, boolean longShares, double price) {
-        return cash + (longShares ? price * CONTRACT_MULTIPLIER : 0);
     }
 
     private static int findExpiryIndex(List<Bar> bars, int openIdx, int dte) {
@@ -320,7 +258,7 @@ public class OptionsBacktestService {
         return spot * normCdf(d1) - strike * Math.exp(-r * t) * normCdf(d2);
     }
 
-    /** Black–Scholes put price. */
+    /** Black–Scholes put price (kept for put-call parity tests). */
     static double blackScholesPut(double spot, double strike, double t, double r, double sigma) {
         if (t <= 0 || sigma <= 0 || spot <= 0 || strike <= 0) {
             return Math.max(strike - spot, 0);

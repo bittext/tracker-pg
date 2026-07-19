@@ -38,7 +38,6 @@ export class OptionsBacktestPanelComponent {
   symbol = 'SPY';
   lookbackDays = 252;
   startingCapital = 100000;
-  putOtmPercent = 5;
   callOtmPercent = 5;
   daysToExpiration = 30;
   riskFreeRatePct = 4;
@@ -67,7 +66,6 @@ export class OptionsBacktestPanelComponent {
         symbol,
         lookbackDays: this.lookbackDays,
         startingCapital: this.startingCapital,
-        putOtmPercent: this.putOtmPercent,
         callOtmPercent: this.callOtmPercent,
         daysToExpiration: this.daysToExpiration,
         riskFreeRate: this.riskFreeRatePct / 100,

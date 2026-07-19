@@ -551,7 +551,7 @@ public class FinanceController {
     }
 
     /**
-     * Markets Workspace → Backtest: cash-secured put / covered-call wheel on Yahoo underlying history.
+     * Markets Workspace → Backtest: long-call only on Yahoo underlying history.
      * Premiums are Black–Scholes proxies (realized vol as IV) — not live option chains. Not investment advice.
      */
     @PostMapping("/options-backtest")
@@ -559,7 +559,7 @@ public class FinanceController {
         String symbol = body == null ? null : body.symbol();
         log.info("POST /api/markets/options-backtest symbol={}", symbol);
         try {
-            return optionsBacktestService.run(body == null ? new OptionsBacktestRequestDto(null, null, null, null, null, null, null) : body);
+            return optionsBacktestService.run(body == null ? new OptionsBacktestRequestDto(null, null, null, null, null, null) : body);
         } catch (IllegalArgumentException e) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
         } catch (IllegalStateException e) {
