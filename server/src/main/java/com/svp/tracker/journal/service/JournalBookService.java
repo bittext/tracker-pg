@@ -7,6 +7,7 @@ import com.svp.tracker.journal.dto.JournalBookDto;
 import com.svp.tracker.journal.dto.JournalBookWriteRequest;
 import com.svp.tracker.journal.repository.JournalBookRepository;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +30,31 @@ public class JournalBookService {
         long owner = currentUser.requireUserId();
         String statusFilter = normalizeStatus(status);
         String query = normalizeQuery(q);
-        return repository.search(owner, statusFilter, query).stream().map(this::toDto).toList();
+        String queryLower = query == null ? null : query.toLowerCase();
+        return repository.findByOwnerUserIdOrderByUpdatedAtDescIdDesc(owner).stream()
+                .filter(b -> statusFilter == null || statusFilter.equals(b.getStatus()))
+                .filter(b -> queryLower == null
+                        || containsIgnoreCase(b.getTitle(), queryLower)
+                        || containsIgnoreCase(b.getAuthor(), queryLower))
+                .sorted(Comparator.comparingInt((JournalBook b) -> statusRank(b.getStatus()))
+                        .thenComparing(JournalBook::getUpdatedAt, Comparator.reverseOrder())
+                        .thenComparing(JournalBook::getId, Comparator.reverseOrder()))
+                .map(this::toDto)
+                .toList();
+    }
+
+    private static boolean containsIgnoreCase(String value, String queryLower) {
+        return value != null && value.toLowerCase().contains(queryLower);
+    }
+
+    private static int statusRank(String status) {
+        if ("READING".equals(status)) {
+            return 0;
+        }
+        if ("TO_READ".equals(status)) {
+            return 1;
+        }
+        return 2;
     }
 
     @Transactional(readOnly = true)

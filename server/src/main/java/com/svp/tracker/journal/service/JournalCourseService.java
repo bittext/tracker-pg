@@ -7,6 +7,7 @@ import com.svp.tracker.journal.dto.JournalCourseDto;
 import com.svp.tracker.journal.dto.JournalCourseWriteRequest;
 import com.svp.tracker.journal.repository.JournalCourseRepository;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +30,31 @@ public class JournalCourseService {
         long owner = currentUser.requireUserId();
         String statusFilter = normalizeStatus(status);
         String query = normalizeQuery(q);
-        return repository.search(owner, statusFilter, query).stream().map(this::toDto).toList();
+        String queryLower = query == null ? null : query.toLowerCase();
+        return repository.findByOwnerUserIdOrderByUpdatedAtDescIdDesc(owner).stream()
+                .filter(c -> statusFilter == null || statusFilter.equals(c.getStatus()))
+                .filter(c -> queryLower == null
+                        || containsIgnoreCase(c.getTitle(), queryLower)
+                        || containsIgnoreCase(c.getProvider(), queryLower))
+                .sorted(Comparator.comparingInt((JournalCourse c) -> statusRank(c.getStatus()))
+                        .thenComparing(JournalCourse::getUpdatedAt, Comparator.reverseOrder())
+                        .thenComparing(JournalCourse::getId, Comparator.reverseOrder()))
+                .map(this::toDto)
+                .toList();
+    }
+
+    private static boolean containsIgnoreCase(String value, String queryLower) {
+        return value != null && value.toLowerCase().contains(queryLower);
+    }
+
+    private static int statusRank(String status) {
+        if ("IN_PROGRESS".equals(status)) {
+            return 0;
+        }
+        if ("INTEND".equals(status)) {
+            return 1;
+        }
+        return 2;
     }
 
     @Transactional(readOnly = true)
