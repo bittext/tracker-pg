@@ -707,9 +707,9 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         const marketSession = this.marketSessionForCapture(row.capturedAt);
         const sessionHint =
           marketSession === 'pre'
-            ? ' · pre-market (4–7 AM CT)'
+            ? ' · pre-market (4–8 AM CT)'
             : marketSession === 'rth'
-              ? ' · regular hours (8 AM–3 PM CT)'
+              ? ' · regular hours (8 AM–4 PM CT)'
               : marketSession === 'after'
                 ? ' · after-hours (4–7 PM CT)'
                 : '';
@@ -1196,7 +1196,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     }));
   }
 
-  /** Pre-market 4–7 AM, RTH 8 AM–3 PM, after-hours 4–7 PM CT. */
+  /** Pre-market 4–8 AM, RTH 8 AM–4 PM, after-hours 4–7 PM CT. */
   private marketSessionForCapture(capturedAt: string): RhDailyMovementBar['marketSession'] {
     const parts = new Intl.DateTimeFormat('en-US', {
       timeZone: 'America/Chicago',
@@ -1210,10 +1210,10 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       return 'other';
     }
     const mins = hour * 60 + minute;
-    if (mins >= 4 * 60 && mins < 7 * 60) {
+    if (mins >= 4 * 60 && mins < 8 * 60) {
       return 'pre';
     }
-    if (mins >= 8 * 60 && mins < 15 * 60) {
+    if (mins >= 8 * 60 && mins < 16 * 60) {
       return 'rth';
     }
     if (mins >= 16 * 60 && mins < 19 * 60) {
