@@ -72,6 +72,8 @@ export interface RhDailyMovementBar {
   positive: boolean;
   hasAlert: boolean;
   title: string;
+  /** Central-time market window for capture-strip shading. */
+  marketSession: 'pre' | 'after' | 'other';
 }
 
 export interface RhDailyFocusPoint {
@@ -687,15 +689,25 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
           acct: RhDailyCaptureTimelineAccountCell;
         } => !!item.acct && item.acct.changeFromPrior != null,
       )
-      .map(({ row, acct }) => ({
-        key: row.capturedAt,
-        label: row.timeLabel,
-        change: acct.changeFromPrior!,
-        hasAlert: this.hasSpikeAlert(acct.spikeAlert),
-        title: `${row.timeLabel} · ••••${this.focusAccountSuffix}: ${this.formatMoney(acct.changeFromPrior!)}${
-          this.hasSpikeAlert(acct.spikeAlert) ? ' · spike alert' : ''
-        }`,
-      }));
+      .map(({ row, acct }) => {
+        const marketSession = this.marketSessionForCapture(row.capturedAt);
+        const sessionHint =
+          marketSession === 'pre'
+            ? ' · pre-market (4–8:30 AM CT)'
+            : marketSession === 'after'
+              ? ' · after-hours (3–7 PM CT)'
+              : '';
+        return {
+          key: row.capturedAt,
+          label: row.timeLabel,
+          change: acct.changeFromPrior!,
+          hasAlert: this.hasSpikeAlert(acct.spikeAlert),
+          marketSession,
+          title: `${row.timeLabel} · ••••${this.focusAccountSuffix}: ${this.formatMoney(acct.changeFromPrior!)}${
+            this.hasSpikeAlert(acct.spikeAlert) ? ' · spike alert' : ''
+          }${sessionHint}`,
+        };
+      });
     return this.toMovementBars(candidates);
   }
 
@@ -1143,7 +1155,14 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   }
 
   private toMovementBars(
-    candidates: Array<{ key: string; label: string; change: number; hasAlert: boolean; title: string }>,
+    candidates: Array<{
+      key: string;
+      label: string;
+      change: number;
+      hasAlert: boolean;
+      title: string;
+      marketSession: RhDailyMovementBar['marketSession'];
+    }>,
   ): RhDailyMovementBar[] {
     if (!candidates.length) {
       return [];
@@ -1157,7 +1176,31 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       positive: c.change >= 0,
       hasAlert: c.hasAlert,
       title: c.title,
+      marketSession: c.marketSession,
     }));
+  }
+
+  /** Pre-market 4:00–8:30 AM CT and after-hours 3:00–7:00 PM CT. */
+  private marketSessionForCapture(capturedAt: string): RhDailyMovementBar['marketSession'] {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Chicago',
+      hour: 'numeric',
+      minute: 'numeric',
+      hourCycle: 'h23',
+    }).formatToParts(new Date(capturedAt));
+    const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? Number.NaN);
+    const minute = Number(parts.find((p) => p.type === 'minute')?.value ?? Number.NaN);
+    if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
+      return 'other';
+    }
+    const mins = hour * 60 + minute;
+    if (mins >= 4 * 60 && mins < 8 * 60 + 30) {
+      return 'pre';
+    }
+    if (mins >= 15 * 60 && mins < 19 * 60) {
+      return 'after';
+    }
+    return 'other';
   }
 
   private formatMoney(v: number): string {

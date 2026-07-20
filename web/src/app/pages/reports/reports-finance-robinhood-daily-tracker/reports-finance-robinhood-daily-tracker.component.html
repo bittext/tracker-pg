@@ -901,6 +901,7 @@
                           Click any account total to open holdings. {{ priorPullHint(day) }}
                           Highlighted cells had stock or option position changes vs the prior pull (••••4123 excluded).
                           The progress rail and red alert markers focus on ••••{{ focusAccountSuffix }} only.
+                          Capture strip: amber = pre-market 4–8:30 AM CT · violet = after-hours 3–7 PM CT.
                         </p>
                         @if (captureMovementBars(day); as moveBars) {
                           @if (moveBars.length) {
@@ -911,7 +912,12 @@
                             >
                               <div class="rh-daily__move-chart rh-daily__move-chart--compact" [style.--bar-count]="moveBars.length">
                                 @for (bar of moveBars; track bar.key) {
-                                  <div class="rh-daily__move-col" [attr.title]="bar.title">
+                                  <div
+                                    class="rh-daily__move-col"
+                                    [class.rh-daily__move-col--pre]="bar.marketSession === 'pre'"
+                                    [class.rh-daily__move-col--after]="bar.marketSession === 'after'"
+                                    [attr.title]="bar.title"
+                                  >
                                     <span
                                       class="rh-daily__move-bar"
                                       [class.rh-daily__move-bar--pos]="bar.positive"

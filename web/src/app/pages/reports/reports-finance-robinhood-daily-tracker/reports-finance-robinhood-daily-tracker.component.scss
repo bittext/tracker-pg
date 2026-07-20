@@ -1536,6 +1536,17 @@
   align-items: center;
   justify-content: flex-end;
   min-height: inherit;
+  border-radius: 4px;
+
+  &--pre {
+    background: linear-gradient(180deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.06));
+    box-shadow: inset 0 0 0 1px rgba(217, 119, 6, 0.18);
+  }
+
+  &--after {
+    background: linear-gradient(180deg, rgba(124, 58, 237, 0.18), rgba(124, 58, 237, 0.05));
+    box-shadow: inset 0 0 0 1px rgba(109, 40, 217, 0.16);
+  }
 }
 
 .rh-daily__move-bar {
