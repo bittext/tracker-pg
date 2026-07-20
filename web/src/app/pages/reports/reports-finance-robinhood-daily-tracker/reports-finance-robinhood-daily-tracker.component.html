@@ -495,17 +495,18 @@
           <div class="rh-daily__focus-chart-wrap">
             <div class="rh-daily__focus-chart-head">
               <div>
-                <strong>9 PM account value</strong>
+                <strong>9 PM return vs S&amp;P</strong>
                 <span class="muted rh-daily__focus-chart-sub">
-                  Blue is scheduled 9 PM value for ••••{{ focusAccountSuffix }}. Orange is a full buy-and-hold of that
-                  account’s launch-day 9 PM balance in the S&amp;P 500. Click a blue point to inspect it.
+                  Both lines are % return from the launch-day 9 PM stake. Blue is ••••{{ focusAccountSuffix }}; orange
+                  is that same cash held in the S&amp;P 500. Dollars stay in the hover tips. Click a blue point to
+                  inspect it.
                 </span>
               </div>
               <div class="rh-daily__focus-chart-actions">
                 <span class="muted">
-                  Blue = ••••{{ focusAccountSuffix }} 9 PM
+                  Blue = ••••{{ focusAccountSuffix }} return
                   @if (sp500BenchmarkPoints().length) {
-                    · orange dashed = S&amp;P buy-and-hold from launch day
+                    · orange dashed = S&amp;P buy-and-hold return
                   }
                   · red point = alert
                 </span>
@@ -518,7 +519,7 @@
             <div class="rh-daily__focus-chart-stage">
               <div class="rh-daily__focus-y-labels" aria-hidden="true">
                 @for (tick of focusYAxisLabels(); track tick.y) {
-                  <span [style.top.%]="(tick.y / 40) * 100">{{ tick.value | currency: 'USD':'symbol':'1.0-0' }}</span>
+                  <span [style.top.%]="(tick.y / 40) * 100">{{ formatFocusReturn(tick.value) }}</span>
                 }
               </div>
               <div class="rh-daily__focus-plot">
@@ -527,11 +528,20 @@
                   viewBox="0 0 100 40"
                   preserveAspectRatio="none"
                   role="img"
-                  [attr.aria-label]="'Scheduled account value chart for ••••' + focusAccountSuffix"
+                  [attr.aria-label]="'Percent return chart for ••••' + focusAccountSuffix + ' vs S&P buy-and-hold'"
                 >
                   <line x1="0" y1="4" x2="100" y2="4" class="rh-daily__focus-grid" />
                   <line x1="0" y1="20" x2="100" y2="20" class="rh-daily__focus-grid" />
                   <line x1="0" y1="36" x2="100" y2="36" class="rh-daily__focus-axis" />
+                  @if (focusZeroLineY() != null) {
+                    <line
+                      x1="0"
+                      [attr.y1]="focusZeroLineY()"
+                      x2="100"
+                      [attr.y2]="focusZeroLineY()"
+                      class="rh-daily__focus-zero"
+                    />
+                  }
                   <path [attr.d]="focusAreaPath()" class="rh-daily__focus-area" />
                   <path [attr.d]="focusTrendPath()" class="rh-daily__focus-line" />
                   @if (sp500TrendPath()) {
@@ -544,7 +554,8 @@
                         class="rh-daily__benchmark-point"
                       >
                         <title>
-                          {{ point.key }} · S&amp;P buy-and-hold {{ point.value | currency }}
+                          {{ point.key }} · S&amp;P {{ formatFocusReturn(point.returnPercent) }} ·
+                          {{ point.value | currency }}
                           ({{ point.launchInvestment | currency }} invested {{ point.launchDate }}) · index
                           {{ point.indexClose | number: '1.2-2' }}
                           @if (point.marketDate !== point.key) { · market close from {{ point.marketDate }} }
@@ -562,13 +573,21 @@
                       class="rh-daily__focus-point"
                       role="button"
                       tabindex="0"
-                      [attr.aria-label]="'Open details for ' + point.key + ', value ' + (point.value | currency)"
+                      [attr.aria-label]="
+                        'Open details for ' +
+                        point.key +
+                        ', return ' +
+                        formatFocusReturn(point.returnPercent) +
+                        ', value ' +
+                        (point.value | currency)
+                      "
                       (click)="selectFocusPoint(point.key, $event)"
                       (keydown.enter)="selectFocusPoint(point.key, $event)"
                       (keydown.space)="selectFocusPoint(point.key, $event)"
                     >
                       <title>
-                        {{ point.key }} · value {{ point.value | currency }} · change {{ point.change | currency }}
+                        {{ point.key }} · {{ formatFocusReturn(point.returnPercent) }} · value
+                        {{ point.value | currency }} · change {{ point.change | currency }}
                         @if (point.changePercent != null) { ({{ point.changePercent | number: '1.2-2' }}%) }
                         @if (point.hasAlert) { · alert fired: {{ alertTriggerLabel(point.alert.triggerReasons || '') }} }
                       </title>

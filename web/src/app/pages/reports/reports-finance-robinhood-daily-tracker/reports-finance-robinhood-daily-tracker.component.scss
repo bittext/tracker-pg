@@ -1232,7 +1232,7 @@
 
 .rh-daily__focus-chart-stage {
   display: grid;
-  grid-template-columns: 5rem minmax(0, 1fr);
+  grid-template-columns: 3.6rem minmax(0, 1fr);
   gap: 0.45rem;
   align-items: stretch;
 }
@@ -1246,6 +1246,7 @@
     right: 0;
     transform: translateY(-50%);
     font-size: 0.62rem;
+    font-variant-numeric: tabular-nums;
     color: var(--app-text-muted, #64748b);
     white-space: nowrap;
   }
@@ -1273,6 +1274,12 @@
 
 .rh-daily__focus-grid {
   stroke-dasharray: 3 3;
+}
+
+.rh-daily__focus-zero {
+  stroke: rgba(100, 116, 139, 0.55);
+  stroke-width: 0.55;
+  vector-effect: non-scaling-stroke;
 }
 
 .rh-daily__focus-area {

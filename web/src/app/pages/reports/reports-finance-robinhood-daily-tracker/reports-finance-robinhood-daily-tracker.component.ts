@@ -78,6 +78,8 @@ export interface RhDailyFocusPoint {
   key: string;
   label: string;
   value: number;
+  /** Cumulative % return vs first scheduled 9 PM value in the series. */
+  returnPercent: number;
   change: number;
   changePercent: number | null;
   periodAdded: number;
@@ -95,6 +97,8 @@ export interface RhDailyBenchmarkPoint {
   key: string;
   label: string;
   value: number;
+  /** Cumulative % return vs launch-day S&P buy-and-hold stake. */
+  returnPercent: number;
   indexClose: number;
   marketDate: string;
   launchInvestment: number;
@@ -837,10 +841,12 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
               if (!benchmark || launchClose <= 0) {
                 return null;
               }
+              const value = launchInvestment * (benchmark.close / launchClose);
               return {
                 key: day.snapshotDate,
                 label: day.snapshotDate.slice(5),
-                value: launchInvestment * (benchmark.close / launchClose),
+                value,
+                returnPercent: launchInvestment === 0 ? 0 : ((value - launchInvestment) / launchInvestment) * 100,
                 indexClose: benchmark.close,
                 marketDate: benchmark.marketDate,
                 launchInvestment,
@@ -850,19 +856,25 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
             })
             .filter((point): point is NonNullable<typeof point> => point != null);
 
-    const values = [
-      ...raw.map(({ cell }) => cell.totalAccountValue),
-      ...benchmarkValues.map((point) => point.value),
-    ];
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const range = Math.max(max - min, 1);
+    // Plot both series as % return from launch so S&P moves stay visible beside large
+    // account dollar swings. Prefer the S&P launch stake as the account base when present.
+    const accountBase =
+      launchIndex >= 0 && launchInvestment > 0 ? launchInvestment : raw[0].cell.totalAccountValue;
+    const accountReturns = raw.map(({ cell }) =>
+      accountBase === 0 ? 0 : ((cell.totalAccountValue - accountBase) / accountBase) * 100,
+    );
+    const returns = [...accountReturns, ...benchmarkValues.map((point) => point.returnPercent), 0];
+    const min = Math.min(...returns);
+    const max = Math.max(...returns);
+    const range = Math.max(max - min, 0.01);
     const xDenominator = Math.max(raw.length - 1, 1);
+    const yForReturn = (returnPercent: number) => 36 - ((returnPercent - min) / range) * 32;
     return {
       account: raw.map(({ day, cell }, index) => ({
         key: day.snapshotDate,
         label: day.snapshotDate.slice(5),
         value: cell.totalAccountValue,
+        returnPercent: accountReturns[index],
         change: cell.totalChangeFromPrevious,
         changePercent: this.deltaPercentForCurrent(cell.totalAccountValue, cell.totalChangeFromPrevious),
         periodAdded: cell.periodAdded,
@@ -873,18 +885,19 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         hasAlert: this.hasSpikeAlert(cell.spikeAlert),
         alert: cell.spikeAlert,
         x: (index / xDenominator) * 100,
-        y: 36 - ((cell.totalAccountValue - min) / range) * 32,
+        y: yForReturn(accountReturns[index]),
       })),
       benchmark: benchmarkValues.map((point) => ({
         key: point.key,
         label: point.label,
         value: point.value,
+        returnPercent: point.returnPercent,
         indexClose: point.indexClose,
         marketDate: point.marketDate,
         launchInvestment: point.launchInvestment,
         launchDate: point.launchDate,
         x: (point.index / xDenominator) * 100,
-        y: 36 - ((point.value - min) / range) * 32,
+        y: yForReturn(point.returnPercent),
       })),
     };
   }
@@ -947,8 +960,12 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
 
   focusYAxisLabels(): Array<{ y: number; value: number }> {
     const series = this.focusChartSeries();
-    const values = [...series.account.map((point) => point.value), ...series.benchmark.map((point) => point.value)];
-    if (!values.length) {
+    const values = [
+      ...series.account.map((point) => point.returnPercent),
+      ...series.benchmark.map((point) => point.returnPercent),
+      0,
+    ];
+    if (!series.account.length) {
       return [];
     }
     const high = Math.max(...values);
@@ -958,6 +975,31 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       { y: 20, value: low + (high - low) / 2 },
       { y: 36, value: low },
     ];
+  }
+
+  /** SVG y for the 0% return baseline, or null when launch is outside the plot. */
+  focusZeroLineY(): number | null {
+    const series = this.focusChartSeries();
+    if (!series.account.length) {
+      return null;
+    }
+    const values = [
+      ...series.account.map((point) => point.returnPercent),
+      ...series.benchmark.map((point) => point.returnPercent),
+      0,
+    ];
+    const high = Math.max(...values);
+    const low = Math.min(...values);
+    if (0 < low || 0 > high) {
+      return null;
+    }
+    const range = Math.max(high - low, 0.01);
+    return 36 - ((0 - low) / range) * 32;
+  }
+
+  formatFocusReturn(value: number): string {
+    const sign = value > 0 ? '+' : '';
+    return `${sign}${value.toFixed(1)}%`;
   }
 
   focusXAxisLabels(): RhDailyFocusPoint[] {
