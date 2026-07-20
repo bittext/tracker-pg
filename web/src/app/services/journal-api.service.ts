@@ -3,7 +3,11 @@ import { Injectable, inject } from '@angular/core';
 import { environment } from '../../environments/environment';
 import {
   JournalAttachmentDto,
+  JournalBookDto,
+  JournalBookWriteBody,
   JournalCalendarDayDto,
+  JournalCourseDto,
+  JournalCourseWriteBody,
   JournalEntryDto,
   JournalEntryWriteBody,
   JournalSummaryDto,
@@ -131,5 +135,59 @@ export class JournalApiService {
    */
   attachmentFilePath(attachmentId: number) {
     return `${environment.apiBaseUrl}/api/journal/attachments/${attachmentId}/file`;
+  }
+
+  listCourses(status?: string | null, q?: string | null) {
+    let p = new HttpParams();
+    if (status) {
+      p = p.set('status', status);
+    }
+    if (q) {
+      p = p.set('q', q);
+    }
+    return this.http.get<JournalCourseDto[]>(`${this.root}/courses`, { params: p });
+  }
+
+  getCourse(id: number) {
+    return this.http.get<JournalCourseDto>(`${this.root}/courses/${id}`);
+  }
+
+  createCourse(body: JournalCourseWriteBody) {
+    return this.http.post<JournalCourseDto>(`${this.root}/courses`, body);
+  }
+
+  updateCourse(id: number, body: JournalCourseWriteBody) {
+    return this.http.put<JournalCourseDto>(`${this.root}/courses/${id}`, body);
+  }
+
+  deleteCourse(id: number) {
+    return this.http.delete<void>(`${this.root}/courses/${id}`);
+  }
+
+  listBooks(status?: string | null, q?: string | null) {
+    let p = new HttpParams();
+    if (status) {
+      p = p.set('status', status);
+    }
+    if (q) {
+      p = p.set('q', q);
+    }
+    return this.http.get<JournalBookDto[]>(`${this.root}/books`, { params: p });
+  }
+
+  getBook(id: number) {
+    return this.http.get<JournalBookDto>(`${this.root}/books/${id}`);
+  }
+
+  createBook(body: JournalBookWriteBody) {
+    return this.http.post<JournalBookDto>(`${this.root}/books`, body);
+  }
+
+  updateBook(id: number, body: JournalBookWriteBody) {
+    return this.http.put<JournalBookDto>(`${this.root}/books/${id}`, body);
+  }
+
+  deleteBook(id: number) {
+    return this.http.delete<void>(`${this.root}/books/${id}`);
   }
 }

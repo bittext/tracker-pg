@@ -1,0 +1,129 @@
+<div class="learning-panel">
+  <div class="learning-toolbar">
+    <mat-form-field appearance="outline" class="learning-search">
+      <mat-label>Search courses</mat-label>
+      <input matInput [(ngModel)]="search" name="courseSearch" (keyup.enter)="load()" />
+    </mat-form-field>
+    <button mat-stroked-button type="button" (click)="load()">Search</button>
+    <button mat-flat-button color="primary" type="button" (click)="startNew()">
+      <mat-icon>add</mat-icon>
+      Add course
+    </button>
+  </div>
+
+  <div class="learning-filters" role="tablist" aria-label="Course status filters">
+    @for (filter of filters; track filter.value) {
+      <button
+        type="button"
+        class="learning-filter"
+        [class.learning-filter--active]="statusFilter === filter.value"
+        (click)="statusFilter = filter.value; load()"
+      >
+        {{ filter.label }}
+      </button>
+    }
+  </div>
+
+  <div class="learning-layout">
+    <aside class="learning-list" aria-label="Courses">
+      @if (loading) {
+        <p class="muted">Loading…</p>
+      } @else if (!filteredCourses().length) {
+        <p class="muted">No courses yet. Add one to track what you are learning or plan to learn.</p>
+      } @else {
+        @for (course of filteredCourses(); track course.id) {
+          <div class="learning-item-wrap" [class.learning-item-wrap--active]="editingId === course.id">
+            <button type="button" class="learning-item" (click)="selectCourse(course)">
+              <span class="learning-item-title">{{ course.title }}</span>
+              @if (course.provider) {
+                <span class="learning-item-meta">{{ course.provider }}</span>
+              }
+              <span class="learning-item-status">{{ statusLabel(course.status) }}</span>
+            </button>
+            @if (hasUrl(course.url)) {
+              <button
+                mat-icon-button
+                type="button"
+                class="learning-item-link"
+                aria-label="Open course site"
+                (click)="openUrl(course.url)"
+              >
+                <mat-icon>open_in_new</mat-icon>
+              </button>
+            }
+          </div>
+        }
+      }
+    </aside>
+
+    <section class="learning-editor" aria-label="Course editor">
+      <h2 class="subsection-title">{{ editingId != null ? 'Edit course' : 'New course' }}</h2>
+      <div class="form-row wrap">
+        <mat-form-field appearance="outline" class="grow">
+          <mat-label>Title</mat-label>
+          <input matInput [(ngModel)]="form.title" name="courseTitle" placeholder="e.g. AWS Solutions Architect" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="grow">
+          <mat-label>Provider / platform</mat-label>
+          <input matInput [(ngModel)]="form.provider" name="courseProvider" placeholder="Coursera, Udemy, YouTube…" />
+        </mat-form-field>
+      </div>
+      <div class="form-row wrap">
+        <mat-form-field appearance="outline" class="grow">
+          <mat-label>Status</mat-label>
+          <mat-select [(ngModel)]="form.status" name="courseStatus">
+            @for (option of statusOptions; track option.value) {
+              <mat-option [value]="option.value">{{ option.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="grow">
+          <mat-label>Course link</mat-label>
+          <input matInput [(ngModel)]="form.url" name="courseUrl" placeholder="https://…" />
+        </mat-form-field>
+      </div>
+      <div class="form-row wrap">
+        <mat-form-field appearance="outline" class="grow">
+          <mat-label>Started</mat-label>
+          <input matInput type="date" [(ngModel)]="form.startedOn" name="courseStarted" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="grow">
+          <mat-label>Completed</mat-label>
+          <input matInput type="date" [(ngModel)]="form.completedOn" name="courseCompleted" />
+        </mat-form-field>
+      </div>
+      <mat-form-field appearance="outline" class="full-width-field">
+        <mat-label>Notes (Markdown)</mat-label>
+        <textarea
+          matInput
+          rows="8"
+          [(ngModel)]="form.notesMarkdown"
+          name="courseNotes"
+          placeholder="What you are learning, modules done, next steps…"
+        ></textarea>
+      </mat-form-field>
+
+      <div class="form-actions">
+        <button mat-flat-button color="primary" type="button" [disabled]="saving" (click)="save()">
+          {{ editingId != null ? 'Save' : 'Add course' }}
+        </button>
+        @if (hasUrl(form.url)) {
+          <button mat-stroked-button type="button" (click)="openUrl(form.url)">
+            <mat-icon>open_in_new</mat-icon>
+            Open course site
+          </button>
+        }
+        @if (editingId != null) {
+          <button mat-button color="warn" type="button" (click)="deleteSelected()">Delete</button>
+        }
+      </div>
+
+      @if ((form.notesMarkdown || '').trim()) {
+        <div class="learning-preview">
+          <h3 class="subsection-title">Preview</h3>
+          <div class="markdown-body" [innerHTML]="form.notesMarkdown | safeMarkdown"></div>
+        </div>
+      }
+    </section>
+  </div>
+</div>

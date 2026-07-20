@@ -1,0 +1,143 @@
+<div class="learning-panel">
+  <div class="learning-toolbar">
+    <mat-form-field appearance="outline" class="learning-search">
+      <mat-label>Search books</mat-label>
+      <input matInput [(ngModel)]="search" name="bookSearch" (keyup.enter)="load()" />
+    </mat-form-field>
+    <button mat-stroked-button type="button" (click)="load()">Search</button>
+    <button mat-flat-button color="primary" type="button" (click)="startNew()">
+      <mat-icon>add</mat-icon>
+      Add book
+    </button>
+  </div>
+
+  <div class="learning-filters" role="tablist" aria-label="Book status filters">
+    @for (filter of filters; track filter.value) {
+      <button
+        type="button"
+        class="learning-filter"
+        [class.learning-filter--active]="statusFilter === filter.value"
+        (click)="statusFilter = filter.value; load()"
+      >
+        {{ filter.label }}
+      </button>
+    }
+  </div>
+
+  <div class="learning-layout">
+    <aside class="learning-list" aria-label="Books">
+      @if (loading) {
+        <p class="muted">Loading…</p>
+      } @else if (!books.length) {
+        <p class="muted">No books yet. Add one to track what you are reading or want to read.</p>
+      } @else {
+        @for (book of books; track book.id) {
+          <div class="learning-item-wrap" [class.learning-item-wrap--active]="editingId === book.id">
+            <button type="button" class="learning-item" (click)="selectBook(book)">
+              <span class="learning-item-title">{{ book.title }}</span>
+              @if (book.author) {
+                <span class="learning-item-meta">{{ book.author }}</span>
+              }
+              <span class="learning-item-status">{{ statusLabel(book.status) }}</span>
+            </button>
+            @if (hasUrl(book.url)) {
+              <button
+                mat-icon-button
+                type="button"
+                class="learning-item-link"
+                aria-label="Open book link"
+                (click)="openUrl(book.url)"
+              >
+                <mat-icon>open_in_new</mat-icon>
+              </button>
+            }
+          </div>
+        }
+      }
+    </aside>
+
+    <section class="learning-editor" aria-label="Book editor">
+      <h2 class="subsection-title">{{ editingId != null ? 'Edit book' : 'New book' }}</h2>
+      <div class="form-row wrap">
+        <mat-form-field appearance="outline" class="grow">
+          <mat-label>Title</mat-label>
+          <input matInput [(ngModel)]="form.title" name="bookTitle" placeholder="Book title" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="grow">
+          <mat-label>Author</mat-label>
+          <input matInput [(ngModel)]="form.author" name="bookAuthor" placeholder="Author name" />
+        </mat-form-field>
+      </div>
+      <div class="form-row wrap">
+        <mat-form-field appearance="outline" class="grow">
+          <mat-label>Status</mat-label>
+          <mat-select [(ngModel)]="form.status" name="bookStatus">
+            @for (option of statusOptions; track option.value) {
+              <mat-option [value]="option.value">{{ option.label }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="grow">
+          <mat-label>Link</mat-label>
+          <input
+            matInput
+            [(ngModel)]="form.url"
+            name="bookUrl"
+            placeholder="Goodreads, Amazon, library…"
+          />
+        </mat-form-field>
+      </div>
+      <div class="form-row wrap">
+        <mat-form-field appearance="outline" class="grow">
+          <mat-label>Started</mat-label>
+          <input matInput type="date" [(ngModel)]="form.startedOn" name="bookStarted" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="grow">
+          <mat-label>Finished</mat-label>
+          <input matInput type="date" [(ngModel)]="form.finishedOn" name="bookFinished" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="grow rating-field">
+          <mat-label>Rating</mat-label>
+          <mat-select [(ngModel)]="form.rating" name="bookRating">
+            <mat-option [value]="null">—</mat-option>
+            @for (stars of ratingOptions; track stars) {
+              <mat-option [value]="stars">{{ stars }} / 5</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+      </div>
+      <mat-form-field appearance="outline" class="full-width-field">
+        <mat-label>Notes (Markdown)</mat-label>
+        <textarea
+          matInput
+          rows="8"
+          [(ngModel)]="form.notesMarkdown"
+          name="bookNotes"
+          placeholder="Key ideas, quotes, chapters done…"
+        ></textarea>
+      </mat-form-field>
+
+      <div class="form-actions">
+        <button mat-flat-button color="primary" type="button" [disabled]="saving" (click)="save()">
+          {{ editingId != null ? 'Save' : 'Add book' }}
+        </button>
+        @if (hasUrl(form.url)) {
+          <button mat-stroked-button type="button" (click)="openUrl(form.url)">
+            <mat-icon>open_in_new</mat-icon>
+            Open link
+          </button>
+        }
+        @if (editingId != null) {
+          <button mat-button color="warn" type="button" (click)="deleteSelected()">Delete</button>
+        }
+      </div>
+
+      @if ((form.notesMarkdown || '').trim()) {
+        <div class="learning-preview">
+          <h3 class="subsection-title">Preview</h3>
+          <div class="markdown-body" [innerHTML]="form.notesMarkdown | safeMarkdown"></div>
+        </div>
+      }
+    </section>
+  </div>
+</div>

@@ -10,6 +10,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatTabsModule } from '@angular/material/tabs';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import {
@@ -26,6 +27,8 @@ import {
   JournalAttachmentPreviewComponent,
   JournalAttachmentPreviewData,
 } from './journal-attachment-preview.component';
+import { JournalCoursesPanelComponent } from './journal-courses-panel/journal-courses-panel.component';
+import { JournalBooksPanelComponent } from './journal-books-panel/journal-books-panel.component';
 interface CalCell {
   type: 'pad' | 'day';
   dateIso?: string;
@@ -50,7 +53,10 @@ interface CalCell {
     MatSnackBarModule,
     MatTooltipModule,
     MatDialogModule,
+    MatTabsModule,
     SafeMarkdownPipe,
+    JournalCoursesPanelComponent,
+    JournalBooksPanelComponent,
   ],
   templateUrl: './journal.component.html',
   styleUrl: './journal.component.scss',

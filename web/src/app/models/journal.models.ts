@@ -42,3 +42,55 @@ export interface JournalSummaryDto {
   byMonth: { yearMonth: string; count: number }[];
   byDay: { date: string; count: number }[];
 }
+
+export type JournalCourseStatus = 'INTEND' | 'IN_PROGRESS' | 'COMPLETED';
+
+export interface JournalCourseDto {
+  id: number;
+  title: string;
+  provider: string | null;
+  status: JournalCourseStatus;
+  url: string | null;
+  notesMarkdown: string;
+  startedOn: string | null;
+  completedOn: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface JournalCourseWriteBody {
+  title: string;
+  provider?: string | null;
+  status: JournalCourseStatus;
+  url?: string | null;
+  notesMarkdown?: string | null;
+  startedOn?: string | null;
+  completedOn?: string | null;
+}
+
+export type JournalBookStatus = 'TO_READ' | 'READING' | 'FINISHED';
+
+export interface JournalBookDto {
+  id: number;
+  title: string;
+  author: string | null;
+  status: JournalBookStatus;
+  url: string | null;
+  notesMarkdown: string;
+  startedOn: string | null;
+  finishedOn: string | null;
+  rating: number | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface JournalBookWriteBody {
+  title: string;
+  author?: string | null;
+  status: JournalBookStatus;
+  url?: string | null;
+  notesMarkdown?: string | null;
+  startedOn?: string | null;
+  finishedOn?: string | null;
+  rating?: number | null;
+}
