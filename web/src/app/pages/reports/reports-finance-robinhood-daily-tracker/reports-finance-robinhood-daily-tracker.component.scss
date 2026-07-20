@@ -818,6 +818,14 @@
   }
 }
 
+.rh-daily__timeline-cell--spike-alert-up {
+  background: rgba(16, 185, 129, 0.12);
+
+  .rh-daily__timeline-cell-btn:hover {
+    background: rgba(16, 185, 129, 0.18);
+  }
+}
+
 .rh-daily__spike-alert {
   display: inline-flex;
   align-items: center;
@@ -829,6 +837,11 @@
   font-weight: 600;
   color: #b91c1c;
   background: rgba(239, 68, 68, 0.12);
+
+  &--up {
+    color: #047857;
+    background: rgba(16, 185, 129, 0.16);
+  }
 }
 
 .rh-daily__spike-alert--inline {
@@ -1468,6 +1481,10 @@
   background: rgba(239, 68, 68, 0.05);
 }
 
+.rh-daily__focus-table-row--alert-up {
+  background: rgba(16, 185, 129, 0.06);
+}
+
 .rh-daily__focus-table-row--selected {
   background: rgba(124, 58, 237, 0.1);
   box-shadow: inset 4px 0 0 #7c3aed;
@@ -1515,6 +1532,11 @@
     color: #b91c1c;
     background: rgba(239, 68, 68, 0.12);
   }
+
+  &--alert-up {
+    color: #047857;
+    background: rgba(16, 185, 129, 0.16);
+  }
 }
 
 .rh-daily__move-chart {
@@ -1541,6 +1563,11 @@
   &--pre {
     background: linear-gradient(180deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.06));
     box-shadow: inset 0 0 0 1px rgba(217, 119, 6, 0.18);
+  }
+
+  &--rth {
+    background: linear-gradient(180deg, rgba(37, 99, 235, 0.16), rgba(37, 99, 235, 0.04));
+    box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.16);
   }
 
   &--after {

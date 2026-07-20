@@ -73,7 +73,7 @@ export interface RhDailyMovementBar {
   hasAlert: boolean;
   title: string;
   /** Central-time market window for capture-strip shading. */
-  marketSession: 'pre' | 'after' | 'other';
+  marketSession: 'pre' | 'rth' | 'after' | 'other';
 }
 
 export interface RhDailyFocusPoint {
@@ -666,6 +666,20 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     return alert?.fired === true;
   }
 
+  /** True when the fired spike was an up move (green styling). */
+  isSpikeAlertPositive(alert: RhDailyTrackerSnapshotAlertDto | null | undefined): boolean {
+    if (!this.hasSpikeAlert(alert)) {
+      return false;
+    }
+    if (alert!.deltaDollars != null && Number.isFinite(alert!.deltaDollars)) {
+      return alert!.deltaDollars > 0;
+    }
+    if (alert!.deltaPercent != null && Number.isFinite(alert!.deltaPercent)) {
+      return alert!.deltaPercent > 0;
+    }
+    return false;
+  }
+
   daySpikeAlertCount(day: RobinhoodRhDailyTrackerDayDto): number {
     return this.collectDaySpikeAlerts(day).length;
   }
@@ -694,9 +708,11 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         const sessionHint =
           marketSession === 'pre'
             ? ' · pre-market (4–8:30 AM CT)'
-            : marketSession === 'after'
-              ? ' · after-hours (3–7 PM CT)'
-              : '';
+            : marketSession === 'rth'
+              ? ' · regular hours (8:30 AM–3 PM CT)'
+              : marketSession === 'after'
+                ? ' · after-hours (3–7 PM CT)'
+                : '';
         return {
           key: row.capturedAt,
           label: row.timeLabel,
@@ -1180,7 +1196,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     }));
   }
 
-  /** Pre-market 4:00–8:30 AM CT and after-hours 3:00–7:00 PM CT. */
+  /** Pre-market 4:00–8:30 AM, RTH 8:30 AM–3:00 PM, after-hours 3:00–7:00 PM CT. */
   private marketSessionForCapture(capturedAt: string): RhDailyMovementBar['marketSession'] {
     const parts = new Intl.DateTimeFormat('en-US', {
       timeZone: 'America/Chicago',
@@ -1196,6 +1212,9 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     const mins = hour * 60 + minute;
     if (mins >= 4 * 60 && mins < 8 * 60 + 30) {
       return 'pre';
+    }
+    if (mins >= 8 * 60 + 30 && mins < 15 * 60) {
+      return 'rth';
     }
     if (mins >= 15 * 60 && mins < 19 * 60) {
       return 'after';

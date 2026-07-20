@@ -700,6 +700,7 @@
                       <tr
                         id="rh-daily-focus-row-{{ row.day.snapshotDate }}"
                         [class.rh-daily__focus-table-row--alert]="hasSpikeAlert(row.cell.spikeAlert)"
+                        [class.rh-daily__focus-table-row--alert-up]="isSpikeAlertPositive(row.cell.spikeAlert)"
                         [class.rh-daily__focus-table-row--selected]="isFocusPointSelected(row.day.snapshotDate)"
                       >
                         <td>{{ row.day.snapshotDate | date: 'mediumDate' }}</td>
@@ -726,7 +727,11 @@
                         <td class="rh-daily__num">{{ row.cell.tradeCount }}</td>
                         <td>
                           @if (hasSpikeAlert(row.cell.spikeAlert)) {
-                            <span class="rh-daily__focus-signal rh-daily__focus-signal--alert" [title]="spikeAlertTitle(row.cell.spikeAlert)">
+                            <span
+                              class="rh-daily__focus-signal rh-daily__focus-signal--alert"
+                              [class.rh-daily__focus-signal--alert-up]="isSpikeAlertPositive(row.cell.spikeAlert)"
+                              [title]="spikeAlertTitle(row.cell.spikeAlert)"
+                            >
                               <mat-icon aria-hidden="true">notifications_active</mat-icon>
                               {{ alertTriggerLabel(row.cell.spikeAlert.triggerReasons || '') }}
                             </span>
@@ -901,7 +906,8 @@
                           Click any account total to open holdings. {{ priorPullHint(day) }}
                           Highlighted cells had stock or option position changes vs the prior pull (••••4123 excluded).
                           The progress rail and red alert markers focus on ••••{{ focusAccountSuffix }} only.
-                          Capture strip: amber = pre-market 4–8:30 AM CT · violet = after-hours 3–7 PM CT.
+                          Capture strip: amber = pre-market 4–8:30 AM CT · blue = regular 8:30 AM–3 PM CT ·
+                          violet = after-hours 3–7 PM CT.
                         </p>
                         @if (captureMovementBars(day); as moveBars) {
                           @if (moveBars.length) {
@@ -915,6 +921,7 @@
                                   <div
                                     class="rh-daily__move-col"
                                     [class.rh-daily__move-col--pre]="bar.marketSession === 'pre'"
+                                    [class.rh-daily__move-col--rth]="bar.marketSession === 'rth'"
                                     [class.rh-daily__move-col--after]="bar.marketSession === 'after'"
                                     [attr.title]="bar.title"
                                   >
@@ -982,6 +989,7 @@
                                         class="rh-daily__num"
                                         [class.rh-daily__timeline-cell--positions-changed]="acct.positionsChangedFromPrior"
                                         [class.rh-daily__timeline-cell--spike-alert]="hasSpikeAlert(acct.spikeAlert)"
+                                        [class.rh-daily__timeline-cell--spike-alert-up]="isSpikeAlertPositive(acct.spikeAlert)"
                                       >
                                         <button
                                           type="button"
@@ -991,6 +999,7 @@
                                           @if (hasSpikeAlert(acct.spikeAlert)) {
                                             <span
                                               class="rh-daily__spike-alert rh-daily__spike-alert--inline"
+                                              [class.rh-daily__spike-alert--up]="isSpikeAlertPositive(acct.spikeAlert)"
                                               [title]="spikeAlertTitle(acct.spikeAlert!)"
                                             >
                                               <mat-icon class="rh-daily__spike-alert-icon" aria-hidden="true">notifications_active</mat-icon>
@@ -1141,6 +1150,7 @@
                                     @if (hasSpikeAlert(cell.spikeAlert)) {
                                       <span
                                         class="rh-daily__spike-alert rh-daily__spike-alert--compact"
+                                        [class.rh-daily__spike-alert--up]="isSpikeAlertPositive(cell.spikeAlert)"
                                         [title]="spikeAlertTitle(cell.spikeAlert!)"
                                       >
                                         <mat-icon class="rh-daily__spike-alert-icon" aria-hidden="true">notifications_active</mat-icon>
