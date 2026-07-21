@@ -157,7 +157,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
 
   reportYear = new Date().getFullYear();
   /** Empty = all months in the selected year. */
-  reportMonths: number[] = [new Date().getMonth() + 1];
+  reportMonths: number[] = [];
   loading = false;
   /** Background refresh after scheduled/manual capture (no full-page spinner). */
   softRefreshing = false;
