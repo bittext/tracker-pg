@@ -112,10 +112,34 @@ export const MARKETS_PRIMARY_NAV: NavEntry[] = [
     exact: true,
   },
   {
-    id: 'workspace',
-    label: 'Workspace',
-    path: '/markets/workspace',
-    icon: 'work',
+    id: 'trade',
+    label: 'Trade',
+    path: '/markets/trade',
+    icon: 'bolt',
+    shell: 'markets-primary',
+    exact: true,
+  },
+  {
+    id: 'research',
+    label: 'Research',
+    path: '/markets/research',
+    icon: 'travel_explore',
+    shell: 'markets-primary',
+    exact: true,
+  },
+  {
+    id: 'history',
+    label: 'History',
+    path: '/markets/history',
+    icon: 'history',
+    shell: 'markets-primary',
+    exact: true,
+  },
+  {
+    id: 'alerts',
+    label: 'Alerts',
+    path: '/markets/alerts',
+    icon: 'notifications',
     shell: 'markets-primary',
     exact: true,
   },
@@ -126,23 +150,6 @@ export const MARKETS_PRIMARY_NAV: NavEntry[] = [
     icon: 'analytics',
     shell: 'markets-primary',
     exact: true,
-  },
-  {
-    id: 'execution',
-    label: 'Execution',
-    path: '/markets/execution',
-    icon: 'bolt',
-    shell: 'markets-primary',
-    exact: true,
-  },
-  {
-    id: 'alert-rules',
-    label: 'Alert rules',
-    path: '/markets/alerts',
-    icon: 'notifications',
-    shell: 'markets-primary',
-    exact: true,
-    ariaLabel: 'Markets — alert rules overview',
   },
 ];
 
@@ -320,6 +327,6 @@ export const ADMIN_TAB_LABELS = {
 } as const;
 
 export const MARKETS_ALERT_RULES_PAGE = {
-  title: 'Alert rules',
+  title: 'Alerts',
   workspaceAlertsTab: 'Alerts',
 } as const;

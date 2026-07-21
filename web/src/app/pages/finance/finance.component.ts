@@ -33,7 +33,6 @@ import { BankingPanelComponent } from './banking-panel/banking-panel.component';
 import { FinanceTax1040PanelComponent } from './finance-tax-1040-panel/finance-tax-1040-panel.component';
 import { MarketOverviewPanelComponent } from './market-overview-panel/market-overview-panel.component';
 import { PredictsPanelComponent } from './predicts-panel/predicts-panel.component';
-import { RhAccountsTrackPanelComponent } from './rh-accounts-track-panel/rh-accounts-track-panel.component';
 import { RobinhoodTradingPanelComponent } from './robinhood-trading-panel/robinhood-trading-panel.component';
 import { TradingScreenersPanelComponent } from './trading-screeners-panel/trading-screeners-panel.component';
 import { OptionsBacktestPanelComponent } from './options-backtest-panel/options-backtest-panel.component';
@@ -44,6 +43,18 @@ import { CreditPanelComponent } from './credit-panel/credit-panel.component';
 import { InsurancePanelComponent } from './insurance-panel/insurance-panel.component';
 
 type FinanceWorkspace = 'all' | 'money' | 'trading';
+type TradingSection = 'trade' | 'research' | 'history' | 'alerts' | 'all';
+type TradingTabId =
+  | 'robinhood'
+  | 'news'
+  | 'crawler'
+  | 'screeners'
+  | 'predicts'
+  | 'backtest'
+  | 'alerts'
+  | 'transactions'
+  | 'by-symbol'
+  | 'summary';
 type FinanceCategory =
   | 'banking'
   | 'investments'
@@ -75,7 +86,6 @@ type FinanceCategory =
     MarketOverviewPanelComponent,
     PredictsPanelComponent,
     RobinhoodTradingPanelComponent,
-    RhAccountsTrackPanelComponent,
     TradingScreenersPanelComponent,
     OptionsBacktestPanelComponent,
     LoansPanelComponent,
@@ -118,11 +128,14 @@ export class FinanceComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
 
   @Input() workspace: FinanceWorkspace = 'all';
+  /** Markets destination within trading workspace (Trade / Research / History / Alerts). */
+  tradingSection: TradingSection = 'all';
 
   /** Finance category tabs: 0=banking, 1=investments, 2=loans, 3=market, 4=money, 5=credit, 6=trading, 7=insurance, 8=taxes. */
   financeCategoryTabIndex = 0;
-  /** Trading tabs: 0=robinhood … 9=screeners, 10=summary, 11=predicts, 12=backtest. */
+  /** Index within the visible trading tabs for the current section. */
   financeSubTabIndex = 0;
+  activeTradingTabId: TradingTabId = 'robinhood';
 
   stockSymbols: string[] = [];
   stockSymbolsLoading = false;
@@ -192,7 +205,22 @@ export class FinanceComponent implements OnInit {
     if (routeWorkspace === 'money' || routeWorkspace === 'trading') {
       this.workspace = routeWorkspace;
     }
+    const routeSection = this.route.snapshot.data['tradingSection'] as TradingSection | undefined;
+    if (
+      routeSection === 'trade' ||
+      routeSection === 'research' ||
+      routeSection === 'history' ||
+      routeSection === 'alerts' ||
+      routeSection === 'all'
+    ) {
+      this.tradingSection = routeSection;
+    }
+    this.financeSubTabIndex = 0;
+    this.activeTradingTabId = this.visibleTradingTabs[0] ?? 'robinhood';
     this.ensureStockSymbolsLoaded(undefined, true);
+    if (this.isTradingWorkspace) {
+      this.onFinanceSubTabIndexChange(0);
+    }
   }
 
   get isTradingWorkspace(): boolean {
@@ -203,9 +231,50 @@ export class FinanceComponent implements OnInit {
     return this.workspace === 'money';
   }
 
+  get visibleTradingTabs(): TradingTabId[] {
+    switch (this.tradingSection) {
+      case 'trade':
+        return ['robinhood'];
+      case 'research':
+        return ['news', 'crawler', 'screeners', 'predicts', 'backtest'];
+      case 'history':
+        return ['transactions', 'by-symbol', 'summary'];
+      case 'alerts':
+        return ['alerts'];
+      default:
+        return [
+          'robinhood',
+          'news',
+          'crawler',
+          'screeners',
+          'predicts',
+          'backtest',
+          'alerts',
+          'transactions',
+          'by-symbol',
+          'summary',
+        ];
+    }
+  }
+
+  showTradingTab(id: TradingTabId): boolean {
+    return this.visibleTradingTabs.includes(id);
+  }
+
   get pageTitle(): string {
     if (this.isTradingWorkspace) {
-      return 'Trading workspace';
+      switch (this.tradingSection) {
+        case 'trade':
+          return 'Trade';
+        case 'research':
+          return 'Research';
+        case 'history':
+          return 'History';
+        case 'alerts':
+          return 'Alerts';
+        default:
+          return 'Trading';
+      }
     }
     if (this.isMoneyWorkspace) {
       return 'Money';
@@ -215,7 +284,18 @@ export class FinanceComponent implements OnInit {
 
   get pageLead(): string {
     if (this.isTradingWorkspace) {
-      return 'News, screeners, backtest, alerts, transactions, and Robinhood tools for Markets.';
+      switch (this.tradingSection) {
+        case 'trade':
+          return 'Robinhood execution — sync, positions, orders, and auto-trade.';
+        case 'research':
+          return 'Screeners, news, crawler, predicts, and options backtest.';
+        case 'history':
+          return 'Transactions, per-symbol activity, and yearly summaries.';
+        case 'alerts':
+          return 'Price and session-rise alert rules. Account track lives under Overview.';
+        default:
+          return 'Trading tools for Markets.';
+      }
     }
     if (this.isMoneyWorkspace) {
       return 'Banking, investments, loans, money, credit, insurance, and taxes — personal finance without trading tabs.';
@@ -242,8 +322,8 @@ export class FinanceComponent implements OnInit {
     return this.isTradingWorkspace || this.categoryActive('trading');
   }
 
-  tradingSubTabActive(index: number): boolean {
-    return this.isTradingTabActive() && this.financeSubTabIndex === index;
+  tradingSubTabActive(id: TradingTabId): boolean {
+    return this.isTradingTabActive() && this.activeTradingTabId === id;
   }
 
   onInstrumentSelectChange(): void {
@@ -258,24 +338,26 @@ export class FinanceComponent implements OnInit {
   }
 
   onFinanceSubTabIndexChange(index: number): void {
-    if (index === 3) {
+    const id = this.visibleTradingTabs[index] ?? this.visibleTradingTabs[0];
+    if (!id) {
+      return;
+    }
+    this.financeSubTabIndex = index;
+    this.activeTradingTabId = id;
+    if (id === 'crawler') {
       this.loadCrawlSnapshot();
-    } else if (index === 4) {
-      this.loadRising52WeekHighs();
-    } else if (index === 5) {
-      this.loadBreakoutCandidates();
-    } else if (index === 6) {
+    } else if (id === 'alerts') {
       this.loadFinanceAlerts();
       this.loadFinanceAlertEvents();
-    } else if (index === 7) {
+    } else if (id === 'transactions') {
       this.loadRobinhoodFinanceData();
-    } else if (index === 8) {
+    } else if (id === 'by-symbol') {
       this.ensureStockSymbolsLoaded(() => {
         if (this.financeSelectedSymbol.trim()) {
           this.loadIndividualStockFinanceData();
         }
       }, true);
-    } else if (index === 10) {
+    } else if (id === 'summary') {
       this.ensureStockSymbolsLoaded(undefined, this.stockSymbols.length === 0);
       this.loadStocksSummary();
     }
@@ -285,9 +367,9 @@ export class FinanceComponent implements OnInit {
     if (!this.isTradingTabActive()) {
       return;
     }
-    if (this.financeSubTabIndex === 7) {
+    if (this.activeTradingTabId === 'transactions') {
       this.loadRobinhoodFinanceData();
-    } else if (this.financeSubTabIndex === 8) {
+    } else if (this.activeTradingTabId === 'by-symbol') {
       if (this.financeSelectedSymbol.trim()) {
         this.loadIndividualStockFinanceData();
       }
@@ -295,7 +377,7 @@ export class FinanceComponent implements OnInit {
   }
 
   onStocksSummaryFilterChange(): void {
-    if (this.isTradingTabActive() && this.financeSubTabIndex === 10) {
+    if (this.isTradingTabActive() && this.activeTradingTabId === 'summary') {
       this.loadStocksSummary();
     }
   }

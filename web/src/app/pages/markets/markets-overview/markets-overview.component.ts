@@ -18,17 +18,26 @@ import { RhAccountsTrackPanelComponent } from '../../finance/rh-accounts-track-p
   template: `
     <app-page-header
       title="Markets overview"
-      subtitle="Quick links and account snapshot for your trading workspace."
+      subtitle="Account snapshot and quick links. RH Accounts Track lives here only."
     />
 
     <div class="markets-overview-kpis">
       <mat-card appearance="outlined" class="kpi-card">
         <mat-card-header>
-          <mat-card-title>Workspace</mat-card-title>
-          <mat-card-subtitle>Trading tools &amp; screeners</mat-card-subtitle>
+          <mat-card-title>Trade</mat-card-title>
+          <mat-card-subtitle>Robinhood execution &amp; orders</mat-card-subtitle>
         </mat-card-header>
         <mat-card-actions>
-          <a mat-flat-button color="primary" routerLink="/markets/workspace">Open workspace</a>
+          <a mat-flat-button color="primary" routerLink="/markets/trade">Open trade</a>
+        </mat-card-actions>
+      </mat-card>
+      <mat-card appearance="outlined" class="kpi-card">
+        <mat-card-header>
+          <mat-card-title>Research</mat-card-title>
+          <mat-card-subtitle>Screeners, news, predicts, backtest</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-actions>
+          <a mat-stroked-button routerLink="/markets/research">Open research</a>
         </mat-card-actions>
       </mat-card>
       <mat-card appearance="outlined" class="kpi-card">
@@ -38,15 +47,6 @@ import { RhAccountsTrackPanelComponent } from '../../finance/rh-accounts-track-p
         </mat-card-header>
         <mat-card-actions>
           <a mat-stroked-button routerLink="/markets/analytics">View analytics</a>
-        </mat-card-actions>
-      </mat-card>
-      <mat-card appearance="outlined" class="kpi-card">
-        <mat-card-header>
-          <mat-card-title>Execution</mat-card-title>
-          <mat-card-subtitle>Robinhood trading panel</mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-actions>
-          <a mat-stroked-button routerLink="/markets/execution">Open execution</a>
         </mat-card-actions>
       </mat-card>
     </div>

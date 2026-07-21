@@ -17,6 +17,12 @@
   .mat-mdc-tab {
     min-width: 0;
   }
+
+  &--solo {
+    .mat-mdc-tab-header {
+      display: none;
+    }
+  }
 }
 
 .finance-category-tabs {

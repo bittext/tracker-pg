@@ -95,23 +95,22 @@
 <ng-template #tradingTabs>
           <mat-tab-group
             class="finance-inner-tabs"
+            [class.finance-inner-tabs--solo]="visibleTradingTabs.length <= 1"
             animationDuration="180ms"
             mat-stretch-tabs
             [(selectedIndex)]="financeSubTabIndex"
             (selectedIndexChange)="onFinanceSubTabIndexChange($event)"
           >
+      @if (showTradingTab('robinhood')) {
       <mat-tab label="Robinhood">
         <div class="finance-panel">
           <app-robinhood-trading-panel />
         </div>
       </mat-tab>
+      }
 
-      <mat-tab label="RH Accounts Track">
-        <div class="finance-panel">
-          <app-rh-accounts-track-panel />
-        </div>
-      </mat-tab>
 
+      @if (showTradingTab('news')) {
       <mat-tab label="News">
         <div class="finance-panel">
           <p class="muted stocks-news-intro">
@@ -254,7 +253,10 @@
           }
         </div>
       </mat-tab>
+      }
 
+
+      @if (showTradingTab('crawler')) {
       <mat-tab label="Crawler">
         <div class="finance-panel finance-crawl-panel">
           <p class="muted stocks-news-intro">
@@ -564,222 +566,10 @@
           }
         </div>
       </mat-tab>
+      }
 
-      <mat-tab label="52w High Risers">
-        <div class="finance-panel">
-          <p class="muted stocks-news-intro">
-            Scans several Yahoo Finance predefined lists (e.g. day gainers, most actives, small-cap gainers) and keeps
-            names whose regular price is at the 52-week high (within a small quote tolerance).
-          </p>
 
-          <div class="finance-toolbar">
-            <button mat-flat-button color="primary" type="button" (click)="loadRising52WeekHighs()" [disabled]="rhRising52wLoading">
-              <mat-icon>refresh</mat-icon>
-              Load / refresh
-            </button>
-          </div>
-
-          @if (rhRising52wLoading) {
-            <p class="muted">Loading names at 52-week high…</p>
-          }
-
-          @if (rhRising52w && !rhRising52wLoading) {
-            <p class="muted finance-meta">
-              <strong>{{ rhRising52w.returned }}</strong> stock(s) · {{ rhRising52w.source }} · {{ rhRising52w.fetchedAt }}
-            </p>
-            @if (rhRising52w.note) {
-              <p class="muted stocks-news-note">{{ rhRising52w.note }}</p>
-            }
-
-            @if (rhRising52w.rows.length === 0) {
-              <div class="finance-empty-report" role="status">
-                <p class="finance-empty-title">No qualifying names right now</p>
-                <p class="muted finance-empty-detail">
-                  None of the scanned screeners are printing at their 52-week high right now; try again later.
-                </p>
-              </div>
-            } @else {
-              <div class="table-wrap rh-txn-wrap">
-                <table class="rh-txn-data-table full-width rising-52w-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">Symbol</th>
-                      <th scope="col">Name</th>
-                      <th scope="col">52w return</th>
-                      <th scope="col">Near-high year</th>
-                      <th scope="col">Near-high 6m</th>
-                      <th scope="col">Price</th>
-                      <th scope="col">% of 52w high</th>
-                      <th scope="col">Outlook</th>
-                      <th scope="col">Details</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (row of rhRising52w.rows; track rising52wTrack($index, row)) {
-                      <tr>
-                        <td>
-                          <a
-                            class="rh-symbol-link"
-                            [href]="row.externalDetailUrl"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            ><strong>{{ row.symbol }}</strong></a>
-                        </td>
-                        <td class="rising-52w-name">{{ row.shortName }}</td>
-                        <td>{{ row.fiftyTwoWeekGainPercent | number: '1.1-1' }}%</td>
-                        <td>{{ row.pctPastYearNearRolling52WeekHigh | number: '1.1-1' }}%</td>
-                        <td>{{ row.pctSixMonthsNearRolling52WeekHigh | number: '1.1-1' }}%</td>
-                        <td>{{ formatFinanceCell('AMOUNT', row.regularMarketPrice) }}</td>
-                        <td>{{ row.percentOf52WeekHigh | number: '1.1-1' }}%</td>
-                        <td>{{ row.growthOutlookLabel }}</td>
-                        <td>
-                          <a [href]="row.externalDetailUrl" target="_blank" rel="noopener noreferrer">Open</a>
-                        </td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
-            }
-          }
-        </div>
-      </mat-tab>
-
-      <mat-tab label="Break outs">
-        <div class="finance-panel">
-          <p class="muted stocks-news-intro">
-            Rule-based scan for names that may be <strong>setting up</strong> for a bullish price expansion: price near
-            or clearing a recent ~20-session ceiling, firmer recent volume vs a 20-day baseline, short-term volatility
-            contraction (ATR), and price above medium-term averages when data allows. Same Yahoo universe style as other
-            trading tools — <strong>not investment advice</strong>; many breakouts will not appear and some hits will
-            not follow through.
-          </p>
-
-          <div class="finance-toolbar">
-            <button mat-flat-button color="primary" type="button" (click)="loadBreakoutCandidates()" [disabled]="breakoutLoading">
-              <mat-icon>refresh</mat-icon>
-              Load / refresh
-            </button>
-          </div>
-
-          @if (breakoutLoading) {
-            <p class="muted">Scanning for breakout-style setups…</p>
-          }
-
-          @if (breakoutCandidates && !breakoutLoading) {
-            <p class="muted finance-meta">
-              <strong>{{ breakoutCandidates.returned }}</strong> name(s) · {{ breakoutCandidates.source }} ·
-              {{ breakoutCandidates.fetchedAt | slice: 0:19 }}
-            </p>
-            @if (breakoutCandidates.note) {
-              <p class="muted stocks-news-note">{{ breakoutCandidates.note }}</p>
-            }
-
-            @if (breakoutCandidates.rows.length === 0) {
-              <div class="finance-empty-report" role="status">
-                <p class="finance-empty-title">No qualifying setups right now</p>
-                <p class="muted finance-empty-detail">
-                  Try again later — thresholds require several technical signals to align on the same symbol.
-                </p>
-              </div>
-            } @else {
-              <div class="table-wrap rh-txn-wrap">
-                <table class="rh-txn-data-table full-width rising-52w-table breakout-candidates-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">Symbol</th>
-                      <th scope="col">Name</th>
-                      <th scope="col">Score</th>
-                      <th scope="col">Pattern</th>
-                      <th scope="col">Price</th>
-                      <th scope="col">Session %</th>
-                      <th scope="col">% of 52w high</th>
-                      <th scope="col">% vs resistance</th>
-                      <th scope="col">Vol 5d/20d</th>
-                      <th scope="col">ATR 10/20–30</th>
-                      <th scope="col">% vs 50d SMA</th>
-                      <th scope="col">Details</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (row of breakoutCandidates.rows; track breakoutRowTrack($index, row)) {
-                      <tr>
-                        <td>
-                          <a
-                            class="rh-symbol-link"
-                            [href]="row.externalDetailUrl"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            ><strong>{{ row.symbol }}</strong></a>
-                        </td>
-                        <td class="rising-52w-name">{{ row.shortName }}</td>
-                        <td>{{ row.breakoutScore | number: '1.0-0' }}</td>
-                        <td>{{ row.patternLabel }}</td>
-                        <td>{{ formatFinanceCell('AMOUNT', row.regularMarketPrice) }}</td>
-                        <td>{{ formatPct(row.regularMarketChangePercent) }}</td>
-                        <td>
-                          @if (row.percentOf52WeekHigh != null) {
-                            {{ row.percentOf52WeekHigh | number: '1.1-1' }}%
-                          } @else {
-                            —
-                          }
-                        </td>
-                        <td>
-                          @if (row.pctOfRecentResistance != null) {
-                            {{ row.pctOfRecentResistance | number: '1.1-1' }}%
-                          } @else {
-                            —
-                          }
-                        </td>
-                        <td>
-                          @if (row.volumeRatioVs20d != null) {
-                            {{ row.volumeRatioVs20d | number: '1.2-2' }}
-                          } @else {
-                            —
-                          }
-                        </td>
-                        <td>
-                          @if (row.atrCompressionRatio != null) {
-                            {{ row.atrCompressionRatio | number: '1.2-2' }}
-                          } @else {
-                            —
-                          }
-                        </td>
-                        <td>
-                          @if (row.pctVsSma50 != null) {
-                            {{ row.pctVsSma50 | number: '1.1-1' }}%
-                          } @else {
-                            —
-                          }
-                        </td>
-                        <td>
-                          <a [href]="row.externalDetailUrl" target="_blank" rel="noopener noreferrer">Open</a>
-                        </td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
-              <h3 class="crawl-section-title breakout-rationale-title">Per-symbol rationale</h3>
-              <div class="breakout-rationale-list">
-                @for (row of breakoutCandidates.rows; track breakoutRowTrack($index, row)) {
-                  <article class="breakout-rationale-item">
-                    <a
-                      class="rh-symbol-link"
-                      [href]="row.externalDetailUrl"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      ><strong>{{ row.symbol }}</strong></a>
-                    <span class="muted"> · {{ row.patternLabel }}</span>
-                    <p class="muted breakout-rationale-text">{{ row.rationale }}</p>
-                  </article>
-                }
-              </div>
-            }
-          }
-        </div>
-      </mat-tab>
-
+      @if (showTradingTab('alerts')) {
       <mat-tab label="Alerts">
         <div class="finance-panel finance-alerts-panel">
           <p class="muted stocks-news-intro">
@@ -922,7 +712,10 @@
           }
         </div>
       </mat-tab>
+      }
 
+
+      @if (showTradingTab('transactions')) {
       <mat-tab label="Transactions">
         <div class="finance-panel">
           <div class="finance-toolbar">
@@ -1025,7 +818,10 @@
           }
         </div>
       </mat-tab>
+      }
 
+
+      @if (showTradingTab('by-symbol')) {
       <mat-tab label="By symbol">
         <div class="finance-panel">
           <div class="finance-toolbar">
@@ -1146,15 +942,21 @@
           }
         </div>
       </mat-tab>
+      }
 
+
+      @if (showTradingTab('screeners')) {
       <mat-tab label="Screeners">
         <div class="finance-panel">
-          @if (tradingSubTabActive(9)) {
+          @if (tradingSubTabActive('screeners')) {
             <app-trading-screeners-panel />
           }
         </div>
       </mat-tab>
+      }
 
+
+      @if (showTradingTab('summary')) {
       <mat-tab label="Summary">
         <div class="finance-panel">
           <p class="muted stocks-summary-intro">
@@ -1204,7 +1006,7 @@
             </button>
           </div>
 
-          @if (stockSymbolsLoading && financeSubTabIndex === 10) {
+          @if (stockSymbolsLoading && activeTradingTabId === 'summary') {
             <p class="muted">Loading instruments…</p>
           }
           <!-- Predicts sub-tab is index 9; gated below this block. -->
@@ -1295,22 +1097,30 @@
           }
         </div>
       </mat-tab>
+      }
 
+
+      @if (showTradingTab('predicts')) {
       <mat-tab label="Predicts">
         <div class="finance-panel">
-          @if (tradingSubTabActive(11)) {
+          @if (tradingSubTabActive('predicts')) {
             <app-predicts-panel />
           }
         </div>
       </mat-tab>
+      }
 
+
+      @if (showTradingTab('backtest')) {
       <mat-tab label="Backtest">
         <div class="finance-panel">
-          @if (tradingSubTabActive(12)) {
+          @if (tradingSubTabActive('backtest')) {
             <app-options-backtest-panel />
           }
         </div>
       </mat-tab>
+      }
+
 
           </mat-tab-group>
 </ng-template>

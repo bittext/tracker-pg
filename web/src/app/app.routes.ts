@@ -15,8 +15,6 @@ import { ExerciseComponent } from './pages/exercise/exercise.component';
 import { FinanceComponent } from './pages/finance/finance.component';
 import { JournalComponent } from './pages/journal/journal.component';
 import { ManagementComponent } from './pages/management/management.component';
-import { MarketsAlertsComponent } from './pages/markets/markets-alerts/markets-alerts.component';
-import { MarketsExecutionComponent } from './pages/markets/markets-execution/markets-execution.component';
 import { MarketsOverviewComponent } from './pages/markets/markets-overview/markets-overview.component';
 import { ReportsComponent } from './pages/reports/reports.component';
 import { SettingsComponent } from './pages/settings/settings.component';
@@ -80,15 +78,33 @@ export const routes: Routes = [
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'overview' },
       { path: 'overview', component: MarketsOverviewComponent },
-      { path: 'workspace', component: FinanceComponent, data: { workspace: 'trading' } },
-      { path: 'research', redirectTo: 'workspace', pathMatch: 'full' },
-      { path: 'alerts', component: MarketsAlertsComponent },
+      {
+        path: 'trade',
+        component: FinanceComponent,
+        data: { workspace: 'trading', tradingSection: 'trade' },
+      },
+      {
+        path: 'research',
+        component: FinanceComponent,
+        data: { workspace: 'trading', tradingSection: 'research' },
+      },
+      {
+        path: 'history',
+        component: FinanceComponent,
+        data: { workspace: 'trading', tradingSection: 'history' },
+      },
+      {
+        path: 'alerts',
+        component: FinanceComponent,
+        data: { workspace: 'trading', tradingSection: 'alerts' },
+      },
       {
         path: 'analytics',
         component: ReportsComponent,
         data: { section: 'markets' },
       },
-      { path: 'execution', component: MarketsExecutionComponent },
+      { path: 'workspace', redirectTo: 'trade', pathMatch: 'full' },
+      { path: 'execution', redirectTo: 'trade', pathMatch: 'full' },
     ],
   },
   {
