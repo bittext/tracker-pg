@@ -8,8 +8,9 @@
       </span>
       <span class="rh-daily__live-badge muted">Live sync — updates automatically after each capture</span>
       —
-      Each day’s <strong>9:00 PM CST</strong> snapshot appears as a row — click to expand the day board (captures,
-      accounts, trades, and notes). Add call-summary notes and manage manual captures inside each expanded day.
+      Each day’s <strong>9:00 PM ET</strong> snapshot is the frozen daily close — click to expand the day board
+      (hourly captures, accounts, trades, and notes). Before close, today’s row shows the latest hourly total the same
+      way. Add call-summary notes and manage manual captures inside each expanded day.
     } @else {
       Daily snapshots appear as a row — click to expand. Add call-summary notes, and manage manual captures, inside
       each expanded day.
@@ -758,6 +759,8 @@
           <li
             class="rh-daily__day-item"
             [class.rh-daily__day-item--alt]="dayIndex % 2 === 1"
+            [class.rh-daily__day-item--weekend]="isWeekendDay(day)"
+            [class.rh-daily__day-item--today]="isTrackerToday(day)"
             [class.rh-daily__day-item--open]="isDayExpanded(day)"
             [class.rh-daily__day-item--alert]="dayHasSpikeAlerts(day)"
             [attr.aria-expanded]="isDayExpanded(day)"
@@ -774,14 +777,14 @@
               <span class="rh-daily__day-row-date">{{ day.snapshotDate | date: 'mediumDate' }}</span>
               @if (day.hasScheduledSnapshot) {
                 @if (t.autoCaptureScheduled) {
-                  <span class="rh-daily__day-row-badge muted">9 PM CST</span>
+                  <span class="rh-daily__day-row-badge muted">9 PM ET</span>
                 }
                 <strong class="rh-daily__day-row-total">{{ day.combinedTotal | currency }}</strong>
                 @if (day.hasPreviousScheduledSnapshot && day.combinedTotalChangeFromPrevious !== 0) {
                   <span
                     class="rh-daily__day-row-delta muted"
                     [class]="pnlClass(day.combinedTotalChangeFromPrevious)"
-                    title="Combined total vs previous 9 PM snapshot"
+                    title="Combined total vs previous 9 PM ET snapshot"
                   >
                     <mat-icon class="rh-daily__trend-icon" aria-hidden="true">
                       {{ trendIcon(day.combinedTotalChangeFromPrevious) }}
@@ -792,8 +795,30 @@
                     }
                   </span>
                 }
+              } @else if (dayHeaderTotal(day); as liveTotal) {
+                <span class="rh-daily__day-row-badge rh-daily__day-row-badge--live muted">
+                  {{ dayHeaderLiveBadge(day) }}
+                </span>
+                <strong class="rh-daily__day-row-total">{{ liveTotal | currency }}</strong>
+                @if (dayHeaderDelta(day); as liveDelta) {
+                  @if (liveDelta !== 0) {
+                    <span
+                      class="rh-daily__day-row-delta muted"
+                      [class]="pnlClass(liveDelta)"
+                      title="Combined total vs prior pull"
+                    >
+                      <mat-icon class="rh-daily__trend-icon" aria-hidden="true">
+                        {{ trendIcon(liveDelta) }}
+                      </mat-icon>
+                      {{ liveDelta | currency }}
+                      @if (deltaPercentForCurrent(liveTotal, liveDelta); as cpct) {
+                        <span class="rh-daily__delta-pct">&nbsp;({{ cpct | number: '1.2-2' }}%)</span>
+                      }
+                    </span>
+                  }
+                }
               } @else if (t.autoCaptureScheduled) {
-                <span class="rh-daily__day-row-badge rh-daily__day-row-badge--pending">9 PM pending</span>
+                <span class="rh-daily__day-row-badge rh-daily__day-row-badge--pending">9 PM ET pending</span>
               }
               <span class="rh-daily__day-row-meta">
                 @if (day.manualCaptures.length) {
@@ -1133,7 +1158,7 @@
                                     <strong>{{ cell.totalAccountValue | currency }}</strong>
                                   </td>
                                   <td class="rh-daily__num" [class]="pnlClass(cell.totalChangeFromPrevious)">
-                                    @if (day.hasPreviousScheduledSnapshot) {
+                                    @if (dayShowsPreviousDelta(day)) {
                                       {{ cell.totalChangeFromPrevious | currency }}
                                       @if (deltaPercentForCurrent(cell.totalAccountValue, cell.totalChangeFromPrevious); as cpct) {
                                         <span class="rh-daily__delta-pct">&nbsp;({{ cpct | number: '1.2-2' }}%)</span>
@@ -1191,7 +1216,7 @@
                         </mat-icon>
                         <h4 class="rh-daily__flows-title">
                           @if (t.autoCaptureScheduled) {
-                            Added / removed since previous 9 PM
+                            Added / removed since previous 9 PM ET
                           } @else {
                             Added / removed since previous snapshot
                           }
@@ -1245,7 +1270,7 @@
                       </mat-icon>
                       <h4 class="rh-daily__trades-title">
                         @if (t.autoCaptureScheduled) {
-                          Trades since previous 9 PM (all accounts)
+                          Trades since previous 9 PM ET (all accounts)
                         } @else {
                           Trades since previous snapshot (all accounts)
                         }
@@ -1301,7 +1326,10 @@
                 }
 
                 @if (!day.hasScheduledSnapshot && t.autoCaptureScheduled) {
-                  <p class="muted rh-daily__pending">Scheduled 9 PM snapshot not captured yet.</p>
+                  <p class="muted rh-daily__pending">
+                    Official 9 PM ET close not captured yet — hourly captures below stay live until then, then the close
+                    freezes for the rest of the day.
+                  </p>
                 }
               </div>
             }

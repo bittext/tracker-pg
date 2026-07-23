@@ -64,7 +64,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-/** Daily 9 PM Central Robinhood account snapshots for Reports → Daily Tracker. */
+/** Daily Robinhood account snapshots for Reports → Daily Tracker (official close 9 PM Eastern). */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -355,8 +355,9 @@ public class RobinhoodRhDailyTrackerService {
                     "pulickal-agentic Daily Tracker: ••••3550 (Agentic, tradable), ••••3370 (default individual), ••••4123 (managed), ••••8696 (Ammu’s Acc — linked, not agentic-tradable).");
             notes.add("Excluded from Daily Tracker: ••••0440 (Short Term Idv), ••••2835 (Roth IRA).");
             notes.add(
-                    "Each day shows the scheduled 9 PM snapshot plus hourly pulls under Captures today (Timeline view).");
-            notes.add("Period flows on scheduled rows are cash movements since the previous 9 PM snapshot.");
+                    "Each day shows the scheduled 9 PM ET snapshot plus hourly pulls under Capture pulse.");
+            notes.add("Period flows on scheduled rows are cash movements since the previous 9 PM ET snapshot.");
+            notes.add("After the 9 PM ET close, later hourly captures stay on the timeline but do not replace the day total.");
             if (days.isEmpty()) {
                 notes.add(
                         "No snapshots yet — wait for the hourly job or click Capture now after connecting pulickal-agentic.");
@@ -603,7 +604,7 @@ public class RobinhoodRhDailyTrackerService {
                     + (captured == 1 ? "" : "s")
                     + ").";
             if (isScheduledCaptureOwner(ownerUserId)) {
-                message += " The daily 9 PM row is unchanged.";
+                message += " The daily 9 PM ET row is unchanged.";
             }
         } else if (RobinhoodRhDailyCaptureKind.INTRADAY.equals(captureKind)) {
             message = "Saved hourly capture at "
@@ -614,7 +615,7 @@ public class RobinhoodRhDailyTrackerService {
                     + (captured == 1 ? "" : "s")
                     + ").";
         } else {
-            message = "Captured " + captured + " scheduled snapshot(s) for " + snapshotDate + " Central.";
+            message = "Captured " + captured + " scheduled 9 PM ET snapshot(s) for " + snapshotDate + " (Central date).";
         }
         log.info("RH {} snapshot for user {}: {}", captureKind, ownerUserId, message);
         return new RobinhoodRhDailyCaptureResultDto(true, snapshotAt, captured, message);

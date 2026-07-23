@@ -7,7 +7,7 @@
       @if (d.captureKind === 'MANUAL') {
         Manual capture {{ d.snapshotAt | date: 'mediumDate' }} · {{ d.snapshotAt | date: 'shortTime' }} Central
       } @else if (data.scheduledCaptureEnabled) {
-        Snapshot {{ d.snapshotDate | date: 'mediumDate' }} · 9 PM Central
+        Snapshot {{ d.snapshotDate | date: 'mediumDate' }} · 9 PM Eastern
       } @else {
         Snapshot {{ d.snapshotDate | date: 'mediumDate' }}
       }

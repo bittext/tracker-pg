@@ -153,9 +153,10 @@ tracker:
       token-encryption-key: ${TRACKER_FINANCE_ROBINHOOD_AGENTIC_BANKING_TOKEN_ENCRYPTION_KEY:${TRACKER_FINANCE_ROBINHOOD_AGENTIC_TOKEN_ENCRYPTION_KEY:}}
     rh-daily-tracker:
       snapshot-scheduler-enabled-config: ${TRACKER_FINANCE_RH_DAILY_TRACKER_SNAPSHOT_ENABLED:true}
-      # Every hour at :00 (Spring 6-field cron). Closing hour writes the official daily SCHEDULED row.
+      # Every hour at :00 (Spring 6-field cron). Closing hour writes the official daily SCHEDULED row
+      # (9 PM Eastern); later hourly pulls stay INTRADAY and do not replace that close.
       snapshot-cron: ${TRACKER_FINANCE_RH_DAILY_TRACKER_SNAPSHOT_CRON:0 0 * * * *}
-      snapshot-zone: ${TRACKER_FINANCE_RH_DAILY_TRACKER_SNAPSHOT_ZONE:America/Chicago}
+      snapshot-zone: ${TRACKER_FINANCE_RH_DAILY_TRACKER_SNAPSHOT_ZONE:America/New_York}
       snapshot-closing-hour: ${TRACKER_FINANCE_RH_DAILY_TRACKER_SNAPSHOT_CLOSING_HOUR:21}
       # spulickal/nisha scope is hard-coded; optional map for future users: username -> "1234,5678"
       additional-owner-suffixes: {}

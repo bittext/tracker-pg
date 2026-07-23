@@ -44,7 +44,7 @@ public class AdminCronJobBuiltinCatalog {
             jobs.add(cron(
                     "finance.rh-daily-tracker.snapshot",
                     "Robinhood Daily Tracker capture",
-                    "Hourly account snapshots for Daily Tracker (9 PM close row).",
+                    "Hourly account snapshots for Daily Tracker (9 PM ET close row).",
                     "Finance",
                     "finance.rh-daily-tracker.snapshot",
                     rhDailyTrackerProps.snapshotCron(),

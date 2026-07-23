@@ -319,6 +319,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         const validDates = new Set(t.days.map((d) => d.snapshotDate));
         this.mergeExpansionStateFromStorage(validDates);
         this.pruneExpansionState(validDates);
+        this.ensureTodayExpanded(t.days);
         this.syncNoteDrafts(t.days);
         this.loading = false;
         this.softRefreshing = false;
@@ -449,7 +450,128 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   }
 
   cellForDay(day: RobinhoodRhDailyTrackerDayDto, suffix: string): RobinhoodRhDailyTrackerAccountCellDto | undefined {
-    return day.accounts.find((a) => a.accountSuffix === suffix);
+    const scheduled = day.accounts.find((a) => a.accountSuffix === suffix);
+    if (scheduled) {
+      return scheduled;
+    }
+    if (day.hasScheduledSnapshot) {
+      return undefined;
+    }
+    return this.provisionalCellForDay(day, suffix);
+  }
+
+  /** Saturday or Sunday for the snapshot calendar date (Central day key). */
+  isWeekendDay(day: RobinhoodRhDailyTrackerDayDto): boolean {
+    const [y, m, d] = day.snapshotDate.split('-').map((part) => Number(part));
+    if (!y || !m || !d) {
+      return false;
+    }
+    const dow = new Date(y, m - 1, d).getDay();
+    return dow === 0 || dow === 6;
+  }
+
+  /** Tracker “today” uses America/Chicago dates to match snapshotDate keys. */
+  isTrackerToday(day: RobinhoodRhDailyTrackerDayDto): boolean {
+    return day.snapshotDate === this.todayIsoCentral();
+  }
+
+  /** Latest hourly/manual capture used as the live day-row total before 9 PM ET freeze. */
+  latestDayCapture(day: RobinhoodRhDailyTrackerDayDto): RobinhoodRhDailyTrackerManualCaptureDto | null {
+    const all = [...(day.intradayCaptures ?? []), ...(day.manualCaptures ?? [])];
+    if (!all.length) {
+      return null;
+    }
+    return all.reduce((best, row) =>
+      new Date(row.capturedAt).getTime() > new Date(best.capturedAt).getTime() ? row : best,
+    );
+  }
+
+  dayHeaderTotal(day: RobinhoodRhDailyTrackerDayDto): number | null {
+    if (day.hasScheduledSnapshot) {
+      return day.combinedTotal;
+    }
+    const live = this.latestDayCapture(day);
+    return live?.combinedTotal ?? null;
+  }
+
+  dayHeaderDelta(day: RobinhoodRhDailyTrackerDayDto): number | null {
+    if (day.hasScheduledSnapshot) {
+      return day.hasPreviousScheduledSnapshot ? day.combinedTotalChangeFromPrevious : null;
+    }
+    const live = this.latestDayCapture(day);
+    if (!live || !day.hasPriorPull || day.priorPull == null) {
+      return null;
+    }
+    return live.combinedTotal - day.priorPull.combinedTotal;
+  }
+
+  dayHeaderLiveBadge(day: RobinhoodRhDailyTrackerDayDto): string {
+    const live = this.latestDayCapture(day);
+    if (!live) {
+      return 'Live';
+    }
+    return this.formatCaptureTime(live.capturedAt);
+  }
+
+  dayShowsPreviousDelta(day: RobinhoodRhDailyTrackerDayDto): boolean {
+    return day.hasScheduledSnapshot ? day.hasPreviousScheduledSnapshot : day.hasPriorPull;
+  }
+
+  private provisionalCellForDay(
+    day: RobinhoodRhDailyTrackerDayDto,
+    suffix: string,
+  ): RobinhoodRhDailyTrackerAccountCellDto | undefined {
+    const live = this.latestDayCapture(day);
+    const acct = live?.accounts.find((a) => a.accountSuffix === suffix);
+    if (!acct) {
+      return undefined;
+    }
+    const prior = day.priorPull?.accounts.find((a) => a.accountSuffix === suffix)?.totalAccountValue ?? 0;
+    const change = day.hasPriorPull ? acct.totalAccountValue - prior : 0;
+    return {
+      snapshotId: acct.snapshotId,
+      accountSuffix: acct.accountSuffix,
+      totalAccountValue: acct.totalAccountValue,
+      totalChangeFromPrevious: change,
+      periodAdded: 0,
+      periodRemoved: 0,
+      periodValueChange: 0,
+      hasFlowActivity: false,
+      tradeCount: 0,
+      positionsChangedFromPrior: acct.positionsChangedFromPrior ?? false,
+      spikeAlert: acct.spikeAlert ?? { fired: false, emailStatus: null, triggerReasons: null, deltaDollars: null, deltaPercent: null },
+    };
+  }
+
+  private ensureTodayExpanded(days: RobinhoodRhDailyTrackerDayDto[]): void {
+    const today = this.todayIsoCentral();
+    const todayDay = days.find((d) => d.snapshotDate === today);
+    if (!todayDay) {
+      return;
+    }
+    this.expandedDays.add(today);
+    this.collapsedTimeline.delete(today);
+    this.persistExpansionState();
+  }
+
+  private todayIsoCentral(): string {
+    return this.zonedIsoDate('America/Chicago');
+  }
+
+  private zonedIsoDate(timeZone: string, at = new Date()): string {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(at);
+    const y = parts.find((p) => p.type === 'year')?.value;
+    const m = parts.find((p) => p.type === 'month')?.value;
+    const d = parts.find((p) => p.type === 'day')?.value;
+    if (!y || !m || !d) {
+      return this.todayIso();
+    }
+    return `${y}-${m}-${d}`;
   }
 
   pnlClass(value: number): string {
@@ -493,7 +615,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         row: {
           capturedAt: day.snapshotAt,
           kind: 'scheduled',
-          timeLabel: this.tracker?.autoCaptureScheduled ? '9 PM CST' : 'Scheduled',
+          timeLabel: this.tracker?.autoCaptureScheduled ? '9 PM ET' : 'Scheduled',
           combinedTotal: day.combinedTotal,
           changeFromPrior: null,
           accounts: day.accounts.map((cell) => ({

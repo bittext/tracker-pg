@@ -280,12 +280,39 @@
     box-shadow: inset 3px 0 0 rgba(59, 99, 148, 0.14);
   }
 
+  &--weekend {
+    background: #f3ebe3;
+    box-shadow: inset 3px 0 0 rgba(180, 120, 64, 0.35);
+
+    &.rh-daily__day-item--alt {
+      background: #eee2d6;
+      box-shadow: inset 3px 0 0 rgba(180, 120, 64, 0.42);
+    }
+  }
+
+  &--today:not(.rh-daily__day-item--weekend) {
+    box-shadow: inset 3px 0 0 rgba(37, 99, 235, 0.45);
+  }
+
+  &--weekend.rh-daily__day-item--today {
+    box-shadow: inset 3px 0 0 rgba(180, 120, 64, 0.55);
+  }
+
   &--open {
     background: var(--rh-daily-day-even-open);
 
     &.rh-daily__day-item--alt {
       background: var(--rh-daily-day-odd-open);
       box-shadow: inset 3px 0 0 rgba(59, 99, 148, 0.22);
+    }
+
+    &.rh-daily__day-item--weekend {
+      background: #f7f0e8;
+
+      &.rh-daily__day-item--alt {
+        background: #f0e6da;
+        box-shadow: inset 3px 0 0 rgba(180, 120, 64, 0.48);
+      }
     }
   }
 
@@ -315,6 +342,10 @@
 
   .rh-daily__day-item--alt &:hover {
     background: var(--rh-daily-day-odd-hover);
+  }
+
+  .rh-daily__day-item--weekend &:hover {
+    background: #eadccf;
   }
 }
 
@@ -353,6 +384,15 @@
     color: var(--app-text-muted, #64748b);
     font-style: italic;
     background: transparent;
+  }
+
+  &--live {
+    color: #1d4ed8;
+    background: rgba(37, 99, 235, 0.12);
+    font-style: normal;
+    font-variant-numeric: tabular-nums;
+    text-transform: none;
+    letter-spacing: 0;
   }
 }
 
