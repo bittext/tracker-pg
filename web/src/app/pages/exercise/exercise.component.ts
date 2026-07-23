@@ -7,9 +7,6 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
-import { MatNativeDateModule } from '@angular/material/core';
-import { MatDatepickerModule, MatDatepickerInputEvent } from '@angular/material/datepicker';
-import { MatDividerModule } from '@angular/material/divider';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { BodyWeightLog, Exercise, ExerciseDayLog, MonthActivityCalendarDto } from '../../models/fitness.models';
@@ -35,12 +32,9 @@ interface ExCalCell {
     MatButtonModule,
     MatFormFieldModule,
     MatInputModule,
-    MatDatepickerModule,
-    MatNativeDateModule,
     MatSelectModule,
     MatIconModule,
     MatSnackBarModule,
-    MatDividerModule,
   ],
   templateUrl: './exercise.component.html',
   styleUrl: './exercise.component.scss',
@@ -54,8 +48,6 @@ export class ExerciseComponent implements OnInit {
   exercises: Exercise[] = [];
   selectedExerciseId: number | null = null;
   logDay = this.todayIsoDate();
-  /** Bound to Material datepicker (native `type="date"` calendar UI is inconsistent in Brave/Chromium). */
-  logDayDate = this.dateFromIso(this.logDay);
   calendarYear = new Date().getFullYear();
   calendarMonth = new Date().getMonth() + 1;
   monthCal: MonthActivityCalendarDto | null = null;
@@ -215,7 +207,6 @@ export class ExerciseComponent implements OnInit {
       return;
     }
     this.logDay = iso;
-    this.logDayDate = this.dateFromIso(iso);
     const y = +iso.slice(0, 4);
     const m = +iso.slice(5, 7);
     if (y !== this.calendarYear || m !== this.calendarMonth) {
@@ -236,20 +227,6 @@ export class ExerciseComponent implements OnInit {
     const m = `${d.getMonth() + 1}`.padStart(2, '0');
     const day = `${d.getDate()}`.padStart(2, '0');
     return `${y}-${m}-${day}`;
-  }
-
-  /** Local calendar date from `yyyy-MM-dd` (avoids UTC shift). */
-  private dateFromIso(iso: string): Date {
-    const [y, m, day] = iso.split('-').map((s) => parseInt(s, 10));
-    return new Date(y, m - 1, day);
-  }
-
-  onExerciseDateChange(event: MatDatepickerInputEvent<Date>): void {
-    const d = event.value;
-    if (!d) {
-      return;
-    }
-    this.setLogDay(this.toIsoDate(d));
   }
 
   private addDays(isoDate: string, deltaDays: number): string {

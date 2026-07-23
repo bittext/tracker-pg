@@ -3,44 +3,38 @@
 }
 
 .page-layout {
-  display: grid;
-  grid-template-columns: minmax(280px, 400px) minmax(0, 1fr);
-  gap: 1.25rem 1.75rem;
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
   margin-top: 0.25rem;
 }
 
-.entries-panel {
+.month-card {
+  max-width: 26rem;
+}
+
+.columns-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem 1.25rem;
+  align-items: start;
+}
+
+.data-column {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-}
-
-.history-panel {
-  position: sticky;
-  top: 0.75rem;
-  max-height: calc(100vh - 5rem);
-  overflow: auto;
-  padding: 0.35rem 0.35rem 1rem;
-  border-radius: var(--app-radius-sm, 10px);
-  background: var(--app-surface-muted, #f5f7fb);
-  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+  min-width: 0;
 }
 
 .window-caption {
-  margin: 0 0 0.75rem;
+  margin: 0;
   font-size: 0.8rem;
   letter-spacing: 0.01em;
 }
 
 .history-section {
-  padding: 0 0.35rem;
-}
-
-.history-heading {
-  margin: 0 0 0.75rem;
-  font-size: 1.1rem;
-  font-weight: 600;
+  min-width: 0;
 }
 
 .history-sub {
@@ -54,10 +48,6 @@
   &.history-sub--first {
     margin-top: 0.35rem;
   }
-}
-
-.panel-divider {
-  margin: 1rem 0;
 }
 
 /** Frames all weight or all exercise detail tables in the history panel. */
@@ -186,7 +176,7 @@
   }
 }
 
-.entries-panel .table-wrap-group {
+.data-column .table-wrap-group.entries-wrap {
   margin-top: 0;
 }
 
@@ -327,12 +317,11 @@
 }
 
 @media (max-width: 960px) {
-  .page-layout {
+  .columns-grid {
     grid-template-columns: 1fr;
   }
 
-  .history-panel {
-    position: static;
-    max-height: none;
+  .month-card {
+    max-width: none;
   }
 }
