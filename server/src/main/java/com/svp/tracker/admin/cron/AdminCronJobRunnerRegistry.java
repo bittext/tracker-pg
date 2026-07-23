@@ -62,7 +62,7 @@ public class AdminCronJobRunnerRegistry {
         register(new AdminCronJobRunnerDefinition(
                 "finance.rh-daily-tracker.snapshot",
                 "Robinhood Daily Tracker capture",
-                "Hourly account snapshots for Daily Tracker (9 PM ET close row).",
+                "Hourly account snapshots for Daily Tracker (9 PM CT close row).",
                 "Finance",
                 () -> rhDailySnapshotScheduler.getObject().captureDailySnapshots(),
                 () -> rhDailySnapshotScheduler.getIfAvailable() != null

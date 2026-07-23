@@ -319,7 +319,6 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         const validDates = new Set(t.days.map((d) => d.snapshotDate));
         this.mergeExpansionStateFromStorage(validDates);
         this.pruneExpansionState(validDates);
-        this.ensureTodayExpanded(t.days);
         this.syncNoteDrafts(t.days);
         this.loading = false;
         this.softRefreshing = false;
@@ -475,7 +474,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     return day.snapshotDate === this.todayIsoCentral();
   }
 
-  /** Latest hourly/manual capture used as the live day-row total before 9 PM ET freeze. */
+  /** Latest hourly/manual capture used as the live day-row total before 9 PM CT freeze. */
   latestDayCapture(day: RobinhoodRhDailyTrackerDayDto): RobinhoodRhDailyTrackerManualCaptureDto | null {
     const all = [...(day.intradayCaptures ?? []), ...(day.manualCaptures ?? [])];
     if (!all.length) {
@@ -543,17 +542,6 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     };
   }
 
-  private ensureTodayExpanded(days: RobinhoodRhDailyTrackerDayDto[]): void {
-    const today = this.todayIsoCentral();
-    const todayDay = days.find((d) => d.snapshotDate === today);
-    if (!todayDay) {
-      return;
-    }
-    this.expandedDays.add(today);
-    this.collapsedTimeline.delete(today);
-    this.persistExpansionState();
-  }
-
   private todayIsoCentral(): string {
     return this.zonedIsoDate('America/Chicago');
   }
@@ -615,7 +603,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         row: {
           capturedAt: day.snapshotAt,
           kind: 'scheduled',
-          timeLabel: this.tracker?.autoCaptureScheduled ? '9 PM ET' : 'Scheduled',
+          timeLabel: this.tracker?.autoCaptureScheduled ? '9 PM CT' : 'Scheduled',
           combinedTotal: day.combinedTotal,
           changeFromPrior: null,
           accounts: day.accounts.map((cell) => ({
