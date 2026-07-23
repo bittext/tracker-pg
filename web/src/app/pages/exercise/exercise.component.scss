@@ -217,6 +217,115 @@
   border-left: 4px solid var(--app-accent, #2563eb);
 }
 
+.cal-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem;
+  margin-bottom: 0.55rem;
+}
+
+.cal-title {
+  margin: 0;
+  flex: 1;
+  text-align: center;
+  font-size: 0.98rem;
+  font-weight: 650;
+}
+
+.calendar-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.cal-weekdays,
+.cal-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.2rem;
+}
+
+.cal-weekday {
+  text-align: center;
+  font-size: 0.62rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--app-text-subtle, #94a3b8);
+}
+
+.cal-slot {
+  aspect-ratio: 1;
+  min-height: 2rem;
+  border-radius: 8px;
+}
+
+.cal-slot--pad {
+  visibility: hidden;
+}
+
+.cal-day {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  background: var(--app-surface-muted, #f8fafc);
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+
+  &:hover {
+    background: rgba(15, 23, 42, 0.06);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--app-accent, #2563eb);
+    outline-offset: -2px;
+  }
+}
+
+.cal-day-num {
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.cal-day--exercised {
+  background: var(--app-cal-strength, rgba(74, 124, 89, 0.16));
+  border-color: rgba(74, 124, 89, 0.28);
+}
+
+.cal-day--today:not(.cal-day--selected) {
+  border-color: rgba(37, 99, 235, 0.35);
+}
+
+.cal-day--selected {
+  box-shadow: inset 0 0 0 2px var(--app-accent, #2563eb);
+  z-index: 1;
+}
+
+.cal-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.55rem;
+  font-size: 0.75rem;
+}
+
+.cal-legend-swatch {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 4px;
+  border: 1px solid transparent;
+
+  &--exercised {
+    background: var(--app-cal-strength, rgba(74, 124, 89, 0.16));
+    border-color: rgba(74, 124, 89, 0.28);
+  }
+}
+
 @media (max-width: 960px) {
   .page-layout {
     grid-template-columns: 1fr;

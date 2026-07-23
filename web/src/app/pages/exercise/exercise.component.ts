@@ -12,9 +12,17 @@ import { MatDatepickerModule, MatDatepickerInputEvent } from '@angular/material/
 import { MatDividerModule } from '@angular/material/divider';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
-import { BodyWeightLog, Exercise, ExerciseDayLog } from '../../models/fitness.models';
+import { BodyWeightLog, Exercise, ExerciseDayLog, MonthActivityCalendarDto } from '../../models/fitness.models';
 import { FitnessApiService } from '../../services/fitness-api.service';
 import { formatHttpErrorDetail } from '../../util/http-error';
+
+interface ExCalCell {
+  type: 'pad' | 'day';
+  dateIso?: string;
+  label?: string;
+  exercised?: boolean;
+  trackKey: string;
+}
 
 @Component({
   selector: 'app-exercise',
@@ -41,11 +49,16 @@ export class ExerciseComponent implements OnInit {
   private readonly fitnessApi = inject(FitnessApiService);
   private readonly snackBar = inject(MatSnackBar);
 
+  readonly weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
   exercises: Exercise[] = [];
   selectedExerciseId: number | null = null;
   logDay = this.todayIsoDate();
   /** Bound to Material datepicker (native `type="date"` calendar UI is inconsistent in Brave/Chromium). */
   logDayDate = this.dateFromIso(this.logDay);
+  calendarYear = new Date().getFullYear();
+  calendarMonth = new Date().getMonth() + 1;
+  monthCal: MonthActivityCalendarDto | null = null;
   /** All exercises’ logs on {@link logDay} (right panel; not filtered by exercise dropdown). */
   dayLogs: ExerciseDayLog[] = [];
   /** All exercises in the window before {@link logDay}. */
@@ -92,8 +105,125 @@ export class ExerciseComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.syncCalendarToLogDay();
     this.reloadExercises();
     this.reloadBodyWeight();
+    this.loadMonthCalendar();
+  }
+
+  get calendarTitle(): string {
+    return new Date(this.calendarYear, this.calendarMonth - 1, 1).toLocaleString(undefined, {
+      month: 'long',
+      year: 'numeric',
+    });
+  }
+
+  get exercisedDayCount(): number {
+    return this.monthCal?.activeDays?.length ?? this.monthCal?.daysWithStrengthTraining?.length ?? 0;
+  }
+
+  calendarRows(): ExCalCell[][] {
+    const y = this.calendarYear;
+    const m = this.calendarMonth;
+    const exercised = new Set([
+      ...(this.monthCal?.activeDays ?? []),
+      ...(this.monthCal?.daysWithStrengthTraining ?? []),
+    ]);
+    const last = new Date(y, m, 0).getDate();
+    const firstDow = new Date(y, m - 1, 1).getDay();
+    const flat: ExCalCell[] = [];
+    let padSeq = 0;
+    for (let i = 0; i < firstDow; i++) {
+      padSeq += 1;
+      flat.push({ type: 'pad', trackKey: `pad-${padSeq}` });
+    }
+    for (let d = 1; d <= last; d++) {
+      const iso = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      flat.push({
+        type: 'day',
+        dateIso: iso,
+        label: String(d),
+        exercised: exercised.has(iso),
+        trackKey: `d-${iso}`,
+      });
+    }
+    let tail = 0;
+    while (flat.length % 7 !== 0) {
+      tail += 1;
+      flat.push({ type: 'pad', trackKey: `pt-${tail}` });
+    }
+    const rows: ExCalCell[][] = [];
+    for (let i = 0; i < flat.length; i += 7) {
+      rows.push(flat.slice(i, i + 7));
+    }
+    return rows;
+  }
+
+  isCalDaySelected(iso: string | undefined): boolean {
+    return !!iso && iso === this.logDay;
+  }
+
+  isCalDayToday(iso: string | undefined): boolean {
+    return !!iso && iso === this.todayIsoDate();
+  }
+
+  selectCalDay(cell: ExCalCell): void {
+    if (cell.type !== 'day' || !cell.dateIso) {
+      return;
+    }
+    this.setLogDay(cell.dateIso);
+  }
+
+  prevMonth(): void {
+    let y = this.calendarYear;
+    let m = this.calendarMonth - 1;
+    if (m < 1) {
+      m = 12;
+      y -= 1;
+    }
+    this.calendarYear = y;
+    this.calendarMonth = m;
+    this.loadMonthCalendar();
+  }
+
+  nextMonth(): void {
+    let y = this.calendarYear;
+    let m = this.calendarMonth + 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+    this.calendarYear = y;
+    this.calendarMonth = m;
+    this.loadMonthCalendar();
+  }
+
+  private loadMonthCalendar(): void {
+    this.fitnessApi.monthActivityCalendar(this.calendarYear, this.calendarMonth).subscribe({
+      next: (cal) => (this.monthCal = cal),
+      error: (e) => this.err('Could not load month calendar', e),
+    });
+  }
+
+  private syncCalendarToLogDay(): void {
+    this.calendarYear = +this.logDay.slice(0, 4);
+    this.calendarMonth = +this.logDay.slice(5, 7);
+  }
+
+  private setLogDay(iso: string): void {
+    if (iso === this.logDay) {
+      return;
+    }
+    this.logDay = iso;
+    this.logDayDate = this.dateFromIso(iso);
+    const y = +iso.slice(0, 4);
+    const m = +iso.slice(5, 7);
+    if (y !== this.calendarYear || m !== this.calendarMonth) {
+      this.calendarYear = y;
+      this.calendarMonth = m;
+      this.loadMonthCalendar();
+    }
+    this.onLogDayChange();
   }
 
   private todayIsoDate(): string {
@@ -119,12 +249,7 @@ export class ExerciseComponent implements OnInit {
     if (!d) {
       return;
     }
-    const iso = this.toIsoDate(d);
-    if (iso === this.logDay) {
-      return;
-    }
-    this.logDay = iso;
-    this.onLogDayChange();
+    this.setLogDay(this.toIsoDate(d));
   }
 
   private addDays(isoDate: string, deltaDays: number): string {
@@ -286,6 +411,7 @@ export class ExerciseComponent implements OnInit {
           this.resetNewLogDuration();
           this.loadDayLogs();
           this.loadPreviousExerciseLogs();
+          this.loadMonthCalendar();
           this.snackBar.open('Log saved', undefined, { duration: 2500 });
         },
         error: (e) => this.err('Save log failed', e),
@@ -300,6 +426,7 @@ export class ExerciseComponent implements OnInit {
       next: () => {
         this.loadDayLogs();
         this.loadPreviousExerciseLogs();
+        this.loadMonthCalendar();
         this.snackBar.open('Removed', undefined, { duration: 2000 });
       },
       error: (e) => this.err('Delete failed', e),

@@ -1,14 +1,71 @@
 <div class="page-head">
   <h1 class="page-title">Exercise</h1>
   <p class="muted">
-    Add entries on the left; the right shows <strong>all exercise logs</strong> for the selected day and the
-    <strong>last {{ historyDayCount }} days</strong> ending on that date (not filtered by the exercise dropdown).
+    Green days on the month calendar had a workout. Click a day to log weight and exercise notes; the right panel shows
+    <strong>all exercise logs</strong> for that day and the <strong>last {{ historyDayCount }} days</strong>.
   </p>
 </div>
 
 <div class="page-layout">
   <div class="entries-panel">
     <mat-card class="card highlight">
+      <mat-card-header>
+        <mat-card-title>Month</mat-card-title>
+        <mat-card-subtitle>
+          {{ exercisedDayCount }} exercise day{{ exercisedDayCount === 1 ? '' : 's' }} · green = exercised
+        </mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="cal-toolbar">
+          <button mat-icon-button type="button" (click)="prevMonth()" aria-label="Previous month">
+            <mat-icon>chevron_left</mat-icon>
+          </button>
+          <h2 class="cal-title">{{ calendarTitle }}</h2>
+          <button mat-icon-button type="button" (click)="nextMonth()" aria-label="Next month">
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+        </div>
+        <div class="calendar-shell" aria-label="Days exercised this month">
+          <div class="cal-weekdays" role="row">
+            @for (wd of weekDays; track wd) {
+              <span class="cal-weekday" role="columnheader">{{ wd }}</span>
+            }
+          </div>
+          @for (row of calendarRows(); track $index) {
+            <div class="cal-week" role="row">
+              @for (cell of row; track cell.trackKey) {
+                @if (cell.type === 'pad') {
+                  <div class="cal-slot cal-slot--pad" aria-hidden="true"></div>
+                } @else {
+                  <button
+                    type="button"
+                    class="cal-slot cal-day"
+                    [class.cal-day--exercised]="cell.exercised"
+                    [class.cal-day--selected]="isCalDaySelected(cell.dateIso)"
+                    [class.cal-day--today]="isCalDayToday(cell.dateIso)"
+                    (click)="selectCalDay(cell)"
+                    [attr.aria-label]="
+                      (cell.dateIso || '') +
+                      (cell.exercised ? ', exercised' : ', no exercise') +
+                      (isCalDaySelected(cell.dateIso) ? ', selected' : '')
+                    "
+                    [attr.aria-pressed]="isCalDaySelected(cell.dateIso)"
+                  >
+                    <span class="cal-day-num">{{ cell.label }}</span>
+                  </button>
+                }
+              }
+            </div>
+          }
+        </div>
+        <div class="cal-legend muted">
+          <span class="cal-legend-swatch cal-legend-swatch--exercised" aria-hidden="true"></span>
+          Exercised
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="card">
       <mat-card-header>
         <mat-card-title>Day</mat-card-title>
         <mat-card-subtitle>Used for new weight and exercise notes below</mat-card-subtitle>
