@@ -114,6 +114,95 @@ export class ExerciseComponent implements OnInit {
     return this.monthCal?.activeDays?.length ?? this.monthCal?.daysWithStrengthTraining?.length ?? 0;
   }
 
+  get selectedDayLabel(): string {
+    const [y, m, d] = this.logDay.split('-').map((s) => parseInt(s, 10));
+    if (!y || !m || !d) {
+      return this.logDay;
+    }
+    return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+    });
+  }
+
+  get isSelectedDayExercised(): boolean {
+    const days = new Set([
+      ...(this.monthCal?.activeDays ?? []),
+      ...(this.monthCal?.daysWithStrengthTraining ?? []),
+    ]);
+    return days.has(this.logDay);
+  }
+
+  get selectedDayWeightLb(): number | null {
+    const row = this.bwForSelectedDay[0];
+    if (!row) {
+      return null;
+    }
+    const lb = this.displayBodyWeightLb(row);
+    return lb > 0 ? lb : null;
+  }
+
+  get selectedDayNotePreview(): string | null {
+    const note = this.dayLogs.find((l) => !!l.notes?.trim())?.notes?.trim();
+    return note || null;
+  }
+
+  /** Exercised days vs days elapsed in the visible month (through today when current). */
+  get monthConsistencyPct(): number {
+    const y = this.calendarYear;
+    const m = this.calendarMonth;
+    const last = new Date(y, m, 0).getDate();
+    const today = this.todayIsoDate();
+    const todayY = +today.slice(0, 4);
+    const todayM = +today.slice(5, 7);
+    const todayD = +today.slice(8, 10);
+    let through = last;
+    if (y === todayY && m === todayM) {
+      through = todayD;
+    } else if (y > todayY || (y === todayY && m > todayM)) {
+      through = 0;
+    }
+    if (through <= 0) {
+      return 0;
+    }
+    const exercised = new Set([
+      ...(this.monthCal?.activeDays ?? []),
+      ...(this.monthCal?.daysWithStrengthTraining ?? []),
+    ]);
+    let hit = 0;
+    for (let d = 1; d <= through; d++) {
+      const iso = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      if (exercised.has(iso)) {
+        hit += 1;
+      }
+    }
+    return Math.round((hit / through) * 100);
+  }
+
+  get currentStreakDays(): number {
+    const exercised = new Set([
+      ...(this.monthCal?.activeDays ?? []),
+      ...(this.monthCal?.daysWithStrengthTraining ?? []),
+    ]);
+    let streak = 0;
+    let cursor = this.logDay;
+    // Walk backward from selected day while still in this calendar month.
+    while (true) {
+      const y = +cursor.slice(0, 4);
+      const m = +cursor.slice(5, 7);
+      if (y !== this.calendarYear || m !== this.calendarMonth) {
+        break;
+      }
+      if (!exercised.has(cursor)) {
+        break;
+      }
+      streak += 1;
+      cursor = this.addDays(cursor, -1);
+    }
+    return streak;
+  }
+
   calendarRows(): ExCalCell[][] {
     const y = this.calendarYear;
     const m = this.calendarMonth;

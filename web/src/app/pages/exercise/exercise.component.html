@@ -7,19 +7,22 @@
 </div>
 
 <div class="page-layout">
-  <mat-card class="card highlight month-card">
-    <mat-card-header>
-      <mat-card-title>Month</mat-card-title>
-      <mat-card-subtitle>
-        {{ exercisedDayCount }} exercise day{{ exercisedDayCount === 1 ? '' : 's' }} · green = exercised
-      </mat-card-subtitle>
-    </mat-card-header>
-    <mat-card-content>
+  <section class="hero-band" aria-label="Month calendar and selected day">
+    <div class="hero-cal">
+      <header class="hero-cal-head">
+        <div>
+          <p class="hero-kicker">Month</p>
+          <h2 class="hero-cal-title">{{ calendarTitle }}</h2>
+        </div>
+        <p class="hero-cal-meta muted">
+          {{ exercisedDayCount }} exercise day{{ exercisedDayCount === 1 ? '' : 's' }}
+        </p>
+      </header>
       <div class="cal-toolbar">
         <button mat-icon-button type="button" (click)="prevMonth()" aria-label="Previous month">
           <mat-icon>chevron_left</mat-icon>
         </button>
-        <h2 class="cal-title">{{ calendarTitle }}</h2>
+        <span class="cal-title-spacer" aria-hidden="true"></span>
         <button mat-icon-button type="button" (click)="nextMonth()" aria-label="Next month">
           <mat-icon>chevron_right</mat-icon>
         </button>
@@ -61,10 +64,66 @@
         <span class="cal-legend-swatch cal-legend-swatch--exercised" aria-hidden="true"></span>
         Exercised
       </div>
-    </mat-card-content>
-  </mat-card>
+    </div>
 
-  <p class="window-caption muted">{{ historyWindowStart }} → {{ logDay }}</p>
+    <aside class="hero-focus" [attr.data-exercised]="isSelectedDayExercised">
+      <div class="hero-focus-glow" aria-hidden="true"></div>
+      <p class="hero-kicker">Selected day</p>
+      <h2 class="hero-focus-date">{{ selectedDayLabel }}</h2>
+      <p class="hero-focus-status" [class.hero-focus-status--on]="isSelectedDayExercised">
+        @if (isSelectedDayExercised) {
+          Workout logged
+        } @else {
+          Rest or not logged yet
+        }
+      </p>
+
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <span class="hero-stat-label">Weight</span>
+          <span class="hero-stat-value">
+            @if (selectedDayWeightLb != null) {
+              {{ selectedDayWeightLb | number: '1.1-1' }}
+              <span class="hero-stat-unit">lb</span>
+            } @else {
+              —
+            }
+          </span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat-label">Logs</span>
+          <span class="hero-stat-value">{{ dayLogs.length }}</span>
+        </div>
+        <div class="hero-stat">
+          <span class="hero-stat-label">Streak</span>
+          <span class="hero-stat-value">
+            {{ currentStreakDays }}
+            <span class="hero-stat-unit">day{{ currentStreakDays === 1 ? '' : 's' }}</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="hero-consistency">
+        <div class="hero-consistency-head">
+          <span>Month consistency</span>
+          <strong>{{ monthConsistencyPct }}%</strong>
+        </div>
+        <div class="hero-consistency-track" role="meter" [attr.aria-valuenow]="monthConsistencyPct" aria-valuemin="0" aria-valuemax="100">
+          <span class="hero-consistency-fill" [style.width.%]="monthConsistencyPct"></span>
+        </div>
+      </div>
+
+      @if (selectedDayNotePreview) {
+        <blockquote class="hero-note">{{ selectedDayNotePreview }}</blockquote>
+      } @else {
+        <p class="hero-note hero-note--empty muted">
+          Pick a green day to review, or log weight and notes below for {{ logDay }}.
+        </p>
+      }
+
+      <p class="hero-window muted">{{ historyWindowStart }} → {{ logDay }}</p>
+    </aside>
+  </section>
 
   <div class="columns-grid">
     <section class="data-column" aria-label="Weight">
