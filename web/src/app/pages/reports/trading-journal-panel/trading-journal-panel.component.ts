@@ -591,12 +591,14 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
           tone = 'down';
         }
         heat = maxAbs > 0 ? Math.round(18 + (Math.abs(chg) / maxAbs) * 62) : 28;
-        const signed = `${chg >= 0 ? '+' : ''}${chg.toLocaleString(undefined, {
+        const amount = chg.toLocaleString(undefined, {
           style: 'currency',
           currency: 'USD',
           maximumFractionDigits: 0,
-        })}`;
-        tooltip = `${date} · Δ prior close ${signed}`;
+          signDisplay: 'always',
+        });
+        const arrow = chg > 0 ? '▲' : chg < 0 ? '▼' : '●';
+        tooltip = `${date} · ${arrow} ${amount}`;
       }
       flat.push({
         type: 'day',
