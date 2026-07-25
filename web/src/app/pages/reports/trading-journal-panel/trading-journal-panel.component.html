@@ -46,8 +46,11 @@
               class="tj__cal-day"
               [class.tj__cal-day--journal]="day.hasJournal"
               [class.tj__cal-day--selected]="day.isSelected"
+              [class.tj__cal-day--up]="day.tone === 'up'"
+              [class.tj__cal-day--down]="day.tone === 'down'"
+              [style.--tj-heat]="day.heat + '%'"
               (click)="openDay(day.date, false)"
-              [matTooltip]="day.date"
+              [matTooltip]="day.tooltip"
             >
               {{ day.date.slice(8) }}
             </button>

@@ -1853,12 +1853,19 @@ export interface TradingJournalEntrySummaryDto {
   attachmentCount: number;
 }
 
+export interface TradingJournalCalendarDayDto {
+  snapshotDate: string;
+  changeFromPrevious: number;
+  hasPreviousScheduledSnapshot: boolean;
+}
+
 export interface TradingJournalListDto {
   year: number;
   month: number | null;
   q: string;
   entries: TradingJournalEntrySummaryDto[];
   journalDates: string[];
+  calendarDays: TradingJournalCalendarDayDto[];
 }
 
 export interface TradingJournalRefDto {

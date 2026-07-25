@@ -30,6 +30,7 @@ import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerRefreshHintDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerReportDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTradeDto;
 import com.svp.tracker.finance.dto.RobinhoodRhHoldingDto;
+import com.svp.tracker.finance.dto.TradingJournalCalendarDayDto;
 import com.svp.tracker.finance.repository.RhDailyTrackerAlertEventRepository;
 import com.svp.tracker.finance.repository.RobinhoodAgenticConnectionRepository;
 import com.svp.tracker.finance.repository.RobinhoodAgenticSyncedOrderRepository;
@@ -39,6 +40,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -579,6 +581,51 @@ public class RobinhoodRhDailyTrackerService {
                 summaryNote);
         dayWrapCache.put(cacheKey, new CachedWrap(wrap, now));
         return wrap;
+    }
+
+    /**
+     * Lightweight month series of combined Δ vs prior scheduled 9 PM CT close — for Trading Journal
+     * calendar heatmap (avoids full {@link #buildReport}).
+     */
+    @Transactional(readOnly = true)
+    public List<TradingJournalCalendarDayDto> monthCloseChanges(int year, int month) {
+        if (month < 1 || month > 12) {
+            return List.of();
+        }
+        long ownerUserId = currentUser.requireUserId();
+        YearMonth ym = YearMonth.of(year, month);
+        LocalDate monthStart = ym.atDay(1);
+        LocalDate monthEnd = ym.atEndOfMonth();
+        LocalDate lookbackFrom = monthStart.minusDays(45);
+
+        List<RobinhoodRhDailySnapshot> scheduledRows = scheduledOnly(visibleSnapshots(
+                ownerUserId,
+                snapshotRepository.findByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateDescAccountSuffixAsc(
+                        ownerUserId, lookbackFrom, monthEnd)));
+
+        TreeMap<LocalDate, BigDecimal> combinedByDate = new TreeMap<>();
+        for (RobinhoodRhDailySnapshot row : scheduledRows) {
+            combinedByDate.merge(row.getSnapshotDate(), nullToZero(row.getTotalAccountValue()), BigDecimal::add);
+        }
+        if (combinedByDate.isEmpty()) {
+            return List.of();
+        }
+
+        List<TradingJournalCalendarDayDto> out = new ArrayList<>();
+        for (Map.Entry<LocalDate, BigDecimal> entry : combinedByDate.entrySet()) {
+            LocalDate date = entry.getKey();
+            if (date.isBefore(monthStart) || date.isAfter(monthEnd)) {
+                continue;
+            }
+            LocalDate previous = combinedByDate.lowerKey(date);
+            boolean hasPrevious = previous != null;
+            BigDecimal change = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+            if (hasPrevious) {
+                change = scaleMoney(entry.getValue().subtract(combinedByDate.get(previous)));
+            }
+            out.add(new TradingJournalCalendarDayDto(date, change, hasPrevious));
+        }
+        return out;
     }
 
     private boolean needsSyncedOrderFallback(

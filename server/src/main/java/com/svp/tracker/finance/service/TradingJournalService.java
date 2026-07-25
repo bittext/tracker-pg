@@ -13,6 +13,7 @@ import com.svp.tracker.finance.dto.RobinhoodRhHoldingDto;
 import com.svp.tracker.finance.dto.TradingJournalAccountHoldingsDto;
 import com.svp.tracker.finance.dto.TradingJournalAiDraftDto;
 import com.svp.tracker.finance.dto.TradingJournalAttachmentDto;
+import com.svp.tracker.finance.dto.TradingJournalCalendarDayDto;
 import com.svp.tracker.finance.dto.TradingJournalDayDetailDto;
 import com.svp.tracker.finance.dto.TradingJournalEntryDto;
 import com.svp.tracker.finance.dto.TradingJournalEntrySummaryDto;
@@ -91,7 +92,9 @@ public class TradingJournalService {
                         : entryRepository.search(uid, from, to, query);
         List<LocalDate> dates = entryRepository.findDates(uid, from, to);
         List<TradingJournalEntrySummaryDto> entries = rows.stream().map(this::toSummary).toList();
-        return new TradingJournalListDto(y, monthOut, query, entries, dates);
+        List<TradingJournalCalendarDayDto> calendarDays =
+                monthOut == null ? List.of() : dailyTrackerService.monthCloseChanges(y, monthOut);
+        return new TradingJournalListDto(y, monthOut, query, entries, dates, calendarDays);
     }
 
     @Transactional(readOnly = true)

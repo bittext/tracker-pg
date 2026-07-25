@@ -22,6 +22,7 @@ import {
 import {
   RobinhoodRhDailyTrackerDayDto,
   TradingJournalAttachmentDto,
+  TradingJournalCalendarDayDto,
   TradingJournalDayDetailDto,
   TradingJournalEntryDto,
   TradingJournalEntrySummaryDto,
@@ -64,6 +65,8 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
 
   entries: TradingJournalEntrySummaryDto[] = [];
   journalDates: string[] = [];
+  /** Month Δ prior close cells from Daily Tracker scheduled closes. */
+  monthCloseDays: TradingJournalCalendarDayDto[] = [];
   detail: TradingJournalDayDetailDto | null = null;
   selectedDate: string | null = null;
 
@@ -80,7 +83,14 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
   private readonly dayLoad$ = new Subject<{ date: string; create: boolean; force: boolean }>();
   private dayLoadSub: Subscription | null = null;
   private previewLoadToken = 0;
-  private calendarDaysCache: { date: string; hasJournal: boolean; isSelected: boolean }[] = [];
+  private calendarDaysCache: {
+    date: string;
+    hasJournal: boolean;
+    isSelected: boolean;
+    tone: 'up' | 'down' | null;
+    heat: number;
+    tooltip: string;
+  }[] = [];
   private calendarDaysKey = '';
 
   titleDraft = '';
@@ -177,6 +187,8 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
       next: (res) => {
         this.entries = res.entries ?? [];
         this.journalDates = res.journalDates ?? [];
+        this.monthCloseDays = res.calendarDays ?? [];
+        this.calendarDaysKey = '';
         this.listLoading = false;
         after?.();
       },
@@ -498,22 +510,68 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
     });
   }
 
-  calendarDays(): { date: string; hasJournal: boolean; isSelected: boolean }[] {
+  calendarDays(): {
+    date: string;
+    hasJournal: boolean;
+    isSelected: boolean;
+    tone: 'up' | 'down' | null;
+    heat: number;
+    tooltip: string;
+  }[] {
     const month = this.reportMonth === 0 ? new Date().getMonth() + 1 : this.reportMonth;
     const year = this.reportYear;
-    const key = `${year}-${month}-${this.journalDates.join(',')}-${this.selectedDate ?? ''}`;
+    const key = `${year}-${month}-${this.journalDates.join(',')}-${this.selectedDate ?? ''}-${this.monthCloseDays
+      .map((d) => `${d.snapshotDate}:${d.changeFromPrevious}`)
+      .join('|')}`;
     if (key === this.calendarDaysKey) {
       return this.calendarDaysCache;
     }
     const daysInMonth = new Date(year, month, 0).getDate();
     const journal = new Set(this.journalDates);
-    const out: { date: string; hasJournal: boolean; isSelected: boolean }[] = [];
+    const byDate = new Map(this.monthCloseDays.map((d) => [d.snapshotDate, d]));
+    let maxAbs = 0;
+    for (const d of this.monthCloseDays) {
+      if (!d.hasPreviousScheduledSnapshot) {
+        continue;
+      }
+      maxAbs = Math.max(maxAbs, Math.abs(d.changeFromPrevious ?? 0));
+    }
+    const out: {
+      date: string;
+      hasJournal: boolean;
+      isSelected: boolean;
+      tone: 'up' | 'down' | null;
+      heat: number;
+      tooltip: string;
+    }[] = [];
     for (let d = 1; d <= daysInMonth; d++) {
       const date = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const cell = byDate.get(date);
+      let tone: 'up' | 'down' | null = null;
+      let heat = 0;
+      let tooltip = date;
+      if (cell?.hasPreviousScheduledSnapshot) {
+        const chg = cell.changeFromPrevious ?? 0;
+        if (chg > 0) {
+          tone = 'up';
+        } else if (chg < 0) {
+          tone = 'down';
+        }
+        heat = maxAbs > 0 ? Math.round(18 + (Math.abs(chg) / maxAbs) * 62) : 28;
+        const signed = `${chg >= 0 ? '+' : ''}${chg.toLocaleString(undefined, {
+          style: 'currency',
+          currency: 'USD',
+          maximumFractionDigits: 0,
+        })}`;
+        tooltip = `${date} · Δ prior close ${signed}`;
+      }
       out.push({
         date,
         hasJournal: journal.has(date),
         isSelected: this.selectedDate === date,
+        tone,
+        heat,
+        tooltip,
       });
     }
     this.calendarDaysKey = key;
