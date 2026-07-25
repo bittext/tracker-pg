@@ -1080,6 +1080,36 @@ export interface OptionsBacktestResultDto {
   trades: OptionsBacktestTradeDto[];
 }
 
+/** Markets Research → Then & now: "$X invested on date → worth now?" */
+export interface InvestmentThenNowRequestDto {
+  symbol: string;
+  investedAmount?: number | null;
+  asOfDate?: string | null;
+  save?: boolean | null;
+}
+
+export interface InvestmentThenNowResultDto {
+  id: number | null;
+  symbol: string;
+  companyName: string;
+  investedAmount: number;
+  asOfDate: string;
+  priceAsOfDate: number;
+  priceAsOfSession: string;
+  shares: number;
+  priceNow: number;
+  priceNowSession: string;
+  worthNow: number;
+  gainAmount: number;
+  gainPercent: number;
+  detailAnswer: string;
+  priceSource: string;
+  computedAt: string;
+  createdAt: string | null;
+  updatedAt: string | null;
+  saved: boolean;
+}
+
 /** GET /api/finance/robinhood/crawl-snapshot */
 export interface FinanceCrawlSnapshotDto {
   fetchedAt: string;

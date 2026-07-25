@@ -50,6 +50,8 @@ import {
   BreakoutCandidatesDto,
   OptionsBacktestRequestDto,
   OptionsBacktestResultDto,
+  InvestmentThenNowRequestDto,
+  InvestmentThenNowResultDto,
   RobinhoodCsvSavedImportDto,
   RobinhoodCsvUploadStatusDto,
   RobinhoodAgenticStatusDto,
@@ -435,6 +437,24 @@ export class FinanceApiService {
   /** Markets Workspace → Backtest: options wheel simulation on Yahoo underlying history. */
   optionsBacktest(body: OptionsBacktestRequestDto) {
     return this.http.post<OptionsBacktestResultDto>(`${this.root}/options-backtest`, body);
+  }
+
+  private readonly investmentThenNowRoot = `${environment.apiBaseUrl}/api/markets/investment-then-now`;
+
+  listInvestmentThenNow() {
+    return this.http.get<InvestmentThenNowResultDto[]>(this.investmentThenNowRoot);
+  }
+
+  getInvestmentThenNow(id: number) {
+    return this.http.get<InvestmentThenNowResultDto>(`${this.investmentThenNowRoot}/${id}`);
+  }
+
+  computeInvestmentThenNow(body: InvestmentThenNowRequestDto) {
+    return this.http.post<InvestmentThenNowResultDto>(`${this.investmentThenNowRoot}/compute`, body);
+  }
+
+  deleteInvestmentThenNow(id: number) {
+    return this.http.delete<void>(`${this.investmentThenNowRoot}/${id}`);
   }
 
   /** Whether robinhood CSV import directory is configured (for UI uploads). */

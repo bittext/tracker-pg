@@ -1,7 +1,9 @@
 package com.svp.tracker.management.service;
 
 import com.svp.tracker.auth.security.CurrentUserService;
+import com.svp.tracker.config.JournalProperties;
 import com.svp.tracker.finance.service.RhDailyTrackerOpenAiClient;
+import com.svp.tracker.journal.service.JournalBlobStore;
 import com.svp.tracker.management.config.ManagementRecordingsProperties;
 import com.svp.tracker.management.domain.ManagementRecordingCache;
 import com.svp.tracker.management.dto.ManagementRecordingDayDto;
@@ -11,7 +13,6 @@ import com.svp.tracker.management.dto.ManagementRecordingListDto;
 import com.svp.tracker.management.repository.ManagementRecordingCacheRepository;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -20,20 +21,24 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+/**
+ * Cloud-backed Just Press Record library. Users upload .m4a files (from the iCloud Drive folder on their device);
+ * audio lives in {@link JournalBlobStore} so production Lightsail can play/transcribe without a Mac path.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -46,40 +51,46 @@ public class ManagementRecordingsService {
     private final ManagementRecordingCacheRepository cacheRepository;
     private final CurrentUserService currentUser;
     private final RhDailyTrackerOpenAiClient openAi;
+    private final JournalBlobStore blobStore;
+    private final JournalProperties journalProperties;
 
     @Transactional(readOnly = true)
     public ManagementRecordingListDto list(LocalDate dayFilter) {
         if (!properties.configured()) {
             return new ManagementRecordingListDto(
                     false,
-                    properties.rootPath(),
-                    "Recordings are disabled or root path is not configured (TRACKER_MANAGEMENT_RECORDINGS_*).",
-                    List.of(),
-                    List.of());
-        }
-        Path root = resolveRoot();
-        if (!Files.isDirectory(root)) {
-            return new ManagementRecordingListDto(
-                    true,
-                    root.toString(),
-                    "Root folder is missing or not readable: " + root,
+                    "cloud",
+                    "Recordings are disabled (TRACKER_MANAGEMENT_RECORDINGS_ENABLED).",
                     List.of(),
                     List.of());
         }
 
         long owner = currentUser.requireUserId();
-        Map<String, ManagementRecordingCache> cacheByPath = cacheRepository
+        List<ManagementRecordingCache> rows = cacheRepository
                 .findByOwnerUserIdOrderByRecordedDayDescUpdatedAtDesc(owner)
                 .stream()
-                .collect(Collectors.toMap(ManagementRecordingCache::getRelativePath, c -> c, (a, b) -> a));
+                .filter(r -> r.getStorageKey() != null && !r.getStorageKey().isBlank())
+                .filter(r -> dayFilter == null || dayFilter.equals(r.getRecordedDay()))
+                .toList();
 
-        List<DiskRecording> disk = scanDisk(root, dayFilter);
         Map<LocalDate, Integer> dayCounts = new HashMap<>();
         List<ManagementRecordingItemDto> items = new ArrayList<>();
-        for (DiskRecording r : disk) {
-            dayCounts.merge(r.recordedDay(), 1, Integer::sum);
-            ManagementRecordingCache cached = cacheByPath.get(r.relativePath());
-            items.add(toItem(r, cached));
+        for (ManagementRecordingCache r : rows) {
+            if (r.getRecordedDay() != null) {
+                dayCounts.merge(r.getRecordedDay(), 1, Integer::sum);
+            }
+            items.add(toItem(r));
+        }
+
+        // Day chips should reflect the full library, not only the filtered day list.
+        if (dayFilter != null) {
+            dayCounts.clear();
+            for (ManagementRecordingCache r : cacheRepository.findByOwnerUserIdOrderByRecordedDayDescUpdatedAtDesc(owner)) {
+                if (r.getStorageKey() == null || r.getStorageKey().isBlank() || r.getRecordedDay() == null) {
+                    continue;
+                }
+                dayCounts.merge(r.getRecordedDay(), 1, Integer::sum);
+            }
         }
 
         List<ManagementRecordingDayDto> days = dayCounts.entrySet().stream()
@@ -87,101 +98,181 @@ public class ManagementRecordingsService {
                 .map(e -> new ManagementRecordingDayDto(e.getKey().toString(), e.getValue()))
                 .toList();
 
-        items.sort(Comparator.comparing(ManagementRecordingItemDto::recordedDay, Comparator.nullsLast(Comparator.reverseOrder()))
+        items.sort(Comparator.comparing(
+                        ManagementRecordingItemDto::recordedDay, Comparator.nullsLast(Comparator.reverseOrder()))
                 .thenComparing(ManagementRecordingItemDto::displayName));
 
-        return new ManagementRecordingListDto(true, root.toString(), null, days, items);
+        String note = items.isEmpty()
+                ? "No recordings uploaded yet. Choose the Just Press Record Documents folder from iCloud Drive (date folders of .m4a files) and upload."
+                : null;
+        return new ManagementRecordingListDto(true, "cloud", note, days, items);
+    }
+
+    @Transactional
+    public List<ManagementRecordingItemDto> upload(List<MultipartFile> files, List<String> relativePaths) {
+        if (!properties.configured()) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Recordings are disabled");
+        }
+        if (files == null || files.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one file is required");
+        }
+        long max = journalProperties.getMaxAttachmentBytes();
+        long owner = currentUser.requireUserId();
+        List<ManagementRecordingItemDto> out = new ArrayList<>();
+
+        for (int i = 0; i < files.size(); i++) {
+            MultipartFile file = files.get(i);
+            if (file == null || file.isEmpty()) {
+                continue;
+            }
+            String relHint = relativePaths != null && i < relativePaths.size() ? relativePaths.get(i) : null;
+            String originalName = Objects.requireNonNullElse(file.getOriginalFilename(), "recording.m4a");
+            if (!isAudioFilename(originalName) && (relHint == null || !isAudioFilename(relHint))) {
+                // Skip non-audio (e.g. .DS_Store when uploading a folder).
+                continue;
+            }
+            if (file.getSize() > max) {
+                throw new ResponseStatusException(
+                        HttpStatus.PAYLOAD_TOO_LARGE,
+                        originalName + " exceeds " + max + " bytes");
+            }
+
+            String relativePath = normalizeRelativePath(relHint, originalName);
+            String displayName = Path.of(relativePath).getFileName().toString();
+            LocalDate day = parseDayFromRelativePath(relativePath);
+
+            String key;
+            try (var in = file.getInputStream()) {
+                key = blobStore.put(owner, 0L, in, file.getSize());
+            } catch (IOException ex) {
+                throw new UncheckedIOException(ex);
+            }
+
+            ManagementRecordingCache row = cacheRepository
+                    .findByOwnerUserIdAndRelativePath(owner, relativePath)
+                    .orElseGet(ManagementRecordingCache::new);
+
+            // Replace prior blob if re-uploading the same relative path.
+            if (row.getId() != null && row.getStorageKey() != null && !row.getStorageKey().isBlank()) {
+                try {
+                    blobStore.delete(row.getStorageKey());
+                } catch (IOException ex) {
+                    log.warn("Failed deleting old recording blob {}: {}", row.getStorageKey(), ex.toString());
+                }
+            }
+
+            row.setOwnerUserId(owner);
+            row.setRelativePath(relativePath);
+            row.setDisplayName(displayName);
+            row.setRecordedDay(day);
+            row.setFileSizeBytes(file.getSize());
+            row.setStorageKey(key);
+            row.setContentType(guessContentType(displayName, file.getContentType()));
+            row.setOriginalFilename(originalName);
+            // Fresh audio invalidates prior transcript/summary.
+            row.setTranscript(null);
+            row.setTranscriptSource(null);
+            row.setTranscribedAt(null);
+            row.setSummary(null);
+            row.setSummarizedAt(null);
+            row = cacheRepository.save(row);
+            out.add(toItem(row));
+        }
+
+        if (out.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "No audio files found in the upload (.m4a, .mp3, .wav, …)");
+        }
+        return out;
     }
 
     @Transactional(readOnly = true)
     public ManagementRecordingDetailDto detail(String relativePath) {
-        DiskRecording disk = requireDiskRecording(relativePath);
-        long owner = currentUser.requireUserId();
-        ManagementRecordingCache cached = cacheRepository
-                .findByOwnerUserIdAndRelativePath(owner, disk.relativePath())
-                .orElse(null);
-        return toDetail(disk, cached);
+        return toDetail(requireStored(relativePath));
     }
 
     @Transactional(readOnly = true)
     public RecordingFile readFile(String relativePath) {
-        DiskRecording disk = requireDiskRecording(relativePath);
+        ManagementRecordingCache row = requireStored(relativePath);
         try {
-            byte[] body = Files.readAllBytes(disk.absolutePath());
-            return new RecordingFile(disk.displayName(), guessContentType(disk.displayName()), body);
+            byte[] body = blobStore.readAllBytes(row.getStorageKey());
+            String ct = row.getContentType() != null && !row.getContentType().isBlank()
+                    ? row.getContentType()
+                    : guessContentType(row.getDisplayName(), null);
+            String fn = row.getOriginalFilename() != null ? row.getOriginalFilename() : row.getDisplayName();
+            return new RecordingFile(fn, ct, body);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
     }
 
     @Transactional
-    public ManagementRecordingDetailDto transcribe(String relativePath, boolean force) {
-        DiskRecording disk = requireDiskRecording(relativePath);
-        long owner = currentUser.requireUserId();
-        ManagementRecordingCache cached = cacheRepository
-                .findByOwnerUserIdAndRelativePath(owner, disk.relativePath())
-                .orElseGet(() -> newCacheRow(owner, disk));
-
-        if (!force
-                && cached.getTranscript() != null
-                && !cached.getTranscript().isBlank()) {
-            return toDetail(disk, cached);
+    public void delete(String relativePath) {
+        ManagementRecordingCache row = requireStored(relativePath);
+        try {
+            if (row.getStorageKey() != null) {
+                blobStore.delete(row.getStorageKey());
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
         }
+        cacheRepository.delete(row);
+    }
 
-        String transcript = openAi.transcribeAudio(disk.absolutePath());
-        cached.setTranscript(transcript);
-        cached.setTranscriptSource("whisper-1");
-        cached.setTranscribedAt(Instant.now());
-        cached.setDisplayName(disk.displayName());
-        cached.setRecordedDay(disk.recordedDay());
-        cached.setFileSizeBytes(disk.fileSizeBytes());
-        cached = cacheRepository.save(cached);
-        return toDetail(disk, cached);
+    @Transactional
+    public ManagementRecordingDetailDto transcribe(String relativePath, boolean force) {
+        ManagementRecordingCache row = requireStored(relativePath);
+        if (!force && row.getTranscript() != null && !row.getTranscript().isBlank()) {
+            return toDetail(row);
+        }
+        Path tmp = writeTempAudio(row);
+        try {
+            String transcript = openAi.transcribeAudio(tmp);
+            row.setTranscript(transcript);
+            row.setTranscriptSource("whisper-1");
+            row.setTranscribedAt(Instant.now());
+            row = cacheRepository.save(row);
+            return toDetail(row);
+        } finally {
+            deleteQuietly(tmp);
+        }
     }
 
     @Transactional
     public ManagementRecordingDetailDto summarize(String relativePath, boolean force) {
-        DiskRecording disk = requireDiskRecording(relativePath);
-        long owner = currentUser.requireUserId();
-        ManagementRecordingCache cached = cacheRepository
-                .findByOwnerUserIdAndRelativePath(owner, disk.relativePath())
-                .orElseGet(() -> newCacheRow(owner, disk));
-
-        if (cached.getTranscript() == null || cached.getTranscript().isBlank()) {
-            // Auto-transcribe once so summarize is a single user action.
-            String transcript = openAi.transcribeAudio(disk.absolutePath());
-            cached.setTranscript(transcript);
-            cached.setTranscriptSource("whisper-1");
-            cached.setTranscribedAt(Instant.now());
+        ManagementRecordingCache row = requireStored(relativePath);
+        if (row.getTranscript() == null || row.getTranscript().isBlank()) {
+            Path tmp = writeTempAudio(row);
+            try {
+                String transcript = openAi.transcribeAudio(tmp);
+                row.setTranscript(transcript);
+                row.setTranscriptSource("whisper-1");
+                row.setTranscribedAt(Instant.now());
+            } finally {
+                deleteQuietly(tmp);
+            }
         }
-
-        if (!force && cached.getSummary() != null && !cached.getSummary().isBlank()) {
-            cached.setDisplayName(disk.displayName());
-            cached.setRecordedDay(disk.recordedDay());
-            cached.setFileSizeBytes(disk.fileSizeBytes());
-            cached = cacheRepository.save(cached);
-            return toDetail(disk, cached);
+        if (!force && row.getSummary() != null && !row.getSummary().isBlank()) {
+            row = cacheRepository.save(row);
+            return toDetail(row);
         }
-
-        String system = """
+        String system =
+                """
                 You summarize personal voice memos from Just Press Record.
                 Write a concise summary in plain language: key points, action items, and any dates or names mentioned.
                 Use short paragraphs or bullets. Do not invent details that are not in the transcript.
                 """;
         String user = "Recording: "
-                + disk.displayName()
+                + row.getDisplayName()
                 + " ("
-                + disk.recordedDay()
+                + row.getRecordedDay()
                 + ")\n\nTranscript:\n"
-                + cached.getTranscript();
+                + row.getTranscript();
         String summary = openAi.completeText(system, user);
-        cached.setSummary(summary);
-        cached.setSummarizedAt(Instant.now());
-        cached.setDisplayName(disk.displayName());
-        cached.setRecordedDay(disk.recordedDay());
-        cached.setFileSizeBytes(disk.fileSizeBytes());
-        cached = cacheRepository.save(cached);
-        return toDetail(disk, cached);
+        row.setSummary(summary);
+        row.setSummarizedAt(Instant.now());
+        row = cacheRepository.save(row);
+        return toDetail(row);
     }
 
     @Transactional(readOnly = true)
@@ -193,167 +284,114 @@ public class ManagementRecordingsService {
         if (!properties.configured()) {
             return List.of();
         }
-        Path root = resolveRoot();
-        if (!Files.isDirectory(root)) {
-            return List.of();
-        }
-
         long owner = currentUser.requireUserId();
-        String needle = q.toLowerCase(Locale.ROOT);
-        Map<String, ManagementRecordingCache> cacheByPath = cacheRepository
-                .findByOwnerUserIdOrderByRecordedDayDescUpdatedAtDesc(owner)
-                .stream()
-                .collect(Collectors.toMap(ManagementRecordingCache::getRelativePath, c -> c, (a, b) -> a));
-
-        Set<String> matched = new HashSet<>();
-        for (DiskRecording r : scanDisk(root, null)) {
-            if (r.relativePath().toLowerCase(Locale.ROOT).contains(needle)
-                    || r.displayName().toLowerCase(Locale.ROOT).contains(needle)) {
-                matched.add(r.relativePath());
-            }
-        }
-        for (ManagementRecordingCache c : cacheRepository.search(owner, q)) {
-            matched.add(c.getRelativePath());
-        }
-
-        List<ManagementRecordingItemDto> out = new ArrayList<>();
-        for (String path : matched) {
-            try {
-                DiskRecording disk = requireDiskRecording(path);
-                out.add(toItem(disk, cacheByPath.get(path)));
-            } catch (ResponseStatusException ignored) {
-                // Cached path no longer on disk — skip.
-            }
-        }
-        out.sort(Comparator.comparing(ManagementRecordingItemDto::recordedDay, Comparator.nullsLast(Comparator.reverseOrder()))
-                .thenComparing(ManagementRecordingItemDto::displayName));
-        return out;
+        return cacheRepository.search(owner, q).stream()
+                .filter(r -> r.getStorageKey() != null && !r.getStorageKey().isBlank())
+                .map(this::toItem)
+                .toList();
     }
 
-    private ManagementRecordingCache newCacheRow(long owner, DiskRecording disk) {
-        ManagementRecordingCache c = new ManagementRecordingCache();
-        c.setOwnerUserId(owner);
-        c.setRelativePath(disk.relativePath());
-        c.setDisplayName(disk.displayName());
-        c.setRecordedDay(disk.recordedDay());
-        c.setFileSizeBytes(disk.fileSizeBytes());
-        return c;
-    }
-
-    private DiskRecording requireDiskRecording(String relativePath) {
-        if (!properties.configured()) {
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Recordings are not configured");
-        }
-        Path absolute = resolveUnderRoot(relativePath);
-        if (!Files.isRegularFile(absolute)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Recording not found");
-        }
-        String name = absolute.getFileName().toString();
-        if (!isAudioFilename(name)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Not an audio recording");
-        }
-        LocalDate day = parseDayFromParent(absolute.getParent());
-        String rel = toRelativePath(resolveRoot(), absolute);
-        long size;
+    private Path writeTempAudio(ManagementRecordingCache row) {
         try {
-            size = Files.size(absolute);
+            byte[] body = blobStore.readAllBytes(row.getStorageKey());
+            String suffix = ".m4a";
+            String name = row.getDisplayName() == null ? "" : row.getDisplayName().toLowerCase(Locale.ROOT);
+            int dot = name.lastIndexOf('.');
+            if (dot >= 0) {
+                suffix = name.substring(dot);
+            }
+            Path tmp = Files.createTempFile("tracker-rec-", suffix);
+            Files.write(tmp, body);
+            return tmp;
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        return new DiskRecording(rel, name, day, size, absolute);
     }
 
-    private List<DiskRecording> scanDisk(Path root, LocalDate dayFilter) {
-        List<DiskRecording> out = new ArrayList<>();
-        try (DirectoryStream<Path> days = Files.newDirectoryStream(root)) {
-            for (Path dayDir : days) {
-                if (!Files.isDirectory(dayDir)) {
-                    continue;
-                }
-                String folderName = dayDir.getFileName().toString();
-                if (!DAY_FOLDER.matcher(folderName).matches()) {
-                    continue;
-                }
-                LocalDate day;
-                try {
-                    day = LocalDate.parse(folderName);
-                } catch (DateTimeParseException e) {
-                    continue;
-                }
-                if (dayFilter != null && !day.equals(dayFilter)) {
-                    continue;
-                }
-                try (DirectoryStream<Path> files = Files.newDirectoryStream(dayDir)) {
-                    for (Path file : files) {
-                        if (!Files.isRegularFile(file)) {
-                            continue;
-                        }
-                        String name = file.getFileName().toString();
-                        if (!isAudioFilename(name)) {
-                            continue;
-                        }
-                        long size = Files.size(file);
-                        String rel = toRelativePath(root, file);
-                        out.add(new DiskRecording(rel, name, day, size, file));
-                    }
-                }
-            }
-        } catch (IOException e) {
-            log.warn("Failed scanning recordings root {}: {}", root, e.toString());
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to read recordings folder");
+    private static void deleteQuietly(Path tmp) {
+        if (tmp == null) {
+            return;
         }
-        return out;
-    }
-
-    private Path resolveRoot() {
-        Path root = Path.of(properties.rootPath()).toAbsolutePath().normalize();
-        if (!root.isAbsolute()) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Recordings rootPath must be absolute");
+        try {
+            Files.deleteIfExists(tmp);
+        } catch (IOException ignored) {
+            // best-effort
         }
-        return root;
     }
 
-    private Path resolveUnderRoot(String relativePath) {
-        if (relativePath == null || relativePath.isBlank()) {
+    private ManagementRecordingCache requireStored(String relativePath) {
+        if (!properties.configured()) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Recordings are disabled");
+        }
+        String path = normalizeRelativePath(relativePath, null);
+        long owner = currentUser.requireUserId();
+        ManagementRecordingCache row = cacheRepository
+                .findByOwnerUserIdAndRelativePath(owner, path)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Recording not found"));
+        if (row.getStorageKey() == null || row.getStorageKey().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Recording audio is missing — re-upload the file");
+        }
+        return row;
+    }
+
+    private static String normalizeRelativePath(String relativePath, String fallbackFilename) {
+        String raw = relativePath == null || relativePath.isBlank() ? fallbackFilename : relativePath;
+        if (raw == null || raw.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "path is required");
         }
-        String normalized = relativePath.replace('\\', '/').trim();
+        String normalized = raw.replace('\\', '/').trim();
+        while (normalized.startsWith("./")) {
+            normalized = normalized.substring(2);
+        }
         while (normalized.startsWith("/")) {
             normalized = normalized.substring(1);
+        }
+        // Drop a leading folder name if the browser sent Documents/YYYY-MM-DD/...
+        if (normalized.toLowerCase(Locale.ROOT).startsWith("documents/")) {
+            normalized = normalized.substring("documents/".length());
         }
         if (normalized.contains("..") || normalized.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid path");
         }
-        Path root = resolveRoot();
-        Path resolved = root.resolve(normalized).normalize();
-        if (!resolved.startsWith(root)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Path escapes recordings root");
+        // Flat file upload without day folder → stash under today.
+        if (!normalized.contains("/")) {
+            if (!isAudioFilename(normalized)) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Not an audio recording");
+            }
+            return LocalDate.now() + "/" + normalized;
         }
-        return resolved;
+        return normalized;
     }
 
-    private static String toRelativePath(Path root, Path absolute) {
-        return root.relativize(absolute).toString().replace('\\', '/');
-    }
-
-    private static LocalDate parseDayFromParent(Path parent) {
-        if (parent == null) {
-            return null;
+    private static LocalDate parseDayFromRelativePath(String relativePath) {
+        String[] parts = relativePath.split("/");
+        for (String part : parts) {
+            if (DAY_FOLDER.matcher(part).matches()) {
+                try {
+                    return LocalDate.parse(part);
+                } catch (DateTimeParseException ignored) {
+                    // continue
+                }
+            }
         }
-        String name = parent.getFileName().toString();
-        try {
-            return LocalDate.parse(name);
-        } catch (DateTimeParseException e) {
-            return null;
-        }
+        return LocalDate.now();
     }
 
     private static boolean isAudioFilename(String name) {
+        if (name == null) {
+            return false;
+        }
         String lower = name.toLowerCase(Locale.ROOT);
-        return AUDIO_EXT.stream().anyMatch(lower::endsWith);
+        // webkitRelativePath may include folders — check the leaf name.
+        int slash = Math.max(lower.lastIndexOf('/'), lower.lastIndexOf('\\'));
+        String leaf = slash >= 0 ? lower.substring(slash + 1) : lower;
+        return AUDIO_EXT.stream().anyMatch(leaf::endsWith);
     }
 
-    private static String guessContentType(String filename) {
+    private static String guessContentType(String filename, String uploaded) {
+        if (uploaded != null && !uploaded.isBlank() && !"application/octet-stream".equalsIgnoreCase(uploaded)) {
+            return uploaded;
+        }
         String lower = filename == null ? "" : filename.toLowerCase(Locale.ROOT);
         if (lower.endsWith(".mp3")) {
             return "audio/mpeg";
@@ -370,33 +408,32 @@ public class ManagementRecordingsService {
         return "audio/mp4";
     }
 
-    private static ManagementRecordingItemDto toItem(DiskRecording disk, ManagementRecordingCache cached) {
-        boolean hasTranscript = cached != null && cached.getTranscript() != null && !cached.getTranscript().isBlank();
-        boolean hasSummary = cached != null && cached.getSummary() != null && !cached.getSummary().isBlank();
+    private ManagementRecordingItemDto toItem(ManagementRecordingCache cached) {
+        boolean hasTranscript = cached.getTranscript() != null && !cached.getTranscript().isBlank();
+        boolean hasSummary = cached.getSummary() != null && !cached.getSummary().isBlank();
+        long size = cached.getFileSizeBytes() == null ? 0L : cached.getFileSizeBytes();
         return new ManagementRecordingItemDto(
-                disk.relativePath(),
-                disk.displayName(),
-                disk.recordedDay(),
-                disk.fileSizeBytes(),
+                cached.getRelativePath(),
+                cached.getDisplayName(),
+                cached.getRecordedDay(),
+                size,
                 hasTranscript,
                 hasSummary);
     }
 
-    private static ManagementRecordingDetailDto toDetail(DiskRecording disk, ManagementRecordingCache cached) {
+    private static ManagementRecordingDetailDto toDetail(ManagementRecordingCache cached) {
+        long size = cached.getFileSizeBytes() == null ? 0L : cached.getFileSizeBytes();
         return new ManagementRecordingDetailDto(
-                disk.relativePath(),
-                disk.displayName(),
-                disk.recordedDay(),
-                disk.fileSizeBytes(),
-                cached == null ? null : cached.getTranscript(),
-                cached == null ? null : cached.getTranscriptSource(),
-                cached == null ? null : cached.getTranscribedAt(),
-                cached == null ? null : cached.getSummary(),
-                cached == null ? null : cached.getSummarizedAt());
+                cached.getRelativePath(),
+                cached.getDisplayName(),
+                cached.getRecordedDay(),
+                size,
+                cached.getTranscript(),
+                cached.getTranscriptSource(),
+                cached.getTranscribedAt(),
+                cached.getSummary(),
+                cached.getSummarizedAt());
     }
 
     public record RecordingFile(String filename, String contentType, byte[] body) {}
-
-    private record DiskRecording(
-            String relativePath, String displayName, LocalDate recordedDay, long fileSizeBytes, Path absolutePath) {}
 }

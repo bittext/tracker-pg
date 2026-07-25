@@ -43,6 +43,7 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
   transcribing = false;
   summarizing = false;
   searching = false;
+  uploading = false;
 
   list: ManagementRecordingListDto | null = null;
   days: ManagementRecordingDayDto[] = [];
@@ -99,6 +100,45 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
     this.loadList(day);
   }
 
+  onUploadSelected(ev: Event): void {
+    const input = ev.target as HTMLInputElement;
+    const fileList = input.files;
+    if (!fileList || fileList.length === 0) {
+      return;
+    }
+    const files: File[] = [];
+    const relativePaths: string[] = [];
+    for (let i = 0; i < fileList.length; i++) {
+      const f = fileList.item(i);
+      if (!f) {
+        continue;
+      }
+      const rel = (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name;
+      if (!/\.(m4a|mp3|wav|webm|ogg)$/i.test(rel)) {
+        continue;
+      }
+      files.push(f);
+      relativePaths.push(rel);
+    }
+    input.value = '';
+    if (files.length === 0) {
+      this.snackBar.open('No audio files found in that selection', 'Dismiss', { duration: 4000 });
+      return;
+    }
+    this.uploading = true;
+    this.api.uploadRecordings(files, relativePaths).subscribe({
+      next: (items) => {
+        this.uploading = false;
+        this.snackBar.open(`Uploaded ${items.length} recording(s)`, 'Dismiss', { duration: 3000 });
+        this.refreshAll();
+      },
+      error: (err) => {
+        this.uploading = false;
+        this.snackBar.open(formatHttpErrorDetail(err) || 'Upload failed', 'Dismiss', { duration: 8000 });
+      },
+    });
+  }
+
   runSearch(): void {
     const q = this.searchQuery.trim();
     if (q.length < 2) {
@@ -137,6 +177,23 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
     this.selected = null;
     this.detail = null;
     this.revokeAudio();
+  }
+
+  deleteSelected(): void {
+    if (!this.selected) {
+      return;
+    }
+    const path = this.selected.path;
+    this.api.deleteRecording(path).subscribe({
+      next: () => {
+        this.clearSelection();
+        this.refreshAll();
+        this.snackBar.open('Recording deleted', 'Dismiss', { duration: 2500 });
+      },
+      error: (err) => {
+        this.snackBar.open(formatHttpErrorDetail(err) || 'Delete failed', 'Dismiss', { duration: 6000 });
+      },
+    });
   }
 
   private loadDetail(path: string): void {

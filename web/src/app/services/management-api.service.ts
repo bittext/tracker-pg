@@ -416,6 +416,21 @@ export class ManagementApiService {
     });
   }
 
+  uploadRecordings(files: File[], relativePaths: string[]) {
+    const fd = new FormData();
+    for (let i = 0; i < files.length; i++) {
+      fd.append('files', files[i], files[i].name);
+      if (relativePaths[i]) {
+        fd.append('relativePath', relativePaths[i]);
+      }
+    }
+    return this.http.post<ManagementRecordingItemDto[]>(`${this.recordingsRoot}/upload`, fd);
+  }
+
+  deleteRecording(path: string) {
+    return this.http.delete<void>(this.recordingsRoot, { params: { path } });
+  }
+
   transcribeRecording(path: string, force = false) {
     return this.http.post<ManagementRecordingDetailDto>(`${this.recordingsRoot}/transcribe`, {
       path,

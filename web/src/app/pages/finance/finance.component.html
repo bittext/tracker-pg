@@ -1132,6 +1132,16 @@
       </mat-tab>
       }
 
+      @if (showTradingTab('then-now')) {
+      <mat-tab label="Then & now">
+        <div class="finance-panel">
+          @if (tradingSubTabActive('then-now')) {
+            <app-investment-then-now-panel />
+          }
+        </div>
+      </mat-tab>
+      }
+
 
           </mat-tab-group>
 </ng-template>

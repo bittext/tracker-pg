@@ -4,7 +4,8 @@ import java.util.List;
 
 public record ManagementRecordingListDto(
         boolean enabled,
-        String rootPath,
+        /** Always "cloud" for the uploaded library. */
+        String storageMode,
         String note,
         List<ManagementRecordingDayDto> days,
         List<ManagementRecordingItemDto> recordings) {}

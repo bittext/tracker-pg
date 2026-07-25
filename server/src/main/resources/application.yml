@@ -5,8 +5,9 @@ spring:
     name: tracker-pg-server
   servlet:
     multipart:
-      max-file-size: 20MB
-      max-request-size: 20MB
+      # Recordings folder uploads can include many .m4a files; Whisper accepts up to 25MB per file.
+      max-file-size: 25MB
+      max-request-size: 250MB
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/tracker}
     username: ${SPRING_DATASOURCE_USERNAME:tracker}
@@ -88,9 +89,8 @@ tracker:
       # Empty = store plaintext (dev only); production deployments MUST set TRACKER_MANAGEMENT_ACCOUNTS_ENCRYPTION_KEY.
       encryption-key: ${TRACKER_MANAGEMENT_ACCOUNTS_ENCRYPTION_KEY:}
     recordings:
-      # Just Press Record library (local Mac iCloud path). Disable or clear root on hosts without the folder.
+      # Cloud library for Just Press Record uploads (S3/local journal blob store). No Mac filesystem path required.
       enabled: ${TRACKER_MANAGEMENT_RECORDINGS_ENABLED:true}
-      root-path: ${TRACKER_MANAGEMENT_RECORDINGS_ROOT_PATH:/Users/pulickal/Library/Mobile Documents/iCloud~com~openplanetsoftware~just-press-record/Documents}
   auth:
     jwt-secret: ${TRACKER_AUTH_JWT_SECRET:dev-secret-change-me-dev-secret-change-me-dev-secret-change-me}
     jwt-ttl-seconds: ${TRACKER_AUTH_JWT_TTL_SECONDS:43200}

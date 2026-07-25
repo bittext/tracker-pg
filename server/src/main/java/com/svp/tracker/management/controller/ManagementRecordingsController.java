@@ -16,12 +16,16 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/management/recordings")
@@ -58,6 +62,24 @@ public class ManagementRecordingsController {
         return new ResponseEntity<>(f.body(), h, HttpStatus.OK);
     }
 
+    /**
+     * Upload Just Press Record audio (typically chosen from the iCloud Drive folder on the user's Mac).
+     * Optional {@code relativePath} entries preserve date-folder structure (e.g. {@code 2026-07-25/08-27-11.m4a}).
+     */
+    @PostMapping(path = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ResponseStatus(HttpStatus.CREATED)
+    public List<ManagementRecordingItemDto> upload(
+            @RequestParam("files") List<MultipartFile> files,
+            @RequestParam(value = "relativePath", required = false) List<String> relativePaths) {
+        return service.upload(files, relativePaths == null ? List.of() : relativePaths);
+    }
+
+    @DeleteMapping
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@RequestParam String path) {
+        service.delete(path);
+    }
+
     @PostMapping("/transcribe")
     public ManagementRecordingDetailDto transcribe(@RequestBody Map<String, Object> body) {
         String path = requirePath(body);
@@ -75,8 +97,7 @@ public class ManagementRecordingsController {
     private static String requirePath(Map<String, Object> body) {
         Object p = body == null ? null : body.get("path");
         if (p == null || p.toString().isBlank()) {
-            throw new org.springframework.web.server.ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "path is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "path is required");
         }
         return p.toString().trim();
     }

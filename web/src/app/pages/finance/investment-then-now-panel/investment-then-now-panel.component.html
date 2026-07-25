@@ -1,0 +1,165 @@
+<section class="itn" aria-labelledby="itn-title">
+  <header class="itn__head">
+    <div>
+      <h3 id="itn-title" class="itn__title">Then &amp; now</h3>
+      <p class="muted itn__lead">
+        Ask what an investment made on a past date would be worth today. Defaults to
+        <strong>$78,198.72</strong> on <strong>June 28, 2026</strong>. Answers use Yahoo daily adjusted closes and can
+        be saved for reference. Educational only — not investment advice.
+      </p>
+    </div>
+  </header>
+
+  <p class="itn__question" aria-live="polite">{{ questionPreview() }}</p>
+
+  <div class="itn__form">
+    <mat-form-field appearance="outline" class="itn__field itn__field--symbol">
+      <mat-label>Symbol</mat-label>
+      <input matInput [(ngModel)]="symbol" name="itnSymbol" autocomplete="off" placeholder="e.g. AAPL" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="itn__field">
+      <mat-label>Invested amount</mat-label>
+      <input matInput type="number" [(ngModel)]="investedAmount" name="itnAmount" min="1" step="0.01" />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="itn__field">
+      <mat-label>Invested on</mat-label>
+      <input matInput type="date" [(ngModel)]="asOfDate" name="itnDate" />
+    </mat-form-field>
+    <button mat-flat-button color="primary" type="button" (click)="compute(false)" [disabled]="loading || saving">
+      @if (loading) {
+        <mat-spinner diameter="18" />
+      } @else {
+        <mat-icon>calculate</mat-icon>
+      }
+      Answer
+    </button>
+    <button mat-stroked-button type="button" (click)="compute(true)" [disabled]="loading || saving">
+      @if (saving) {
+        <mat-spinner diameter="18" />
+      } @else {
+        <mat-icon>bookmark_add</mat-icon>
+      }
+      Answer &amp; save
+    </button>
+  </div>
+
+  <div class="itn__presets" role="group" aria-label="Symbol presets">
+    @for (p of presets; track p.symbol) {
+      <button mat-stroked-button type="button" (click)="applyPreset(p.symbol)">{{ p.label }}</button>
+    }
+  </div>
+
+  <div class="itn__layout">
+    <div class="itn__main">
+      @if (result; as r) {
+        <mat-card appearance="outlined" class="itn__card">
+          <mat-card-header>
+            <mat-card-title>{{ r.companyName || r.symbol }}</mat-card-title>
+            <mat-card-subtitle>{{ r.symbol }} · computed {{ r.computedAt | date: 'medium' }}</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="itn__kpis">
+              <div>
+                <span class="itn__kpi-label">Invested</span>
+                <strong>{{ r.investedAmount | currency }}</strong>
+              </div>
+              <div>
+                <span class="itn__kpi-label">Worth now</span>
+                <strong>{{ r.worthNow | currency }}</strong>
+              </div>
+              <div>
+                <span class="itn__kpi-label">Gain / loss</span>
+                <strong [class]="pnlClass(r.gainAmount)">
+                  {{ r.gainAmount | currency }} ({{ r.gainPercent | number: '1.2-2' }}%)
+                </strong>
+              </div>
+              <div>
+                <span class="itn__kpi-label">Shares</span>
+                <strong>{{ r.shares | number: '1.2-4' }}</strong>
+              </div>
+              <div>
+                <span class="itn__kpi-label">Price then</span>
+                <strong>{{ r.priceAsOfDate | currency }}</strong>
+                <span class="muted itn__session">{{ r.priceAsOfSession }}</span>
+              </div>
+              <div>
+                <span class="itn__kpi-label">Price now</span>
+                <strong>{{ r.priceNow | currency }}</strong>
+                <span class="muted itn__session">{{ r.priceNowSession }}</span>
+              </div>
+            </div>
+
+            <h4 class="itn__detail-title">Detailed answer</h4>
+            <p class="itn__detail">{{ r.detailAnswer }}</p>
+
+            @if (!r.saved) {
+              <button mat-stroked-button type="button" (click)="compute(true)" [disabled]="saving">
+                <mat-icon>bookmark_add</mat-icon>
+                Save this answer
+              </button>
+            } @else {
+              <p class="muted itn__saved-flag">Saved for reference.</p>
+            }
+          </mat-card-content>
+        </mat-card>
+      } @else {
+        <mat-card appearance="outlined" class="itn__card itn__card--placeholder">
+          <mat-card-content>
+            <p class="muted">Enter a symbol and click Answer to see how much the investment would be worth now.</p>
+          </mat-card-content>
+        </mat-card>
+      }
+    </div>
+
+    <aside class="itn__side" aria-label="Saved answers">
+      <mat-card appearance="outlined" class="itn__card">
+        <mat-card-header>
+          <mat-card-title>Saved for reference</mat-card-title>
+          <mat-card-subtitle>{{ saved.length }} answer(s)</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="itn__side-actions">
+            <button mat-button type="button" (click)="reloadSaved()" [disabled]="loadingList">
+              <mat-icon>refresh</mat-icon>
+              Refresh
+            </button>
+          </div>
+          @if (loadingList) {
+            <div class="itn__loading"><mat-spinner diameter="24" /></div>
+          } @else if (saved.length === 0) {
+            <p class="muted">No saved answers yet.</p>
+          } @else {
+            <ul class="itn__saved-list">
+              @for (row of saved; track row.id) {
+                <li>
+                  <button
+                    type="button"
+                    class="itn__saved-item"
+                    [class.itn__saved-item--active]="result?.id === row.id"
+                    (click)="selectSaved(row)"
+                  >
+                    <span class="itn__saved-sym">{{ row.symbol }}</span>
+                    <span class="itn__saved-meta">
+                      {{ row.investedAmount | currency }} →
+                      <span [class]="pnlClass(row.gainAmount)">{{ row.worthNow | currency }}</span>
+                    </span>
+                    <span class="muted itn__saved-date">{{ row.asOfDate }}</span>
+                  </button>
+                  <button
+                    mat-icon-button
+                    type="button"
+                    class="itn__delete"
+                    (click)="deleteSaved(row, $event)"
+                    aria-label="Delete saved answer"
+                  >
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </mat-card-content>
+      </mat-card>
+    </aside>
+  </div>
+</section>

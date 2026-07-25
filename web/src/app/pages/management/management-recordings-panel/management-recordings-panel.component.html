@@ -2,8 +2,9 @@
   <header class="rec-head">
     <h2 id="rec-heading" class="rec-title">Recordings</h2>
     <p class="muted rec-lede">
-      Just Press Record library from your Mac (date folders → <code>.m4a</code>). Play a clip, transcribe with Whisper,
-      search the transcript, and summarize with AI.
+      Upload Just Press Record clips from your <strong>iCloud Drive</strong> folder (date folders →
+      <code>.m4a</code>). Files are stored in the app’s cloud library so production can play, transcribe (Whisper),
+      search, and summarize — no Mac filesystem mount required.
     </p>
   </header>
 
@@ -14,6 +15,37 @@
   }
 
   <div class="rec-toolbar">
+    <input
+      #folderPick
+      type="file"
+      class="rec-file-input"
+      multiple
+      webkitdirectory
+      (change)="onUploadSelected($event)"
+      [attr.aria-label]="'Upload Just Press Record folder'"
+    />
+    <input
+      #filePick
+      type="file"
+      class="rec-file-input"
+      multiple
+      accept="audio/mp4,audio/x-m4a,audio/mpeg,audio/wav,audio/webm,audio/ogg,.m4a,.mp3,.wav,.webm,.ogg"
+      (change)="onUploadSelected($event)"
+      [attr.aria-label]="'Upload recording files'"
+    />
+    <button mat-flat-button color="primary" type="button" (click)="folderPick.click()" [disabled]="uploading">
+      @if (uploading) {
+        <mat-spinner diameter="18" />
+      } @else {
+        <mat-icon>cloud_upload</mat-icon>
+      }
+      Upload iCloud folder
+    </button>
+    <button mat-stroked-button type="button" (click)="filePick.click()" [disabled]="uploading">
+      <mat-icon>upload_file</mat-icon>
+      Upload files
+    </button>
+
     <mat-form-field appearance="outline" class="rec-search" subscriptSizing="dynamic">
       <mat-label>Search name or transcript</mat-label>
       <input
@@ -64,7 +96,7 @@
             </button>
           }
           @if (!loadingList && days.length === 0 && list?.enabled) {
-            <p class="muted rec-empty">No date folders found.</p>
+            <p class="muted rec-empty">No uploaded recordings yet.</p>
           }
         </mat-card-content>
       </mat-card>
@@ -122,7 +154,10 @@
       @if (!selected) {
         <mat-card appearance="outlined" class="rec-card rec-card--placeholder">
           <mat-card-content>
-            <p class="muted">Select a recording to play and transcribe.</p>
+            <p class="muted">
+              Upload the Just Press Record <strong>Documents</strong> folder from iCloud Drive, then select a recording
+              to play and transcribe.
+            </p>
           </mat-card-content>
         </mat-card>
       } @else {
@@ -173,6 +208,10 @@
                   <mat-icon>auto_awesome</mat-icon>
                 }
                 {{ detail?.summary ? 'Re-summarize' : 'Summarize' }}
+              </button>
+              <button mat-button color="warn" type="button" (click)="deleteSelected()">
+                <mat-icon>delete</mat-icon>
+                Delete
               </button>
             </div>
           </mat-card-content>

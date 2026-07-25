@@ -335,7 +335,7 @@ export interface ManagementRecordingItemDto {
 
 export interface ManagementRecordingListDto {
   enabled: boolean;
-  rootPath: string;
+  storageMode: string;
   note: string | null;
   days: ManagementRecordingDayDto[];
   recordings: ManagementRecordingItemDto[];

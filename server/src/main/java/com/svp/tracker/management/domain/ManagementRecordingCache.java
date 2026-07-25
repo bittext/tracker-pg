@@ -40,6 +40,16 @@ public class ManagementRecordingCache {
     @Column(name = "file_size_bytes")
     private Long fileSizeBytes;
 
+    /** Journal blob store key for the audio payload (null = metadata-only / legacy). */
+    @Column(name = "storage_key", length = 1024)
+    private String storageKey;
+
+    @Column(name = "content_type", length = 128)
+    private String contentType;
+
+    @Column(name = "original_filename", length = 512)
+    private String originalFilename;
+
     @Column(columnDefinition = "TEXT")
     private String transcript;
 

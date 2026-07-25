@@ -37,6 +37,15 @@
   margin-bottom: 0.85rem;
 }
 
+.rec-file-input {
+  display: none;
+}
+
+.rec-toolbar mat-spinner {
+  display: inline-block;
+  margin-right: 0.35rem;
+}
+
 .rec-search {
   flex: 1 1 16rem;
   min-width: 12rem;
