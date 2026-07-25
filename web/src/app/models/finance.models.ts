@@ -1833,3 +1833,94 @@ export interface CompanyResearchDetailDto {
   news: StockNewsDto | null;
   notes: CompanyResearchNoteDto[];
 }
+
+/** Markets Analytics → Trading Journal */
+export interface TradingJournalEntrySummaryDto {
+  id: number;
+  snapshotDate: string;
+  title: string;
+  bodyPreview: string;
+  tags: string[];
+  processGrade: number | null;
+  riskGrade: number | null;
+  linkedSummaryNote: boolean;
+  hasScheduledClose: boolean;
+  closeCombinedTotal: number | null;
+  closeCombinedChange: number | null;
+  closePulledAt: string | null;
+  updatedAt: string;
+  refCount: number;
+  attachmentCount: number;
+}
+
+export interface TradingJournalListDto {
+  year: number;
+  month: number | null;
+  q: string;
+  entries: TradingJournalEntrySummaryDto[];
+  journalDates: string[];
+}
+
+export interface TradingJournalRefDto {
+  id: number;
+  kind: 'SYMBOL' | 'URL' | 'NOTE' | string;
+  symbol: string | null;
+  url: string | null;
+  label: string;
+  createdAt: string;
+}
+
+export interface TradingJournalAttachmentDto {
+  id: number;
+  originalFilename: string;
+  contentType: string | null;
+  sizeBytes: number | null;
+  downloadPath: string;
+  createdAt: string;
+}
+
+export interface TradingJournalEntryDto {
+  id: number;
+  snapshotDate: string;
+  title: string;
+  bodyMarkdown: string;
+  tags: string[];
+  processGrade: number | null;
+  riskGrade: number | null;
+  linkedSummaryNote: boolean;
+  hasScheduledClose: boolean;
+  closeCombinedTotal: number | null;
+  closeCombinedChange: number | null;
+  closePulledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  refs: TradingJournalRefDto[];
+  attachments: TradingJournalAttachmentDto[];
+}
+
+export interface TradingJournalDayDetailDto {
+  snapshotDate: string;
+  entry: TradingJournalEntryDto | null;
+  wrap: RobinhoodRhDailyTrackerDayDto | null;
+  aiDraftAvailable: boolean;
+}
+
+export interface TradingJournalUpdateRequestDto {
+  title?: string | null;
+  bodyMarkdown?: string | null;
+  tags?: string[] | null;
+  processGrade?: number | null;
+  riskGrade?: number | null;
+}
+
+export interface TradingJournalRefRequestDto {
+  kind: 'SYMBOL' | 'URL' | 'NOTE' | string;
+  symbol?: string | null;
+  url?: string | null;
+  label?: string | null;
+}
+
+export interface TradingJournalAiDraftDto {
+  draftMarkdown: string;
+  generated: boolean;
+}

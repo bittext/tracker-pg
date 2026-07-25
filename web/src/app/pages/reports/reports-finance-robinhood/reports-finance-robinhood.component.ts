@@ -15,6 +15,8 @@ import { MatTableModule } from '@angular/material/table';
 import { MatTabsModule } from '@angular/material/tabs';
 import { ReportsFinanceRobinhoodDailyTrackerComponent } from '../reports-finance-robinhood-daily-tracker/reports-finance-robinhood-daily-tracker.component';
 import { ReportsFinanceRobinhoodCryptoTrackerComponent } from '../reports-finance-robinhood-crypto-tracker/reports-finance-robinhood-crypto-tracker.component';
+import { TradingJournalPanelComponent } from '../trading-journal-panel/trading-journal-panel.component';
+import { TradingJournalNavService } from '../../../services/trading-journal-nav.service';
 import {
   RobinhoodClosedTradeDto,
   RobinhoodNotebookConfigDto,
@@ -72,6 +74,7 @@ interface TradeTimelineBar {
     MatTabsModule,
     ReportsFinanceRobinhoodDailyTrackerComponent,
     ReportsFinanceRobinhoodCryptoTrackerComponent,
+    TradingJournalPanelComponent,
   ],
   templateUrl: './reports-finance-robinhood.component.html',
   styleUrl: './reports-finance-robinhood.component.scss',
@@ -80,6 +83,7 @@ export class ReportsFinanceRobinhoodComponent implements OnInit {
   private readonly financeApi = inject(FinanceApiService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly sanitizer = inject(DomSanitizer);
+  readonly journalNav = inject(TradingJournalNavService);
 
   reportYear = new Date().getFullYear();
   filterSymbol = '';

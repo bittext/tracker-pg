@@ -427,6 +427,22 @@ public class RobinhoodRhDailyTrackerService {
                 .orElseGet(() -> new RobinhoodRhDailyTrackerRefreshHintDto(null, 0L, ""));
     }
 
+    /** Single-day wrap for Trading Journal composition (Central {@code snapshotDate}). */
+    @Transactional(readOnly = true)
+    public RobinhoodRhDailyTrackerDayDto dayWrap(LocalDate snapshotDate) {
+        if (snapshotDate == null) {
+            return null;
+        }
+        RobinhoodRhDailyTrackerReportDto report =
+                buildReport(snapshotDate.getYear(), List.of(snapshotDate.getMonthValue()));
+        for (RobinhoodRhDailyTrackerDayDto day : report.days()) {
+            if (snapshotDate.equals(day.snapshotDate())) {
+                return day;
+            }
+        }
+        return null;
+    }
+
     @Transactional
     public RobinhoodRhDailyDayNoteResultDto upsertDaySummaryNote(LocalDate snapshotDate, String noteText) {
         long ownerUserId = currentUser.requireUserId();

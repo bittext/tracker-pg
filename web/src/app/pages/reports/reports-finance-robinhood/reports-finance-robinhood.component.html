@@ -1,4 +1,9 @@
-<mat-tab-group class="rh-report-tabs" animationDuration="180ms">
+<mat-tab-group
+  class="rh-report-tabs"
+  animationDuration="180ms"
+  [selectedIndex]="journalNav.analyticsTabIndex()"
+  (selectedIndexChange)="journalNav.analyticsTabIndex.set($event)"
+>
   <mat-tab label="Performance">
     <section class="rh-report rh-report-tab-panel" aria-labelledby="rh-report-heading">
   <h2 id="rh-report-heading" class="rh-report__title">Robinhood performance</h2>
@@ -573,6 +578,14 @@
   <mat-tab label="Daily Tracker">
     <div class="rh-report-tab-panel">
       <app-reports-finance-robinhood-daily-tracker />
+    </div>
+  </mat-tab>
+
+  <mat-tab label="Journal">
+    <div class="rh-report-tab-panel">
+      @if (journalNav.analyticsTabIndex() === 2) {
+        <app-trading-journal-panel />
+      }
     </div>
   </mat-tab>
   <mat-tab label="Crypto Tracker">

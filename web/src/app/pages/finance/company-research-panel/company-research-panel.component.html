@@ -1,18 +1,19 @@
 <div class="cr">
   <p class="muted cr__intro">
     Research companies ahead of earnings — browse the calendar, save names to Watch, capture notes and a thesis, then
-    decide later. Search covers symbols, company names, tags, thesis, and note text.
+    decide later. Search filters the earnings calendar and your Watch list (symbol, company, tags, thesis, notes).
   </p>
 
   <div class="cr__toolbar">
     <mat-form-field appearance="outline" class="cr__search">
-      <mat-label>Search Watch</mat-label>
+      <mat-label>Search calendar &amp; Watch</mat-label>
       <input
         matInput
         [(ngModel)]="searchQuery"
         name="crSearch"
-        placeholder="Symbol, company, tag, note…"
-        (keyup.enter)="loadList()"
+        placeholder="Symbol, company, EPS, timing…"
+        (keyup.enter)="runSearch()"
+        (ngModelChange)="onSearchInput()"
       />
       <mat-icon matPrefix>search</mat-icon>
     </mat-form-field>
@@ -34,6 +35,11 @@
     <button mat-flat-button color="primary" type="button" (click)="addFromInput()" [disabled]="saving || !addSymbol.trim()">
       <mat-icon>add</mat-icon>
       Watch
+    </button>
+
+    <button mat-stroked-button type="button" (click)="runSearch()" [disabled]="calendarLoading || listLoading">
+      <mat-icon>search</mat-icon>
+      Search
     </button>
 
     <button mat-stroked-button type="button" (click)="refreshAll()" [disabled]="calendarLoading || listLoading">
@@ -69,10 +75,17 @@
       <p class="muted">Loading earnings calendar…</p>
     } @else if (!calendar?.events?.length) {
       <p class="muted">No earnings events in this window.</p>
+    } @else if (!eventsByDate().length) {
+      <p class="muted">No earnings events match “{{ searchQuery.trim() }}”.</p>
     } @else {
       <p class="muted cr__meta">
         {{ calendar!.from | date: 'mediumDate' }} – {{ calendar!.to | date: 'mediumDate' }} ·
-        {{ calendar!.events.length }} reports · {{ calendar!.source }}
+        @if (searchQuery.trim()) {
+          {{ filteredCalendarCount() }} of {{ calendar!.events.length }} reports match search
+        } @else {
+          {{ calendar!.events.length }} reports
+        }
+        · {{ calendar!.source }}
       </p>
       <div class="cr__cal-days">
         @for (group of eventsByDate(); track group.date) {

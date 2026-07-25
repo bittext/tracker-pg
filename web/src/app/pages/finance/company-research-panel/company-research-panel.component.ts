@@ -77,6 +77,7 @@ export class CompanyResearchPanelComponent implements OnInit {
   tagsDraft = '';
   noteDraft = '';
   noteTagsDraft = '';
+  private searchDebounce: ReturnType<typeof setTimeout> | null = null;
 
   ngOnInit(): void {
     this.refreshAll();
@@ -85,6 +86,17 @@ export class CompanyResearchPanelComponent implements OnInit {
   refreshAll(): void {
     this.loadCalendar();
     this.loadList();
+  }
+
+  runSearch(): void {
+    this.loadList();
+  }
+
+  onSearchInput(): void {
+    if (this.searchDebounce) {
+      clearTimeout(this.searchDebounce);
+    }
+    this.searchDebounce = setTimeout(() => this.loadList(), 350);
   }
 
   loadCalendar(): void {
@@ -294,16 +306,30 @@ export class CompanyResearchPanelComponent implements OnInit {
   }
 
   eventsByDate(): { date: string; events: CompanyEarningsEventDto[] }[] {
-    if (!this.calendar?.events?.length) {
+    const events = this.filteredCalendarEvents();
+    if (!events.length) {
       return [];
     }
     const map = new Map<string, CompanyEarningsEventDto[]>();
-    for (const e of this.calendar.events) {
+    for (const e of events) {
       const list = map.get(e.reportDate) ?? [];
       list.push(e);
       map.set(e.reportDate, list);
     }
-    return [...map.entries()].map(([date, events]) => ({ date, events }));
+    return [...map.entries()].map(([date, dayEvents]) => ({ date, events: dayEvents }));
+  }
+
+  filteredCalendarCount(): number {
+    return this.filteredCalendarEvents().length;
+  }
+
+  filteredCalendarEvents(): CompanyEarningsEventDto[] {
+    const all = this.calendar?.events ?? [];
+    const q = this.searchQuery.trim().toLowerCase();
+    if (!q) {
+      return all;
+    }
+    return all.filter((e) => this.calendarEventMatches(e, q));
   }
 
   filteredCards(): CompanyResearchCardDto[] {
@@ -341,6 +367,25 @@ export class CompanyResearchPanelComponent implements OnInit {
       .split(/[,|]/)
       .map((t) => t.trim())
       .filter(Boolean);
+  }
+
+  private calendarEventMatches(e: CompanyEarningsEventDto, q: string): boolean {
+    const haystack = [
+      e.symbol,
+      e.companyName,
+      e.timing,
+      e.epsForecast,
+      e.lastYearEps,
+      e.marketCap,
+      e.fiscalQuarterEnding,
+      e.lastYearReportDate,
+      e.decisionStatus,
+      e.reportDate,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes(q);
   }
 
   private todayIso(): string {

@@ -85,6 +85,56 @@ public class RhDailyTrackerOpenAiClient {
         }
     }
 
+    /** Plain-text completion (no JSON response_format). */
+    public String completeText(String systemPrompt, String userPrompt) {
+        var ai = props.ai();
+        if (!ai.configured()) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Daily Tracker AI is not configured. Set TRACKER_FINANCE_RH_DAILY_TRACKER_AI_ENABLED=true and TRACKER_FINANCE_RH_DAILY_TRACKER_AI_API_KEY.");
+        }
+        try {
+            ObjectNode body = objectMapper.createObjectNode();
+            body.put("model", ai.model());
+            body.put("temperature", 0.5);
+            body.put("max_tokens", ai.maxOutputTokens());
+            ArrayNode messages = body.putArray("messages");
+            messages.addObject().put("role", "system").put("content", systemPrompt);
+            messages.addObject().put("role", "user").put("content", userPrompt);
+
+            String url = ai.baseUrl() + "/chat/completions";
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .timeout(Duration.ofMillis(ai.timeoutMs()))
+                    .header("Authorization", "Bearer " + ai.apiKey())
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body), StandardCharsets.UTF_8))
+                    .build();
+
+            HttpResponse<String> response =
+                    httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                throw new ResponseStatusException(
+                        mapOpenAiHttpStatus(response.statusCode()),
+                        openAiFailureMessage(response.statusCode(), response.body()));
+            }
+            JsonNode root = objectMapper.readTree(response.body());
+            JsonNode content = root.path("choices").path(0).path("message").path("content");
+            if (content.isMissingNode() || content.asText("").isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "OpenAI returned an empty completion");
+            }
+            return content.asText();
+        } catch (ResponseStatusException e) {
+            throw e;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "OpenAI request interrupted");
+        } catch (Exception e) {
+            log.warn("OpenAI text completion error: {}", e.toString());
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "OpenAI request failed: " + e.getMessage());
+        }
+    }
+
     private static HttpStatus mapOpenAiHttpStatus(int status) {
         if (status == 401 || status == 403) {
             return HttpStatus.BAD_REQUEST;

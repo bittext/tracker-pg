@@ -30,6 +30,7 @@ import {
   RhDailyTrackerSnapshotAlertDto,
 } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
+import { TradingJournalNavService } from '../../../services/trading-journal-nav.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
 import {
   RobinhoodDailySnapshotDialogComponent,
@@ -151,6 +152,7 @@ export interface RhDailyFocusMetrics {
 export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   readonly focusAccountSuffix = '3370';
   private readonly financeApi = inject(FinanceApiService);
+  private readonly journalNav = inject(TradingJournalNavService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
   private readonly destroyRef = inject(DestroyRef);
@@ -163,6 +165,9 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   softRefreshing = false;
   capturing = false;
   tracker: RobinhoodRhDailyTrackerReportDto | null = null;
+  /** When true, only show days that have a Trading Journal entry. */
+  journalDaysOnly = false;
+  private journalDates = new Set<string>();
 
   spikeAlertsExpanded = false;
   alertsLoading = false;
@@ -317,9 +322,17 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       next: (t) => {
         this.tracker = t;
         const validDates = new Set(t.days.map((d) => d.snapshotDate));
+        if (!silent) {
+          // Fresh open / hard refresh always starts collapse-all.
+          this.expandedDays.clear();
+        }
         this.mergeExpansionStateFromStorage(validDates);
         this.pruneExpansionState(validDates);
+        if (!silent) {
+          this.persistExpansionState();
+        }
         this.syncNoteDrafts(t.days);
+        this.loadJournalDates();
         this.loading = false;
         this.softRefreshing = false;
         if (!silent) {
@@ -378,6 +391,35 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   collapseAllDays(): void {
     this.expandedDays.clear();
     this.persistExpansionState();
+  }
+
+  visibleDays(days: RobinhoodRhDailyTrackerDayDto[]): RobinhoodRhDailyTrackerDayDto[] {
+    if (!this.journalDaysOnly) {
+      return days;
+    }
+    return days.filter((d) => this.journalDates.has(d.snapshotDate));
+  }
+
+  hasJournalEntry(day: RobinhoodRhDailyTrackerDayDto): boolean {
+    return this.journalDates.has(day.snapshotDate);
+  }
+
+  openTradingJournal(day: RobinhoodRhDailyTrackerDayDto, event: Event): void {
+    event.stopPropagation();
+    this.journalNav.openJournal(day.snapshotDate);
+  }
+
+  private loadJournalDates(): void {
+    const months = this.normalizedReportMonths();
+    const month = months.length === 1 ? months[0] : null;
+    this.financeApi.tradingJournalDates(this.reportYear, month).subscribe({
+      next: (dates) => {
+        this.journalDates = new Set(dates ?? []);
+      },
+      error: () => {
+        this.journalDates = new Set();
+      },
+    });
   }
 
   toggleDay(day: RobinhoodRhDailyTrackerDayDto): void {
@@ -1573,11 +1615,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         collapsedFlows?: string[];
         collapsedAccounts?: string[];
       };
-      for (const date of stored.expandedDays ?? []) {
-        if (validDates.has(date)) {
-          this.expandedDays.add(date);
-        }
-      }
+      // Day rows always open collapsed; do not restore expandedDays from session.
       for (const date of stored.collapsedSummaryNotes ?? []) {
         if (validDates.has(date)) {
           this.collapsedSummaryNotes.add(date);

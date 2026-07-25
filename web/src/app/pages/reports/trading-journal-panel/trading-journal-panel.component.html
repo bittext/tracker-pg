@@ -1,0 +1,355 @@
+<div class="tj">
+  <p class="muted tj__intro">
+    Day-centric trading journal — pull the Daily Tracker wrap and 9 PM CT close, import the call summary, add notes,
+    grades, symbol refs, and attachments. Search covers titles, body, tags, and references.
+  </p>
+
+  <div class="tj__toolbar">
+    <mat-form-field appearance="outline" class="tj__year">
+      <mat-label>Year</mat-label>
+      <mat-select [(ngModel)]="reportYear" name="tjYear" (selectionChange)="loadList()">
+        @for (y of yearChoices(); track y) {
+          <mat-option [value]="y">{{ y }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="tj__month">
+      <mat-label>Month</mat-label>
+      <mat-select [(ngModel)]="reportMonth" name="tjMonth" (selectionChange)="loadList()">
+        @for (m of monthChoices; track m.value) {
+          <mat-option [value]="m.value">{{ m.label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="tj__search">
+      <mat-label>Search</mat-label>
+      <input matInput [(ngModel)]="searchQuery" name="tjSearch" (keyup.enter)="loadList()" placeholder="Symbol, tag, note…" />
+      <mat-icon matPrefix>search</mat-icon>
+    </mat-form-field>
+    <button mat-stroked-button type="button" (click)="loadList()" [disabled]="listLoading">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+    <button mat-flat-button color="primary" type="button" (click)="openToday()">
+      <mat-icon>today</mat-icon>
+      Today
+    </button>
+  </div>
+
+  <div class="tj__layout">
+    <aside class="tj__side">
+      @if (reportMonth > 0) {
+        <div class="tj__cal" aria-label="Month heatmap">
+          @for (day of calendarDays(); track day.date) {
+            <button
+              type="button"
+              class="tj__cal-day"
+              [class.tj__cal-day--journal]="day.hasJournal"
+              [class.tj__cal-day--selected]="day.isSelected"
+              (click)="openDay(day.date, day.hasJournal)"
+              [matTooltip]="day.date"
+            >
+              {{ day.date.slice(8) }}
+            </button>
+          }
+        </div>
+      }
+
+      <h3 class="tj__side-title">Entries</h3>
+      @if (listLoading) {
+        <p class="muted">Loading…</p>
+      } @else if (!entries.length) {
+        <p class="muted">No journal entries in this period.</p>
+      } @else {
+        <ul class="tj__entries">
+          @for (e of entries; track e.id) {
+            <li>
+              <button
+                type="button"
+                class="tj__entry"
+                [class.tj__entry--active]="selectedDate === e.snapshotDate"
+                (click)="openDay(e.snapshotDate, false)"
+              >
+                <strong>{{ e.snapshotDate | date: 'mediumDate' }}</strong>
+                <span class="muted">{{ e.title || e.bodyPreview || 'Untitled' }}</span>
+                <span class="tj__entry-meta muted">
+                  @if (e.hasScheduledClose) {
+                    pinned
+                  }
+                  · {{ e.refCount }} refs · {{ e.attachmentCount }} files
+                </span>
+              </button>
+            </li>
+          }
+        </ul>
+      }
+    </aside>
+
+    <section class="tj__main">
+      @if (!selectedDate) {
+        <p class="muted">Pick a calendar day or entry to open the journal.</p>
+      } @else if (detailLoading && !detail) {
+        <p class="muted">Loading {{ selectedDate }}…</p>
+      } @else if (detail) {
+        <div class="tj__head">
+          <div>
+            <h2 class="tj__date">{{ detail.snapshotDate | date: 'fullDate' }}</h2>
+            <p class="muted">Central trading date · links to Daily Tracker 9 PM CT wrap</p>
+          </div>
+          <div class="tj__head-actions">
+            <button mat-stroked-button type="button" (click)="openInDailyTracker()">
+              <mat-icon>candlestick_chart</mat-icon>
+              Daily Tracker
+            </button>
+            @if (!detail.entry) {
+              <button mat-flat-button color="primary" type="button" (click)="createOrOpenSelected()">
+                Start journal
+              </button>
+            } @else {
+              <button mat-stroked-button type="button" color="warn" (click)="deleteEntry()">Delete</button>
+            }
+          </div>
+        </div>
+
+        <div class="tj__wrap">
+          <div class="tj__wrap-head">
+            <h3>Daily wrap</h3>
+            <div class="tj__wrap-actions">
+              <button mat-stroked-button type="button" (click)="openDay(selectedDate!, !!detail.entry)" [disabled]="detailLoading">
+                Refresh wrap
+              </button>
+              <button
+                mat-stroked-button
+                type="button"
+                (click)="pinClose()"
+                [disabled]="!detail.wrap?.hasScheduledSnapshot"
+                matTooltip="Freeze 9 PM CT totals on this journal entry"
+              >
+                Pin 9 PM CT
+              </button>
+            </div>
+          </div>
+
+          @if (!detail.wrap) {
+            <p class="muted">No Daily Tracker captures for this day yet.</p>
+          } @else {
+            <div class="tj__wrap-kpis">
+              <div>
+                <span class="muted">9 PM CT close</span>
+                <strong>
+                  @if (detail.wrap.hasScheduledSnapshot) {
+                    {{ detail.wrap.combinedTotal | currency }}
+                  } @else {
+                    Pending
+                  }
+                </strong>
+              </div>
+              <div>
+                <span class="muted">Δ prior close</span>
+                <strong>{{ detail.wrap.combinedTotalChangeFromPrevious | currency }}</strong>
+              </div>
+              <div>
+                <span class="muted">Flows +/−</span>
+                <strong>
+                  {{ detail.wrap.combinedPeriodAdded | currency }} /
+                  {{ detail.wrap.combinedPeriodRemoved | currency }}
+                </strong>
+              </div>
+              <div>
+                <span class="muted">Trades</span>
+                <strong>{{ detail.wrap.trades.length || 0 }}</strong>
+              </div>
+            </div>
+
+            @if (detail.wrap.summaryNote) {
+              <div class="tj__call-summary">
+                <div class="tj__call-summary-head">
+                  <h4>Call summary (Daily Tracker)</h4>
+                  <button mat-stroked-button type="button" (click)="importSummary()">Import into journal</button>
+                </div>
+                <pre>{{ detail.wrap.summaryNote }}</pre>
+              </div>
+            }
+
+            @if (wrapAccounts(detail.wrap).length) {
+              <div class="tj__table-wrap">
+                <table class="tj__table">
+                  <thead>
+                    <tr>
+                      <th>Account</th>
+                      <th class="tj__num">Total</th>
+                      <th class="tj__num">Δ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (a of wrapAccounts(detail.wrap); track a.accountSuffix) {
+                      <tr>
+                        <td>••••{{ a.accountSuffix }}</td>
+                        <td class="tj__num">{{ a.totalAccountValue | currency }}</td>
+                        <td class="tj__num">{{ a.totalChangeFromPrevious | currency }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+
+            @if (wrapTrades(detail.wrap).length) {
+              <h4 class="tj__sub">Trades since prior 9 PM CT</h4>
+              <div class="tj__table-wrap">
+                <table class="tj__table">
+                  <thead>
+                    <tr>
+                      <th>Symbol</th>
+                      <th>Side</th>
+                      <th class="tj__num">Qty</th>
+                      <th class="tj__num">Avg</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (t of wrapTrades(detail.wrap); track t.symbol + t.executedAt + t.side) {
+                      <tr>
+                        <td>
+                          <button type="button" class="tj__sym-link" (click)="openWatchForSymbol(t.symbol)">
+                            {{ t.symbol }}
+                          </button>
+                        </td>
+                        <td>{{ t.side }}</td>
+                        <td class="tj__num">{{ t.quantity }}</td>
+                        <td class="tj__num">{{ t.averagePrice | currency }}</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          }
+
+          @if (detail.entry?.hasScheduledClose) {
+            <p class="muted tj__pinned">
+              Pinned close {{ detail.entry!.closeCombinedTotal | currency }}
+              (Δ {{ detail.entry!.closeCombinedChange | currency }})
+              @if (detail.entry!.closePulledAt) {
+                · {{ detail.entry!.closePulledAt | date: 'short' }}
+              }
+            </p>
+          }
+        </div>
+
+        <div class="tj__editor">
+          <mat-form-field appearance="outline" class="tj__full">
+            <mat-label>Title</mat-label>
+            <input matInput [(ngModel)]="titleDraft" name="tjTitle" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="tj__full">
+            <mat-label>Journal body (markdown)</mat-label>
+            <textarea matInput rows="10" [(ngModel)]="bodyDraft" name="tjBody"></textarea>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="tj__full">
+            <mat-label>Tags</mat-label>
+            <input matInput [(ngModel)]="tagsDraft" name="tjTags" placeholder="process, earnings, size" />
+          </mat-form-field>
+          <div class="tj__grades">
+            <mat-form-field appearance="outline">
+              <mat-label>Process grade</mat-label>
+              <mat-select [(ngModel)]="processGrade" name="tjProcess">
+                <mat-option [value]="null">—</mat-option>
+                @for (g of gradeChoices; track g) {
+                  <mat-option [value]="g">{{ g }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Risk grade</mat-label>
+              <mat-select [(ngModel)]="riskGrade" name="tjRisk">
+                <mat-option [value]="null">—</mat-option>
+                @for (g of gradeChoices; track g) {
+                  <mat-option [value]="g">{{ g }}</mat-option>
+                }
+              </mat-select>
+            </mat-form-field>
+            <button mat-flat-button color="primary" type="button" (click)="saveEntry()" [disabled]="saving">
+              Save
+            </button>
+            @if (detail.aiDraftAvailable) {
+              <button mat-stroked-button type="button" (click)="generateAiDraft()" [disabled]="saving">
+                <mat-icon>auto_awesome</mat-icon>
+                AI wrap draft
+              </button>
+            }
+          </div>
+        </div>
+
+        <div class="tj__refs">
+          <h3>References</h3>
+          <div class="tj__ref-form">
+            <mat-form-field appearance="outline">
+              <mat-label>Kind</mat-label>
+              <mat-select [(ngModel)]="refKind" name="tjRefKind">
+                <mat-option value="SYMBOL">Symbol</mat-option>
+                <mat-option value="URL">URL</mat-option>
+                <mat-option value="NOTE">Note</mat-option>
+              </mat-select>
+            </mat-form-field>
+            @if (refKind === 'SYMBOL') {
+              <mat-form-field appearance="outline">
+                <mat-label>Symbol</mat-label>
+                <input matInput [(ngModel)]="refSymbol" name="tjRefSym" />
+              </mat-form-field>
+            }
+            @if (refKind === 'URL') {
+              <mat-form-field appearance="outline" class="tj__grow">
+                <mat-label>URL</mat-label>
+                <input matInput [(ngModel)]="refUrl" name="tjRefUrl" />
+              </mat-form-field>
+            }
+            <mat-form-field appearance="outline" class="tj__grow">
+              <mat-label>Label</mat-label>
+              <input matInput [(ngModel)]="refLabel" name="tjRefLabel" />
+            </mat-form-field>
+            <button mat-stroked-button type="button" (click)="addRef()">Add</button>
+          </div>
+          @if (detail.entry?.refs?.length) {
+            <ul class="tj__ref-list">
+              @for (r of detail.entry!.refs; track r.id) {
+                <li>
+                  <span class="tj__ref-kind">{{ r.kind }}</span>
+                  @if (r.kind === 'SYMBOL' && r.symbol) {
+                    <button type="button" class="tj__sym-link" (click)="openWatchForSymbol(r.symbol)">
+                      {{ r.symbol }}
+                    </button>
+                  } @else if (r.kind === 'URL' && r.url) {
+                    <a [href]="r.url" target="_blank" rel="noopener noreferrer">{{ r.label || r.url }}</a>
+                  } @else {
+                    <span>{{ r.label }}</span>
+                  }
+                  <button mat-button type="button" color="warn" (click)="deleteRef(r.id)">Remove</button>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+
+        <div class="tj__atts">
+          <h3>Attachments</h3>
+          <label class="tj__file">
+            <input type="file" (change)="onFileSelected($event)" />
+            Upload file
+          </label>
+          @if (detail.entry?.attachments?.length) {
+            <ul class="tj__att-list">
+              @for (a of detail.entry!.attachments; track a.id) {
+                <li>
+                  <a [href]="attachmentHref(a.downloadPath)" target="_blank" rel="noopener noreferrer">
+                    {{ a.originalFilename }}
+                  </a>
+                  <button mat-button type="button" color="warn" (click)="deleteAttachment(a.id)">Remove</button>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      }
+    </section>
+  </div>
+</div>

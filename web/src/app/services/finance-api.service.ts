@@ -80,6 +80,14 @@ import {
   CompanyResearchNoteRequestDto,
   CompanyResearchUpdateRequestDto,
   CompanyResearchUpsertRequestDto,
+  TradingJournalAiDraftDto,
+  TradingJournalAttachmentDto,
+  TradingJournalDayDetailDto,
+  TradingJournalEntryDto,
+  TradingJournalListDto,
+  TradingJournalRefDto,
+  TradingJournalRefRequestDto,
+  TradingJournalUpdateRequestDto,
 } from '../models/finance.models';
 
 export type FinancePeriod = 'all' | 'year' | 'month';
@@ -691,5 +699,78 @@ export class FinanceApiService {
 
   companyResearchDeleteNote(noteId: number) {
     return this.http.delete<void>(`${this.companyResearchRoot}/notes/${noteId}`);
+  }
+
+  private readonly tradingJournalRoot = `${environment.apiBaseUrl}/api/markets/trading-journal`;
+
+  tradingJournalList(year?: number | null, month?: number | null, q?: string | null) {
+    let params = new HttpParams();
+    if (year != null) {
+      params = params.set('year', String(year));
+    }
+    if (month != null && month >= 1 && month <= 12) {
+      params = params.set('month', String(month));
+    }
+    if (q?.trim()) {
+      params = params.set('q', q.trim());
+    }
+    return this.http.get<TradingJournalListDto>(this.tradingJournalRoot, { params });
+  }
+
+  tradingJournalDates(year?: number | null, month?: number | null) {
+    let params = new HttpParams();
+    if (year != null) {
+      params = params.set('year', String(year));
+    }
+    if (month != null && month >= 1 && month <= 12) {
+      params = params.set('month', String(month));
+    }
+    return this.http.get<string[]>(`${this.tradingJournalRoot}/dates`, { params });
+  }
+
+  tradingJournalGetDay(date: string) {
+    return this.http.get<TradingJournalDayDetailDto>(`${this.tradingJournalRoot}/${date}`);
+  }
+
+  tradingJournalOpenDay(date: string) {
+    return this.http.post<TradingJournalDayDetailDto>(`${this.tradingJournalRoot}/${date}`, null);
+  }
+
+  tradingJournalUpdate(date: string, body: TradingJournalUpdateRequestDto) {
+    return this.http.put<TradingJournalEntryDto>(`${this.tradingJournalRoot}/${date}`, body);
+  }
+
+  tradingJournalDelete(date: string) {
+    return this.http.delete<void>(`${this.tradingJournalRoot}/${date}`);
+  }
+
+  tradingJournalImportSummary(date: string) {
+    return this.http.post<TradingJournalEntryDto>(`${this.tradingJournalRoot}/${date}/import-summary`, null);
+  }
+
+  tradingJournalPinClose(date: string) {
+    return this.http.post<TradingJournalEntryDto>(`${this.tradingJournalRoot}/${date}/pin-close`, null);
+  }
+
+  tradingJournalAiDraft(date: string) {
+    return this.http.post<TradingJournalAiDraftDto>(`${this.tradingJournalRoot}/${date}/ai-draft`, null);
+  }
+
+  tradingJournalAddRef(date: string, body: TradingJournalRefRequestDto) {
+    return this.http.post<TradingJournalRefDto>(`${this.tradingJournalRoot}/${date}/refs`, body);
+  }
+
+  tradingJournalDeleteRef(refId: number) {
+    return this.http.delete<void>(`${this.tradingJournalRoot}/refs/${refId}`);
+  }
+
+  tradingJournalAddAttachment(date: string, file: File) {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    return this.http.post<TradingJournalAttachmentDto>(`${this.tradingJournalRoot}/${date}/attachments`, form);
+  }
+
+  tradingJournalDeleteAttachment(attachmentId: number) {
+    return this.http.delete<void>(`${this.tradingJournalRoot}/attachments/${attachmentId}`);
   }
 }
