@@ -593,7 +593,9 @@ public class RhDailyTrackerOpenAiClient {
 
         var ai = props.ai();
         String url = ai.baseUrl() + "/audio/transcriptions";
-        long timeoutMs = Math.max(ai.timeoutMs(), 180_000L);
+        // Transcription runs in the background worker, so allow long uploads (large/compressed audio,
+        // diarization chunking) without tripping the default 180s floor used elsewhere.
+        long timeoutMs = Math.max(ai.timeoutMs(), 600_000L);
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .timeout(Duration.ofMillis(timeoutMs))
