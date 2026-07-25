@@ -76,17 +76,29 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
   audioObjectUrl: string | null = null;
   audioError = false;
   audioLoading = false;
+  reprocessingAll = false;
 
   /** When on, highlight + scroll the turn that matches audio.currentTime. */
   followPlayback = true;
   activeTurnIndex = -1;
+  private processingPollId: number | null = null;
 
   ngOnInit(): void {
     this.refreshAll();
+    this.processingPollId = window.setInterval(() => this.pollProcessing(), 5000);
   }
 
   ngOnDestroy(): void {
+    if (this.processingPollId != null) {
+      window.clearInterval(this.processingPollId);
+    }
     this.revokeAudio();
+  }
+
+  get processingCount(): number {
+    return this.recordings.filter(
+      (r) => r.processingStatus === 'PENDING' || r.processingStatus === 'PROCESSING',
+    ).length;
   }
 
   refreshAll(): void {
@@ -150,7 +162,11 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
     this.api.uploadRecordings(files, relativePaths).subscribe({
       next: (items) => {
         this.uploading = false;
-        this.snackBar.open(`Uploaded ${items.length} recording(s)`, 'Dismiss', { duration: 3000 });
+        this.snackBar.open(
+          `Uploaded ${items.length} recording(s); transcript and summary queued`,
+          'Dismiss',
+          { duration: 4500 },
+        );
         this.refreshAll();
       },
       error: (err) => {
@@ -184,6 +200,27 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
     this.searchQuery = '';
     this.searchActive = false;
     this.loadList(this.selectedDay);
+  }
+
+  reprocessAll(): void {
+    this.reprocessingAll = true;
+    this.api.reprocessAllRecordings().subscribe({
+      next: (res) => {
+        this.reprocessingAll = false;
+        this.snackBar.open(
+          `Queued ${res.queuedCount} recording(s) for fresh transcripts and summaries`,
+          'Dismiss',
+          { duration: 5000 },
+        );
+        this.refreshAll();
+      },
+      error: (err) => {
+        this.reprocessingAll = false;
+        this.snackBar.open(formatHttpErrorDetail(err) || 'Could not queue recordings', 'Dismiss', {
+          duration: 7000,
+        });
+      },
+    });
   }
 
   selectRecording(item: ManagementRecordingItemDto): void {
@@ -259,6 +296,53 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
     }
   }
 
+  private pollProcessing(): void {
+    if (
+      this.loadingList ||
+      this.searching ||
+      !this.recordings.some(
+        (r) => r.processingStatus === 'PENDING' || r.processingStatus === 'PROCESSING',
+      )
+    ) {
+      return;
+    }
+    this.api.listRecordings(this.selectedDay).subscribe({
+      next: (res) => {
+        const updated = new Map(res.recordings.map((r) => [r.path, r]));
+        this.recordings = this.recordings.map((r) => updated.get(r.path) ?? r);
+        if (this.selected) {
+          const selectedUpdate = updated.get(this.selected.path);
+          if (selectedUpdate) {
+            this.selected = selectedUpdate;
+          }
+        }
+      },
+    });
+    if (
+      this.selected &&
+      (this.selected.processingStatus === 'PENDING' ||
+        this.selected.processingStatus === 'PROCESSING')
+    ) {
+      const path = this.selected.path;
+      this.api.getRecordingDetail(path).subscribe({
+        next: (detail) => {
+          if (this.selected?.path !== path) {
+            return;
+          }
+          this.detail = detail;
+          this.selected = {
+            ...this.selected,
+            hasTranscript: !!detail.transcript,
+            hasSummary: !!detail.summary,
+            processingStatus: detail.processingStatus,
+            processingError: detail.processingError,
+          };
+          this.patchListFlags(detail);
+        },
+      });
+    }
+  }
+
   transcribe(force = false): void {
     if (!this.selected) {
       return;
@@ -305,10 +389,24 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
     const hasT = !!(d.transcript && d.transcript.trim());
     const hasS = !!(d.summary && d.summary.trim());
     this.recordings = this.recordings.map((r) =>
-      r.path === d.path ? { ...r, hasTranscript: hasT, hasSummary: hasS } : r,
+      r.path === d.path
+        ? {
+            ...r,
+            hasTranscript: hasT,
+            hasSummary: hasS,
+            processingStatus: d.processingStatus,
+            processingError: d.processingError,
+          }
+        : r,
     );
     if (this.selected?.path === d.path) {
-      this.selected = { ...this.selected, hasTranscript: hasT, hasSummary: hasS };
+      this.selected = {
+        ...this.selected,
+        hasTranscript: hasT,
+        hasSummary: hasS,
+        processingStatus: d.processingStatus,
+        processingError: d.processingError,
+      };
     }
   }
 

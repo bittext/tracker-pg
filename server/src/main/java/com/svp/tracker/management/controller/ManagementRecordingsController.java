@@ -3,6 +3,7 @@ package com.svp.tracker.management.controller;
 import com.svp.tracker.management.dto.ManagementRecordingDetailDto;
 import com.svp.tracker.management.dto.ManagementRecordingItemDto;
 import com.svp.tracker.management.dto.ManagementRecordingListDto;
+import com.svp.tracker.management.dto.ManagementRecordingReprocessDto;
 import com.svp.tracker.management.service.ManagementRecordingsService;
 import com.svp.tracker.management.service.ManagementRecordingsService.RecordingFile;
 import java.nio.charset.StandardCharsets;
@@ -72,6 +73,12 @@ public class ManagementRecordingsController {
             @RequestParam("files") List<MultipartFile> files,
             @RequestParam(value = "relativePath", required = false) List<String> relativePaths) {
         return service.upload(files, relativePaths == null ? List.of() : relativePaths);
+    }
+
+    @PostMapping("/reprocess-all")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public ManagementRecordingReprocessDto reprocessAll() {
+        return service.reprocessAll();
     }
 
     @DeleteMapping

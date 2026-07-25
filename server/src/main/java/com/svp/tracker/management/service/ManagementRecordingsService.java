@@ -12,6 +12,7 @@ import com.svp.tracker.management.dto.ManagementRecordingDayDto;
 import com.svp.tracker.management.dto.ManagementRecordingDetailDto;
 import com.svp.tracker.management.dto.ManagementRecordingItemDto;
 import com.svp.tracker.management.dto.ManagementRecordingListDto;
+import com.svp.tracker.management.dto.ManagementRecordingReprocessDto;
 import com.svp.tracker.management.dto.ManagementRecordingTranscriptSegmentDto;
 import com.svp.tracker.management.repository.ManagementRecordingCacheRepository;
 import java.io.IOException;
@@ -29,10 +30,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -57,6 +60,7 @@ public class ManagementRecordingsService {
     private final JournalBlobStore blobStore;
     private final JournalProperties journalProperties;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final AtomicBoolean processing = new AtomicBoolean();
 
     @Transactional(readOnly = true)
     public ManagementRecordingListDto list(LocalDate dayFilter) {
@@ -180,6 +184,10 @@ public class ManagementRecordingsService {
             row.setTranscribedAt(null);
             row.setSummary(null);
             row.setSummarizedAt(null);
+            row.setProcessingStatus("PENDING");
+            row.setProcessingError(null);
+            row.setProcessingStartedAt(null);
+            row.setProcessingCompletedAt(null);
             row = cacheRepository.save(row);
             out.add(toItem(row));
         }
@@ -237,6 +245,9 @@ public class ManagementRecordingsService {
             row.setTranscriptSource(result.source());
             row.setTranscriptSegmentsJson(serializeSegments(result.segments()));
             row.setTranscribedAt(Instant.now());
+            row.setProcessingStatus("READY");
+            row.setProcessingError(null);
+            row.setProcessingCompletedAt(Instant.now());
             row = cacheRepository.save(row);
             return toDetail(row);
         } finally {
@@ -263,6 +274,108 @@ public class ManagementRecordingsService {
             row = cacheRepository.save(row);
             return toDetail(row);
         }
+        row.setSummary(generateSummary(row));
+        row.setSummarizedAt(Instant.now());
+        row.setProcessingStatus("READY");
+        row.setProcessingError(null);
+        row.setProcessingCompletedAt(Instant.now());
+        row = cacheRepository.save(row);
+        return toDetail(row);
+    }
+
+    @Transactional
+    public ManagementRecordingReprocessDto reprocessAll() {
+        if (!properties.configured()) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Recordings are disabled");
+        }
+        long owner = currentUser.requireUserId();
+        List<ManagementRecordingCache> rows =
+                cacheRepository.findByOwnerUserIdOrderByRecordedDayDescUpdatedAtDesc(owner);
+        int queued = 0;
+        for (ManagementRecordingCache row : rows) {
+            if (row.getStorageKey() == null || row.getStorageKey().isBlank()) {
+                continue;
+            }
+            row.setProcessingStatus("PENDING");
+            row.setProcessingError(null);
+            row.setProcessingStartedAt(null);
+            row.setProcessingCompletedAt(null);
+            cacheRepository.save(row);
+            queued++;
+        }
+        return new ManagementRecordingReprocessDto(queued);
+    }
+
+    /**
+     * Durable single-file worker. Uploads and V91 leave rows PENDING, so work survives restarts.
+     * Serial processing avoids racing OpenAI limits and keeps large audio files from exhausting memory.
+     */
+    @Scheduled(initialDelay = 5_000, fixedDelay = 3_000)
+    public void processNextPendingRecording() {
+        if (!properties.configured() || !processing.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            recoverStaleProcessingRows();
+            cacheRepository
+                    .findFirstByProcessingStatusOrderByUpdatedAtAsc("PENDING")
+                    .ifPresent(this::processQueuedRecording);
+        } catch (Exception e) {
+            log.error("Recording background worker failed", e);
+        } finally {
+            processing.set(false);
+        }
+    }
+
+    private void recoverStaleProcessingRows() {
+        Instant cutoff = Instant.now().minusSeconds(30 * 60);
+        for (ManagementRecordingCache row :
+                cacheRepository.findByProcessingStatusAndProcessingStartedAtBefore("PROCESSING", cutoff)) {
+            row.setProcessingStatus("PENDING");
+            row.setProcessingError("Recovered after interrupted background processing");
+            row.setProcessingStartedAt(null);
+            cacheRepository.save(row);
+        }
+    }
+
+    private void processQueuedRecording(ManagementRecordingCache row) {
+        row.setProcessingStatus("PROCESSING");
+        row.setProcessingError(null);
+        row.setProcessingStartedAt(Instant.now());
+        row.setProcessingCompletedAt(null);
+        row = cacheRepository.saveAndFlush(row);
+
+        Path tmp = null;
+        try {
+            tmp = writeTempAudio(row);
+            var result = openAi.transcribeAudio(tmp);
+            row.setTranscript(result.text());
+            row.setTranscriptSource(result.source());
+            row.setTranscriptSegmentsJson(serializeSegments(result.segments()));
+            row.setTranscribedAt(Instant.now());
+            row.setSummary(generateSummary(row));
+            row.setSummarizedAt(Instant.now());
+            row.setProcessingStatus("READY");
+            row.setProcessingError(null);
+            row.setProcessingCompletedAt(Instant.now());
+            cacheRepository.save(row);
+            log.info("Background transcript + summary ready for recording id={} path={}", row.getId(), row.getRelativePath());
+        } catch (Exception e) {
+            row.setProcessingStatus("FAILED");
+            row.setProcessingError(compactError(e));
+            row.setProcessingCompletedAt(Instant.now());
+            cacheRepository.save(row);
+            log.warn(
+                    "Background transcript + summary failed for recording id={} path={}: {}",
+                    row.getId(),
+                    row.getRelativePath(),
+                    e.toString());
+        } finally {
+            deleteQuietly(tmp);
+        }
+    }
+
+    private String generateSummary(ManagementRecordingCache row) {
         String system =
                 """
                 You summarize personal voice memos from Just Press Record.
@@ -275,11 +388,15 @@ public class ManagementRecordingsService {
                 + row.getRecordedDay()
                 + ")\n\nTranscript:\n"
                 + row.getTranscript();
-        String summary = openAi.completeText(system, user);
-        row.setSummary(summary);
-        row.setSummarizedAt(Instant.now());
-        row = cacheRepository.save(row);
-        return toDetail(row);
+        return openAi.completeText(system, user);
+    }
+
+    private static String compactError(Exception e) {
+        String message = e instanceof ResponseStatusException rse ? rse.getReason() : e.getMessage();
+        if (message == null || message.isBlank()) {
+            message = e.getClass().getSimpleName();
+        }
+        return message.length() <= 1_000 ? message : message.substring(0, 1_000);
     }
 
     @Transactional(readOnly = true)
@@ -425,7 +542,9 @@ public class ManagementRecordingsService {
                 cached.getRecordedDay(),
                 size,
                 hasTranscript,
-                hasSummary);
+                hasSummary,
+                cached.getProcessingStatus(),
+                cached.getProcessingError());
     }
 
     private ManagementRecordingDetailDto toDetail(ManagementRecordingCache cached) {
@@ -440,7 +559,9 @@ public class ManagementRecordingsService {
                 cached.getTranscribedAt(),
                 cached.getSummary(),
                 cached.getSummarizedAt(),
-                parseSegments(cached.getTranscriptSegmentsJson()));
+                parseSegments(cached.getTranscriptSegmentsJson()),
+                cached.getProcessingStatus(),
+                cached.getProcessingError());
     }
 
     private String serializeSegments(

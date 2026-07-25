@@ -69,6 +69,19 @@ public class ManagementRecordingCache {
     @Column(name = "summarized_at")
     private Instant summarizedAt;
 
+    /** PENDING, PROCESSING, READY, or FAILED. */
+    @Column(name = "processing_status", nullable = false, length = 24)
+    private String processingStatus = "PENDING";
+
+    @Column(name = "processing_error", columnDefinition = "TEXT")
+    private String processingError;
+
+    @Column(name = "processing_started_at")
+    private Instant processingStartedAt;
+
+    @Column(name = "processing_completed_at")
+    private Instant processingCompletedAt;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 

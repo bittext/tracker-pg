@@ -24,6 +24,7 @@ import {
   ManagementRecordingDetailDto,
   ManagementRecordingItemDto,
   ManagementRecordingListDto,
+  ManagementRecordingReprocessDto,
   ManagementWriteupAttachmentDto,
   ManagementWriteupDto,
   ManagementWriteupWriteBody,
@@ -446,6 +447,13 @@ export class ManagementApiService {
 
   deleteRecording(path: string) {
     return this.http.delete<void>(this.recordingsRoot, { params: { path } });
+  }
+
+  reprocessAllRecordings() {
+    return this.http.post<ManagementRecordingReprocessDto>(
+      `${this.recordingsRoot}/reprocess-all`,
+      {},
+    );
   }
 
   transcribeRecording(path: string, force = false) {

@@ -8,4 +8,6 @@ public record ManagementRecordingItemDto(
         LocalDate recordedDay,
         long fileSizeBytes,
         boolean hasTranscript,
-        boolean hasSummary) {}
+        boolean hasSummary,
+        String processingStatus,
+        String processingError) {}

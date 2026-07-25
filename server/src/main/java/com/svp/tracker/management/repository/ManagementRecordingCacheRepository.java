@@ -1,6 +1,7 @@
 package com.svp.tracker.management.repository;
 
 import com.svp.tracker.management.domain.ManagementRecordingCache;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -12,6 +13,11 @@ public interface ManagementRecordingCacheRepository extends JpaRepository<Manage
     Optional<ManagementRecordingCache> findByOwnerUserIdAndRelativePath(long ownerUserId, String relativePath);
 
     List<ManagementRecordingCache> findByOwnerUserIdOrderByRecordedDayDescUpdatedAtDesc(long ownerUserId);
+
+    Optional<ManagementRecordingCache> findFirstByProcessingStatusOrderByUpdatedAtAsc(String processingStatus);
+
+    List<ManagementRecordingCache> findByProcessingStatusAndProcessingStartedAtBefore(
+            String processingStatus, Instant cutoff);
 
     @Query(
             """

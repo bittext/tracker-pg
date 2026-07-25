@@ -4,7 +4,7 @@
     <p class="muted rec-lede">
       Upload Just Press Record clips from your <strong>iCloud Drive</strong> folder (date folders →
       <code>.m4a</code>). Files are stored in the app’s cloud library so production can play, transcribe (Whisper),
-      search, and summarize — no Mac filesystem mount required.
+      search, and summarize. New uploads are transcribed and summarized automatically in the background.
     </p>
   </header>
 
@@ -66,6 +66,25 @@
       <mat-icon>refresh</mat-icon>
       Refresh
     </button>
+    <button
+      mat-stroked-button
+      type="button"
+      (click)="reprocessAll()"
+      [disabled]="reprocessingAll || uploading || recordings.length === 0"
+    >
+      @if (reprocessingAll) {
+        <mat-spinner diameter="18" />
+      } @else {
+        <mat-icon>restart_alt</mat-icon>
+      }
+      Reprocess all
+    </button>
+    @if (processingCount > 0) {
+      <span class="rec-queue-status" role="status">
+        <mat-spinner diameter="16" />
+        {{ processingCount }} queued/processing
+      </span>
+    }
   </div>
 
   <div class="rec-layout">
@@ -140,6 +159,19 @@
                       @if (r.hasSummary) {
                         <mat-icon class="rec-flag" inline title="Has summary">summarize</mat-icon>
                       }
+                      @if (r.processingStatus === 'PENDING' || r.processingStatus === 'PROCESSING') {
+                        <mat-icon class="rec-flag rec-flag--processing" inline title="Processing in background">
+                          pending
+                        </mat-icon>
+                      } @else if (r.processingStatus === 'FAILED') {
+                        <mat-icon
+                          class="rec-flag rec-flag--failed"
+                          inline
+                          [title]="r.processingError || 'Background processing failed'"
+                        >
+                          error
+                        </mat-icon>
+                      }
                     </span>
                   </button>
                 </li>
@@ -156,7 +188,7 @@
           <mat-card-content>
             <p class="muted">
               Upload the Just Press Record <strong>Documents</strong> folder from iCloud Drive, then select a recording
-              to play and transcribe.
+              to play it. Transcripts and summaries are prepared automatically.
             </p>
           </mat-card-content>
         </mat-card>
@@ -169,6 +201,17 @@
             </mat-card-subtitle>
           </mat-card-header>
           <mat-card-content>
+            @if (detail?.processingStatus === 'PENDING' || detail?.processingStatus === 'PROCESSING') {
+              <div class="rec-processing-note" role="status">
+                <mat-spinner diameter="18" />
+                Building a fresh timed transcript and summary in the background…
+              </div>
+            } @else if (detail?.processingStatus === 'FAILED') {
+              <div class="rec-processing-note rec-processing-note--error" role="alert">
+                <mat-icon>error_outline</mat-icon>
+                {{ detail?.processingError || 'Background processing failed. Use Reprocess all to retry.' }}
+              </div>
+            }
             <div class="rec-player">
               @if (audioError) {
                 <span class="muted">Could not load audio</span>
@@ -195,7 +238,12 @@
                 color="primary"
                 type="button"
                 (click)="transcribe(!!detail?.transcript)"
-                [disabled]="transcribing || summarizing"
+                [disabled]="
+                  transcribing ||
+                  summarizing ||
+                  detail?.processingStatus === 'PENDING' ||
+                  detail?.processingStatus === 'PROCESSING'
+                "
               >
                 @if (transcribing) {
                   <mat-spinner diameter="18" />
@@ -208,7 +256,12 @@
                 mat-stroked-button
                 type="button"
                 (click)="summarize(!!detail?.summary)"
-                [disabled]="transcribing || summarizing"
+                [disabled]="
+                  transcribing ||
+                  summarizing ||
+                  detail?.processingStatus === 'PENDING' ||
+                  detail?.processingStatus === 'PROCESSING'
+                "
               >
                 @if (summarizing) {
                   <mat-spinner diameter="18" />
@@ -217,7 +270,13 @@
                 }
                 {{ detail?.summary ? 'Re-summarize' : 'Summarize' }}
               </button>
-              <button mat-button color="warn" type="button" (click)="deleteSelected()">
+              <button
+                mat-button
+                color="warn"
+                type="button"
+                (click)="deleteSelected()"
+                [disabled]="detail?.processingStatus === 'PROCESSING'"
+              >
                 <mat-icon>delete</mat-icon>
                 Delete
               </button>

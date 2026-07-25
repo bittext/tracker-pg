@@ -14,4 +14,6 @@ public record ManagementRecordingDetailDto(
         Instant transcribedAt,
         String summary,
         Instant summarizedAt,
-        List<ManagementRecordingTranscriptSegmentDto> segments) {}
+        List<ManagementRecordingTranscriptSegmentDto> segments,
+        String processingStatus,
+        String processingError) {}
