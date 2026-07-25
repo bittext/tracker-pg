@@ -53,16 +53,17 @@ public class CompanyResearchService {
     private final StockNewsService stockNewsService;
 
     @Transactional(readOnly = true)
-    public CompanyEarningsCalendarDto earningsCalendar(LocalDate from, Integer days, Long minMarketCap) {
+    public CompanyEarningsCalendarDto earningsCalendar(
+            LocalDate from, Integer days, Long minMarketCap, boolean cacheOnly) {
         long uid = currentUser.requireUserId();
         LocalDate start = from != null ? from : LocalDate.now(EASTERN);
         int span = days == null ? 7 : Math.max(1, Math.min(days, 31));
-        List<CompanyEarningsEventDto> raw = nasdaqEarningsService.calendar(start, span);
+        NasdaqEarningsService.CalendarSlice slice = nasdaqEarningsService.calendarSlice(start, span, cacheOnly);
         Map<String, FinanceCompanyResearch> watched = indexWatched(
-                uid, raw.stream().map(CompanyEarningsEventDto::symbol).collect(Collectors.toSet()));
+                uid, slice.events().stream().map(CompanyEarningsEventDto::symbol).collect(Collectors.toSet()));
 
         List<CompanyEarningsEventDto> events = new ArrayList<>();
-        for (CompanyEarningsEventDto e : raw) {
+        for (CompanyEarningsEventDto e : slice.events()) {
             if (minMarketCap != null
                     && minMarketCap > 0
                     && (e.marketCapValue() == null || e.marketCapValue() < minMarketCap)) {
@@ -83,7 +84,18 @@ public class CompanyResearchService {
                     card != null,
                     card != null ? card.getDecisionStatus() : null));
         }
-        return new CompanyEarningsCalendarDto(start, start.plusDays(span - 1L), span, events, "nasdaq");
+        String source = cacheOnly
+                ? (slice.partial() ? "nasdaq-buffer" : "nasdaq-cache")
+                : "nasdaq";
+        if (!cacheOnly) {
+            // Prefetch neighboring months into the server buffer so month navigation stays snappy.
+            LocalDate prev = start.minusMonths(1);
+            LocalDate next = start.plusMonths(1);
+            nasdaqEarningsService.warmCalendarAsync(prev.withDayOfMonth(1), prev.lengthOfMonth());
+            nasdaqEarningsService.warmCalendarAsync(next.withDayOfMonth(1), next.lengthOfMonth());
+        }
+        return new CompanyEarningsCalendarDto(
+                start, start.plusDays(span - 1L), span, events, source, slice.partial());
     }
 
     @Transactional(readOnly = true)
@@ -189,11 +201,17 @@ public class CompanyResearchService {
 
         List<CompanyEarningsHistoryRowDto> history = nasdaqEarningsService.earningsHistory(row.getSymbol());
         StockNewsDto news = null;
+        StockNewsDto yahooNews = null;
         if (includeNews) {
             try {
                 news = stockNewsService.fetchAggregatedNews(row.getSymbol(), row.getCompanyName(), NEWS_LIMIT);
             } catch (Exception e) {
                 log.warn("News load failed for {}: {}", row.getSymbol(), e.toString());
+            }
+            try {
+                yahooNews = stockNewsService.fetchYahooNews(row.getSymbol(), row.getCompanyName(), NEWS_LIMIT);
+            } catch (Exception e) {
+                log.warn("Yahoo news load failed for {}: {}", row.getSymbol(), e.toString());
             }
         }
         List<CompanyResearchNoteDto> notes = noteRepository
@@ -201,7 +219,7 @@ public class CompanyResearchService {
                 .stream()
                 .map(n -> toNote(n, row.getSymbol()))
                 .toList();
-        return new CompanyResearchDetailDto(toCard(row), quote, history, news, notes);
+        return new CompanyResearchDetailDto(toCard(row), quote, history, news, yahooNews, notes);
     }
 
     @Transactional(readOnly = true)

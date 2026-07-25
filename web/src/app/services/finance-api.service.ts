@@ -636,7 +636,12 @@ export class FinanceApiService {
   private readonly companyResearchRoot = `${environment.apiBaseUrl}/api/markets/company-research`;
 
   /** Markets → Research → Watch: upcoming earnings calendar (Nasdaq). */
-  companyResearchEarningsCalendar(from?: string | null, days?: number | null, minMarketCap?: number | null) {
+  companyResearchEarningsCalendar(
+    from?: string | null,
+    days?: number | null,
+    minMarketCap?: number | null,
+    cacheOnly?: boolean,
+  ) {
     let params = new HttpParams();
     if (from?.trim()) {
       params = params.set('from', from.trim());
@@ -646,6 +651,9 @@ export class FinanceApiService {
     }
     if (minMarketCap != null && Number.isFinite(minMarketCap) && minMarketCap > 0) {
       params = params.set('minMarketCap', String(Math.floor(minMarketCap)));
+    }
+    if (cacheOnly) {
+      params = params.set('cacheOnly', 'true');
     }
     return this.http.get<CompanyEarningsCalendarDto>(`${this.companyResearchRoot}/earnings-calendar`, { params });
   }

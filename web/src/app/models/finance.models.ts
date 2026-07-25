@@ -1769,6 +1769,8 @@ export interface CompanyEarningsCalendarDto {
   dayCount: number;
   events: CompanyEarningsEventDto[];
   source: string;
+  /** True when some days were served from an incomplete server buffer. */
+  partial?: boolean;
 }
 
 export interface CompanyResearchCardDto {
@@ -1847,6 +1849,7 @@ export interface CompanyResearchDetailDto {
   quote: CompanyQuoteSnapshotDto | null;
   earningsHistory: CompanyEarningsHistoryRowDto[];
   news: StockNewsDto | null;
+  yahooNews?: StockNewsDto | null;
   notes: CompanyResearchNoteDto[];
 }
 

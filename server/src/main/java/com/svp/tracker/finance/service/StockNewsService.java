@@ -190,6 +190,46 @@ public class StockNewsService {
      * {@link #fetchLatestNews}, results are not restricted to the trusted-outlet allowlist, so independent and personal
      * sites surface too; relevance is enforced instead by requiring the ticker or company name in broad search results.
      */
+    /**
+     * Yahoo Finance headline RSS for a single symbol — used by the research detail “Yahoo” news tab.
+     */
+    public StockNewsDto fetchYahooNews(String symbolRaw, String companyNameRaw, Integer limitRaw) {
+        if (!props.newsEnabled()) {
+            throw new IllegalStateException("Stock news endpoint is disabled (tracker.finance.news-enabled=false)");
+        }
+        String symbol = sanitizeSymbol(symbolRaw);
+        if (symbol == null) {
+            throw new IllegalArgumentException("Provide symbol");
+        }
+        String companyName = sanitizeCompanyName(companyNameRaw);
+        int limit = sanitizeAggregateLimit(limitRaw);
+        String sym = encode(symbol.toUpperCase(Locale.ROOT));
+        NewsFeedSource feed = new NewsFeedSource(
+                "Yahoo Finance",
+                "https://feeds.finance.yahoo.com/rss/2.0/headline?s=" + sym + "&region=US&lang=en-US",
+                true);
+        List<StockNewsItemDto> items = dedupeAndSort(fetchFeedItems(feed, symbol, companyName), limit);
+        // Fallback: Google News restricted to Yahoo Finance if the Yahoo RSS feed is empty/blocked.
+        if (items.isEmpty()) {
+            NewsFeedSource fallback = new NewsFeedSource(
+                    "Yahoo via Google",
+                    googleNewsUrl(symbol + " site:finance.yahoo.com when:14d"),
+                    false);
+            items = dedupeAndSort(fetchFeedItems(fallback, symbol, companyName), limit);
+        }
+        StockNewsAnalysisDto analysis = analyze(items);
+        return new StockNewsDto(
+                symbol,
+                companyName,
+                limit,
+                items.size(),
+                "Yahoo Finance",
+                Instant.now().toString(),
+                "Yahoo Finance headlines for " + symbol + ". Open finance.yahoo.com/quote/" + symbol + "/news for the full stream.",
+                analysis,
+                items);
+    }
+
     public StockNewsDto fetchAggregatedNews(String symbolRaw, String companyNameRaw, Integer limitRaw) {
         if (!props.newsEnabled()) {
             throw new IllegalStateException("Stock news endpoint is disabled (tracker.finance.news-enabled=false)");

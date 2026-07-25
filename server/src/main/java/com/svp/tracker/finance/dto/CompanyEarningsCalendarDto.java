@@ -8,4 +8,6 @@ public record CompanyEarningsCalendarDto(
         LocalDate to,
         int dayCount,
         List<CompanyEarningsEventDto> events,
-        String source) {}
+        String source,
+        /** True when some days were served from an incomplete buffer (cache-only / still warming). */
+        boolean partial) {}

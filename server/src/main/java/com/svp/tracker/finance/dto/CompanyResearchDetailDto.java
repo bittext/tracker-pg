@@ -8,4 +8,6 @@ public record CompanyResearchDetailDto(
         CompanyQuoteSnapshotDto quote,
         List<CompanyEarningsHistoryRowDto> earningsHistory,
         StockNewsDto news,
+        /** Yahoo Finance headline RSS for this symbol (dedicated tab). */
+        StockNewsDto yahooNews,
         List<CompanyResearchNoteDto> notes) {}

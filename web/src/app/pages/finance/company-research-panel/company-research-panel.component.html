@@ -62,7 +62,7 @@
         </button>
       </div>
     </div>
-    @if (calendarLoading) {
+    @if (calendarLoading && !calendar) {
       <p class="muted">Loading earnings calendar…</p>
     } @else if (calendar) {
       <div class="cr__calendar-toolbar">
@@ -82,6 +82,9 @@
             {{ calendar!.events.length }} reports
           }
           · {{ calendar!.source }}
+          @if (calendarRefreshing || calendar!.partial) {
+            · updating…
+          }
         </span>
       </div>
       @if (!filteredCalendarCount()) {
@@ -218,21 +221,37 @@
       </div>
 
       @if (nearEarningsCards().length) {
-        <p class="cr__near muted">
-          Near earnings ({{ earningsWindowDays }}d):
-          @for (c of nearEarningsCards(); track c.symbol) {
-            <button
-              type="button"
-              class="cr__near-chip"
-              [class.cr__near-chip--held]="isOpenPosition(c)"
-              [matTooltip]="isOpenPosition(c) ? 'Open position' : ''"
-              (click)="openDetail(c.symbol)"
-            >
-              {{ c.symbol }}
-              <span>{{ c.nextEarningsDate | date: 'MMM d' }}</span>
-            </button>
-          }
-        </p>
+        <div class="cr__near">
+          <div class="cr__near-head">
+            <span class="muted">Near earnings ({{ earningsWindowDays }}d)</span>
+            <span class="muted">{{ nearEarningsCards().length }} · click for details</span>
+          </div>
+          <div class="cr__near-scroll" aria-label="Companies near earnings">
+            @for (c of nearEarningsCards(); track c.symbol) {
+              <button
+                type="button"
+                class="cr__near-chip"
+                [class.cr__near-chip--held]="isOpenPosition(c)"
+                [class.cr__near-chip--active]="selectedSymbol === c.symbol"
+                [attr.aria-label]="
+                  'Open details for ' +
+                  c.symbol +
+                  (c.nextEarningsDate ? ', earnings ' + (c.nextEarningsDate | date: 'MMM d') : '')
+                "
+                [matTooltip]="
+                  'Open ' +
+                  (c.companyName || c.symbol) +
+                  (isOpenPosition(c) ? ' (open position)' : '') +
+                  (c.nextEarningsDate ? ' · ' + (c.nextEarningsDate | date: 'fullDate') : '')
+                "
+                (click)="openNearEarnings(c, $event)"
+              >
+                {{ c.symbol }}
+                <span>{{ c.nextEarningsDate | date: 'MMM d' }}</span>
+              </button>
+            }
+          </div>
+        </div>
       }
 
       @if (listLoading) {
@@ -247,11 +266,15 @@
                 type="button"
                 class="cr__card"
                 [class.cr__card--active]="selectedSymbol === card.symbol"
+                [class.cr__card--bought]="isOpenPosition(card)"
                 (click)="openDetail(card.symbol)"
               >
                 <div class="cr__card-top">
                   <strong class="cr__card-sym">{{ card.symbol }}</strong>
-                  <span class="cr__card-status">{{ statusLabel(card.decisionStatus) }}</span>
+                  <span
+                    class="cr__card-status"
+                    [class.cr__card-status--bought]="isOpenPosition(card)"
+                  >{{ statusLabel(card.decisionStatus) }}</span>
                 </div>
                 <div class="cr__card-name muted">{{ card.companyName || '—' }}</div>
                 <div class="cr__card-foot muted">
@@ -376,33 +399,80 @@
           </div>
         }
 
-        @if (detail.news?.items?.length) {
-          <div class="cr__block">
-            <div class="cr__news-head">
-              <h4 class="cr__block-title">News</h4>
+        <div class="cr__block">
+          <div class="cr__news-head">
+            <h4 class="cr__block-title">News</h4>
+            @if (activeNews(); as n) {
               <span class="muted cr__news-count">
-                {{ detail.news!.items.length }} stories · {{ detail.news!.feed }}
+                {{ n.items.length }} stories · {{ n.feed }}
               </span>
-            </div>
-            @if (detail.news!.analysis; as a) {
+            }
+          </div>
+          <div class="cr__news-tabs">
+            <mat-button-toggle-group
+              [value]="newsTab"
+              (change)="newsTab = $event.value"
+              name="crNewsTab"
+              class="cr__news-toggle"
+            >
+              <mat-button-toggle value="all">
+                All
+                @if (detail.news?.items?.length) {
+                  <span class="cr__news-tab-count">{{ detail.news!.items.length }}</span>
+                }
+              </mat-button-toggle>
+              <mat-button-toggle value="yahoo">
+                Yahoo
+                @if (detail.yahooNews?.items?.length) {
+                  <span class="cr__news-tab-count">{{ detail.yahooNews!.items.length }}</span>
+                }
+              </mat-button-toggle>
+            </mat-button-toggle-group>
+            <a
+              class="cr__link-chip"
+              [href]="yahooNewsUrl(detail.card.symbol)"
+              target="_blank"
+              rel="noopener noreferrer"
+              matTooltip="Open full Yahoo Finance news page"
+            >
+              <mat-icon aria-hidden="true">open_in_new</mat-icon>
+              Yahoo.com
+            </a>
+          </div>
+
+          @if (activeNews(); as n) {
+            @if (n.analysis; as a) {
               <p class="muted cr__news-analysis">
                 Sentiment {{ a.overallSentiment }} · Growth {{ a.projectedGrowthLabel }}
                 ({{ a.projectedGrowthPercent }}%)
               </p>
             }
-            <ul class="cr__news">
-              @for (item of detail.news!.items; track item.url || item.title) {
-                <li>
-                  <a [href]="item.url" target="_blank" rel="noopener noreferrer">{{ item.title }}</a>
-                  <span class="muted">{{ item.source }} · {{ item.publishedAt | date: 'short' }}</span>
-                  @if (item.summary) {
-                    <span class="muted cr__news-summary">{{ item.summary }}</span>
-                  }
-                </li>
-              }
-            </ul>
-          </div>
-        }
+            @if (n.items.length) {
+              <ul class="cr__news">
+                @for (item of n.items; track item.url || item.title) {
+                  <li>
+                    <a [href]="item.url" target="_blank" rel="noopener noreferrer">{{ item.title }}</a>
+                    <span class="muted">{{ item.source }} · {{ item.publishedAt | date: 'short' }}</span>
+                    @if (item.summary) {
+                      <span class="muted cr__news-summary">{{ item.summary }}</span>
+                    }
+                  </li>
+                }
+              </ul>
+            } @else {
+              <p class="muted">
+                @if (newsTab === 'yahoo') {
+                  No Yahoo headlines for {{ detail.card.symbol }} right now.
+                  <a [href]="yahooNewsUrl(detail.card.symbol)" target="_blank" rel="noopener noreferrer">Open on Yahoo</a>
+                } @else {
+                  No aggregated headlines available.
+                }
+              </p>
+            }
+          } @else {
+            <p class="muted">News unavailable for this company.</p>
+          }
+        </div>
 
         <div class="cr__block">
           <h4 class="cr__block-title">Notes</h4>

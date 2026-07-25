@@ -41,9 +41,15 @@ public class CompanyResearchController {
     public CompanyEarningsCalendarDto earningsCalendar(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) Integer days,
-            @RequestParam(required = false) Long minMarketCap) {
-        log.info("GET company-research/earnings-calendar from={} days={} minMarketCap={}", from, days, minMarketCap);
-        return companyResearchService.earningsCalendar(from, days, minMarketCap);
+            @RequestParam(required = false) Long minMarketCap,
+            @RequestParam(required = false, defaultValue = "false") boolean cacheOnly) {
+        log.info(
+                "GET company-research/earnings-calendar from={} days={} minMarketCap={} cacheOnly={}",
+                from,
+                days,
+                minMarketCap,
+                cacheOnly);
+        return companyResearchService.earningsCalendar(from, days, minMarketCap, cacheOnly);
     }
 
     @GetMapping

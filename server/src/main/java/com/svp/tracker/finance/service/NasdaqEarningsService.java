@@ -18,7 +18,12 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,7 +35,8 @@ public class NasdaqEarningsService {
 
     private static final ZoneId EASTERN = ZoneId.of("America/New_York");
     private static final Duration HTTP_TIMEOUT = Duration.ofSeconds(20);
-    private static final Duration DAY_CACHE_TTL = Duration.ofMinutes(15);
+    private static final Duration DAY_CACHE_TTL = Duration.ofMinutes(30);
+    private static final Duration PAST_DAY_CACHE_TTL = Duration.ofHours(6);
     private static final Duration QUOTE_CACHE_TTL = Duration.ofMinutes(5);
     private static final Pattern DIGITS = Pattern.compile("[^0-9]");
     private static final DateTimeFormatter EARNINGS_MSG_DATE =
@@ -39,21 +45,86 @@ public class NasdaqEarningsService {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final HttpClient httpClient = HttpClient.newBuilder().connectTimeout(HTTP_TIMEOUT).build();
     private final ConcurrentHashMap<LocalDate, CachedDay> dayCache = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<LocalDate, AtomicBoolean> dayRefreshInFlight = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, CachedQuote> quoteCache = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, CachedHistory> historyCache = new ConcurrentHashMap<>();
+    private final ExecutorService dayFetchPool = Executors.newFixedThreadPool(8, r -> {
+        Thread t = new Thread(r, "nasdaq-earnings-day");
+        t.setDaemon(true);
+        return t;
+    });
 
+    public record CalendarSlice(List<CompanyEarningsEventDto> events, boolean partial, int cachedDays, int dayCount) {}
+
+    /**
+     * Full calendar for {@code days} starting at {@code from}. Days are fetched in parallel and buffered in
+     * {@link #dayCache}. Expired entries are returned immediately (stale) while a background refresh runs.
+     */
     public List<CompanyEarningsEventDto> calendar(LocalDate from, int days) {
+        return calendarSlice(from, days, false).events();
+    }
+
+    /**
+     * @param cacheOnly when true, only return days already in the buffer (or expired-but-present stale entries) and
+     *     kick a background warm for any missing/expired days — never blocks on Nasdaq for cold misses.
+     */
+    public CalendarSlice calendarSlice(LocalDate from, int days, boolean cacheOnly) {
         LocalDate start = from != null ? from : LocalDate.now(EASTERN);
         int span = Math.max(1, Math.min(days, 31));
-        List<CompanyEarningsEventDto> out = new ArrayList<>();
+        List<LocalDate> dates = new ArrayList<>(span);
         for (int i = 0; i < span; i++) {
-            LocalDate day = start.plusDays(i);
-            out.addAll(eventsForDay(day));
+            dates.add(start.plusDays(i));
         }
-        out.sort(Comparator.comparing(CompanyEarningsEventDto::reportDate)
+
+        if (cacheOnly) {
+            List<CompanyEarningsEventDto> out = new ArrayList<>();
+            int cached = 0;
+            for (LocalDate day : dates) {
+                CachedDay hit = dayCache.get(day);
+                if (hit != null) {
+                    cached++;
+                    out.addAll(hit.events());
+                    if (hit.expiresAt().isBefore(Instant.now())) {
+                        refreshDayAsync(day);
+                    }
+                } else {
+                    refreshDayAsync(day);
+                }
+            }
+            out.sort(eventOrder());
+            boolean partial = cached < span;
+            return new CalendarSlice(out, partial, cached, span);
+        }
+
+        List<CompletableFuture<List<CompanyEarningsEventDto>>> futures = new ArrayList<>(span);
+        for (LocalDate day : dates) {
+            futures.add(CompletableFuture.supplyAsync(() -> eventsForDay(day), dayFetchPool));
+        }
+        List<CompanyEarningsEventDto> out = new ArrayList<>();
+        for (CompletableFuture<List<CompanyEarningsEventDto>> f : futures) {
+            try {
+                out.addAll(f.get(HTTP_TIMEOUT.toMillis() + 5_000L, TimeUnit.MILLISECONDS));
+            } catch (Exception e) {
+                log.warn("Parallel earnings day fetch failed: {}", e.toString());
+            }
+        }
+        out.sort(eventOrder());
+        return new CalendarSlice(out, false, span, span);
+    }
+
+    /** Warm the day buffer for a range without waiting (used when the UI peeks at adjacent months). */
+    public void warmCalendarAsync(LocalDate from, int days) {
+        LocalDate start = from != null ? from : LocalDate.now(EASTERN);
+        int span = Math.max(1, Math.min(days, 31));
+        for (int i = 0; i < span; i++) {
+            refreshDayAsync(start.plusDays(i));
+        }
+    }
+
+    private static Comparator<CompanyEarningsEventDto> eventOrder() {
+        return Comparator.comparing(CompanyEarningsEventDto::reportDate)
                 .thenComparing(e -> e.marketCapValue() == null ? 0L : -e.marketCapValue())
-                .thenComparing(CompanyEarningsEventDto::symbol));
-        return out;
+                .thenComparing(CompanyEarningsEventDto::symbol);
     }
 
     public CompanyQuoteSnapshotDto quote(String symbol) {
@@ -163,6 +234,32 @@ public class NasdaqEarningsService {
         if (cached != null && cached.expiresAt().isAfter(Instant.now())) {
             return cached.events();
         }
+        if (cached != null) {
+            refreshDayAsync(day);
+            return cached.events();
+        }
+        return fetchAndCacheDay(day);
+    }
+
+    private void refreshDayAsync(LocalDate day) {
+        AtomicBoolean gate = dayRefreshInFlight.computeIfAbsent(day, d -> new AtomicBoolean(false));
+        if (!gate.compareAndSet(false, true)) {
+            return;
+        }
+        dayFetchPool.execute(() -> {
+            try {
+                fetchAndCacheDay(day);
+            } finally {
+                gate.set(false);
+            }
+        });
+    }
+
+    private List<CompanyEarningsEventDto> fetchAndCacheDay(LocalDate day) {
+        CachedDay cached = dayCache.get(day);
+        if (cached != null && cached.expiresAt().isAfter(Instant.now())) {
+            return cached.events();
+        }
         try {
             JsonNode root = getJson("https://api.nasdaq.com/api/calendar/earnings?date=" + day);
             JsonNode rows = root != null ? root.path("data").path("rows") : null;
@@ -190,12 +287,20 @@ public class NasdaqEarningsService {
                 }
             }
             List<CompanyEarningsEventDto> frozen = List.copyOf(events);
-            dayCache.put(day, new CachedDay(frozen, Instant.now().plus(DAY_CACHE_TTL)));
+            dayCache.put(day, new CachedDay(frozen, Instant.now().plus(ttlForDay(day))));
             return frozen;
         } catch (Exception e) {
             log.warn("Nasdaq earnings calendar failed for {}: {}", day, e.toString());
             return cached != null ? cached.events() : List.of();
         }
+    }
+
+    private static Duration ttlForDay(LocalDate day) {
+        LocalDate today = LocalDate.now(EASTERN);
+        if (day.isBefore(today)) {
+            return PAST_DAY_CACHE_TTL;
+        }
+        return DAY_CACHE_TTL;
     }
 
     private JsonNode getJson(String url) throws Exception {

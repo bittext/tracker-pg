@@ -82,15 +82,21 @@ export class CompanyResearchPanelComponent implements OnInit {
   selectedSymbol: string | null = null;
 
   calendarLoading = false;
+  /** Soft refresh after a buffered/partial paint — calendar stays interactive. */
+  calendarRefreshing = false;
   listLoading = false;
   detailLoading = false;
   saving = false;
+  newsTab: 'all' | 'yahoo' = 'all';
 
   thesisDraft = '';
   tagsDraft = '';
   noteDraft = '';
   noteTagsDraft = '';
   private searchDebounce: ReturnType<typeof setTimeout> | null = null;
+  /** Client-side month buffer keyed by month|largeCap. */
+  private readonly calendarBuffer = new Map<string, CompanyEarningsCalendarDto>();
+  private calendarLoadGen = 0;
 
   ngOnInit(): void {
     this.refreshAll();
@@ -113,22 +119,95 @@ export class CompanyResearchPanelComponent implements OnInit {
   }
 
   loadCalendar(): void {
-    this.calendarLoading = true;
+    const gen = ++this.calendarLoadGen;
+    const key = this.calendarBufferKey();
+    const buffered = this.calendarBuffer.get(key);
     const minCap = this.largeCapOnly ? 1_000_000_000 : null;
     const days = this.daysInCalendarMonth();
-    this.api.companyResearchEarningsCalendar(this.calendarMonth, days, minCap).subscribe({
+    const month = this.calendarMonth;
+
+    if (buffered) {
+      this.applyCalendar(buffered, false);
+      this.calendarLoading = false;
+      this.calendarRefreshing = true;
+    } else {
+      this.calendarLoading = true;
+      this.calendarRefreshing = false;
+    }
+
+    // Fast path: paint whatever the server already has buffered, then refresh in the background.
+    this.api.companyResearchEarningsCalendar(month, days, minCap, true).subscribe({
       next: (c) => {
-        this.calendar = c;
-        if (!this.selectedCalendarDate.startsWith(this.calendarMonth.slice(0, 7))) {
-          this.selectedCalendarDate = this.firstEventDate() ?? this.calendarMonth;
+        if (gen !== this.calendarLoadGen) {
+          return;
         }
-        this.calendarLoading = false;
+        if (c.events?.length) {
+          this.calendarBuffer.set(key, c);
+          this.applyCalendar(c, false);
+          this.calendarLoading = false;
+          this.calendarRefreshing = true;
+        }
       },
-      error: (err) => {
-        this.calendarLoading = false;
-        this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
+      error: () => {
+        /* full load below is authoritative */
       },
     });
+
+    this.api.companyResearchEarningsCalendar(month, days, minCap, false).subscribe({
+      next: (c) => {
+        if (gen !== this.calendarLoadGen) {
+          return;
+        }
+        this.calendarBuffer.set(key, c);
+        this.applyCalendar(c, true);
+        this.calendarLoading = false;
+        this.calendarRefreshing = false;
+        this.prefetchAdjacentMonths(minCap);
+      },
+      error: (err) => {
+        if (gen !== this.calendarLoadGen) {
+          return;
+        }
+        this.calendarLoading = false;
+        this.calendarRefreshing = false;
+        if (!this.calendar) {
+          this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
+        }
+      },
+    });
+  }
+
+  private applyCalendar(c: CompanyEarningsCalendarDto, preferSelectionFix: boolean): void {
+    this.calendar = c;
+    if (
+      preferSelectionFix
+      || !this.selectedCalendarDate.startsWith(this.calendarMonth.slice(0, 7))
+    ) {
+      if (!this.selectedCalendarDate.startsWith(this.calendarMonth.slice(0, 7))) {
+        this.selectedCalendarDate = this.firstEventDate() ?? this.calendarMonth;
+      }
+    }
+  }
+
+  private calendarBufferKey(): string {
+    return `${this.calendarMonth}|${this.largeCapOnly ? 'lg' : 'all'}`;
+  }
+
+  private prefetchAdjacentMonths(minCap: number | null): void {
+    const [year, month] = this.calendarMonth.split('-').map(Number);
+    for (const offset of [-1, 1]) {
+      const d = new Date(year, month - 1 + offset, 1);
+      const from = this.monthStartIso(d);
+      const days = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+      const key = `${from}|${this.largeCapOnly ? 'lg' : 'all'}`;
+      if (this.calendarBuffer.has(key)) {
+        continue;
+      }
+      this.api.companyResearchEarningsCalendar(from, days, minCap, false).subscribe({
+        next: (c) => this.calendarBuffer.set(key, c),
+        error: () => undefined,
+      });
+    }
   }
 
   loadList(selectSymbol?: string | null): void {
@@ -163,6 +242,7 @@ export class CompanyResearchPanelComponent implements OnInit {
   openDetail(symbol: string): void {
     this.selectedSymbol = symbol;
     this.detailLoading = true;
+    this.newsTab = 'all';
     this.api.companyResearchDetail(symbol, true).subscribe({
       next: (d) => {
         this.detail = d;
@@ -175,6 +255,34 @@ export class CompanyResearchPanelComponent implements OnInit {
         this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
       },
     });
+  }
+
+  activeNews() {
+    if (this.newsTab === 'yahoo') {
+      return this.detail?.yahooNews ?? null;
+    }
+    return this.detail?.news ?? null;
+  }
+
+  yahooNewsUrl(symbol: string): string {
+    return `https://finance.yahoo.com/quote/${encodeURIComponent(symbol.trim().toUpperCase())}/news`;
+  }
+
+  /** Near-earnings chip: open Watch detail and snap the calendar to that report date. */
+  openNearEarnings(card: CompanyResearchCardDto, event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    if (card.nextEarningsDate) {
+      const earnMonth = card.nextEarningsDate.slice(0, 7) + '-01';
+      if (earnMonth !== this.calendarMonth) {
+        this.calendarMonth = earnMonth;
+        this.selectedCalendarDate = card.nextEarningsDate;
+        this.loadCalendar();
+      } else {
+        this.selectedCalendarDate = card.nextEarningsDate;
+      }
+    }
+    this.openDetail(card.symbol);
   }
 
   addFromInput(): void {
@@ -499,6 +607,12 @@ export class CompanyResearchPanelComponent implements OnInit {
         url: `https://finance.yahoo.com/quote/${s}`,
         icon: 'assessment',
         hint: 'Quote, financials, and profile on Yahoo Finance',
+      },
+      {
+        label: 'Yahoo news',
+        url: `https://finance.yahoo.com/quote/${s}/news`,
+        icon: 'newspaper',
+        hint: 'Latest Yahoo Finance headlines for this symbol',
       },
       {
         label: 'Finviz',
