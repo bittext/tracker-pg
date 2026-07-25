@@ -11,7 +11,7 @@
     </parent>
     <groupId>com.svp</groupId>
     <artifactId>tracker-pg-server</artifactId>
-    <version>12.0.1</version>
+    <version>12.0.2</version>
     <name>tracker-pg-server</name>
     <description>Tracker REST API backed by PostgreSQL</description>
     <properties>
