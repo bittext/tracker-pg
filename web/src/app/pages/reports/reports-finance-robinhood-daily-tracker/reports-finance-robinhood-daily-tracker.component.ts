@@ -94,6 +94,10 @@ export interface RhDailyFocusPoint {
   alert: RhDailyTrackerSnapshotAlertDto;
   x: number;
   y: number;
+  /** Day-over-day tone vs prior 9 PM column (previous scheduled close). */
+  tone: 'up' | 'down' | 'flat';
+  /** 0–100 shade intensity relative to largest |Δ| in the series. */
+  heat: number;
 }
 
 export interface RhDailyBenchmarkPoint {
@@ -1049,24 +1053,45 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     const range = Math.max(max - min, 0.01);
     const xDenominator = Math.max(raw.length - 1, 1);
     const yForReturn = (returnPercent: number) => 36 - ((returnPercent - min) / range) * 32;
+    let maxAbsChange = 0;
+    for (const { cell } of raw) {
+      maxAbsChange = Math.max(maxAbsChange, Math.abs(cell.totalChangeFromPrevious ?? 0));
+    }
     return {
-      account: raw.map(({ day, cell }, index) => ({
-        key: day.snapshotDate,
-        label: day.snapshotDate.slice(5),
-        value: cell.totalAccountValue,
-        returnPercent: accountReturns[index],
-        change: cell.totalChangeFromPrevious,
-        changePercent: this.deltaPercentForCurrent(cell.totalAccountValue, cell.totalChangeFromPrevious),
-        periodAdded: cell.periodAdded,
-        periodRemoved: cell.periodRemoved,
-        periodValueChange: cell.periodValueChange,
-        tradeCount: cell.tradeCount,
-        positionsChanged: cell.positionsChangedFromPrior,
-        hasAlert: this.hasSpikeAlert(cell.spikeAlert),
-        alert: cell.spikeAlert,
-        x: (index / xDenominator) * 100,
-        y: yForReturn(accountReturns[index]),
-      })),
+      account: raw.map(({ day, cell }, index) => {
+        const change = cell.totalChangeFromPrevious ?? 0;
+        let tone: 'up' | 'down' | 'flat' = 'flat';
+        if (change > 0) {
+          tone = 'up';
+        } else if (change < 0) {
+          tone = 'down';
+        }
+        const heat =
+          tone === 'flat'
+            ? 28
+            : maxAbsChange > 0
+              ? Math.round(28 + (Math.abs(change) / maxAbsChange) * 72)
+              : 40;
+        return {
+          key: day.snapshotDate,
+          label: day.snapshotDate.slice(5),
+          value: cell.totalAccountValue,
+          returnPercent: accountReturns[index],
+          change,
+          changePercent: this.deltaPercentForCurrent(cell.totalAccountValue, change),
+          periodAdded: cell.periodAdded,
+          periodRemoved: cell.periodRemoved,
+          periodValueChange: cell.periodValueChange,
+          tradeCount: cell.tradeCount,
+          positionsChanged: cell.positionsChangedFromPrior,
+          hasAlert: this.hasSpikeAlert(cell.spikeAlert),
+          alert: cell.spikeAlert,
+          x: (index / xDenominator) * 100,
+          y: yForReturn(accountReturns[index]),
+          tone,
+          heat,
+        };
+      }),
       benchmark: benchmarkValues.map((point) => ({
         key: point.key,
         label: point.label,

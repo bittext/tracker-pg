@@ -39,21 +39,36 @@
   <div class="tj__layout">
     <aside class="tj__side">
       @if (reportMonth > 0) {
-        <div class="tj__cal" aria-label="Month heatmap">
-          @for (day of calendarDays(); track day.date) {
-            <button
-              type="button"
-              class="tj__cal-day"
-              [class.tj__cal-day--journal]="day.hasJournal"
-              [class.tj__cal-day--selected]="day.isSelected"
-              [class.tj__cal-day--up]="day.tone === 'up'"
-              [class.tj__cal-day--down]="day.tone === 'down'"
-              [style.--tj-heat]="day.heat + '%'"
-              (click)="openDay(day.date, false)"
-              [matTooltip]="day.tooltip"
-            >
-              {{ day.date.slice(8) }}
-            </button>
+        <div class="tj__cal" aria-label="Month calendar">
+          <div class="tj__cal-title">{{ calendarTitle() }}</div>
+          <div class="tj__cal-weekdays" role="row">
+            @for (wd of weekDays; track wd) {
+              <span class="tj__cal-weekday" role="columnheader">{{ wd }}</span>
+            }
+          </div>
+          @for (row of calendarRows(); track $index) {
+            <div class="tj__cal-week" role="row">
+              @for (cell of row; track cell.trackKey) {
+                @if (cell.type === 'pad') {
+                  <div class="tj__cal-day tj__cal-day--pad" aria-hidden="true"></div>
+                } @else {
+                  <button
+                    type="button"
+                    class="tj__cal-day"
+                    [class.tj__cal-day--journal]="cell.hasJournal"
+                    [class.tj__cal-day--selected]="cell.isSelected"
+                    [class.tj__cal-day--today]="cell.isToday"
+                    [class.tj__cal-day--up]="cell.tone === 'up'"
+                    [class.tj__cal-day--down]="cell.tone === 'down'"
+                    [style.--tj-heat]="cell.heat + '%'"
+                    (click)="openDay(cell.date, false)"
+                    [matTooltip]="cell.tooltip"
+                  >
+                    {{ cell.label }}
+                  </button>
+                }
+              }
+            </div>
           }
         </div>
       }

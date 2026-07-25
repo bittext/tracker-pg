@@ -83,14 +83,18 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
   private readonly dayLoad$ = new Subject<{ date: string; create: boolean; force: boolean }>();
   private dayLoadSub: Subscription | null = null;
   private previewLoadToken = 0;
-  private calendarDaysCache: {
+  private calendarRowsCache: {
+    type: 'pad' | 'day';
+    trackKey: string;
     date: string;
+    label: string;
     hasJournal: boolean;
     isSelected: boolean;
+    isToday: boolean;
     tone: 'up' | 'down' | null;
     heat: number;
     tooltip: string;
-  }[] = [];
+  }[][] = [];
   private calendarDaysKey = '';
 
   titleDraft = '';
@@ -103,6 +107,8 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
   refSymbol = '';
   refUrl = '';
   refLabel = '';
+
+  readonly weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   readonly monthChoices: { value: number; label: string }[] = [
     { value: 0, label: 'All months' },
@@ -510,23 +516,37 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
     });
   }
 
-  calendarDays(): {
+  calendarTitle(): string {
+    const month = this.reportMonth === 0 ? new Date().getMonth() + 1 : this.reportMonth;
+    return new Date(this.reportYear, month - 1, 1).toLocaleString(undefined, {
+      month: 'long',
+      year: 'numeric',
+    });
+  }
+
+  calendarRows(): {
+    type: 'pad' | 'day';
+    trackKey: string;
     date: string;
+    label: string;
     hasJournal: boolean;
     isSelected: boolean;
+    isToday: boolean;
     tone: 'up' | 'down' | null;
     heat: number;
     tooltip: string;
-  }[] {
+  }[][] {
     const month = this.reportMonth === 0 ? new Date().getMonth() + 1 : this.reportMonth;
     const year = this.reportYear;
-    const key = `${year}-${month}-${this.journalDates.join(',')}-${this.selectedDate ?? ''}-${this.monthCloseDays
+    const today = this.todayIso();
+    const key = `${year}-${month}-${this.journalDates.join(',')}-${this.selectedDate ?? ''}-${today}-${this.monthCloseDays
       .map((d) => `${d.snapshotDate}:${d.changeFromPrevious}`)
       .join('|')}`;
     if (key === this.calendarDaysKey) {
-      return this.calendarDaysCache;
+      return this.calendarRowsCache;
     }
     const daysInMonth = new Date(year, month, 0).getDate();
+    const firstDow = new Date(year, month - 1, 1).getDay();
     const journal = new Set(this.journalDates);
     const byDate = new Map(this.monthCloseDays.map((d) => [d.snapshotDate, d]));
     let maxAbs = 0;
@@ -536,14 +556,35 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
       }
       maxAbs = Math.max(maxAbs, Math.abs(d.changeFromPrevious ?? 0));
     }
-    const out: {
+
+    type CalCell = {
+      type: 'pad' | 'day';
+      trackKey: string;
       date: string;
+      label: string;
       hasJournal: boolean;
       isSelected: boolean;
+      isToday: boolean;
       tone: 'up' | 'down' | null;
       heat: number;
       tooltip: string;
-    }[] = [];
+    };
+
+    const flat: CalCell[] = [];
+    for (let i = 0; i < firstDow; i++) {
+      flat.push({
+        type: 'pad',
+        trackKey: `pad-lead-${i}`,
+        date: '',
+        label: '',
+        hasJournal: false,
+        isSelected: false,
+        isToday: false,
+        tone: null,
+        heat: 0,
+        tooltip: '',
+      });
+    }
     for (let d = 1; d <= daysInMonth; d++) {
       const date = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const cell = byDate.get(date);
@@ -565,18 +606,41 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
         })}`;
         tooltip = `${date} · Δ prior close ${signed}`;
       }
-      out.push({
+      flat.push({
+        type: 'day',
+        trackKey: `d-${date}`,
         date,
+        label: String(d),
         hasJournal: journal.has(date),
         isSelected: this.selectedDate === date,
+        isToday: today === date,
         tone,
         heat,
         tooltip,
       });
     }
+    let pad = 0;
+    while (flat.length % 7 !== 0) {
+      flat.push({
+        type: 'pad',
+        trackKey: `pad-tail-${pad++}`,
+        date: '',
+        label: '',
+        hasJournal: false,
+        isSelected: false,
+        isToday: false,
+        tone: null,
+        heat: 0,
+        tooltip: '',
+      });
+    }
+    const rows: CalCell[][] = [];
+    for (let i = 0; i < flat.length; i += 7) {
+      rows.push(flat.slice(i, i + 7));
+    }
     this.calendarDaysKey = key;
-    this.calendarDaysCache = out;
-    return out;
+    this.calendarRowsCache = rows;
+    return rows;
   }
 
   private static readonly JOURNAL_FOCUS_ACCOUNT_SUFFIXES = new Set(['3370', '3550', '8696']);

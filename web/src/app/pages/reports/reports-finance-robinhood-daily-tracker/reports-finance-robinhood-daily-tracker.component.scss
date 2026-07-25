@@ -1339,6 +1339,22 @@
     height: 0.28rem;
   }
 
+  &--up {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: #16a34a;
+    box-shadow: 0 0 0 1.5px rgba(22, 163, 74, 0.28);
+  }
+
+  &--down {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: #dc2626;
+    box-shadow: 0 0 0 1.5px rgba(220, 38, 38, 0.28);
+  }
+
   &--sp {
     background: repeating-linear-gradient(
       90deg,
@@ -1349,10 +1365,11 @@
   }
 
   &--alert {
-    width: 0.55rem;
-    height: 0.55rem;
+    width: 0.42rem;
+    height: 0.42rem;
     border-radius: 50%;
-    background: #b91c1c;
+    background: transparent;
+    box-shadow: 0 0 0 1.5px #7c3aed;
   }
 }
 
@@ -1384,10 +1401,15 @@
   padding-bottom: 1.15rem;
 }
 
+.rh-daily__focus-plot-canvas {
+  position: relative;
+  height: 11.5rem;
+}
+
 .rh-daily__focus-chart {
   display: block;
   width: 100%;
-  height: 11.5rem;
+  height: 100%;
   overflow: visible;
 }
 
@@ -1440,33 +1462,65 @@
   pointer-events: none;
 }
 
-.rh-daily__focus-point {
-  fill: #2563eb;
-  stroke: #fff;
-  stroke-width: 0.65;
-  vector-effect: non-scaling-stroke;
+.rh-daily__focus-hit {
+  fill: transparent;
+  stroke: transparent;
   cursor: pointer;
-  transition:
-    r 0.15s ease,
-    stroke-width 0.15s ease;
+  outline: none;
+}
 
-  &:hover,
-  &:focus {
-    stroke: #1e3a8a;
-    stroke-width: 1.5;
-    outline: none;
+.rh-daily__focus-dot-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.rh-daily__focus-dot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid #fff;
+  transform: translate(-50%, -50%);
+  --rh-heat: 40%;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
+  transition:
+    width 0.15s ease,
+    height 0.15s ease,
+    box-shadow 0.15s ease;
+
+  &--up {
+    background: color-mix(in srgb, #16a34a var(--rh-heat), #bbf7d0);
+  }
+
+  &--down {
+    background: color-mix(in srgb, #dc2626 var(--rh-heat), #fecaca);
+  }
+
+  &--flat {
+    background: #94a3b8;
   }
 
   &--alert {
-    fill: #b91c1c;
-    stroke: #fee2e2;
-    stroke-width: 1.2;
+    box-shadow:
+      0 0 0 2px rgba(124, 58, 237, 0.55),
+      0 1px 2px rgba(15, 23, 42, 0.16);
   }
 
   &--selected {
-    fill: #1d4ed8;
-    stroke: #dbeafe;
-    stroke-width: 2.1;
+    width: 10px;
+    height: 10px;
+    box-shadow:
+      0 0 0 2px rgba(37, 99, 235, 0.45),
+      0 1px 3px rgba(15, 23, 42, 0.2);
+  }
+
+  &--alert.rh-daily__focus-dot--selected {
+    box-shadow:
+      0 0 0 2px rgba(124, 58, 237, 0.65),
+      0 0 0 4px rgba(37, 99, 235, 0.28),
+      0 1px 3px rgba(15, 23, 42, 0.2);
   }
 }
 

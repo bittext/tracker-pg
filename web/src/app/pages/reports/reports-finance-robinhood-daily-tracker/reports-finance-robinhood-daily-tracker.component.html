@@ -505,14 +505,19 @@
               <div class="rh-daily__focus-chart-title-block">
                 <h4 class="rh-daily__focus-chart-title">9 PM return vs S&amp;P</h4>
                 <p class="rh-daily__focus-chart-sub muted">
-                  ••••{{ focusAccountSuffix }} vs buy-and-hold from launch-day stake · hover for dollars
+                  ••••{{ focusAccountSuffix }} vs buy-and-hold from launch-day stake · dots shade by Δ vs prior 9
+                  PM
                 </p>
               </div>
               <div class="rh-daily__focus-chart-toolbar">
                 <ul class="rh-daily__focus-legend" aria-label="Chart legend">
                   <li>
-                    <span class="rh-daily__focus-legend-swatch rh-daily__focus-legend-swatch--account"></span>
-                    ••••{{ focusAccountSuffix }}
+                    <span class="rh-daily__focus-legend-swatch rh-daily__focus-legend-swatch--up"></span>
+                    Up day
+                  </li>
+                  <li>
+                    <span class="rh-daily__focus-legend-swatch rh-daily__focus-legend-swatch--down"></span>
+                    Down day
                   </li>
                   @if (sp500BenchmarkPoints().length) {
                     <li>
@@ -538,77 +543,93 @@
                 }
               </div>
               <div class="rh-daily__focus-plot">
-                <svg
-                  class="rh-daily__focus-chart"
-                  viewBox="0 0 100 40"
-                  preserveAspectRatio="none"
-                  role="img"
-                  [attr.aria-label]="'Percent return chart for ••••' + focusAccountSuffix + ' vs S&P buy-and-hold'"
-                >
-                  <line x1="0" y1="4" x2="100" y2="4" class="rh-daily__focus-grid" />
-                  <line x1="0" y1="20" x2="100" y2="20" class="rh-daily__focus-grid" />
-                  <line x1="0" y1="36" x2="100" y2="36" class="rh-daily__focus-axis" />
-                  @if (focusZeroLineY() != null) {
-                    <line
-                      x1="0"
-                      [attr.y1]="focusZeroLineY()"
-                      x2="100"
-                      [attr.y2]="focusZeroLineY()"
-                      class="rh-daily__focus-zero"
-                    />
-                  }
-                  <path [attr.d]="focusAreaPath()" class="rh-daily__focus-area" />
-                  <path [attr.d]="focusTrendPath()" class="rh-daily__focus-line" />
-                  @if (sp500TrendPath()) {
-                    <path [attr.d]="sp500TrendPath()" class="rh-daily__benchmark-line" />
-                    @for (point of sp500BenchmarkPoints(); track point.key) {
+                <div class="rh-daily__focus-plot-canvas">
+                  <svg
+                    class="rh-daily__focus-chart"
+                    viewBox="0 0 100 40"
+                    preserveAspectRatio="none"
+                    role="img"
+                    [attr.aria-label]="'Percent return chart for ••••' + focusAccountSuffix + ' vs S&P buy-and-hold'"
+                  >
+                    <line x1="0" y1="4" x2="100" y2="4" class="rh-daily__focus-grid" />
+                    <line x1="0" y1="20" x2="100" y2="20" class="rh-daily__focus-grid" />
+                    <line x1="0" y1="36" x2="100" y2="36" class="rh-daily__focus-axis" />
+                    @if (focusZeroLineY() != null) {
+                      <line
+                        x1="0"
+                        [attr.y1]="focusZeroLineY()"
+                        x2="100"
+                        [attr.y2]="focusZeroLineY()"
+                        class="rh-daily__focus-zero"
+                      />
+                    }
+                    <path [attr.d]="focusAreaPath()" class="rh-daily__focus-area" />
+                    <path [attr.d]="focusTrendPath()" class="rh-daily__focus-line" />
+                    @if (sp500TrendPath()) {
+                      <path [attr.d]="sp500TrendPath()" class="rh-daily__benchmark-line" />
+                      @for (point of sp500BenchmarkPoints(); track point.key) {
+                        <circle
+                          [attr.cx]="point.x"
+                          [attr.cy]="point.y"
+                          r="0.85"
+                          class="rh-daily__benchmark-point"
+                        >
+                          <title>
+                            {{ point.key }} · S&amp;P {{ formatFocusReturn(point.returnPercent) }} ·
+                            {{ point.value | currency }}
+                            ({{ point.launchInvestment | currency }} invested {{ point.launchDate }}) · index
+                            {{ point.indexClose | number: '1.2-2' }}
+                            @if (point.marketDate !== point.key) { · market close from {{ point.marketDate }} }
+                          </title>
+                        </circle>
+                      }
+                    }
+                    @for (point of focusPoints(); track point.key) {
                       <circle
                         [attr.cx]="point.x"
                         [attr.cy]="point.y"
-                        r="0.85"
-                        class="rh-daily__benchmark-point"
+                        r="1.6"
+                        class="rh-daily__focus-hit"
+                        role="button"
+                        tabindex="0"
+                        [attr.aria-label]="
+                          'Open details for ' +
+                          point.key +
+                          ', return ' +
+                          formatFocusReturn(point.returnPercent) +
+                          ', value ' +
+                          (point.value | currency)
+                        "
+                        (click)="selectFocusPoint(point.key, $event)"
+                        (keydown.enter)="selectFocusPoint(point.key, $event)"
+                        (keydown.space)="selectFocusPoint(point.key, $event)"
                       >
                         <title>
-                          {{ point.key }} · S&amp;P {{ formatFocusReturn(point.returnPercent) }} ·
-                          {{ point.value | currency }}
-                          ({{ point.launchInvestment | currency }} invested {{ point.launchDate }}) · index
-                          {{ point.indexClose | number: '1.2-2' }}
-                          @if (point.marketDate !== point.key) { · market close from {{ point.marketDate }} }
+                          {{ point.key }} · {{ formatFocusReturn(point.returnPercent) }} · value
+                          {{ point.value | currency }} · Δ prior
+                          {{ point.change | currency }}
+                          @if (point.changePercent != null) { ({{ point.changePercent | number: '1.2-2' }}%) }
+                          @if (point.hasAlert) { · alert fired: {{ alertTriggerLabel(point.alert.triggerReasons || '') }} }
                         </title>
                       </circle>
                     }
-                  }
-                  @for (point of focusPoints(); track point.key) {
-                    <circle
-                      [attr.cx]="point.x"
-                      [attr.cy]="point.y"
-                      [attr.r]="isFocusPointSelected(point.key) ? 2.2 : point.hasAlert ? 1.7 : 1.1"
-                      [class.rh-daily__focus-point--alert]="point.hasAlert"
-                      [class.rh-daily__focus-point--selected]="isFocusPointSelected(point.key)"
-                      class="rh-daily__focus-point"
-                      role="button"
-                      tabindex="0"
-                      [attr.aria-label]="
-                        'Open details for ' +
-                        point.key +
-                        ', return ' +
-                        formatFocusReturn(point.returnPercent) +
-                        ', value ' +
-                        (point.value | currency)
-                      "
-                      (click)="selectFocusPoint(point.key, $event)"
-                      (keydown.enter)="selectFocusPoint(point.key, $event)"
-                      (keydown.space)="selectFocusPoint(point.key, $event)"
-                    >
-                      <title>
-                        {{ point.key }} · {{ formatFocusReturn(point.returnPercent) }} · value
-                        {{ point.value | currency }} · change {{ point.change | currency }}
-                        @if (point.changePercent != null) { ({{ point.changePercent | number: '1.2-2' }}%) }
-                        @if (point.hasAlert) { · alert fired: {{ alertTriggerLabel(point.alert.triggerReasons || '') }} }
-                      </title>
-                    </circle>
-                  }
-                </svg>
+                  </svg>
+                  <div class="rh-daily__focus-dot-layer" aria-hidden="true">
+                    @for (point of focusPoints(); track point.key) {
+                      <span
+                        class="rh-daily__focus-dot"
+                        [class.rh-daily__focus-dot--up]="point.tone === 'up'"
+                        [class.rh-daily__focus-dot--down]="point.tone === 'down'"
+                        [class.rh-daily__focus-dot--flat]="point.tone === 'flat'"
+                        [class.rh-daily__focus-dot--alert]="point.hasAlert"
+                        [class.rh-daily__focus-dot--selected]="isFocusPointSelected(point.key)"
+                        [style.--rh-heat]="point.heat + '%'"
+                        [style.left.%]="point.x"
+                        [style.top.%]="(point.y / 40) * 100"
+                      ></span>
+                    }
+                  </div>
+                </div>
                 <div class="rh-daily__focus-labels" aria-hidden="true">
                   @for (point of focusXAxisLabels(); track point.key) {
                     <span [style.left.%]="point.x">{{ point.label }}</span>
