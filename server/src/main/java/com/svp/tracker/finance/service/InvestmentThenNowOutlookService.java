@@ -2,8 +2,10 @@ package com.svp.tracker.finance.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.FinanceProperties;
 import com.svp.tracker.config.RobinhoodRhDailyTrackerProperties;
@@ -94,7 +96,9 @@ public class InvestmentThenNowOutlookService {
     private final FinanceInvestmentThenNowOutlookRepository outlookRepository;
     private final StockNewsService stockNewsService;
     private final RhDailyTrackerOpenAiClient openAiClient;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper = new ObjectMapper()
+            .registerModule(new JavaTimeModule())
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     private final HttpClient httpClient =
             HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(15)).build();
     /** ownerUserId → last successful generate Instant (in-memory rate limit). */
@@ -156,7 +160,9 @@ public class InvestmentThenNowOutlookService {
         try {
             row.setOutlookJson(objectMapper.writeValueAsString(parsed));
         } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Could not persist outlook");
+            log.error("Could not serialize outlook JSON for owner={}", owner, e);
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR, "Could not persist outlook: " + e.getMessage());
         }
         row.setScenarioIds(scenarioKey(scenarios));
         row.setGeneratedAt(now);

@@ -41,8 +41,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Answers “$X invested on date in SYMBOL — worth now?” using Nasdaq daily closes (Alpha Vantage fallback),
- * and can persist the answer per user for reference.
+ * Answers “$X invested on date in SYMBOL — worth now?” using split-adjusted daily closes
+ * (Nasdaq chart primary; Alpha Vantage compact daily + SPLITS fallback), and can persist the answer
+ * per user for reference. Dividends / DRIP are not modeled.
  */
 @Service
 @RequiredArgsConstructor
@@ -280,8 +281,8 @@ public class InvestmentThenNowService {
     }
 
     /**
-     * Nasdaq chart first (no API key; works from datacenter IPs). Alpha Vantage compact daily is the
-     * fallback when a key is configured. Yahoo is intentionally not used — it rate-limits server IPs.
+     * Nasdaq chart first (no API key; closes are split-adjusted). Alpha Vantage compact daily + SPLITS
+     * is the fallback when a key is configured. Yahoo is intentionally not used — it rate-limits server IPs.
      */
     private ChartSnapshot loadPrices(String symbol, LocalDate asOf, LocalDate today) {
         String cacheKey = symbol + "|" + asOf + "|" + today;
@@ -389,13 +390,14 @@ public class InvestmentThenNowService {
             company = fallbackSymbol;
         }
         Double live = money(data.get("lastSalePrice"));
-        return new ChartSnapshot(company, live, bars, "nasdaq-chart");
+        return new ChartSnapshot(company, live, bars, "nasdaq-chart-split-adj");
     }
 
     /**
-     * Alpha Vantage TIME_SERIES_DAILY (free tier). Returns null when no key is configured or the call fails.
-     * Gated on the key alone rather than {@code alphaVantageEnabled}, because that flag also starts the hourly
-     * quote crawler, which would exhaust the free-tier daily quota. This call only runs on user request.
+     * Alpha Vantage TIME_SERIES_DAILY (free tier) plus SPLITS for split-adjusted closes.
+     * Returns null when no key is configured or the call fails. Gated on the key alone rather than
+     * {@code alphaVantageEnabled}, because that flag also starts the hourly quote crawler.
+     * TIME_SERIES_DAILY_ADJUSTED is premium-only, so we adjust raw closes with SPLITS ourselves.
      */
     private ChartSnapshot fetchAlphaVantageDaily(String symbol, List<String> errors) {
         String key = props.alphaVantageApiKey();
@@ -452,13 +454,98 @@ public class InvestmentThenNowService {
                 errors.add("alpha-vantage empty bars");
                 return null;
             }
-            log.info("then/now used Alpha Vantage daily for {}", symbol);
-            return new ChartSnapshot(symbol, null, bars, "alpha-vantage-daily");
+            List<SplitEvent> splits = fetchAlphaVantageSplits(symbol, key, timeoutMs, errors);
+            NavigableMap<LocalDate, Double> adjusted = applySplitAdjustment(bars, splits);
+            log.info(
+                    "then/now used Alpha Vantage daily (split-adjusted, {} splits) for {}",
+                    splits.size(),
+                    symbol);
+            return new ChartSnapshot(symbol, null, adjusted, "alpha-vantage-daily-split-adj");
         } catch (Exception e) {
             errors.add("alpha-vantage " + e.getMessage());
             log.warn("Alpha Vantage fallback failed for {}: {}", symbol, e.toString());
             return null;
         }
+    }
+
+    private List<SplitEvent> fetchAlphaVantageSplits(
+            String symbol, String key, int timeoutMs, List<String> errors) {
+        try {
+            String url = props.alphaVantageBaseUrl()
+                    + "?function=SPLITS&symbol="
+                    + URLEncoder.encode(symbol, StandardCharsets.UTF_8)
+                    + "&apikey="
+                    + URLEncoder.encode(key, StandardCharsets.UTF_8);
+            HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+                    .GET()
+                    .timeout(Duration.ofMillis(timeoutMs))
+                    .header("Accept", "application/json")
+                    .build();
+            HttpResponse<String> resp =
+                    httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
+                errors.add("alpha-vantage splits HTTP " + resp.statusCode());
+                return List.of();
+            }
+            JsonNode payload = objectMapper.readTree(resp.body());
+            JsonNode data = payload.path("data");
+            if (!data.isArray()) {
+                String notice = firstText(payload, "Information", "Note", "Error Message");
+                if (!notice.isBlank()) {
+                    errors.add("alpha-vantage splits " + notice);
+                    log.warn("Alpha Vantage SPLITS unavailable for {}: {}", symbol, notice);
+                }
+                return List.of();
+            }
+            List<SplitEvent> splits = new ArrayList<>();
+            for (JsonNode row : data) {
+                String dateText = text(row.get("effective_date"));
+                Double factor = dbl(row.get("split_factor"));
+                if (dateText.isBlank() || factor == null || factor <= 0) {
+                    continue;
+                }
+                try {
+                    splits.add(new SplitEvent(LocalDate.parse(dateText), factor));
+                } catch (DateTimeParseException ignored) {
+                    // skip malformed rows
+                }
+            }
+            splits.sort((a, b) -> a.effectiveDate().compareTo(b.effectiveDate()));
+            return List.copyOf(splits);
+        } catch (Exception e) {
+            errors.add("alpha-vantage splits " + e.getMessage());
+            log.warn("Alpha Vantage SPLITS failed for {}: {}", symbol, e.toString());
+            return List.of();
+        }
+    }
+
+    /**
+     * Puts raw closes on today's share basis: for each bar, divide by the product of split factors
+     * whose effective date is strictly after the bar date (that day's close is already post-split).
+     */
+    static NavigableMap<LocalDate, Double> applySplitAdjustment(
+            NavigableMap<LocalDate, Double> rawBars, List<SplitEvent> splits) {
+        if (rawBars == null || rawBars.isEmpty()) {
+            return rawBars == null ? new TreeMap<>() : rawBars;
+        }
+        if (splits == null || splits.isEmpty()) {
+            return rawBars;
+        }
+        NavigableMap<LocalDate, Double> out = new TreeMap<>();
+        for (var e : rawBars.entrySet()) {
+            LocalDate barDate = e.getKey();
+            double factor = 1.0;
+            for (SplitEvent split : splits) {
+                if (split.effectiveDate().isAfter(barDate)) {
+                    factor *= split.splitFactor();
+                }
+            }
+            double adj = e.getValue() / factor;
+            if (Double.isFinite(adj) && adj > 0) {
+                out.put(barDate, adj);
+            }
+        }
+        return out;
     }
 
     private static String firstText(JsonNode node, String... fields) {
@@ -497,9 +584,9 @@ public class InvestmentThenNowService {
                 Locale.US,
                 "If $%,.2f were invested in %s stocks on %s, it would be worth about $%,.2f now "
                         + "(as of the %s close). That is a %s of $%,.2f (%+.2f%%). "
-                        + "At an adjusted close of $%,.4f on %s, that purchase would have bought about %,.4f shares; "
+                        + "At a split-adjusted close of $%,.4f on %s, that purchase would have bought about %,.4f shares; "
                         + "marked at $%,.4f today, those shares are worth $%,.2f.%s "
-                        + "Prices use Nasdaq daily closes (educational estimate, not investment advice).",
+                        + "Prices use split-adjusted daily closes (educational estimate, not investment advice; dividends/DRIP not included).",
                 invested,
                 nameLabel,
                 requestedAsOf.format(LONG_DATE),
@@ -602,4 +689,7 @@ public class InvestmentThenNowService {
             String companyName, Double regularMarketPrice, NavigableMap<LocalDate, Double> bars, String source) {}
 
     private record CachedChart(Instant fetchedAt, ChartSnapshot snapshot) {}
+
+    /** Corporate split used to put historical closes on today's share basis. */
+    record SplitEvent(LocalDate effectiveDate, double splitFactor) {}
 }
