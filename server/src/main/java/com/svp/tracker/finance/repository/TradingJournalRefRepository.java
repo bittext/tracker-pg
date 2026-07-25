@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface TradingJournalRefRepository extends JpaRepository<TradingJournalRef, Long> {
 
+    long countByEntryIdAndOwnerUserId(long entryId, long ownerUserId);
+
     List<TradingJournalRef> findByEntryIdAndOwnerUserIdOrderByCreatedAtDesc(long entryId, long ownerUserId);
 
     Optional<TradingJournalRef> findByIdAndOwnerUserId(long id, long ownerUserId);

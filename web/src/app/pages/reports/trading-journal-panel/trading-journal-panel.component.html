@@ -46,7 +46,7 @@
               class="tj__cal-day"
               [class.tj__cal-day--journal]="day.hasJournal"
               [class.tj__cal-day--selected]="day.isSelected"
-              (click)="openDay(day.date, day.hasJournal)"
+              (click)="openDay(day.date, false)"
               [matTooltip]="day.date"
             >
               {{ day.date.slice(8) }}
@@ -115,7 +115,12 @@
           <div class="tj__wrap-head">
             <h3>Daily wrap</h3>
             <div class="tj__wrap-actions">
-              <button mat-stroked-button type="button" (click)="openDay(selectedDate!, !!detail.entry)" [disabled]="detailLoading">
+              <button
+                mat-stroked-button
+                type="button"
+                (click)="openDay(selectedDate!, false, true)"
+                [disabled]="detailLoading"
+              >
                 Refresh wrap
               </button>
               <button

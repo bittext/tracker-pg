@@ -410,9 +410,8 @@ public class TradingJournalService {
     }
 
     private TradingJournalEntrySummaryDto toSummary(TradingJournalEntry e) {
-        int refs = refRepository.findByEntryIdAndOwnerUserIdOrderByCreatedAtDesc(e.getId(), e.getOwnerUserId()).size();
-        int atts =
-                attachmentRepository.findByEntryIdAndOwnerUserIdOrderByCreatedAtDesc(e.getId(), e.getOwnerUserId()).size();
+        int refs = (int) refRepository.countByEntryIdAndOwnerUserId(e.getId(), e.getOwnerUserId());
+        int atts = (int) attachmentRepository.countByEntryIdAndOwnerUserId(e.getId(), e.getOwnerUserId());
         String body = e.getBodyMarkdown() == null ? "" : e.getBodyMarkdown().trim();
         String preview = body.length() <= 160 ? body : body.substring(0, 160) + "…";
         return new TradingJournalEntrySummaryDto(

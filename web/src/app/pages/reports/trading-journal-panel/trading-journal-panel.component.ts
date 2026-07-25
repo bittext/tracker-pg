@@ -10,9 +10,20 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import {
+  Observable,
+  Subject,
+  Subscription,
+  catchError,
+  finalize,
+  of,
+  switchMap,
+  tap,
+} from 'rxjs';
+import {
   RobinhoodRhDailyTrackerDayDto,
   TradingJournalAttachmentDto,
   TradingJournalDayDetailDto,
+  TradingJournalEntryDto,
   TradingJournalEntrySummaryDto,
 } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
@@ -64,6 +75,14 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
   /** Authenticated thumbnail blob URLs keyed by attachment id. */
   readonly imagePreviewUrls = new Map<number, string>();
 
+  /** Fast calendar traversal — avoid refetching days already opened this session. */
+  private readonly dayCache = new Map<string, TradingJournalDayDetailDto>();
+  private readonly dayLoad$ = new Subject<{ date: string; create: boolean; force: boolean }>();
+  private dayLoadSub: Subscription | null = null;
+  private previewLoadToken = 0;
+  private calendarDaysCache: { date: string; hasJournal: boolean; isSelected: boolean }[] = [];
+  private calendarDaysKey = '';
+
   titleDraft = '';
   bodyDraft = '';
   tagsDraft = '';
@@ -94,6 +113,41 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
   readonly gradeChoices = [1, 2, 3, 4, 5];
 
   ngOnInit(): void {
+    this.dayLoadSub = this.dayLoad$
+      .pipe(
+        switchMap(({ date, create, force }) => {
+          this.selectedDate = date;
+          if (!force && !create) {
+            const cached = this.dayCache.get(date);
+            if (cached) {
+              this.applyDetail(cached, true);
+              this.detailLoading = false;
+              this.prefetchAdjacent(date);
+              return of(cached);
+            }
+          }
+          this.detailLoading = true;
+          const req: Observable<TradingJournalDayDetailDto> = create
+            ? this.api.tradingJournalOpenDay(date)
+            : this.api.tradingJournalGetDay(date);
+          return req.pipe(
+            tap((d) => {
+              this.dayCache.set(d.snapshotDate, d);
+              this.applyDetail(d, true);
+              this.prefetchAdjacent(d.snapshotDate);
+            }),
+            catchError((err) => {
+              this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
+              return of(null);
+            }),
+            finalize(() => {
+              this.detailLoading = false;
+            }),
+          );
+        }),
+      )
+      .subscribe();
+
     const requested = this.nav.consumeRequestedDate();
     if (requested) {
       this.selectedDate = requested;
@@ -107,6 +161,7 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.dayLoadSub?.unsubscribe();
     this.revokeAllPreviews();
   }
 
@@ -141,33 +196,24 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
     }
   }
 
-  openDay(date: string, create: boolean): void {
-    this.selectedDate = date;
-    this.detailLoading = true;
-    const req = create ? this.api.tradingJournalOpenDay(date) : this.api.tradingJournalGetDay(date);
-    req.subscribe({
-      next: (d) => {
-        this.applyDetail(d);
-        this.detailLoading = false;
-        if (!d.entry && create === false) {
-          // no entry yet — offer create via open
-        }
-      },
-      error: (err) => {
-        this.detailLoading = false;
-        this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
-      },
-    });
+  openDay(date: string, create: boolean, force = false): void {
+    if (force) {
+      this.invalidateDay(date);
+    }
+    this.dayLoad$.next({ date, create, force });
   }
 
   createOrOpenSelected(): void {
     const date = this.selectedDate || this.todayIso();
-    this.openDay(date, true);
+    this.invalidateDay(date);
+    this.openDay(date, true, true);
     this.loadList();
   }
 
   openToday(): void {
-    this.openDay(this.todayIso(), true);
+    const date = this.todayIso();
+    this.invalidateDay(date);
+    this.openDay(date, true, true);
     this.loadList();
   }
 
@@ -199,10 +245,10 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
         riskGrade: this.riskGrade,
       })
       .subscribe({
-        next: () => {
+        next: (entry) => {
           this.saving = false;
           this.snackBar.open('Journal saved', 'OK', { duration: 2500 });
-          this.openDay(this.selectedDate!, false);
+          this.patchEntry(entry);
           this.loadList();
         },
         error: (err) => {
@@ -218,9 +264,9 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
     }
     this.ensureEntry(() => {
       this.api.tradingJournalImportSummary(this.selectedDate!).subscribe({
-        next: () => {
+        next: (entry) => {
           this.snackBar.open('Call summary imported', 'OK', { duration: 3000 });
-          this.openDay(this.selectedDate!, false);
+          this.patchEntry(entry);
           this.loadList();
         },
         error: (err) => this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 }),
@@ -234,9 +280,9 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
     }
     this.ensureEntry(() => {
       this.api.tradingJournalPinClose(this.selectedDate!).subscribe({
-        next: () => {
+        next: (entry) => {
           this.snackBar.open('9 PM CT close pinned', 'OK', { duration: 3000 });
-          this.openDay(this.selectedDate!, false);
+          this.patchEntry(entry);
           this.loadList();
         },
         error: (err) => this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 }),
@@ -285,8 +331,7 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
             this.refSymbol = '';
             this.refUrl = '';
             this.refLabel = '';
-            this.openDay(this.selectedDate!, false);
-            this.loadList();
+            this.refreshDayKeepList();
           },
           error: (err) => this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 }),
         });
@@ -295,12 +340,7 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
 
   deleteRef(id: number): void {
     this.api.tradingJournalDeleteRef(id).subscribe({
-      next: () => {
-        if (this.selectedDate) {
-          this.openDay(this.selectedDate, false);
-          this.loadList();
-        }
-      },
+      next: () => this.refreshDayKeepList(),
       error: (err) => this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 }),
     });
   }
@@ -319,8 +359,7 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
         if (i >= files.length) {
           this.uploading = false;
           input.value = '';
-          this.openDay(this.selectedDate!, false);
-          this.loadList();
+          this.refreshDayKeepList();
           return;
         }
         this.api.tradingJournalAddAttachment(this.selectedDate!, files[i]).subscribe({
@@ -332,8 +371,7 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
             this.uploading = false;
             input.value = '';
             this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
-            this.openDay(this.selectedDate!, false);
-            this.loadList();
+            this.refreshDayKeepList();
           },
         });
       };
@@ -345,10 +383,7 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
     this.api.tradingJournalDeleteAttachment(id).subscribe({
       next: () => {
         this.revokePreview(id);
-        if (this.selectedDate) {
-          this.openDay(this.selectedDate, false);
-          this.loadList();
-        }
+        this.refreshDayKeepList();
       },
       error: (err) => this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 }),
     });
@@ -420,8 +455,10 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
     if (!this.selectedDate || !confirm(`Delete journal for ${this.selectedDate}?`)) {
       return;
     }
-    this.api.tradingJournalDelete(this.selectedDate).subscribe({
+    const date = this.selectedDate;
+    this.api.tradingJournalDelete(date).subscribe({
       next: () => {
+        this.invalidateDay(date);
         this.selectedDate = null;
         this.detail = null;
         this.loadList();
@@ -433,6 +470,10 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
   calendarDays(): { date: string; hasJournal: boolean; isSelected: boolean }[] {
     const month = this.reportMonth === 0 ? new Date().getMonth() + 1 : this.reportMonth;
     const year = this.reportYear;
+    const key = `${year}-${month}-${this.journalDates.join(',')}-${this.selectedDate ?? ''}`;
+    if (key === this.calendarDaysKey) {
+      return this.calendarDaysCache;
+    }
     const daysInMonth = new Date(year, month, 0).getDate();
     const journal = new Set(this.journalDates);
     const out: { date: string; hasJournal: boolean; isSelected: boolean }[] = [];
@@ -444,6 +485,8 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
         isSelected: this.selectedDate === date,
       });
     }
+    this.calendarDaysKey = key;
+    this.calendarDaysCache = out;
     return out;
   }
 
@@ -465,14 +508,55 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
     }
     this.api.tradingJournalOpenDay(this.selectedDate).subscribe({
       next: (d) => {
-        this.applyDetail(d);
+        this.dayCache.set(d.snapshotDate, d);
+        this.applyDetail(d, true);
         then();
       },
       error: (err) => this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 }),
     });
   }
 
-  private applyDetail(d: TradingJournalDayDetailDto): void {
+  private refreshDayKeepList(): void {
+    if (!this.selectedDate) {
+      return;
+    }
+    this.invalidateDay(this.selectedDate);
+    this.openDay(this.selectedDate, false, true);
+    this.loadList();
+  }
+
+  private patchEntry(entry: TradingJournalEntryDto): void {
+    if (!this.detail || this.detail.snapshotDate !== entry.snapshotDate) {
+      return;
+    }
+    const next: TradingJournalDayDetailDto = {
+      ...this.detail,
+      entry,
+    };
+    this.dayCache.set(entry.snapshotDate, next);
+    this.applyDetail(next, true);
+  }
+
+  private invalidateDay(date: string): void {
+    this.dayCache.delete(date);
+  }
+
+  private prefetchAdjacent(date: string): void {
+    const base = new Date(date + 'T12:00:00');
+    for (const delta of [-1, 1]) {
+      const d = new Date(base);
+      d.setDate(d.getDate() + delta);
+      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      if (this.dayCache.has(iso)) {
+        continue;
+      }
+      this.api.tradingJournalGetDay(iso).subscribe({
+        next: (detail) => this.dayCache.set(detail.snapshotDate, detail),
+      });
+    }
+  }
+
+  private applyDetail(d: TradingJournalDayDetailDto, reloadPreviews: boolean): void {
     this.detail = d;
     this.selectedDate = d.snapshotDate;
     const e = d.entry;
@@ -481,28 +565,54 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
     this.tagsDraft = (e?.tags ?? []).join(', ');
     this.processGrade = e?.processGrade ?? null;
     this.riskGrade = e?.riskGrade ?? null;
-    this.syncImagePreviews(e?.attachments ?? []);
+    if (reloadPreviews) {
+      this.scheduleImagePreviews(e?.attachments ?? []);
+    }
   }
 
-  private syncImagePreviews(atts: TradingJournalAttachmentDto[]): void {
-    const keep = new Set(atts.filter((a) => this.isImageAttachment(a)).map((a) => a.id));
+  private scheduleImagePreviews(atts: TradingJournalAttachmentDto[]): void {
+    const token = ++this.previewLoadToken;
+    const images = atts.filter((a) => this.isImageAttachment(a));
+    const keep = new Set(images.map((a) => a.id));
     for (const id of [...this.imagePreviewUrls.keys()]) {
       if (!keep.has(id)) {
         this.revokePreview(id);
       }
     }
-    for (const att of atts) {
-      if (!this.isImageAttachment(att) || this.imagePreviewUrls.has(att.id)) {
-        continue;
+    const pending = images.filter((a) => !this.imagePreviewUrls.has(a.id));
+    if (!pending.length) {
+      return;
+    }
+    const run = (): void => {
+      if (token !== this.previewLoadToken) {
+        return;
       }
-      this.api.tradingJournalAttachmentBlob(att.id, 'inline').subscribe({
-        next: (blob) => {
-          if (!this.detail?.entry?.attachments?.some((a) => a.id === att.id)) {
-            return;
-          }
-          this.imagePreviewUrls.set(att.id, URL.createObjectURL(blob));
-        },
-      });
+      let i = 0;
+      const step = (): void => {
+        if (token !== this.previewLoadToken || i >= pending.length) {
+          return;
+        }
+        const att = pending[i++];
+        this.api.tradingJournalAttachmentBlob(att.id, 'inline').subscribe({
+          next: (blob) => {
+            if (token !== this.previewLoadToken) {
+              return;
+            }
+            if (!this.detail?.entry?.attachments?.some((a) => a.id === att.id)) {
+              return;
+            }
+            this.imagePreviewUrls.set(att.id, URL.createObjectURL(blob));
+            step();
+          },
+          error: () => step(),
+        });
+      };
+      step();
+    };
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(() => run(), { timeout: 1200 });
+    } else {
+      setTimeout(run, 0);
     }
   }
 

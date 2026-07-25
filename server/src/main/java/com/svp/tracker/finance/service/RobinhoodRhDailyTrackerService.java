@@ -55,6 +55,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
@@ -77,6 +78,7 @@ public class RobinhoodRhDailyTrackerService {
     private static final ZoneId CENTRAL = ZoneId.of("America/Chicago");
     private static final DateTimeFormatter MANUAL_TIME =
             DateTimeFormatter.ofPattern("h:mm a").withZone(CENTRAL);
+    private static final long DAY_WRAP_CACHE_TTL_MS = 120_000L;
 
     private final CurrentUserService currentUser;
     private final AppUserRepository appUserRepository;
@@ -94,6 +96,11 @@ public class RobinhoodRhDailyTrackerService {
     private final ObjectProvider<RobinhoodRhDailyTrackerService> selfProvider;
     private final ObjectProvider<RobinhoodRhDailyTrackerAlertService> alertServiceProvider;
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+    private final ConcurrentHashMap<WrapCacheKey, CachedWrap> dayWrapCache = new ConcurrentHashMap<>();
+
+    private record WrapCacheKey(long ownerUserId, LocalDate snapshotDate) {}
+
+    private record CachedWrap(RobinhoodRhDailyTrackerDayDto wrap, long cachedAtMs) {}
 
     /** Whether nightly scheduled snapshots and 9 PM schedule copy apply to this owner. */
     public boolean isScheduledCaptureOwner(long ownerUserId) {
@@ -427,20 +434,164 @@ public class RobinhoodRhDailyTrackerService {
                 .orElseGet(() -> new RobinhoodRhDailyTrackerRefreshHintDto(null, 0L, ""));
     }
 
-    /** Single-day wrap for Trading Journal composition (Central {@code snapshotDate}). */
+    /** Single-day wrap for Trading Journal — avoids rebuilding a full month Daily Tracker report. */
     @Transactional(readOnly = true)
     public RobinhoodRhDailyTrackerDayDto dayWrap(LocalDate snapshotDate) {
         if (snapshotDate == null) {
             return null;
         }
-        RobinhoodRhDailyTrackerReportDto report =
-                buildReport(snapshotDate.getYear(), List.of(snapshotDate.getMonthValue()));
-        for (RobinhoodRhDailyTrackerDayDto day : report.days()) {
-            if (snapshotDate.equals(day.snapshotDate())) {
-                return day;
+        long ownerUserId = currentUser.requireUserId();
+        WrapCacheKey cacheKey = new WrapCacheKey(ownerUserId, snapshotDate);
+        CachedWrap cached = dayWrapCache.get(cacheKey);
+        long now = System.currentTimeMillis();
+        if (cached != null && now - cached.cachedAtMs() < DAY_WRAP_CACHE_TTL_MS) {
+            return cached.wrap();
+        }
+
+        List<RobinhoodRhDailySnapshot> dayRows = visibleSnapshots(
+                ownerUserId,
+                snapshotRepository.findByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateDescAccountSuffixAsc(
+                        ownerUserId, snapshotDate, snapshotDate));
+        if (dayRows.isEmpty()) {
+            dayWrapCache.put(cacheKey, new CachedWrap(null, now));
+            return null;
+        }
+
+        List<RobinhoodRhDailySnapshot> dayScheduled = new ArrayList<>(scheduledOnly(dayRows));
+        dayScheduled.sort(Comparator.comparing(RobinhoodRhDailySnapshot::getAccountSuffix));
+        List<RobinhoodRhDailySnapshot> dayIntraday = intradayOnly(dayRows);
+        List<RobinhoodRhDailySnapshot> dayManual = manualOnly(dayRows);
+
+        LocalDate lookbackFrom = snapshotDate.minusDays(45);
+        List<RobinhoodRhDailySnapshot> priorScheduledRows = scheduledOnly(visibleSnapshots(
+                ownerUserId,
+                snapshotRepository.findByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateDescAccountSuffixAsc(
+                        ownerUserId, lookbackFrom, snapshotDate.minusDays(1))));
+        TreeMap<LocalDate, List<RobinhoodRhDailySnapshot>> priorByDate = new TreeMap<>();
+        for (RobinhoodRhDailySnapshot row : priorScheduledRows) {
+            priorByDate.computeIfAbsent(row.getSnapshotDate(), k -> new ArrayList<>()).add(row);
+        }
+        LocalDate previousScheduledDate = priorByDate.isEmpty() ? null : priorByDate.lastKey();
+        Map<String, BigDecimal> previousAccountTotals = new LinkedHashMap<>();
+        BigDecimal previousCombined = BigDecimal.ZERO;
+        if (previousScheduledDate != null) {
+            for (RobinhoodRhDailySnapshot row : priorByDate.get(previousScheduledDate)) {
+                BigDecimal total = nullToZero(row.getTotalAccountValue());
+                previousAccountTotals.put(row.getAccountSuffix(), total);
+                previousCombined = previousCombined.add(total);
             }
         }
-        return null;
+
+        List<RobinhoodAgenticSyncedOrder> ownerOrders = List.of();
+        if (needsSyncedOrderFallback(dayScheduled, dayIntraday, dayManual)) {
+            ownerOrders = syncedOrderRepository.findByOwnerUserIdOrderByUpdatedAtRhDescCreatedAtRhDesc(ownerUserId);
+        }
+
+        Instant snapshotAt = dayScheduled.stream()
+                .map(RobinhoodRhDailySnapshot::getSnapshotAt)
+                .filter(Objects::nonNull)
+                .max(Instant::compareTo)
+                .orElse(null);
+
+        BigDecimal combinedTotal = BigDecimal.ZERO;
+        BigDecimal combinedAdded = BigDecimal.ZERO;
+        BigDecimal combinedRemoved = BigDecimal.ZERO;
+        BigDecimal combinedValueChange = BigDecimal.ZERO;
+        List<RobinhoodRhDailyTrackerAccountCellDto> cells = new ArrayList<>();
+        LinkedHashMap<String, RobinhoodRhDailyTrackerAccountColumnDto> columnBySuffix = new LinkedHashMap<>();
+
+        for (RobinhoodRhDailySnapshot row : dayScheduled) {
+            combinedTotal = combinedTotal.add(nullToZero(row.getTotalAccountValue()));
+            combinedAdded = combinedAdded.add(nullToZero(row.getPeriodAdded()));
+            combinedRemoved = combinedRemoved.add(nullToZero(row.getPeriodRemoved()));
+            combinedValueChange = combinedValueChange.add(nullToZero(row.getPeriodValueChange()));
+            boolean flowActivity =
+                    row.getPeriodAdded().signum() != 0 || row.getPeriodRemoved().signum() != 0;
+            List<RobinhoodRhDailyTradeDto> rowTrades = resolveTradesForSnapshot(row, ownerOrders);
+            BigDecimal accountTotalChange = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+            if (previousScheduledDate != null) {
+                accountTotalChange = scaleMoney(nullToZero(row.getTotalAccountValue())
+                        .subtract(nullToZero(previousAccountTotals.get(row.getAccountSuffix()))));
+            }
+            columnBySuffix.putIfAbsent(
+                    row.getAccountSuffix(),
+                    new RobinhoodRhDailyTrackerAccountColumnDto(
+                            row.getAccountSuffix(), row.getLabel(), row.getAccountKind()));
+            cells.add(new RobinhoodRhDailyTrackerAccountCellDto(
+                    row.getId(),
+                    row.getAccountSuffix(),
+                    scaleMoney(row.getTotalAccountValue()),
+                    accountTotalChange,
+                    scaleMoney(row.getPeriodAdded()),
+                    scaleMoney(row.getPeriodRemoved()),
+                    scaleMoney(row.getPeriodValueChange()),
+                    flowActivity,
+                    rowTrades.size(),
+                    false,
+                    RhDailyTrackerSnapshotAlertDto.none()));
+        }
+
+        for (RobinhoodRhDailySnapshot row : dayRows) {
+            columnBySuffix.putIfAbsent(
+                    row.getAccountSuffix(),
+                    new RobinhoodRhDailyTrackerAccountColumnDto(
+                            row.getAccountSuffix(), row.getLabel(), row.getAccountKind()));
+        }
+
+        List<RobinhoodRhDailyTradeDto> dayTrades = buildDayTrades(
+                snapshotDate,
+                dayScheduled,
+                dayIntraday,
+                dayManual,
+                previousScheduledDate,
+                ownerOrders,
+                columnBySuffix);
+
+        boolean hasPreviousScheduledSnapshot = previousScheduledDate != null && !dayScheduled.isEmpty();
+        BigDecimal combinedTotalChangeFromPrevious = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        if (hasPreviousScheduledSnapshot) {
+            combinedTotalChangeFromPrevious = scaleMoney(combinedTotal.subtract(previousCombined));
+        }
+
+        String summaryNote = dayNoteRepository
+                .findByOwnerUserIdAndSnapshotDate(ownerUserId, snapshotDate)
+                .map(RobinhoodRhDailyDayNote::getNoteText)
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .orElse("");
+
+        RobinhoodRhDailyTrackerDayDto wrap = new RobinhoodRhDailyTrackerDayDto(
+                snapshotDate,
+                snapshotAt,
+                !dayScheduled.isEmpty(),
+                scaleMoney(combinedTotal),
+                combinedTotalChangeFromPrevious,
+                hasPreviousScheduledSnapshot,
+                scaleMoney(combinedAdded),
+                scaleMoney(combinedRemoved),
+                scaleMoney(combinedValueChange),
+                null,
+                false,
+                cells,
+                List.of(),
+                List.of(),
+                dayTrades,
+                summaryNote);
+        dayWrapCache.put(cacheKey, new CachedWrap(wrap, now));
+        return wrap;
+    }
+
+    private boolean needsSyncedOrderFallback(
+            List<RobinhoodRhDailySnapshot> dayScheduled,
+            List<RobinhoodRhDailySnapshot> dayIntraday,
+            List<RobinhoodRhDailySnapshot> dayManual) {
+        if (!tradesFromSnapshots(dayScheduled, List.of()).isEmpty()) {
+            return false;
+        }
+        List<RobinhoodRhDailySnapshot> pointInTime = new ArrayList<>(dayIntraday.size() + dayManual.size());
+        pointInTime.addAll(dayIntraday);
+        pointInTime.addAll(dayManual);
+        return tradesFromLatestCapturePerAccount(pointInTime, List.of()).isEmpty();
     }
 
     @Transactional
