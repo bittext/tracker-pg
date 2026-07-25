@@ -1,0 +1,225 @@
+<div class="rec-panel" aria-labelledby="rec-heading">
+  <header class="rec-head">
+    <h2 id="rec-heading" class="rec-title">Recordings</h2>
+    <p class="muted rec-lede">
+      Just Press Record library from your Mac (date folders → <code>.m4a</code>). Play a clip, transcribe with Whisper,
+      search the transcript, and summarize with AI.
+    </p>
+  </header>
+
+  @if (list && !list.enabled) {
+    <p class="rec-warn" role="status">{{ list.note || 'Recordings are disabled.' }}</p>
+  } @else if (list?.note) {
+    <p class="rec-warn" role="status">{{ list?.note }}</p>
+  }
+
+  <div class="rec-toolbar">
+    <mat-form-field appearance="outline" class="rec-search" subscriptSizing="dynamic">
+      <mat-label>Search name or transcript</mat-label>
+      <input
+        matInput
+        [(ngModel)]="searchQuery"
+        name="recSearch"
+        (keydown.enter)="runSearch()"
+        autocomplete="off"
+      />
+      <button mat-icon-button matSuffix type="button" (click)="runSearch()" [disabled]="searching" aria-label="Search">
+        <mat-icon>search</mat-icon>
+      </button>
+    </mat-form-field>
+    @if (searchActive) {
+      <button mat-stroked-button type="button" (click)="clearSearch()">Clear search</button>
+    }
+    <button mat-stroked-button type="button" (click)="refreshAll()" [disabled]="loadingList">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+  </div>
+
+  <div class="rec-layout">
+    <aside class="rec-sidebar" aria-label="Recording days and files">
+      <mat-card appearance="outlined" class="rec-card">
+        <mat-card-header>
+          <mat-card-title>Days</mat-card-title>
+          <mat-card-subtitle>Filter by recording date</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <button
+            type="button"
+            class="rec-day"
+            [class.rec-day--active]="selectedDay == null && !searchActive"
+            (click)="selectDay(null)"
+          >
+            All days
+          </button>
+          @for (d of days; track d.day) {
+            <button
+              type="button"
+              class="rec-day"
+              [class.rec-day--active]="selectedDay === d.day && !searchActive"
+              (click)="selectDay(d.day)"
+            >
+              <span>{{ formatDay(d.day) }}</span>
+              <span class="rec-day-count">{{ d.recordingCount }}</span>
+            </button>
+          }
+          @if (!loadingList && days.length === 0 && list?.enabled) {
+            <p class="muted rec-empty">No date folders found.</p>
+          }
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card appearance="outlined" class="rec-card rec-card--list">
+        <mat-card-header>
+          <mat-card-title>
+            @if (searchActive) {
+              Search results
+            } @else if (selectedDay) {
+              {{ formatDay(selectedDay) }}
+            } @else {
+              Files
+            }
+          </mat-card-title>
+          <mat-card-subtitle>{{ recordings.length }} recording(s)</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          @if (loadingList || searching) {
+            <div class="rec-loading">
+              <mat-spinner diameter="28" />
+            </div>
+          } @else if (recordings.length === 0) {
+            <p class="muted rec-empty">No recordings in this view.</p>
+          } @else {
+            <ul class="rec-file-list">
+              @for (r of recordings; track r.path) {
+                <li>
+                  <button
+                    type="button"
+                    class="rec-file"
+                    [class.rec-file--active]="selected?.path === r.path"
+                    (click)="selectRecording(r)"
+                  >
+                    <span class="rec-file-name">{{ r.displayName }}</span>
+                    <span class="rec-file-meta">
+                      {{ formatBytes(r.fileSizeBytes) }}
+                      @if (r.hasTranscript) {
+                        <mat-icon class="rec-flag" inline title="Has transcript">subtitles</mat-icon>
+                      }
+                      @if (r.hasSummary) {
+                        <mat-icon class="rec-flag" inline title="Has summary">summarize</mat-icon>
+                      }
+                    </span>
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </mat-card-content>
+      </mat-card>
+    </aside>
+
+    <section class="rec-main" aria-label="Player and transcript">
+      @if (!selected) {
+        <mat-card appearance="outlined" class="rec-card rec-card--placeholder">
+          <mat-card-content>
+            <p class="muted">Select a recording to play and transcribe.</p>
+          </mat-card-content>
+        </mat-card>
+      } @else {
+        <mat-card appearance="outlined" class="rec-card">
+          <mat-card-header>
+            <mat-card-title>{{ selected.displayName }}</mat-card-title>
+            <mat-card-subtitle>
+              {{ formatDay(selected.recordedDay) }} · {{ formatBytes(selected.fileSizeBytes) }}
+            </mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="rec-player">
+              @if (audioError) {
+                <span class="muted">Could not load audio</span>
+              } @else if (audioObjectUrl) {
+                <audio controls preload="metadata" class="rec-audio" [src]="audioObjectUrl">
+                  Your browser does not support audio.
+                </audio>
+              } @else {
+                <span class="muted">{{ audioLoading ? 'Loading audio…' : '—' }}</span>
+              }
+            </div>
+
+            <div class="rec-actions">
+              <button
+                mat-flat-button
+                color="primary"
+                type="button"
+                (click)="transcribe(!!detail?.transcript)"
+                [disabled]="transcribing || summarizing"
+              >
+                @if (transcribing) {
+                  <mat-spinner diameter="18" />
+                } @else {
+                  <mat-icon>graphic_eq</mat-icon>
+                }
+                {{ detail?.transcript ? 'Re-transcribe' : 'Transcribe' }}
+              </button>
+              <button
+                mat-stroked-button
+                type="button"
+                (click)="summarize(!!detail?.summary)"
+                [disabled]="transcribing || summarizing"
+              >
+                @if (summarizing) {
+                  <mat-spinner diameter="18" />
+                } @else {
+                  <mat-icon>auto_awesome</mat-icon>
+                }
+                {{ detail?.summary ? 'Re-summarize' : 'Summarize' }}
+              </button>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <div class="rec-split">
+          <mat-card appearance="outlined" class="rec-card">
+            <mat-card-header>
+              <mat-card-title>Transcript</mat-card-title>
+              @if (detail?.transcribedAt) {
+                <mat-card-subtitle>Whisper · {{ detail?.transcriptSource || 'whisper' }}</mat-card-subtitle>
+              }
+            </mat-card-header>
+            <mat-card-content>
+              <mat-form-field appearance="outline" class="rec-filter" subscriptSizing="dynamic">
+                <mat-label>Filter transcript lines</mat-label>
+                <input matInput [(ngModel)]="transcriptFilter" name="transcriptFilter" autocomplete="off" />
+              </mat-form-field>
+              @if (loadingDetail) {
+                <div class="rec-loading"><mat-spinner diameter="24" /></div>
+              } @else if (!detail?.transcript) {
+                <p class="muted">No transcript yet — click Transcribe.</p>
+              } @else {
+                <pre class="rec-text">{{ filteredTranscript }}</pre>
+              }
+            </mat-card-content>
+          </mat-card>
+
+          <mat-card appearance="outlined" class="rec-card">
+            <mat-card-header>
+              <mat-card-title>Summary</mat-card-title>
+              @if (detail?.summarizedAt) {
+                <mat-card-subtitle>AI summary</mat-card-subtitle>
+              }
+            </mat-card-header>
+            <mat-card-content>
+              @if (loadingDetail) {
+                <div class="rec-loading"><mat-spinner diameter="24" /></div>
+              } @else if (!detail?.summary) {
+                <p class="muted">No summary yet — click Summarize (transcribes first if needed).</p>
+              } @else {
+                <pre class="rec-text rec-text--summary">{{ detail?.summary }}</pre>
+              }
+            </mat-card-content>
+          </mat-card>
+        </div>
+      }
+    </section>
+  </div>
+</div>

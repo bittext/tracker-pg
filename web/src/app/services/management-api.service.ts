@@ -19,6 +19,9 @@ import {
   ManagementAccountWriteBody,
   ManagementDocumentDto,
   ManagementDocumentWriteBody,
+  ManagementRecordingDetailDto,
+  ManagementRecordingItemDto,
+  ManagementRecordingListDto,
   ManagementWriteupAttachmentDto,
   ManagementWriteupDto,
   ManagementWriteupWriteBody,
@@ -381,6 +384,49 @@ export class ManagementApiService {
     return this.http.get(`${this.documentsRoot}/${id}/file`, {
       responseType: 'blob',
       params: { disposition },
+    });
+  }
+
+  private readonly recordingsRoot = `${this.root}/recordings`;
+
+  listRecordings(day?: string | null) {
+    const params: Record<string, string> = {};
+    if (day) {
+      params['day'] = day;
+    }
+    return this.http.get<ManagementRecordingListDto>(this.recordingsRoot, { params });
+  }
+
+  searchRecordings(q: string) {
+    return this.http.get<ManagementRecordingItemDto[]>(`${this.recordingsRoot}/search`, {
+      params: { q },
+    });
+  }
+
+  getRecordingDetail(path: string) {
+    return this.http.get<ManagementRecordingDetailDto>(`${this.recordingsRoot}/detail`, {
+      params: { path },
+    });
+  }
+
+  getRecordingBlob(path: string, disposition: 'inline' | 'attachment' = 'inline') {
+    return this.http.get(`${this.recordingsRoot}/file`, {
+      responseType: 'blob',
+      params: { path, disposition },
+    });
+  }
+
+  transcribeRecording(path: string, force = false) {
+    return this.http.post<ManagementRecordingDetailDto>(`${this.recordingsRoot}/transcribe`, {
+      path,
+      force,
+    });
+  }
+
+  summarizeRecording(path: string, force = false) {
+    return this.http.post<ManagementRecordingDetailDto>(`${this.recordingsRoot}/summarize`, {
+      path,
+      force,
     });
   }
 }

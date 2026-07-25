@@ -87,6 +87,10 @@ tracker:
       # AES-256-GCM sealing for Account password + authenticator key at rest (passphrase or Base64 32-byte key).
       # Empty = store plaintext (dev only); production deployments MUST set TRACKER_MANAGEMENT_ACCOUNTS_ENCRYPTION_KEY.
       encryption-key: ${TRACKER_MANAGEMENT_ACCOUNTS_ENCRYPTION_KEY:}
+    recordings:
+      # Just Press Record library (local Mac iCloud path). Disable or clear root on hosts without the folder.
+      enabled: ${TRACKER_MANAGEMENT_RECORDINGS_ENABLED:true}
+      root-path: ${TRACKER_MANAGEMENT_RECORDINGS_ROOT_PATH:/Users/pulickal/Library/Mobile Documents/iCloud~com~openplanetsoftware~just-press-record/Documents}
   auth:
     jwt-secret: ${TRACKER_AUTH_JWT_SECRET:dev-secret-change-me-dev-secret-change-me-dev-secret-change-me}
     jwt-ttl-seconds: ${TRACKER_AUTH_JWT_TTL_SECONDS:43200}

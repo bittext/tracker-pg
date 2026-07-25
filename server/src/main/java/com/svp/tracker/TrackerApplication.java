@@ -13,6 +13,7 @@ import com.svp.tracker.config.SecurityProperties;
 import com.svp.tracker.config.WebProperties;
 import com.svp.tracker.finance.predicts.config.FinancePredictsProperties;
 import com.svp.tracker.management.config.ManagementAccountsProperties;
+import com.svp.tracker.management.config.ManagementRecordingsProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -31,6 +32,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
     JournalProperties.class,
     SecurityProperties.class,
     ManagementAccountsProperties.class,
+    ManagementRecordingsProperties.class,
     FinancePredictsProperties.class,
     com.svp.tracker.config.RobinhoodAgenticProperties.class,
     com.svp.tracker.config.RobinhoodAgenticBankingProperties.class,

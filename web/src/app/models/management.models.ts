@@ -317,3 +317,38 @@ export interface ManagementDocumentWriteBody {
   displayName: string;
   docType: string;
 }
+
+/** Management → Recordings: Just Press Record library (local path + cached transcript/summary). */
+export interface ManagementRecordingDayDto {
+  day: string;
+  recordingCount: number;
+}
+
+export interface ManagementRecordingItemDto {
+  path: string;
+  displayName: string;
+  recordedDay: string | null;
+  fileSizeBytes: number;
+  hasTranscript: boolean;
+  hasSummary: boolean;
+}
+
+export interface ManagementRecordingListDto {
+  enabled: boolean;
+  rootPath: string;
+  note: string | null;
+  days: ManagementRecordingDayDto[];
+  recordings: ManagementRecordingItemDto[];
+}
+
+export interface ManagementRecordingDetailDto {
+  path: string;
+  displayName: string;
+  recordedDay: string | null;
+  fileSizeBytes: number;
+  transcript: string | null;
+  transcriptSource: string | null;
+  transcribedAt: string | null;
+  summary: string | null;
+  summarizedAt: string | null;
+}
