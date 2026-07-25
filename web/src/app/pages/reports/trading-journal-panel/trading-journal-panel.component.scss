@@ -290,23 +290,143 @@
   text-decoration: underline;
 }
 
+.tj__att-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+}
+
 .tj__file {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.45rem 0.75rem;
-  border: 1px dashed var(--app-border, rgba(15, 23, 42, 0.2));
+  gap: 0.4rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px dashed var(--app-border, rgba(15, 23, 42, 0.25));
   border-radius: 8px;
   cursor: pointer;
   font-size: 0.9rem;
+  font-weight: 600;
+  background: rgba(74, 124, 89, 0.08);
 
   input {
-    max-width: 14rem;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    overflow: hidden;
   }
+
+  mat-icon {
+    font-size: 1.15rem;
+    width: 1.15rem;
+    height: 1.15rem;
+  }
+
+  &--busy {
+    opacity: 0.7;
+    pointer-events: none;
+  }
+}
+
+.tj__slide-btn {
+  mat-icon {
+    margin-right: 0.25rem;
+  }
+}
+
+.tj__slide-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  margin-left: 0.35rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: rgba(74, 124, 89, 0.18);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.tj__att-hint {
+  margin: 0 0 0.65rem;
+  font-size: 0.85rem;
+}
+
+.tj__gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+}
+
+.tj__thumb {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.tj__thumb-btn {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.04);
+  cursor: pointer;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+}
+
+.tj__thumb-ph {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  font-size: 0.8rem;
+}
+
+.tj__thumb-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.tj__att-link {
+  border: none;
+  background: none;
+  color: var(--app-accent, #4a7c59);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  text-decoration: underline;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .tj__refs h3,
 .tj__atts h3 {
   margin: 0 0 0.5rem;
   font-size: 1rem;
+}
+
+.muted {
+  opacity: 0.72;
 }

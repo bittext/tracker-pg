@@ -126,7 +126,9 @@ public class TradingJournalController {
     }
 
     @GetMapping("/attachments/{attachmentId}/file")
-    public ResponseEntity<byte[]> downloadAttachment(@PathVariable long attachmentId) {
+    public ResponseEntity<byte[]> downloadAttachment(
+            @PathVariable long attachmentId,
+            @RequestParam(defaultValue = "attachment") String disposition) {
         TradingJournalAttachment meta = tradingJournalService.requireAttachmentMeta(attachmentId);
         byte[] bytes = tradingJournalService.readAttachmentBytes(attachmentId);
         MediaType type = MediaType.APPLICATION_OCTET_STREAM;
@@ -137,10 +139,10 @@ public class TradingJournalController {
                 /* keep octet-stream */
             }
         }
+        String safeName = meta.getOriginalFilename().replace("\"", "");
+        String disp = "inline".equalsIgnoreCase(disposition) ? "inline" : "attachment";
         return ResponseEntity.ok()
-                .header(
-                        HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=\"" + meta.getOriginalFilename().replace("\"", "") + "\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, disp + "; filename=\"" + safeName + "\"")
                 .contentType(type)
                 .body(bytes);
     }

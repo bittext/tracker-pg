@@ -332,17 +332,75 @@
 
         <div class="tj__atts">
           <h3>Attachments</h3>
-          <label class="tj__file">
-            <input type="file" (change)="onFileSelected($event)" />
-            Upload file
-          </label>
-          @if (detail.entry?.attachments?.length) {
+          <p class="tj__att-hint muted">Upload several images at once, then open Slide preview to swipe through them.</p>
+          <div class="tj__att-actions">
+            <label class="tj__file" [class.tj__file--busy]="uploading">
+              <input
+                type="file"
+                multiple
+                accept="image/*,.pdf,.png,.jpg,.jpeg,.gif,.webp,.heic,.heif"
+                (change)="onFileSelected($event)"
+                [disabled]="uploading"
+              />
+              <mat-icon>attach_file</mat-icon>
+              {{ uploading ? 'Uploading…' : 'Add file(s)' }}
+            </label>
+            @if (imageAttachments().length) {
+              <button
+                mat-stroked-button
+                type="button"
+                class="tj__slide-btn"
+                (click)="openImageGallery(imageAttachments()[0])"
+              >
+                <mat-icon>view_carousel</mat-icon>
+                Slide preview
+                <span class="tj__slide-count">{{ imageAttachments().length }}</span>
+              </button>
+            }
+          </div>
+
+          @if (imageAttachments().length) {
+            <div class="tj__gallery" role="list" aria-label="Image attachments">
+              @for (a of imageAttachments(); track a.id) {
+                <div class="tj__thumb" role="listitem">
+                  <button
+                    type="button"
+                    class="tj__thumb-btn"
+                    (click)="openImageGallery(a)"
+                    [attr.aria-label]="'Preview ' + a.originalFilename"
+                  >
+                    @if (previewUrl(a); as src) {
+                      <img [src]="src" [alt]="a.originalFilename" loading="lazy" />
+                    } @else {
+                      <span class="tj__thumb-ph muted">Loading…</span>
+                    }
+                  </button>
+                  <div class="tj__thumb-meta">
+                    <button type="button" class="tj__att-link" (click)="openImageGallery(a)">
+                      {{ a.originalFilename }}
+                    </button>
+                    <button
+                      mat-icon-button
+                      type="button"
+                      color="warn"
+                      (click)="deleteAttachment(a.id)"
+                      [attr.aria-label]="'Remove ' + a.originalFilename"
+                    >
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+
+          @if (otherAttachments().length) {
             <ul class="tj__att-list">
-              @for (a of detail.entry!.attachments; track a.id) {
+              @for (a of otherAttachments(); track a.id) {
                 <li>
-                  <a [href]="attachmentHref(a.downloadPath)" target="_blank" rel="noopener noreferrer">
+                  <button type="button" class="tj__att-link" (click)="downloadAttachment(a)">
                     {{ a.originalFilename }}
-                  </a>
+                  </button>
                   <button mat-button type="button" color="warn" (click)="deleteAttachment(a.id)">Remove</button>
                 </li>
               }

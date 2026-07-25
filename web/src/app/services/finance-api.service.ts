@@ -773,4 +773,13 @@ export class FinanceApiService {
   tradingJournalDeleteAttachment(attachmentId: number) {
     return this.http.delete<void>(`${this.tradingJournalRoot}/attachments/${attachmentId}`);
   }
+
+  /** Authenticated blob fetch — plain href to the file URL will not send JWT. */
+  tradingJournalAttachmentBlob(attachmentId: number, disposition: 'inline' | 'attachment' = 'inline') {
+    const params = new HttpParams().set('disposition', disposition);
+    return this.http.get(`${this.tradingJournalRoot}/attachments/${attachmentId}/file`, {
+      responseType: 'blob',
+      params,
+    });
+  }
 }

@@ -1,7 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -10,13 +11,17 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import {
   RobinhoodRhDailyTrackerDayDto,
+  TradingJournalAttachmentDto,
   TradingJournalDayDetailDto,
   TradingJournalEntrySummaryDto,
 } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { TradingJournalNavService } from '../../../services/trading-journal-nav.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
-import { environment } from '../../../../environments/environment';
+import {
+  TradingJournalImageGalleryDialogComponent,
+  TradingJournalImageGalleryData,
+} from './trading-journal-image-gallery-dialog.component';
 
 @Component({
   selector: 'app-trading-journal-panel',
@@ -25,6 +30,7 @@ import { environment } from '../../../../environments/environment';
     CommonModule,
     FormsModule,
     MatButtonModule,
+    MatDialogModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
@@ -35,10 +41,11 @@ import { environment } from '../../../../environments/environment';
   templateUrl: './trading-journal-panel.component.html',
   styleUrl: './trading-journal-panel.component.scss',
 })
-export class TradingJournalPanelComponent implements OnInit {
+export class TradingJournalPanelComponent implements OnInit, OnDestroy {
   private readonly api = inject(FinanceApiService);
   private readonly nav = inject(TradingJournalNavService);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
 
   reportYear = new Date().getFullYear();
   reportMonth = new Date().getMonth() + 1;
@@ -52,6 +59,10 @@ export class TradingJournalPanelComponent implements OnInit {
   listLoading = false;
   detailLoading = false;
   saving = false;
+  uploading = false;
+
+  /** Authenticated thumbnail blob URLs keyed by attachment id. */
+  readonly imagePreviewUrls = new Map<number, string>();
 
   titleDraft = '';
   bodyDraft = '';
@@ -93,6 +104,10 @@ export class TradingJournalPanelComponent implements OnInit {
     } else {
       this.loadList(() => this.openTodayIfNeeded());
     }
+  }
+
+  ngOnDestroy(): void {
+    this.revokeAllPreviews();
   }
 
   yearChoices(): number[] {
@@ -292,25 +307,44 @@ export class TradingJournalPanelComponent implements OnInit {
 
   onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    input.value = '';
-    if (!file || !this.selectedDate) {
+    const files = input.files ? Array.from(input.files) : [];
+    if (!files.length || !this.selectedDate) {
+      input.value = '';
       return;
     }
     this.ensureEntry(() => {
-      this.api.tradingJournalAddAttachment(this.selectedDate!, file).subscribe({
-        next: () => {
+      this.uploading = true;
+      let i = 0;
+      const step = (): void => {
+        if (i >= files.length) {
+          this.uploading = false;
+          input.value = '';
           this.openDay(this.selectedDate!, false);
           this.loadList();
-        },
-        error: (err) => this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 }),
-      });
+          return;
+        }
+        this.api.tradingJournalAddAttachment(this.selectedDate!, files[i]).subscribe({
+          next: () => {
+            i += 1;
+            step();
+          },
+          error: (err) => {
+            this.uploading = false;
+            input.value = '';
+            this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
+            this.openDay(this.selectedDate!, false);
+            this.loadList();
+          },
+        });
+      };
+      step();
     });
   }
 
   deleteAttachment(id: number): void {
     this.api.tradingJournalDeleteAttachment(id).subscribe({
       next: () => {
+        this.revokePreview(id);
         if (this.selectedDate) {
           this.openDay(this.selectedDate, false);
           this.loadList();
@@ -320,11 +354,55 @@ export class TradingJournalPanelComponent implements OnInit {
     });
   }
 
-  attachmentHref(path: string): string {
-    if (path.startsWith('http')) {
-      return path;
+  isImageAttachment(att: TradingJournalAttachmentDto | null | undefined): boolean {
+    if (!att) {
+      return false;
     }
-    return `${environment.apiBaseUrl}${path}`;
+    const ct = att.contentType?.toLowerCase() ?? '';
+    if (ct.startsWith('image/')) {
+      return true;
+    }
+    return /\.(jpe?g|png|gif|webp|bmp|svg|heic|heif)$/i.test(att.originalFilename);
+  }
+
+  imageAttachments(): TradingJournalAttachmentDto[] {
+    return (this.detail?.entry?.attachments ?? []).filter((a) => this.isImageAttachment(a));
+  }
+
+  otherAttachments(): TradingJournalAttachmentDto[] {
+    return (this.detail?.entry?.attachments ?? []).filter((a) => !this.isImageAttachment(a));
+  }
+
+  previewUrl(att: TradingJournalAttachmentDto): string | null {
+    return this.imagePreviewUrls.get(att.id) ?? null;
+  }
+
+  openImageGallery(att: TradingJournalAttachmentDto): void {
+    const images = this.imageAttachments();
+    const startIndex = Math.max(0, images.findIndex((a) => a.id === att.id));
+    this.dialog.open<TradingJournalImageGalleryDialogComponent, TradingJournalImageGalleryData>(
+      TradingJournalImageGalleryDialogComponent,
+      {
+        data: { images, startIndex },
+        maxWidth: '96vw',
+        width: 'min(52rem, 96vw)',
+        autoFocus: false,
+      },
+    );
+  }
+
+  downloadAttachment(att: TradingJournalAttachmentDto): void {
+    this.api.tradingJournalAttachmentBlob(att.id, 'attachment').subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = att.originalFilename || 'attachment';
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: (err) => this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 }),
+    });
   }
 
   openInDailyTracker(): void {
@@ -403,6 +481,43 @@ export class TradingJournalPanelComponent implements OnInit {
     this.tagsDraft = (e?.tags ?? []).join(', ');
     this.processGrade = e?.processGrade ?? null;
     this.riskGrade = e?.riskGrade ?? null;
+    this.syncImagePreviews(e?.attachments ?? []);
+  }
+
+  private syncImagePreviews(atts: TradingJournalAttachmentDto[]): void {
+    const keep = new Set(atts.filter((a) => this.isImageAttachment(a)).map((a) => a.id));
+    for (const id of [...this.imagePreviewUrls.keys()]) {
+      if (!keep.has(id)) {
+        this.revokePreview(id);
+      }
+    }
+    for (const att of atts) {
+      if (!this.isImageAttachment(att) || this.imagePreviewUrls.has(att.id)) {
+        continue;
+      }
+      this.api.tradingJournalAttachmentBlob(att.id, 'inline').subscribe({
+        next: (blob) => {
+          if (!this.detail?.entry?.attachments?.some((a) => a.id === att.id)) {
+            return;
+          }
+          this.imagePreviewUrls.set(att.id, URL.createObjectURL(blob));
+        },
+      });
+    }
+  }
+
+  private revokePreview(id: number): void {
+    const url = this.imagePreviewUrls.get(id);
+    if (url) {
+      URL.revokeObjectURL(url);
+      this.imagePreviewUrls.delete(id);
+    }
+  }
+
+  private revokeAllPreviews(): void {
+    for (const id of [...this.imagePreviewUrls.keys()]) {
+      this.revokePreview(id);
+    }
   }
 
   private parseTags(raw: string): string[] {
