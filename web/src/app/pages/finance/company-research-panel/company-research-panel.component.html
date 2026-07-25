@@ -161,7 +161,7 @@
                             </span>
                             <span class="cr__calendar-company-meta">
                               {{ event.timing || 'Time TBD' }}
-                              <small>EPS {{ event.epsForecast || '—' }} · {{ event.marketCap || '—' }}</small>
+                              <small>EPS {{ event.epsForecast || '—' }} · {{ formatMarketCap(event) }}</small>
                             </span>
                             <mat-icon aria-hidden="true">{{ calendarEventIcon(event) }}</mat-icon>
                           </button>
@@ -200,7 +200,7 @@
                 <span class="cr__cal-name">{{ event.companyName }}</span>
                 <span class="muted">{{ event.timing || 'Time TBD' }}</span>
                 <span class="muted">EPS {{ event.epsForecast || '—' }}</span>
-                <span class="muted">{{ event.marketCap || '—' }}</span>
+                <span class="muted">{{ formatMarketCap(event) }}</span>
                 <mat-icon aria-hidden="true">{{ calendarEventIcon(event) }}</mat-icon>
               </button>
             }

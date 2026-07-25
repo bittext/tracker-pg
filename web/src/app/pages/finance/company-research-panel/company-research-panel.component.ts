@@ -253,6 +253,23 @@ export class CompanyResearchPanelComponent implements OnInit {
     return event.onWatchlist ? 'visibility' : 'add_circle_outline';
   }
 
+  formatMarketCap(event: CompanyEarningsEventDto): string {
+    const v = event.marketCapValue;
+    if (v == null || Number.isNaN(Number(v)) || v <= 0) {
+      return event.marketCap?.trim() || '—';
+    }
+    if (v >= 1e12) {
+      return this.formatMarketCapUnit(v / 1e12, 'T');
+    }
+    if (v >= 1e9) {
+      return this.formatMarketCapUnit(v / 1e9, 'B');
+    }
+    if (v >= 1e6) {
+      return this.formatMarketCapUnit(v / 1e6, 'M');
+    }
+    return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(v);
+  }
+
   saveThesisAndTags(): void {
     if (!this.selectedSymbol) {
       return;
@@ -506,7 +523,14 @@ export class CompanyResearchPanelComponent implements OnInit {
   }
 
   private eventsForDate(date: string): CompanyEarningsEventDto[] {
-    return this.filteredCalendarEvents().filter((event) => event.reportDate === date);
+    return this.filteredCalendarEvents()
+      .filter((event) => event.reportDate === date)
+      .sort((a, b) => (b.marketCapValue ?? 0) - (a.marketCapValue ?? 0));
+  }
+
+  private formatMarketCapUnit(value: number, unit: 'T' | 'B' | 'M'): string {
+    const digits = unit === 'M' ? 1 : 2;
+    return new Intl.NumberFormat(undefined, { maximumFractionDigits: digits }).format(value) + unit;
   }
 
   private firstEventDate(): string | null {
