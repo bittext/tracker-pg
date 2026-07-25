@@ -202,7 +202,7 @@ tracker:
     news-max-items: 10
     news-timeout-ms: 8000
     # When false, no scheduled/quote HTTP calls are made to Alpha Vantage (quotes stay empty / stale cache).
-    # Note: the Then & now price fallback needs only the API key below, not this flag, so a key can be set
+    # Note: the Then & now Alpha Vantage fallback needs only the API key below, not this flag, so a key can be set
     # without starting the hourly quote crawler that would exhaust the free-tier daily quota.
     alpha-vantage-enabled: ${TRACKER_FINANCE_ALPHA_VANTAGE_ENABLED:false}
     alpha-vantage-api-key: ${TRACKER_FINANCE_ALPHA_VANTAGE_API_KEY:}

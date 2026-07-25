@@ -22,6 +22,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -37,8 +38,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Answers “$X invested on date in SYMBOL — worth now?” using Yahoo daily adjusted closes, and can persist
- * the answer per user for reference.
+ * Answers “$X invested on date in SYMBOL — worth now?” using Nasdaq daily closes (Alpha Vantage fallback),
+ * and can persist the answer per user for reference.
  */
 @Service
 @RequiredArgsConstructor
@@ -46,18 +47,18 @@ import org.springframework.web.server.ResponseStatusException;
 public class InvestmentThenNowService {
 
     private static final ZoneId NY = ZoneId.of("America/New_York");
-    private static final String YAHOO_USER_AGENT =
+    private static final String BROWSER_UA =
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) "
                     + "Chrome/122.0.0.0 Safari/537.36";
-    /** Yahoo throttles per host, so a 429 on query1 often succeeds on query2. */
-    private static final List<String> CHART_HOSTS =
-            List.of("https://query1.finance.yahoo.com", "https://query2.finance.yahoo.com");
-    private static final String CHART_PATH =
-            "/v8/finance/chart/%s?period1=%d&period2=%d&interval=1d&includeAdjustedClose=true";
+    private static final String NASDAQ_CHART_URL =
+            "https://api.nasdaq.com/api/quote/%s/chart?assetclass=%s&fromdate=%s&todate=%s";
+    private static final List<String> NASDAQ_ASSET_CLASSES = List.of("stocks", "etf");
     private static final BigDecimal DEFAULT_INVESTED = new BigDecimal("78198.72");
     private static final LocalDate DEFAULT_AS_OF = LocalDate.of(2026, 6, 28);
     private static final DateTimeFormatter LONG_DATE =
             DateTimeFormatter.ofPattern("MMMM d, yyyy", Locale.US);
+    private static final DateTimeFormatter NASDAQ_DAY = DateTimeFormatter.ofPattern("M/d/yyyy", Locale.US);
+    private static final DateTimeFormatter ISO_DAY = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final Duration CHART_CACHE_TTL = Duration.ofMinutes(10);
 
     private final FinanceProperties props;
@@ -65,6 +66,8 @@ public class InvestmentThenNowService {
     private final FinanceInvestmentThenNowRepository repository;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Map<String, CachedChart> chartCache = new ConcurrentHashMap<>();
+    private final HttpClient httpClient =
+            HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(20)).build();
 
     @Transactional(readOnly = true)
     public List<InvestmentThenNowResultDto> listSaved() {
@@ -208,20 +211,116 @@ public class InvestmentThenNowService {
     }
 
     /**
-     * Yahoo first; when it is rate limiting (HTTP 429) fall back to Alpha Vantage if a key is configured.
-     * Yahoo throttles aggressively for datacenter IPs, so a single source is not reliable enough.
+     * Nasdaq chart first (no API key; works from datacenter IPs). Alpha Vantage compact daily is the
+     * fallback when a key is configured. Yahoo is intentionally not used — it rate-limits server IPs.
      */
     private ChartSnapshot loadPrices(String symbol, LocalDate asOf, LocalDate today) {
-        try {
-            return fetchChart(symbol, asOf.minusDays(14), today.plusDays(1));
-        } catch (ResponseStatusException yahooError) {
-            ChartSnapshot fallback = fetchAlphaVantageDaily(symbol);
-            if (fallback != null && !fallback.bars().isEmpty()) {
-                log.info("then/now used Alpha Vantage fallback for {} after Yahoo {}", symbol, yahooError.getStatusCode());
-                return fallback;
-            }
-            throw yahooError;
+        String cacheKey = symbol + "|" + asOf + "|" + today;
+        CachedChart cached = chartCache.get(cacheKey);
+        if (cached != null && cached.fetchedAt().plus(CHART_CACHE_TTL).isAfter(Instant.now())) {
+            return cached.snapshot();
         }
+
+        List<String> errors = new ArrayList<>();
+        ChartSnapshot nasdaq = fetchNasdaqChart(symbol, asOf.minusDays(14), today, errors);
+        if (nasdaq != null && !nasdaq.bars().isEmpty()) {
+            chartCache.put(cacheKey, new CachedChart(Instant.now(), nasdaq));
+            return nasdaq;
+        }
+
+        ChartSnapshot alpha = fetchAlphaVantageDaily(symbol, errors);
+        if (alpha != null && !alpha.bars().isEmpty()) {
+            chartCache.put(cacheKey, new CachedChart(Instant.now(), alpha));
+            return alpha;
+        }
+
+        if (cached != null) {
+            log.warn("then/now serving stale chart for {} after Nasdaq/AV failures: {}", symbol, errors);
+            return cached.snapshot();
+        }
+        String detail = errors.isEmpty() ? "no price source returned data" : String.join("; ", errors);
+        throw new ResponseStatusException(
+                HttpStatus.BAD_GATEWAY, "Could not load price history for " + symbol + ": " + detail);
+    }
+
+    /** Nasdaq quote chart API — try stocks then ETF asset classes. */
+    private ChartSnapshot fetchNasdaqChart(
+            String symbol, LocalDate start, LocalDate end, List<String> errors) {
+        String nasdaqSymbol = toNasdaqSymbol(symbol);
+        for (String assetClass : NASDAQ_ASSET_CLASSES) {
+            try {
+                String url = String.format(
+                        Locale.ROOT,
+                        NASDAQ_CHART_URL,
+                        URLEncoder.encode(nasdaqSymbol, StandardCharsets.UTF_8),
+                        assetClass,
+                        start.format(ISO_DAY),
+                        end.format(ISO_DAY));
+                int timeoutMs = Math.max(props.newsTimeoutMs(), 20_000);
+                HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+                        .GET()
+                        .timeout(Duration.ofMillis(timeoutMs))
+                        .header("Accept", "application/json")
+                        .header("Accept-Language", "en-US,en;q=0.9")
+                        .header("User-Agent", BROWSER_UA)
+                        .header("Origin", "https://www.nasdaq.com")
+                        .header("Referer", "https://www.nasdaq.com/")
+                        .build();
+                HttpResponse<String> resp =
+                        httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
+                    errors.add("nasdaq/" + assetClass + " HTTP " + resp.statusCode());
+                    continue;
+                }
+                ChartSnapshot snapshot = parseNasdaqChart(objectMapper.readTree(resp.body()), symbol);
+                if (snapshot != null && !snapshot.bars().isEmpty()) {
+                    log.info("then/now used Nasdaq {} chart for {}", assetClass, symbol);
+                    return snapshot;
+                }
+                errors.add("nasdaq/" + assetClass + " empty");
+            } catch (Exception e) {
+                errors.add("nasdaq/" + assetClass + " " + e.getMessage());
+                log.warn("Nasdaq chart failed for {} ({}): {}", symbol, assetClass, e.toString());
+            }
+        }
+        return null;
+    }
+
+    private ChartSnapshot parseNasdaqChart(JsonNode root, String fallbackSymbol) {
+        JsonNode data = root.path("data");
+        if (!data.isObject()) {
+            return null;
+        }
+        JsonNode chart = data.path("chart");
+        if (!chart.isArray() || chart.isEmpty()) {
+            return null;
+        }
+        NavigableMap<LocalDate, Double> bars = new TreeMap<>();
+        for (JsonNode point : chart) {
+            JsonNode z = point.path("z");
+            String dateText = text(z.get("dateTime"));
+            Double close = money(z.get("close"));
+            if (close == null) {
+                close = money(z.get("value"));
+            }
+            if (dateText.isBlank() || close == null || close <= 0) {
+                continue;
+            }
+            try {
+                bars.put(LocalDate.parse(dateText, NASDAQ_DAY), close);
+            } catch (DateTimeParseException ignored) {
+                // skip malformed points
+            }
+        }
+        if (bars.isEmpty()) {
+            return null;
+        }
+        String company = text(data.get("company"));
+        if (company.isBlank()) {
+            company = fallbackSymbol;
+        }
+        Double live = money(data.get("lastSalePrice"));
+        return new ChartSnapshot(company, live, bars, "nasdaq-chart");
     }
 
     /**
@@ -229,9 +328,10 @@ public class InvestmentThenNowService {
      * Gated on the key alone rather than {@code alphaVantageEnabled}, because that flag also starts the hourly
      * quote crawler, which would exhaust the free-tier daily quota. This call only runs on user request.
      */
-    private ChartSnapshot fetchAlphaVantageDaily(String symbol) {
+    private ChartSnapshot fetchAlphaVantageDaily(String symbol, List<String> errors) {
         String key = props.alphaVantageApiKey();
         if (key == null || key.isBlank()) {
+            errors.add("alpha-vantage not configured");
             return null;
         }
         try {
@@ -243,26 +343,22 @@ public class InvestmentThenNowService {
                     + "&apikey="
                     + URLEncoder.encode(key, StandardCharsets.UTF_8);
             int timeoutMs = Math.max(props.newsTimeoutMs(), 20_000);
-            HttpClient client = HttpClient.newBuilder()
-                    .connectTimeout(Duration.ofMillis(timeoutMs))
-                    .build();
             HttpRequest request = HttpRequest.newBuilder(URI.create(url))
                     .GET()
                     .timeout(Duration.ofMillis(timeoutMs))
                     .header("Accept", "application/json")
                     .build();
             HttpResponse<String> resp =
-                    client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+                    httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
             if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
-                log.warn("Alpha Vantage daily HTTP {} for {}", resp.statusCode(), symbol);
+                errors.add("alpha-vantage HTTP " + resp.statusCode());
                 return null;
             }
             JsonNode payload = objectMapper.readTree(resp.body());
             JsonNode series = payload.path("Time Series (Daily)");
             if (!series.isObject()) {
-                // Alpha Vantage answers 200 with an "Information"/"Note"/"Error Message" body for a bad key
-                // or an exhausted free-tier quota; log it so the cause is visible.
                 String notice = firstText(payload, "Information", "Note", "Error Message");
+                errors.add("alpha-vantage " + (notice.isBlank() ? "no series" : notice));
                 log.warn(
                         "Alpha Vantage returned no daily series for {}{}",
                         symbol,
@@ -284,81 +380,16 @@ public class InvestmentThenNowService {
                 }
             }
             if (bars.isEmpty()) {
+                errors.add("alpha-vantage empty bars");
                 return null;
             }
+            log.info("then/now used Alpha Vantage daily for {}", symbol);
             return new ChartSnapshot(symbol, null, bars, "alpha-vantage-daily");
         } catch (Exception e) {
+            errors.add("alpha-vantage " + e.getMessage());
             log.warn("Alpha Vantage fallback failed for {}: {}", symbol, e.toString());
             return null;
         }
-    }
-
-    private ChartSnapshot fetchChart(String symbol, LocalDate start, LocalDate end) {
-        String cacheKey = symbol + "|" + start + "|" + end;
-        CachedChart cached = chartCache.get(cacheKey);
-        if (cached != null && cached.fetchedAt().plus(CHART_CACHE_TTL).isAfter(Instant.now())) {
-            return cached.snapshot();
-        }
-
-        long period1 = start.atStartOfDay(NY).toEpochSecond();
-        long period2 = end.atStartOfDay(NY).toEpochSecond();
-        String enc = URLEncoder.encode(symbol, StandardCharsets.UTF_8).replace("+", "%20");
-        int timeoutMs = Math.max(props.newsTimeoutMs(), 20_000);
-        HttpClient client = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofMillis(timeoutMs))
-                .build();
-
-        int lastStatus = 0;
-        Exception lastError = null;
-        // Alternate hosts and retry: Yahoo returns 429 sporadically for server clients.
-        for (int attempt = 0; attempt < CHART_HOSTS.size() * 2; attempt++) {
-            String host = CHART_HOSTS.get(attempt % CHART_HOSTS.size());
-            String url = host + String.format(Locale.ROOT, CHART_PATH, enc, period1, period2);
-            try {
-                HttpRequest request = HttpRequest.newBuilder(URI.create(url))
-                        .GET()
-                        .timeout(Duration.ofMillis(timeoutMs))
-                        .header("Accept", "application/json")
-                        .header("Accept-Language", "en-US,en;q=0.9")
-                        .header("User-Agent", YAHOO_USER_AGENT)
-                        .build();
-                HttpResponse<String> resp =
-                        client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-                if (resp.statusCode() >= 200 && resp.statusCode() < 300) {
-                    ChartSnapshot snapshot = parseChart(objectMapper.readTree(resp.body()));
-                    if (!snapshot.bars().isEmpty()) {
-                        chartCache.put(cacheKey, new CachedChart(Instant.now(), snapshot));
-                    }
-                    return snapshot;
-                }
-                lastStatus = resp.statusCode();
-                if (resp.statusCode() != 429 && resp.statusCode() < 500) {
-                    break;
-                }
-            } catch (Exception e) {
-                lastError = e;
-                log.warn("then/now chart attempt {} failed for {}: {}", attempt + 1, symbol, e.toString());
-            }
-            sleepBackoff(attempt);
-        }
-
-        // Serve a stale cache entry rather than failing the request outright.
-        if (cached != null) {
-            log.warn("then/now serving stale chart for {} after HTTP {}", symbol, lastStatus);
-            return cached.snapshot();
-        }
-        if (lastStatus == 429) {
-            throw new ResponseStatusException(
-                    HttpStatus.TOO_MANY_REQUESTS,
-                    "Yahoo Finance is rate limiting price requests (HTTP 429). Wait a minute and try again.");
-        }
-        if (lastStatus > 0) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_GATEWAY, "Yahoo chart HTTP " + lastStatus + " for " + symbol);
-        }
-        String detail = lastError == null ? "no response" : lastError.getMessage();
-        throw new ResponseStatusException(
-                HttpStatus.BAD_GATEWAY, "Could not load price history for " + symbol + ": " + detail);
     }
 
     private static String firstText(JsonNode node, String... fields) {
@@ -369,49 +400,6 @@ public class InvestmentThenNowService {
             }
         }
         return "";
-    }
-
-    private static void sleepBackoff(int attempt) {
-        try {
-            Thread.sleep(Math.min(1500L, 300L * (attempt + 1)));
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-    }
-
-    private static ChartSnapshot parseChart(JsonNode root) {
-        NavigableMap<LocalDate, Double> bars = new TreeMap<>();
-        JsonNode results = root.path("chart").path("result");
-        if (!results.isArray() || results.isEmpty()) {
-            return new ChartSnapshot("", null, bars, "yahoo-chart");
-        }
-        JsonNode r0 = results.get(0);
-        JsonNode meta = r0.path("meta");
-        String shortName = text(meta.get("shortName"));
-        String longName = text(meta.get("longName"));
-        String company = !shortName.isBlank() ? shortName : longName;
-        Double live = dbl(meta.get("regularMarketPrice"));
-
-        JsonNode ts = r0.path("timestamp");
-        JsonNode adj = r0.path("indicators").path("adjclose").path(0).path("adjclose");
-        JsonNode raw = r0.path("indicators").path("quote").path(0).path("close");
-        for (int i = 0; i < ts.size(); i++) {
-            JsonNode t = ts.get(i);
-            JsonNode p = i < adj.size() ? adj.get(i) : null;
-            if (p == null || !p.isNumber()) {
-                p = i < raw.size() ? raw.get(i) : null;
-            }
-            if (t == null || !t.isNumber() || p == null || !p.isNumber()) {
-                continue;
-            }
-            double px = p.asDouble();
-            if (!Double.isFinite(px) || px <= 0) {
-                continue;
-            }
-            LocalDate date = Instant.ofEpochSecond(t.asLong()).atZone(NY).toLocalDate();
-            bars.put(date, px);
-        }
-        return new ChartSnapshot(company, live, bars, "yahoo-chart");
     }
 
     private static String buildDetailAnswer(
@@ -442,7 +430,7 @@ public class InvestmentThenNowService {
                         + "(as of the %s close). That is a %s of $%,.2f (%+.2f%%). "
                         + "At an adjusted close of $%,.4f on %s, that purchase would have bought about %,.4f shares; "
                         + "marked at $%,.4f today, those shares are worth $%,.2f.%s "
-                        + "Prices are Yahoo Finance daily adjusted closes (educational estimate, not investment advice).",
+                        + "Prices use Nasdaq daily closes (educational estimate, not investment advice).",
                 invested,
                 nameLabel,
                 requestedAsOf.format(LONG_DATE),
@@ -489,6 +477,11 @@ public class InvestmentThenNowService {
         return symbol.trim().toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9.\\-^=]", "");
     }
 
+    /** Nasdaq prefers BRK.B over BRK-B. */
+    private static String toNasdaqSymbol(String symbol) {
+        return symbol.replace('-', '.');
+    }
+
     private static BigDecimal money6(double v) {
         return BigDecimal.valueOf(v).setScale(6, RoundingMode.HALF_UP);
     }
@@ -501,11 +494,39 @@ public class InvestmentThenNowService {
     }
 
     private static Double dbl(JsonNode n) {
-        if (n == null || n.isNull() || !n.isNumber()) {
+        if (n == null || n.isNull()) {
             return null;
         }
-        double v = n.asDouble();
-        return Double.isFinite(v) ? v : null;
+        if (n.isNumber()) {
+            double v = n.asDouble();
+            return Double.isFinite(v) ? v : null;
+        }
+        return money(n);
+    }
+
+    /** Parse \"$738.93\" / \"738.93\" / numeric JSON nodes. */
+    private static Double money(JsonNode n) {
+        if (n == null || n.isNull()) {
+            return null;
+        }
+        if (n.isNumber()) {
+            double v = n.asDouble();
+            return Double.isFinite(v) && v > 0 ? v : null;
+        }
+        if (!n.isTextual()) {
+            return null;
+        }
+        String raw = n.asText("").trim();
+        if (raw.isEmpty() || "N/A".equalsIgnoreCase(raw)) {
+            return null;
+        }
+        String cleaned = raw.replace("$", "").replace(",", "").trim();
+        try {
+            double v = Double.parseDouble(cleaned);
+            return Double.isFinite(v) && v > 0 ? v : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private record ChartSnapshot(

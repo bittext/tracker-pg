@@ -69,7 +69,7 @@ public class FinanceInvestmentThenNow {
     private String detailAnswer;
 
     @Column(name = "price_source", nullable = false, length = 64)
-    private String priceSource = "yahoo-chart";
+    private String priceSource = "nasdaq-chart";
 
     @Column(name = "computed_at", nullable = false)
     private Instant computedAt = Instant.now();
