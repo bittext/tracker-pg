@@ -340,12 +340,48 @@
     padding: 0.4rem 0.55rem;
     border-bottom: 1px solid var(--app-border, rgba(15, 23, 42, 0.06));
     text-align: left;
+    vertical-align: middle;
+  }
+
+  &--holdings {
+    table-layout: fixed;
+
+    .tj__col-sym {
+      width: 22%;
+    }
+
+    .tj__col-qty {
+      width: 16%;
+    }
+
+    .tj__col-px {
+      width: 16%;
+    }
+
+    .tj__col-val {
+      width: 20%;
+    }
+
+    .tj__col-pnl {
+      width: 26%;
+    }
+
+    th,
+    td {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
   }
 }
 
 .tj__num {
   text-align: right !important;
   font-variant-numeric: tabular-nums;
+}
+
+.tj__pnl {
+  white-space: nowrap;
 }
 
 .tj__pinned {

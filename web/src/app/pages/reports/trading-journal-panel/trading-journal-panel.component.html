@@ -284,7 +284,14 @@
                       <p class="muted tj__holdings-empty">No holdings captured for this account.</p>
                     } @else {
                       <div class="tj__table-wrap">
-                        <table class="tj__table">
+                        <table class="tj__table tj__table--holdings">
+                          <colgroup>
+                            <col class="tj__col-sym" />
+                            <col class="tj__col-qty" />
+                            <col class="tj__col-px" />
+                            <col class="tj__col-val" />
+                            <col class="tj__col-pnl" />
+                          </colgroup>
                           <thead>
                             <tr>
                               <th>Symbol</th>
@@ -309,11 +316,11 @@
                                     <span class="tj__pos-type muted">{{ h.positionType }}</span>
                                   }
                                 </td>
-                                <td class="tj__num">{{ h.quantity }}</td>
+                                <td class="tj__num">{{ h.quantity | number: '1.0-4' }}</td>
                                 <td class="tj__num">{{ h.currentUnitPrice | currency }}</td>
                                 <td class="tj__num">{{ h.marketValue | currency }}</td>
                                 <td
-                                  class="tj__num"
+                                  class="tj__num tj__pnl"
                                   [class.tj__pnl-pos]="(h.unrealizedPnL ?? 0) > 0"
                                   [class.tj__pnl-neg]="(h.unrealizedPnL ?? 0) < 0"
                                 >
