@@ -41,6 +41,10 @@ public class TradingJournalAttachment {
     @Column(name = "size_bytes")
     private Long sizeBytes;
 
+    /** When the image was captured/taken (EXIF or filename), if known. */
+    @Column(name = "captured_at")
+    private Instant capturedAt;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 

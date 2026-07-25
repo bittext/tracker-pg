@@ -23,8 +23,8 @@ export interface TradingJournalImageGalleryData {
       <span class="gal-name">{{ current?.originalFilename || 'Image' }}</span>
       <span class="gal-pos muted">{{ index + 1 }} / {{ data.images.length }}</span>
     </h2>
-    @if (current?.createdAt) {
-      <p class="gal-when muted">{{ uploadedLabel(current!) }}</p>
+    @if (current && captureLabel(current); as when) {
+      <p class="gal-when muted">{{ when }}</p>
     }
     <mat-dialog-content class="gal-body">
       @if (error) {
@@ -49,8 +49,8 @@ export interface TradingJournalImageGalleryData {
           </button>
           <div class="gal-frame">
             <img class="gal-img" [src]="blobUrl" [alt]="current?.originalFilename || 'Image'" />
-            @if (current?.createdAt) {
-              <div class="gal-stamp">{{ uploadedLabel(current!) }}</div>
+            @if (current && captureLabel(current); as stamp) {
+              <div class="gal-stamp">{{ stamp }}</div>
             }
           </div>
           <button
@@ -201,8 +201,9 @@ export class TradingJournalImageGalleryDialogComponent implements OnInit, OnDest
     this.revoke();
   }
 
-  uploadedLabel(att: TradingJournalAttachmentDto): string {
-    if (!att.createdAt) {
+  captureLabel(att: TradingJournalAttachmentDto): string {
+    const raw = att.capturedAt || att.createdAt;
+    if (!raw) {
       return '';
     }
     return (
@@ -213,7 +214,7 @@ export class TradingJournalImageGalleryDialogComponent implements OnInit, OnDest
         year: 'numeric',
         hour: 'numeric',
         minute: '2-digit',
-      }).format(new Date(att.createdAt)) + ' CT'
+      }).format(new Date(raw)) + ' CT'
     );
   }
 

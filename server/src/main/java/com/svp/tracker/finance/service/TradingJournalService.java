@@ -24,6 +24,7 @@ import com.svp.tracker.finance.repository.TradingJournalAttachmentRepository;
 import com.svp.tracker.finance.repository.TradingJournalEntryRepository;
 import com.svp.tracker.finance.repository.TradingJournalRefRepository;
 import com.svp.tracker.journal.service.JournalBlobStore;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
@@ -293,19 +294,25 @@ public class TradingJournalService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Attachment exceeds 12 MB limit");
         }
         String filename = file.getOriginalFilename() == null ? "attachment" : file.getOriginalFilename();
-        try (InputStream in = file.getInputStream()) {
-            String key = blobStore.put(uid, entry.getId(), in, file.getSize());
-            TradingJournalAttachment row = new TradingJournalAttachment();
-            row.setOwnerUserId(uid);
-            row.setEntryId(entry.getId());
-            row.setStorageKey(key);
-            row.setOriginalFilename(trimTo(filename, 512));
-            row.setContentType(file.getContentType());
-            row.setSizeBytes(file.getSize());
-            row = attachmentRepository.save(row);
-            entry.setUpdatedAt(Instant.now());
-            entryRepository.save(entry);
-            return toAttachmentDto(row);
+        try {
+            byte[] bytes = file.getBytes();
+            Instant capturedAt =
+                    JournalImageCaptureTime.resolve(filename, file.getContentType(), bytes);
+            try (InputStream in = new ByteArrayInputStream(bytes)) {
+                String key = blobStore.put(uid, entry.getId(), in, bytes.length);
+                TradingJournalAttachment row = new TradingJournalAttachment();
+                row.setOwnerUserId(uid);
+                row.setEntryId(entry.getId());
+                row.setStorageKey(key);
+                row.setOriginalFilename(trimTo(filename, 512));
+                row.setContentType(file.getContentType());
+                row.setSizeBytes((long) bytes.length);
+                row.setCapturedAt(capturedAt);
+                row = attachmentRepository.save(row);
+                entry.setUpdatedAt(Instant.now());
+                entryRepository.save(entry);
+                return toAttachmentDto(row);
+            }
         } catch (IOException e) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to store attachment: " + e.getMessage());
         }
@@ -455,6 +462,8 @@ public class TradingJournalService {
                 .findByEntryIdAndOwnerUserIdOrderByCreatedAtAsc(e.getId(), e.getOwnerUserId())
                 .stream()
                 .map(this::toAttachmentDto)
+                .sorted(Comparator.comparing(
+                        TradingJournalAttachmentDto::capturedAt, Comparator.nullsLast(Comparator.naturalOrder())))
                 .toList();
         return new TradingJournalEntryDto(
                 e.getId(),
@@ -481,13 +490,21 @@ public class TradingJournalService {
     }
 
     private TradingJournalAttachmentDto toAttachmentDto(TradingJournalAttachment a) {
+        Instant captured = a.getCapturedAt();
+        if (captured == null) {
+            captured = JournalImageCaptureTime.fromFilename(a.getOriginalFilename());
+        }
+        if (captured == null) {
+            captured = a.getCreatedAt();
+        }
         return new TradingJournalAttachmentDto(
                 a.getId(),
                 a.getOriginalFilename(),
                 a.getContentType(),
                 a.getSizeBytes(),
                 "/api/markets/trading-journal/attachments/" + a.getId() + "/file",
-                a.getCreatedAt());
+                a.getCreatedAt(),
+                captured);
     }
 
     /** Holdings at the scheduled close for journal focus accounts (3370, 3550, 8696). */

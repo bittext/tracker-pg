@@ -8,4 +8,6 @@ public record TradingJournalAttachmentDto(
         String contentType,
         Long sizeBytes,
         String downloadPath,
-        Instant createdAt) {}
+        Instant createdAt,
+        /** Capture/taken time when known; otherwise same as {@code createdAt}. */
+        Instant capturedAt) {}

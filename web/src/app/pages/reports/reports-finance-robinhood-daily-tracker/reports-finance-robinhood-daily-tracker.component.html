@@ -487,8 +487,12 @@
               </strong>
             </div>
             <div class="rh-daily__focus-kpi">
-              <span class="rh-daily__focus-kpi-label">Range</span>
-              <strong>{{ metrics.low | currency }} – {{ metrics.high | currency }}</strong>
+              <span class="rh-daily__focus-kpi-label">Best / worst</span>
+              <strong>
+                <span class="rh-daily__pnl--pos">{{ metrics.bestDay.change | currency }}</span>
+                /
+                <span class="rh-daily__pnl--neg">{{ metrics.worstDay.change | currency }}</span>
+              </strong>
             </div>
             <div class="rh-daily__focus-kpi rh-daily__focus-kpi--alerts">
               <span class="rh-daily__focus-kpi-label">Alerts</span>
@@ -498,22 +502,29 @@
 
           <div class="rh-daily__focus-chart-wrap">
             <div class="rh-daily__focus-chart-head">
-              <div>
-                <strong>9 PM return vs S&amp;P</strong>
-                <span class="muted rh-daily__focus-chart-sub">
-                  Both lines are % return from the launch-day 9 PM stake. Blue is ••••{{ focusAccountSuffix }}; orange
-                  is that same cash held in the S&amp;P 500. Dollars stay in the hover tips. Click a blue point to
-                  inspect it.
-                </span>
+              <div class="rh-daily__focus-chart-title-block">
+                <h4 class="rh-daily__focus-chart-title">9 PM return vs S&amp;P</h4>
+                <p class="rh-daily__focus-chart-sub muted">
+                  ••••{{ focusAccountSuffix }} vs buy-and-hold from launch-day stake · hover for dollars
+                </p>
               </div>
-              <div class="rh-daily__focus-chart-actions">
-                <span class="muted">
-                  Blue = ••••{{ focusAccountSuffix }} return
+              <div class="rh-daily__focus-chart-toolbar">
+                <ul class="rh-daily__focus-legend" aria-label="Chart legend">
+                  <li>
+                    <span class="rh-daily__focus-legend-swatch rh-daily__focus-legend-swatch--account"></span>
+                    ••••{{ focusAccountSuffix }}
+                  </li>
                   @if (sp500BenchmarkPoints().length) {
-                    · orange dashed = S&amp;P buy-and-hold return
+                    <li>
+                      <span class="rh-daily__focus-legend-swatch rh-daily__focus-legend-swatch--sp"></span>
+                      S&amp;P buy-and-hold
+                    </li>
                   }
-                  · red point = alert
-                </span>
+                  <li>
+                    <span class="rh-daily__focus-legend-swatch rh-daily__focus-legend-swatch--alert"></span>
+                    Alert
+                  </li>
+                </ul>
                 <button mat-stroked-button type="button" (click)="toggleFocusDetails()">
                   <mat-icon>{{ focusDetailsExpanded ? 'expand_less' : 'table_rows' }}</mat-icon>
                   {{ focusDetailsExpanded ? 'Hide breakdown' : 'View full breakdown' }}
@@ -607,56 +618,46 @@
             </div>
           </div>
 
-          <div class="rh-daily__focus-explain">
-            <div>
+          <div class="rh-daily__focus-compare" role="group" aria-label="Period comparison">
+            <div class="rh-daily__focus-compare-cell">
               <span class="rh-daily__focus-kpi-label">Launch-day 9 PM</span>
               <strong>{{ metrics.startValue | currency }}</strong>
-              <p>First scheduled 9 PM snapshot in the selected period — also the S&amp;P buy-and-hold stake when a close is available.</p>
+              <p>Stake used for both return lines</p>
             </div>
             @if (sp500BenchmarkSummary(); as benchmark) {
-              <div>
-                <span class="rh-daily__focus-kpi-label">S&amp;P 500 buy-and-hold</span>
+              <div class="rh-daily__focus-compare-cell">
+                <span class="rh-daily__focus-kpi-label">S&amp;P buy-and-hold</span>
                 <strong [class]="pnlClass(benchmark.change)">
                   {{ benchmark.latestValue | currency }}
                   <small>({{ benchmark.changePercent | number: '1.2-2' }}%)</small>
                 </strong>
                 <p>
-                  Full {{ benchmark.launchInvestment | currency }} of the launch-day 9 PM value
-                  ({{ benchmark.launchDate | date: 'mediumDate' }}) invested in the S&amp;P 500 and held. Price return
-                  only — no dividends, fees, or taxes. Account is
+                  Account
                   <span [class]="pnlClass(benchmark.vsAccount)">
                     {{ benchmark.vsAccount | currency }}
                     @if (benchmark.vsAccountPercent != null) {
                       ({{ benchmark.vsAccountPercent | number: '1.2-2' }}%)
                     }
                   </span>
-                  vs this stake.
+                  vs S&amp;P
                 </p>
               </div>
+            } @else {
+              <div class="rh-daily__focus-compare-cell rh-daily__focus-compare-cell--muted">
+                <span class="rh-daily__focus-kpi-label">S&amp;P buy-and-hold</span>
+                <strong>—</strong>
+                <p>No benchmark closes in range</p>
+              </div>
             }
-            <div>
+            <div class="rh-daily__focus-compare-cell">
               <span class="rh-daily__focus-kpi-label">Cash added / removed</span>
               <strong>{{ metrics.totalAdded | currency }} / {{ metrics.totalRemoved | currency }}</strong>
-              <p>
-                ACH deposits, withdrawals, and account transfers from the RH CSV — not buys/sells that only move
-                cash ↔ equity.
-              </p>
+              <p>CSV transfers only</p>
             </div>
-            <div>
+            <div class="rh-daily__focus-compare-cell">
               <span class="rh-daily__focus-kpi-label">Value movement</span>
               <strong [class]="pnlClass(metrics.totalValueChange)">{{ metrics.totalValueChange | currency }}</strong>
-              <p>
-                Sum of 9 PM value changes after subtracting those CSV flows (marks, trading P&amp;L, options).
-              </p>
-            </div>
-            <div>
-              <span class="rh-daily__focus-kpi-label">Best / worst 9 PM move</span>
-              <strong>
-                <span class="rh-daily__pnl--pos">{{ metrics.bestDay.change | currency }}</span>
-                /
-                <span class="rh-daily__pnl--neg">{{ metrics.worstDay.change | currency }}</span>
-              </strong>
-              <p>{{ metrics.bestDay.key }} / {{ metrics.worstDay.key }}</p>
+              <p>Flow-adjusted 9 PM P&amp;L</p>
             </div>
           </div>
 

@@ -1877,6 +1877,8 @@ export interface TradingJournalAttachmentDto {
   sizeBytes: number | null;
   downloadPath: string;
   createdAt: string;
+  /** Capture/taken time when known; falls back to createdAt from API. */
+  capturedAt: string | null;
 }
 
 export interface TradingJournalEntryDto {

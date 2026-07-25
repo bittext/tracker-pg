@@ -413,8 +413,9 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
     );
   }
 
-  attachmentUploadedLabel(att: TradingJournalAttachmentDto): string {
-    if (!att.createdAt) {
+  attachmentCapturedLabel(att: TradingJournalAttachmentDto): string {
+    const raw = att.capturedAt || att.createdAt;
+    if (!raw) {
       return '';
     }
     return new Intl.DateTimeFormat('en-US', {
@@ -424,13 +425,13 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
       year: 'numeric',
       hour: 'numeric',
       minute: '2-digit',
-    }).format(new Date(att.createdAt));
+    }).format(new Date(raw));
   }
 
   private sortAttachmentsByCreatedAsc(atts: TradingJournalAttachmentDto[]): TradingJournalAttachmentDto[] {
     return [...atts].sort((a, b) => {
-      const ta = a.createdAt ? Date.parse(a.createdAt) : 0;
-      const tb = b.createdAt ? Date.parse(b.createdAt) : 0;
+      const ta = Date.parse(a.capturedAt || a.createdAt || '') || 0;
+      const tb = Date.parse(b.capturedAt || b.createdAt || '') || 0;
       if (ta !== tb) {
         return ta - tb;
       }

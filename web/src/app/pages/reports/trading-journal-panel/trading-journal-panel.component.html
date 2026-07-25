@@ -488,7 +488,7 @@
                       <button type="button" class="tj__att-link" (click)="openImageGallery(a)">
                         {{ a.originalFilename }}
                       </button>
-                      @if (attachmentUploadedLabel(a); as when) {
+                      @if (attachmentCapturedLabel(a); as when) {
                         <span class="tj__thumb-when muted">{{ when }} CT</span>
                       }
                     </div>
