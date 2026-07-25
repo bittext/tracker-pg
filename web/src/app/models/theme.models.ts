@@ -34,22 +34,22 @@ export const THEME_PRESETS: ThemePresetMeta[] = [
   {
     id: 'phoenix',
     label: 'Phoenix',
-    description: 'Deep slate sidebar, soft sage accent — Life & Markets default',
+    description: 'Deep slate sidebar with soft sage accents',
   },
   {
     id: 'openai',
-    label: 'OpenAI Platform',
-    description: 'platform.openai.com — sidebar nav, #f7f7f8 canvas, teal & gold accents',
+    label: 'OpenAI',
+    description: 'Platform canvas with teal and gold accents',
   },
   {
     id: 'classic',
     label: 'Classic',
-    description: 'Original teal accent with soft gradients',
+    description: 'Original teal accent and soft gradients',
   },
   {
     id: 'aura',
     label: 'Aura',
-    description: 'Side illumination — warm peach bloom fading into cool lavender mist',
+    description: 'Warm peach bloom into cool lavender mist',
   },
 ];
 

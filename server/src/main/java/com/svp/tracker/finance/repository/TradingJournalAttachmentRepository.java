@@ -9,7 +9,7 @@ public interface TradingJournalAttachmentRepository extends JpaRepository<Tradin
 
     long countByEntryIdAndOwnerUserId(long entryId, long ownerUserId);
 
-    List<TradingJournalAttachment> findByEntryIdAndOwnerUserIdOrderByCreatedAtDesc(long entryId, long ownerUserId);
+    List<TradingJournalAttachment> findByEntryIdAndOwnerUserIdOrderByCreatedAtAsc(long entryId, long ownerUserId);
 
     Optional<TradingJournalAttachment> findByIdAndOwnerUserId(long id, long ownerUserId);
 

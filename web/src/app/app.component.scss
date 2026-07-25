@@ -1,7 +1,13 @@
 :host {
   display: block;
   min-height: 100vh;
-  background: var(--app-bg);
+  /* Use the full gradient so presets like Aura’s side bloom are visible */
+  background: var(--app-bg-gradient);
+  background-attachment: fixed;
+}
+
+:host-context([data-theme-preset='aura']) {
+  background: transparent;
 }
 
 .fallback-main {

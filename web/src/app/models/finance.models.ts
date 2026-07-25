@@ -1898,11 +1898,18 @@ export interface TradingJournalEntryDto {
   attachments: TradingJournalAttachmentDto[];
 }
 
+export interface TradingJournalAccountHoldingsDto {
+  accountSuffix: string;
+  label: string;
+  holdings: RobinhoodRhHoldingDto[];
+}
+
 export interface TradingJournalDayDetailDto {
   snapshotDate: string;
   entry: TradingJournalEntryDto | null;
   wrap: RobinhoodRhDailyTrackerDayDto | null;
   aiDraftAvailable: boolean;
+  holdings: TradingJournalAccountHoldingsDto[];
 }
 
 export interface TradingJournalUpdateRequestDto {

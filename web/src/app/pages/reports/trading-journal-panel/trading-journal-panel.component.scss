@@ -197,6 +197,118 @@
   }
 }
 
+.tj__cash-flows {
+  margin: 0.85rem 0;
+  padding: 0.7rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--app-color-warning, #c4893a) 35%, var(--app-border));
+  background: color-mix(in srgb, var(--app-color-warning, #c4893a) 10%, var(--app-surface, #fff));
+}
+
+.tj__cash-flows-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
+  margin-bottom: 0.45rem;
+
+  h4 {
+    margin: 0;
+    font-size: 0.9rem;
+  }
+}
+
+.tj__cash-flows-totals {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.tj__cash-flows-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.tj__cash-flows-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+.tj__cash-acct {
+  font-weight: 700;
+  min-width: 4.5rem;
+}
+
+.tj__cash-in {
+  color: var(--app-color-success, #3d8b6e);
+  font-weight: 600;
+}
+
+.tj__cash-out {
+  color: #b45309;
+  font-weight: 600;
+}
+
+.tj__holdings {
+  margin: 0.85rem 0 0.25rem;
+}
+
+.tj__holdings-group {
+  margin-bottom: 0.85rem;
+}
+
+.tj__holdings-group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.65rem;
+  margin: 0.35rem 0 0.4rem;
+  font-size: 0.9rem;
+}
+
+.tj__holdings-count {
+  margin-left: auto;
+  font-size: 0.78rem;
+}
+
+.tj__holdings-empty {
+  margin: 0.25rem 0 0.5rem;
+  font-size: 0.85rem;
+}
+
+.tj__pos-type {
+  display: inline-block;
+  margin-left: 0.35rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.tj__pnl-pos {
+  color: var(--app-color-success, #3d8b6e);
+}
+
+.tj__pnl-neg {
+  color: #b45309;
+}
+
+.tj__pnl-pct {
+  display: inline-block;
+  margin-left: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
 .tj__sub {
   margin: 0.85rem 0 0.35rem;
   font-size: 0.9rem;
@@ -240,6 +352,13 @@
 
 .tj__full {
   width: 100%;
+}
+
+.tj__body-field {
+  textarea {
+    min-height: 22rem;
+    resize: vertical;
+  }
 }
 
 .tj__grades,
@@ -398,9 +517,22 @@
 
 .tj__thumb-meta {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.15rem;
   min-width: 0;
+}
+
+.tj__thumb-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.tj__thumb-when {
+  font-size: 0.72rem;
+  line-height: 1.25;
 }
 
 .tj__att-link {

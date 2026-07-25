@@ -1,5 +1,51 @@
 /* Aura — side illumination bloom (warm peach → cool lavender). */
 
+html[data-theme-preset='aura'] {
+  /* Base wash under the fixed bloom layer */
+  background-color: var(--app-bg);
+}
+
+html[data-theme-preset='aura'] body {
+  /* Let the dedicated bloom layer paint the light; keep a soft base wash */
+  background-color: var(--app-bg);
+  background-image: none;
+  isolation: isolate;
+}
+
+/*
+ * Fixed luminous layer above the body wash and below app chrome.
+ * (html::before with z-index:-1 was painted under opaque app-root / body fills.)
+ */
+html[data-theme-preset='aura'] body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 95% 80% at 108% -8%, rgba(255, 186, 150, 0.95) 0%, transparent 58%),
+    radial-gradient(ellipse 70% 55% at 96% 22%, rgba(255, 150, 175, 0.55) 0%, transparent 52%),
+    radial-gradient(ellipse 55% 70% at -12% 105%, rgba(155, 145, 220, 0.5) 0%, transparent 52%),
+    radial-gradient(ellipse 45% 40% at 55% 70%, rgba(255, 255, 255, 0.28) 0%, transparent 65%),
+    linear-gradient(152deg, #e2dce8 0%, #ebe4ea 40%, #f4ebe5 72%, #efe6e0 100%);
+  background-repeat: no-repeat;
+  animation: aura-breathe 18s ease-in-out infinite alternate;
+}
+
+html[data-theme-preset='aura'][data-theme-mode='dark'] body::before {
+  background:
+    radial-gradient(ellipse 95% 80% at 108% -8%, rgba(210, 95, 65, 0.62) 0%, transparent 56%),
+    radial-gradient(ellipse 70% 55% at 96% 22%, rgba(150, 65, 110, 0.45) 0%, transparent 50%),
+    radial-gradient(ellipse 55% 70% at -12% 105%, rgba(75, 65, 150, 0.5) 0%, transparent 50%),
+    linear-gradient(155deg, #110e15 0%, #19141f 45%, #16121a 100%);
+}
+
+html[data-theme-preset='aura'] app-root {
+  position: relative;
+  z-index: 1;
+  background: transparent !important;
+}
+
 [data-theme-preset='aura'] {
   .app-platform-layout {
     display: flex;
@@ -40,6 +86,10 @@
     border-bottom: 1px solid var(--app-border);
   }
 
+  .app-platform-main {
+    background: transparent;
+  }
+
   .app-platform-main,
   .finance-panel,
   .mat-mdc-card,
@@ -64,40 +114,19 @@
   }
 }
 
-/* Extra bloom layer so the side light reads clearly over scrolling content */
-html[data-theme-preset='aura']::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background:
-    radial-gradient(ellipse 70% 55% at 100% 0%, rgba(255, 210, 180, 0.75) 0%, transparent 55%),
-    radial-gradient(ellipse 45% 40% at 88% 28%, rgba(255, 170, 190, 0.35) 0%, transparent 50%),
-    radial-gradient(ellipse 40% 50% at 0% 100%, rgba(160, 155, 210, 0.28) 0%, transparent 45%);
-  animation: aura-breathe 18s ease-in-out infinite alternate;
-}
-
-html[data-theme-preset='aura'][data-theme-mode='dark']::before {
-  background:
-    radial-gradient(ellipse 70% 55% at 100% 0%, rgba(200, 100, 70, 0.4) 0%, transparent 55%),
-    radial-gradient(ellipse 45% 40% at 88% 28%, rgba(160, 70, 110, 0.28) 0%, transparent 50%),
-    radial-gradient(ellipse 40% 50% at 0% 100%, rgba(80, 70, 140, 0.32) 0%, transparent 45%);
-}
-
 @keyframes aura-breathe {
   from {
-    opacity: 0.85;
+    opacity: 0.88;
     transform: scale(1);
   }
   to {
     opacity: 1;
-    transform: scale(1.04);
+    transform: scale(1.045);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  html[data-theme-preset='aura']::before {
+  html[data-theme-preset='aura'] body::before {
     animation: none;
   }
 }

@@ -5,8 +5,12 @@ import com.svp.tracker.config.RobinhoodRhDailyTrackerProperties;
 import com.svp.tracker.finance.domain.TradingJournalAttachment;
 import com.svp.tracker.finance.domain.TradingJournalEntry;
 import com.svp.tracker.finance.domain.TradingJournalRef;
+import com.svp.tracker.finance.dto.RobinhoodRhDailySnapshotDetailDto;
+import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerAccountCellDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerDayDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTradeDto;
+import com.svp.tracker.finance.dto.RobinhoodRhHoldingDto;
+import com.svp.tracker.finance.dto.TradingJournalAccountHoldingsDto;
 import com.svp.tracker.finance.dto.TradingJournalAiDraftDto;
 import com.svp.tracker.finance.dto.TradingJournalAttachmentDto;
 import com.svp.tracker.finance.dto.TradingJournalDayDetailDto;
@@ -27,7 +31,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -48,6 +54,8 @@ public class TradingJournalService {
 
     private static final ZoneId CENTRAL = ZoneId.of("America/Chicago");
     private static final Set<String> REF_KINDS = Set.of("SYMBOL", "URL", "NOTE");
+    /** Journal wrap focus accounts (trades, cash flows, holdings). */
+    private static final Set<String> FOCUS_ACCOUNT_SUFFIXES = Set.of("3370", "3550", "8696");
     private static final long MAX_ATTACHMENT_BYTES = 12L * 1024 * 1024;
 
     private final CurrentUserService currentUser;
@@ -78,7 +86,7 @@ public class TradingJournalService {
         String query = q == null ? "" : q.trim();
         List<TradingJournalEntry> rows =
                 query.isBlank()
-                        ? entryRepository.findByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateDesc(uid, from, to)
+                        ? entryRepository.findByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateAsc(uid, from, to)
                         : entryRepository.search(uid, from, to, query);
         List<LocalDate> dates = entryRepository.findDates(uid, from, to);
         List<TradingJournalEntrySummaryDto> entries = rows.stream().map(this::toSummary).toList();
@@ -119,7 +127,8 @@ public class TradingJournalService {
                 });
         RobinhoodRhDailyTrackerDayDto wrap = dailyTrackerService.dayWrap(snapshotDate);
         boolean ai = dailyTrackerProps.ai().enabled() && dailyTrackerProps.ai().configured();
-        return new TradingJournalDayDetailDto(snapshotDate, toEntryDto(entry), wrap, ai);
+        return new TradingJournalDayDetailDto(
+                snapshotDate, toEntryDto(entry), wrap, ai, focusAccountHoldings(wrap));
     }
 
     @Transactional(readOnly = true)
@@ -132,7 +141,11 @@ public class TradingJournalService {
         RobinhoodRhDailyTrackerDayDto wrap = dailyTrackerService.dayWrap(snapshotDate);
         boolean ai = dailyTrackerProps.ai().enabled() && dailyTrackerProps.ai().configured();
         return new TradingJournalDayDetailDto(
-                snapshotDate, entry == null ? null : toEntryDto(entry), wrap, ai);
+                snapshotDate,
+                entry == null ? null : toEntryDto(entry),
+                wrap,
+                ai,
+                focusAccountHoldings(wrap));
     }
 
     @Transactional
@@ -201,7 +214,7 @@ public class TradingJournalService {
         long uid = currentUser.requireUserId();
         TradingJournalEntry entry = requireOwnedEntry(uid, snapshotDate);
         for (TradingJournalAttachment a :
-                attachmentRepository.findByEntryIdAndOwnerUserIdOrderByCreatedAtDesc(entry.getId(), uid)) {
+                attachmentRepository.findByEntryIdAndOwnerUserIdOrderByCreatedAtAsc(entry.getId(), uid)) {
             try {
                 blobStore.delete(a.getStorageKey());
             } catch (IOException e) {
@@ -439,7 +452,7 @@ public class TradingJournalService {
                 .map(this::toRefDto)
                 .toList();
         List<TradingJournalAttachmentDto> atts = attachmentRepository
-                .findByEntryIdAndOwnerUserIdOrderByCreatedAtDesc(e.getId(), e.getOwnerUserId())
+                .findByEntryIdAndOwnerUserIdOrderByCreatedAtAsc(e.getId(), e.getOwnerUserId())
                 .stream()
                 .map(this::toAttachmentDto)
                 .toList();
@@ -475,6 +488,36 @@ public class TradingJournalService {
                 a.getSizeBytes(),
                 "/api/markets/trading-journal/attachments/" + a.getId() + "/file",
                 a.getCreatedAt());
+    }
+
+    /** Holdings at the scheduled close for journal focus accounts (3370, 3550, 8696). */
+    private List<TradingJournalAccountHoldingsDto> focusAccountHoldings(RobinhoodRhDailyTrackerDayDto wrap) {
+        if (wrap == null || wrap.accounts() == null || wrap.accounts().isEmpty()) {
+            return List.of();
+        }
+        List<TradingJournalAccountHoldingsDto> out = new ArrayList<>();
+        for (RobinhoodRhDailyTrackerAccountCellDto cell : wrap.accounts()) {
+            String suffix = cell.accountSuffix() == null ? "" : cell.accountSuffix().trim();
+            if (!FOCUS_ACCOUNT_SUFFIXES.contains(suffix)) {
+                continue;
+            }
+            try {
+                RobinhoodRhDailySnapshotDetailDto detail =
+                        dailyTrackerService.getSnapshotDetail(cell.snapshotId());
+                List<RobinhoodRhHoldingDto> holdings = detail.holdings() == null
+                        ? List.of()
+                        : detail.holdings().stream()
+                                .sorted(Comparator.comparing(
+                                        h -> h.marketValue() == null ? BigDecimal.ZERO : h.marketValue(),
+                                        Comparator.reverseOrder()))
+                                .toList();
+                String label = detail.label() == null || detail.label().isBlank() ? suffix : detail.label();
+                out.add(new TradingJournalAccountHoldingsDto(suffix, label, holdings));
+            } catch (Exception e) {
+                log.debug("Skip journal holdings for ••••{}: {}", suffix, e.toString());
+            }
+        }
+        return out;
     }
 
     private static void requireDate(LocalDate snapshotDate) {

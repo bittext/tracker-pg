@@ -192,7 +192,8 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
       return;
     }
     if (this.entries.length) {
-      this.openDay(this.entries[0].snapshotDate, false);
+      // List is oldest→newest; open the most recent entry by default.
+      this.openDay(this.entries[this.entries.length - 1].snapshotDate, false);
     }
   }
 
@@ -401,11 +402,40 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
   }
 
   imageAttachments(): TradingJournalAttachmentDto[] {
-    return (this.detail?.entry?.attachments ?? []).filter((a) => this.isImageAttachment(a));
+    return this.sortAttachmentsByCreatedAsc(
+      (this.detail?.entry?.attachments ?? []).filter((a) => this.isImageAttachment(a)),
+    );
   }
 
   otherAttachments(): TradingJournalAttachmentDto[] {
-    return (this.detail?.entry?.attachments ?? []).filter((a) => !this.isImageAttachment(a));
+    return this.sortAttachmentsByCreatedAsc(
+      (this.detail?.entry?.attachments ?? []).filter((a) => !this.isImageAttachment(a)),
+    );
+  }
+
+  attachmentUploadedLabel(att: TradingJournalAttachmentDto): string {
+    if (!att.createdAt) {
+      return '';
+    }
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Chicago',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(new Date(att.createdAt));
+  }
+
+  private sortAttachmentsByCreatedAsc(atts: TradingJournalAttachmentDto[]): TradingJournalAttachmentDto[] {
+    return [...atts].sort((a, b) => {
+      const ta = a.createdAt ? Date.parse(a.createdAt) : 0;
+      const tb = b.createdAt ? Date.parse(b.createdAt) : 0;
+      if (ta !== tb) {
+        return ta - tb;
+      }
+      return a.id - b.id;
+    });
   }
 
   previewUrl(att: TradingJournalAttachmentDto): string | null {
@@ -490,12 +520,47 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
     return out;
   }
 
+  private static readonly JOURNAL_FOCUS_ACCOUNT_SUFFIXES = new Set(['3370', '3550', '8696']);
+
   wrapAccounts(wrap: RobinhoodRhDailyTrackerDayDto | null | undefined) {
     return wrap?.accounts ?? [];
   }
 
   wrapTrades(wrap: RobinhoodRhDailyTrackerDayDto | null | undefined) {
-    return wrap?.trades ?? [];
+    return (wrap?.trades ?? []).filter((t) => {
+      const suffix = (t.accountSuffix ?? '').trim();
+      return TradingJournalPanelComponent.JOURNAL_FOCUS_ACCOUNT_SUFFIXES.has(suffix);
+    });
+  }
+
+  /** Deposits / withdrawals since prior 9 PM CT on focus accounts (3370, 3550, 8696). */
+  wrapCashFlows(wrap: RobinhoodRhDailyTrackerDayDto | null | undefined) {
+    return (wrap?.accounts ?? []).filter((a) => {
+      const suffix = (a.accountSuffix ?? '').trim();
+      if (!TradingJournalPanelComponent.JOURNAL_FOCUS_ACCOUNT_SUFFIXES.has(suffix)) {
+        return false;
+      }
+      const added = Number(a.periodAdded) || 0;
+      const removed = Number(a.periodRemoved) || 0;
+      return a.hasFlowActivity || added > 0 || removed > 0;
+    });
+  }
+
+  wrapCashFlowTotals(wrap: RobinhoodRhDailyTrackerDayDto | null | undefined): {
+    deposited: number;
+    withdrawn: number;
+  } {
+    let deposited = 0;
+    let withdrawn = 0;
+    for (const a of this.wrapCashFlows(wrap)) {
+      deposited += Number(a.periodAdded) || 0;
+      withdrawn += Number(a.periodRemoved) || 0;
+    }
+    return { deposited, withdrawn };
+  }
+
+  dayHoldings() {
+    return this.detail?.holdings ?? [];
   }
 
   private ensureEntry(then: () => void): void {

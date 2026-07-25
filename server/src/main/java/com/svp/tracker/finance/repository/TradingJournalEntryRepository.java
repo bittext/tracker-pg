@@ -14,7 +14,7 @@ public interface TradingJournalEntryRepository extends JpaRepository<TradingJour
 
     Optional<TradingJournalEntry> findByIdAndOwnerUserId(long id, long ownerUserId);
 
-    List<TradingJournalEntry> findByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateDesc(
+    List<TradingJournalEntry> findByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateAsc(
             long ownerUserId, LocalDate from, LocalDate to);
 
     @Query(
@@ -35,7 +35,7 @@ public interface TradingJournalEntryRepository extends JpaRepository<TradingJour
                         OR COALESCE(r.url, '') ILIKE CONCAT('%', :q, '%')
                       )
                     GROUP BY e.id
-                    ORDER BY e.snapshot_date DESC
+                    ORDER BY e.snapshot_date ASC
                     """,
             nativeQuery = true)
     List<TradingJournalEntry> search(
@@ -49,7 +49,7 @@ public interface TradingJournalEntryRepository extends JpaRepository<TradingJour
             SELECT e.snapshotDate FROM TradingJournalEntry e
             WHERE e.ownerUserId = :ownerUserId
               AND e.snapshotDate BETWEEN :from AND :to
-            ORDER BY e.snapshotDate DESC
+            ORDER BY e.snapshotDate ASC
             """)
     List<LocalDate> findDates(
             @Param("ownerUserId") long ownerUserId, @Param("from") LocalDate from, @Param("to") LocalDate to);

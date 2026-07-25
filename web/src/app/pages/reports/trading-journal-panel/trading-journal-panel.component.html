@@ -162,7 +162,7 @@
               </div>
               <div>
                 <span class="muted">Trades</span>
-                <strong>{{ detail.wrap.trades.length || 0 }}</strong>
+                <strong>{{ wrapTrades(detail.wrap).length || 0 }}</strong>
               </div>
             </div>
 
@@ -174,6 +174,42 @@
                 </div>
                 <pre>{{ detail.wrap.summaryNote }}</pre>
               </div>
+            }
+
+            @if (wrapCashFlows(detail.wrap); as flows) {
+              @if (flows.length) {
+                <div class="tj__cash-flows" role="status">
+                  <div class="tj__cash-flows-head">
+                    <h4>Cash moved (••••3370, ••••3550, ••••8696)</h4>
+                    <span class="tj__cash-flows-totals muted">
+                      @if (wrapCashFlowTotals(detail.wrap); as tot) {
+                        @if (tot.deposited > 0) {
+                          <span class="tj__cash-in">+{{ tot.deposited | currency }} in</span>
+                        }
+                        @if (tot.deposited > 0 && tot.withdrawn > 0) {
+                          <span>·</span>
+                        }
+                        @if (tot.withdrawn > 0) {
+                          <span class="tj__cash-out">−{{ tot.withdrawn | currency }} out</span>
+                        }
+                      }
+                    </span>
+                  </div>
+                  <ul class="tj__cash-flows-list">
+                    @for (a of flows; track a.accountSuffix) {
+                      <li>
+                        <span class="tj__cash-acct">••••{{ a.accountSuffix }}</span>
+                        @if ((a.periodAdded || 0) > 0) {
+                          <span class="tj__cash-in">Deposited {{ a.periodAdded | currency }}</span>
+                        }
+                        @if ((a.periodRemoved || 0) > 0) {
+                          <span class="tj__cash-out">Withdrawn {{ a.periodRemoved | currency }}</span>
+                        }
+                      </li>
+                    }
+                  </ul>
+                </div>
+              }
             }
 
             @if (wrapAccounts(detail.wrap).length) {
@@ -200,7 +236,7 @@
             }
 
             @if (wrapTrades(detail.wrap).length) {
-              <h4 class="tj__sub">Trades since prior 9 PM CT</h4>
+              <h4 class="tj__sub">Trades since prior 9 PM CT (••••3370, ••••3550, ••••8696)</h4>
               <div class="tj__table-wrap">
                 <table class="tj__table">
                   <thead>
@@ -228,6 +264,73 @@
                 </table>
               </div>
             }
+
+            @if (dayHoldings().length) {
+              <div class="tj__holdings">
+                <h4 class="tj__sub">Holdings at 9 PM CT (••••3370, ••••3550, ••••8696)</h4>
+                @for (group of dayHoldings(); track group.accountSuffix) {
+                  <div class="tj__holdings-group">
+                    <div class="tj__holdings-group-head">
+                      <strong>••••{{ group.accountSuffix }}</strong>
+                      @if (group.label) {
+                        <span class="muted">{{ group.label }}</span>
+                      }
+                      <span class="muted tj__holdings-count">{{ group.holdings.length }} positions</span>
+                    </div>
+                    @if (!group.holdings.length) {
+                      <p class="muted tj__holdings-empty">No holdings captured for this account.</p>
+                    } @else {
+                      <div class="tj__table-wrap">
+                        <table class="tj__table">
+                          <thead>
+                            <tr>
+                              <th>Symbol</th>
+                              <th class="tj__num">Qty</th>
+                              <th class="tj__num">Price</th>
+                              <th class="tj__num">Value</th>
+                              <th class="tj__num">P&amp;L</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            @for (h of group.holdings; track h.symbol + (h.positionType || '') + h.quantity) {
+                              <tr>
+                                <td>
+                                  <button
+                                    type="button"
+                                    class="tj__sym-link"
+                                    (click)="openWatchForSymbol(h.symbol)"
+                                  >
+                                    {{ h.symbol }}
+                                  </button>
+                                  @if (h.positionType) {
+                                    <span class="tj__pos-type muted">{{ h.positionType }}</span>
+                                  }
+                                </td>
+                                <td class="tj__num">{{ h.quantity }}</td>
+                                <td class="tj__num">{{ h.currentUnitPrice | currency }}</td>
+                                <td class="tj__num">{{ h.marketValue | currency }}</td>
+                                <td
+                                  class="tj__num"
+                                  [class.tj__pnl-pos]="(h.unrealizedPnL ?? 0) > 0"
+                                  [class.tj__pnl-neg]="(h.unrealizedPnL ?? 0) < 0"
+                                >
+                                  {{ h.unrealizedPnL | currency }}
+                                  @if (h.unrealizedPnLPercent != null) {
+                                    <span class="tj__pnl-pct muted"
+                                      >({{ h.unrealizedPnLPercent | number: '1.1-1' }}%)</span
+                                    >
+                                  }
+                                </td>
+                              </tr>
+                            }
+                          </tbody>
+                        </table>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            }
           }
 
           @if (detail.entry?.hasScheduledClose) {
@@ -246,9 +349,9 @@
             <mat-label>Title</mat-label>
             <input matInput [(ngModel)]="titleDraft" name="tjTitle" />
           </mat-form-field>
-          <mat-form-field appearance="outline" class="tj__full">
+          <mat-form-field appearance="outline" class="tj__full tj__body-field">
             <mat-label>Journal body (markdown)</mat-label>
-            <textarea matInput rows="10" [(ngModel)]="bodyDraft" name="tjBody"></textarea>
+            <textarea matInput rows="18" [(ngModel)]="bodyDraft" name="tjBody"></textarea>
           </mat-form-field>
           <mat-form-field appearance="outline" class="tj__full">
             <mat-label>Tags</mat-label>
@@ -381,9 +484,14 @@
                     }
                   </button>
                   <div class="tj__thumb-meta">
-                    <button type="button" class="tj__att-link" (click)="openImageGallery(a)">
-                      {{ a.originalFilename }}
-                    </button>
+                    <div class="tj__thumb-text">
+                      <button type="button" class="tj__att-link" (click)="openImageGallery(a)">
+                        {{ a.originalFilename }}
+                      </button>
+                      @if (attachmentUploadedLabel(a); as when) {
+                        <span class="tj__thumb-when muted">{{ when }} CT</span>
+                      }
+                    </div>
                     <button
                       mat-icon-button
                       type="button"

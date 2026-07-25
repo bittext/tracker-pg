@@ -23,6 +23,9 @@ export interface TradingJournalImageGalleryData {
       <span class="gal-name">{{ current?.originalFilename || 'Image' }}</span>
       <span class="gal-pos muted">{{ index + 1 }} / {{ data.images.length }}</span>
     </h2>
+    @if (current?.createdAt) {
+      <p class="gal-when muted">{{ uploadedLabel(current!) }}</p>
+    }
     <mat-dialog-content class="gal-body">
       @if (error) {
         <p class="muted" role="alert">{{ error }}</p>
@@ -44,7 +47,12 @@ export interface TradingJournalImageGalleryData {
           >
             <mat-icon>chevron_left</mat-icon>
           </button>
-          <img class="gal-img" [src]="blobUrl" [alt]="current?.originalFilename || 'Image'" />
+          <div class="gal-frame">
+            <img class="gal-img" [src]="blobUrl" [alt]="current?.originalFilename || 'Image'" />
+            @if (current?.createdAt) {
+              <div class="gal-stamp">{{ uploadedLabel(current!) }}</div>
+            }
+          </div>
           <button
             mat-icon-button
             type="button"
@@ -89,6 +97,10 @@ export interface TradingJournalImageGalleryData {
       font-size: 0.85rem;
       flex-shrink: 0;
     }
+    .gal-when {
+      margin: -0.35rem 1.5rem 0.5rem;
+      font-size: 0.85rem;
+    }
     .muted {
       opacity: 0.7;
     }
@@ -106,12 +118,30 @@ export interface TradingJournalImageGalleryData {
       user-select: none;
       touch-action: pan-y;
     }
+    .gal-frame {
+      position: relative;
+      display: inline-flex;
+      max-width: 100%;
+    }
     .gal-img {
       max-width: 100%;
       max-height: min(72vh, 40rem);
       border-radius: 8px;
       object-fit: contain;
       animation: gal-fade 0.22s ease;
+    }
+    .gal-stamp {
+      position: absolute;
+      left: 0.65rem;
+      bottom: 0.65rem;
+      padding: 0.3rem 0.55rem;
+      border-radius: 6px;
+      background: rgba(15, 23, 42, 0.72);
+      color: #f8fafc;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      pointer-events: none;
     }
     @keyframes gal-fade {
       from {
@@ -169,6 +199,22 @@ export class TradingJournalImageGalleryDialogComponent implements OnInit, OnDest
 
   ngOnDestroy(): void {
     this.revoke();
+  }
+
+  uploadedLabel(att: TradingJournalAttachmentDto): string {
+    if (!att.createdAt) {
+      return '';
+    }
+    return (
+      new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Chicago',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      }).format(new Date(att.createdAt)) + ' CT'
+    );
   }
 
   @HostListener('window:keydown', ['$event'])
