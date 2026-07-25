@@ -52,15 +52,6 @@
     <div class="cr__section-head">
       <h3 class="cr__section-title">Earnings calendar</h3>
       <div class="cr__section-actions">
-        <mat-form-field appearance="outline" class="cr__days">
-          <mat-label>Days</mat-label>
-          <mat-select [(ngModel)]="calendarDays" name="crCalDays" (selectionChange)="loadCalendar()">
-            <mat-option [value]="7">7</mat-option>
-            <mat-option [value]="14">14</mat-option>
-            <mat-option [value]="21">21</mat-option>
-            <mat-option [value]="31">31</mat-option>
-          </mat-select>
-        </mat-form-field>
         <button
           mat-stroked-button
           type="button"
@@ -73,43 +64,141 @@
     </div>
     @if (calendarLoading) {
       <p class="muted">Loading earnings calendar…</p>
-    } @else if (!calendar?.events?.length) {
-      <p class="muted">No earnings events in this window.</p>
-    } @else if (!eventsByDate().length) {
-      <p class="muted">No earnings events match “{{ searchQuery.trim() }}”.</p>
-    } @else {
-      <p class="muted cr__meta">
-        {{ calendar!.from | date: 'mediumDate' }} – {{ calendar!.to | date: 'mediumDate' }} ·
-        @if (searchQuery.trim()) {
-          {{ filteredCalendarCount() }} of {{ calendar!.events.length }} reports match search
-        } @else {
-          {{ calendar!.events.length }} reports
-        }
-        · {{ calendar!.source }}
-      </p>
-      <div class="cr__cal-days">
-        @for (group of eventsByDate(); track group.date) {
-          <div class="cr__cal-day">
-            <h4 class="cr__cal-date">{{ group.date | date: 'EEE, MMM d' }}</h4>
-            <div class="cr__cal-rows">
-              @for (ev of group.events; track ev.symbol) {
-                <button
-                  type="button"
-                  class="cr__cal-row"
-                  [class.cr__cal-row--watched]="ev.onWatchlist"
-                  (click)="addFromCalendar(ev)"
-                  [matTooltip]="ev.onWatchlist ? 'Open Watch card' : 'Add to Watch'"
+    } @else if (calendar) {
+      <div class="cr__calendar-toolbar">
+        <button mat-icon-button type="button" (click)="previousCalendarMonth()" aria-label="Previous month">
+          <mat-icon>chevron_left</mat-icon>
+        </button>
+        <button type="button" class="cr__calendar-title" (click)="currentCalendarMonth()" matTooltip="Return to current month">
+          {{ calendarTitle() }}
+        </button>
+        <button mat-icon-button type="button" (click)="nextCalendarMonth()" aria-label="Next month">
+          <mat-icon>chevron_right</mat-icon>
+        </button>
+        <span class="muted cr__meta">
+          @if (searchQuery.trim()) {
+            {{ filteredCalendarCount() }} of {{ calendar!.events.length }} reports
+          } @else {
+            {{ calendar!.events.length }} reports
+          }
+          · {{ calendar!.source }}
+        </span>
+      </div>
+      @if (!filteredCalendarCount()) {
+        <p class="muted cr__calendar-empty">
+          @if (searchQuery.trim()) {
+            No earnings events match “{{ searchQuery.trim() }}”.
+          } @else {
+            No earnings events in this month.
+          }
+        </p>
+      }
+
+      <div class="cr__calendar" aria-label="Earnings calendar">
+        <div class="cr__calendar-weekdays" role="row">
+          @for (weekday of ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']; track weekday) {
+            <span role="columnheader">{{ weekday }}</span>
+          }
+        </div>
+        @for (week of calendarRows(); track $index) {
+          <div class="cr__calendar-week" role="row">
+            @for (cell of week; track cell.trackKey) {
+              @if (cell.type === 'pad') {
+                <div class="cr__calendar-cell cr__calendar-cell--pad" aria-hidden="true"></div>
+              } @else {
+                <div
+                  class="cr__calendar-cell"
+                  [class.cr__calendar-cell--today]="cell.isToday"
+                  [class.cr__calendar-cell--selected]="cell.isSelected"
+                  [class.cr__calendar-cell--events]="cell.events.length"
                 >
-                  <span class="cr__cal-sym">{{ ev.symbol }}</span>
-                  <span class="cr__cal-name">{{ ev.companyName }}</span>
-                  <span class="cr__cal-meta muted">{{ ev.timing }} · EPS est {{ ev.epsForecast || '—' }}</span>
-                  <span class="cr__cal-cap muted">{{ ev.marketCap || '—' }}</span>
-                  <mat-icon class="cr__cal-icon" aria-hidden="true">
-                    {{ ev.onWatchlist ? 'visibility' : 'add_circle_outline' }}
-                  </mat-icon>
-                </button>
+                  <button
+                    type="button"
+                    class="cr__calendar-day"
+                    (click)="selectCalendarDate(cell.date)"
+                    [attr.aria-label]="
+                      (cell.date | date: 'fullDate') +
+                      ', ' +
+                      cell.events.length +
+                      ' earnings report' +
+                      (cell.events.length === 1 ? '' : 's')
+                    "
+                  >
+                    <span class="cr__calendar-number">{{ cell.dayNumber }}</span>
+                    @if (cell.events.length) {
+                      <span class="cr__calendar-count">{{ cell.events.length }}</span>
+                      <span class="cr__calendar-symbols">
+                        @for (event of cell.events.slice(0, 3); track event.symbol) {
+                          <span>{{ event.symbol }}</span>
+                        }
+                        @if (cell.events.length > 3) {
+                          <span>+{{ cell.events.length - 3 }}</span>
+                        }
+                      </span>
+                    }
+                  </button>
+
+                  @if (cell.events.length) {
+                    <div class="cr__calendar-popover" role="tooltip">
+                      <strong>{{ cell.date | date: 'EEEE, MMMM d' }}</strong>
+                      <span class="muted">{{ cell.events.length }} reporting</span>
+                      <div class="cr__calendar-popover-list">
+                        @for (event of cell.events; track event.symbol) {
+                          <button
+                            type="button"
+                            [class.cr__calendar-company--watched]="event.onWatchlist"
+                            (click)="addFromCalendar(event)"
+                          >
+                            <span>
+                              <strong>{{ event.symbol }}</strong>
+                              <small>{{ event.companyName }}</small>
+                            </span>
+                            <span class="cr__calendar-company-meta">
+                              {{ event.timing || 'Time TBD' }}
+                              <small>EPS {{ event.epsForecast || '—' }} · {{ event.marketCap || '—' }}</small>
+                            </span>
+                            <mat-icon aria-hidden="true">
+                              {{ event.onWatchlist ? 'visibility' : 'add_circle_outline' }}
+                            </mat-icon>
+                          </button>
+                        }
+                      </div>
+                    </div>
+                  }
+                </div>
               }
-            </div>
+            }
+          </div>
+        }
+      </div>
+
+      <div class="cr__selected-day">
+        <div class="cr__selected-day-head">
+          <div>
+            <span class="muted">Selected day</span>
+            <h4>{{ selectedCalendarDate | date: 'EEEE, MMMM d, y' }}</h4>
+          </div>
+          <span class="muted">{{ selectedCalendarEvents().length }} companies</span>
+        </div>
+        @if (!selectedCalendarEvents().length) {
+          <p class="muted cr__selected-empty">No matching earnings reports on this day.</p>
+        } @else {
+          <div class="cr__selected-companies">
+            @for (event of selectedCalendarEvents(); track event.symbol) {
+              <button
+                type="button"
+                class="cr__selected-company"
+                [class.cr__selected-company--watched]="event.onWatchlist"
+                (click)="addFromCalendar(event)"
+              >
+                <span class="cr__cal-sym">{{ event.symbol }}</span>
+                <span class="cr__cal-name">{{ event.companyName }}</span>
+                <span class="muted">{{ event.timing || 'Time TBD' }}</span>
+                <span class="muted">EPS {{ event.epsForecast || '—' }}</span>
+                <span class="muted">{{ event.marketCap || '—' }}</span>
+                <mat-icon aria-hidden="true">{{ event.onWatchlist ? 'visibility' : 'add_circle_outline' }}</mat-icon>
+              </button>
+            }
           </div>
         }
       </div>

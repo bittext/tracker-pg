@@ -28,6 +28,16 @@ const STATUSES: { value: CompanyResearchDecisionStatus | 'ALL'; label: string }[
   { value: 'REVISIT', label: 'Revisit' },
 ];
 
+interface EarningsCalendarCell {
+  type: 'pad' | 'day';
+  trackKey: string;
+  date: string;
+  dayNumber: number | null;
+  events: CompanyEarningsEventDto[];
+  isToday: boolean;
+  isSelected: boolean;
+}
+
 @Component({
   selector: 'app-company-research-panel',
   standalone: true,
@@ -59,11 +69,12 @@ export class CompanyResearchPanelComponent implements OnInit {
   searchQuery = '';
   statusFilter: CompanyResearchDecisionStatus | 'ALL' = 'ALL';
   earningsWindowDays = 14;
-  calendarDays = 7;
   largeCapOnly = true;
   addSymbol = '';
 
   calendar: CompanyEarningsCalendarDto | null = null;
+  calendarMonth = this.monthStartIso(new Date());
+  selectedCalendarDate = this.todayIso();
   cards: CompanyResearchCardDto[] = [];
   detail: CompanyResearchDetailDto | null = null;
   selectedSymbol: string | null = null;
@@ -102,9 +113,13 @@ export class CompanyResearchPanelComponent implements OnInit {
   loadCalendar(): void {
     this.calendarLoading = true;
     const minCap = this.largeCapOnly ? 1_000_000_000 : null;
-    this.api.companyResearchEarningsCalendar(null, this.calendarDays, minCap).subscribe({
+    const days = this.daysInCalendarMonth();
+    this.api.companyResearchEarningsCalendar(this.calendarMonth, days, minCap).subscribe({
       next: (c) => {
         this.calendar = c;
+        if (!this.selectedCalendarDate.startsWith(this.calendarMonth.slice(0, 7))) {
+          this.selectedCalendarDate = this.firstEventDate() ?? this.calendarMonth;
+        }
         this.calendarLoading = false;
       },
       error: (err) => {
@@ -319,6 +334,87 @@ export class CompanyResearchPanelComponent implements OnInit {
     return [...map.entries()].map(([date, dayEvents]) => ({ date, events: dayEvents }));
   }
 
+  calendarTitle(): string {
+    return new Date(`${this.calendarMonth}T12:00:00`).toLocaleDateString(undefined, {
+      month: 'long',
+      year: 'numeric',
+    });
+  }
+
+  previousCalendarMonth(): void {
+    this.moveCalendarMonth(-1);
+  }
+
+  nextCalendarMonth(): void {
+    this.moveCalendarMonth(1);
+  }
+
+  currentCalendarMonth(): void {
+    this.calendarMonth = this.monthStartIso(new Date());
+    this.selectedCalendarDate = this.todayIso();
+    this.loadCalendar();
+  }
+
+  selectCalendarDate(date: string): void {
+    this.selectedCalendarDate = date;
+  }
+
+  selectedCalendarEvents(): CompanyEarningsEventDto[] {
+    return this.eventsForDate(this.selectedCalendarDate);
+  }
+
+  calendarRows(): EarningsCalendarCell[][] {
+    const [year, month] = this.calendarMonth.split('-').map(Number);
+    const firstDow = new Date(year, month - 1, 1).getDay();
+    const days = new Date(year, month, 0).getDate();
+    const today = this.todayIso();
+    const flat: EarningsCalendarCell[] = [];
+
+    for (let i = 0; i < firstDow; i++) {
+      flat.push({
+        type: 'pad',
+        trackKey: `lead-${i}`,
+        date: '',
+        dayNumber: null,
+        events: [],
+        isToday: false,
+        isSelected: false,
+      });
+    }
+
+    for (let day = 1; day <= days; day++) {
+      const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      flat.push({
+        type: 'day',
+        trackKey: date,
+        date,
+        dayNumber: day,
+        events: this.eventsForDate(date),
+        isToday: date === today,
+        isSelected: date === this.selectedCalendarDate,
+      });
+    }
+
+    let tail = 0;
+    while (flat.length % 7 !== 0) {
+      flat.push({
+        type: 'pad',
+        trackKey: `tail-${tail++}`,
+        date: '',
+        dayNumber: null,
+        events: [],
+        isToday: false,
+        isSelected: false,
+      });
+    }
+
+    const rows: EarningsCalendarCell[][] = [];
+    for (let i = 0; i < flat.length; i += 7) {
+      rows.push(flat.slice(i, i + 7));
+    }
+    return rows;
+  }
+
   filteredCalendarCount(): number {
     return this.filteredCalendarEvents().length;
   }
@@ -386,6 +482,30 @@ export class CompanyResearchPanelComponent implements OnInit {
       .join(' ')
       .toLowerCase();
     return haystack.includes(q);
+  }
+
+  private eventsForDate(date: string): CompanyEarningsEventDto[] {
+    return this.filteredCalendarEvents().filter((event) => event.reportDate === date);
+  }
+
+  private firstEventDate(): string | null {
+    return this.filteredCalendarEvents()[0]?.reportDate ?? null;
+  }
+
+  private moveCalendarMonth(offset: number): void {
+    const [year, month] = this.calendarMonth.split('-').map(Number);
+    this.calendarMonth = this.monthStartIso(new Date(year, month - 1 + offset, 1));
+    this.selectedCalendarDate = this.calendarMonth;
+    this.loadCalendar();
+  }
+
+  private daysInCalendarMonth(): number {
+    const [year, month] = this.calendarMonth.split('-').map(Number);
+    return new Date(year, month, 0).getDate();
+  }
+
+  private monthStartIso(date: Date): string {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
   }
 
   private todayIso(): string {
