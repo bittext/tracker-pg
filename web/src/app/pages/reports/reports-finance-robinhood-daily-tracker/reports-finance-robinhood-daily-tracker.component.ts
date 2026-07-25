@@ -603,7 +603,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         row: {
           capturedAt: day.snapshotAt,
           kind: 'scheduled',
-          timeLabel: this.tracker?.autoCaptureScheduled ? '9 PM CT' : 'Scheduled',
+          timeLabel: this.formatCaptureTime(day.snapshotAt),
           combinedTotal: day.combinedTotal,
           changeFromPrior: null,
           accounts: day.accounts.map((cell) => ({
