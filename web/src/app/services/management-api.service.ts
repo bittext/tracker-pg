@@ -1,5 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
+import { from, of } from 'rxjs';
+import { concatMap, reduce } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import {
   ManagementMonthNoteCalendarDto,
@@ -416,7 +418,22 @@ export class ManagementApiService {
     });
   }
 
+  /**
+   * Upload recordings in batches so a large Just Press Record folder does not hit nginx/proxy
+   * body limits in one shot. Soft caps: ~40MB or 12 files per request.
+   */
   uploadRecordings(files: File[], relativePaths: string[]) {
+    const batches = chunkRecordingUploads(files, relativePaths, 12, 40 * 1024 * 1024);
+    if (batches.length === 0) {
+      return of([] as ManagementRecordingItemDto[]);
+    }
+    return from(batches).pipe(
+      concatMap((batch) => this.uploadRecordingsBatch(batch.files, batch.relativePaths)),
+      reduce((acc, items) => acc.concat(items), [] as ManagementRecordingItemDto[])
+    );
+  }
+
+  private uploadRecordingsBatch(files: File[], relativePaths: string[]) {
     const fd = new FormData();
     for (let i = 0; i < files.length; i++) {
       fd.append('files', files[i], files[i].name);
@@ -444,4 +461,37 @@ export class ManagementApiService {
       force,
     });
   }
+}
+
+function chunkRecordingUploads(
+  files: File[],
+  relativePaths: string[],
+  maxFiles: number,
+  maxBytes: number
+): { files: File[]; relativePaths: string[] }[] {
+  const batches: { files: File[]; relativePaths: string[] }[] = [];
+  let curFiles: File[] = [];
+  let curPaths: string[] = [];
+  let curBytes = 0;
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const path = relativePaths[i] || file.name;
+    const nextBytes = curBytes + file.size;
+    const wouldExceed =
+      curFiles.length > 0 && (curFiles.length >= maxFiles || nextBytes > maxBytes);
+    if (wouldExceed) {
+      batches.push({ files: curFiles, relativePaths: curPaths });
+      curFiles = [];
+      curPaths = [];
+      curBytes = 0;
+    }
+    curFiles.push(file);
+    curPaths.push(path);
+    curBytes += file.size;
+  }
+  if (curFiles.length > 0) {
+    batches.push({ files: curFiles, relativePaths: curPaths });
+  }
+  return batches;
 }

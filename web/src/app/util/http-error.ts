@@ -7,7 +7,7 @@ export function formatHttpErrorDetail(e: unknown): string {
       return 'Network error — API unreachable. Use `ng serve` with the dev proxy (tracker-pg API on :9091), or set apiBaseUrl.';
     }
     if (e.status === 413) {
-      return '413: Upload too large (or proxy body limit). Check server limits: `tracker.journal.max-attachment-bytes` (currently 8MB), `spring.servlet.multipart.max-file-size`, and any nginx/Caddy body-size limits. If this is a dev HTML response, also verify `/api` proxying or `apiBaseUrl`.';
+      return '413: Upload too large (or proxy body limit). Per-file limit is `tracker.journal.max-attachment-bytes` (25MB); request limit is `spring.servlet.multipart.max-request-size` (250MB) and nginx `client_max_body_size`. Redeploy web if nginx still has an older body-size. If this is a dev HTML response, also verify `/api` proxying or `apiBaseUrl`.';
     }
     if (e.status === 502) {
       // Prefer Spring JSON { message } over the generic nginx/Caddy unreachable copy.

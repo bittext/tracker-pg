@@ -52,7 +52,8 @@ tracker:
     hsts-enabled: ${TRACKER_SECURITY_HSTS:false}
   journal:
     storage-directory: ${TRACKER_JOURNAL_STORAGE_DIR:}
-    max-attachment-bytes: 20971520
+    # 25MB — matches Whisper per-file limit and spring.servlet.multipart.max-file-size.
+    max-attachment-bytes: ${TRACKER_JOURNAL_MAX_ATTACHMENT_BYTES:26214400}
     # If set (e.g. tracker-pg-journal), attachments go to S3; otherwise use storage-directory (or tmp).
     s3-bucket: ${TRACKER_JOURNAL_S3_BUCKET:}
     s3-region: ${TRACKER_JOURNAL_S3_REGION:us-east-1}
@@ -200,7 +201,9 @@ tracker:
     news-enabled: true
     news-max-items: 10
     news-timeout-ms: 8000
-    # When false, no HTTP calls are made to Alpha Vantage (quotes stay empty / stale cache).
+    # When false, no scheduled/quote HTTP calls are made to Alpha Vantage (quotes stay empty / stale cache).
+    # Note: the Then & now price fallback needs only the API key below, not this flag, so a key can be set
+    # without starting the hourly quote crawler that would exhaust the free-tier daily quota.
     alpha-vantage-enabled: ${TRACKER_FINANCE_ALPHA_VANTAGE_ENABLED:false}
     alpha-vantage-api-key: ${TRACKER_FINANCE_ALPHA_VANTAGE_API_KEY:}
     alpha-vantage-base-url: ${TRACKER_FINANCE_ALPHA_VANTAGE_BASE_URL:https://www.alphavantage.co/query}
