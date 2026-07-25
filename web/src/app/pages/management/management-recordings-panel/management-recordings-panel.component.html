@@ -173,7 +173,15 @@
               @if (audioError) {
                 <span class="muted">Could not load audio</span>
               } @else if (audioObjectUrl) {
-                <audio controls preload="metadata" class="rec-audio" [src]="audioObjectUrl">
+                <audio
+                  #audioEl
+                  controls
+                  preload="metadata"
+                  class="rec-audio"
+                  [src]="audioObjectUrl"
+                  (timeupdate)="onAudioTime()"
+                  (seeked)="onAudioTime()"
+                >
                   Your browser does not support audio.
                 </audio>
               } @else {
@@ -235,17 +243,41 @@
                 <mat-label>Filter transcript lines</mat-label>
                 <input matInput [(ngModel)]="transcriptFilter" name="transcriptFilter" autocomplete="off" />
               </mat-form-field>
+              @if (hasTimedTurns) {
+                <label class="rec-follow">
+                  <input type="checkbox" [(ngModel)]="followPlayback" name="followPlayback" />
+                  Follow playback
+                  <span class="muted rec-follow__hint">· click a turn to seek</span>
+                </label>
+              }
               @if (loadingDetail) {
                 <div class="rec-loading"><mat-spinner diameter="24" /></div>
               } @else if (!detail?.transcript) {
                 <p class="muted">No transcript yet — click Transcribe.</p>
               } @else {
-                <div class="rec-turns" role="list">
+                <div #turnsList class="rec-turns" role="list">
                   @for (turn of transcriptTurns; track $index) {
-                    <article class="rec-turn" role="listitem">
-                      @if (turn.speaker) {
-                        <header class="rec-turn__speaker">{{ turn.speaker }}</header>
-                      }
+                    <article
+                      class="rec-turn"
+                      role="listitem"
+                      [attr.data-turn-index]="$index"
+                      [class.rec-turn--active]="$index === activeTurnIndex"
+                      [class.rec-turn--seekable]="turn.startSeconds != null"
+                      (click)="seekToTurn(turn, $index)"
+                    >
+                      <header class="rec-turn__meta">
+                        @if (turn.speaker) {
+                          <span class="rec-turn__speaker">{{ turn.speaker }}</span>
+                        }
+                        @if (turn.startSeconds != null) {
+                          <time class="rec-turn__time" [attr.datetime]="'PT' + turn.startSeconds + 'S'">
+                            {{ formatTurnTime(turn.startSeconds)
+                            }}@if (turn.endSeconds != null) {
+                              –{{ formatTurnTime(turn.endSeconds) }}
+                            }
+                          </time>
+                        }
+                      </header>
                       <p class="rec-turn__text">{{ turn.text }}</p>
                     </article>
                   }

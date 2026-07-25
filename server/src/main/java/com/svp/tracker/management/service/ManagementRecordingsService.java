@@ -1,5 +1,7 @@
 package com.svp.tracker.management.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.JournalProperties;
 import com.svp.tracker.finance.service.RhDailyTrackerOpenAiClient;
@@ -10,6 +12,7 @@ import com.svp.tracker.management.dto.ManagementRecordingDayDto;
 import com.svp.tracker.management.dto.ManagementRecordingDetailDto;
 import com.svp.tracker.management.dto.ManagementRecordingItemDto;
 import com.svp.tracker.management.dto.ManagementRecordingListDto;
+import com.svp.tracker.management.dto.ManagementRecordingTranscriptSegmentDto;
 import com.svp.tracker.management.repository.ManagementRecordingCacheRepository;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -53,6 +56,7 @@ public class ManagementRecordingsService {
     private final RhDailyTrackerOpenAiClient openAi;
     private final JournalBlobStore blobStore;
     private final JournalProperties journalProperties;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional(readOnly = true)
     public ManagementRecordingListDto list(LocalDate dayFilter) {
@@ -172,6 +176,7 @@ public class ManagementRecordingsService {
             // Fresh audio invalidates prior transcript/summary.
             row.setTranscript(null);
             row.setTranscriptSource(null);
+            row.setTranscriptSegmentsJson(null);
             row.setTranscribedAt(null);
             row.setSummary(null);
             row.setSummarizedAt(null);
@@ -230,6 +235,7 @@ public class ManagementRecordingsService {
             var result = openAi.transcribeAudio(tmp);
             row.setTranscript(result.text());
             row.setTranscriptSource(result.source());
+            row.setTranscriptSegmentsJson(serializeSegments(result.segments()));
             row.setTranscribedAt(Instant.now());
             row = cacheRepository.save(row);
             return toDetail(row);
@@ -247,6 +253,7 @@ public class ManagementRecordingsService {
                 var result = openAi.transcribeAudio(tmp);
                 row.setTranscript(result.text());
                 row.setTranscriptSource(result.source());
+                row.setTranscriptSegmentsJson(serializeSegments(result.segments()));
                 row.setTranscribedAt(Instant.now());
             } finally {
                 deleteQuietly(tmp);
@@ -421,7 +428,7 @@ public class ManagementRecordingsService {
                 hasSummary);
     }
 
-    private static ManagementRecordingDetailDto toDetail(ManagementRecordingCache cached) {
+    private ManagementRecordingDetailDto toDetail(ManagementRecordingCache cached) {
         long size = cached.getFileSizeBytes() == null ? 0L : cached.getFileSizeBytes();
         return new ManagementRecordingDetailDto(
                 cached.getRelativePath(),
@@ -432,7 +439,40 @@ public class ManagementRecordingsService {
                 cached.getTranscriptSource(),
                 cached.getTranscribedAt(),
                 cached.getSummary(),
-                cached.getSummarizedAt());
+                cached.getSummarizedAt(),
+                parseSegments(cached.getTranscriptSegmentsJson()));
+    }
+
+    private String serializeSegments(
+            List<RhDailyTrackerOpenAiClient.TranscriptSegment> segments) {
+        if (segments == null || segments.isEmpty()) {
+            return null;
+        }
+        try {
+            List<ManagementRecordingTranscriptSegmentDto> dtos = new ArrayList<>(segments.size());
+            for (var s : segments) {
+                dtos.add(new ManagementRecordingTranscriptSegmentDto(
+                        s.speaker(), s.text(), s.startSeconds(), s.endSeconds()));
+            }
+            return objectMapper.writeValueAsString(dtos);
+        } catch (Exception e) {
+            log.warn("Could not serialize transcript segments: {}", e.toString());
+            return null;
+        }
+    }
+
+    private List<ManagementRecordingTranscriptSegmentDto> parseSegments(String json) {
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
+        try {
+            List<ManagementRecordingTranscriptSegmentDto> parsed =
+                    objectMapper.readValue(json, new TypeReference<>() {});
+            return parsed == null ? List.of() : List.copyOf(parsed);
+        } catch (Exception e) {
+            log.warn("Could not parse transcript segments JSON: {}", e.toString());
+            return List.of();
+        }
     }
 
     public record RecordingFile(String filename, String contentType, byte[] body) {}

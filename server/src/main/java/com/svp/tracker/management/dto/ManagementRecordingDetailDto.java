@@ -2,6 +2,7 @@ package com.svp.tracker.management.dto;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 
 public record ManagementRecordingDetailDto(
         String path,
@@ -12,4 +13,5 @@ public record ManagementRecordingDetailDto(
         String transcriptSource,
         Instant transcribedAt,
         String summary,
-        Instant summarizedAt) {}
+        Instant summarizedAt,
+        List<ManagementRecordingTranscriptSegmentDto> segments) {}

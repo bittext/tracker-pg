@@ -56,6 +56,10 @@ public class ManagementRecordingCache {
     @Column(name = "transcript_source", length = 64)
     private String transcriptSource;
 
+    /** JSON array of {speaker,text,startSeconds,endSeconds}; null when unavailable. */
+    @Column(name = "transcript_segments_json", columnDefinition = "TEXT")
+    private String transcriptSegmentsJson;
+
     @Column(columnDefinition = "TEXT")
     private String summary;
 

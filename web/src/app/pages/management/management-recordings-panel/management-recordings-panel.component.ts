@@ -1,5 +1,12 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit, inject } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  OnDestroy,
+  OnInit,
+  ViewChild,
+  inject,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -16,6 +23,13 @@ import {
 } from '../../../models/management.models';
 import { ManagementApiService } from '../../../services/management-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
+
+type TranscriptTurn = {
+  speaker: string | null;
+  text: string;
+  startSeconds: number | null;
+  endSeconds: number | null;
+};
 
 @Component({
   selector: 'app-management-recordings-panel',
@@ -38,6 +52,9 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
   private readonly api = inject(ManagementApiService);
   private readonly snackBar = inject(MatSnackBar);
 
+  @ViewChild('audioEl') audioEl?: ElementRef<HTMLAudioElement>;
+  @ViewChild('turnsList') turnsListEl?: ElementRef<HTMLElement>;
+
   loadingList = false;
   loadingDetail = false;
   transcribing = false;
@@ -59,6 +76,10 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
   audioObjectUrl: string | null = null;
   audioError = false;
   audioLoading = false;
+
+  /** When on, highlight + scroll the turn that matches audio.currentTime. */
+  followPlayback = true;
+  activeTurnIndex = -1;
 
   ngOnInit(): void {
     this.refreshAll();
@@ -169,6 +190,7 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
     this.selected = item;
     this.detail = null;
     this.transcriptFilter = '';
+    this.activeTurnIndex = -1;
     this.loadAudio(item.path);
     this.loadDetail(item.path);
   }
@@ -176,6 +198,7 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
   clearSelection(): void {
     this.selected = null;
     this.detail = null;
+    this.activeTurnIndex = -1;
     this.revokeAudio();
   }
 
@@ -293,29 +316,56 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
     return this.detail?.transcript ?? '';
   }
 
-  /** Speaker-labeled turns from diarized transcripts (`Speaker A:\n…\n\nSpeaker B:\n…`). */
-  get transcriptTurns(): { speaker: string | null; text: string }[] {
-    const text = this.filteredTranscript;
-    if (!text.trim()) {
-      return [];
-    }
+  get hasTimedTurns(): boolean {
+    return this.transcriptTurns.some((t) => t.startSeconds != null);
+  }
+
+  /** Prefer server timed segments; fall back to blank-line speaker parsing. */
+  get transcriptTurns(): TranscriptTurn[] {
     const q = this.transcriptFilter.trim().toLowerCase();
-    const blocks = text.split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
-    const speakerRe = /^(Speaker\s+[^:\n]+|SPEAKER[_\-\s]?\d+)\s*:\s*([\s\S]*)$/i;
-    const turns = blocks.map((block) => {
-      const m = block.match(speakerRe);
-      if (m) {
-        return { speaker: m[1].trim(), text: (m[2] || '').trim() };
+    const segments = this.detail?.segments;
+    let turns: TranscriptTurn[];
+    if (segments && segments.length > 0) {
+      turns = segments
+        .filter((s) => !!(s.text && s.text.trim()))
+        .map((s) => ({
+          speaker: s.speaker?.trim() || null,
+          text: s.text.trim(),
+          startSeconds: s.startSeconds ?? null,
+          endSeconds: s.endSeconds ?? null,
+        }));
+    } else {
+      const text = this.filteredTranscript;
+      if (!text.trim()) {
+        return [];
       }
-      const lines = block.split('\n');
-      if (lines.length >= 2 && /^Speaker\s+.+:\s*$/i.test(lines[0].trim())) {
-        return {
-          speaker: lines[0].replace(/:\s*$/, '').trim(),
-          text: lines.slice(1).join('\n').trim(),
-        };
-      }
-      return { speaker: null as string | null, text: block };
-    });
+      const blocks = text
+        .split(/\n{2,}/)
+        .map((b) => b.trim())
+        .filter(Boolean);
+      const speakerRe = /^(Speaker\s+[^:\n]+|SPEAKER[_\-\s]?\d+)\s*:\s*([\s\S]*)$/i;
+      turns = blocks.map((block) => {
+        const m = block.match(speakerRe);
+        if (m) {
+          return {
+            speaker: m[1].trim(),
+            text: (m[2] || '').trim(),
+            startSeconds: null,
+            endSeconds: null,
+          };
+        }
+        const lines = block.split('\n');
+        if (lines.length >= 2 && /^Speaker\s+.+:\s*$/i.test(lines[0].trim())) {
+          return {
+            speaker: lines[0].replace(/:\s*$/, '').trim(),
+            text: lines.slice(1).join('\n').trim(),
+            startSeconds: null,
+            endSeconds: null,
+          };
+        }
+        return { speaker: null as string | null, text: block, startSeconds: null, endSeconds: null };
+      });
+    }
     if (!q) {
       return turns;
     }
@@ -324,6 +374,76 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
         (t.speaker && t.speaker.toLowerCase().includes(q)) ||
         t.text.toLowerCase().includes(q),
     );
+  }
+
+  onAudioTime(): void {
+    if (!this.followPlayback || !this.hasTimedTurns) {
+      return;
+    }
+    const t = this.audioEl?.nativeElement?.currentTime;
+    if (t == null || !Number.isFinite(t)) {
+      return;
+    }
+    const idx = this.findActiveTurnIndex(t);
+    if (idx === this.activeTurnIndex) {
+      return;
+    }
+    this.activeTurnIndex = idx;
+    queueMicrotask(() => this.scrollActiveTurnIntoView());
+  }
+
+  seekToTurn(turn: TranscriptTurn, index: number): void {
+    const audio = this.audioEl?.nativeElement;
+    if (!audio || turn.startSeconds == null) {
+      return;
+    }
+    audio.currentTime = Math.max(0, turn.startSeconds);
+    this.activeTurnIndex = index;
+    void audio.play().catch(() => {
+      /* autoplay may be blocked until user presses play once */
+    });
+  }
+
+  formatTurnTime(seconds: number | null | undefined): string {
+    if (seconds == null || !Number.isFinite(seconds) || seconds < 0) {
+      return '';
+    }
+    const total = Math.floor(seconds);
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    const mm = h > 0 ? String(m).padStart(2, '0') : String(m);
+    const ss = String(s).padStart(2, '0');
+    return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+  }
+
+  private findActiveTurnIndex(t: number): number {
+    const turns = this.transcriptTurns;
+    let idx = -1;
+    for (let i = 0; i < turns.length; i++) {
+      const start = turns[i].startSeconds;
+      if (start == null) {
+        continue;
+      }
+      if (start <= t) {
+        idx = i;
+      } else {
+        break;
+      }
+    }
+    return idx;
+  }
+
+  private scrollActiveTurnIntoView(): void {
+    if (this.activeTurnIndex < 0 || !this.followPlayback) {
+      return;
+    }
+    const root = this.turnsListEl?.nativeElement;
+    if (!root) {
+      return;
+    }
+    const el = root.querySelector(`[data-turn-index="${this.activeTurnIndex}"]`) as HTMLElement | null;
+    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
 
   formatBytes(n: number): string {

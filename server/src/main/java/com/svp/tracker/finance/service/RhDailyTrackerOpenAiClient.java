@@ -176,6 +176,7 @@ public class RhDailyTrackerOpenAiClient {
 
             String text = null;
             String source = null;
+            List<TranscriptSegment> segments = List.of();
 
             try {
                 String diarized = requestTranscription(
@@ -183,14 +184,16 @@ public class RhDailyTrackerOpenAiClient {
                         "gpt-4o-transcribe-diarize",
                         "diarized_json",
                         true);
-                String formatted = formatDiarizedTranscript(diarized);
-                if (hasSpeakerLabels(formatted)) {
-                    return new TranscriptionResult(formatted, "gpt-4o-transcribe-diarize");
+                DiarizedTranscript parsed = parseDiarizedTranscript(diarized);
+                if (hasSpeakerLabels(parsed.text())) {
+                    return new TranscriptionResult(
+                            parsed.text(), "gpt-4o-transcribe-diarize", parsed.segments());
                 }
-                if (!formatted.isBlank()) {
-                    // Model returned flat text without speaker segments — still keep the words.
-                    text = formatted;
+                if (!parsed.text().isBlank()) {
+                    // Model returned flat text without speaker segments — still keep the words/times.
+                    text = parsed.text();
                     source = "gpt-4o-transcribe-diarize";
+                    segments = parsed.segments();
                     log.warn("Diarize returned text without speaker segments; applying chat speaker split");
                 }
             } catch (ResponseStatusException diarizeError) {
@@ -200,26 +203,28 @@ public class RhDailyTrackerOpenAiClient {
             }
 
             if (text == null || text.isBlank()) {
-                String plain = requestTranscription(audioFile, "whisper-1", "text", false).trim();
-                if (plain.isBlank()) {
+                WhisperVerbose verbose = requestWhisperVerbose(audioFile);
+                if (verbose.text().isBlank()) {
                     throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Whisper returned an empty transcript");
                 }
-                text = plain;
+                text = verbose.text();
                 source = "whisper-1";
+                segments = verbose.segments();
             }
 
             if (!hasSpeakerLabels(text)) {
                 try {
                     String split = splitTranscriptBySpeaker(text);
                     if (hasSpeakerLabels(split)) {
-                        return new TranscriptionResult(split, source + "+speakers");
+                        // Chat speaker turns are not time-aligned — drop segment times.
+                        return new TranscriptionResult(split, source + "+speakers", List.of());
                     }
                     log.warn("Chat speaker split did not produce labeled turns; returning flat transcript");
                 } catch (ResponseStatusException splitError) {
                     log.warn("Chat speaker split failed ({}), returning flat transcript", splitError.getReason());
                 }
             }
-            return new TranscriptionResult(text, source);
+            return new TranscriptionResult(text, source, segments == null ? List.of() : segments);
         } catch (ResponseStatusException e) {
             throw e;
         } catch (InterruptedException e) {
@@ -338,7 +343,7 @@ public class RhDailyTrackerOpenAiClient {
     }
 
     /**
-     * Convert diarized_json segments into one paragraph per speaker turn:
+     * Convert diarized_json segments into one paragraph per speaker turn (with start/end seconds):
      *
      * <pre>
      * Speaker A:
@@ -348,9 +353,9 @@ public class RhDailyTrackerOpenAiClient {
      * Hi — how are you?
      * </pre>
      */
-    private String formatDiarizedTranscript(String rawJson) throws Exception {
+    private DiarizedTranscript parseDiarizedTranscript(String rawJson) throws Exception {
         if (rawJson == null || rawJson.isBlank()) {
-            return "";
+            return new DiarizedTranscript("", List.of());
         }
         JsonNode root = objectMapper.readTree(rawJson);
         JsonNode segments = root.path("segments");
@@ -363,12 +368,15 @@ public class RhDailyTrackerOpenAiClient {
         }
         if (!segments.isArray() || segments.isEmpty()) {
             String flat = root.path("text").asText("").trim();
-            return flat;
+            return new DiarizedTranscript(flat, List.of());
         }
 
         StringBuilder out = new StringBuilder();
+        List<TranscriptSegment> turns = new ArrayList<>();
         String currentSpeaker = null;
         StringBuilder turn = new StringBuilder();
+        Double turnStart = null;
+        Double turnEnd = null;
 
         for (JsonNode seg : segments) {
             String speaker = firstNonBlank(
@@ -385,25 +393,93 @@ public class RhDailyTrackerOpenAiClient {
             if (segmentText.isBlank()) {
                 continue;
             }
+            Double segStart = jsonSeconds(seg.get("start"));
+            Double segEnd = jsonSeconds(seg.get("end"));
             if (currentSpeaker == null) {
                 currentSpeaker = label;
                 turn.append(segmentText);
+                turnStart = segStart;
+                turnEnd = segEnd;
             } else if (currentSpeaker.equals(label)) {
                 if (!turn.isEmpty() && !Character.isWhitespace(turn.charAt(turn.length() - 1))) {
                     turn.append(' ');
                 }
                 turn.append(segmentText);
+                if (segEnd != null) {
+                    turnEnd = segEnd;
+                }
             } else {
                 appendSpeakerParagraph(out, currentSpeaker, turn.toString());
+                turns.add(new TranscriptSegment(currentSpeaker, turn.toString().trim(), turnStart, turnEnd));
                 currentSpeaker = label;
                 turn.setLength(0);
                 turn.append(segmentText);
+                turnStart = segStart;
+                turnEnd = segEnd;
             }
         }
         if (currentSpeaker != null && !turn.isEmpty()) {
             appendSpeakerParagraph(out, currentSpeaker, turn.toString());
+            turns.add(new TranscriptSegment(currentSpeaker, turn.toString().trim(), turnStart, turnEnd));
         }
-        return out.toString().trim();
+        return new DiarizedTranscript(out.toString().trim(), List.copyOf(turns));
+    }
+
+    /** Whisper verbose_json: full text plus timed segments (no speakers). */
+    private WhisperVerbose requestWhisperVerbose(Path audioFile) throws Exception {
+        String raw = requestTranscription(audioFile, "whisper-1", "verbose_json", false);
+        if (raw == null || raw.isBlank()) {
+            return new WhisperVerbose("", List.of());
+        }
+        // Older clients sometimes got plain text back if the API ignored verbose_json.
+        String trimmed = raw.trim();
+        if (!trimmed.startsWith("{")) {
+            return new WhisperVerbose(trimmed, List.of());
+        }
+        JsonNode root = objectMapper.readTree(trimmed);
+        String text = root.path("text").asText("").trim();
+        JsonNode segs = root.path("segments");
+        List<TranscriptSegment> out = new ArrayList<>();
+        if (segs.isArray()) {
+            for (JsonNode seg : segs) {
+                String segmentText = jsonText(seg.get("text"));
+                if (segmentText.isBlank()) {
+                    continue;
+                }
+                out.add(new TranscriptSegment(
+                        null, segmentText.trim(), jsonSeconds(seg.get("start")), jsonSeconds(seg.get("end"))));
+            }
+        }
+        if (text.isBlank() && !out.isEmpty()) {
+            StringBuilder joined = new StringBuilder();
+            for (TranscriptSegment s : out) {
+                if (!joined.isEmpty()) {
+                    joined.append(' ');
+                }
+                joined.append(s.text());
+            }
+            text = joined.toString().trim();
+        }
+        return new WhisperVerbose(text, List.copyOf(out));
+    }
+
+    private static Double jsonSeconds(JsonNode n) {
+        if (n == null || n.isNull()) {
+            return null;
+        }
+        if (n.isNumber()) {
+            double v = n.asDouble();
+            return Double.isFinite(v) && v >= 0 ? v : null;
+        }
+        if (n.isTextual()) {
+            try {
+                double v = Double.parseDouble(n.asText("").trim());
+                return Double.isFinite(v) && v >= 0 ? v : null;
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        return null;
     }
 
     private static String firstNonBlank(String... values) {
@@ -458,7 +534,17 @@ public class RhDailyTrackerOpenAiClient {
         return "Speaker " + s;
     }
 
-    public record TranscriptionResult(String text, String source) {}
+    public record TranscriptionResult(String text, String source, List<TranscriptSegment> segments) {
+        public TranscriptionResult {
+            segments = segments == null ? List.of() : List.copyOf(segments);
+        }
+    }
+
+    public record TranscriptSegment(String speaker, String text, Double startSeconds, Double endSeconds) {}
+
+    private record DiarizedTranscript(String text, List<TranscriptSegment> segments) {}
+
+    private record WhisperVerbose(String text, List<TranscriptSegment> segments) {}
 
     private static String guessAudioContentType(String filename) {
         String lower = filename == null ? "" : filename.toLowerCase();

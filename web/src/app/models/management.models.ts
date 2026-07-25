@@ -351,4 +351,12 @@ export interface ManagementRecordingDetailDto {
   transcribedAt: string | null;
   summary: string | null;
   summarizedAt: string | null;
+  segments: ManagementRecordingTranscriptSegmentDto[] | null;
+}
+
+export interface ManagementRecordingTranscriptSegmentDto {
+  speaker: string | null;
+  text: string;
+  startSeconds: number | null;
+  endSeconds: number | null;
 }
