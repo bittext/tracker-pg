@@ -88,6 +88,44 @@ html[data-theme-preset='aura'] app-root {
       0 0 0 1px rgba(255, 255, 255, 0.35) inset,
       0 4px 16px rgba(180, 100, 90, 0.08);
   }
+
+  /*
+   * Pop-ups must stay opaque — frosted --app-surface makes dialogs/menus see-through
+   * over the bloom and hard to read. Keep shell glass; solidify overlay panels.
+   */
+  .mat-mdc-dialog-container .mdc-dialog__surface,
+  .mat-mdc-menu-panel,
+  .mat-mdc-select-panel,
+  .mat-mdc-autocomplete-panel,
+  .cdk-overlay-pane .mat-mdc-menu-panel,
+  .theme-settings-menu-panel.mat-mdc-menu-panel {
+    background: #fffefc !important;
+    background-color: #fffefc !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: 0 16px 48px rgba(60, 40, 55, 0.18);
+  }
+
+  .mat-mdc-dialog-container .mdc-dialog__surface {
+    --mdc-dialog-container-color: #fffefc;
+  }
+}
+
+html[data-theme-preset='aura'][data-theme-mode='dark'] {
+  .mat-mdc-dialog-container .mdc-dialog__surface,
+  .mat-mdc-menu-panel,
+  .mat-mdc-select-panel,
+  .mat-mdc-autocomplete-panel,
+  .cdk-overlay-pane .mat-mdc-menu-panel,
+  .theme-settings-menu-panel.mat-mdc-menu-panel {
+    background: #1e1826 !important;
+    background-color: #1e1826 !important;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+  }
+
+  .mat-mdc-dialog-container .mdc-dialog__surface {
+    --mdc-dialog-container-color: #1e1826;
+  }
 }
 
 @keyframes aura-breathe {
