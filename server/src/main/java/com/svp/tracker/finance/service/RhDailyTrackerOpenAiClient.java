@@ -14,8 +14,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -25,6 +29,11 @@ import org.springframework.web.server.ResponseStatusException;
 @Component
 @Slf4j
 public class RhDailyTrackerOpenAiClient {
+
+    /** Headroom under Whisper's hard 25MB API limit. */
+    private static final long WHISPER_MAX_BYTES = 24L * 1024 * 1024;
+    private static final String FFMPEG = "ffmpeg";
+    private static final String FFPROBE = "ffprobe";
 
     private final RobinhoodRhDailyTrackerProperties props;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -151,7 +160,7 @@ public class RhDailyTrackerOpenAiClient {
     /**
      * Transcribe a local audio file (m4a/mp3/wav). Prefers speaker-aware diarization; otherwise Whisper + a chat
      * pass that splits the text into one paragraph per speaker turn.
-     * Whisper / diarize models accept files up to 25MB.
+     * Files over Whisper's ~25MB limit are compressed (and split if needed) with ffmpeg first.
      */
     public TranscriptionResult transcribeAudio(Path audioFile) {
         var ai = props.ai();
@@ -168,63 +177,13 @@ public class RhDailyTrackerOpenAiClient {
             if (size <= 0) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Audio file is empty");
             }
-            if (size > 25L * 1024 * 1024) {
-                throw new ResponseStatusException(
-                        HttpStatus.PAYLOAD_TOO_LARGE,
-                        "Audio file exceeds Whisper's 25MB limit (" + size + " bytes)");
+            if (size <= WHISPER_MAX_BYTES) {
+                return transcribeSingleFile(audioFile);
             }
-
-            String text = null;
-            String source = null;
-            List<TranscriptSegment> segments = List.of();
-
-            try {
-                String diarized = requestTranscription(
-                        audioFile,
-                        "gpt-4o-transcribe-diarize",
-                        "diarized_json",
-                        true);
-                DiarizedTranscript parsed = parseDiarizedTranscript(diarized);
-                if (hasSpeakerLabels(parsed.text())) {
-                    return new TranscriptionResult(
-                            parsed.text(), "gpt-4o-transcribe-diarize", parsed.segments());
-                }
-                if (!parsed.text().isBlank()) {
-                    // Model returned flat text without speaker segments — still keep the words/times.
-                    text = parsed.text();
-                    source = "gpt-4o-transcribe-diarize";
-                    segments = parsed.segments();
-                    log.warn("Diarize returned text without speaker segments; applying chat speaker split");
-                }
-            } catch (ResponseStatusException diarizeError) {
-                log.warn(
-                        "Speaker diarization unavailable ({}), falling back to whisper-1 + chat speaker split",
-                        diarizeError.getReason());
-            }
-
-            if (text == null || text.isBlank()) {
-                WhisperVerbose verbose = requestWhisperVerbose(audioFile);
-                if (verbose.text().isBlank()) {
-                    throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Whisper returned an empty transcript");
-                }
-                text = verbose.text();
-                source = "whisper-1";
-                segments = verbose.segments();
-            }
-
-            if (!hasSpeakerLabels(text)) {
-                try {
-                    String split = splitTranscriptBySpeaker(text);
-                    if (hasSpeakerLabels(split)) {
-                        // Chat speaker turns are not time-aligned — drop segment times.
-                        return new TranscriptionResult(split, source + "+speakers", List.of());
-                    }
-                    log.warn("Chat speaker split did not produce labeled turns; returning flat transcript");
-                } catch (ResponseStatusException splitError) {
-                    log.warn("Chat speaker split failed ({}), returning flat transcript", splitError.getReason());
-                }
-            }
-            return new TranscriptionResult(text, source, segments == null ? List.of() : segments);
+            log.info(
+                    "Audio {} bytes exceeds Whisper limit; compressing/splitting with ffmpeg before transcription",
+                    size);
+            return transcribeOversizedFile(audioFile, size);
         } catch (ResponseStatusException e) {
             throw e;
         } catch (InterruptedException e) {
@@ -233,6 +192,317 @@ public class RhDailyTrackerOpenAiClient {
         } catch (Exception e) {
             log.warn("OpenAI Whisper error: {}", e.toString());
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Whisper request failed: " + e.getMessage());
+        }
+    }
+
+    private TranscriptionResult transcribeOversizedFile(Path audioFile, long originalSize) throws Exception {
+        Path workDir = Files.createTempDirectory("tracker-whisper-");
+        try {
+            Path compressed = compressForWhisper(audioFile, workDir);
+            long compressedSize = Files.size(compressed);
+            log.info(
+                    "Compressed recording for Whisper: {} → {} bytes",
+                    originalSize,
+                    compressedSize);
+            if (compressedSize <= WHISPER_MAX_BYTES) {
+                TranscriptionResult result = transcribeSingleFile(compressed);
+                return new TranscriptionResult(
+                        result.text(), result.source() + "+compressed", result.segments());
+            }
+            List<Path> chunks = splitForWhisper(compressed, workDir);
+            if (chunks.isEmpty()) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_GATEWAY, "ffmpeg produced no audio chunks for oversized recording");
+            }
+            log.info("Split oversized recording into {} Whisper chunks", chunks.size());
+            return transcribeChunks(chunks);
+        } finally {
+            deleteTreeQuietly(workDir);
+        }
+    }
+
+    private TranscriptionResult transcribeChunks(List<Path> chunks) throws Exception {
+        StringBuilder text = new StringBuilder();
+        List<TranscriptSegment> segments = new ArrayList<>();
+        String source = null;
+        double offsetSeconds = 0.0;
+        for (int i = 0; i < chunks.size(); i++) {
+            Path chunk = chunks.get(i);
+            TranscriptionResult part = transcribeSingleFile(chunk);
+            if (source == null) {
+                source = part.source();
+            }
+            if (!part.text().isBlank()) {
+                if (!text.isEmpty()) {
+                    text.append("\n\n");
+                }
+                text.append(part.text().trim());
+            }
+            for (TranscriptSegment seg : part.segments()) {
+                segments.add(new TranscriptSegment(
+                        seg.speaker(),
+                        seg.text(),
+                        shiftSeconds(seg.startSeconds(), offsetSeconds),
+                        shiftSeconds(seg.endSeconds(), offsetSeconds)));
+            }
+            offsetSeconds += probeDurationSeconds(chunk);
+        }
+        if (text.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Whisper returned an empty transcript");
+        }
+        String mergedSource = (source == null ? "whisper-1" : source) + "+chunked";
+        String mergedText = text.toString().trim();
+        if (!hasSpeakerLabels(mergedText) && !segments.isEmpty()) {
+            // Prefer timed segments from chunked Whisper when chat speaker labels are absent.
+            return new TranscriptionResult(mergedText, mergedSource, segments);
+        }
+        if (!hasSpeakerLabels(mergedText)) {
+            try {
+                String split = splitTranscriptBySpeaker(mergedText);
+                if (hasSpeakerLabels(split)) {
+                    return new TranscriptionResult(split, mergedSource + "+speakers", List.of());
+                }
+            } catch (ResponseStatusException splitError) {
+                log.warn("Chat speaker split failed after chunked transcription ({})", splitError.getReason());
+            }
+        }
+        return new TranscriptionResult(mergedText, mergedSource, segments);
+    }
+
+    private static Double shiftSeconds(Double value, double offsetSeconds) {
+        if (value == null) {
+            return null;
+        }
+        return value + offsetSeconds;
+    }
+
+    /** Core transcription for a single file already under Whisper's size limit. */
+    private TranscriptionResult transcribeSingleFile(Path audioFile) throws Exception {
+        String text = null;
+        String source = null;
+        List<TranscriptSegment> segments = List.of();
+
+        try {
+            String diarized = requestTranscription(
+                    audioFile,
+                    "gpt-4o-transcribe-diarize",
+                    "diarized_json",
+                    true);
+            DiarizedTranscript parsed = parseDiarizedTranscript(diarized);
+            if (hasSpeakerLabels(parsed.text())) {
+                return new TranscriptionResult(
+                        parsed.text(), "gpt-4o-transcribe-diarize", parsed.segments());
+            }
+            if (!parsed.text().isBlank()) {
+                // Model returned flat text without speaker segments — still keep the words/times.
+                text = parsed.text();
+                source = "gpt-4o-transcribe-diarize";
+                segments = parsed.segments();
+                log.warn("Diarize returned text without speaker segments; applying chat speaker split");
+            }
+        } catch (ResponseStatusException diarizeError) {
+            log.warn(
+                    "Speaker diarization unavailable ({}), falling back to whisper-1 + chat speaker split",
+                    diarizeError.getReason());
+        }
+
+        if (text == null || text.isBlank()) {
+            WhisperVerbose verbose = requestWhisperVerbose(audioFile);
+            if (verbose.text().isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Whisper returned an empty transcript");
+            }
+            text = verbose.text();
+            source = "whisper-1";
+            segments = verbose.segments();
+        }
+
+        if (!hasSpeakerLabels(text)) {
+            try {
+                String split = splitTranscriptBySpeaker(text);
+                if (hasSpeakerLabels(split)) {
+                    // Chat speaker turns are not time-aligned — drop segment times.
+                    return new TranscriptionResult(split, source + "+speakers", List.of());
+                }
+                log.warn("Chat speaker split did not produce labeled turns; returning flat transcript");
+            } catch (ResponseStatusException splitError) {
+                log.warn("Chat speaker split failed ({}), returning flat transcript", splitError.getReason());
+            }
+        }
+        return new TranscriptionResult(text, source, segments == null ? List.of() : segments);
+    }
+
+    private Path compressForWhisper(Path input, Path workDir) throws Exception {
+        requireFfmpeg();
+        Path out = workDir.resolve("compressed.mp3");
+        // 16 kHz mono is Whisper-friendly and typically brings long Just Press Record clips under 25MB.
+        runProcess(
+                List.of(
+                        FFMPEG,
+                        "-y",
+                        "-i",
+                        input.toAbsolutePath().toString(),
+                        "-vn",
+                        "-ac",
+                        "1",
+                        "-ar",
+                        "16000",
+                        "-c:a",
+                        "libmp3lame",
+                        "-b:a",
+                        "48k",
+                        out.toAbsolutePath().toString()),
+                10,
+                "ffmpeg compress");
+        if (!Files.isRegularFile(out) || Files.size(out) <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "ffmpeg compression produced an empty file");
+        }
+        return out;
+    }
+
+    private List<Path> splitForWhisper(Path input, Path workDir) throws Exception {
+        requireFfmpeg();
+        double duration = probeDurationSeconds(input);
+        long size = Files.size(input);
+        if (duration <= 0 || !Double.isFinite(duration)) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Could not read audio duration for chunking");
+        }
+        double chunkSeconds = Math.max(60.0, duration * (WHISPER_MAX_BYTES * 0.85d) / Math.max(1L, size));
+        // Avoid a useless single "chunk" that remains oversized.
+        if (chunkSeconds >= duration) {
+            chunkSeconds = Math.max(60.0, duration / 2.0);
+        }
+        Path pattern = workDir.resolve("chunk_%03d.mp3");
+        runProcess(
+                List.of(
+                        FFMPEG,
+                        "-y",
+                        "-i",
+                        input.toAbsolutePath().toString(),
+                        "-f",
+                        "segment",
+                        "-segment_time",
+                        String.format(Locale.ROOT, "%.1f", chunkSeconds),
+                        "-reset_timestamps",
+                        "1",
+                        "-ac",
+                        "1",
+                        "-ar",
+                        "16000",
+                        "-c:a",
+                        "libmp3lame",
+                        "-b:a",
+                        "48k",
+                        pattern.toAbsolutePath().toString()),
+                20,
+                "ffmpeg split");
+        try (Stream<Path> stream = Files.list(workDir)) {
+            List<Path> chunks = stream
+                    .filter(p -> {
+                        String name = p.getFileName().toString();
+                        return name.startsWith("chunk_") && name.endsWith(".mp3");
+                    })
+                    .sorted(Comparator.comparing(p -> p.getFileName().toString()))
+                    .toList();
+            for (Path chunk : chunks) {
+                if (Files.size(chunk) > WHISPER_MAX_BYTES) {
+                    throw new ResponseStatusException(
+                            HttpStatus.PAYLOAD_TOO_LARGE,
+                            "Audio chunk still exceeds Whisper's 25MB limit after splitting ("
+                                    + Files.size(chunk)
+                                    + " bytes). Try a shorter recording.");
+                }
+            }
+            return chunks;
+        }
+    }
+
+    private double probeDurationSeconds(Path audioFile) throws Exception {
+        requireFfmpeg();
+        String out = runProcessCapture(
+                List.of(
+                        FFPROBE,
+                        "-v",
+                        "error",
+                        "-show_entries",
+                        "format=duration",
+                        "-of",
+                        "default=noprint_wrappers=1:nokey=1",
+                        audioFile.toAbsolutePath().toString()),
+                2,
+                "ffprobe duration");
+        try {
+            return Double.parseDouble(out.trim());
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    private void requireFfmpeg() {
+        if (!commandExists(FFMPEG) || !commandExists(FFPROBE)) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "ffmpeg is required to transcribe recordings larger than 25MB. Install ffmpeg or redeploy the API image.");
+        }
+    }
+
+    private static boolean commandExists(String command) {
+        try {
+            Process process = new ProcessBuilder(command, "-version")
+                    .redirectErrorStream(true)
+                    .start();
+            boolean finished = process.waitFor(5, TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                return false;
+            }
+            return process.exitValue() == 0;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private void runProcess(List<String> command, int timeoutMinutes, String label) throws Exception {
+        runProcessCapture(command, timeoutMinutes, label);
+    }
+
+    private String runProcessCapture(List<String> command, int timeoutMinutes, String label) throws Exception {
+        ProcessBuilder pb = new ProcessBuilder(command);
+        pb.redirectErrorStream(true);
+        Process process = pb.start();
+        String output;
+        try (var in = process.getInputStream()) {
+            output = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+        }
+        boolean finished = process.waitFor(timeoutMinutes, TimeUnit.MINUTES);
+        if (!finished) {
+            process.destroyForcibly();
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, label + " timed out");
+        }
+        if (process.exitValue() != 0) {
+            String hint = output == null ? "" : output.trim();
+            if (hint.length() > 240) {
+                hint = hint.substring(hint.length() - 240);
+            }
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY, label + " failed (exit " + process.exitValue() + "): " + hint);
+        }
+        return output == null ? "" : output;
+    }
+
+    private static void deleteTreeQuietly(Path root) {
+        if (root == null || !Files.exists(root)) {
+            return;
+        }
+        try (Stream<Path> walk = Files.walk(root)) {
+            walk.sorted(Comparator.reverseOrder()).forEach(p -> {
+                try {
+                    Files.deleteIfExists(p);
+                } catch (Exception ignored) {
+                    // best-effort
+                }
+            });
+        } catch (Exception ignored) {
+            // best-effort
         }
     }
 

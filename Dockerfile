@@ -37,9 +37,9 @@ RUN --mount=type=cache,target=/root/.m2 \
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-# curl for container health checks (docker-compose.stack.yml → /actuator/health).
+# curl for health checks; ffmpeg compresses/splits oversized Just Press Record clips for Whisper (25MB cap).
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
+    && apt-get install -y --no-install-recommends curl ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /workspace/server/target/tracker-pg-server-*.jar /app/app.jar

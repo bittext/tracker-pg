@@ -5,7 +5,7 @@ spring:
     name: tracker-pg-server
   servlet:
     multipart:
-      # Recordings .m4a files can exceed Whisper's 25MB; store up to 100MB and reject only at transcribe time.
+      # Recordings .m4a files can exceed Whisper's raw 25MB API limit; store up to 100MB and compress/split at transcribe.
       max-file-size: ${TRACKER_MULTIPART_MAX_FILE_SIZE:100MB}
       max-request-size: ${TRACKER_MULTIPART_MAX_REQUEST_SIZE:250MB}
   datasource:
@@ -52,7 +52,7 @@ tracker:
     hsts-enabled: ${TRACKER_SECURITY_HSTS:false}
   journal:
     storage-directory: ${TRACKER_JOURNAL_STORAGE_DIR:}
-    # 100MB — allows long Just Press Record uploads; Whisper still enforces 25MB at transcribe time.
+    # 100MB — allows long Just Press Record uploads; oversized clips are compressed/split for Whisper.
     max-attachment-bytes: ${TRACKER_JOURNAL_MAX_ATTACHMENT_BYTES:104857600}
     # If set (e.g. tracker-pg-journal), attachments go to S3; otherwise use storage-directory (or tmp).
     s3-bucket: ${TRACKER_JOURNAL_S3_BUCKET:}

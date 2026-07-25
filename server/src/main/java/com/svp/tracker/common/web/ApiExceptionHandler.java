@@ -124,7 +124,7 @@ public class ApiExceptionHandler {
                         "error",
                         "payload_too_large",
                         "message",
-                        "A file exceeds the 100MB per-file upload limit. Split or compress the recording, then retry. (Whisper transcription still needs files under 25MB.)"));
+                        "A file exceeds the 100MB per-file upload limit. Split or compress the recording, then retry."));
     }
 
     @ExceptionHandler(ResponseStatusException.class)
