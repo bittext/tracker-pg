@@ -290,15 +290,40 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
   }
 
   get filteredTranscript(): string {
-    const text = this.detail?.transcript ?? '';
-    const q = this.transcriptFilter.trim().toLowerCase();
-    if (!q || !text) {
-      return text;
+    return this.detail?.transcript ?? '';
+  }
+
+  /** Speaker-labeled turns from diarized transcripts (`Speaker A:\n…\n\nSpeaker B:\n…`). */
+  get transcriptTurns(): { speaker: string | null; text: string }[] {
+    const text = this.filteredTranscript;
+    if (!text.trim()) {
+      return [];
     }
-    return text
-      .split(/\n+/)
-      .filter((line) => line.toLowerCase().includes(q))
-      .join('\n');
+    const q = this.transcriptFilter.trim().toLowerCase();
+    const blocks = text.split(/\n{2,}/).map((b) => b.trim()).filter(Boolean);
+    const speakerRe = /^(Speaker\s+[^:\n]+|SPEAKER[_\-\s]?\d+)\s*:\s*([\s\S]*)$/i;
+    const turns = blocks.map((block) => {
+      const m = block.match(speakerRe);
+      if (m) {
+        return { speaker: m[1].trim(), text: (m[2] || '').trim() };
+      }
+      const lines = block.split('\n');
+      if (lines.length >= 2 && /^Speaker\s+.+:\s*$/i.test(lines[0].trim())) {
+        return {
+          speaker: lines[0].replace(/:\s*$/, '').trim(),
+          text: lines.slice(1).join('\n').trim(),
+        };
+      }
+      return { speaker: null as string | null, text: block };
+    });
+    if (!q) {
+      return turns;
+    }
+    return turns.filter(
+      (t) =>
+        (t.speaker && t.speaker.toLowerCase().includes(q)) ||
+        t.text.toLowerCase().includes(q),
+    );
   }
 
   formatBytes(n: number): string {

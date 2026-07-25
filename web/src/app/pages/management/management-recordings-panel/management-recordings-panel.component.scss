@@ -215,6 +215,40 @@
   margin-bottom: 0.5rem;
 }
 
+.rec-turns {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  max-height: 22rem;
+  overflow: auto;
+  padding: 0.15rem;
+}
+
+.rec-turn {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--app-surface-2, #111) 6%, transparent);
+  border-left: 3px solid color-mix(in srgb, var(--mat-sys-primary, #3f51b5) 55%, transparent);
+}
+
+.rec-turn__speaker {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--mat-sys-primary, #3f51b5);
+  margin-bottom: 0.25rem;
+}
+
+.rec-turn__text {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
 .rec-text {
   margin: 0;
   padding: 0.65rem 0.75rem;

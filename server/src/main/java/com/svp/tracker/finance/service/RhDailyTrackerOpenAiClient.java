@@ -141,10 +141,11 @@ public class RhDailyTrackerOpenAiClient {
     }
 
     /**
-     * Whisper transcription for a local audio file (m4a/mp3/wav). Uses the same API key as chat completions.
-     * Whisper accepts files up to 25MB; larger files should be trimmed before calling.
+     * Transcribe a local audio file (m4a/mp3/wav). Uses speaker-aware diarization when available so each
+     * speaker becomes its own paragraph; falls back to plain Whisper text if diarization is unavailable.
+     * Whisper / diarize models accept files up to 25MB.
      */
-    public String transcribeAudio(Path audioFile) {
+    public TranscriptionResult transcribeAudio(Path audioFile) {
         var ai = props.ai();
         if (!ai.configured()) {
             throw new ResponseStatusException(
@@ -164,65 +165,28 @@ public class RhDailyTrackerOpenAiClient {
                         HttpStatus.PAYLOAD_TOO_LARGE,
                         "Audio file exceeds Whisper's 25MB limit (" + size + " bytes)");
             }
-            String boundary = "----TrackerWhisper" + UUID.randomUUID().toString().replace("-", "");
-            String filename = audioFile.getFileName().toString();
-            String contentType = guessAudioContentType(filename);
-            byte[] fileBytes = Files.readAllBytes(audioFile);
 
-            List<byte[]> parts = new ArrayList<>();
-            parts.add(("--" + boundary + "\r\n"
-                            + "Content-Disposition: form-data; name=\"model\"\r\n\r\n"
-                            + "whisper-1\r\n")
-                    .getBytes(StandardCharsets.UTF_8));
-            parts.add(("--" + boundary + "\r\n"
-                            + "Content-Disposition: form-data; name=\"response_format\"\r\n\r\n"
-                            + "text\r\n")
-                    .getBytes(StandardCharsets.UTF_8));
-            parts.add(("--" + boundary + "\r\n"
-                            + "Content-Disposition: form-data; name=\"file\"; filename=\""
-                            + filename.replace("\"", "")
-                            + "\"\r\n"
-                            + "Content-Type: "
-                            + contentType
-                            + "\r\n\r\n")
-                    .getBytes(StandardCharsets.UTF_8));
-            parts.add(fileBytes);
-            parts.add(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
-
-            int total = 0;
-            for (byte[] p : parts) {
-                total += p.length;
-            }
-            byte[] body = new byte[total];
-            int off = 0;
-            for (byte[] p : parts) {
-                System.arraycopy(p, 0, body, off, p.length);
-                off += p.length;
+            try {
+                String diarized = requestTranscription(
+                        audioFile,
+                        "gpt-4o-transcribe-diarize",
+                        "diarized_json",
+                        true);
+                String formatted = formatDiarizedTranscript(diarized);
+                if (!formatted.isBlank()) {
+                    return new TranscriptionResult(formatted, "gpt-4o-transcribe-diarize");
+                }
+            } catch (ResponseStatusException diarizeError) {
+                log.warn(
+                        "Speaker diarization unavailable ({}), falling back to whisper-1",
+                        diarizeError.getReason());
             }
 
-            String url = ai.baseUrl() + "/audio/transcriptions";
-            // Whisper can take longer than chat; use at least 3 minutes.
-            long timeoutMs = Math.max(ai.timeoutMs(), 180_000L);
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .timeout(Duration.ofMillis(timeoutMs))
-                    .header("Authorization", "Bearer " + ai.apiKey())
-                    .header("Content-Type", "multipart/form-data; boundary=" + boundary)
-                    .POST(HttpRequest.BodyPublishers.ofByteArray(body))
-                    .build();
-
-            HttpResponse<String> response =
-                    httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new ResponseStatusException(
-                        mapOpenAiHttpStatus(response.statusCode()),
-                        openAiFailureMessage(response.statusCode(), response.body()));
-            }
-            String text = response.body() == null ? "" : response.body().trim();
-            if (text.isBlank()) {
+            String plain = requestTranscription(audioFile, "whisper-1", "text", false).trim();
+            if (plain.isBlank()) {
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Whisper returned an empty transcript");
             }
-            return text;
+            return new TranscriptionResult(plain, "whisper-1");
         } catch (ResponseStatusException e) {
             throw e;
         } catch (InterruptedException e) {
@@ -233,6 +197,162 @@ public class RhDailyTrackerOpenAiClient {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Whisper request failed: " + e.getMessage());
         }
     }
+
+    private String requestTranscription(
+            Path audioFile, String model, String responseFormat, boolean withChunking)
+            throws Exception {
+        String boundary = "----TrackerWhisper" + UUID.randomUUID().toString().replace("-", "");
+        String filename = audioFile.getFileName().toString();
+        String contentType = guessAudioContentType(filename);
+        byte[] fileBytes = Files.readAllBytes(audioFile);
+
+        List<byte[]> parts = new ArrayList<>();
+        parts.add(("--" + boundary + "\r\n"
+                        + "Content-Disposition: form-data; name=\"model\"\r\n\r\n"
+                        + model
+                        + "\r\n")
+                .getBytes(StandardCharsets.UTF_8));
+        parts.add(("--" + boundary + "\r\n"
+                        + "Content-Disposition: form-data; name=\"response_format\"\r\n\r\n"
+                        + responseFormat
+                        + "\r\n")
+                .getBytes(StandardCharsets.UTF_8));
+        if (withChunking) {
+            // Required for gpt-4o-transcribe-diarize when audio is longer than ~30s.
+            parts.add(("--" + boundary + "\r\n"
+                            + "Content-Disposition: form-data; name=\"chunking_strategy\"\r\n\r\n"
+                            + "auto\r\n")
+                    .getBytes(StandardCharsets.UTF_8));
+        }
+        parts.add(("--" + boundary + "\r\n"
+                        + "Content-Disposition: form-data; name=\"file\"; filename=\""
+                        + filename.replace("\"", "")
+                        + "\"\r\n"
+                        + "Content-Type: "
+                        + contentType
+                        + "\r\n\r\n")
+                .getBytes(StandardCharsets.UTF_8));
+        parts.add(fileBytes);
+        parts.add(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
+
+        int total = 0;
+        for (byte[] p : parts) {
+            total += p.length;
+        }
+        byte[] body = new byte[total];
+        int off = 0;
+        for (byte[] p : parts) {
+            System.arraycopy(p, 0, body, off, p.length);
+            off += p.length;
+        }
+
+        var ai = props.ai();
+        String url = ai.baseUrl() + "/audio/transcriptions";
+        long timeoutMs = Math.max(ai.timeoutMs(), 180_000L);
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .timeout(Duration.ofMillis(timeoutMs))
+                .header("Authorization", "Bearer " + ai.apiKey())
+                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                .POST(HttpRequest.BodyPublishers.ofByteArray(body))
+                .build();
+
+        HttpResponse<String> response =
+                httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new ResponseStatusException(
+                    mapOpenAiHttpStatus(response.statusCode()),
+                    openAiFailureMessage(response.statusCode(), response.body()));
+        }
+        return response.body() == null ? "" : response.body();
+    }
+
+    /**
+     * Convert diarized_json segments into one paragraph per speaker turn:
+     *
+     * <pre>
+     * Speaker A:
+     * Hello there.
+     *
+     * Speaker B:
+     * Hi — how are you?
+     * </pre>
+     */
+    private String formatDiarizedTranscript(String rawJson) throws Exception {
+        if (rawJson == null || rawJson.isBlank()) {
+            return "";
+        }
+        JsonNode root = objectMapper.readTree(rawJson);
+        JsonNode segments = root.path("segments");
+        if (!segments.isArray() || segments.isEmpty()) {
+            String flat = root.path("text").asText("").trim();
+            return flat;
+        }
+
+        StringBuilder out = new StringBuilder();
+        String currentSpeaker = null;
+        StringBuilder turn = new StringBuilder();
+
+        for (JsonNode seg : segments) {
+            String speaker = seg.path("speaker").asText("").trim();
+            if (speaker.isBlank()) {
+                speaker = "Speaker";
+            }
+            // Normalize A/B/0/1 → display labels.
+            String label = normalizeSpeakerLabel(speaker);
+            String text = seg.path("text").asText("").trim();
+            if (text.isBlank()) {
+                continue;
+            }
+            if (currentSpeaker == null) {
+                currentSpeaker = label;
+                turn.append(text);
+            } else if (currentSpeaker.equals(label)) {
+                if (!turn.isEmpty() && !Character.isWhitespace(turn.charAt(turn.length() - 1))) {
+                    turn.append(' ');
+                }
+                turn.append(text);
+            } else {
+                appendSpeakerParagraph(out, currentSpeaker, turn.toString());
+                currentSpeaker = label;
+                turn.setLength(0);
+                turn.append(text);
+            }
+        }
+        if (currentSpeaker != null && !turn.isEmpty()) {
+            appendSpeakerParagraph(out, currentSpeaker, turn.toString());
+        }
+        return out.toString().trim();
+    }
+
+    private static void appendSpeakerParagraph(StringBuilder out, String speaker, String text) {
+        if (!out.isEmpty()) {
+            out.append("\n\n");
+        }
+        out.append(speaker).append(":\n").append(text.trim());
+    }
+
+    /** Map API labels like "A", "SPEAKER_00", "speaker_1" to "Speaker A" / "Speaker 1". */
+    private static String normalizeSpeakerLabel(String raw) {
+        String s = raw.trim();
+        if (s.regionMatches(true, 0, "Speaker", 0, 7)) {
+            return Character.toUpperCase(s.charAt(0)) + s.substring(1);
+        }
+        // SPEAKER_00 / speaker_1
+        if (s.matches("(?i)speaker[_\\- ]?\\d+")) {
+            String digits = s.replaceAll("\\D+", "");
+            return "Speaker " + digits;
+        }
+        if (s.length() == 1 && Character.isLetter(s.charAt(0))) {
+            return "Speaker " + Character.toUpperCase(s.charAt(0));
+        }
+        if (s.matches("\\d+")) {
+            return "Speaker " + s;
+        }
+        return "Speaker " + s;
+    }
+
+    public record TranscriptionResult(String text, String source) {}
 
     private static String guessAudioContentType(String filename) {
         String lower = filename == null ? "" : filename.toLowerCase();

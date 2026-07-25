@@ -227,9 +227,9 @@ public class ManagementRecordingsService {
         }
         Path tmp = writeTempAudio(row);
         try {
-            String transcript = openAi.transcribeAudio(tmp);
-            row.setTranscript(transcript);
-            row.setTranscriptSource("whisper-1");
+            var result = openAi.transcribeAudio(tmp);
+            row.setTranscript(result.text());
+            row.setTranscriptSource(result.source());
             row.setTranscribedAt(Instant.now());
             row = cacheRepository.save(row);
             return toDetail(row);
@@ -244,9 +244,9 @@ public class ManagementRecordingsService {
         if (row.getTranscript() == null || row.getTranscript().isBlank()) {
             Path tmp = writeTempAudio(row);
             try {
-                String transcript = openAi.transcribeAudio(tmp);
-                row.setTranscript(transcript);
-                row.setTranscriptSource("whisper-1");
+                var result = openAi.transcribeAudio(tmp);
+                row.setTranscript(result.text());
+                row.setTranscriptSource(result.source());
                 row.setTranscribedAt(Instant.now());
             } finally {
                 deleteQuietly(tmp);

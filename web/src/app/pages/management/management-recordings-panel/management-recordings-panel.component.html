@@ -222,7 +222,12 @@
             <mat-card-header>
               <mat-card-title>Transcript</mat-card-title>
               @if (detail?.transcribedAt) {
-                <mat-card-subtitle>Whisper · {{ detail?.transcriptSource || 'whisper' }}</mat-card-subtitle>
+                <mat-card-subtitle>
+                  {{ detail?.transcriptSource || 'whisper' }}
+                  @if (detail?.transcriptSource?.includes('diarize')) {
+                    · speakers split
+                  }
+                </mat-card-subtitle>
               }
             </mat-card-header>
             <mat-card-content>
@@ -235,7 +240,16 @@
               } @else if (!detail?.transcript) {
                 <p class="muted">No transcript yet — click Transcribe.</p>
               } @else {
-                <pre class="rec-text">{{ filteredTranscript }}</pre>
+                <div class="rec-turns" role="list">
+                  @for (turn of transcriptTurns; track $index) {
+                    <article class="rec-turn" role="listitem">
+                      @if (turn.speaker) {
+                        <header class="rec-turn__speaker">{{ turn.speaker }}</header>
+                      }
+                      <p class="rec-turn__text">{{ turn.text }}</p>
+                    </article>
+                  }
+                </div>
               }
             </mat-card-content>
           </mat-card>
