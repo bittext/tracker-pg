@@ -49,6 +49,187 @@
     }
   </div>
 
+  <mat-card appearance="outlined" class="itn__card itn__compare">
+    <mat-card-header>
+      <mat-card-title>Compare saved</mat-card-title>
+      <mat-card-subtitle>
+        Overlay of saved scenarios. Solid = history; dashed = illustrative AI scenarios (when generated).
+      </mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="itn__chart-toolbar">
+        <mat-button-toggle-group [(ngModel)]="chartMode" name="itnChartMode" aria-label="Chart scale">
+          <mat-button-toggle value="pct">% since then</mat-button-toggle>
+          <mat-button-toggle value="usd">$ value</mat-button-toggle>
+        </mat-button-toggle-group>
+        <button mat-button type="button" (click)="reloadOverlay()" [disabled]="loadingOverlay || saved.length === 0">
+          <mat-icon>refresh</mat-icon>
+          Refresh chart
+        </button>
+      </div>
+
+      @if (loadingOverlay) {
+        <div class="itn__loading"><mat-spinner diameter="28" /></div>
+      } @else if (saved.length === 0) {
+        <p class="muted">Save answers to compare them on one chart.</p>
+      } @else if (!overlay?.series?.length) {
+        <p class="muted">No overlay series available yet — try Refresh chart.</p>
+      } @else {
+        <div class="itn__legend" role="group" aria-label="Series legend">
+          @for (s of overlay!.series; track s.id) {
+            <button
+              type="button"
+              class="itn__legend-item"
+              [class.itn__legend-item--off]="!isSeriesVisible(s.id)"
+              (click)="toggleSeries(s.id)"
+            >
+              <span class="itn__swatch" [style.background]="s.colorHint"></span>
+              {{ s.symbol }}
+            </button>
+          }
+        </div>
+
+        <svg
+          class="itn__chart"
+          [attr.viewBox]="'0 0 ' + chartW + ' ' + chartH"
+          role="img"
+          aria-label="Then and now overlay chart"
+        >
+          @for (lab of yAxisLabels(); track lab.y) {
+            <text class="itn__axis" [attr.x]="padL - 6" [attr.y]="lab.y + 3" text-anchor="end">{{ lab.label }}</text>
+            <line
+              class="itn__grid"
+              [attr.x1]="padL"
+              [attr.x2]="chartW - padR"
+              [attr.y1]="lab.y"
+              [attr.y2]="lab.y"
+            />
+          }
+          @for (lab of xAxisLabels(); track lab.x) {
+            <text class="itn__axis" [attr.x]="lab.x" [attr.y]="chartH - 6" text-anchor="middle">{{ lab.label }}</text>
+          }
+          @if (todayLineX(); as tx) {
+            <line class="itn__today" [attr.x1]="tx" [attr.x2]="tx" [attr.y1]="padT" [attr.y2]="chartH - padB" />
+            <text class="itn__axis" [attr.x]="tx + 4" [attr.y]="padT + 10">now</text>
+          }
+          @for (s of visibleOverlaySeries(); track s.id) {
+            <path [attr.d]="historicalPath(s)" class="itn__line" [attr.stroke]="s.colorHint" fill="none" />
+            @if (outlookForwardFor(s.symbol); as fwd) {
+              @if (fwd.bear) {
+                <path [attr.d]="fwd.bear" class="itn__line itn__line--fwd itn__line--bear" [attr.stroke]="fwd.color" fill="none" />
+              }
+              @if (fwd.bull) {
+                <path [attr.d]="fwd.bull" class="itn__line itn__line--fwd itn__line--bull" [attr.stroke]="fwd.color" fill="none" />
+              }
+              @if (fwd.base) {
+                <path [attr.d]="fwd.base" class="itn__line itn__line--fwd" [attr.stroke]="fwd.color" fill="none" />
+              }
+            }
+          }
+        </svg>
+        <p class="muted itn__chart-note">
+          Illustrative AI scenario paths (dashed) are speculative — not a forecast you should trade on.
+        </p>
+      }
+    </mat-card-content>
+  </mat-card>
+
+  <mat-card appearance="outlined" class="itn__card itn__outlook">
+    <mat-card-header>
+      <mat-card-title>AI speculative outlook</mat-card-title>
+      <mat-card-subtitle>News + fundamentals → bull / base / bear for the next months</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="itn__outlook-toolbar">
+        <mat-form-field appearance="outline" class="itn__field itn__field--horizon" subscriptSizing="dynamic">
+          <mat-label>Horizon</mat-label>
+          <mat-select [(ngModel)]="outlookHorizon" name="itnHorizon">
+            <mat-option [value]="3">3 months</mat-option>
+            <mat-option [value]="6">6 months</mat-option>
+            <mat-option [value]="12">12 months</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <button
+          mat-flat-button
+          color="primary"
+          type="button"
+          (click)="generateOutlook(false)"
+          [disabled]="loadingOutlook || saved.length === 0"
+        >
+          @if (loadingOutlook) {
+            <mat-spinner diameter="18" />
+          } @else {
+            <mat-icon>auto_awesome</mat-icon>
+          }
+          Generate
+        </button>
+        <button mat-stroked-button type="button" (click)="generateOutlook(true)" [disabled]="loadingOutlook || saved.length === 0">
+          Force refresh
+        </button>
+      </div>
+
+      @if (outlook) {
+        <p class="itn__disclaimer">{{ outlook.disclaimer }}</p>
+        <p class="itn__outlook-summary">{{ outlook.summary }}</p>
+        <p class="muted itn__outlook-meta">
+          {{ outlook.horizonMonths }} mo · {{ outlook.model || 'model' }} ·
+          {{ outlook.generatedAt | date: 'medium' }}
+          @if (outlook.cached) {
+            · cached
+          }
+        </p>
+
+        <div class="itn__outlook-grid">
+          @for (sym of outlook.symbols; track sym.symbol) {
+            <article class="itn__outlook-sym">
+              <header class="itn__outlook-sym-head">
+                <span class="itn__swatch" [style.background]="seriesColor({ id: sym.scenarioId ?? -1, symbol: sym.symbol })"></span>
+                <strong>{{ sym.symbol }}</strong>
+                <span class="muted">{{ sym.companyName }}</span>
+              </header>
+              <p class="itn__thesis">{{ sym.thesis }}</p>
+              <div class="itn__bands">
+                <div class="itn__band itn__band--bull">
+                  <h5>Bull @if (sym.bull.targetPrice != null) { · {{ sym.bull.targetPrice | currency }} }</h5>
+                  <p class="muted">{{ sym.bull.probabilityHint }}</p>
+                  <p>{{ sym.bull.narrative }}</p>
+                </div>
+                <div class="itn__band itn__band--base">
+                  <h5>Base @if (sym.base.targetPrice != null) { · {{ sym.base.targetPrice | currency }} }</h5>
+                  <p class="muted">{{ sym.base.probabilityHint }}</p>
+                  <p>{{ sym.base.narrative }}</p>
+                </div>
+                <div class="itn__band itn__band--bear">
+                  <h5>Bear @if (sym.bear.targetPrice != null) { · {{ sym.bear.targetPrice | currency }} }</h5>
+                  <p class="muted">{{ sym.bear.probabilityHint }}</p>
+                  <p>{{ sym.bear.narrative }}</p>
+                </div>
+              </div>
+              @if (sym.catalysts?.length) {
+                <p class="itn__chips-label">Catalysts</p>
+                <ul class="itn__chips">
+                  @for (c of sym.catalysts; track c) {
+                    <li>{{ c }}</li>
+                  }
+                </ul>
+              }
+              @if (sym.risks?.length) {
+                <p class="itn__chips-label">Risks</p>
+                <ul class="itn__chips itn__chips--risk">
+                  @for (r of sym.risks; track r) {
+                    <li>{{ r }}</li>
+                  }
+                </ul>
+              }
+            </article>
+          }
+        </div>
+      } @else if (outlookMissing) {
+        <p class="muted">No outlook yet — click Generate after saving scenarios.</p>
+      }
+    </mat-card-content>
+  </mat-card>
+
   <div class="itn__layout">
     <div class="itn__main">
       @if (result; as r) {
@@ -138,7 +319,10 @@
                     [class.itn__saved-item--active]="result?.id === row.id"
                     (click)="selectSaved(row)"
                   >
-                    <span class="itn__saved-sym">{{ row.symbol }}</span>
+                    <span class="itn__saved-sym">
+                      <span class="itn__swatch itn__swatch--sm" [style.background]="seriesColor(row)"></span>
+                      {{ row.symbol }}
+                    </span>
                     <span class="itn__saved-meta">
                       {{ row.investedAmount | currency }} →
                       <span [class]="pnlClass(row.gainAmount)">{{ row.worthNow | currency }}</span>

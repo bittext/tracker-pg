@@ -1110,6 +1110,72 @@ export interface InvestmentThenNowResultDto {
   saved: boolean;
 }
 
+export interface InvestmentThenNowOverlayPointDto {
+  date: string;
+  valuePct: number;
+  valueUsd: number;
+  close: number;
+}
+
+export interface InvestmentThenNowOverlaySeriesDto {
+  id: number;
+  symbol: string;
+  companyName: string;
+  investedAmount: number;
+  asOfDate: string;
+  priceAsOfSession: string;
+  shares: number;
+  colorHint: string;
+  points: InvestmentThenNowOverlayPointDto[];
+}
+
+export interface InvestmentThenNowOverlayResponseDto {
+  series: InvestmentThenNowOverlaySeriesDto[];
+  warnings: string[];
+}
+
+export interface InvestmentThenNowOutlookRequestDto {
+  scenarioIds?: number[] | null;
+  horizonMonths?: 3 | 6 | 12 | null;
+  force?: boolean | null;
+}
+
+export interface InvestmentThenNowOutlookScenarioBandDto {
+  narrative: string;
+  targetPrice: number | null;
+  probabilityHint: string;
+}
+
+export interface InvestmentThenNowOutlookForwardPointDto {
+  date: string;
+  price: number;
+}
+
+export interface InvestmentThenNowOutlookSymbolDto {
+  symbol: string;
+  companyName: string;
+  scenarioId: number | null;
+  thesis: string;
+  bull: InvestmentThenNowOutlookScenarioBandDto;
+  base: InvestmentThenNowOutlookScenarioBandDto;
+  bear: InvestmentThenNowOutlookScenarioBandDto;
+  catalysts: string[];
+  risks: string[];
+  forwardBase: InvestmentThenNowOutlookForwardPointDto[];
+  forwardBull: InvestmentThenNowOutlookForwardPointDto[];
+  forwardBear: InvestmentThenNowOutlookForwardPointDto[];
+}
+
+export interface InvestmentThenNowOutlookDto {
+  disclaimer: string;
+  horizonMonths: number;
+  summary: string;
+  model: string;
+  generatedAt: string;
+  cached: boolean;
+  symbols: InvestmentThenNowOutlookSymbolDto[];
+}
+
 /** GET /api/finance/robinhood/crawl-snapshot */
 export interface FinanceCrawlSnapshotDto {
   fetchedAt: string;

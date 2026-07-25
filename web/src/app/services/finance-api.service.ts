@@ -52,6 +52,9 @@ import {
   OptionsBacktestResultDto,
   InvestmentThenNowRequestDto,
   InvestmentThenNowResultDto,
+  InvestmentThenNowOverlayResponseDto,
+  InvestmentThenNowOutlookDto,
+  InvestmentThenNowOutlookRequestDto,
   RobinhoodCsvSavedImportDto,
   RobinhoodCsvUploadStatusDto,
   RobinhoodAgenticStatusDto,
@@ -455,6 +458,18 @@ export class FinanceApiService {
 
   deleteInvestmentThenNow(id: number) {
     return this.http.delete<void>(`${this.investmentThenNowRoot}/${id}`);
+  }
+
+  investmentThenNowOverlaySeries() {
+    return this.http.get<InvestmentThenNowOverlayResponseDto>(`${this.investmentThenNowRoot}/overlay-series`);
+  }
+
+  getInvestmentThenNowOutlook() {
+    return this.http.get<InvestmentThenNowOutlookDto>(`${this.investmentThenNowRoot}/outlook`);
+  }
+
+  generateInvestmentThenNowOutlook(body?: InvestmentThenNowOutlookRequestDto) {
+    return this.http.post<InvestmentThenNowOutlookDto>(`${this.investmentThenNowRoot}/outlook`, body ?? {});
   }
 
   /** Whether robinhood CSV import directory is configured (for UI uploads). */

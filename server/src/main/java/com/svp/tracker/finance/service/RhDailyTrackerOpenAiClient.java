@@ -36,6 +36,10 @@ public class RhDailyTrackerOpenAiClient {
     }
 
     public String completeJson(String systemPrompt, String userPrompt) {
+        return completeJson(systemPrompt, userPrompt, props.ai().maxOutputTokens());
+    }
+
+    public String completeJson(String systemPrompt, String userPrompt, int maxTokens) {
         var ai = props.ai();
         if (!ai.configured()) {
             throw new ResponseStatusException(
@@ -46,7 +50,7 @@ public class RhDailyTrackerOpenAiClient {
             ObjectNode body = objectMapper.createObjectNode();
             body.put("model", ai.model());
             body.put("temperature", 0.4);
-            body.put("max_tokens", ai.maxOutputTokens());
+            body.put("max_tokens", Math.max(256, maxTokens));
             ObjectNode responseFormat = body.putObject("response_format");
             responseFormat.put("type", "json_object");
             ArrayNode messages = body.putArray("messages");
@@ -56,7 +60,7 @@ public class RhDailyTrackerOpenAiClient {
             String url = ai.baseUrl() + "/chat/completions";
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
-                    .timeout(Duration.ofMillis(ai.timeoutMs()))
+                    .timeout(Duration.ofMillis(Math.max(ai.timeoutMs(), 120_000L)))
                     .header("Authorization", "Bearer " + ai.apiKey())
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body), StandardCharsets.UTF_8))

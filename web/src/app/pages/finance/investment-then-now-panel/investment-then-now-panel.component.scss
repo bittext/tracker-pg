@@ -39,7 +39,12 @@
   width: 8.5rem;
 }
 
-.itn__form mat-spinner {
+.itn__field--horizon {
+  width: 8.5rem;
+}
+
+.itn__form mat-spinner,
+.itn__outlook-toolbar mat-spinner {
   display: inline-block;
   margin-right: 0.35rem;
 }
@@ -49,6 +54,217 @@
   flex-wrap: wrap;
   gap: 0.4rem;
   margin-bottom: 1rem;
+}
+
+.itn__compare,
+.itn__outlook {
+  margin-bottom: 0.85rem;
+}
+
+.itn__chart-toolbar,
+.itn__outlook-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.65rem;
+}
+
+.itn__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.itn__legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.itn__legend-item--off {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+.itn__swatch {
+  display: inline-block;
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.itn__swatch--sm {
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-right: 0.3rem;
+}
+
+.itn__chart {
+  width: 100%;
+  max-width: 44rem;
+  height: auto;
+  display: block;
+}
+
+.itn__grid {
+  stroke: color-mix(in srgb, currentColor 12%, transparent);
+  stroke-width: 1;
+}
+
+.itn__today {
+  stroke: color-mix(in srgb, currentColor 35%, transparent);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.itn__axis {
+  fill: color-mix(in srgb, currentColor 65%, transparent);
+  font-size: 9px;
+}
+
+.itn__line {
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.itn__line--fwd {
+  stroke-width: 1.6;
+  stroke-dasharray: 5 4;
+  opacity: 0.85;
+}
+
+.itn__line--bull {
+  opacity: 0.45;
+}
+
+.itn__line--bear {
+  opacity: 0.4;
+  stroke-dasharray: 2 3;
+}
+
+.itn__chart-note,
+.itn__disclaimer {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.itn__disclaimer {
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, #b45309 12%, transparent);
+}
+
+.itn__outlook-summary {
+  margin: 0.65rem 0 0.25rem;
+  line-height: 1.45;
+}
+
+.itn__outlook-meta {
+  margin: 0 0 0.75rem;
+  font-size: 0.78rem;
+}
+
+.itn__outlook-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 0.75rem;
+}
+
+.itn__outlook-sym {
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.itn__outlook-sym-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.itn__thesis {
+  margin: 0 0 0.55rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.itn__bands {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.itn__band {
+  padding: 0.45rem 0.55rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.itn__band h5 {
+  margin: 0 0 0.15rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.itn__band p {
+  margin: 0.15rem 0 0;
+}
+
+.itn__band--bull {
+  background: color-mix(in srgb, #15803d 10%, transparent);
+}
+
+.itn__band--base {
+  background: color-mix(in srgb, var(--app-accent, #6366f1) 8%, transparent);
+}
+
+.itn__band--bear {
+  background: color-mix(in srgb, #b91c1c 10%, transparent);
+}
+
+.itn__chips-label {
+  margin: 0.55rem 0 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  opacity: 0.8;
+}
+
+.itn__chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.itn__chips li {
+  padding: 0.2rem 0.45rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  background: color-mix(in srgb, var(--app-accent, #6366f1) 10%, transparent);
+}
+
+.itn__chips--risk li {
+  background: color-mix(in srgb, #b91c1c 12%, transparent);
 }
 
 .itn__layout {
@@ -165,6 +381,8 @@
 
 .itn__saved-sym {
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
 }
 
 .itn__saved-meta {

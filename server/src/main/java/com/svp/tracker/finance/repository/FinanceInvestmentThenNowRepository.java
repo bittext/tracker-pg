@@ -13,6 +13,8 @@ public interface FinanceInvestmentThenNowRepository extends JpaRepository<Financ
 
     Optional<FinanceInvestmentThenNow> findByIdAndOwnerUserId(long id, long ownerUserId);
 
+    List<FinanceInvestmentThenNow> findByOwnerUserIdAndIdIn(long ownerUserId, List<Long> ids);
+
     Optional<FinanceInvestmentThenNow> findByOwnerUserIdAndSymbolAndAsOfDateAndInvestedAmount(
             long ownerUserId, String symbol, LocalDate asOfDate, BigDecimal investedAmount);
 }

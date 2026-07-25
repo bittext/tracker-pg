@@ -5,6 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.FinanceProperties;
 import com.svp.tracker.finance.domain.FinanceInvestmentThenNow;
+import com.svp.tracker.finance.dto.InvestmentThenNowOverlayPointDto;
+import com.svp.tracker.finance.dto.InvestmentThenNowOverlayResponseDto;
+import com.svp.tracker.finance.dto.InvestmentThenNowOverlaySeriesDto;
 import com.svp.tracker.finance.dto.InvestmentThenNowRequestDto;
 import com.svp.tracker.finance.dto.InvestmentThenNowResultDto;
 import com.svp.tracker.finance.repository.FinanceInvestmentThenNowRepository;
@@ -60,6 +63,8 @@ public class InvestmentThenNowService {
     private static final DateTimeFormatter NASDAQ_DAY = DateTimeFormatter.ofPattern("M/d/yyyy", Locale.US);
     private static final DateTimeFormatter ISO_DAY = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final Duration CHART_CACHE_TTL = Duration.ofMinutes(10);
+    private static final List<String> SERIES_COLORS = List.of(
+            "#4f46e5", "#0d9488", "#c026d3", "#ea580c", "#2563eb", "#16a34a", "#db2777", "#ca8a04");
 
     private final FinanceProperties props;
     private final CurrentUserService currentUser;
@@ -93,6 +98,70 @@ public class InvestmentThenNowService {
                 .findByIdAndOwnerUserId(id, owner)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Saved answer not found"));
         repository.delete(row);
+    }
+
+    /**
+     * Historical overlay for all saved scenarios: each series has daily % (rebased to 100 at as-of)
+     * and $ portfolio value (shares × close).
+     */
+    @Transactional(readOnly = true)
+    public InvestmentThenNowOverlayResponseDto overlaySeries() {
+        long owner = currentUser.requireUserId();
+        List<FinanceInvestmentThenNow> rows = repository.findByOwnerUserIdOrderByUpdatedAtDesc(owner);
+        if (rows.isEmpty()) {
+            return new InvestmentThenNowOverlayResponseDto(List.of(), List.of());
+        }
+        LocalDate today = LocalDate.now(NY);
+        List<InvestmentThenNowOverlaySeriesDto> series = new ArrayList<>();
+        List<String> warnings = new ArrayList<>();
+        int colorIdx = 0;
+        for (FinanceInvestmentThenNow row : rows) {
+            String color = SERIES_COLORS.get(colorIdx % SERIES_COLORS.size());
+            colorIdx++;
+            try {
+                ChartSnapshot chart = loadPrices(row.getSymbol(), row.getAsOfDate(), today);
+                NavigableMap.Entry<LocalDate, Double> asOfBar =
+                        chart.bars().floorEntry(row.getAsOfDate());
+                if (asOfBar == null || asOfBar.getValue() <= 0) {
+                    warnings.add(row.getSymbol() + ": no close on or before " + row.getAsOfDate());
+                    continue;
+                }
+                double asOfClose = asOfBar.getValue();
+                BigDecimal shares = row.getShares();
+                List<InvestmentThenNowOverlayPointDto> points = new ArrayList<>();
+                for (var e : chart.bars().tailMap(asOfBar.getKey(), true).entrySet()) {
+                    double close = e.getValue();
+                    if (!Double.isFinite(close) || close <= 0) {
+                        continue;
+                    }
+                    BigDecimal valuePct = BigDecimal.valueOf(close / asOfClose * 100.0)
+                            .setScale(4, RoundingMode.HALF_UP);
+                    BigDecimal valueUsd = shares
+                            .multiply(BigDecimal.valueOf(close))
+                            .setScale(2, RoundingMode.HALF_UP);
+                    points.add(new InvestmentThenNowOverlayPointDto(
+                            e.getKey(), valuePct, valueUsd, money6(close)));
+                }
+                if (points.isEmpty()) {
+                    warnings.add(row.getSymbol() + ": empty series after as-of");
+                    continue;
+                }
+                series.add(new InvestmentThenNowOverlaySeriesDto(
+                        row.getId(),
+                        row.getSymbol(),
+                        row.getCompanyName(),
+                        row.getInvestedAmount(),
+                        row.getAsOfDate(),
+                        row.getPriceAsOfSession(),
+                        row.getShares(),
+                        color,
+                        points));
+            } catch (Exception e) {
+                warnings.add(row.getSymbol() + ": " + (e.getMessage() == null ? e.toString() : e.getMessage()));
+                log.warn("then/now overlay failed for {} id={}", row.getSymbol(), row.getId(), e);
+            }
+        }
+        return new InvestmentThenNowOverlayResponseDto(List.copyOf(series), List.copyOf(warnings));
     }
 
     @Transactional
