@@ -1,0 +1,135 @@
+/* Aura — side illumination bloom (warm peach → cool lavender). */
+
+[data-theme-preset='aura'] {
+  .app-platform-layout {
+    display: flex;
+    min-height: 100vh;
+    background: transparent;
+  }
+
+  .app-sidebar {
+    flex: 0 0 var(--app-sidebar-width);
+    width: var(--app-sidebar-width);
+    display: flex;
+    flex-direction: column;
+    background: var(--app-surface-sidebar);
+    backdrop-filter: blur(28px) saturate(1.35);
+    -webkit-backdrop-filter: blur(28px) saturate(1.35);
+    border-right: 1px solid var(--app-border);
+    min-height: 100vh;
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    max-height: 100vh;
+    overflow-y: auto;
+    box-shadow: 1px 0 0 rgba(255, 255, 255, 0.35) inset;
+  }
+
+  .app-content-column {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    background: transparent;
+  }
+
+  .app-content-header {
+    background: var(--app-toolbar-bg);
+    backdrop-filter: blur(20px) saturate(1.2);
+    -webkit-backdrop-filter: blur(20px) saturate(1.2);
+    border-bottom: 1px solid var(--app-border);
+  }
+
+  .app-platform-main,
+  .finance-panel,
+  .mat-mdc-card,
+  .cr__card,
+  .cr__detail-pane,
+  .cr__quote,
+  .cr__note,
+  .cr__table-wrap {
+    backdrop-filter: blur(16px) saturate(1.15);
+    -webkit-backdrop-filter: blur(16px) saturate(1.15);
+  }
+
+  .page-head {
+    border-bottom-color: var(--app-border);
+  }
+
+  /* Soft luminous edge on interactive surfaces */
+  .app-sidebar__link--active {
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.35) inset,
+      0 4px 16px rgba(180, 100, 90, 0.08);
+  }
+}
+
+/* Extra bloom layer so the side light reads clearly over scrolling content */
+html[data-theme-preset='aura']::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 70% 55% at 100% 0%, rgba(255, 210, 180, 0.75) 0%, transparent 55%),
+    radial-gradient(ellipse 45% 40% at 88% 28%, rgba(255, 170, 190, 0.35) 0%, transparent 50%),
+    radial-gradient(ellipse 40% 50% at 0% 100%, rgba(160, 155, 210, 0.28) 0%, transparent 45%);
+  animation: aura-breathe 18s ease-in-out infinite alternate;
+}
+
+html[data-theme-preset='aura'][data-theme-mode='dark']::before {
+  background:
+    radial-gradient(ellipse 70% 55% at 100% 0%, rgba(200, 100, 70, 0.4) 0%, transparent 55%),
+    radial-gradient(ellipse 45% 40% at 88% 28%, rgba(160, 70, 110, 0.28) 0%, transparent 50%),
+    radial-gradient(ellipse 40% 50% at 0% 100%, rgba(80, 70, 140, 0.32) 0%, transparent 45%);
+}
+
+@keyframes aura-breathe {
+  from {
+    opacity: 0.85;
+    transform: scale(1);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme-preset='aura']::before {
+    animation: none;
+  }
+}
+
+@media (max-width: 768px) {
+  [data-theme-preset='aura'] {
+    .app-platform-layout {
+      flex-direction: column;
+    }
+
+    .app-sidebar {
+      position: relative;
+      width: 100%;
+      flex: none;
+      max-height: none;
+      min-height: auto;
+      border-right: none;
+      border-bottom: 1px solid var(--app-border);
+    }
+
+    .app-sidebar__nav {
+      flex-direction: row;
+      flex-wrap: wrap;
+      padding-bottom: 0.5rem;
+    }
+
+    .app-sidebar__link span {
+      display: none;
+    }
+
+    .app-sidebar__footer {
+      display: none;
+    }
+  }
+}

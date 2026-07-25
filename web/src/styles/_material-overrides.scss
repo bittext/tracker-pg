@@ -135,7 +135,7 @@ table.mat-mdc-table .mat-mdc-row:nth-child(even) .mat-mdc-cell {
 }
 
 .theme-settings-menu {
-  min-width: 17rem;
+  min-width: 18.5rem;
   padding: 0.75rem 1rem 1rem;
 }
 
@@ -166,10 +166,11 @@ table.mat-mdc-table .mat-mdc-row:nth-child(even) .mat-mdc-cell {
 .theme-settings-menu mat-button-toggle-group {
   width: 100%;
   display: flex;
+  flex-wrap: wrap;
 }
 
 .theme-settings-menu .mat-button-toggle {
-  flex: 1 1 0;
+  flex: 1 1 45%;
   font-size: 0.8125rem;
 }
 

@@ -1,5 +1,5 @@
-/** Visual preset — maps to token bundles in src/styles/themes/. */
-export type ThemePreset = 'phoenix' | 'openai' | 'classic';
+/** Visual preset — maps to token bundles in theme-tokens.config. */
+export type ThemePreset = 'phoenix' | 'openai' | 'classic' | 'aura';
 
 /** Color scheme; `system` follows OS preference. */
 export type ThemeMode = 'light' | 'dark' | 'system';
@@ -46,6 +46,11 @@ export const THEME_PRESETS: ThemePresetMeta[] = [
     label: 'Classic',
     description: 'Original teal accent with soft gradients',
   },
+  {
+    id: 'aura',
+    label: 'Aura',
+    description: 'Side illumination — warm peach bloom fading into cool lavender mist',
+  },
 ];
 
 export const THEME_MODES: ThemeModeMeta[] = [
@@ -54,13 +59,17 @@ export const THEME_MODES: ThemeModeMeta[] = [
   { id: 'dark', label: 'Dark' },
 ];
 
+const PRESET_IDS = new Set<ThemePreset>(['phoenix', 'openai', 'classic', 'aura']);
+
 export function parseThemeConfig(raw: unknown): ThemeConfig {
   if (!raw || typeof raw !== 'object') {
     return { ...DEFAULT_THEME_CONFIG };
   }
   const o = raw as Record<string, unknown>;
   const preset =
-    o['preset'] === 'classic' ? 'classic' : o['preset'] === 'openai' ? 'openai' : 'phoenix';
+    typeof o['preset'] === 'string' && PRESET_IDS.has(o['preset'] as ThemePreset)
+      ? (o['preset'] as ThemePreset)
+      : 'phoenix';
   const mode =
     o['mode'] === 'light' || o['mode'] === 'dark' || o['mode'] === 'system' ? o['mode'] : 'system';
   return { preset, mode };

@@ -373,6 +373,120 @@ const CLASSIC_DARK: AppThemeTokens = {
   themeColor: '#0b3d40',
 };
 
+/**
+ * Aura — soft side illumination: warm peach/rose bloom from the upper-right,
+ * cooling into lavender mist (tab-switcher / frosted-glass atmosphere).
+ */
+const AURA_LIGHT: AppThemeTokens = {
+  fontDisplay: "'SF Pro Display', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif",
+  fontBody: "'SF Pro Text', 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif",
+
+  bg: '#ebe6ef',
+  bgGradient: [
+    'radial-gradient(ellipse 90% 75% at 100% -5%, rgba(255, 198, 168, 0.95) 0%, transparent 58%)',
+    'radial-gradient(ellipse 70% 55% at 92% 18%, rgba(244, 170, 186, 0.55) 0%, transparent 52%)',
+    'radial-gradient(ellipse 55% 70% at -5% 95%, rgba(168, 162, 210, 0.42) 0%, transparent 50%)',
+    'radial-gradient(ellipse 40% 35% at 40% 60%, rgba(255, 255, 255, 0.35) 0%, transparent 60%)',
+    'linear-gradient(152deg, #e4e0eb 0%, #ece6ea 38%, #f3ebe6 72%, #efe8e4 100%)',
+  ].join(', '),
+  surface: 'rgba(255, 255, 255, 0.72)',
+  surfaceMuted: 'rgba(255, 250, 248, 0.55)',
+  surfaceTint: 'rgba(255, 255, 255, 0.45)',
+  surfaceHover: 'rgba(255, 255, 255, 0.88)',
+  surfaceSidebar: 'rgba(255, 252, 250, 0.55)',
+  surfaceNavActive: 'rgba(255, 255, 255, 0.78)',
+
+  text: '#2a2430',
+  textMuted: '#6b6270',
+  textSubtle: '#918898',
+
+  border: 'rgba(70, 55, 75, 0.1)',
+  borderStrong: 'rgba(70, 55, 75, 0.16)',
+
+  accent: '#8b5a6b',
+  accentSoft: 'rgba(139, 90, 107, 0.12)',
+  accentOn: '#ffffff',
+
+  colorSuccess: '#3d8b6e',
+  colorWarning: '#c4893a',
+  colorChartSecondary: '#7a6bb0',
+  heroGradient:
+    'linear-gradient(125deg, rgba(255, 186, 160, 0.55) 0%, rgba(236, 170, 190, 0.4) 42%, rgba(180, 170, 220, 0.35) 100%)',
+
+  toolbarBg: 'rgba(255, 252, 250, 0.55)',
+  toolbarBorder: 'rgba(70, 55, 75, 0.1)',
+  focusRing: 'rgba(139, 90, 107, 0.4)',
+
+  shellMaxWidth: 'none',
+  frameShadow: 'none',
+  sidebarWidth: '248px',
+
+  radiusLg: '16px',
+  radius: '12px',
+  radiusSm: '8px',
+  radiusPill: '9999px',
+
+  shadowSm: '0 1px 2px rgba(60, 40, 55, 0.05)',
+  shadowMd: '0 8px 28px rgba(80, 50, 70, 0.08)',
+
+  tableStripe: 'rgba(255, 255, 255, 0.35)',
+
+  calStrength: 'rgba(122, 107, 176, 0.16)',
+  calWeight: 'rgba(61, 139, 110, 0.14)',
+  calBoth: 'rgba(139, 90, 107, 0.14)',
+
+  themeColor: '#e8c4b8',
+};
+
+const AURA_DARK: AppThemeTokens = {
+  ...AURA_LIGHT,
+  bg: '#16121a',
+  bgGradient: [
+    'radial-gradient(ellipse 85% 70% at 100% -8%, rgba(180, 90, 70, 0.55) 0%, transparent 55%)',
+    'radial-gradient(ellipse 65% 50% at 95% 20%, rgba(140, 70, 100, 0.4) 0%, transparent 50%)',
+    'radial-gradient(ellipse 50% 65% at -8% 100%, rgba(70, 60, 120, 0.45) 0%, transparent 48%)',
+    'linear-gradient(155deg, #120f16 0%, #1a1520 45%, #18131c 100%)',
+  ].join(', '),
+  surface: 'rgba(30, 24, 36, 0.78)',
+  surfaceMuted: 'rgba(38, 30, 46, 0.72)',
+  surfaceTint: 'rgba(36, 28, 44, 0.65)',
+  surfaceHover: 'rgba(48, 38, 58, 0.9)',
+  surfaceSidebar: 'rgba(18, 14, 24, 0.72)',
+  surfaceNavActive: 'rgba(255, 186, 160, 0.12)',
+
+  text: '#f0e8ef',
+  textMuted: '#b5a8b8',
+  textSubtle: '#8a7e90',
+
+  border: 'rgba(240, 220, 230, 0.1)',
+  borderStrong: 'rgba(240, 220, 230, 0.16)',
+
+  accent: '#e8a090',
+  accentSoft: 'rgba(232, 160, 144, 0.14)',
+  accentOn: '#1a1218',
+
+  colorSuccess: '#6db88a',
+  colorWarning: '#e0b060',
+  colorChartSecondary: '#b8a0e0',
+  heroGradient:
+    'linear-gradient(125deg, rgba(180, 90, 70, 0.35) 0%, rgba(120, 60, 100, 0.3) 50%, rgba(60, 50, 110, 0.35) 100%)',
+
+  toolbarBg: 'rgba(18, 14, 24, 0.65)',
+  toolbarBorder: 'rgba(240, 220, 230, 0.1)',
+  focusRing: 'rgba(232, 160, 144, 0.45)',
+
+  shadowSm: '0 1px 2px rgba(0, 0, 0, 0.4)',
+  shadowMd: '0 10px 32px rgba(0, 0, 0, 0.45)',
+
+  tableStripe: 'rgba(255, 255, 255, 0.03)',
+
+  calStrength: 'rgba(184, 160, 224, 0.22)',
+  calWeight: 'rgba(109, 184, 138, 0.18)',
+  calBoth: 'rgba(232, 160, 144, 0.16)',
+
+  themeColor: '#16121a',
+};
+
 export const THEME_TOKEN_REGISTRY: Record<
   ThemePreset,
   Record<ResolvedThemeMode, AppThemeTokens>
@@ -388,6 +502,10 @@ export const THEME_TOKEN_REGISTRY: Record<
   classic: {
     light: CLASSIC_LIGHT,
     dark: CLASSIC_DARK,
+  },
+  aura: {
+    light: AURA_LIGHT,
+    dark: AURA_DARK,
   },
 };
 

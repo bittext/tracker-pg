@@ -110,6 +110,17 @@
       }
 
 
+      @if (showTradingTab('watch')) {
+      <mat-tab label="Watch">
+        <div class="finance-panel">
+          @if (tradingSubTabActive('watch')) {
+            <app-company-research-panel />
+          }
+        </div>
+      </mat-tab>
+      }
+
+
       @if (showTradingTab('news')) {
       <mat-tab label="News">
         <div class="finance-panel">

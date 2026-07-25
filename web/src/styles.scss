@@ -2,6 +2,7 @@
 @use 'styles/global';
 @use 'styles/material-overrides';
 @use 'styles/shell-openai';
+@use 'styles/theme-aura';
 
 /* Management → Notes tab (global to keep component style budget under limit) */
 app-management .mgmt-notes-panel {

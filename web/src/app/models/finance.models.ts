@@ -1723,3 +1723,113 @@ export interface FinanceEntryDocumentDto {
   sizeBytes: number;
   createdAt: string;
 }
+
+/** Markets → Research → Watch (company research / earnings). */
+export type CompanyResearchDecisionStatus =
+  | 'WATCHING'
+  | 'CONSIDERING'
+  | 'BOUGHT'
+  | 'PASSED'
+  | 'REVISIT';
+
+export interface CompanyEarningsEventDto {
+  reportDate: string;
+  symbol: string;
+  companyName: string;
+  marketCap: string;
+  marketCapValue: number | null;
+  fiscalQuarterEnding: string;
+  epsForecast: string;
+  lastYearEps: string;
+  lastYearReportDate: string;
+  timing: string;
+  onWatchlist: boolean;
+  decisionStatus: string | null;
+}
+
+export interface CompanyEarningsCalendarDto {
+  from: string;
+  to: string;
+  dayCount: number;
+  events: CompanyEarningsEventDto[];
+  source: string;
+}
+
+export interface CompanyResearchCardDto {
+  id: number;
+  symbol: string;
+  companyName: string;
+  decisionStatus: CompanyResearchDecisionStatus | string;
+  tags: string[];
+  thesis: string;
+  nextEarningsDate: string | null;
+  nextEarningsTiming: string | null;
+  lastViewedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  noteCount: number;
+}
+
+export interface CompanyResearchListDto {
+  cards: CompanyResearchCardDto[];
+  total: number;
+}
+
+export interface CompanyResearchUpsertRequestDto {
+  symbol: string;
+  companyName?: string | null;
+  decisionStatus?: CompanyResearchDecisionStatus | string | null;
+  tags?: string[] | null;
+  thesis?: string | null;
+}
+
+export interface CompanyResearchUpdateRequestDto {
+  companyName?: string | null;
+  decisionStatus?: CompanyResearchDecisionStatus | string | null;
+  tags?: string[] | null;
+  thesis?: string | null;
+}
+
+export interface CompanyResearchNoteDto {
+  id: number;
+  researchId: number;
+  symbol: string;
+  noteText: string;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CompanyResearchNoteRequestDto {
+  noteText: string;
+  tags?: string[] | null;
+}
+
+export interface CompanyEarningsHistoryRowDto {
+  fiscalQuarterEnd: string;
+  dateReported: string;
+  eps: string;
+  consensusForecast: string;
+  percentageSurprise: string;
+}
+
+export interface CompanyQuoteSnapshotDto {
+  symbol: string;
+  companyName: string;
+  lastSalePrice: string;
+  netChange: string;
+  percentageChange: string;
+  deltaIndicator: string;
+  exchange: string;
+  marketStatus: string;
+  fiftyTwoWeekRange: string;
+  upcomingEarningsMessage: string | null;
+}
+
+export interface CompanyResearchDetailDto {
+  card: CompanyResearchCardDto;
+  quote: CompanyQuoteSnapshotDto | null;
+  earningsHistory: CompanyEarningsHistoryRowDto[];
+  news: StockNewsDto | null;
+  notes: CompanyResearchNoteDto[];
+}

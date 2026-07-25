@@ -72,6 +72,14 @@ import {
   BankingPlaidSyncRequestDto,
   BankingPlaidSyncResponseDto,
   BankingImportFileDto,
+  CompanyEarningsCalendarDto,
+  CompanyResearchCardDto,
+  CompanyResearchDetailDto,
+  CompanyResearchListDto,
+  CompanyResearchNoteDto,
+  CompanyResearchNoteRequestDto,
+  CompanyResearchUpdateRequestDto,
+  CompanyResearchUpsertRequestDto,
 } from '../models/finance.models';
 
 export type FinancePeriod = 'all' | 'year' | 'month';
@@ -615,5 +623,73 @@ export class FinanceApiService {
     return this.http.delete<void>(`${this.bankingPlaidRoot}/link`, {
       params: { institutionId: String(institutionId) },
     });
+  }
+
+  private readonly companyResearchRoot = `${environment.apiBaseUrl}/api/markets/company-research`;
+
+  /** Markets → Research → Watch: upcoming earnings calendar (Nasdaq). */
+  companyResearchEarningsCalendar(from?: string | null, days?: number | null, minMarketCap?: number | null) {
+    let params = new HttpParams();
+    if (from?.trim()) {
+      params = params.set('from', from.trim());
+    }
+    if (days != null && Number.isFinite(days) && days > 0) {
+      params = params.set('days', String(Math.floor(days)));
+    }
+    if (minMarketCap != null && Number.isFinite(minMarketCap) && minMarketCap > 0) {
+      params = params.set('minMarketCap', String(Math.floor(minMarketCap)));
+    }
+    return this.http.get<CompanyEarningsCalendarDto>(`${this.companyResearchRoot}/earnings-calendar`, { params });
+  }
+
+  companyResearchList(q?: string | null, status?: string | null, earningsWithinDays?: number | null) {
+    let params = new HttpParams();
+    if (q?.trim()) {
+      params = params.set('q', q.trim());
+    }
+    if (status?.trim() && status.trim().toUpperCase() !== 'ALL') {
+      params = params.set('status', status.trim());
+    }
+    if (earningsWithinDays != null && Number.isFinite(earningsWithinDays) && earningsWithinDays > 0) {
+      params = params.set('earningsWithinDays', String(Math.floor(earningsWithinDays)));
+    }
+    return this.http.get<CompanyResearchListDto>(this.companyResearchRoot, { params });
+  }
+
+  companyResearchUpsert(body: CompanyResearchUpsertRequestDto) {
+    return this.http.post<CompanyResearchCardDto>(this.companyResearchRoot, body);
+  }
+
+  companyResearchDetail(symbol: string, includeNews = true) {
+    return this.http.get<CompanyResearchDetailDto>(
+      `${this.companyResearchRoot}/${encodeURIComponent(symbol.trim())}`,
+      { params: { includeNews: String(includeNews) } },
+    );
+  }
+
+  companyResearchUpdate(symbol: string, body: CompanyResearchUpdateRequestDto) {
+    return this.http.put<CompanyResearchCardDto>(
+      `${this.companyResearchRoot}/${encodeURIComponent(symbol.trim())}`,
+      body,
+    );
+  }
+
+  companyResearchDelete(symbol: string) {
+    return this.http.delete<void>(`${this.companyResearchRoot}/${encodeURIComponent(symbol.trim())}`);
+  }
+
+  companyResearchAddNote(symbol: string, body: CompanyResearchNoteRequestDto) {
+    return this.http.post<CompanyResearchNoteDto>(
+      `${this.companyResearchRoot}/${encodeURIComponent(symbol.trim())}/notes`,
+      body,
+    );
+  }
+
+  companyResearchUpdateNote(noteId: number, body: CompanyResearchNoteRequestDto) {
+    return this.http.put<CompanyResearchNoteDto>(`${this.companyResearchRoot}/notes/${noteId}`, body);
+  }
+
+  companyResearchDeleteNote(noteId: number) {
+    return this.http.delete<void>(`${this.companyResearchRoot}/notes/${noteId}`);
   }
 }

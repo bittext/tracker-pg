@@ -1,0 +1,307 @@
+<div class="cr">
+  <p class="muted cr__intro">
+    Research companies ahead of earnings — browse the calendar, save names to Watch, capture notes and a thesis, then
+    decide later. Search covers symbols, company names, tags, thesis, and note text.
+  </p>
+
+  <div class="cr__toolbar">
+    <mat-form-field appearance="outline" class="cr__search">
+      <mat-label>Search Watch</mat-label>
+      <input
+        matInput
+        [(ngModel)]="searchQuery"
+        name="crSearch"
+        placeholder="Symbol, company, tag, note…"
+        (keyup.enter)="loadList()"
+      />
+      <mat-icon matPrefix>search</mat-icon>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="cr__status">
+      <mat-label>Status</mat-label>
+      <mat-select [(ngModel)]="statusFilter" name="crStatus" (selectionChange)="loadList()">
+        @for (s of statusChoices; track s.value) {
+          <mat-option [value]="s.value">{{ s.label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="cr__add">
+      <mat-label>Add symbol</mat-label>
+      <input matInput [(ngModel)]="addSymbol" name="crAdd" placeholder="e.g. NVDA" (keyup.enter)="addFromInput()" />
+    </mat-form-field>
+
+    <button mat-flat-button color="primary" type="button" (click)="addFromInput()" [disabled]="saving || !addSymbol.trim()">
+      <mat-icon>add</mat-icon>
+      Watch
+    </button>
+
+    <button mat-stroked-button type="button" (click)="refreshAll()" [disabled]="calendarLoading || listLoading">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+  </div>
+
+  <section class="cr__section">
+    <div class="cr__section-head">
+      <h3 class="cr__section-title">Earnings calendar</h3>
+      <div class="cr__section-actions">
+        <mat-form-field appearance="outline" class="cr__days">
+          <mat-label>Days</mat-label>
+          <mat-select [(ngModel)]="calendarDays" name="crCalDays" (selectionChange)="loadCalendar()">
+            <mat-option [value]="7">7</mat-option>
+            <mat-option [value]="14">14</mat-option>
+            <mat-option [value]="21">21</mat-option>
+            <mat-option [value]="31">31</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <button
+          mat-stroked-button
+          type="button"
+          [class.cr__chip-on]="largeCapOnly"
+          (click)="largeCapOnly = !largeCapOnly; loadCalendar()"
+        >
+          {{ largeCapOnly ? 'Large-cap (≥ $1B)' : 'All market caps' }}
+        </button>
+      </div>
+    </div>
+    @if (calendarLoading) {
+      <p class="muted">Loading earnings calendar…</p>
+    } @else if (!calendar?.events?.length) {
+      <p class="muted">No earnings events in this window.</p>
+    } @else {
+      <p class="muted cr__meta">
+        {{ calendar!.from | date: 'mediumDate' }} – {{ calendar!.to | date: 'mediumDate' }} ·
+        {{ calendar!.events.length }} reports · {{ calendar!.source }}
+      </p>
+      <div class="cr__cal-days">
+        @for (group of eventsByDate(); track group.date) {
+          <div class="cr__cal-day">
+            <h4 class="cr__cal-date">{{ group.date | date: 'EEE, MMM d' }}</h4>
+            <div class="cr__cal-rows">
+              @for (ev of group.events; track ev.symbol) {
+                <button
+                  type="button"
+                  class="cr__cal-row"
+                  [class.cr__cal-row--watched]="ev.onWatchlist"
+                  (click)="addFromCalendar(ev)"
+                  [matTooltip]="ev.onWatchlist ? 'Open Watch card' : 'Add to Watch'"
+                >
+                  <span class="cr__cal-sym">{{ ev.symbol }}</span>
+                  <span class="cr__cal-name">{{ ev.companyName }}</span>
+                  <span class="cr__cal-meta muted">{{ ev.timing }} · EPS est {{ ev.epsForecast || '—' }}</span>
+                  <span class="cr__cal-cap muted">{{ ev.marketCap || '—' }}</span>
+                  <mat-icon class="cr__cal-icon" aria-hidden="true">
+                    {{ ev.onWatchlist ? 'visibility' : 'add_circle_outline' }}
+                  </mat-icon>
+                </button>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </section>
+
+  <div class="cr__layout">
+    <section class="cr__list-pane">
+      <div class="cr__section-head">
+        <h3 class="cr__section-title">Your Watch</h3>
+        <span class="muted">{{ cards.length }} companies</span>
+      </div>
+
+      @if (nearEarningsCards().length) {
+        <p class="cr__near muted">
+          Near earnings ({{ earningsWindowDays }}d):
+          @for (c of nearEarningsCards(); track c.symbol) {
+            <button type="button" class="cr__near-chip" (click)="openDetail(c.symbol)">
+              {{ c.symbol }}
+              <span>{{ c.nextEarningsDate | date: 'MMM d' }}</span>
+            </button>
+          }
+        </p>
+      }
+
+      @if (listLoading) {
+        <p class="muted">Loading Watch…</p>
+      } @else if (!filteredCards().length) {
+        <p class="muted">No companies yet — add a symbol or pick from the calendar.</p>
+      } @else {
+        <ul class="cr__cards">
+          @for (card of filteredCards(); track card.id) {
+            <li>
+              <button
+                type="button"
+                class="cr__card"
+                [class.cr__card--active]="selectedSymbol === card.symbol"
+                (click)="openDetail(card.symbol)"
+              >
+                <div class="cr__card-top">
+                  <strong class="cr__card-sym">{{ card.symbol }}</strong>
+                  <span class="cr__card-status">{{ statusLabel(card.decisionStatus) }}</span>
+                </div>
+                <div class="cr__card-name muted">{{ card.companyName || '—' }}</div>
+                <div class="cr__card-foot muted">
+                  @if (card.nextEarningsDate) {
+                    <span>Earn {{ card.nextEarningsDate | date: 'MMM d' }}</span>
+                  }
+                  <span>{{ card.noteCount }} note{{ card.noteCount === 1 ? '' : 's' }}</span>
+                </div>
+                @if (card.tags.length) {
+                  <div class="cr__tags">
+                    @for (t of card.tags; track t) {
+                      <span class="cr__tag">{{ t }}</span>
+                    }
+                  </div>
+                }
+              </button>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+
+    <section class="cr__detail-pane">
+      @if (!selectedSymbol) {
+        <p class="muted cr__detail-empty">Select a company to explore quote, earnings history, news, and notes.</p>
+      } @else if (detailLoading && !detail) {
+        <p class="muted">Loading {{ selectedSymbol }}…</p>
+      } @else if (detail) {
+        <div class="cr__detail-head">
+          <div>
+            <h3 class="cr__detail-sym">{{ detail.card.symbol }}</h3>
+            <p class="muted cr__detail-name">{{ detail.card.companyName || detail.quote?.companyName || '—' }}</p>
+          </div>
+          <button mat-stroked-button type="button" color="warn" (click)="removeFromWatch()" [disabled]="saving">
+            Remove
+          </button>
+        </div>
+
+        @if (detail.quote; as q) {
+          <div class="cr__quote" [class]="quoteDeltaClass(q.deltaIndicator)">
+            <span class="cr__quote-price">{{ q.lastSalePrice || '—' }}</span>
+            <span class="cr__quote-chg">{{ q.netChange }} {{ q.percentageChange }}</span>
+            <span class="muted">{{ q.exchange }} · {{ q.marketStatus }}</span>
+            @if (q.fiftyTwoWeekRange) {
+              <span class="muted">52w {{ q.fiftyTwoWeekRange }}</span>
+            }
+            @if (q.upcomingEarningsMessage) {
+              <span class="cr__quote-earn">{{ q.upcomingEarningsMessage }}</span>
+            }
+          </div>
+        }
+
+        <div class="cr__decisions">
+          <span class="cr__decisions-label muted">Decision</span>
+          <mat-button-toggle-group
+            [value]="detail.card.decisionStatus"
+            (change)="setDecision($event.value)"
+            name="crDecision"
+          >
+            @for (s of decisionChoices; track s.value) {
+              <mat-button-toggle [value]="s.value">{{ s.label }}</mat-button-toggle>
+            }
+          </mat-button-toggle-group>
+        </div>
+
+        <div class="cr__thesis">
+          <mat-form-field appearance="outline" class="cr__full">
+            <mat-label>Thesis / why watch</mat-label>
+            <textarea matInput rows="3" [(ngModel)]="thesisDraft" name="crThesis"></textarea>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="cr__full">
+            <mat-label>Tags (comma-separated)</mat-label>
+            <input matInput [(ngModel)]="tagsDraft" name="crTags" placeholder="earnings, ai, revisit" />
+          </mat-form-field>
+          <button mat-flat-button color="primary" type="button" (click)="saveThesisAndTags()" [disabled]="saving">
+            Save thesis &amp; tags
+          </button>
+        </div>
+
+        @if (detail.earningsHistory.length) {
+          <div class="cr__block">
+            <h4 class="cr__block-title">Earnings history</h4>
+            <div class="cr__table-wrap">
+              <table class="cr__table">
+                <thead>
+                  <tr>
+                    <th>Quarter</th>
+                    <th>Reported</th>
+                    <th class="cr__num">EPS</th>
+                    <th class="cr__num">Est.</th>
+                    <th class="cr__num">Surprise</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (row of detail.earningsHistory; track row.dateReported + row.fiscalQuarterEnd) {
+                    <tr>
+                      <td>{{ row.fiscalQuarterEnd }}</td>
+                      <td>{{ row.dateReported }}</td>
+                      <td class="cr__num">{{ row.eps }}</td>
+                      <td class="cr__num">{{ row.consensusForecast }}</td>
+                      <td class="cr__num">{{ row.percentageSurprise }}%</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        }
+
+        @if (detail.news?.items?.length) {
+          <div class="cr__block">
+            <h4 class="cr__block-title">News</h4>
+            @if (detail.news!.analysis; as a) {
+              <p class="muted cr__news-analysis">
+                Sentiment {{ a.overallSentiment }} · Growth {{ a.projectedGrowthLabel }}
+                ({{ a.projectedGrowthPercent }}%)
+              </p>
+            }
+            <ul class="cr__news">
+              @for (item of detail.news!.items; track item.url || item.title) {
+                <li>
+                  <a [href]="item.url" target="_blank" rel="noopener noreferrer">{{ item.title }}</a>
+                  <span class="muted">{{ item.source }} · {{ item.publishedAt | date: 'short' }}</span>
+                </li>
+              }
+            </ul>
+          </div>
+        }
+
+        <div class="cr__block">
+          <h4 class="cr__block-title">Notes</h4>
+          <mat-form-field appearance="outline" class="cr__full">
+            <mat-label>New note</mat-label>
+            <textarea matInput rows="3" [(ngModel)]="noteDraft" name="crNote" placeholder="What matters for the call?"></textarea>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="cr__full">
+            <mat-label>Note tags</mat-label>
+            <input matInput [(ngModel)]="noteTagsDraft" name="crNoteTags" placeholder="pre-call, guidance" />
+          </mat-form-field>
+          <button mat-flat-button color="primary" type="button" (click)="addNote()" [disabled]="saving || !noteDraft.trim()">
+            Add note
+          </button>
+
+          @if (!detail.notes.length) {
+            <p class="muted cr__notes-empty">No notes yet.</p>
+          } @else {
+            <ul class="cr__notes">
+              @for (n of detail.notes; track n.id) {
+                <li class="cr__note">
+                  <div class="cr__note-meta muted">
+                    {{ n.createdAt | date: 'medium' }}
+                    @if (n.tags.length) {
+                      · {{ n.tags.join(', ') }}
+                    }
+                  </div>
+                  <p class="cr__note-text">{{ n.noteText }}</p>
+                  <button mat-button type="button" color="warn" (click)="deleteNote(n.id)">Delete</button>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      }
+    </section>
+  </div>
+</div>

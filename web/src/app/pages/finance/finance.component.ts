@@ -36,6 +36,7 @@ import { PredictsPanelComponent } from './predicts-panel/predicts-panel.componen
 import { RobinhoodTradingPanelComponent } from './robinhood-trading-panel/robinhood-trading-panel.component';
 import { TradingScreenersPanelComponent } from './trading-screeners-panel/trading-screeners-panel.component';
 import { OptionsBacktestPanelComponent } from './options-backtest-panel/options-backtest-panel.component';
+import { CompanyResearchPanelComponent } from './company-research-panel/company-research-panel.component';
 import { LoansPanelComponent } from './loans-panel/loans-panel.component';
 import { InvestmentsPanelComponent } from './investments-panel/investments-panel.component';
 import { MoneyPanelComponent } from './money-panel/money-panel.component';
@@ -46,6 +47,7 @@ type FinanceWorkspace = 'all' | 'money' | 'trading';
 type TradingSection = 'trade' | 'research' | 'history' | 'alerts' | 'all';
 type TradingTabId =
   | 'robinhood'
+  | 'watch'
   | 'news'
   | 'crawler'
   | 'screeners'
@@ -88,6 +90,7 @@ type FinanceCategory =
     RobinhoodTradingPanelComponent,
     TradingScreenersPanelComponent,
     OptionsBacktestPanelComponent,
+    CompanyResearchPanelComponent,
     LoansPanelComponent,
     InvestmentsPanelComponent,
     MoneyPanelComponent,
@@ -236,7 +239,7 @@ export class FinanceComponent implements OnInit {
       case 'trade':
         return ['robinhood'];
       case 'research':
-        return ['news', 'crawler', 'screeners', 'predicts', 'backtest'];
+        return ['watch', 'news', 'crawler', 'screeners', 'predicts', 'backtest'];
       case 'history':
         return ['transactions', 'by-symbol', 'summary'];
       case 'alerts':
@@ -244,6 +247,7 @@ export class FinanceComponent implements OnInit {
       default:
         return [
           'robinhood',
+          'watch',
           'news',
           'crawler',
           'screeners',
@@ -288,7 +292,7 @@ export class FinanceComponent implements OnInit {
         case 'trade':
           return 'Robinhood execution — sync, positions, orders, and auto-trade.';
         case 'research':
-          return 'Screeners, news, crawler, predicts, and options backtest.';
+          return 'Watch companies into earnings, plus news, crawler, screeners, predicts, and options backtest.';
         case 'history':
           return 'Transactions, per-symbol activity, and yearly summaries.';
         case 'alerts':

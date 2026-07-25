@@ -41,10 +41,10 @@ export class ThemeService {
     getThemeTokens(this.configSignal().preset, this.resolvedMode()),
   );
 
-  /** OpenAI and Phoenix presets use a platform-style sidebar shell. */
+  /** OpenAI, Phoenix, and Aura presets use a platform-style sidebar shell. */
   readonly usesSidebarShell = computed(() => {
     const p = this.configSignal().preset;
-    return p === 'openai' || p === 'phoenix';
+    return p === 'openai' || p === 'phoenix' || p === 'aura';
   });
 
   /** Call once at startup (AppComponent ngOnInit). */
