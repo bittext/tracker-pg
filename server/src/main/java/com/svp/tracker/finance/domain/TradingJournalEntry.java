@@ -14,6 +14,8 @@ import java.time.LocalDate;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "trading_journal_entry")
@@ -41,9 +43,13 @@ public class TradingJournalEntry {
     @Column(nullable = false, length = 512)
     private String tags = "";
 
+    /** 1–5 grade; DB column is SMALLINT. */
+    @JdbcTypeCode(SqlTypes.SMALLINT)
     @Column(name = "process_grade")
     private Integer processGrade;
 
+    /** 1–5 grade; DB column is SMALLINT. */
+    @JdbcTypeCode(SqlTypes.SMALLINT)
     @Column(name = "risk_grade")
     private Integer riskGrade;
 
