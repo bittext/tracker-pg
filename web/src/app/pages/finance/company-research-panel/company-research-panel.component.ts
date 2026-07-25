@@ -36,6 +36,8 @@ interface EarningsCalendarCell {
   events: CompanyEarningsEventDto[];
   isToday: boolean;
   isSelected: boolean;
+  hasWatched: boolean;
+  hasBought: boolean;
 }
 
 @Component({
@@ -231,12 +233,24 @@ export class CompanyResearchPanelComponent implements OnInit {
       next: () => {
         this.saving = false;
         this.loadList(this.selectedSymbol);
+        this.loadCalendar();
       },
       error: (err) => {
         this.saving = false;
         this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
       },
     });
+  }
+
+  isBoughtEvent(event: CompanyEarningsEventDto): boolean {
+    return (event.decisionStatus ?? '').toUpperCase() === 'BOUGHT';
+  }
+
+  calendarEventIcon(event: CompanyEarningsEventDto): string {
+    if (this.isBoughtEvent(event)) {
+      return 'shopping_bag';
+    }
+    return event.onWatchlist ? 'visibility' : 'add_circle_outline';
   }
 
   saveThesisAndTags(): void {
@@ -379,19 +393,24 @@ export class CompanyResearchPanelComponent implements OnInit {
         events: [],
         isToday: false,
         isSelected: false,
+        hasWatched: false,
+        hasBought: false,
       });
     }
 
     for (let day = 1; day <= days; day++) {
       const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      const events = this.eventsForDate(date);
       flat.push({
         type: 'day',
         trackKey: date,
         date,
         dayNumber: day,
-        events: this.eventsForDate(date),
+        events,
         isToday: date === today,
         isSelected: date === this.selectedCalendarDate,
+        hasWatched: events.some((e) => e.onWatchlist),
+        hasBought: events.some((e) => this.isBoughtEvent(e)),
       });
     }
 
@@ -405,6 +424,8 @@ export class CompanyResearchPanelComponent implements OnInit {
         events: [],
         isToday: false,
         isSelected: false,
+        hasWatched: false,
+        hasBought: false,
       });
     }
 

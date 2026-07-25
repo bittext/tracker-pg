@@ -127,6 +127,20 @@
     background: color-mix(in srgb, var(--mat-sys-primary, #1a5f4a) 7%, var(--app-surface, #fff));
   }
 
+  &--watched {
+    border-color: color-mix(in srgb, var(--mat-sys-primary, #1a5f4a) 48%, transparent);
+    background: color-mix(in srgb, var(--mat-sys-primary, #1a5f4a) 18%, var(--app-surface, #fff));
+  }
+
+  &--bought {
+    border-color: color-mix(in srgb, #b45309 55%, transparent);
+    background: color-mix(in srgb, #d97706 22%, var(--app-surface, #fff));
+
+    .cr__calendar-count {
+      background: #b45309;
+    }
+  }
+
   &--today {
     box-shadow: inset 0 0 0 1px var(--mat-sys-primary, #1a5f4a);
   }
@@ -195,6 +209,16 @@
     font-size: 0.58rem;
     font-weight: 700;
   }
+}
+
+.cr__calendar-sym--watched {
+  background: color-mix(in srgb, var(--mat-sys-primary, #1a5f4a) 28%, transparent) !important;
+  color: color-mix(in srgb, var(--mat-sys-primary, #1a5f4a) 85%, #0f172a);
+}
+
+.cr__calendar-sym--bought {
+  background: color-mix(in srgb, #d97706 32%, transparent) !important;
+  color: #9a3412;
 }
 
 .cr__calendar-popover {
@@ -270,6 +294,11 @@
   background: color-mix(in srgb, var(--mat-sys-primary, #1a5f4a) 6%, transparent) !important;
 }
 
+.cr__calendar-company--bought {
+  border-color: color-mix(in srgb, #b45309 35%, transparent) !important;
+  background: color-mix(in srgb, #d97706 12%, transparent) !important;
+}
+
 .cr__calendar-company-meta {
   text-align: right;
 }
@@ -331,6 +360,11 @@
   &--watched {
     border-color: color-mix(in srgb, var(--mat-sys-primary, #1a5f4a) 20%, transparent);
     background: color-mix(in srgb, var(--mat-sys-primary, #1a5f4a) 5%, transparent);
+  }
+
+  &--bought {
+    border-color: color-mix(in srgb, #b45309 32%, transparent);
+    background: color-mix(in srgb, #d97706 10%, transparent);
   }
 
   mat-icon {

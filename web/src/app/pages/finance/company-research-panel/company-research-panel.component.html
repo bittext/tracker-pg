@@ -111,6 +111,8 @@
                   [class.cr__calendar-cell--today]="cell.isToday"
                   [class.cr__calendar-cell--selected]="cell.isSelected"
                   [class.cr__calendar-cell--events]="cell.events.length"
+                  [class.cr__calendar-cell--watched]="cell.hasWatched && !cell.hasBought"
+                  [class.cr__calendar-cell--bought]="cell.hasBought"
                 >
                   <button
                     type="button"
@@ -129,7 +131,10 @@
                       <span class="cr__calendar-count">{{ cell.events.length }}</span>
                       <span class="cr__calendar-symbols">
                         @for (event of cell.events.slice(0, 3); track event.symbol) {
-                          <span>{{ event.symbol }}</span>
+                          <span
+                            [class.cr__calendar-sym--watched]="event.onWatchlist && !isBoughtEvent(event)"
+                            [class.cr__calendar-sym--bought]="isBoughtEvent(event)"
+                          >{{ event.symbol }}</span>
                         }
                         @if (cell.events.length > 3) {
                           <span>+{{ cell.events.length - 3 }}</span>
@@ -146,7 +151,8 @@
                         @for (event of cell.events; track event.symbol) {
                           <button
                             type="button"
-                            [class.cr__calendar-company--watched]="event.onWatchlist"
+                            [class.cr__calendar-company--watched]="event.onWatchlist && !isBoughtEvent(event)"
+                            [class.cr__calendar-company--bought]="isBoughtEvent(event)"
                             (click)="addFromCalendar(event)"
                           >
                             <span>
@@ -157,9 +163,7 @@
                               {{ event.timing || 'Time TBD' }}
                               <small>EPS {{ event.epsForecast || '—' }} · {{ event.marketCap || '—' }}</small>
                             </span>
-                            <mat-icon aria-hidden="true">
-                              {{ event.onWatchlist ? 'visibility' : 'add_circle_outline' }}
-                            </mat-icon>
+                            <mat-icon aria-hidden="true">{{ calendarEventIcon(event) }}</mat-icon>
                           </button>
                         }
                       </div>
@@ -188,7 +192,8 @@
               <button
                 type="button"
                 class="cr__selected-company"
-                [class.cr__selected-company--watched]="event.onWatchlist"
+                [class.cr__selected-company--watched]="event.onWatchlist && !isBoughtEvent(event)"
+                [class.cr__selected-company--bought]="isBoughtEvent(event)"
                 (click)="addFromCalendar(event)"
               >
                 <span class="cr__cal-sym">{{ event.symbol }}</span>
@@ -196,7 +201,7 @@
                 <span class="muted">{{ event.timing || 'Time TBD' }}</span>
                 <span class="muted">EPS {{ event.epsForecast || '—' }}</span>
                 <span class="muted">{{ event.marketCap || '—' }}</span>
-                <mat-icon aria-hidden="true">{{ event.onWatchlist ? 'visibility' : 'add_circle_outline' }}</mat-icon>
+                <mat-icon aria-hidden="true">{{ calendarEventIcon(event) }}</mat-icon>
               </button>
             }
           </div>
