@@ -843,13 +843,31 @@ def _run_sync_once(
             )
             all_orders.extend(account_orders)
 
-            portfolios[acct_num] = portfolio_data
+            portfolios[acct_num] = {
+                **(
+                    portfolio_data
+                    if isinstance(portfolio_data, dict)
+                    else {"data": portfolio_data}
+                ),
+                "_account": {
+                    "type": account.get("type"),
+                    "option_level": account.get("option_level"),
+                    "brokerage_account_type": account.get("brokerage_account_type"),
+                    "management_type": account.get("management_type"),
+                    "state": account.get("state"),
+                    "nickname": account.get("nickname"),
+                    "agentic_allowed": account.get("agentic_allowed"),
+                    "is_default": account.get("is_default"),
+                },
+            }
             account_summaries.append(
                 {
                     "role": role,
                     "account_number": acct_num,
                     "nickname": account.get("nickname"),
                     "brokerage_account_type": account.get("brokerage_account_type"),
+                    "type": account.get("type"),
+                    "option_level": account.get("option_level"),
                     "agentic_allowed": account.get("agentic_allowed"),
                     "is_default": account.get("is_default"),
                     "equity_position_count": len(positions),

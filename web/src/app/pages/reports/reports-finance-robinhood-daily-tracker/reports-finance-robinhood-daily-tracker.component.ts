@@ -14,12 +14,14 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { RouterLink } from '@angular/router';
 import { filter, interval, switchMap } from 'rxjs';
 import {
+  RobinhoodRhAccountSummaryDto,
   RobinhoodRhDailyTrackerAccountCellDto,
   RobinhoodRhDailyTrackerAccountColumnDto,
   RobinhoodRhDailyTrackerDayDto,
   RobinhoodRhDailyTrackerManualCaptureDto,
   RobinhoodRhDailyTrackerRefreshHintDto,
   RobinhoodRhDailyTrackerReportDto,
+  RobinhoodRhMarginDetailsDto,
   RhDailyTrackerAccountAlertDto,
   RhDailyTrackerAccountAlertItemDto,
   RhDailyTrackerAccountAlertsDto,
@@ -169,6 +171,8 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   softRefreshing = false;
   capturing = false;
   tracker: RobinhoodRhDailyTrackerReportDto | null = null;
+  /** Live margin / buying-power for the focused Individual account (••••3370). */
+  focusMarginAccount: RobinhoodRhAccountSummaryDto | null = null;
   /** When true, only show days that have a Trading Journal entry. */
   journalDaysOnly = false;
   private journalDates = new Set<string>();
@@ -337,6 +341,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         }
         this.syncNoteDrafts(t.days);
         this.loadJournalDates();
+        this.loadFocusMargin();
         this.loading = false;
         this.softRefreshing = false;
         if (!silent) {
@@ -962,6 +967,54 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       this.tracker?.accounts.find((account) => account.accountSuffix === this.focusAccountSuffix)?.label ??
       `Account ••••${this.focusAccountSuffix}`
     );
+  }
+
+  focusMargin(): RobinhoodRhMarginDetailsDto | null {
+    return this.focusMarginAccount?.margin ?? null;
+  }
+
+  private loadFocusMargin(): void {
+    this.financeApi.robinhoodRhAccountsTrack(false).subscribe({
+      next: (track) => {
+        this.focusMarginAccount =
+          track.accounts.find((a) => a.accountSuffix === this.focusAccountSuffix) ?? null;
+      },
+      error: () => {
+        /* keep prior margin snapshot if any */
+      },
+    });
+  }
+
+  marginTradingTypeLabel(type: string | null | undefined): string {
+    if (!type) {
+      return '—';
+    }
+    const t = type.trim().toLowerCase();
+    if (t === 'margin') {
+      return 'Margin';
+    }
+    if (t === 'cash') {
+      return 'Cash';
+    }
+    return type;
+  }
+
+  optionLevelLabel(level: string | null | undefined): string {
+    if (!level) {
+      return '—';
+    }
+    const m = /^option_level_(\d+)$/i.exec(level.trim());
+    if (m) {
+      return `Level ${m[1]}`;
+    }
+    return level;
+  }
+
+  clampPct(value: number | null | undefined): number {
+    if (value == null || !Number.isFinite(value)) {
+      return 0;
+    }
+    return Math.max(0, Math.min(100, value));
   }
 
   focusPoints(): RhDailyFocusPoint[] {

@@ -1,7 +1,6 @@
-<div class="tj">
+<div class="tj" [class.tj--year]="isYearView()">
   <p class="muted tj__intro">
-    Day-centric trading journal — pull the Daily Tracker wrap and 9 PM CT close, import the call summary, add notes,
-    grades, symbol refs, and attachments. Search covers titles, body, tags, and references.
+    Day wrap, 9 PM CT close, notes, grades, refs, and attachments. Search titles, body, tags, and symbols.
   </p>
 
   <div class="tj__toolbar">
@@ -36,9 +35,90 @@
     </button>
   </div>
 
-  <div class="tj__layout">
-    <aside class="tj__side">
-      @if (reportMonth > 0) {
+  @if (isYearView()) {
+    <div class="tj__year-layout">
+      <div class="tj__year-grid" aria-label="Year calendars">
+        @for (month of yearMonthIndexes; track month) {
+          <div class="tj__cal tj__cal--mini">
+            <div class="tj__cal-title">{{ monthCardTitle(month) }}</div>
+            <div class="tj__cal-weekdays" role="row">
+              @for (wd of weekDays; track wd) {
+                <span class="tj__cal-weekday" role="columnheader">{{ wd.charAt(0) }}</span>
+              }
+            </div>
+            @for (row of yearMonthRows(month); track $index) {
+              <div class="tj__cal-week" role="row">
+                @for (cell of row; track cell.trackKey) {
+                  @if (cell.type === 'pad') {
+                    <div class="tj__cal-day tj__cal-day--pad" aria-hidden="true"></div>
+                  } @else {
+                  <button
+                    type="button"
+                    class="tj__cal-day"
+                    [class.tj__cal-day--journal]="cell.hasJournal"
+                    [class.tj__cal-day--selected]="cell.isSelected"
+                    [class.tj__cal-day--today]="cell.isToday"
+                    [class.tj__cal-day--up]="cell.tone === 'up'"
+                    [class.tj__cal-day--down]="cell.tone === 'down'"
+                    [style.--tj-heat]="cell.heat + '%'"
+                    (click)="openDay(cell.date, false)"
+                    [matTooltip]="cell.tooltip"
+                  >
+                    {{ cell.label }}
+                  </button>
+                  }
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+
+      <aside class="tj__side tj__side--year">
+        <h3 class="tj__side-title">{{ isYearView() ? ('Entries · ' + reportYear) : 'Entries' }}</h3>
+        @if (listLoading) {
+          <p class="muted">Loading…</p>
+        } @else if (!entries.length) {
+          <p class="muted">{{ isYearView() ? 'No journal entries this year.' : 'No journal entries in this period.' }}</p>
+        } @else {
+          <ul class="tj__entries">
+            @for (e of entries; track e.id) {
+              <li>
+                <button
+                  type="button"
+                  class="tj__entry"
+                  [class.tj__entry--active]="selectedDate === e.snapshotDate"
+                  (click)="openDay(e.snapshotDate, false)"
+                >
+                  <strong>{{ e.snapshotDate | date: 'mediumDate' }}</strong>
+                  <span class="muted">{{ e.title || e.bodyPreview || 'Untitled' }}</span>
+                  <span class="tj__entry-meta muted">
+                    @if (e.hasScheduledClose) {
+                      pinned
+                    }
+                    · {{ e.refCount }} refs · {{ e.attachmentCount }} files
+                  </span>
+                </button>
+              </li>
+            }
+          </ul>
+        }
+      </aside>
+    </div>
+
+    <section class="tj__main" [class.tj__main--year]="isYearView()">
+      @if (!selectedDate) {
+        <p class="muted tj__pick-hint">Pick a calendar day or entry to open the journal.</p>
+      } @else if (detailLoading && !detail) {
+        <p class="muted">Loading {{ selectedDate }}…</p>
+      } @else if (detail) {
+        <ng-container [ngTemplateOutlet]="dayDetail" />
+      }
+    </section>
+
+  } @else {
+    <div class="tj__layout">
+      <aside class="tj__side">
         <div class="tj__cal" aria-label="Month calendar">
           <div class="tj__cal-title">{{ calendarTitle() }}</div>
           <div class="tj__cal-weekdays" role="row">
@@ -71,481 +151,488 @@
             </div>
           }
         </div>
-      }
 
-      <h3 class="tj__side-title">Entries</h3>
-      @if (listLoading) {
-        <p class="muted">Loading…</p>
-      } @else if (!entries.length) {
-        <p class="muted">No journal entries in this period.</p>
-      } @else {
-        <ul class="tj__entries">
-          @for (e of entries; track e.id) {
-            <li>
-              <button
-                type="button"
-                class="tj__entry"
-                [class.tj__entry--active]="selectedDate === e.snapshotDate"
-                (click)="openDay(e.snapshotDate, false)"
-              >
-                <strong>{{ e.snapshotDate | date: 'mediumDate' }}</strong>
-                <span class="muted">{{ e.title || e.bodyPreview || 'Untitled' }}</span>
-                <span class="tj__entry-meta muted">
-                  @if (e.hasScheduledClose) {
-                    pinned
-                  }
-                  · {{ e.refCount }} refs · {{ e.attachmentCount }} files
-                </span>
-              </button>
-            </li>
-          }
-        </ul>
-      }
-    </aside>
-
-    <section class="tj__main">
-      @if (!selectedDate) {
-        <p class="muted">Pick a calendar day or entry to open the journal.</p>
-      } @else if (detailLoading && !detail) {
-        <p class="muted">Loading {{ selectedDate }}…</p>
-      } @else if (detail) {
-        <div class="tj__head">
-          <div>
-            <h2 class="tj__date">{{ detail.snapshotDate | date: 'fullDate' }}</h2>
-            <p class="muted">Central trading date · links to Daily Tracker 9 PM CT wrap</p>
-          </div>
-          <div class="tj__head-actions">
-            <button mat-stroked-button type="button" (click)="openInDailyTracker()">
-              <mat-icon>candlestick_chart</mat-icon>
-              Daily Tracker
-            </button>
-            @if (!detail.entry) {
-              <button mat-flat-button color="primary" type="button" (click)="createOrOpenSelected()">
-                Start journal
-              </button>
-            } @else {
-              <button mat-stroked-button type="button" color="warn" (click)="deleteEntry()">Delete</button>
-            }
-          </div>
-        </div>
-
-        <div class="tj__wrap">
-          <div class="tj__wrap-head">
-            <h3>Daily wrap</h3>
-            <div class="tj__wrap-actions">
-              <button
-                mat-stroked-button
-                type="button"
-                (click)="openDay(selectedDate!, false, true)"
-                [disabled]="detailLoading"
-              >
-                Refresh wrap
-              </button>
-              <button
-                mat-stroked-button
-                type="button"
-                (click)="pinClose()"
-                [disabled]="!detail.wrap?.hasScheduledSnapshot"
-                matTooltip="Freeze 9 PM CT totals on this journal entry"
-              >
-                Pin 9 PM CT
-              </button>
-            </div>
-          </div>
-
-          @if (!detail.wrap) {
-            <p class="muted">No Daily Tracker captures for this day yet.</p>
-          } @else {
-            <div class="tj__wrap-kpis">
-              <div>
-                <span class="muted">9 PM CT close</span>
-                <strong>
-                  @if (detail.wrap.hasScheduledSnapshot) {
-                    {{ detail.wrap.combinedTotal | currency }}
-                  } @else {
-                    Pending
-                  }
-                </strong>
-              </div>
-              <div>
-                <span class="muted">Δ prior close</span>
-                <strong>{{ detail.wrap.combinedTotalChangeFromPrevious | currency }}</strong>
-              </div>
-              <div>
-                <span class="muted">Flows +/−</span>
-                <strong>
-                  {{ detail.wrap.combinedPeriodAdded | currency }} /
-                  {{ detail.wrap.combinedPeriodRemoved | currency }}
-                </strong>
-              </div>
-              <div>
-                <span class="muted">Trades</span>
-                <strong>{{ wrapTrades(detail.wrap).length || 0 }}</strong>
-              </div>
-            </div>
-
-            @if (detail.wrap.summaryNote) {
-              <div class="tj__call-summary">
-                <div class="tj__call-summary-head">
-                  <h4>Call summary (Daily Tracker)</h4>
-                  <button mat-stroked-button type="button" (click)="importSummary()">Import into journal</button>
-                </div>
-                <pre>{{ detail.wrap.summaryNote }}</pre>
-              </div>
-            }
-
-            @if (wrapCashFlows(detail.wrap); as flows) {
-              @if (flows.length) {
-                <div class="tj__cash-flows" role="status">
-                  <div class="tj__cash-flows-head">
-                    <h4>Cash moved (••••3370, ••••3550, ••••8696)</h4>
-                    <span class="tj__cash-flows-totals muted">
-                      @if (wrapCashFlowTotals(detail.wrap); as tot) {
-                        @if (tot.deposited > 0) {
-                          <span class="tj__cash-in">+{{ tot.deposited | currency }} in</span>
-                        }
-                        @if (tot.deposited > 0 && tot.withdrawn > 0) {
-                          <span>·</span>
-                        }
-                        @if (tot.withdrawn > 0) {
-                          <span class="tj__cash-out">−{{ tot.withdrawn | currency }} out</span>
-                        }
-                      }
-                    </span>
-                  </div>
-                  <ul class="tj__cash-flows-list">
-                    @for (a of flows; track a.accountSuffix) {
-                      <li>
-                        <span class="tj__cash-acct">••••{{ a.accountSuffix }}</span>
-                        @if ((a.periodAdded || 0) > 0) {
-                          <span class="tj__cash-in">Deposited {{ a.periodAdded | currency }}</span>
-                        }
-                        @if ((a.periodRemoved || 0) > 0) {
-                          <span class="tj__cash-out">Withdrawn {{ a.periodRemoved | currency }}</span>
-                        }
-                      </li>
+        <h3 class="tj__side-title">Entries</h3>
+        @if (listLoading) {
+          <p class="muted">Loading…</p>
+        } @else if (!entries.length) {
+          <p class="muted">No journal entries in this period.</p>
+        } @else {
+          <ul class="tj__entries">
+            @for (e of entries; track e.id) {
+              <li>
+                <button
+                  type="button"
+                  class="tj__entry"
+                  [class.tj__entry--active]="selectedDate === e.snapshotDate"
+                  (click)="openDay(e.snapshotDate, false)"
+                >
+                  <strong>{{ e.snapshotDate | date: 'mediumDate' }}</strong>
+                  <span class="muted">{{ e.title || e.bodyPreview || 'Untitled' }}</span>
+                  <span class="tj__entry-meta muted">
+                    @if (e.hasScheduledClose) {
+                      pinned
                     }
-                  </ul>
-                </div>
-              }
+                    · {{ e.refCount }} refs · {{ e.attachmentCount }} files
+                  </span>
+                </button>
+              </li>
             }
+          </ul>
+        }
+      </aside>
 
-            @if (wrapAccounts(detail.wrap).length) {
-              <div class="tj__table-wrap">
-                <table class="tj__table">
-                  <thead>
-                    <tr>
-                      <th>Account</th>
-                      <th class="tj__num">Total</th>
-                      <th class="tj__num">Δ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (a of wrapAccounts(detail.wrap); track a.accountSuffix) {
-                      <tr>
-                        <td>••••{{ a.accountSuffix }}</td>
-                        <td class="tj__num">{{ a.totalAccountValue | currency }}</td>
-                        <td class="tj__num">{{ a.totalChangeFromPrevious | currency }}</td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
-            }
-
-            @if (wrapTrades(detail.wrap).length) {
-              <h4 class="tj__sub">Trades since prior 9 PM CT (••••3370, ••••3550, ••••8696)</h4>
-              <div class="tj__table-wrap">
-                <table class="tj__table">
-                  <thead>
-                    <tr>
-                      <th>Symbol</th>
-                      <th>Side</th>
-                      <th class="tj__num">Qty</th>
-                      <th class="tj__num">Avg</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (t of wrapTrades(detail.wrap); track t.symbol + t.executedAt + t.side) {
-                      <tr>
-                        <td>
-                          <button type="button" class="tj__sym-link" (click)="openWatchForSymbol(t.symbol)">
-                            {{ t.symbol }}
-                          </button>
-                        </td>
-                        <td>{{ t.side }}</td>
-                        <td class="tj__num">{{ t.quantity }}</td>
-                        <td class="tj__num">{{ t.averagePrice | currency }}</td>
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
-            }
-
-            @if (dayHoldings().length) {
-              <div class="tj__holdings">
-                <h4 class="tj__sub">Holdings at 9 PM CT (••••3370, ••••3550, ••••8696)</h4>
-                @for (group of dayHoldings(); track group.accountSuffix) {
-                  <div class="tj__holdings-group">
-                    <div class="tj__holdings-group-head">
-                      <strong>••••{{ group.accountSuffix }}</strong>
-                      @if (group.label) {
-                        <span class="muted">{{ group.label }}</span>
-                      }
-                      <span class="muted tj__holdings-count">{{ group.holdings.length }} positions</span>
-                    </div>
-                    @if (!group.holdings.length) {
-                      <p class="muted tj__holdings-empty">No holdings captured for this account.</p>
-                    } @else {
-                      <div class="tj__table-wrap">
-                        <table class="tj__table tj__table--holdings">
-                          <colgroup>
-                            <col class="tj__col-sym" />
-                            <col class="tj__col-qty" />
-                            <col class="tj__col-px" />
-                            <col class="tj__col-val" />
-                            <col class="tj__col-pnl" />
-                          </colgroup>
-                          <thead>
-                            <tr>
-                              <th>Symbol</th>
-                              <th class="tj__num">Qty</th>
-                              <th class="tj__num">Price</th>
-                              <th class="tj__num">Value</th>
-                              <th class="tj__num">P&amp;L</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            @for (h of group.holdings; track h.symbol + (h.positionType || '') + h.quantity) {
-                              <tr>
-                                <td>
-                                  <button
-                                    type="button"
-                                    class="tj__sym-link"
-                                    (click)="openWatchForSymbol(h.symbol)"
-                                  >
-                                    {{ h.symbol }}
-                                  </button>
-                                  @if (h.positionType) {
-                                    <span class="tj__pos-type muted">{{ h.positionType }}</span>
-                                  }
-                                </td>
-                                <td class="tj__num">{{ h.quantity | number: '1.0-4' }}</td>
-                                <td class="tj__num">{{ h.currentUnitPrice | currency }}</td>
-                                <td class="tj__num">{{ h.marketValue | currency }}</td>
-                                <td
-                                  class="tj__num tj__pnl"
-                                  [class.tj__pnl-pos]="(h.unrealizedPnL ?? 0) > 0"
-                                  [class.tj__pnl-neg]="(h.unrealizedPnL ?? 0) < 0"
-                                >
-                                  {{ h.unrealizedPnL | currency }}
-                                  @if (h.unrealizedPnLPercent != null) {
-                                    <span class="tj__pnl-pct muted"
-                                      >({{ h.unrealizedPnLPercent | number: '1.1-1' }}%)</span
-                                    >
-                                  }
-                                </td>
-                              </tr>
-                            }
-                          </tbody>
-                        </table>
-                      </div>
-                    }
-                  </div>
-                }
-              </div>
-            }
-          }
-
-          @if (detail.entry?.hasScheduledClose) {
-            <p class="muted tj__pinned">
-              Pinned close {{ detail.entry!.closeCombinedTotal | currency }}
-              (Δ {{ detail.entry!.closeCombinedChange | currency }})
-              @if (detail.entry!.closePulledAt) {
-                · {{ detail.entry!.closePulledAt | date: 'short' }}
-              }
-            </p>
-          }
-        </div>
-
-        <div class="tj__editor">
-          <mat-form-field appearance="outline" class="tj__full">
-            <mat-label>Title</mat-label>
-            <input matInput [(ngModel)]="titleDraft" name="tjTitle" />
-          </mat-form-field>
-          <mat-form-field appearance="outline" class="tj__full tj__body-field">
-            <mat-label>Journal body (markdown)</mat-label>
-            <textarea matInput rows="18" [(ngModel)]="bodyDraft" name="tjBody"></textarea>
-          </mat-form-field>
-          <mat-form-field appearance="outline" class="tj__full">
-            <mat-label>Tags</mat-label>
-            <input matInput [(ngModel)]="tagsDraft" name="tjTags" placeholder="process, earnings, size" />
-          </mat-form-field>
-          <div class="tj__grades">
-            <mat-form-field appearance="outline">
-              <mat-label>Process grade</mat-label>
-              <mat-select [(ngModel)]="processGrade" name="tjProcess">
-                <mat-option [value]="null">—</mat-option>
-                @for (g of gradeChoices; track g) {
-                  <mat-option [value]="g">{{ g }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Risk grade</mat-label>
-              <mat-select [(ngModel)]="riskGrade" name="tjRisk">
-                <mat-option [value]="null">—</mat-option>
-                @for (g of gradeChoices; track g) {
-                  <mat-option [value]="g">{{ g }}</mat-option>
-                }
-              </mat-select>
-            </mat-form-field>
-            <button mat-flat-button color="primary" type="button" (click)="saveEntry()" [disabled]="saving">
-              Save
-            </button>
-            @if (detail.aiDraftAvailable) {
-              <button mat-stroked-button type="button" (click)="generateAiDraft()" [disabled]="saving">
-                <mat-icon>auto_awesome</mat-icon>
-                AI wrap draft
-              </button>
-            }
-          </div>
-        </div>
-
-        <div class="tj__refs">
-          <h3>References</h3>
-          <div class="tj__ref-form">
-            <mat-form-field appearance="outline">
-              <mat-label>Kind</mat-label>
-              <mat-select [(ngModel)]="refKind" name="tjRefKind">
-                <mat-option value="SYMBOL">Symbol</mat-option>
-                <mat-option value="URL">URL</mat-option>
-                <mat-option value="NOTE">Note</mat-option>
-              </mat-select>
-            </mat-form-field>
-            @if (refKind === 'SYMBOL') {
-              <mat-form-field appearance="outline">
-                <mat-label>Symbol</mat-label>
-                <input matInput [(ngModel)]="refSymbol" name="tjRefSym" />
-              </mat-form-field>
-            }
-            @if (refKind === 'URL') {
-              <mat-form-field appearance="outline" class="tj__grow">
-                <mat-label>URL</mat-label>
-                <input matInput [(ngModel)]="refUrl" name="tjRefUrl" />
-              </mat-form-field>
-            }
-            <mat-form-field appearance="outline" class="tj__grow">
-              <mat-label>Label</mat-label>
-              <input matInput [(ngModel)]="refLabel" name="tjRefLabel" />
-            </mat-form-field>
-            <button mat-stroked-button type="button" (click)="addRef()">Add</button>
-          </div>
-          @if (detail.entry?.refs?.length) {
-            <ul class="tj__ref-list">
-              @for (r of detail.entry!.refs; track r.id) {
-                <li>
-                  <span class="tj__ref-kind">{{ r.kind }}</span>
-                  @if (r.kind === 'SYMBOL' && r.symbol) {
-                    <button type="button" class="tj__sym-link" (click)="openWatchForSymbol(r.symbol)">
-                      {{ r.symbol }}
-                    </button>
-                  } @else if (r.kind === 'URL' && r.url) {
-                    <a [href]="r.url" target="_blank" rel="noopener noreferrer">{{ r.label || r.url }}</a>
-                  } @else {
-                    <span>{{ r.label }}</span>
-                  }
-                  <button mat-button type="button" color="warn" (click)="deleteRef(r.id)">Remove</button>
-                </li>
-              }
-            </ul>
-          }
-        </div>
-
-        <div class="tj__atts">
-          <h3>Attachments</h3>
-          <p class="tj__att-hint muted">Upload several images at once, then open Slide preview to swipe through them.</p>
-          <div class="tj__att-actions">
-            <label class="tj__file" [class.tj__file--busy]="uploading">
-              <input
-                type="file"
-                multiple
-                accept="image/*,.pdf,.png,.jpg,.jpeg,.gif,.webp,.heic,.heif"
-                (change)="onFileSelected($event)"
-                [disabled]="uploading"
-              />
-              <mat-icon>attach_file</mat-icon>
-              {{ uploading ? 'Uploading…' : 'Add file(s)' }}
-            </label>
-            @if (imageAttachments().length) {
-              <button
-                mat-stroked-button
-                type="button"
-                class="tj__slide-btn"
-                (click)="openImageGallery(imageAttachments()[0])"
-              >
-                <mat-icon>view_carousel</mat-icon>
-                Slide preview
-                <span class="tj__slide-count">{{ imageAttachments().length }}</span>
-              </button>
-            }
-          </div>
-
-          @if (imageAttachments().length) {
-            <div class="tj__gallery" role="list" aria-label="Image attachments">
-              @for (a of imageAttachments(); track a.id) {
-                <div class="tj__thumb" role="listitem">
-                  <button
-                    type="button"
-                    class="tj__thumb-btn"
-                    (click)="openImageGallery(a)"
-                    [attr.aria-label]="'Preview ' + a.originalFilename"
-                  >
-                    @if (previewUrl(a); as src) {
-                      <img [src]="src" [alt]="a.originalFilename" loading="lazy" />
-                    } @else {
-                      <span class="tj__thumb-ph muted">Loading…</span>
-                    }
-                  </button>
-                  <div class="tj__thumb-meta">
-                    <div class="tj__thumb-text">
-                      <button type="button" class="tj__att-link" (click)="openImageGallery(a)">
-                        {{ a.originalFilename }}
-                      </button>
-                      @if (attachmentCapturedLabel(a); as when) {
-                        <span class="tj__thumb-when muted">{{ when }} CT</span>
-                      }
-                    </div>
-                    <button
-                      mat-icon-button
-                      type="button"
-                      color="warn"
-                      (click)="deleteAttachment(a.id)"
-                      [attr.aria-label]="'Remove ' + a.originalFilename"
-                    >
-                      <mat-icon>close</mat-icon>
-                    </button>
-                  </div>
-                </div>
-              }
-            </div>
-          }
-
-          @if (otherAttachments().length) {
-            <ul class="tj__att-list">
-              @for (a of otherAttachments(); track a.id) {
-                <li>
-                  <button type="button" class="tj__att-link" (click)="downloadAttachment(a)">
-                    {{ a.originalFilename }}
-                  </button>
-                  <button mat-button type="button" color="warn" (click)="deleteAttachment(a.id)">Remove</button>
-                </li>
-              }
-            </ul>
-          }
-        </div>
-      }
-    </section>
-  </div>
+      <section class="tj__main">
+        @if (!selectedDate) {
+          <p class="muted tj__pick-hint">Pick a calendar day or entry to open the journal.</p>
+        } @else if (detailLoading && !detail) {
+          <p class="muted">Loading {{ selectedDate }}…</p>
+        } @else if (detail) {
+          <ng-container [ngTemplateOutlet]="dayDetail" />
+        }
+      </section>
+    </div>
+  }
 </div>
+
+<ng-template #dayDetail>
+  @if (detail; as d) {
+
+      <div class="tj__head">
+        <div>
+          <h2 class="tj__date">{{ d.snapshotDate | date: 'fullDate' }}</h2>
+          <p class="muted">Central trading date · links to Daily Tracker 9 PM CT wrap</p>
+        </div>
+        <div class="tj__head-actions">
+          <button mat-stroked-button type="button" (click)="openInDailyTracker()">
+            <mat-icon>candlestick_chart</mat-icon>
+            Daily Tracker
+          </button>
+          @if (!d.entry) {
+            <button mat-flat-button color="primary" type="button" (click)="createOrOpenSelected()">
+              Start journal
+            </button>
+          } @else {
+            <button mat-stroked-button type="button" color="warn" (click)="deleteEntry()">Delete</button>
+          }
+        </div>
+      </div>
+
+      <div class="tj__wrap">
+        <div class="tj__wrap-head">
+          <h3>Daily wrap</h3>
+          <div class="tj__wrap-actions">
+            <button
+              mat-stroked-button
+              type="button"
+              (click)="openDay(selectedDate!, false, true)"
+              [disabled]="detailLoading"
+            >
+              Refresh wrap
+            </button>
+            <button
+              mat-stroked-button
+              type="button"
+              (click)="pinClose()"
+              [disabled]="!d.wrap?.hasScheduledSnapshot"
+              matTooltip="Freeze 9 PM CT totals on this journal entry"
+            >
+              Pin 9 PM CT
+            </button>
+          </div>
+        </div>
+
+        @if (!d.wrap) {
+          <p class="muted">No Daily Tracker captures for this day yet.</p>
+        } @else {
+          <div class="tj__wrap-kpis">
+            <div>
+              <span class="muted">9 PM CT close</span>
+              <strong>
+                @if (d.wrap.hasScheduledSnapshot) {
+                  {{ d.wrap.combinedTotal | currency }}
+                } @else {
+                  Pending
+                }
+              </strong>
+            </div>
+            <div>
+              <span class="muted">Δ prior close</span>
+              <strong>{{ d.wrap.combinedTotalChangeFromPrevious | currency }}</strong>
+            </div>
+            <div>
+              <span class="muted">Flows +/−</span>
+              <strong>
+                {{ d.wrap.combinedPeriodAdded | currency }} /
+                {{ d.wrap.combinedPeriodRemoved | currency }}
+              </strong>
+            </div>
+            <div>
+              <span class="muted">Trades</span>
+              <strong>{{ wrapTrades(d.wrap).length || 0 }}</strong>
+            </div>
+          </div>
+
+          @if (d.wrap.summaryNote) {
+            <div class="tj__call-summary">
+              <div class="tj__call-summary-head">
+                <h4>Call summary (Daily Tracker)</h4>
+                <button mat-stroked-button type="button" (click)="importSummary()">Import into journal</button>
+              </div>
+              <pre>{{ d.wrap.summaryNote }}</pre>
+            </div>
+          }
+
+          @if (wrapCashFlows(d.wrap); as flows) {
+            @if (flows.length) {
+              <div class="tj__cash-flows" role="status">
+                <div class="tj__cash-flows-head">
+                  <h4>Cash moved (••••3370, ••••3550, ••••8696)</h4>
+                  <span class="tj__cash-flows-totals muted">
+                    @if (wrapCashFlowTotals(d.wrap); as tot) {
+                      @if (tot.deposited > 0) {
+                        <span class="tj__cash-in">+{{ tot.deposited | currency }} in</span>
+                      }
+                      @if (tot.deposited > 0 && tot.withdrawn > 0) {
+                        <span>·</span>
+                      }
+                      @if (tot.withdrawn > 0) {
+                        <span class="tj__cash-out">−{{ tot.withdrawn | currency }} out</span>
+                      }
+                    }
+                  </span>
+                </div>
+                <ul class="tj__cash-flows-list">
+                  @for (a of flows; track a.accountSuffix) {
+                    <li>
+                      <span class="tj__cash-acct">••••{{ a.accountSuffix }}</span>
+                      @if ((a.periodAdded || 0) > 0) {
+                        <span class="tj__cash-in">Deposited {{ a.periodAdded | currency }}</span>
+                      }
+                      @if ((a.periodRemoved || 0) > 0) {
+                        <span class="tj__cash-out">Withdrawn {{ a.periodRemoved | currency }}</span>
+                      }
+                    </li>
+                  }
+                </ul>
+              </div>
+            }
+          }
+
+          @if (wrapAccounts(d.wrap).length) {
+            <div class="tj__table-wrap">
+              <table class="tj__table">
+                <thead>
+                  <tr>
+                    <th>Account</th>
+                    <th class="tj__num">Total</th>
+                    <th class="tj__num">Δ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (a of wrapAccounts(d.wrap); track a.accountSuffix) {
+                    <tr>
+                      <td>••••{{ a.accountSuffix }}</td>
+                      <td class="tj__num">{{ a.totalAccountValue | currency }}</td>
+                      <td class="tj__num">{{ a.totalChangeFromPrevious | currency }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+
+          @if (wrapTrades(d.wrap).length) {
+            <h4 class="tj__sub">Trades since prior 9 PM CT (••••3370, ••••3550, ••••8696)</h4>
+            <div class="tj__table-wrap">
+              <table class="tj__table">
+                <thead>
+                  <tr>
+                    <th>Symbol</th>
+                    <th>Side</th>
+                    <th class="tj__num">Qty</th>
+                    <th class="tj__num">Avg</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (t of wrapTrades(d.wrap); track t.symbol + t.executedAt + t.side) {
+                    <tr>
+                      <td>
+                        <button type="button" class="tj__sym-link" (click)="openWatchForSymbol(t.symbol)">
+                          {{ t.symbol }}
+                        </button>
+                      </td>
+                      <td>{{ t.side }}</td>
+                      <td class="tj__num">{{ t.quantity }}</td>
+                      <td class="tj__num">{{ t.averagePrice | currency }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+
+          @if (dayHoldings().length) {
+            <div class="tj__holdings">
+              <h4 class="tj__sub">Holdings at 9 PM CT (••••3370, ••••3550, ••••8696)</h4>
+              @for (group of dayHoldings(); track group.accountSuffix) {
+                <div class="tj__holdings-group">
+                  <div class="tj__holdings-group-head">
+                    <strong>••••{{ group.accountSuffix }}</strong>
+                    @if (group.label) {
+                      <span class="muted">{{ group.label }}</span>
+                    }
+                    <span class="muted tj__holdings-count">{{ group.holdings.length }} positions</span>
+                  </div>
+                  @if (!group.holdings.length) {
+                    <p class="muted tj__holdings-empty">No holdings captured for this account.</p>
+                  } @else {
+                    <div class="tj__table-wrap">
+                      <table class="tj__table tj__table--holdings">
+                        <colgroup>
+                          <col class="tj__col-sym" />
+                          <col class="tj__col-qty" />
+                          <col class="tj__col-px" />
+                          <col class="tj__col-val" />
+                          <col class="tj__col-pnl" />
+                        </colgroup>
+                        <thead>
+                          <tr>
+                            <th>Symbol</th>
+                            <th class="tj__num">Qty</th>
+                            <th class="tj__num">Price</th>
+                            <th class="tj__num">Value</th>
+                            <th class="tj__num">P&amp;L</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          @for (h of group.holdings; track h.symbol + (h.positionType || '') + h.quantity) {
+                            <tr>
+                              <td>
+                                <button
+                                  type="button"
+                                  class="tj__sym-link"
+                                  (click)="openWatchForSymbol(h.symbol)"
+                                >
+                                  {{ h.symbol }}
+                                </button>
+                                @if (h.positionType) {
+                                  <span class="tj__pos-type muted">{{ h.positionType }}</span>
+                                }
+                              </td>
+                              <td class="tj__num">{{ h.quantity | number: '1.0-4' }}</td>
+                              <td class="tj__num">{{ h.currentUnitPrice | currency }}</td>
+                              <td class="tj__num">{{ h.marketValue | currency }}</td>
+                              <td
+                                class="tj__num tj__pnl"
+                                [class.tj__pnl-pos]="(h.unrealizedPnL ?? 0) > 0"
+                                [class.tj__pnl-neg]="(h.unrealizedPnL ?? 0) < 0"
+                              >
+                                {{ h.unrealizedPnL | currency }}
+                                @if (h.unrealizedPnLPercent != null) {
+                                  <span class="tj__pnl-pct muted"
+                                    >({{ h.unrealizedPnLPercent | number: '1.1-1' }}%)</span
+                                  >
+                                }
+                              </td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          }
+        }
+
+        @if (d.entry?.hasScheduledClose) {
+          <p class="muted tj__pinned">
+            Pinned close {{ d.entry!.closeCombinedTotal | currency }}
+            (Δ {{ d.entry!.closeCombinedChange | currency }})
+            @if (d.entry!.closePulledAt) {
+              · {{ d.entry!.closePulledAt | date: 'short' }}
+            }
+          </p>
+        }
+      </div>
+
+      <div class="tj__editor">
+        <mat-form-field appearance="outline" class="tj__full">
+          <mat-label>Title</mat-label>
+          <input matInput [(ngModel)]="titleDraft" name="tjTitle" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="tj__full tj__body-field">
+          <mat-label>Journal body (markdown)</mat-label>
+          <textarea matInput rows="18" [(ngModel)]="bodyDraft" name="tjBody"></textarea>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="tj__full">
+          <mat-label>Tags</mat-label>
+          <input matInput [(ngModel)]="tagsDraft" name="tjTags" placeholder="process, earnings, size" />
+        </mat-form-field>
+        <div class="tj__grades">
+          <mat-form-field appearance="outline">
+            <mat-label>Process grade</mat-label>
+            <mat-select [(ngModel)]="processGrade" name="tjProcess">
+              <mat-option [value]="null">—</mat-option>
+              @for (g of gradeChoices; track g) {
+                <mat-option [value]="g">{{ g }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Risk grade</mat-label>
+            <mat-select [(ngModel)]="riskGrade" name="tjRisk">
+              <mat-option [value]="null">—</mat-option>
+              @for (g of gradeChoices; track g) {
+                <mat-option [value]="g">{{ g }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+          <button mat-flat-button color="primary" type="button" (click)="saveEntry()" [disabled]="saving">
+            Save
+          </button>
+          @if (d.aiDraftAvailable) {
+            <button mat-stroked-button type="button" (click)="generateAiDraft()" [disabled]="saving">
+              <mat-icon>auto_awesome</mat-icon>
+              AI wrap draft
+            </button>
+          }
+        </div>
+      </div>
+
+      <div class="tj__refs">
+        <h3>References</h3>
+        <div class="tj__ref-form">
+          <mat-form-field appearance="outline">
+            <mat-label>Kind</mat-label>
+            <mat-select [(ngModel)]="refKind" name="tjRefKind">
+              <mat-option value="SYMBOL">Symbol</mat-option>
+              <mat-option value="URL">URL</mat-option>
+              <mat-option value="NOTE">Note</mat-option>
+            </mat-select>
+          </mat-form-field>
+          @if (refKind === 'SYMBOL') {
+            <mat-form-field appearance="outline">
+              <mat-label>Symbol</mat-label>
+              <input matInput [(ngModel)]="refSymbol" name="tjRefSym" />
+            </mat-form-field>
+          }
+          @if (refKind === 'URL') {
+            <mat-form-field appearance="outline" class="tj__grow">
+              <mat-label>URL</mat-label>
+              <input matInput [(ngModel)]="refUrl" name="tjRefUrl" />
+            </mat-form-field>
+          }
+          <mat-form-field appearance="outline" class="tj__grow">
+            <mat-label>Label</mat-label>
+            <input matInput [(ngModel)]="refLabel" name="tjRefLabel" />
+          </mat-form-field>
+          <button mat-stroked-button type="button" (click)="addRef()">Add</button>
+        </div>
+        @if (d.entry?.refs?.length) {
+          <ul class="tj__ref-list">
+            @for (r of d.entry!.refs; track r.id) {
+              <li>
+                <span class="tj__ref-kind">{{ r.kind }}</span>
+                @if (r.kind === 'SYMBOL' && r.symbol) {
+                  <button type="button" class="tj__sym-link" (click)="openWatchForSymbol(r.symbol)">
+                    {{ r.symbol }}
+                  </button>
+                } @else if (r.kind === 'URL' && r.url) {
+                  <a [href]="r.url" target="_blank" rel="noopener noreferrer">{{ r.label || r.url }}</a>
+                } @else {
+                  <span>{{ r.label }}</span>
+                }
+                <button mat-button type="button" color="warn" (click)="deleteRef(r.id)">Remove</button>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+
+      <div class="tj__atts">
+        <h3>Attachments</h3>
+        <p class="tj__att-hint muted">Upload several images at once, then open Slide preview to swipe through them.</p>
+        <div class="tj__att-actions">
+          <label class="tj__file" [class.tj__file--busy]="uploading">
+            <input
+              type="file"
+              multiple
+              accept="image/*,.pdf,.png,.jpg,.jpeg,.gif,.webp,.heic,.heif"
+              (change)="onFileSelected($event)"
+              [disabled]="uploading"
+            />
+            <mat-icon>attach_file</mat-icon>
+            {{ uploading ? 'Uploading…' : 'Add file(s)' }}
+          </label>
+          @if (imageAttachments().length) {
+            <button
+              mat-stroked-button
+              type="button"
+              class="tj__slide-btn"
+              (click)="openImageGallery(imageAttachments()[0])"
+            >
+              <mat-icon>view_carousel</mat-icon>
+              Slide preview
+              <span class="tj__slide-count">{{ imageAttachments().length }}</span>
+            </button>
+          }
+        </div>
+
+        @if (imageAttachments().length) {
+          <div class="tj__gallery" role="list" aria-label="Image attachments">
+            @for (a of imageAttachments(); track a.id) {
+              <div class="tj__thumb" role="listitem">
+                <button
+                  type="button"
+                  class="tj__thumb-btn"
+                  (click)="openImageGallery(a)"
+                  [attr.aria-label]="'Preview ' + a.originalFilename"
+                >
+                  @if (previewUrl(a); as src) {
+                    <img [src]="src" [alt]="a.originalFilename" loading="lazy" />
+                  } @else {
+                    <span class="tj__thumb-ph muted">Loading…</span>
+                  }
+                </button>
+                <div class="tj__thumb-meta">
+                  <div class="tj__thumb-text">
+                    <button type="button" class="tj__att-link" (click)="openImageGallery(a)">
+                      {{ a.originalFilename }}
+                    </button>
+                    @if (attachmentCapturedLabel(a); as when) {
+                      <span class="tj__thumb-when muted">{{ when }} CT</span>
+                    }
+                  </div>
+                  <button
+                    mat-icon-button
+                    type="button"
+                    color="warn"
+                    (click)="deleteAttachment(a.id)"
+                    [attr.aria-label]="'Remove ' + a.originalFilename"
+                  >
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        }
+
+        @if (otherAttachments().length) {
+          <ul class="tj__att-list">
+            @for (a of otherAttachments(); track a.id) {
+              <li>
+                <button type="button" class="tj__att-link" (click)="downloadAttachment(a)">
+                  {{ a.originalFilename }}
+                </button>
+                <button mat-button type="button" color="warn" (click)="deleteAttachment(a.id)">Remove</button>
+              </li>
+            }
+          </ul>
+        }
+      </div>
+  }
+</ng-template>

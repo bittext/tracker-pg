@@ -93,7 +93,9 @@ public class TradingJournalService {
         List<LocalDate> dates = entryRepository.findDates(uid, from, to);
         List<TradingJournalEntrySummaryDto> entries = rows.stream().map(this::toSummary).toList();
         List<TradingJournalCalendarDayDto> calendarDays =
-                monthOut == null ? List.of() : dailyTrackerService.monthCloseChanges(y, monthOut);
+                monthOut == null
+                        ? dailyTrackerService.yearCloseChanges(y)
+                        : dailyTrackerService.monthCloseChanges(y, monthOut);
         return new TradingJournalListDto(y, monthOut, query, entries, dates, calendarDays);
     }
 

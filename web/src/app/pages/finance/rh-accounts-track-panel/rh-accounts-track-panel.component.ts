@@ -80,6 +80,38 @@ export class RhAccountsTrackPanelComponent implements OnInit {
     return row.direction === 'IN' ? 'In' : 'Out';
   }
 
+  marginLabel(type: string | null | undefined): string {
+    if (!type) {
+      return '—';
+    }
+    const t = type.trim().toLowerCase();
+    if (t === 'margin') {
+      return 'Margin';
+    }
+    if (t === 'cash') {
+      return 'Cash';
+    }
+    return type;
+  }
+
+  optionLevelLabel(level: string | null | undefined): string {
+    if (!level) {
+      return '—';
+    }
+    const m = /^option_level_(\d+)$/i.exec(level.trim());
+    if (m) {
+      return `Level ${m[1]}`;
+    }
+    return level;
+  }
+
+  clampPct(value: number | null | undefined): number {
+    if (value == null || !Number.isFinite(value)) {
+      return 0;
+    }
+    return Math.max(0, Math.min(100, value));
+  }
+
   categoryLabel(category: string): string {
     switch (category) {
       case 'STARTING_BALANCE':

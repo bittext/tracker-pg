@@ -592,16 +592,27 @@ public class RobinhoodRhDailyTrackerService {
         if (month < 1 || month > 12) {
             return List.of();
         }
-        long ownerUserId = currentUser.requireUserId();
         YearMonth ym = YearMonth.of(year, month);
-        LocalDate monthStart = ym.atDay(1);
-        LocalDate monthEnd = ym.atEndOfMonth();
-        LocalDate lookbackFrom = monthStart.minusDays(45);
+        return closeChangesBetween(ym.atDay(1), ym.atEndOfMonth());
+    }
+
+    /** Full-year prior-close Δ series for Trading Journal “All months” year grid. */
+    @Transactional(readOnly = true)
+    public List<TradingJournalCalendarDayDto> yearCloseChanges(int year) {
+        return closeChangesBetween(LocalDate.of(year, 1, 1), LocalDate.of(year, 12, 31));
+    }
+
+    private List<TradingJournalCalendarDayDto> closeChangesBetween(LocalDate rangeStart, LocalDate rangeEnd) {
+        if (rangeStart == null || rangeEnd == null || rangeEnd.isBefore(rangeStart)) {
+            return List.of();
+        }
+        long ownerUserId = currentUser.requireUserId();
+        LocalDate lookbackFrom = rangeStart.minusDays(45);
 
         List<RobinhoodRhDailySnapshot> scheduledRows = scheduledOnly(visibleSnapshots(
                 ownerUserId,
                 snapshotRepository.findByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateDescAccountSuffixAsc(
-                        ownerUserId, lookbackFrom, monthEnd)));
+                        ownerUserId, lookbackFrom, rangeEnd)));
 
         TreeMap<LocalDate, BigDecimal> combinedByDate = new TreeMap<>();
         for (RobinhoodRhDailySnapshot row : scheduledRows) {
@@ -614,7 +625,7 @@ public class RobinhoodRhDailyTrackerService {
         List<TradingJournalCalendarDayDto> out = new ArrayList<>();
         for (Map.Entry<LocalDate, BigDecimal> entry : combinedByDate.entrySet()) {
             LocalDate date = entry.getKey();
-            if (date.isBefore(monthStart) || date.isAfter(monthEnd)) {
+            if (date.isBefore(rangeStart) || date.isAfter(rangeEnd)) {
                 continue;
             }
             LocalDate previous = combinedByDate.lowerKey(date);

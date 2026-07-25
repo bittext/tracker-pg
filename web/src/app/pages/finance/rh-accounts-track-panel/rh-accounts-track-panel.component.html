@@ -84,6 +84,98 @@
           </div>
         </div>
 
+        @if (acct.margin; as margin) {
+          <div class="rh-acct__margin" [class.rh-acct__margin--in-use]="margin.marginInUse">
+            <div class="rh-acct__margin-head">
+              <h4 class="rh-acct__section">
+                {{ margin.marginAccount ? 'Margin account' : 'Buying power' }}
+              </h4>
+              <span class="rh-acct__margin-badge" [class.rh-acct__margin-badge--hot]="margin.marginInUse">
+                @if (margin.marginInUse) {
+                  In use
+                } @else if (margin.marginAccount) {
+                  Available
+                } @else {
+                  Cash
+                }
+              </span>
+            </div>
+            <div class="rh-acct__margin-grid">
+              <div>
+                <span class="muted">Trading type</span>
+                <strong>{{ marginLabel(margin.brokerageTradingType) }}</strong>
+              </div>
+              @if (margin.optionLevel) {
+                <div>
+                  <span class="muted">Options</span>
+                  <strong>{{ optionLevelLabel(margin.optionLevel) }}</strong>
+                </div>
+              }
+              @if (margin.buyingPower != null) {
+                <div>
+                  <span class="muted">Buying power</span>
+                  <strong>{{ margin.buyingPower | currency }}</strong>
+                </div>
+              }
+              @if (margin.unleveragedBuyingPower != null) {
+                <div>
+                  <span class="muted">Unleveraged BP</span>
+                  <strong>{{ margin.unleveragedBuyingPower | currency }}</strong>
+                </div>
+              }
+              @if ((margin.marginExtraBuyingPower ?? 0) > 0) {
+                <div>
+                  <span class="muted">Margin extra BP</span>
+                  <strong>{{ margin.marginExtraBuyingPower | currency }}</strong>
+                </div>
+              }
+              @if ((margin.marginDebit ?? 0) > 0) {
+                <div>
+                  <span class="muted">Margin debit</span>
+                  <strong class="rh-acct__pnl--neg">{{ margin.marginDebit | currency }}</strong>
+                </div>
+              }
+              @if ((margin.optionsValue ?? 0) > 0) {
+                <div>
+                  <span class="muted">Options value</span>
+                  <strong>{{ margin.optionsValue | currency }}</strong>
+                </div>
+              }
+              @if ((margin.pendingDeposits ?? 0) > 0) {
+                <div>
+                  <span class="muted">Pending deposits</span>
+                  <strong>{{ margin.pendingDeposits | currency }}</strong>
+                </div>
+              }
+            </div>
+            @if (margin.equityInvestedPercent != null || margin.cashPercent != null) {
+              <div class="rh-acct__margin-usage" aria-label="Account composition">
+                <div class="rh-acct__margin-usage-bar">
+                  <span
+                    class="rh-acct__margin-usage-equity"
+                    [style.width.%]="clampPct(margin.equityInvestedPercent)"
+                  ></span>
+                  <span
+                    class="rh-acct__margin-usage-cash"
+                    [style.width.%]="clampPct(margin.cashPercent)"
+                  ></span>
+                </div>
+                <p class="muted rh-acct__margin-usage-legend">
+                  @if (margin.equityInvestedPercent != null) {
+                    Equity {{ margin.equityInvestedPercent | number: '1.0-1' }}%
+                  }
+                  @if (margin.equityInvestedPercent != null && margin.cashPercent != null) {
+                    ·
+                  }
+                  @if (margin.cashPercent != null) {
+                    Cash {{ margin.cashPercent | number: '1.0-1' }}%
+                  }
+                </p>
+              </div>
+            }
+          </div>
+        }
+
         @if (acct.cashFlowEvents.length) {
           <h4 class="rh-acct__section">Cash movements</h4>
           <div class="rh-acct__table-wrap">

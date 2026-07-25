@@ -30,4 +30,6 @@ public record RobinhoodRhAccountSummaryDto(
         boolean gainLossPositive,
         List<RobinhoodRhHoldingDto> holdings,
         Instant syncedAt,
-        List<String> notes) {}
+        List<String> notes,
+        /** Null when portfolio sync has no buying-power / account-type payload yet. */
+        RobinhoodRhMarginDetailsDto margin) {}

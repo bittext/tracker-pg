@@ -510,6 +510,21 @@ export interface RobinhoodRhDailyManualCaptureDeleteResultDto {
   message: string;
 }
 
+export interface RobinhoodRhMarginDetailsDto {
+  brokerageTradingType: string | null;
+  optionLevel: string | null;
+  buyingPower: number | null;
+  unleveragedBuyingPower: number | null;
+  marginExtraBuyingPower: number | null;
+  marginDebit: number | null;
+  optionsValue: number | null;
+  pendingDeposits: number | null;
+  equityInvestedPercent: number | null;
+  cashPercent: number | null;
+  marginAccount: boolean;
+  marginInUse: boolean;
+}
+
 export interface RobinhoodRhAccountSummaryDto {
   accountNumberMasked: string;
   accountSuffix: string;
@@ -534,6 +549,7 @@ export interface RobinhoodRhAccountSummaryDto {
   holdings: RobinhoodRhHoldingDto[];
   syncedAt: string | null;
   notes: string[];
+  margin: RobinhoodRhMarginDetailsDto | null;
 }
 
 export interface RobinhoodRhCashFlowEventDto {

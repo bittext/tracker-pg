@@ -14,6 +14,7 @@ import com.svp.tracker.finance.dto.RobinhoodRhAccountsTrackDto;
 import com.svp.tracker.finance.dto.RobinhoodRhCashFlowEventDto;
 import com.svp.tracker.finance.dto.RobinhoodRhHoldingDto;
 import com.svp.tracker.finance.dto.RobinhoodRhLiveQuotesDto;
+import com.svp.tracker.finance.dto.RobinhoodRhMarginDetailsDto;
 import com.svp.tracker.finance.dto.RobinhoodRhOwnedAccountsDto;
 import com.svp.tracker.finance.repository.RobinhoodAgenticConnectionRepository;
 import com.svp.tracker.finance.repository.RobinhoodAgenticPositionRepository;
@@ -216,7 +217,8 @@ public class RobinhoodRhAccountsTrackService {
                 gainLoss.compareTo(BigDecimal.ZERO) >= 0,
                 List.of(),
                 null,
-                notes);
+                notes,
+                null);
     }
 
     private RobinhoodRhAccountSummaryDto buildAccountSummary(
@@ -285,6 +287,8 @@ public class RobinhoodRhAccountsTrackService {
             notes.add("Portfolio totals estimated from synced positions (no portfolio snapshot for this account).");
         }
 
+        RobinhoodRhMarginDetailsDto margin = buildMarginDetails(portfolioNode, portfolio, cash, equityMv, totalValue);
+
         return buildSummaryFromParts(
                 maskSuffix(suffix),
                 suffix,
@@ -304,7 +308,8 @@ public class RobinhoodRhAccountsTrackService {
                 gainLossPositive,
                 holdings,
                 accountSyncedAt,
-                notes);
+                notes,
+                margin);
     }
 
     private static RobinhoodRhAccountSummaryDto buildSummaryFromParts(
@@ -326,7 +331,8 @@ public class RobinhoodRhAccountsTrackService {
             boolean gainLossPositive,
             List<RobinhoodRhHoldingDto> holdings,
             Instant syncedAt,
-            List<String> notes) {
+            List<String> notes,
+            RobinhoodRhMarginDetailsDto margin) {
         return new RobinhoodRhAccountSummaryDto(
                 masked,
                 suffix,
@@ -350,7 +356,8 @@ public class RobinhoodRhAccountsTrackService {
                 gainLossPositive,
                 holdings,
                 syncedAt,
-                notes);
+                notes,
+                margin);
     }
 
     /** Recompute market values for holdings deserialized from a stored snapshot. */
@@ -765,10 +772,117 @@ public class RobinhoodRhAccountsTrackService {
         BigDecimal total = firstDecimal(data, "total_value", "total_equity", "portfolio_value", "equity");
         BigDecimal cash = firstDecimal(data, "cash", "uninvested_cash");
         BigDecimal equity = firstDecimal(data, "equity_value", "market_value", "extended_hours_equity");
-        return new PortfolioTotals(total, cash, equity);
+        JsonNode buyingPowerNode = data.path("buying_power");
+        if (buyingPowerNode.isMissingNode() || buyingPowerNode.isNull()) {
+            buyingPowerNode = portfolioNode.path("buying_power");
+        }
+        BigDecimal buyingPower = firstDecimal(buyingPowerNode, "buying_power");
+        if (buyingPower == null) {
+            buyingPower = firstDecimal(data, "buying_power");
+        }
+        BigDecimal unleveragedBuyingPower = firstDecimal(buyingPowerNode, "unleveraged_buying_power");
+        BigDecimal optionsValue = firstDecimal(data, "options_value");
+        BigDecimal pendingDeposits = firstDecimal(data, "pending_deposits");
+        return new PortfolioTotals(
+                total, cash, equity, buyingPower, unleveragedBuyingPower, optionsValue, pendingDeposits);
+    }
+
+    private static RobinhoodRhMarginDetailsDto buildMarginDetails(
+            JsonNode portfolioNode,
+            PortfolioTotals portfolio,
+            BigDecimal cash,
+            BigDecimal equityMv,
+            BigDecimal totalValue) {
+        JsonNode meta = accountMetaNode(portfolioNode);
+        String tradingType = textOrNull(meta, "type", "brokerage_trading_type");
+        String optionLevel = textOrNull(meta, "option_level");
+        boolean marginAccount = tradingType != null && "margin".equalsIgnoreCase(tradingType.trim());
+
+        BigDecimal buyingPower = portfolio.buyingPower;
+        BigDecimal unleveraged = portfolio.unleveragedBuyingPower;
+        BigDecimal extra = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        if (buyingPower != null && unleveraged != null) {
+            extra = scaleMoney(buyingPower.subtract(unleveraged).max(BigDecimal.ZERO));
+        } else if (buyingPower != null && cash != null && buyingPower.compareTo(cash) > 0) {
+            extra = scaleMoney(buyingPower.subtract(cash));
+            if (!marginAccount) {
+                marginAccount = true;
+            }
+        }
+        BigDecimal marginDebit =
+                cash != null && cash.signum() < 0 ? scaleMoney(cash.abs()) : BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        boolean marginInUse = marginDebit.signum() > 0 || extra.signum() > 0;
+
+        Double equityPct = null;
+        Double cashPct = null;
+        if (totalValue != null && totalValue.signum() != 0) {
+            equityPct = equityMv
+                    .multiply(BigDecimal.valueOf(100))
+                    .divide(totalValue, 2, RoundingMode.HALF_UP)
+                    .doubleValue();
+            cashPct = cash.multiply(BigDecimal.valueOf(100))
+                    .divide(totalValue, 2, RoundingMode.HALF_UP)
+                    .doubleValue();
+        }
+
+        if (buyingPower == null
+                && unleveraged == null
+                && tradingType == null
+                && (portfolio.optionsValue == null || portfolio.optionsValue.signum() == 0)
+                && (portfolio.pendingDeposits == null || portfolio.pendingDeposits.signum() == 0)
+                && !marginInUse) {
+            return null;
+        }
+
+        return new RobinhoodRhMarginDetailsDto(
+                tradingType,
+                optionLevel,
+                buyingPower == null ? null : scaleMoney(buyingPower),
+                unleveraged == null ? null : scaleMoney(unleveraged),
+                extra,
+                marginDebit,
+                portfolio.optionsValue == null ? null : scaleMoney(portfolio.optionsValue),
+                portfolio.pendingDeposits == null ? null : scaleMoney(portfolio.pendingDeposits),
+                equityPct,
+                cashPct,
+                marginAccount,
+                marginInUse);
+    }
+
+    private static JsonNode accountMetaNode(JsonNode portfolioNode) {
+        if (portfolioNode == null || portfolioNode.isNull()) {
+            return null;
+        }
+        JsonNode meta = portfolioNode.path("_account");
+        if (meta.isMissingNode() || meta.isNull()) {
+            meta = portfolioNode.path("account_meta");
+        }
+        if (meta.isMissingNode() || !meta.isObject()) {
+            return null;
+        }
+        return meta;
+    }
+
+    private static String textOrNull(JsonNode node, String... fields) {
+        if (node == null) {
+            return null;
+        }
+        for (String field : fields) {
+            JsonNode v = node.path(field);
+            if (!v.isMissingNode() && !v.isNull()) {
+                String text = v.asText("").trim();
+                if (!text.isEmpty()) {
+                    return text;
+                }
+            }
+        }
+        return null;
     }
 
     private static BigDecimal firstDecimal(JsonNode node, String... fields) {
+        if (node == null || node.isNull() || node.isMissingNode()) {
+            return null;
+        }
         for (String field : fields) {
             BigDecimal v = decimal(node, field);
             if (v != null) {
@@ -941,9 +1055,16 @@ public class RobinhoodRhAccountsTrackService {
 
     private record HoldingsTotals(BigDecimal marketValue, BigDecimal costBasis, BigDecimal unrealizedPnL) {}
 
-    private record PortfolioTotals(BigDecimal totalValue, BigDecimal cash, BigDecimal equityValue) {
+    private record PortfolioTotals(
+            BigDecimal totalValue,
+            BigDecimal cash,
+            BigDecimal equityValue,
+            BigDecimal buyingPower,
+            BigDecimal unleveragedBuyingPower,
+            BigDecimal optionsValue,
+            BigDecimal pendingDeposits) {
         static PortfolioTotals empty() {
-            return new PortfolioTotals(null, null, null);
+            return new PortfolioTotals(null, null, null, null, null, null, null);
         }
     }
 }

@@ -500,6 +500,108 @@
             </div>
           </div>
 
+          @if (focusMargin(); as margin) {
+            <div
+              class="rh-daily__focus-margin"
+              [class.rh-daily__focus-margin--in-use]="margin.marginInUse"
+              aria-label="Margin account details"
+            >
+              <div class="rh-daily__focus-margin-head">
+                <div>
+                  <h4 class="rh-daily__focus-margin-title">
+                    {{ margin.marginAccount ? 'Margin account' : 'Buying power' }}
+                  </h4>
+                  <p class="muted rh-daily__focus-margin-sub">
+                    Live from last Agentic sync · ••••{{ focusAccountSuffix }}
+                  </p>
+                </div>
+                <span
+                  class="rh-daily__focus-margin-badge"
+                  [class.rh-daily__focus-margin-badge--hot]="margin.marginInUse"
+                >
+                  @if (margin.marginInUse) {
+                    In use
+                  } @else if (margin.marginAccount) {
+                    Available
+                  } @else {
+                    Cash
+                  }
+                </span>
+              </div>
+              <div class="rh-daily__focus-margin-grid">
+                <div>
+                  <span class="muted">Trading type</span>
+                  <strong>{{ marginTradingTypeLabel(margin.brokerageTradingType) }}</strong>
+                </div>
+                @if (margin.optionLevel) {
+                  <div>
+                    <span class="muted">Options</span>
+                    <strong>{{ optionLevelLabel(margin.optionLevel) }}</strong>
+                  </div>
+                }
+                @if (margin.buyingPower != null) {
+                  <div>
+                    <span class="muted">Buying power</span>
+                    <strong>{{ margin.buyingPower | currency }}</strong>
+                  </div>
+                }
+                @if (margin.unleveragedBuyingPower != null) {
+                  <div>
+                    <span class="muted">Unleveraged BP</span>
+                    <strong>{{ margin.unleveragedBuyingPower | currency }}</strong>
+                  </div>
+                }
+                @if ((margin.marginExtraBuyingPower ?? 0) > 0) {
+                  <div>
+                    <span class="muted">Margin extra BP</span>
+                    <strong>{{ margin.marginExtraBuyingPower | currency }}</strong>
+                  </div>
+                }
+                @if ((margin.marginDebit ?? 0) > 0) {
+                  <div>
+                    <span class="muted">Margin debit</span>
+                    <strong class="rh-daily__pnl--neg">{{ margin.marginDebit | currency }}</strong>
+                  </div>
+                }
+                @if (focusMarginAccount; as acct) {
+                  <div>
+                    <span class="muted">Cash</span>
+                    <strong>{{ acct.cashBalance | currency }}</strong>
+                  </div>
+                  <div>
+                    <span class="muted">Equity MV</span>
+                    <strong>{{ acct.equityMarketValue | currency }}</strong>
+                  </div>
+                }
+              </div>
+              @if (margin.equityInvestedPercent != null || margin.cashPercent != null) {
+                <div class="rh-daily__focus-margin-usage">
+                  <div class="rh-daily__focus-margin-usage-bar" aria-hidden="true">
+                    <span
+                      class="rh-daily__focus-margin-usage-equity"
+                      [style.width.%]="clampPct(margin.equityInvestedPercent)"
+                    ></span>
+                    <span
+                      class="rh-daily__focus-margin-usage-cash"
+                      [style.width.%]="clampPct(margin.cashPercent)"
+                    ></span>
+                  </div>
+                  <p class="muted rh-daily__focus-margin-usage-legend">
+                    @if (margin.equityInvestedPercent != null) {
+                      Equity {{ margin.equityInvestedPercent | number: '1.0-1' }}%
+                    }
+                    @if (margin.equityInvestedPercent != null && margin.cashPercent != null) {
+                      ·
+                    }
+                    @if (margin.cashPercent != null) {
+                      Cash {{ margin.cashPercent | number: '1.0-1' }}%
+                    }
+                  </p>
+                </div>
+              }
+            </div>
+          }
+
           <div class="rh-daily__focus-chart-wrap">
             <div class="rh-daily__focus-chart-head">
               <div class="rh-daily__focus-chart-title-block">
@@ -567,22 +669,6 @@
                     <path [attr.d]="focusTrendPath()" class="rh-daily__focus-line" />
                     @if (sp500TrendPath()) {
                       <path [attr.d]="sp500TrendPath()" class="rh-daily__benchmark-line" />
-                      @for (point of sp500BenchmarkPoints(); track point.key) {
-                        <circle
-                          [attr.cx]="point.x"
-                          [attr.cy]="point.y"
-                          r="0.85"
-                          class="rh-daily__benchmark-point"
-                        >
-                          <title>
-                            {{ point.key }} · S&amp;P {{ formatFocusReturn(point.returnPercent) }} ·
-                            {{ point.value | currency }}
-                            ({{ point.launchInvestment | currency }} invested {{ point.launchDate }}) · index
-                            {{ point.indexClose | number: '1.2-2' }}
-                            @if (point.marketDate !== point.key) { · market close from {{ point.marketDate }} }
-                          </title>
-                        </circle>
-                      }
                     }
                     @for (point of focusPoints(); track point.key) {
                       <circle
@@ -615,6 +701,14 @@
                     }
                   </svg>
                   <div class="rh-daily__focus-dot-layer" aria-hidden="true">
+                    @for (point of sp500BenchmarkPoints(); track point.key) {
+                      <span
+                        class="rh-daily__focus-dot rh-daily__focus-dot--sp"
+                        [style.left.%]="point.x"
+                        [style.top.%]="(point.y / 40) * 100"
+                        [attr.title]="point.key + ' · S&P ' + formatFocusReturn(point.returnPercent)"
+                      ></span>
+                    }
                     @for (point of focusPoints(); track point.key) {
                       <span
                         class="rh-daily__focus-dot"
