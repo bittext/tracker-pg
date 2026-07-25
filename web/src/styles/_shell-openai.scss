@@ -1,6 +1,7 @@
-/* OpenAI / Phoenix platform shell — sidebar navigation */
+/* Platform sidebar shell — OpenAI / Phoenix / Aura */
 [data-theme-preset='openai'],
-[data-theme-preset='phoenix'] {
+[data-theme-preset='phoenix'],
+[data-theme-preset='aura'] {
   .app-platform-layout {
     display: flex;
     min-height: 100vh;
@@ -178,7 +179,8 @@
 
 @media (max-width: 768px) {
   [data-theme-preset='openai'],
-  [data-theme-preset='phoenix'] {
+  [data-theme-preset='phoenix'],
+  [data-theme-preset='aura'] {
     .app-platform-layout {
       flex-direction: column;
     }

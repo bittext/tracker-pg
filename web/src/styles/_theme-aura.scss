@@ -1,12 +1,12 @@
-/* Aura — side illumination bloom (warm peach → cool lavender). */
+/* Aura — side illumination bloom (warm peach → cool lavender).
+ * Nav/layout structure comes from _shell-openai (aura is included there).
+ */
 
 html[data-theme-preset='aura'] {
-  /* Base wash under the fixed bloom layer */
   background-color: var(--app-bg);
 }
 
 html[data-theme-preset='aura'] body {
-  /* Let the dedicated bloom layer paint the light; keep a soft base wash */
   background-color: var(--app-bg);
   background-image: none;
   isolation: isolate;
@@ -47,47 +47,24 @@ html[data-theme-preset='aura'] app-root {
 }
 
 [data-theme-preset='aura'] {
-  .app-platform-layout {
-    display: flex;
-    min-height: 100vh;
+  /* Keep shell structure; only make surfaces translucent so the bloom shows through */
+  .app-platform-layout,
+  .app-content-column,
+  .app-platform-main {
     background: transparent;
   }
 
   .app-sidebar {
-    flex: 0 0 var(--app-sidebar-width);
-    width: var(--app-sidebar-width);
-    display: flex;
-    flex-direction: column;
     background: var(--app-surface-sidebar);
     backdrop-filter: blur(28px) saturate(1.35);
     -webkit-backdrop-filter: blur(28px) saturate(1.35);
-    border-right: 1px solid var(--app-border);
-    min-height: 100vh;
-    position: sticky;
-    top: 0;
-    align-self: flex-start;
-    max-height: 100vh;
-    overflow-y: auto;
     box-shadow: 1px 0 0 rgba(255, 255, 255, 0.35) inset;
-  }
-
-  .app-content-column {
-    flex: 1 1 auto;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-    background: transparent;
   }
 
   .app-content-header {
     background: var(--app-toolbar-bg);
     backdrop-filter: blur(20px) saturate(1.2);
     -webkit-backdrop-filter: blur(20px) saturate(1.2);
-    border-bottom: 1px solid var(--app-border);
-  }
-
-  .app-platform-main {
-    background: transparent;
   }
 
   .app-platform-main,
@@ -106,7 +83,6 @@ html[data-theme-preset='aura'] app-root {
     border-bottom-color: var(--app-border);
   }
 
-  /* Soft luminous edge on interactive surfaces */
   .app-sidebar__link--active {
     box-shadow:
       0 0 0 1px rgba(255, 255, 255, 0.35) inset,
@@ -128,37 +104,5 @@ html[data-theme-preset='aura'] app-root {
 @media (prefers-reduced-motion: reduce) {
   html[data-theme-preset='aura'] body::before {
     animation: none;
-  }
-}
-
-@media (max-width: 768px) {
-  [data-theme-preset='aura'] {
-    .app-platform-layout {
-      flex-direction: column;
-    }
-
-    .app-sidebar {
-      position: relative;
-      width: 100%;
-      flex: none;
-      max-height: none;
-      min-height: auto;
-      border-right: none;
-      border-bottom: 1px solid var(--app-border);
-    }
-
-    .app-sidebar__nav {
-      flex-direction: row;
-      flex-wrap: wrap;
-      padding-bottom: 0.5rem;
-    }
-
-    .app-sidebar__link span {
-      display: none;
-    }
-
-    .app-sidebar__footer {
-      display: none;
-    }
   }
 }
