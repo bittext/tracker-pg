@@ -12,6 +12,8 @@ import org.springframework.transaction.TransactionException;
 import org.springframework.transaction.UnexpectedRollbackException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.server.ResponseStatusException;
 
 @Slf4j
@@ -87,6 +89,42 @@ public class ApiExceptionHandler {
         }
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of("error", "illegal_state", "message", message));
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<Map<String, String>> multipartTooLarge(MaxUploadSizeExceededException ex) {
+        log.warn("Multipart upload rejected: {}", ex.getMessage());
+        return uploadTooLargeResponse();
+    }
+
+    /** Tomcat may surface size limits as a plain MultipartException wrapping FileSizeLimitExceededException. */
+    @ExceptionHandler(MultipartException.class)
+    public ResponseEntity<Map<String, String>> multipart(MultipartException ex) {
+        Throwable cause = ex;
+        while (cause != null) {
+            String name = cause.getClass().getSimpleName();
+            if (name.contains("FileSizeLimit") || name.contains("SizeLimit") || name.contains("MaxUpload")) {
+                log.warn("Multipart upload rejected: {}", ex.getMessage());
+                return uploadTooLargeResponse();
+            }
+            cause = cause.getCause();
+        }
+        log.warn("Multipart request failed: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of(
+                        "error",
+                        "bad_request",
+                        "message",
+                        "Invalid multipart upload. Try fewer or smaller files."));
+    }
+
+    private static ResponseEntity<Map<String, String>> uploadTooLargeResponse() {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(Map.of(
+                        "error",
+                        "payload_too_large",
+                        "message",
+                        "A file exceeds the 100MB per-file upload limit. Split or compress the recording, then retry. (Whisper transcription still needs files under 25MB.)"));
     }
 
     @ExceptionHandler(ResponseStatusException.class)

@@ -236,7 +236,9 @@ public class InvestmentThenNowService {
         }
         try {
             String url = props.alphaVantageBaseUrl()
-                    + "?function=TIME_SERIES_DAILY&outputsize=full&symbol="
+                    // "full" is premium-only; compact includes the latest 100 trading sessions,
+                    // which covers the Then & now default/current-date use case on the free tier.
+                    + "?function=TIME_SERIES_DAILY&outputsize=compact&symbol="
                     + URLEncoder.encode(symbol, StandardCharsets.UTF_8)
                     + "&apikey="
                     + URLEncoder.encode(key, StandardCharsets.UTF_8);
