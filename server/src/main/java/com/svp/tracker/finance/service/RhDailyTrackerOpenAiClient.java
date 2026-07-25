@@ -92,6 +92,10 @@ public class RhDailyTrackerOpenAiClient {
 
     /** Plain-text completion (no JSON response_format). */
     public String completeText(String systemPrompt, String userPrompt) {
+        return completeText(systemPrompt, userPrompt, props.ai().maxOutputTokens(), 0.5);
+    }
+
+    public String completeText(String systemPrompt, String userPrompt, int maxTokens, double temperature) {
         var ai = props.ai();
         if (!ai.configured()) {
             throw new ResponseStatusException(
@@ -101,8 +105,8 @@ public class RhDailyTrackerOpenAiClient {
         try {
             ObjectNode body = objectMapper.createObjectNode();
             body.put("model", ai.model());
-            body.put("temperature", 0.5);
-            body.put("max_tokens", ai.maxOutputTokens());
+            body.put("temperature", temperature);
+            body.put("max_tokens", Math.max(256, maxTokens));
             ArrayNode messages = body.putArray("messages");
             messages.addObject().put("role", "system").put("content", systemPrompt);
             messages.addObject().put("role", "user").put("content", userPrompt);
@@ -110,7 +114,7 @@ public class RhDailyTrackerOpenAiClient {
             String url = ai.baseUrl() + "/chat/completions";
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
-                    .timeout(Duration.ofMillis(ai.timeoutMs()))
+                    .timeout(Duration.ofMillis(Math.max(ai.timeoutMs(), 120_000L)))
                     .header("Authorization", "Bearer " + ai.apiKey())
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(body), StandardCharsets.UTF_8))
@@ -141,8 +145,8 @@ public class RhDailyTrackerOpenAiClient {
     }
 
     /**
-     * Transcribe a local audio file (m4a/mp3/wav). Uses speaker-aware diarization when available so each
-     * speaker becomes its own paragraph; falls back to plain Whisper text if diarization is unavailable.
+     * Transcribe a local audio file (m4a/mp3/wav). Prefers speaker-aware diarization; otherwise Whisper + a chat
+     * pass that splits the text into one paragraph per speaker turn.
      * Whisper / diarize models accept files up to 25MB.
      */
     public TranscriptionResult transcribeAudio(Path audioFile) {
@@ -166,6 +170,9 @@ public class RhDailyTrackerOpenAiClient {
                         "Audio file exceeds Whisper's 25MB limit (" + size + " bytes)");
             }
 
+            String text = null;
+            String source = null;
+
             try {
                 String diarized = requestTranscription(
                         audioFile,
@@ -173,20 +180,42 @@ public class RhDailyTrackerOpenAiClient {
                         "diarized_json",
                         true);
                 String formatted = formatDiarizedTranscript(diarized);
-                if (!formatted.isBlank()) {
+                if (hasSpeakerLabels(formatted)) {
                     return new TranscriptionResult(formatted, "gpt-4o-transcribe-diarize");
+                }
+                if (!formatted.isBlank()) {
+                    // Model returned flat text without speaker segments — still keep the words.
+                    text = formatted;
+                    source = "gpt-4o-transcribe-diarize";
+                    log.warn("Diarize returned text without speaker segments; applying chat speaker split");
                 }
             } catch (ResponseStatusException diarizeError) {
                 log.warn(
-                        "Speaker diarization unavailable ({}), falling back to whisper-1",
+                        "Speaker diarization unavailable ({}), falling back to whisper-1 + chat speaker split",
                         diarizeError.getReason());
             }
 
-            String plain = requestTranscription(audioFile, "whisper-1", "text", false).trim();
-            if (plain.isBlank()) {
-                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Whisper returned an empty transcript");
+            if (text == null || text.isBlank()) {
+                String plain = requestTranscription(audioFile, "whisper-1", "text", false).trim();
+                if (plain.isBlank()) {
+                    throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Whisper returned an empty transcript");
+                }
+                text = plain;
+                source = "whisper-1";
             }
-            return new TranscriptionResult(plain, "whisper-1");
+
+            if (!hasSpeakerLabels(text)) {
+                try {
+                    String split = splitTranscriptBySpeaker(text);
+                    if (hasSpeakerLabels(split)) {
+                        return new TranscriptionResult(split, source + "+speakers");
+                    }
+                    log.warn("Chat speaker split did not produce labeled turns; returning flat transcript");
+                } catch (ResponseStatusException splitError) {
+                    log.warn("Chat speaker split failed ({}), returning flat transcript", splitError.getReason());
+                }
+            }
+            return new TranscriptionResult(text, source);
         } catch (ResponseStatusException e) {
             throw e;
         } catch (InterruptedException e) {
@@ -196,6 +225,43 @@ public class RhDailyTrackerOpenAiClient {
             log.warn("OpenAI Whisper error: {}", e.toString());
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Whisper request failed: " + e.getMessage());
         }
+    }
+
+    /**
+     * Rewrite a flat transcript into speaker paragraphs using the configured chat model.
+     * Used when native diarization is unavailable (common for some API keys / regions).
+     */
+    private String splitTranscriptBySpeaker(String flatTranscript) {
+        String system =
+                """
+                You rewrite voice recordings into speaker turns for a transcript UI.
+
+                Rules:
+                - Infer when the speaker changes from conversational cues (questions vs answers, \
+                greetings, names, contrasting viewpoints, or clear hand-offs).
+                - Label speakers as Speaker A, Speaker B, Speaker C, … in order of first appearance.
+                - If only one person is speaking (a solo memo), use a single Speaker A block.
+                - Keep the wording faithful. Do not invent facts, names, or dialogue that are not in the input.
+                - Do not add commentary, titles, or markdown — only speaker blocks.
+                - Put a blank line between turns. Exact format:
+
+                Speaker A:
+                Their words here.
+
+                Speaker B:
+                Their reply here.
+                """;
+        // Long transcripts need headroom beyond the Daily Tracker default (often ~1200).
+        int maxTokens = Math.max(props.ai().maxOutputTokens(), 4_000);
+        return completeText(system, "Transcript:\n\n" + flatTranscript, maxTokens, 0.2).trim();
+    }
+
+    private static boolean hasSpeakerLabels(String text) {
+        if (text == null || text.isBlank()) {
+            return false;
+        }
+        // At least one labeled turn, preferably with a paragraph break pattern.
+        return text.matches("(?s)(?i).*\\bSpeaker\\s+[A-Z0-9][^:\\n]{0,40}:\\s*.+.*");
     }
 
     private String requestTranscription(
@@ -285,6 +351,13 @@ public class RhDailyTrackerOpenAiClient {
         JsonNode root = objectMapper.readTree(rawJson);
         JsonNode segments = root.path("segments");
         if (!segments.isArray() || segments.isEmpty()) {
+            // Some responses nest segments under "results" or only return flat text.
+            segments = root.path("results");
+        }
+        if ((!segments.isArray() || segments.isEmpty()) && root.path("utterances").isArray()) {
+            segments = root.path("utterances");
+        }
+        if (!segments.isArray() || segments.isEmpty()) {
             String flat = root.path("text").asText("").trim();
             return flat;
         }
@@ -294,35 +367,64 @@ public class RhDailyTrackerOpenAiClient {
         StringBuilder turn = new StringBuilder();
 
         for (JsonNode seg : segments) {
-            String speaker = seg.path("speaker").asText("").trim();
+            String speaker = firstNonBlank(
+                    jsonText(seg.get("speaker")),
+                    jsonText(seg.get("speaker_label")),
+                    jsonText(seg.get("speaker_id")));
             if (speaker.isBlank()) {
                 speaker = "Speaker";
             }
             // Normalize A/B/0/1 → display labels.
             String label = normalizeSpeakerLabel(speaker);
-            String text = seg.path("text").asText("").trim();
-            if (text.isBlank()) {
+            String segmentText =
+                    firstNonBlank(jsonText(seg.get("text")), jsonText(seg.get("transcript")));
+            if (segmentText.isBlank()) {
                 continue;
             }
             if (currentSpeaker == null) {
                 currentSpeaker = label;
-                turn.append(text);
+                turn.append(segmentText);
             } else if (currentSpeaker.equals(label)) {
                 if (!turn.isEmpty() && !Character.isWhitespace(turn.charAt(turn.length() - 1))) {
                     turn.append(' ');
                 }
-                turn.append(text);
+                turn.append(segmentText);
             } else {
                 appendSpeakerParagraph(out, currentSpeaker, turn.toString());
                 currentSpeaker = label;
                 turn.setLength(0);
-                turn.append(text);
+                turn.append(segmentText);
             }
         }
         if (currentSpeaker != null && !turn.isEmpty()) {
             appendSpeakerParagraph(out, currentSpeaker, turn.toString());
         }
         return out.toString().trim();
+    }
+
+    private static String firstNonBlank(String... values) {
+        if (values == null) {
+            return "";
+        }
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value.trim();
+            }
+        }
+        return "";
+    }
+
+    private static String jsonText(JsonNode n) {
+        if (n == null || n.isNull()) {
+            return "";
+        }
+        if (n.isNumber()) {
+            return n.asText();
+        }
+        if (!n.isTextual()) {
+            return "";
+        }
+        return n.asText("").trim();
     }
 
     private static void appendSpeakerParagraph(StringBuilder out, String speaker, String text) {

@@ -224,7 +224,7 @@
               @if (detail?.transcribedAt) {
                 <mat-card-subtitle>
                   {{ detail?.transcriptSource || 'whisper' }}
-                  @if (detail?.transcriptSource?.includes('diarize')) {
+                  @if (detail?.transcriptSource?.includes('diarize') || detail?.transcriptSource?.includes('speakers')) {
                     · speakers split
                   }
                 </mat-card-subtitle>
