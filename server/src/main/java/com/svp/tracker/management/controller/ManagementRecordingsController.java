@@ -3,6 +3,7 @@ package com.svp.tracker.management.controller;
 import com.svp.tracker.management.dto.ManagementRecordingDetailDto;
 import com.svp.tracker.management.dto.ManagementRecordingItemDto;
 import com.svp.tracker.management.dto.ManagementRecordingListDto;
+import com.svp.tracker.management.dto.ManagementRecordingRenameRequestDto;
 import com.svp.tracker.management.dto.ManagementRecordingReprocessDto;
 import com.svp.tracker.management.service.ManagementRecordingsService;
 import com.svp.tracker.management.service.ManagementRecordingsService.RecordingFile;
@@ -20,6 +21,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -75,10 +77,23 @@ public class ManagementRecordingsController {
         return service.upload(files, relativePaths == null ? List.of() : relativePaths);
     }
 
-    @PostMapping("/reprocess-all")
-    @ResponseStatus(HttpStatus.ACCEPTED)
-    public ManagementRecordingReprocessDto reprocessAll() {
-        return service.reprocessAll();
+    @PostMapping("/cancel-queue")
+    public ManagementRecordingReprocessDto cancelQueue() {
+        return service.cancelQueue();
+    }
+
+    @PutMapping("/rename")
+    public ManagementRecordingDetailDto rename(@RequestBody ManagementRecordingRenameRequestDto body) {
+        if (body == null || body.path() == null || body.path().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "path is required");
+        }
+        return service.rename(body.path().trim(), body.displayName());
+    }
+
+    /** Force regenerate transcript + summary for one recording (manual; can take several minutes). */
+    @PostMapping("/reprocess")
+    public ManagementRecordingDetailDto reprocess(@RequestBody Map<String, Object> body) {
+        return service.reprocess(requirePath(body));
     }
 
     @DeleteMapping

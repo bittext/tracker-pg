@@ -30,12 +30,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -60,7 +58,6 @@ public class ManagementRecordingsService {
     private final JournalBlobStore blobStore;
     private final JournalProperties journalProperties;
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final AtomicBoolean processing = new AtomicBoolean();
 
     @Transactional(readOnly = true)
     public ManagementRecordingListDto list(LocalDate dayFilter) {
@@ -184,7 +181,7 @@ public class ManagementRecordingsService {
             row.setTranscribedAt(null);
             row.setSummary(null);
             row.setSummarizedAt(null);
-            row.setProcessingStatus("PENDING");
+            row.setProcessingStatus("IDLE");
             row.setProcessingError(null);
             row.setProcessingStartedAt(null);
             row.setProcessingCompletedAt(null);
@@ -212,7 +209,9 @@ public class ManagementRecordingsService {
             String ct = row.getContentType() != null && !row.getContentType().isBlank()
                     ? row.getContentType()
                     : guessContentType(row.getDisplayName(), null);
-            String fn = row.getOriginalFilename() != null ? row.getOriginalFilename() : row.getDisplayName();
+            String fn = row.getDisplayName() != null && !row.getDisplayName().isBlank()
+                    ? row.getDisplayName()
+                    : (row.getOriginalFilename() != null ? row.getOriginalFilename() : "recording.m4a");
             return new RecordingFile(fn, ct, body);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -230,6 +229,53 @@ public class ManagementRecordingsService {
             throw new UncheckedIOException(e);
         }
         cacheRepository.delete(row);
+    }
+
+    /**
+     * Rename the recording label in Tracker only. Does not change blob storage keys or the user's
+     * iCloud Drive / Just Press Record file (upload is a one-way copy).
+     */
+    @Transactional
+    public ManagementRecordingDetailDto rename(String relativePath, String displayName) {
+        ManagementRecordingCache row = requireStored(relativePath);
+        String cleaned = normalizeDisplayName(displayName, row.getDisplayName());
+        row.setDisplayName(cleaned);
+        // Keep downloads aligned with the label the user sees.
+        row.setOriginalFilename(cleaned);
+        row = cacheRepository.save(row);
+        return toDetail(row);
+    }
+
+    private static String normalizeDisplayName(String requested, String currentDisplayName) {
+        String raw = requested == null ? "" : requested.trim();
+        if (raw.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "displayName is required");
+        }
+        // Prevent path traversal / folder injection in the label.
+        raw = raw.replace('\\', '/');
+        int slash = raw.lastIndexOf('/');
+        if (slash >= 0) {
+            raw = raw.substring(slash + 1).trim();
+        }
+        if (raw.isBlank() || raw.equals(".") || raw.equals("..") || raw.contains("..")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid display name");
+        }
+        if (raw.length() > 512) {
+            raw = raw.substring(0, 512);
+        }
+        // Preserve audio extension if the user omitted it.
+        String current = currentDisplayName == null ? "" : currentDisplayName.trim();
+        int curDot = current.lastIndexOf('.');
+        String curExt = curDot > 0 ? current.substring(curDot) : "";
+        int newDot = raw.lastIndexOf('.');
+        if (!curExt.isBlank() && (newDot < 0 || newDot == raw.length() - 1)) {
+            raw = raw + curExt;
+        }
+        if (!isAudioFilename(raw)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Name must keep an audio extension (.m4a, .mp3, .wav, …)");
+        }
+        return raw;
     }
 
     @Transactional
@@ -283,71 +329,15 @@ public class ManagementRecordingsService {
         return toDetail(row);
     }
 
-    @Transactional
-    public ManagementRecordingReprocessDto reprocessAll() {
-        if (!properties.configured()) {
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Recordings are disabled");
-        }
-        long owner = currentUser.requireUserId();
-        List<ManagementRecordingCache> rows =
-                cacheRepository.findByOwnerUserIdOrderByRecordedDayDescUpdatedAtDesc(owner);
-        int queued = 0;
-        for (ManagementRecordingCache row : rows) {
-            if (row.getStorageKey() == null || row.getStorageKey().isBlank()) {
-                continue;
-            }
-            row.setProcessingStatus("PENDING");
-            row.setProcessingError(null);
-            row.setProcessingStartedAt(null);
-            row.setProcessingCompletedAt(null);
-            cacheRepository.save(row);
-            queued++;
-        }
-        return new ManagementRecordingReprocessDto(queued);
-    }
-
     /**
-     * Durable single-file worker. Uploads and V91 leave rows PENDING, so work survives restarts.
-     * Serial processing avoids racing OpenAI limits and keeps large audio files from exhausting memory.
+     * Manually rebuild transcript + summary for one recording (no background queue).
+     * Long clips can take several minutes; this runs in the request thread.
      */
-    @Scheduled(initialDelay = 5_000, fixedDelay = 3_000)
-    public void processNextPendingRecording() {
-        if (!properties.configured() || !processing.compareAndSet(false, true)) {
-            return;
-        }
+    @Transactional
+    public ManagementRecordingDetailDto reprocess(String relativePath) {
+        ManagementRecordingCache row = requireStored(relativePath);
+        Path tmp = writeTempAudio(row);
         try {
-            recoverStaleProcessingRows();
-            cacheRepository
-                    .findFirstByProcessingStatusOrderByUpdatedAtAsc("PENDING")
-                    .ifPresent(this::processQueuedRecording);
-        } catch (Exception e) {
-            log.error("Recording background worker failed", e);
-        } finally {
-            processing.set(false);
-        }
-    }
-
-    private void recoverStaleProcessingRows() {
-        Instant cutoff = Instant.now().minusSeconds(30 * 60);
-        for (ManagementRecordingCache row :
-                cacheRepository.findByProcessingStatusAndProcessingStartedAtBefore("PROCESSING", cutoff)) {
-            row.setProcessingStatus("PENDING");
-            row.setProcessingError("Recovered after interrupted background processing");
-            row.setProcessingStartedAt(null);
-            cacheRepository.save(row);
-        }
-    }
-
-    private void processQueuedRecording(ManagementRecordingCache row) {
-        row.setProcessingStatus("PROCESSING");
-        row.setProcessingError(null);
-        row.setProcessingStartedAt(Instant.now());
-        row.setProcessingCompletedAt(null);
-        row = cacheRepository.saveAndFlush(row);
-
-        Path tmp = null;
-        try {
-            tmp = writeTempAudio(row);
             var result = openAi.transcribeAudio(tmp);
             row.setTranscript(result.text());
             row.setTranscriptSource(result.source());
@@ -357,22 +347,50 @@ public class ManagementRecordingsService {
             row.setSummarizedAt(Instant.now());
             row.setProcessingStatus("READY");
             row.setProcessingError(null);
+            row.setProcessingStartedAt(null);
             row.setProcessingCompletedAt(Instant.now());
-            cacheRepository.save(row);
-            log.info("Background transcript + summary ready for recording id={} path={}", row.getId(), row.getRelativePath());
+            row = cacheRepository.save(row);
+            return toDetail(row);
         } catch (Exception e) {
             row.setProcessingStatus("FAILED");
             row.setProcessingError(compactError(e));
             row.setProcessingCompletedAt(Instant.now());
             cacheRepository.save(row);
-            log.warn(
-                    "Background transcript + summary failed for recording id={} path={}: {}",
-                    row.getId(),
-                    row.getRelativePath(),
-                    e.toString());
+            if (e instanceof ResponseStatusException rse) {
+                throw rse;
+            }
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Reprocess failed: " + compactError(e));
         } finally {
             deleteQuietly(tmp);
         }
+    }
+
+    /** Clear any leftover PENDING/PROCESSING rows for this user (auto-queue is disabled). */
+    @Transactional
+    public ManagementRecordingReprocessDto cancelQueue() {
+        if (!properties.configured()) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Recordings are disabled");
+        }
+        long owner = currentUser.requireUserId();
+        List<ManagementRecordingCache> rows =
+                cacheRepository.findByOwnerUserIdOrderByRecordedDayDescUpdatedAtDesc(owner);
+        int cleared = 0;
+        for (ManagementRecordingCache row : rows) {
+            String status = row.getProcessingStatus();
+            if (!"PENDING".equals(status) && !"PROCESSING".equals(status)) {
+                continue;
+            }
+            boolean hasTranscript = row.getTranscript() != null && !row.getTranscript().isBlank();
+            row.setProcessingStatus(hasTranscript ? "READY" : "IDLE");
+            row.setProcessingError(null);
+            row.setProcessingStartedAt(null);
+            if (hasTranscript && row.getProcessingCompletedAt() == null) {
+                row.setProcessingCompletedAt(Instant.now());
+            }
+            cacheRepository.save(row);
+            cleared++;
+        }
+        return new ManagementRecordingReprocessDto(cleared);
     }
 
     private String generateSummary(ManagementRecordingCache row) {

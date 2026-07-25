@@ -185,7 +185,24 @@
             <span class="muted">Selected day</span>
             <h4>{{ selectedCalendarDate | date: 'EEEE, MMMM d, y' }}</h4>
           </div>
-          <span class="muted">{{ selectedCalendarEvents().length }} companies</span>
+          <div class="cr__selected-day-actions">
+            <span class="muted">{{ selectedCalendarEvents().length }} companies</span>
+            @let unwatchedCount = unwatchedSelectedDayEvents().length;
+            <button
+              mat-flat-button
+              color="primary"
+              type="button"
+              (click)="addAllFromSelectedDay()"
+              [disabled]="saving || unwatchedCount === 0"
+              matTooltip="Add every company on this day that is not already on Watch"
+            >
+              <mat-icon>playlist_add</mat-icon>
+              Add all to Watch
+              @if (unwatchedCount) {
+                ({{ unwatchedCount }})
+              }
+            </button>
+          </div>
         </div>
         @if (!selectedCalendarEvents().length) {
           <p class="muted cr__selected-empty">No matching earnings reports on this day.</p>

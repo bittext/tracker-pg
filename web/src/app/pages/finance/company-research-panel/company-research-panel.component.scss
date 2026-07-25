@@ -328,6 +328,14 @@
   }
 }
 
+.cr__selected-day-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55rem;
+}
+
 .cr__selected-empty {
   margin: 0;
 }

@@ -24,7 +24,6 @@ import {
   ManagementRecordingDetailDto,
   ManagementRecordingItemDto,
   ManagementRecordingListDto,
-  ManagementRecordingReprocessDto,
   ManagementWriteupAttachmentDto,
   ManagementWriteupDto,
   ManagementWriteupWriteBody,
@@ -449,11 +448,18 @@ export class ManagementApiService {
     return this.http.delete<void>(this.recordingsRoot, { params: { path } });
   }
 
-  reprocessAllRecordings() {
-    return this.http.post<ManagementRecordingReprocessDto>(
-      `${this.recordingsRoot}/reprocess-all`,
-      {},
-    );
+  /** Rename label in Tracker only — does not change the file in iCloud Drive. */
+  renameRecording(path: string, displayName: string) {
+    return this.http.put<ManagementRecordingDetailDto>(`${this.recordingsRoot}/rename`, {
+      path,
+      displayName,
+    });
+  }
+
+  reprocessRecording(path: string) {
+    return this.http.post<ManagementRecordingDetailDto>(`${this.recordingsRoot}/reprocess`, {
+      path,
+    });
   }
 
   transcribeRecording(path: string, force = false) {

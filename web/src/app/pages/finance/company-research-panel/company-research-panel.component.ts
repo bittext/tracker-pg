@@ -9,6 +9,8 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { concat, of } from 'rxjs';
+import { catchError, toArray } from 'rxjs/operators';
 import {
   CompanyEarningsCalendarDto,
   CompanyEarningsEventDto,
@@ -328,6 +330,63 @@ export class CompanyResearchPanelComponent implements OnInit {
         error: (err) => {
           this.saving = false;
           this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
+        },
+      });
+  }
+
+  /** Companies on the selected calendar day that are not already on Watch. */
+  unwatchedSelectedDayEvents(): CompanyEarningsEventDto[] {
+    return this.selectedCalendarEvents().filter((e) => !e.onWatchlist);
+  }
+
+  /** Add every unwatched company from the selected day into Your Watch. */
+  addAllFromSelectedDay(): void {
+    const toAdd = this.unwatchedSelectedDayEvents();
+    if (!toAdd.length) {
+      this.snackBar.open('All companies on this day are already on Watch', 'OK', { duration: 3000 });
+      return;
+    }
+    this.saving = true;
+    concat(
+      ...toAdd.map((event) =>
+        this.api
+          .companyResearchUpsert({
+            symbol: event.symbol,
+            companyName: event.companyName,
+            decisionStatus: 'WATCHING',
+          })
+          .pipe(
+            catchError((err) => {
+              this.snackBar.open(
+                `${event.symbol}: ${formatHttpErrorDetail(err)}`,
+                'Dismiss',
+                { duration: 6000 },
+              );
+              return of(null);
+            }),
+          ),
+      ),
+    )
+      .pipe(toArray())
+      .subscribe({
+        next: (results) => {
+          this.saving = false;
+          const added = results.filter((r) => r != null).length;
+          const failed = toAdd.length - added;
+          const msg =
+            failed > 0
+              ? `Added ${added} of ${toAdd.length} to Watch (${failed} failed)`
+              : `Added ${added} compan${added === 1 ? 'y' : 'ies'} to Watch`;
+          this.snackBar.open(msg, 'OK', { duration: 4000 });
+          const last = [...results].reverse().find((r) => r != null);
+          this.loadList(last?.symbol ?? null);
+          this.loadCalendar();
+        },
+        error: (err) => {
+          this.saving = false;
+          this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
+          this.loadList();
+          this.loadCalendar();
         },
       });
   }

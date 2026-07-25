@@ -218,6 +218,31 @@
   width: 100%;
 }
 
+.rec-rename {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  align-items: flex-start;
+  margin: 0 0 0.85rem;
+}
+
+.rec-rename__field {
+  flex: 1 1 14rem;
+  min-width: 12rem;
+}
+
+.rec-rename__hint {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.rec-rename mat-spinner {
+  display: inline-block;
+  margin-right: 0.35rem;
+}
+
 .rec-actions {
   display: flex;
   flex-wrap: wrap;

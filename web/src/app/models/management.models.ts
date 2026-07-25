@@ -331,7 +331,7 @@ export interface ManagementRecordingItemDto {
   fileSizeBytes: number;
   hasTranscript: boolean;
   hasSummary: boolean;
-  processingStatus: 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED' | null;
+  processingStatus: 'IDLE' | 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED' | null;
   processingError: string | null;
 }
 
@@ -354,7 +354,7 @@ export interface ManagementRecordingDetailDto {
   summary: string | null;
   summarizedAt: string | null;
   segments: ManagementRecordingTranscriptSegmentDto[] | null;
-  processingStatus: 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED' | null;
+  processingStatus: 'IDLE' | 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED' | null;
   processingError: string | null;
 }
 
@@ -366,5 +366,5 @@ export interface ManagementRecordingTranscriptSegmentDto {
 }
 
 export interface ManagementRecordingReprocessDto {
-  queuedCount: number;
+  clearedCount: number;
 }
