@@ -19,9 +19,15 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -141,7 +147,250 @@ public class StockNewsService {
     private static final String FEED_NAME = "Google News RSS";
     private static final String FEED_URL = "https://news.google.com/rss/search";
 
+    /**
+     * Aggregated multi-feed reads are capped separately from {@code newsMaxItems}, which governs the single-feed
+     * endpoint. Merging six feeds needs more headroom before dedupe trims the overlap.
+     */
+    private static final int AGGREGATE_MAX_ITEMS = 60;
+
+    private static final int AGGREGATE_DEFAULT_ITEMS = 24;
+
+    /** Words ignored when matching a company name against a headline. */
+    private static final Set<String> COMPANY_NAME_STOPWORDS =
+            Set.of(
+                    "inc",
+                    "inc.",
+                    "corp",
+                    "corp.",
+                    "corporation",
+                    "company",
+                    "co",
+                    "co.",
+                    "ltd",
+                    "ltd.",
+                    "limited",
+                    "plc",
+                    "holdings",
+                    "holding",
+                    "group",
+                    "the",
+                    "and",
+                    "class",
+                    "common",
+                    "stock",
+                    "shares");
+
     private final FinanceProperties props;
+
+    /** One RSS endpoint in the aggregated fan-out. */
+    private record NewsFeedSource(String label, String url, boolean symbolScoped) {}
+
+    /**
+     * Fans out across mainstream wires, exchange feeds, and contributor/blog sources, then merges by recency. Unlike
+     * {@link #fetchLatestNews}, results are not restricted to the trusted-outlet allowlist, so independent and personal
+     * sites surface too; relevance is enforced instead by requiring the ticker or company name in broad search results.
+     */
+    public StockNewsDto fetchAggregatedNews(String symbolRaw, String companyNameRaw, Integer limitRaw) {
+        if (!props.newsEnabled()) {
+            throw new IllegalStateException("Stock news endpoint is disabled (tracker.finance.news-enabled=false)");
+        }
+        String symbol = sanitizeSymbol(symbolRaw);
+        String companyName = sanitizeCompanyName(companyNameRaw);
+        if (symbol == null && companyName == null) {
+            throw new IllegalArgumentException("Provide symbol or companyName");
+        }
+        int limit = sanitizeAggregateLimit(limitRaw);
+        List<NewsFeedSource> feeds = aggregateFeeds(symbol, companyName);
+
+        List<StockNewsItemDto> merged = new ArrayList<>();
+        List<String> contributing = new ArrayList<>();
+        ExecutorService pool = Executors.newFixedThreadPool(Math.min(feeds.size(), 6));
+        try {
+            Map<NewsFeedSource, Future<List<StockNewsItemDto>>> futures = new LinkedHashMap<>();
+            for (NewsFeedSource feed : feeds) {
+                futures.put(feed, pool.submit(() -> fetchFeedItems(feed, symbol, companyName)));
+            }
+            for (Map.Entry<NewsFeedSource, Future<List<StockNewsItemDto>>> entry : futures.entrySet()) {
+                List<StockNewsItemDto> items = awaitFeed(entry.getKey(), entry.getValue());
+                if (!items.isEmpty()) {
+                    contributing.add(entry.getKey().label());
+                    merged.addAll(items);
+                }
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+
+        List<StockNewsItemDto> items = dedupeAndSort(merged, limit);
+        StockNewsAnalysisDto analysis = analyze(items);
+        String feedLabel = contributing.isEmpty() ? "Aggregated RSS" : "Aggregated: " + String.join(", ", contributing);
+        return new StockNewsDto(
+                symbol,
+                companyName,
+                limit,
+                items.size(),
+                feedLabel,
+                Instant.now().toString(),
+                "Merged headlines from wires, exchange feeds, and independent/contributor sites, deduplicated and"
+                        + " sorted newest first, plus heuristic sentiment and stress signals.",
+                analysis,
+                items);
+    }
+
+    private List<StockNewsItemDto> fetchFeedItems(NewsFeedSource feed, String symbol, String companyName) {
+        try {
+            List<StockNewsItemDto> parsed = parseAndFilter(fetchFeedUrl(feed.url()), AGGREGATE_MAX_ITEMS, false);
+            if (feed.symbolScoped()) {
+                return parsed;
+            }
+            List<StockNewsItemDto> relevant = new ArrayList<>();
+            for (StockNewsItemDto item : parsed) {
+                if (mentionsCompany(item, symbol, companyName)) {
+                    relevant.add(item);
+                }
+            }
+            return relevant;
+        } catch (Exception e) {
+            log.debug("News feed {} unavailable: {}", feed.label(), e.toString());
+            return List.of();
+        }
+    }
+
+    private List<StockNewsItemDto> awaitFeed(NewsFeedSource feed, Future<List<StockNewsItemDto>> future) {
+        try {
+            return future.get(props.newsTimeoutMs() + 2_000L, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return List.of();
+        } catch (Exception e) {
+            log.debug("News feed {} timed out: {}", feed.label(), e.toString());
+            return List.of();
+        }
+    }
+
+    private List<NewsFeedSource> aggregateFeeds(String symbol, String companyName) {
+        List<NewsFeedSource> feeds = new ArrayList<>();
+        feeds.add(new NewsFeedSource("Google News", googleNewsUrl(newsQuery(symbol, companyName)), false));
+        feeds.add(new NewsFeedSource("Independent & blogs", googleNewsUrl(commentaryQuery(symbol, companyName)), false));
+        feeds.add(new NewsFeedSource("Bing News", bingNewsUrl(newsQuery(symbol, companyName)), false));
+        if (symbol != null) {
+            String sym = encode(symbol.toUpperCase(Locale.ROOT));
+            feeds.add(new NewsFeedSource(
+                    "Yahoo Finance",
+                    "https://feeds.finance.yahoo.com/rss/2.0/headline?s=" + sym + "&region=US&lang=en-US",
+                    true));
+            feeds.add(new NewsFeedSource("Nasdaq", "https://www.nasdaq.com/feed/rssoutbound?symbol=" + sym, true));
+            feeds.add(new NewsFeedSource("Seeking Alpha", "https://seekingalpha.com/api/sa/combined/" + sym + ".xml", true));
+        }
+        return feeds;
+    }
+
+    /** Broad query aimed at analysis pieces, newsletters, and independent commentary rather than wire copy. */
+    private static String commentaryQuery(String symbol, String companyName) {
+        StringBuilder q = new StringBuilder();
+        if (symbol != null) {
+            q.append(symbol).append(' ');
+        }
+        if (companyName != null) {
+            q.append('"').append(companyName).append('"').append(' ');
+        }
+        q.append("(analysis OR opinion OR thesis OR outlook OR valuation OR blog) when:14d");
+        return q.toString().trim();
+    }
+
+    private static boolean mentionsCompany(StockNewsItemDto item, String symbol, String companyName) {
+        String text = ((item.title() == null ? "" : item.title()) + " " + (item.summary() == null ? "" : item.summary()))
+                .toLowerCase(Locale.ROOT);
+        if (text.isBlank()) {
+            return false;
+        }
+        if (symbol != null && containsWord(text, symbol.toLowerCase(Locale.ROOT))) {
+            return true;
+        }
+        if (companyName == null) {
+            return false;
+        }
+        for (String token : companyName.toLowerCase(Locale.ROOT).split("[^a-z0-9]+")) {
+            if (token.length() < 3 || COMPANY_NAME_STOPWORDS.contains(token)) {
+                continue;
+            }
+            if (containsWord(text, token)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean containsWord(String haystack, String needle) {
+        if (needle.isBlank()) {
+            return false;
+        }
+        int from = 0;
+        while (true) {
+            int at = haystack.indexOf(needle, from);
+            if (at < 0) {
+                return false;
+            }
+            boolean leftOk = at == 0 || !Character.isLetterOrDigit(haystack.charAt(at - 1));
+            int end = at + needle.length();
+            boolean rightOk = end >= haystack.length() || !Character.isLetterOrDigit(haystack.charAt(end));
+            if (leftOk && rightOk) {
+                return true;
+            }
+            from = at + 1;
+        }
+    }
+
+    private static List<StockNewsItemDto> dedupeAndSort(List<StockNewsItemDto> items, int limit) {
+        Set<String> seen = new HashSet<>();
+        List<StockNewsItemDto> out = new ArrayList<>();
+        for (StockNewsItemDto item : items) {
+            if (!seen.add(dedupeKey(item))) {
+                continue;
+            }
+            out.add(item);
+        }
+        out.sort(Comparator.comparing(StockNewsItemDto::publishedAt, Comparator.nullsLast(String::compareTo)).reversed());
+        if (out.size() > limit) {
+            return new ArrayList<>(out.subList(0, limit));
+        }
+        return out;
+    }
+
+    /** Same story syndicated across feeds arrives with different URLs, so match on the normalized headline. */
+    private static String dedupeKey(StockNewsItemDto item) {
+        String title = item.title() == null ? "" : item.title();
+        String normalized = title.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", " ").trim();
+        if (normalized.length() > 90) {
+            normalized = normalized.substring(0, 90);
+        }
+        if (!normalized.isBlank()) {
+            return normalized;
+        }
+        return item.url() == null ? "" : item.url().toLowerCase(Locale.ROOT);
+    }
+
+    private int sanitizeAggregateLimit(Integer raw) {
+        if (raw == null) {
+            return AGGREGATE_DEFAULT_ITEMS;
+        }
+        if (raw < 1) {
+            return 1;
+        }
+        return Math.min(raw, AGGREGATE_MAX_ITEMS);
+    }
+
+    private static String googleNewsUrl(String query) {
+        return FEED_URL + "?hl=en-US&gl=US&ceid=US:en&q=" + encode(query);
+    }
+
+    private static String bingNewsUrl(String query) {
+        return "https://www.bing.com/news/search?format=RSS&q=" + encode(query);
+    }
+
+    private static String encode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    }
 
     public StockNewsDto fetchLatestNews(String symbolRaw, String companyNameRaw, Integer limitRaw) {
         if (!props.newsEnabled()) {
@@ -367,9 +616,12 @@ public class StockNewsService {
     }
 
     private String fetchFeed(String query) {
+        return fetchFeedUrl(googleNewsUrl(query));
+    }
+
+    private String fetchFeedUrl(String url) {
         try {
-            String encoded = URLEncoder.encode(query, StandardCharsets.UTF_8);
-            URI uri = URI.create(FEED_URL + "?hl=en-US&gl=US&ceid=US:en&q=" + encoded);
+            URI uri = URI.create(url);
             HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofMillis(props.newsTimeoutMs())).build();
             HttpRequest request =
                     HttpRequest.newBuilder(uri)

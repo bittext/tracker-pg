@@ -44,7 +44,7 @@ public class CompanyResearchService {
     private static final ZoneId EASTERN = ZoneId.of("America/New_York");
     private static final Set<String> STATUSES =
             Set.of("WATCHING", "CONSIDERING", "BOUGHT", "PASSED", "REVISIT");
-    private static final int NEWS_LIMIT = 8;
+    private static final int NEWS_LIMIT = 30;
 
     private final CurrentUserService currentUser;
     private final FinanceCompanyResearchRepository researchRepository;
@@ -191,7 +191,7 @@ public class CompanyResearchService {
         StockNewsDto news = null;
         if (includeNews) {
             try {
-                news = stockNewsService.fetchLatestNews(row.getSymbol(), row.getCompanyName(), NEWS_LIMIT);
+                news = stockNewsService.fetchAggregatedNews(row.getSymbol(), row.getCompanyName(), NEWS_LIMIT);
             } catch (Exception e) {
                 log.warn("News load failed for {}: {}", row.getSymbol(), e.toString());
             }

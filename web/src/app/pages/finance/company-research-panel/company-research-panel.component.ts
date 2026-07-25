@@ -473,9 +473,52 @@ export class CompanyResearchPanelComponent implements OnInit {
   nearEarningsCards(): CompanyResearchCardDto[] {
     const today = this.todayIso();
     const end = this.addDaysIso(today, this.earningsWindowDays || 14);
-    return this.cards.filter(
-      (c) => c.nextEarningsDate && c.nextEarningsDate >= today && c.nextEarningsDate <= end,
-    );
+    return this.cards
+      .filter((c) => c.nextEarningsDate && c.nextEarningsDate >= today && c.nextEarningsDate <= end)
+      .sort((a, b) => {
+        const byDate = (a.nextEarningsDate ?? '').localeCompare(b.nextEarningsDate ?? '');
+        return byDate !== 0 ? byDate : a.symbol.localeCompare(b.symbol);
+      });
+  }
+
+  isOpenPosition(card: CompanyResearchCardDto): boolean {
+    return (card.decisionStatus ?? '').toUpperCase() === 'BOUGHT';
+  }
+
+  externalLinks(symbol: string): { label: string; url: string; icon: string; hint: string }[] {
+    const s = encodeURIComponent((symbol ?? '').trim().toUpperCase());
+    return [
+      {
+        label: 'Yahoo chart',
+        url: `https://finance.yahoo.com/chart/${s}`,
+        icon: 'show_chart',
+        hint: 'Interactive price chart on Yahoo Finance',
+      },
+      {
+        label: 'Yahoo quote',
+        url: `https://finance.yahoo.com/quote/${s}`,
+        icon: 'assessment',
+        hint: 'Quote, financials, and profile on Yahoo Finance',
+      },
+      {
+        label: 'Finviz',
+        url: `https://finviz.com/quote.ashx?t=${s}`,
+        icon: 'insights',
+        hint: 'Technical chart and peer comparison on Finviz',
+      },
+      {
+        label: 'Sector heatmap',
+        url: 'https://finviz.com/map.ashx?t=sec',
+        icon: 'grid_view',
+        hint: 'Market heatmap — every sector shaded by relative performance',
+      },
+      {
+        label: 'Sector ranking',
+        url: 'https://finviz.com/groups.ashx?g=sector&v=210&o=-perfytd',
+        icon: 'leaderboard',
+        hint: 'Sectors ranked against each other by performance',
+      },
+    ];
   }
 
   statusLabel(status: string | null | undefined): string {

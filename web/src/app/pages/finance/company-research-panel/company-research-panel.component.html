@@ -221,7 +221,13 @@
         <p class="cr__near muted">
           Near earnings ({{ earningsWindowDays }}d):
           @for (c of nearEarningsCards(); track c.symbol) {
-            <button type="button" class="cr__near-chip" (click)="openDetail(c.symbol)">
+            <button
+              type="button"
+              class="cr__near-chip"
+              [class.cr__near-chip--held]="isOpenPosition(c)"
+              [matTooltip]="isOpenPosition(c) ? 'Open position' : ''"
+              (click)="openDetail(c.symbol)"
+            >
               {{ c.symbol }}
               <span>{{ c.nextEarningsDate | date: 'MMM d' }}</span>
             </button>
@@ -282,6 +288,21 @@
           <button mat-stroked-button type="button" color="warn" (click)="removeFromWatch()" [disabled]="saving">
             Remove
           </button>
+        </div>
+
+        <div class="cr__links">
+          @for (link of externalLinks(detail.card.symbol); track link.url) {
+            <a
+              class="cr__link-chip"
+              [href]="link.url"
+              target="_blank"
+              rel="noopener noreferrer"
+              [matTooltip]="link.hint"
+            >
+              <mat-icon aria-hidden="true">{{ link.icon }}</mat-icon>
+              {{ link.label }}
+            </a>
+          }
         </div>
 
         @if (detail.quote; as q) {
@@ -357,7 +378,12 @@
 
         @if (detail.news?.items?.length) {
           <div class="cr__block">
-            <h4 class="cr__block-title">News</h4>
+            <div class="cr__news-head">
+              <h4 class="cr__block-title">News</h4>
+              <span class="muted cr__news-count">
+                {{ detail.news!.items.length }} stories · {{ detail.news!.feed }}
+              </span>
+            </div>
             @if (detail.news!.analysis; as a) {
               <p class="muted cr__news-analysis">
                 Sentiment {{ a.overallSentiment }} · Growth {{ a.projectedGrowthLabel }}
@@ -369,6 +395,9 @@
                 <li>
                   <a [href]="item.url" target="_blank" rel="noopener noreferrer">{{ item.title }}</a>
                   <span class="muted">{{ item.source }} · {{ item.publishedAt | date: 'short' }}</span>
+                  @if (item.summary) {
+                    <span class="muted cr__news-summary">{{ item.summary }}</span>
+                  }
                 </li>
               }
             </ul>
