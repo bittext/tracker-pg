@@ -61,6 +61,7 @@ import {
   WriteupAttachmentPreviewDialogComponent,
   WriteupAttachmentPreviewData,
 } from './writeup-attachment-preview-dialog.component';
+import { WriteupMarkdownBodyComponent } from './writeup-markdown-body.component';
 
 interface CalendarCell {
   type: 'pad' | 'day';
@@ -119,6 +120,7 @@ interface AccountEntry {
     ManagementDocumentsPanelComponent,
     ManagementRecordingsPanelComponent,
     ManagementNowPanelComponent,
+    WriteupMarkdownBodyComponent,
   ],
   templateUrl: './management.component.html',
   styleUrl: './management.component.scss',
@@ -1536,6 +1538,46 @@ export class ManagementComponent implements OnInit {
         },
       },
     );
+  }
+
+  isWriteupImageAttachment(a: ManagementWriteupAttachmentDto): boolean {
+    const ct = (a.contentType || '').toLowerCase();
+    if (ct.startsWith('image/')) {
+      return true;
+    }
+    return /\.(jpe?g|png|gif|webp|bmp|svg|heic|heif)$/i.test(a.originalFilename || '');
+  }
+
+  /**
+   * Insert a stable markdown image tag that references the uploaded attachment.
+   * Do not paste blob: URLs — they expire when the tab reloads.
+   */
+  insertWriteupImageIntoBody(a: ManagementWriteupAttachmentDto): void {
+    if (!this.isWriteupImageAttachment(a)) {
+      this.snackBar.open('Only image attachments can be inserted into the body', undefined, {
+        duration: 3000,
+      });
+      return;
+    }
+    if (this.writeupViewMode !== 'compose') {
+      this.startEditWriteup();
+    }
+    const name = (a.originalFilename || 'image').replace(/[\[\]]/g, '');
+    const tag = `![${name}](/api/management/writeups/attachments/${a.id}/file)`;
+    const body = this.writeupDraft.body ?? '';
+    const needle = `/api/management/writeups/attachments/${a.id}/file`;
+    if (body.includes(needle)) {
+      this.snackBar.open('That image is already in the body', undefined, { duration: 2500 });
+      return;
+    }
+    const sep = !body.trim() ? '' : body.endsWith('\n') ? '\n' : '\n\n';
+    this.writeupDraft = {
+      ...this.writeupDraft,
+      body: `${body}${sep}${tag}\n`,
+    };
+    this.snackBar.open('Image inserted into markdown body — Save the write-up', undefined, {
+      duration: 3500,
+    });
   }
 
   removeWriteupAttachment(attachmentId: number, ev: Event): void {

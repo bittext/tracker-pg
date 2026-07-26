@@ -1300,10 +1300,7 @@
                               <div class="wu-highlight-banner-inner">{{ writeupDraft.highlight }}</div>
                             </div>
                           }
-                          <div
-                            class="markdown-body wu-read-body"
-                            [innerHTML]="writeupDraft.body | safeMarkdown"
-                          ></div>
+                          <app-writeup-markdown-body [body]="writeupDraft.body" />
                         } @else {
                           <p class="muted wu-preview-empty">Start typing to see the preview.</p>
                         }
@@ -1324,7 +1321,10 @@
 
                   @if (writeupEditingId != null) {
                     <div class="wu-read-attach">
-                      <p class="muted wu-attach-hint">Add supporting documents after saving. Click a file to preview it.</p>
+                      <p class="muted wu-attach-hint">
+                        Upload images, then click <strong>Insert</strong> to place them in the markdown body (do not paste
+                        blob: links — they expire). Click the filename to preview.
+                      </p>
                       <label class="wu-file-label">
                         <input
                           type="file"
@@ -1342,6 +1342,17 @@
                                 {{ a.originalFilename }}
                               </button>
                               <span class="muted">({{ (a.sizeBytes / 1024) | number: '1.0-0' }} KB)</span>
+                              @if (isWriteupImageAttachment(a)) {
+                                <button
+                                  mat-stroked-button
+                                  type="button"
+                                  class="wu-att-insert"
+                                  (click)="insertWriteupImageIntoBody(a)"
+                                >
+                                  <mat-icon>image</mat-icon>
+                                  Insert
+                                </button>
+                              }
                               <button
                                 mat-icon-button
                                 type="button"
@@ -1380,7 +1391,7 @@
                   @if (!(w.body || '').trim()) {
                     <div class="wu-read-body wu-read-body--empty muted">—</div>
                   } @else {
-                    <div class="markdown-body wu-read-body" [innerHTML]="w.body | safeMarkdown"></div>
+                    <app-writeup-markdown-body [body]="w.body" />
                   }
                   <div class="wu-read-attach">
                     <label class="wu-file-label">
@@ -1399,7 +1410,19 @@
                             <button type="button" class="wu-att-link" (click)="openWriteupAttachment(a)">
                               {{ a.originalFilename }}
                             </button>
-                            <span class="muted"> · preview</span>
+                            @if (isWriteupImageAttachment(a)) {
+                              <button
+                                mat-stroked-button
+                                type="button"
+                                class="wu-att-insert"
+                                (click)="insertWriteupImageIntoBody(a)"
+                              >
+                                <mat-icon>image</mat-icon>
+                                Insert into body
+                              </button>
+                            } @else {
+                              <span class="muted"> · preview</span>
+                            }
                           </li>
                         }
                       </ul>

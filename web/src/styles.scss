@@ -894,6 +894,24 @@ app-management .wu-read-body {
   font-size: 0.95rem;
   line-height: 1.55;
 }
+app-management .wu-read-body img,
+app-management app-writeup-markdown-body .markdown-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 0.75rem 0;
+  display: block;
+}
+app-management .wu-att-insert {
+  margin-left: 0.25rem;
+}
+app-management .wu-att-insert mat-icon {
+  font-size: 1.05rem;
+  width: 1.05rem;
+  height: 1.05rem;
+  margin-right: 0.15rem;
+  vertical-align: middle;
+}
 
 app-management .wu-read-body--empty {
   margin: 0;
