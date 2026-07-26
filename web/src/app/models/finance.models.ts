@@ -2055,3 +2055,40 @@ export interface TradingJournalAiDraftDto {
   draftMarkdown: string;
   generated: boolean;
 }
+
+/** Finviz Elite CSV export table (Markets → Finviz Elite). */
+export interface FinvizEliteStatusDto {
+  enabled: boolean;
+  configured: boolean;
+  universeEnabled: boolean;
+  note: string;
+}
+
+export interface FinvizElitePresetDto {
+  id: string;
+  label: string;
+  category: string;
+  description: string;
+  signal: string | null;
+  filters: string | null;
+  view: string | null;
+}
+
+export interface FinvizEliteTableDto {
+  sourceLabel: string;
+  columns: string[];
+  rows: Record<string, string>[];
+  fetchedAt: string;
+  fromCache: boolean;
+  note: string | null;
+}
+
+export interface FinvizEliteWatchRequestDto {
+  symbols: string[];
+  thesisTag?: string | null;
+}
+
+export interface FinvizEliteWatchResultDto {
+  addedOrUpdated: number;
+  symbols: string[];
+}

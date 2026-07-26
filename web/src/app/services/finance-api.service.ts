@@ -93,6 +93,11 @@ import {
   TradingJournalRefDto,
   TradingJournalRefRequestDto,
   TradingJournalUpdateRequestDto,
+  FinvizEliteStatusDto,
+  FinvizElitePresetDto,
+  FinvizEliteTableDto,
+  FinvizEliteWatchRequestDto,
+  FinvizEliteWatchResultDto,
 } from '../models/finance.models';
 
 export type FinancePeriod = 'all' | 'year' | 'month';
@@ -435,6 +440,95 @@ export class FinanceApiService {
       params = params.set('limit', String(Math.floor(limit)));
     }
     return this.http.get<BreakoutCandidatesDto>(`${this.root}/breakout-candidates`, { params });
+  }
+
+  private readonly finvizRoot = `${environment.apiBaseUrl}/api/markets/finviz`;
+
+  finvizStatus() {
+    return this.http.get<FinvizEliteStatusDto>(`${this.finvizRoot}/status`);
+  }
+
+  finvizPresets() {
+    return this.http.get<FinvizElitePresetDto[]>(`${this.finvizRoot}/presets`);
+  }
+
+  finvizScreener(opts: { preset?: string; url?: string; limit?: number; force?: boolean }) {
+    let params = new HttpParams();
+    if (opts.preset) {
+      params = params.set('preset', opts.preset);
+    }
+    if (opts.url) {
+      params = params.set('url', opts.url);
+    }
+    if (opts.limit != null && Number.isFinite(opts.limit) && opts.limit > 0) {
+      params = params.set('limit', String(Math.floor(opts.limit)));
+    }
+    if (opts.force) {
+      params = params.set('force', 'true');
+    }
+    return this.http.get<FinvizEliteTableDto>(`${this.finvizRoot}/screener`, { params });
+  }
+
+  finvizSignal(name: string, limit?: number, force?: boolean) {
+    let params = new HttpParams();
+    if (limit != null && Number.isFinite(limit) && limit > 0) {
+      params = params.set('limit', String(Math.floor(limit)));
+    }
+    if (force) {
+      params = params.set('force', 'true');
+    }
+    return this.http.get<FinvizEliteTableDto>(
+      `${this.finvizRoot}/signals/${encodeURIComponent(name)}`,
+      { params },
+    );
+  }
+
+  finvizGroups(groupBy: 'sector' | 'industry' = 'sector', limit?: number, force?: boolean) {
+    let params = new HttpParams().set('groupBy', groupBy);
+    if (limit != null && Number.isFinite(limit) && limit > 0) {
+      params = params.set('limit', String(Math.floor(limit)));
+    }
+    if (force) {
+      params = params.set('force', 'true');
+    }
+    return this.http.get<FinvizEliteTableDto>(`${this.finvizRoot}/groups`, { params });
+  }
+
+  finvizNews(limit?: number, force?: boolean) {
+    let params = new HttpParams();
+    if (limit != null && Number.isFinite(limit) && limit > 0) {
+      params = params.set('limit', String(Math.floor(limit)));
+    }
+    if (force) {
+      params = params.set('force', 'true');
+    }
+    return this.http.get<FinvizEliteTableDto>(`${this.finvizRoot}/news`, { params });
+  }
+
+  finvizOptions(symbol: string, limit?: number, force?: boolean) {
+    let params = new HttpParams().set('t', symbol.trim().toUpperCase());
+    if (limit != null && Number.isFinite(limit) && limit > 0) {
+      params = params.set('limit', String(Math.floor(limit)));
+    }
+    if (force) {
+      params = params.set('force', 'true');
+    }
+    return this.http.get<FinvizEliteTableDto>(`${this.finvizRoot}/options`, { params });
+  }
+
+  finvizPortfolio(limit?: number, force?: boolean) {
+    let params = new HttpParams();
+    if (limit != null && Number.isFinite(limit) && limit > 0) {
+      params = params.set('limit', String(Math.floor(limit)));
+    }
+    if (force) {
+      params = params.set('force', 'true');
+    }
+    return this.http.get<FinvizEliteTableDto>(`${this.finvizRoot}/portfolio`, { params });
+  }
+
+  finvizWatch(body: FinvizEliteWatchRequestDto) {
+    return this.http.post<FinvizEliteWatchResultDto>(`${this.finvizRoot}/watch`, body);
   }
 
   /** Markets Workspace → Backtest: options wheel simulation on Yahoo underlying history. */

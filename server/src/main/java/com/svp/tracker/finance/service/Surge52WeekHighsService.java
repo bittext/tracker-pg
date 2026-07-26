@@ -59,6 +59,7 @@ public class Surge52WeekHighsService {
     private static final double AT_52W_PRICE_MIN_PCT = 99.5;
 
     private final FinanceProperties props;
+    private final FinvizEliteService finvizEliteService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public Surge52WeekHighsDto fetchSurgeNear52WeekHighs(Integer limitRaw) {
@@ -490,6 +491,15 @@ public class Surge52WeekHighsService {
 
         Map<String, JsonNode> quoteBySymbol = mergeQuotesOrdered(roots);
         List<String> symbols = unionSymbolsFair(maxIterationsPerScreener, maxSymbolUnion, roots);
+        List<String> finvizUniverse = finvizEliteService.universeTickers("midcap", Math.min(120, maxSymbolUnion));
+        if (!finvizUniverse.isEmpty()) {
+            LinkedHashSet<String> merged = new LinkedHashSet<>(finvizUniverse);
+            merged.addAll(symbols);
+            symbols = new ArrayList<>(merged);
+            if (symbols.size() > maxSymbolUnion) {
+                symbols = new ArrayList<>(symbols.subList(0, maxSymbolUnion));
+            }
+        }
 
         List<Surge52WeekRowDto> enriched = enrichWithPersistence(symbols, quoteBySymbol);
 
@@ -514,13 +524,17 @@ public class Surge52WeekHighsService {
 
         String note =
                 "Merged Yahoo screeners (day_gainers, most_actives, undervalued_growth_stocks, small_cap_gainers, "
-                        + "aggressive_small_caps, most_shorted_stocks — optional lists skipped if unavailable), enriched "
+                        + "aggressive_small_caps, most_shorted_stocks — optional lists skipped if unavailable)"
+                        + (finvizUniverse.isEmpty() ? "" : ", seeded with Finviz Elite mid-cap+ USA tickers")
+                        + ", enriched "
                         + "with ~1y adjusted closes, then kept rows where the quote exchange looks NASDAQ and "
                         + "market cap is about USD $2B–$10B (mid-cap). Caps and exchange strings come from Yahoo; "
                         + "some symbols lack fields and are omitted. Heuristic, not investment advice.";
 
         return new Surge52WeekHighsDto(
-                "NASDAQ mid-cap (Yahoo quote filters)",
+                finvizUniverse.isEmpty()
+                        ? "NASDAQ mid-cap (Yahoo quote filters)"
+                        : "NASDAQ mid-cap (Finviz seed + Yahoo filters)",
                 Instant.now().toString(),
                 midNasdaq.size(),
                 note,

@@ -38,6 +38,7 @@ import { TradingScreenersPanelComponent } from './trading-screeners-panel/tradin
 import { OptionsBacktestPanelComponent } from './options-backtest-panel/options-backtest-panel.component';
 import { InvestmentThenNowPanelComponent } from './investment-then-now-panel/investment-then-now-panel.component';
 import { CompanyResearchPanelComponent } from './company-research-panel/company-research-panel.component';
+import { FinvizElitePanelComponent } from './finviz-elite-panel/finviz-elite-panel.component';
 import { LoansPanelComponent } from './loans-panel/loans-panel.component';
 import { InvestmentsPanelComponent } from './investments-panel/investments-panel.component';
 import { MoneyPanelComponent } from './money-panel/money-panel.component';
@@ -52,6 +53,7 @@ type TradingTabId =
   | 'news'
   | 'crawler'
   | 'screeners'
+  | 'finviz'
   | 'predicts'
   | 'backtest'
   | 'then-now'
@@ -94,6 +96,7 @@ type FinanceCategory =
     OptionsBacktestPanelComponent,
     InvestmentThenNowPanelComponent,
     CompanyResearchPanelComponent,
+    FinvizElitePanelComponent,
     LoansPanelComponent,
     InvestmentsPanelComponent,
     MoneyPanelComponent,
@@ -142,6 +145,8 @@ export class FinanceComponent implements OnInit {
   /** Index within the visible trading tabs for the current section. */
   financeSubTabIndex = 0;
   activeTradingTabId: TradingTabId = 'robinhood';
+  /** Prefill Finviz Elite options symbol from `?t=` / `?symbol=`. */
+  finvizInitialSymbol = '';
 
   stockSymbols: string[] = [];
   stockSymbolsLoading = false;
@@ -223,9 +228,27 @@ export class FinanceComponent implements OnInit {
     }
     this.financeSubTabIndex = 0;
     this.activeTradingTabId = this.visibleTradingTabs[0] ?? 'robinhood';
+    this.applyFinvizQueryParams();
     this.ensureStockSymbolsLoaded(undefined, true);
     if (this.isTradingWorkspace) {
-      this.onFinanceSubTabIndexChange(0);
+      this.onFinanceSubTabIndexChange(this.financeSubTabIndex);
+    }
+  }
+
+  /** Deep-link: `/markets/research?tab=finviz&t=AAPL` opens Finviz Elite with options symbol. */
+  private applyFinvizQueryParams(): void {
+    const qp = this.route.snapshot.queryParamMap;
+    const tab = (qp.get('tab') || '').trim().toLowerCase();
+    const symbol = (qp.get('t') || qp.get('symbol') || '').trim().toUpperCase();
+    if (symbol) {
+      this.finvizInitialSymbol = symbol;
+    }
+    if (tab === 'finviz' && this.showTradingTab('finviz')) {
+      const idx = this.visibleTradingTabs.indexOf('finviz');
+      if (idx >= 0) {
+        this.financeSubTabIndex = idx;
+        this.activeTradingTabId = 'finviz';
+      }
     }
   }
 
@@ -242,7 +265,7 @@ export class FinanceComponent implements OnInit {
       case 'trade':
         return ['robinhood'];
       case 'research':
-        return ['watch', 'news', 'crawler', 'screeners', 'predicts', 'backtest', 'then-now'];
+        return ['watch', 'news', 'crawler', 'screeners', 'finviz', 'predicts', 'backtest', 'then-now'];
       case 'history':
         return ['transactions', 'by-symbol', 'summary'];
       case 'alerts':
@@ -254,6 +277,7 @@ export class FinanceComponent implements OnInit {
           'news',
           'crawler',
           'screeners',
+          'finviz',
           'predicts',
           'backtest',
           'then-now',

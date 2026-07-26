@@ -1,0 +1,120 @@
+.intro {
+  margin-bottom: 0.75rem;
+}
+
+.finance-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.finance-meta {
+  margin: 0.35rem 0 0.75rem;
+}
+
+.stocks-news-note {
+  margin: 0 0 0.75rem;
+}
+
+.screener-section {
+  margin-bottom: 1.75rem;
+  padding-bottom: 1.1rem;
+  border-bottom: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+
+  &:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+  }
+}
+
+.section-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.section-note {
+  margin: 0 0 0.75rem;
+}
+
+.fv-banner {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.25rem;
+  border-radius: var(--app-radius-sm, 10px);
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+
+  mat-icon {
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+  }
+}
+
+.fv-banner--warn {
+  background: color-mix(in srgb, var(--mat-sys-error, #b3261e) 8%, transparent);
+}
+
+.fv-banner--ok {
+  background: color-mix(in srgb, var(--mat-sys-primary, #1a73e8) 8%, transparent);
+}
+
+.fv-banner-title {
+  margin: 0 0 0.25rem;
+  font-weight: 600;
+}
+
+.fv-banner-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+}
+
+.fv-signal-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.65rem;
+}
+
+.fv-preset-field,
+.fv-groups-field,
+.fv-symbol-field {
+  min-width: 12rem;
+  max-width: 22rem;
+}
+
+.fv-url-field {
+  flex: 1 1 18rem;
+  min-width: 16rem;
+  max-width: 40rem;
+}
+
+.fv-actions mat-icon {
+  margin-right: 0.25rem;
+  font-size: 1.1rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  vertical-align: middle;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  border-radius: var(--app-radius-sm, 10px);
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+}
+
+.fv-table {
+  font-size: 0.85rem;
+}
+
+.fv-check-col {
+  width: 3rem;
+  text-align: center;
+}
+
+code {
+  font-size: 0.85em;
+}

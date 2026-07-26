@@ -209,6 +209,14 @@ tracker:
     alpha-vantage-enabled: ${TRACKER_FINANCE_ALPHA_VANTAGE_ENABLED:false}
     alpha-vantage-api-key: ${TRACKER_FINANCE_ALPHA_VANTAGE_API_KEY:}
     alpha-vantage-base-url: ${TRACKER_FINANCE_ALPHA_VANTAGE_BASE_URL:https://www.alphavantage.co/query}
+    # Finviz Elite CSV export (Markets → Finviz). Key from elite.finviz.com account page; never sent to the browser.
+    finviz-elite-enabled: ${TRACKER_FINANCE_FINVIZ_ELITE_ENABLED:false}
+    finviz-elite-api-key: ${TRACKER_FINANCE_FINVIZ_ELITE_API_KEY:}
+    finviz-elite-base-url: ${TRACKER_FINANCE_FINVIZ_ELITE_BASE_URL:https://elite.finviz.com/export.ashx}
+    finviz-elite-timeout-ms: ${TRACKER_FINANCE_FINVIZ_ELITE_TIMEOUT_MS:30000}
+    finviz-elite-cache-ttl-seconds: ${TRACKER_FINANCE_FINVIZ_ELITE_CACHE_TTL_SECONDS:120}
+    # When true, mid-cap / breakout screeners seed their universe from Finviz Elite filters first.
+    finviz-elite-universe-enabled: ${TRACKER_FINANCE_FINVIZ_ELITE_UNIVERSE_ENABLED:false}
     predicts:
       # Finance → Trading → Predicts: community sentiment + attention analytics.
       enabled: ${TRACKER_FINANCE_PREDICTS_ENABLED:true}

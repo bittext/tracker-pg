@@ -343,6 +343,17 @@
               {{ link.label }}
             </a>
           }
+          @if (finvizElitePanelLink(detail.card.symbol); as elite) {
+            <a
+              class="cr__link-chip"
+              [routerLink]="elite.commands"
+              [queryParams]="elite.queryParams"
+              matTooltip="Open Markets → Finviz Elite for this symbol (server Elite key)"
+            >
+              <mat-icon aria-hidden="true">query_stats</mat-icon>
+              Finviz Elite
+            </a>
+          }
         </div>
 
         @if (detail.quote; as q) {

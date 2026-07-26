@@ -104,7 +104,23 @@ public record FinanceProperties(
         /** Alpha Vantage API key used for quote retrieval in alerts/crawler/swing sections. */
         String alphaVantageApiKey,
         /** Alpha Vantage query endpoint. */
-        String alphaVantageBaseUrl) {
+        String alphaVantageBaseUrl,
+        /**
+         * When true, Markets → Finviz Elite endpoints call elite.finviz.com/export.ashx (requires API key).
+         */
+        boolean finvizEliteEnabled,
+        /** Finviz Elite export API key ({@code auth=} query param). Never expose to the SPA. */
+        String finvizEliteApiKey,
+        /** Finviz Elite CSV export endpoint. */
+        String finvizEliteBaseUrl,
+        /** HTTP timeout for Finviz Elite export requests (ms). */
+        int finvizEliteTimeoutMs,
+        /** In-memory / DB snapshot TTL for Finviz Elite CSV responses (seconds). */
+        int finvizEliteCacheTtlSeconds,
+        /**
+         * When true, mid-cap / breakout screeners prefer Finviz Elite filter universes before Yahoo predefined lists.
+         */
+        boolean finvizEliteUniverseEnabled) {
 
     private static final Pattern SAFE_ORACLE_DATE_FORMAT =
             Pattern.compile("^[A-Za-z0-9\\-:/. ,]+$");
@@ -247,5 +263,32 @@ public record FinanceProperties(
         } else {
             alphaVantageBaseUrl = alphaVantageBaseUrl.trim();
         }
+        if (finvizEliteApiKey == null) {
+            finvizEliteApiKey = "";
+        } else {
+            finvizEliteApiKey = finvizEliteApiKey.trim();
+        }
+        if (finvizEliteBaseUrl == null || finvizEliteBaseUrl.isBlank()) {
+            finvizEliteBaseUrl = "https://elite.finviz.com/export.ashx";
+        } else {
+            finvizEliteBaseUrl = finvizEliteBaseUrl.trim();
+        }
+        if (finvizEliteTimeoutMs < 1_000) {
+            finvizEliteTimeoutMs = 30_000;
+        }
+        if (finvizEliteTimeoutMs > 120_000) {
+            finvizEliteTimeoutMs = 120_000;
+        }
+        if (finvizEliteCacheTtlSeconds < 0) {
+            finvizEliteCacheTtlSeconds = 0;
+        }
+        if (finvizEliteCacheTtlSeconds > 3_600) {
+            finvizEliteCacheTtlSeconds = 3_600;
+        }
+    }
+
+    /** True when Finviz Elite export calls are allowed (flag on + non-blank API key). */
+    public boolean finvizEliteConfigured() {
+        return finvizEliteEnabled && finvizEliteApiKey != null && !finvizEliteApiKey.isBlank();
     }
 }

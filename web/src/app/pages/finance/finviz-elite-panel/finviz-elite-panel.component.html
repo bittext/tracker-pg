@@ -1,0 +1,249 @@
+<p class="muted intro">
+  Finviz Elite CSV exports (signals, screeners, groups, news, options, portfolio) via the server API key.
+  Results are cached briefly; use <strong>Force refresh</strong> when you need a live pull.
+  <strong>Not investment advice.</strong>
+</p>
+
+@if (statusLoading) {
+  <p class="muted">Checking Finviz Elite status…</p>
+}
+
+@if (status && !statusLoading) {
+  @if (!ready) {
+    <div class="fv-banner fv-banner--warn" role="status">
+      <mat-icon aria-hidden="true">key_off</mat-icon>
+      <div>
+        <p class="fv-banner-title">Finviz Elite is not ready</p>
+        <p class="muted">{{ status.note }}</p>
+        <p class="muted fv-banner-hint">
+          Set <code>TRACKER_FINANCE_FINVIZ_ELITE_ENABLED</code> and
+          <code>TRACKER_FINANCE_FINVIZ_ELITE_API_KEY</code> on the API host (see docs/finviz-elite.md).
+        </p>
+      </div>
+    </div>
+  } @else {
+    <div class="fv-banner fv-banner--ok" role="status">
+      <mat-icon aria-hidden="true">verified</mat-icon>
+      <div>
+        <p class="fv-banner-title">Finviz Elite export ready</p>
+        <p class="muted">
+          {{ status.note }}
+          @if (status.universeEnabled) {
+            · Screener universes seeded from Elite filters
+          }
+        </p>
+      </div>
+    </div>
+  }
+}
+
+<section class="screener-section" aria-labelledby="fv-signals-heading">
+  <h2 id="fv-signals-heading" class="section-title">Signals</h2>
+  <p class="muted section-note">Elite homepage-style signals (top gainers, unusual volume, upgrades, insider buys, …).</p>
+  <div class="fv-signal-grid">
+    @for (p of signalPresets; track p.id) {
+      <button
+        mat-stroked-button
+        type="button"
+        [disabled]="!ready || loading"
+        (click)="runSignal(p)"
+        [attr.title]="p.description"
+      >
+        {{ p.label }}
+      </button>
+    }
+    @if (signalPresets.length === 0 && !statusLoading) {
+      <p class="muted">No signal presets loaded.</p>
+    }
+  </div>
+</section>
+
+<section class="screener-section" aria-labelledby="fv-screener-heading">
+  <h2 id="fv-screener-heading" class="section-title">Custom screener</h2>
+  <p class="muted section-note">Pick a built-in filter preset or paste an Elite screener URL (auth is replaced server-side).</p>
+
+  <div class="finance-toolbar">
+    <mat-form-field appearance="outline" class="fv-preset-field">
+      <mat-label>Preset</mat-label>
+      <mat-select [(ngModel)]="selectedPresetId" name="fvPreset" [disabled]="!ready">
+        @for (p of presets; track p.id) {
+          <mat-option [value]="p.id">{{ p.label }} ({{ p.category }})</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <button mat-flat-button color="primary" type="button" [disabled]="!ready || loading" (click)="runPreset()">
+      Run preset
+    </button>
+    <button mat-stroked-button type="button" [disabled]="!ready || loading" (click)="runPreset(true)">
+      Force refresh
+    </button>
+  </div>
+
+  <div class="finance-toolbar">
+    <mat-form-field appearance="outline" class="fv-url-field">
+      <mat-label>Elite screener URL</mat-label>
+      <input matInput [(ngModel)]="customUrl" name="fvUrl" placeholder="https://elite.finviz.com/screener.ashx?…" />
+    </mat-form-field>
+    <button mat-stroked-button type="button" [disabled]="!ready || loading" (click)="runCustomUrl()">
+      Run URL
+    </button>
+  </div>
+</section>
+
+<section class="screener-section" aria-labelledby="fv-groups-heading">
+  <h2 id="fv-groups-heading" class="section-title">Groups</h2>
+  <div class="finance-toolbar">
+    <mat-form-field appearance="outline" class="fv-groups-field">
+      <mat-label>Group by</mat-label>
+      <mat-select [(ngModel)]="groupsBy" name="fvGroupsBy" [disabled]="!ready">
+        <mat-option value="sector">Sector</mat-option>
+        <mat-option value="industry">Industry</mat-option>
+      </mat-select>
+    </mat-form-field>
+    <button mat-stroked-button type="button" [disabled]="!ready || loading" (click)="loadGroups()">
+      Load groups
+    </button>
+    <button mat-stroked-button type="button" [disabled]="!ready || loading" (click)="loadGroups(true)">
+      Force refresh
+    </button>
+  </div>
+</section>
+
+<section class="screener-section" aria-labelledby="fv-news-heading">
+  <h2 id="fv-news-heading" class="section-title">News</h2>
+  <div class="finance-toolbar">
+    <button mat-stroked-button type="button" [disabled]="!ready || loading" (click)="loadNews()">
+      Load major news
+    </button>
+    <button mat-stroked-button type="button" [disabled]="!ready || loading" (click)="loadNews(true)">
+      Force refresh
+    </button>
+  </div>
+</section>
+
+<section class="screener-section" aria-labelledby="fv-options-heading">
+  <h2 id="fv-options-heading" class="section-title">Options</h2>
+  <div class="finance-toolbar">
+    <mat-form-field appearance="outline" class="fv-symbol-field">
+      <mat-label>Symbol</mat-label>
+      <input matInput [(ngModel)]="optionsSymbol" name="fvOptSym" placeholder="AAPL" />
+    </mat-form-field>
+    <button mat-stroked-button type="button" [disabled]="!ready || loading" (click)="loadOptions()">
+      Load chain
+    </button>
+    <button mat-stroked-button type="button" [disabled]="!ready || loading" (click)="loadOptions(true)">
+      Force refresh
+    </button>
+  </div>
+</section>
+
+<section class="screener-section" aria-labelledby="fv-portfolio-heading">
+  <h2 id="fv-portfolio-heading" class="section-title">Elite portfolio → Watch</h2>
+  <p class="muted section-note">Export tickers from your Elite portfolio, then add them to Your Watch.</p>
+  <div class="finance-toolbar">
+    <button mat-stroked-button type="button" [disabled]="!ready || loading" (click)="loadPortfolio()">
+      Load portfolio
+    </button>
+    <button mat-stroked-button type="button" [disabled]="!ready || loading" (click)="loadPortfolio(true)">
+      Force refresh
+    </button>
+    <button
+      mat-flat-button
+      color="primary"
+      type="button"
+      [disabled]="!ready || !table?.rows?.length"
+      (click)="importPortfolioToWatch()"
+    >
+      Import visible to Watch
+    </button>
+  </div>
+</section>
+
+<section class="screener-section" aria-labelledby="fv-results-heading">
+  <h2 id="fv-results-heading" class="section-title">Results</h2>
+
+  @if (loading) {
+    <p class="muted">Loading Finviz export…</p>
+  }
+
+  @if (table && !loading) {
+    <p class="muted finance-meta">
+      <strong>{{ table.sourceLabel }}</strong>
+      · {{ table.rows.length }} row(s)
+      · {{ table.fetchedAt | slice: 0 : 19 }}
+      @if (table.fromCache) {
+        · cached
+      }
+    </p>
+    @if (table.note) {
+      <p class="muted stocks-news-note">{{ table.note }}</p>
+    }
+
+    <div class="finance-toolbar fv-actions">
+      <button mat-stroked-button type="button" (click)="selectAllVisible()" [disabled]="!table.rows.length">
+        Select all
+      </button>
+      <button mat-stroked-button type="button" (click)="clearSelection()" [disabled]="selected.size === 0">
+        Clear
+      </button>
+      <button
+        mat-flat-button
+        color="primary"
+        type="button"
+        (click)="addSelectedToWatch()"
+        [disabled]="selected.size === 0"
+      >
+        <mat-icon>bookmark_add</mat-icon>
+        Add selected to Your Watch ({{ selected.size }})
+      </button>
+      <button mat-stroked-button type="button" (click)="downloadCsv()" [disabled]="!table.rows.length">
+        <mat-icon>download</mat-icon>
+        CSV
+      </button>
+      <button mat-stroked-button type="button" (click)="openOnFinviz()">
+        <mat-icon>open_in_new</mat-icon>
+        Open on Finviz
+      </button>
+    </div>
+
+    @if (table.rows.length === 0) {
+      <div class="finance-empty-report" role="status">
+        <p class="finance-empty-title">No rows</p>
+        <p class="muted finance-empty-detail">Elite returned an empty table for this export.</p>
+      </div>
+    } @else {
+      <div class="table-wrap rh-txn-wrap">
+        <table class="rh-txn-data-table full-width fv-table">
+          <thead>
+            <tr>
+              <th scope="col" class="fv-check-col">Watch</th>
+              @for (col of table.columns; track col) {
+                <th scope="col">{{ col }}</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of table.rows; track trackRow($index, row)) {
+              <tr>
+                <td class="fv-check-col">
+                  @if (rowSymbol(row); as sym) {
+                    <mat-checkbox
+                      [checked]="isSelected(sym)"
+                      (change)="toggleRow(sym, $event.checked)"
+                      [attr.aria-label]="'Select ' + sym"
+                    />
+                  }
+                </td>
+                @for (col of table.columns; track col) {
+                  <td>{{ cell(row, col) }}</td>
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  } @else if (!loading) {
+    <p class="muted">Run a signal, preset, groups, news, options, or portfolio export to see rows here.</p>
+  }
+</section>

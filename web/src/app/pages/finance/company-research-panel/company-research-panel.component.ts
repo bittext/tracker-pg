@@ -9,6 +9,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { RouterLink } from '@angular/router';
 import { concat, of } from 'rxjs';
 import { catchError, toArray } from 'rxjs/operators';
 import {
@@ -56,6 +57,7 @@ interface EarningsCalendarCell {
     MatSelectModule,
     MatSnackBarModule,
     MatTooltipModule,
+    RouterLink,
   ],
   templateUrl: './company-research-panel.component.html',
   styleUrl: './company-research-panel.component.scss',
@@ -692,6 +694,15 @@ export class CompanyResearchPanelComponent implements OnInit {
         hint: 'Sectors ranked against each other by performance',
       },
     ];
+  }
+
+  /** In-app Finviz Elite research panel for this symbol (options prefilled). */
+  finvizElitePanelLink(symbol: string): { commands: string[]; queryParams: Record<string, string> } {
+    const t = (symbol ?? '').trim().toUpperCase();
+    return {
+      commands: ['/markets/research'],
+      queryParams: { tab: 'finviz', t },
+    };
   }
 
   statusLabel(status: string | null | undefined): string {

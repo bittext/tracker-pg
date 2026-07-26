@@ -966,6 +966,16 @@
       </mat-tab>
       }
 
+      @if (showTradingTab('finviz')) {
+      <mat-tab label="Finviz Elite">
+        <div class="finance-panel">
+          @if (tradingSubTabActive('finviz')) {
+            <app-finviz-elite-panel [initialSymbol]="finvizInitialSymbol" />
+          }
+        </div>
+      </mat-tab>
+      }
+
 
       @if (showTradingTab('summary')) {
       <mat-tab label="Summary">

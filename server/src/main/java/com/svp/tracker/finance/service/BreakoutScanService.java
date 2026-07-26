@@ -60,6 +60,7 @@ public class BreakoutScanService {
     private static final int RESISTANCE_LAG = 2;
 
     private final FinanceProperties props;
+    private final FinvizEliteService finvizEliteService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public BreakoutCandidatesDto scan(Integer limitRaw) {
@@ -77,6 +78,15 @@ public class BreakoutScanService {
         JsonNode[] roots = {dayGainers, mostActives, aggressive, undervaluedGrowth, smallCapGainers};
         Map<String, JsonNode> quoteBySymbol = mergeQuotesOrdered(roots);
         List<String> symbols = unionSymbolsFair(perListCap, maxUnion, roots);
+        List<String> finvizUniverse = finvizEliteService.universeTickers("breakout", Math.min(100, maxUnion));
+        if (!finvizUniverse.isEmpty()) {
+            LinkedHashSet<String> merged = new LinkedHashSet<>(finvizUniverse);
+            merged.addAll(symbols);
+            symbols = new ArrayList<>(merged);
+            if (symbols.size() > maxUnion) {
+                symbols = new ArrayList<>(symbols.subList(0, maxUnion));
+            }
+        }
 
         List<BreakoutCandidateRowDto> scored = scoreInParallel(symbols, quoteBySymbol);
 
@@ -91,9 +101,16 @@ public class BreakoutScanService {
                         + "with volume while still just below it (coiled). This scan scores those ingredients from "
                         + "daily adjusted closes, highs/lows, volume, and session quote vs a ~20-session prior ceiling "
                         + "(excluding the last couple sessions). Rows need a minimum composite score and at least one "
-                        + "strong pressure or flow signal. Data can be delayed; verify any name independently.";
+                        + "strong pressure or flow signal. Data can be delayed; verify any name independently."
+                        + (finvizUniverse.isEmpty()
+                                ? ""
+                                : " Universe seeded from Finviz Elite breakout filters when enabled.");
 
-        return new BreakoutCandidatesDto(SOURCE, Instant.now().toString(), scored.size(), note, scored);
+        String source = finvizUniverse.isEmpty()
+                ? SOURCE
+                : "Finviz seed + " + SOURCE;
+
+        return new BreakoutCandidatesDto(source, Instant.now().toString(), scored.size(), note, scored);
     }
 
     private int sanitizeLimit(Integer raw) {
