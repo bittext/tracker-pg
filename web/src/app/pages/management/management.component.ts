@@ -57,6 +57,10 @@ import { ManagementTravelPanelComponent } from './management-travel-panel/manage
 import { ManagementDocumentsPanelComponent } from './management-documents-panel/management-documents-panel.component';
 import { ManagementRecordingsPanelComponent } from './management-recordings-panel/management-recordings-panel.component';
 import { ManagementNowPanelComponent } from './management-now-panel/management-now-panel.component';
+import {
+  WriteupAttachmentPreviewDialogComponent,
+  WriteupAttachmentPreviewData,
+} from './writeup-attachment-preview-dialog.component';
 
 interface CalendarCell {
   type: 'pad' | 'day';
@@ -1518,19 +1522,20 @@ export class ManagementComponent implements OnInit {
     step();
   }
 
-  openWriteupAttachment(attachmentId: number, _filename: string): void {
-    this.api.getWriteupAttachmentBlob(attachmentId, 'inline').subscribe({
-      next: (blob) => {
-        const url = URL.createObjectURL(blob);
-        const win = window.open(url, '_blank', 'noopener');
-        if (!win) {
-          URL.revokeObjectURL(url);
-        } else {
-          win.addEventListener('beforeunload', () => URL.revokeObjectURL(url));
-        }
+  openWriteupAttachment(attachment: ManagementWriteupAttachmentDto): void {
+    this.dialog.open<WriteupAttachmentPreviewDialogComponent, WriteupAttachmentPreviewData>(
+      WriteupAttachmentPreviewDialogComponent,
+      {
+        width: 'min(96vw, 56rem)',
+        maxWidth: '96vw',
+        maxHeight: '92vh',
+        data: {
+          attachmentId: attachment.id,
+          filename: attachment.originalFilename || 'attachment',
+          contentType: attachment.contentType,
+        },
       },
-      error: (e) => this.err('Could not open attachment', e),
-    });
+    );
   }
 
   removeWriteupAttachment(attachmentId: number, ev: Event): void {

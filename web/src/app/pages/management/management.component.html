@@ -1324,7 +1324,7 @@
 
                   @if (writeupEditingId != null) {
                     <div class="wu-read-attach">
-                      <p class="muted wu-attach-hint">Add supporting documents after saving. Open attachments in a new tab.</p>
+                      <p class="muted wu-attach-hint">Add supporting documents after saving. Click a file to preview it.</p>
                       <label class="wu-file-label">
                         <input
                           type="file"
@@ -1338,7 +1338,7 @@
                         <ul class="wu-attachment-list">
                           @for (a of writeupSelectedAttachments; track a.id) {
                             <li>
-                              <button type="button" class="wu-att-link" (click)="openWriteupAttachment(a.id, a.originalFilename)">
+                              <button type="button" class="wu-att-link" (click)="openWriteupAttachment(a)">
                                 {{ a.originalFilename }}
                               </button>
                               <span class="muted">({{ (a.sizeBytes / 1024) | number: '1.0-0' }} KB)</span>
@@ -1396,10 +1396,10 @@
                       <ul class="wu-attachment-list wu-attachment-list--read">
                         @for (a of w.attachments; track a.id) {
                           <li>
-                            <button type="button" class="wu-att-link" (click)="openWriteupAttachment(a.id, a.originalFilename)">
+                            <button type="button" class="wu-att-link" (click)="openWriteupAttachment(a)">
                               {{ a.originalFilename }}
                             </button>
-                            <span class="muted"> · review in new tab</span>
+                            <span class="muted"> · preview</span>
                           </li>
                         }
                       </ul>
