@@ -22,8 +22,10 @@ import {
   ManagementDocumentDto,
   ManagementDocumentWriteBody,
   ManagementRecordingDetailDto,
+  ManagementRecordingImageDto,
   ManagementRecordingItemDto,
   ManagementRecordingListDto,
+  ManagementRecordingReprocessDto,
   ManagementWriteupAttachmentDto,
   ManagementWriteupDto,
   ManagementWriteupWriteBody,
@@ -454,6 +456,31 @@ export class ManagementApiService {
       path,
       displayName,
     });
+  }
+
+  cancelRecordingQueue() {
+    return this.http.post<ManagementRecordingReprocessDto>(`${this.recordingsRoot}/cancel-queue`, {});
+  }
+
+  uploadRecordingImages(path: string, files: File[]) {
+    const fd = new FormData();
+    for (const f of files) {
+      fd.append('files', f, f.name);
+    }
+    return this.http.post<ManagementRecordingImageDto[]>(`${this.recordingsRoot}/images`, fd, {
+      params: { path },
+    });
+  }
+
+  getRecordingImageBlob(imageId: number, disposition: 'inline' | 'attachment' = 'inline') {
+    return this.http.get(`${this.recordingsRoot}/images/${imageId}/file`, {
+      responseType: 'blob',
+      params: { disposition },
+    });
+  }
+
+  deleteRecordingImage(imageId: number) {
+    return this.http.delete<void>(`${this.recordingsRoot}/images/${imageId}`);
   }
 
   reprocessRecording(path: string) {

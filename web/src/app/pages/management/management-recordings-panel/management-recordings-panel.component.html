@@ -3,8 +3,9 @@
     <h2 id="rec-heading" class="rec-title">Recordings</h2>
     <p class="muted rec-lede">
       Upload Just Press Record clips from your <strong>iCloud Drive</strong> folder (date folders →
-      <code>.m4a</code>). Files are stored in the app’s cloud library so production can play, transcribe (Whisper),
-      search, and summarize. Use Transcribe / Summarize (or Reprocess) on a selected clip when you want AI text.
+      <code>.m4a</code>). Files are stored in Tracker’s cloud library. New uploads auto-transcribe and summarize in
+      the background. Rename in Tracker, then <strong>Download</strong> and drop into iCloud if you want the Finder
+      name to match — the server cannot write back to iCloud directly.
     </p>
   </header>
 
@@ -12,6 +13,12 @@
     <p class="rec-warn" role="status">{{ list.note || 'Recordings are disabled.' }}</p>
   } @else if (list?.note) {
     <p class="rec-warn" role="status">{{ list?.note }}</p>
+  }
+  @if (processingCount > 0) {
+    <p class="rec-queue-status" role="status">
+      <mat-icon>hourglass_top</mat-icon>
+      Building transcript/summary for {{ processingCount }} recording(s) in the background…
+    </p>
   }
 
   <div class="rec-toolbar">
@@ -140,6 +147,11 @@
                       @if (r.hasSummary) {
                         <mat-icon class="rec-flag" inline title="Has summary">summarize</mat-icon>
                       }
+                      @if (r.processingStatus === 'PENDING' || r.processingStatus === 'PROCESSING') {
+                        <mat-icon class="rec-flag rec-flag--processing" inline title="Building transcript…">
+                          hourglass_top
+                        </mat-icon>
+                      }
                       @if (r.processingStatus === 'FAILED') {
                         <mat-icon
                           class="rec-flag rec-flag--failed"
@@ -165,7 +177,7 @@
           <mat-card-content>
             <p class="muted">
               Upload the Just Press Record <strong>Documents</strong> folder from iCloud Drive, then select a recording
-              to play it. Run Transcribe / Summarize when you want a transcript and summary.
+              to play it. Transcript and summary build automatically after upload.
             </p>
           </mat-card-content>
         </mat-card>
@@ -178,6 +190,12 @@
             </mat-card-subtitle>
           </mat-card-header>
           <mat-card-content>
+            @if (detail?.processingStatus === 'PENDING' || detail?.processingStatus === 'PROCESSING') {
+              <div class="rec-processing-note" role="status">
+                <mat-icon>hourglass_top</mat-icon>
+                Building transcript and summary in the background…
+              </div>
+            }
             @if (detail?.processingStatus === 'FAILED') {
               <div class="rec-processing-note rec-processing-note--error" role="alert">
                 <mat-icon>error_outline</mat-icon>
@@ -228,10 +246,84 @@
                 }
                 Rename
               </button>
+              <button
+                mat-stroked-button
+                type="button"
+                (click)="downloadSelected()"
+                [disabled]="downloading"
+              >
+                @if (downloading) {
+                  <mat-spinner diameter="18" />
+                } @else {
+                  <mat-icon>download</mat-icon>
+                }
+                Download for iCloud
+              </button>
               <p class="muted rec-rename__hint">
-                Updates the name in Tracker only. Upload is a copy — this does not rename the file in iCloud Drive /
-                Just Press Record.
+                Rename updates Tracker only. To sync the name into iCloud / Just Press Record, download and replace the
+                file in that folder on your Mac.
               </p>
+            </div>
+
+            <div class="rec-images">
+              <div class="rec-images__head">
+                <h3 class="rec-images__title">Photos</h3>
+                <input
+                  #imagePick
+                  type="file"
+                  class="rec-file-input"
+                  multiple
+                  accept="image/*,.jpg,.jpeg,.png,.gif,.webp,.heic,.heif"
+                  (change)="onImagesSelected($event)"
+                  [attr.aria-label]="'Upload photos for this recording'"
+                />
+                <button
+                  mat-stroked-button
+                  type="button"
+                  (click)="imagePick.click()"
+                  [disabled]="uploadingImages"
+                >
+                  @if (uploadingImages) {
+                    <mat-spinner diameter="18" />
+                  } @else {
+                    <mat-icon>add_photo_alternate</mat-icon>
+                  }
+                  Add photos
+                </button>
+              </div>
+              @if (images.length === 0) {
+                <p class="muted rec-images__empty">No photos yet. Attach images to scroll and preview them here.</p>
+              } @else {
+                <div class="rec-thumbs" role="list">
+                  @for (img of images; track img.id; let i = $index) {
+                    <button
+                      type="button"
+                      class="rec-thumb"
+                      role="listitem"
+                      (click)="openImageGallery(i)"
+                      [attr.aria-label]="'Preview ' + img.originalFilename"
+                    >
+                      @if (imagePreviewUrl(img.id); as url) {
+                        <img [src]="url" [alt]="img.originalFilename" />
+                      } @else {
+                        <span class="rec-thumb__placeholder">
+                          <mat-icon>image</mat-icon>
+                        </span>
+                      }
+                      <span class="rec-thumb__name">{{ img.originalFilename }}</span>
+                      <button
+                        mat-icon-button
+                        type="button"
+                        class="rec-thumb__delete"
+                        (click)="deleteImage(img, $event)"
+                        aria-label="Remove image"
+                      >
+                        <mat-icon>close</mat-icon>
+                      </button>
+                    </button>
+                  }
+                </div>
+              }
             </div>
 
             <div class="rec-actions">

@@ -69,7 +69,7 @@ public class ManagementRecordingCache {
     @Column(name = "summarized_at")
     private Instant summarizedAt;
 
-    /** IDLE, READY, or FAILED. Background auto-queue is disabled. */
+    /** IDLE, PENDING, PROCESSING, READY, or FAILED. */
     @Column(name = "processing_status", nullable = false, length = 24)
     private String processingStatus = "IDLE";
 

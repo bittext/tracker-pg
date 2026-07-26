@@ -8,13 +8,16 @@ import com.svp.tracker.finance.service.RhDailyTrackerOpenAiClient;
 import com.svp.tracker.journal.service.JournalBlobStore;
 import com.svp.tracker.management.config.ManagementRecordingsProperties;
 import com.svp.tracker.management.domain.ManagementRecordingCache;
+import com.svp.tracker.management.domain.ManagementRecordingImage;
 import com.svp.tracker.management.dto.ManagementRecordingDayDto;
 import com.svp.tracker.management.dto.ManagementRecordingDetailDto;
+import com.svp.tracker.management.dto.ManagementRecordingImageDto;
 import com.svp.tracker.management.dto.ManagementRecordingItemDto;
 import com.svp.tracker.management.dto.ManagementRecordingListDto;
 import com.svp.tracker.management.dto.ManagementRecordingReprocessDto;
 import com.svp.tracker.management.dto.ManagementRecordingTranscriptSegmentDto;
 import com.svp.tracker.management.repository.ManagementRecordingCacheRepository;
+import com.svp.tracker.management.repository.ManagementRecordingImageRepository;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -30,10 +33,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -50,14 +55,17 @@ public class ManagementRecordingsService {
 
     private static final Pattern DAY_FOLDER = Pattern.compile("^\\d{4}-\\d{2}-\\d{2}$");
     private static final Set<String> AUDIO_EXT = Set.of(".m4a", ".mp3", ".wav", ".webm", ".ogg");
+    private static final Set<String> IMAGE_EXT = Set.of(".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif");
 
     private final ManagementRecordingsProperties properties;
     private final ManagementRecordingCacheRepository cacheRepository;
+    private final ManagementRecordingImageRepository imageRepository;
     private final CurrentUserService currentUser;
     private final RhDailyTrackerOpenAiClient openAi;
     private final JournalBlobStore blobStore;
     private final JournalProperties journalProperties;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final AtomicBoolean processing = new AtomicBoolean();
 
     @Transactional(readOnly = true)
     public ManagementRecordingListDto list(LocalDate dayFilter) {
@@ -181,7 +189,11 @@ public class ManagementRecordingsService {
             row.setTranscribedAt(null);
             row.setSummary(null);
             row.setSummarizedAt(null);
-            row.setProcessingStatus("IDLE");
+            if (properties.autoProcessEnabled()) {
+                row.setProcessingStatus("PENDING");
+            } else {
+                row.setProcessingStatus("IDLE");
+            }
             row.setProcessingError(null);
             row.setProcessingStartedAt(null);
             row.setProcessingCompletedAt(null);
@@ -221,6 +233,7 @@ public class ManagementRecordingsService {
     @Transactional
     public void delete(String relativePath) {
         ManagementRecordingCache row = requireStored(relativePath);
+        deleteImagesForRecording(row);
         try {
             if (row.getStorageKey() != null) {
                 blobStore.delete(row.getStorageKey());
@@ -229,6 +242,110 @@ public class ManagementRecordingsService {
             throw new UncheckedIOException(e);
         }
         cacheRepository.delete(row);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ManagementRecordingImageDto> listImages(String relativePath) {
+        ManagementRecordingCache row = requireStored(relativePath);
+        return imageRepository.findByRecordingIdOrderBySortOrderAscIdAsc(row.getId()).stream()
+                .map(this::toImageDto)
+                .toList();
+    }
+
+    @Transactional
+    public List<ManagementRecordingImageDto> uploadImages(String relativePath, List<MultipartFile> files) {
+        ManagementRecordingCache row = requireStored(relativePath);
+        if (files == null || files.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No image files provided");
+        }
+        long owner = currentUser.requireUserId();
+        long maxBytes = journalProperties.getMaxAttachmentBytes();
+        Integer maxSort = imageRepository.findMaxSortOrder(row.getId());
+        int sort = maxSort == null ? 0 : maxSort + 1;
+        List<ManagementRecordingImageDto> out = new ArrayList<>();
+        for (MultipartFile file : files) {
+            if (file == null || file.isEmpty()) {
+                continue;
+            }
+            String originalName = file.getOriginalFilename() == null ? "image.jpg" : file.getOriginalFilename();
+            if (!isImageFilename(originalName)) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Not an image file: " + Path.of(originalName).getFileName());
+            }
+            if (file.getSize() > maxBytes) {
+                throw new ResponseStatusException(
+                        HttpStatus.PAYLOAD_TOO_LARGE, "Image exceeds max size of " + maxBytes + " bytes");
+            }
+            String key;
+            try (var in = file.getInputStream()) {
+                key = blobStore.put(owner, 0L, in, file.getSize());
+            } catch (IOException ex) {
+                throw new UncheckedIOException(ex);
+            }
+            ManagementRecordingImage img = new ManagementRecordingImage();
+            img.setRecording(row);
+            img.setOwnerUserId(owner);
+            img.setStorageKey(key);
+            img.setOriginalFilename(Path.of(originalName).getFileName().toString());
+            img.setContentType(guessImageContentType(originalName, file.getContentType()));
+            img.setSizeBytes(file.getSize());
+            img.setSortOrder(sort++);
+            img = imageRepository.save(img);
+            out.add(toImageDto(img));
+        }
+        if (out.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No image files found in the upload");
+        }
+        return out;
+    }
+
+    @Transactional(readOnly = true)
+    public RecordingFile readImage(long imageId) {
+        long owner = currentUser.requireUserId();
+        ManagementRecordingImage img = imageRepository
+                .findByIdAndOwner(imageId, owner)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Image not found"));
+        try {
+            byte[] body = blobStore.readAllBytes(img.getStorageKey());
+            String ct = img.getContentType() != null && !img.getContentType().isBlank()
+                    ? img.getContentType()
+                    : guessImageContentType(img.getOriginalFilename(), null);
+            String fn = img.getOriginalFilename() == null || img.getOriginalFilename().isBlank()
+                    ? "image.jpg"
+                    : img.getOriginalFilename();
+            return new RecordingFile(fn, ct, body);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    @Transactional
+    public void deleteImage(long imageId) {
+        long owner = currentUser.requireUserId();
+        ManagementRecordingImage img = imageRepository
+                .findByIdAndOwner(imageId, owner)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Image not found"));
+        try {
+            blobStore.delete(img.getStorageKey());
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        imageRepository.delete(img);
+    }
+
+    private void deleteImagesForRecording(ManagementRecordingCache row) {
+        if (row.getId() == null) {
+            return;
+        }
+        for (ManagementRecordingImage img :
+                imageRepository.findByRecordingIdOrderBySortOrderAscIdAsc(row.getId())) {
+            try {
+                blobStore.delete(img.getStorageKey());
+            } catch (IOException e) {
+                log.warn("Failed deleting recording image blob {}: {}", img.getStorageKey(), e.toString());
+            }
+            imageRepository.delete(img);
+        }
     }
 
     /**
@@ -330,12 +447,26 @@ public class ManagementRecordingsService {
     }
 
     /**
-     * Manually rebuild transcript + summary for one recording (no background queue).
-     * Long clips can take several minutes; this runs in the request thread.
+     * Manually rebuild transcript + summary for one recording.
+     * Prefer background PENDING when auto-process is on so the HTTP request returns quickly.
      */
     @Transactional
     public ManagementRecordingDetailDto reprocess(String relativePath) {
         ManagementRecordingCache row = requireStored(relativePath);
+        if (properties.autoProcessEnabled()) {
+            row.setTranscript(null);
+            row.setTranscriptSource(null);
+            row.setTranscriptSegmentsJson(null);
+            row.setTranscribedAt(null);
+            row.setSummary(null);
+            row.setSummarizedAt(null);
+            row.setProcessingStatus("PENDING");
+            row.setProcessingError(null);
+            row.setProcessingStartedAt(null);
+            row.setProcessingCompletedAt(null);
+            row = cacheRepository.save(row);
+            return toDetail(row);
+        }
         Path tmp = writeTempAudio(row);
         try {
             var result = openAi.transcribeAudio(tmp);
@@ -365,7 +496,7 @@ public class ManagementRecordingsService {
         }
     }
 
-    /** Clear any leftover PENDING/PROCESSING rows for this user (auto-queue is disabled). */
+    /** Clear any leftover PENDING/PROCESSING rows for this user. */
     @Transactional
     public ManagementRecordingReprocessDto cancelQueue() {
         if (!properties.configured()) {
@@ -391,6 +522,78 @@ public class ManagementRecordingsService {
             cleared++;
         }
         return new ManagementRecordingReprocessDto(cleared);
+    }
+
+    /**
+     * Durable single-file worker. Uploads and V93 leave rows PENDING when auto-process is enabled.
+     * Serial processing avoids racing OpenAI limits and keeps large audio files from exhausting memory.
+     */
+    @Scheduled(initialDelay = 5_000, fixedDelay = 3_000)
+    public void processNextPendingRecording() {
+        if (!properties.autoProcessEnabled() || !processing.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            recoverStaleProcessingRows();
+            cacheRepository
+                    .findFirstByProcessingStatusOrderByUpdatedAtAsc("PENDING")
+                    .ifPresent(this::processQueuedRecording);
+        } catch (Exception e) {
+            log.error("Recording background worker failed", e);
+        } finally {
+            processing.set(false);
+        }
+    }
+
+    private void recoverStaleProcessingRows() {
+        Instant cutoff = Instant.now().minusSeconds(30 * 60);
+        for (ManagementRecordingCache row :
+                cacheRepository.findByProcessingStatusAndProcessingStartedAtBefore("PROCESSING", cutoff)) {
+            row.setProcessingStatus("PENDING");
+            row.setProcessingError("Recovered after interrupted background processing");
+            row.setProcessingStartedAt(null);
+            cacheRepository.save(row);
+        }
+    }
+
+    private void processQueuedRecording(ManagementRecordingCache row) {
+        row.setProcessingStatus("PROCESSING");
+        row.setProcessingError(null);
+        row.setProcessingStartedAt(Instant.now());
+        row.setProcessingCompletedAt(null);
+        row = cacheRepository.saveAndFlush(row);
+
+        Path tmp = null;
+        try {
+            tmp = writeTempAudio(row);
+            var result = openAi.transcribeAudio(tmp);
+            row.setTranscript(result.text());
+            row.setTranscriptSource(result.source());
+            row.setTranscriptSegmentsJson(serializeSegments(result.segments()));
+            row.setTranscribedAt(Instant.now());
+            row.setSummary(generateSummary(row));
+            row.setSummarizedAt(Instant.now());
+            row.setProcessingStatus("READY");
+            row.setProcessingError(null);
+            row.setProcessingCompletedAt(Instant.now());
+            cacheRepository.save(row);
+            log.info(
+                    "Background transcript + summary ready for recording id={} path={}",
+                    row.getId(),
+                    row.getRelativePath());
+        } catch (Exception e) {
+            row.setProcessingStatus("FAILED");
+            row.setProcessingError(compactError(e));
+            row.setProcessingCompletedAt(Instant.now());
+            cacheRepository.save(row);
+            log.warn(
+                    "Background transcript + summary failed for recording id={} path={}: {}",
+                    row.getId(),
+                    row.getRelativePath(),
+                    e.toString());
+        } finally {
+            deleteQuietly(tmp);
+        }
     }
 
     private String generateSummary(ManagementRecordingCache row) {
@@ -530,6 +733,16 @@ public class ManagementRecordingsService {
         return AUDIO_EXT.stream().anyMatch(leaf::endsWith);
     }
 
+    private static boolean isImageFilename(String name) {
+        if (name == null) {
+            return false;
+        }
+        String lower = name.toLowerCase(Locale.ROOT);
+        int slash = Math.max(lower.lastIndexOf('/'), lower.lastIndexOf('\\'));
+        String leaf = slash >= 0 ? lower.substring(slash + 1) : lower;
+        return IMAGE_EXT.stream().anyMatch(leaf::endsWith);
+    }
+
     private static String guessContentType(String filename, String uploaded) {
         if (uploaded != null && !uploaded.isBlank() && !"application/octet-stream".equalsIgnoreCase(uploaded)) {
             return uploaded;
@@ -550,6 +763,26 @@ public class ManagementRecordingsService {
         return "audio/mp4";
     }
 
+    private static String guessImageContentType(String filename, String uploaded) {
+        if (uploaded != null && !uploaded.isBlank() && !"application/octet-stream".equalsIgnoreCase(uploaded)) {
+            return uploaded;
+        }
+        String lower = filename == null ? "" : filename.toLowerCase(Locale.ROOT);
+        if (lower.endsWith(".png")) {
+            return "image/png";
+        }
+        if (lower.endsWith(".gif")) {
+            return "image/gif";
+        }
+        if (lower.endsWith(".webp")) {
+            return "image/webp";
+        }
+        if (lower.endsWith(".heic") || lower.endsWith(".heif")) {
+            return "image/heic";
+        }
+        return "image/jpeg";
+    }
+
     private ManagementRecordingItemDto toItem(ManagementRecordingCache cached) {
         boolean hasTranscript = cached.getTranscript() != null && !cached.getTranscript().isBlank();
         boolean hasSummary = cached.getSummary() != null && !cached.getSummary().isBlank();
@@ -567,6 +800,12 @@ public class ManagementRecordingsService {
 
     private ManagementRecordingDetailDto toDetail(ManagementRecordingCache cached) {
         long size = cached.getFileSizeBytes() == null ? 0L : cached.getFileSizeBytes();
+        List<ManagementRecordingImageDto> images = List.of();
+        if (cached.getId() != null) {
+            images = imageRepository.findByRecordingIdOrderBySortOrderAscIdAsc(cached.getId()).stream()
+                    .map(this::toImageDto)
+                    .toList();
+        }
         return new ManagementRecordingDetailDto(
                 cached.getRelativePath(),
                 cached.getDisplayName(),
@@ -578,8 +817,18 @@ public class ManagementRecordingsService {
                 cached.getSummary(),
                 cached.getSummarizedAt(),
                 parseSegments(cached.getTranscriptSegmentsJson()),
+                images,
                 cached.getProcessingStatus(),
                 cached.getProcessingError());
+    }
+
+    private ManagementRecordingImageDto toImageDto(ManagementRecordingImage img) {
+        return new ManagementRecordingImageDto(
+                img.getId(),
+                img.getOriginalFilename(),
+                img.getContentType(),
+                img.getSizeBytes(),
+                img.getCreatedAt());
     }
 
     private String serializeSegments(

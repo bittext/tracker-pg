@@ -1,6 +1,7 @@
 package com.svp.tracker.management.controller;
 
 import com.svp.tracker.management.dto.ManagementRecordingDetailDto;
+import com.svp.tracker.management.dto.ManagementRecordingImageDto;
 import com.svp.tracker.management.dto.ManagementRecordingItemDto;
 import com.svp.tracker.management.dto.ManagementRecordingListDto;
 import com.svp.tracker.management.dto.ManagementRecordingRenameRequestDto;
@@ -20,6 +21,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -90,7 +92,37 @@ public class ManagementRecordingsController {
         return service.rename(body.path().trim(), body.displayName());
     }
 
-    /** Force regenerate transcript + summary for one recording (manual; can take several minutes). */
+    @GetMapping("/images")
+    public List<ManagementRecordingImageDto> listImages(@RequestParam String path) {
+        return service.listImages(path);
+    }
+
+    @PostMapping(path = "/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ResponseStatus(HttpStatus.CREATED)
+    public List<ManagementRecordingImageDto> uploadImages(
+            @RequestParam String path, @RequestParam("files") List<MultipartFile> files) {
+        return service.uploadImages(path, files);
+    }
+
+    @GetMapping("/images/{id}/file")
+    public ResponseEntity<byte[]> imageFile(
+            @PathVariable long id, @RequestParam(defaultValue = "inline") String disposition) {
+        RecordingFile f = service.readImage(id);
+        String mode = "attachment".equalsIgnoreCase(disposition) ? "attachment" : "inline";
+        HttpHeaders h = new HttpHeaders();
+        h.setContentType(MediaType.parseMediaType(f.contentType()));
+        h.setContentDisposition(
+                ContentDisposition.builder(mode).filename(f.filename(), StandardCharsets.UTF_8).build());
+        return new ResponseEntity<>(f.body(), h, HttpStatus.OK);
+    }
+
+    @DeleteMapping("/images/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteImage(@PathVariable long id) {
+        service.deleteImage(id);
+    }
+
+    /** Queue or force regenerate transcript + summary for one recording. */
     @PostMapping("/reprocess")
     public ManagementRecordingDetailDto reprocess(@RequestBody Map<String, Object> body) {
         return service.reprocess(requirePath(body));

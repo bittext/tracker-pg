@@ -92,6 +92,8 @@ tracker:
     recordings:
       # Cloud library for Just Press Record uploads (S3/local journal blob store). No Mac filesystem path required.
       enabled: ${TRACKER_MANAGEMENT_RECORDINGS_ENABLED:true}
+      # Queue Whisper transcript + summary after upload (serial background worker).
+      auto-process: ${TRACKER_MANAGEMENT_RECORDINGS_AUTO_PROCESS:true}
   auth:
     jwt-secret: ${TRACKER_AUTH_JWT_SECRET:dev-secret-change-me-dev-secret-change-me-dev-secret-change-me}
     jwt-ttl-seconds: ${TRACKER_AUTH_JWT_TTL_SECONDS:43200}

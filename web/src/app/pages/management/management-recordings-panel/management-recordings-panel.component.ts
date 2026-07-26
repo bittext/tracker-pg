@@ -10,6 +10,7 @@ import {
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -18,11 +19,16 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import {
   ManagementRecordingDayDto,
   ManagementRecordingDetailDto,
+  ManagementRecordingImageDto,
   ManagementRecordingItemDto,
   ManagementRecordingListDto,
 } from '../../../models/management.models';
 import { ManagementApiService } from '../../../services/management-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
+import {
+  RecordingImageGalleryDialogComponent,
+  RecordingImageGalleryData,
+} from './recording-image-gallery-dialog.component';
 
 type TranscriptTurn = {
   speaker: string | null;
@@ -39,6 +45,7 @@ type TranscriptTurn = {
     FormsModule,
     MatButtonModule,
     MatCardModule,
+    MatDialogModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
@@ -51,6 +58,7 @@ type TranscriptTurn = {
 export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
   private readonly api = inject(ManagementApiService);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
 
   @ViewChild('audioEl') audioEl?: ElementRef<HTMLAudioElement>;
   @ViewChild('turnsList') turnsListEl?: ElementRef<HTMLElement>;
@@ -61,6 +69,8 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
   summarizing = false;
   searching = false;
   uploading = false;
+  uploadingImages = false;
+  downloading = false;
 
   list: ManagementRecordingListDto | null = null;
   days: ManagementRecordingDayDto[] = [];
@@ -80,16 +90,35 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
   renaming = false;
   editDisplayName = '';
 
+  /** Thumbnail object URLs keyed by image id. */
+  imagePreviewUrls = new Map<number, string>();
+
   /** When on, highlight + scroll the turn that matches audio.currentTime. */
   followPlayback = true;
   activeTurnIndex = -1;
+  private processingPollId: number | null = null;
 
   ngOnInit(): void {
     this.refreshAll();
+    this.processingPollId = window.setInterval(() => this.pollProcessing(), 5000);
   }
 
   ngOnDestroy(): void {
+    if (this.processingPollId != null) {
+      window.clearInterval(this.processingPollId);
+    }
     this.revokeAudio();
+    this.revokeImagePreviews();
+  }
+
+  get processingCount(): number {
+    return this.recordings.filter(
+      (r) => r.processingStatus === 'PENDING' || r.processingStatus === 'PROCESSING',
+    ).length;
+  }
+
+  get images(): ManagementRecordingImageDto[] {
+    return this.detail?.images ?? [];
   }
 
   refreshAll(): void {
@@ -154,7 +183,7 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
       next: (items) => {
         this.uploading = false;
         this.snackBar.open(
-          `Uploaded ${items.length} recording(s). Use Transcribe / Summarize when ready.`,
+          `Uploaded ${items.length} recording(s). Transcript and summary will build in the background.`,
           'Dismiss',
           { duration: 4500 },
         );
@@ -193,7 +222,7 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
     this.loadList(this.selectedDay);
   }
 
-  /** Force rebuild transcript + summary for the selected recording (manual; can take several minutes). */
+  /** Queue (or force) rebuild transcript + summary for the selected recording. */
   reprocessSelected(): void {
     if (!this.selected) {
       return;
@@ -204,7 +233,12 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
         this.reprocessing = false;
         this.detail = d;
         this.patchListFlags(d);
-        this.snackBar.open('Transcript and summary ready', 'Dismiss', { duration: 3000 });
+        this.scheduleImagePreviews(d.images ?? []);
+        if (d.processingStatus === 'PENDING' || d.processingStatus === 'PROCESSING') {
+          this.snackBar.open('Queued for transcript + summary', 'Dismiss', { duration: 3000 });
+        } else {
+          this.snackBar.open('Transcript and summary ready', 'Dismiss', { duration: 3000 });
+        }
       },
       error: (err) => {
         this.reprocessing = false;
@@ -222,6 +256,7 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
     this.editDisplayName = item.displayName;
     this.transcriptFilter = '';
     this.activeTurnIndex = -1;
+    this.revokeImagePreviews();
     this.loadAudio(item.path);
     this.loadDetail(item.path);
   }
@@ -232,6 +267,7 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
     this.editDisplayName = '';
     this.activeTurnIndex = -1;
     this.revokeAudio();
+    this.revokeImagePreviews();
   }
 
   saveRename(): void {
@@ -253,13 +289,18 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
         this.renaming = false;
         this.detail = d;
         this.editDisplayName = d.displayName;
+        this.scheduleImagePreviews(d.images ?? []);
         this.recordings = this.recordings.map((r) =>
           r.path === d.path ? { ...r, displayName: d.displayName } : r,
         );
         if (this.selected?.path === d.path) {
           this.selected = { ...this.selected, displayName: d.displayName };
         }
-        this.snackBar.open('Name updated in Tracker (not in iCloud)', 'Dismiss', { duration: 3500 });
+        this.snackBar.open(
+          'Name updated in Tracker. Download the file to replace it in iCloud Drive.',
+          'Dismiss',
+          { duration: 4500 },
+        );
       },
       error: (err) => {
         this.renaming = false;
@@ -268,6 +309,112 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
         });
       },
     });
+  }
+
+  downloadSelected(): void {
+    if (!this.selected) {
+      return;
+    }
+    this.downloading = true;
+    this.api.getRecordingBlob(this.selected.path, 'attachment').subscribe({
+      next: (blob) => {
+        this.downloading = false;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = this.selected!.displayName || 'recording.m4a';
+        a.click();
+        URL.revokeObjectURL(url);
+        this.snackBar.open(
+          'Downloaded with the Tracker name — drop into your Just Press Record / iCloud folder to sync.',
+          'Dismiss',
+          { duration: 5000 },
+        );
+      },
+      error: (err) => {
+        this.downloading = false;
+        this.snackBar.open(formatHttpErrorDetail(err) || 'Download failed', 'Dismiss', {
+          duration: 6000,
+        });
+      },
+    });
+  }
+
+  onImagesSelected(ev: Event): void {
+    const input = ev.target as HTMLInputElement;
+    const fileList = input.files;
+    if (!this.selected || !fileList || fileList.length === 0) {
+      return;
+    }
+    const files: File[] = [];
+    for (let i = 0; i < fileList.length; i++) {
+      const f = fileList.item(i);
+      if (f && /\.(jpe?g|png|gif|webp|heic|heif)$/i.test(f.name)) {
+        files.push(f);
+      }
+    }
+    input.value = '';
+    if (files.length === 0) {
+      this.snackBar.open('No image files selected', 'Dismiss', { duration: 3000 });
+      return;
+    }
+    this.uploadingImages = true;
+    this.api.uploadRecordingImages(this.selected.path, files).subscribe({
+      next: () => {
+        this.uploadingImages = false;
+        this.snackBar.open(`Uploaded ${files.length} image(s)`, 'Dismiss', { duration: 2500 });
+        this.loadDetail(this.selected!.path);
+      },
+      error: (err) => {
+        this.uploadingImages = false;
+        this.snackBar.open(formatHttpErrorDetail(err) || 'Image upload failed', 'Dismiss', {
+          duration: 7000,
+        });
+      },
+    });
+  }
+
+  openImageGallery(startIndex = 0): void {
+    const images = this.images;
+    if (images.length === 0) {
+      return;
+    }
+    this.dialog.open<RecordingImageGalleryDialogComponent, RecordingImageGalleryData>(
+      RecordingImageGalleryDialogComponent,
+      {
+        width: 'min(96vw, 56rem)',
+        maxWidth: '96vw',
+        data: { images, startIndex },
+      },
+    );
+  }
+
+  deleteImage(img: ManagementRecordingImageDto, ev?: Event): void {
+    ev?.stopPropagation();
+    if (!confirm(`Remove image “${img.originalFilename}”?`)) {
+      return;
+    }
+    this.api.deleteRecordingImage(img.id).subscribe({
+      next: () => {
+        this.revokeOneImagePreview(img.id);
+        if (this.detail) {
+          this.detail = {
+            ...this.detail,
+            images: (this.detail.images ?? []).filter((i) => i.id !== img.id),
+          };
+        }
+        this.snackBar.open('Image removed', 'Dismiss', { duration: 2000 });
+      },
+      error: (err) => {
+        this.snackBar.open(formatHttpErrorDetail(err) || 'Could not delete image', 'Dismiss', {
+          duration: 6000,
+        });
+      },
+    });
+  }
+
+  imagePreviewUrl(id: number): string | null {
+    return this.imagePreviewUrls.get(id) ?? null;
   }
 
   deleteSelected(): void {
@@ -295,6 +442,7 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
         this.editDisplayName = d.displayName;
         this.loadingDetail = false;
         this.patchListFlags(d);
+        this.scheduleImagePreviews(d.images ?? []);
       },
       error: (err) => {
         this.loadingDetail = false;
@@ -303,6 +451,91 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
         });
       },
     });
+  }
+
+  private pollProcessing(): void {
+    if (
+      this.loadingList ||
+      this.searching ||
+      !this.recordings.some(
+        (r) => r.processingStatus === 'PENDING' || r.processingStatus === 'PROCESSING',
+      )
+    ) {
+      return;
+    }
+    this.api.listRecordings(this.selectedDay).subscribe({
+      next: (res) => {
+        const updated = new Map(res.recordings.map((r) => [r.path, r]));
+        this.recordings = this.recordings.map((r) => updated.get(r.path) ?? r);
+        if (this.selected) {
+          const selectedUpdate = updated.get(this.selected.path);
+          if (selectedUpdate) {
+            this.selected = selectedUpdate;
+          }
+        }
+      },
+    });
+    if (
+      this.selected &&
+      (this.selected.processingStatus === 'PENDING' ||
+        this.selected.processingStatus === 'PROCESSING')
+    ) {
+      const path = this.selected.path;
+      this.api.getRecordingDetail(path).subscribe({
+        next: (detail) => {
+          if (this.selected?.path !== path) {
+            return;
+          }
+          this.detail = detail;
+          this.scheduleImagePreviews(detail.images ?? []);
+          this.selected = {
+            ...this.selected,
+            hasTranscript: !!detail.transcript,
+            hasSummary: !!detail.summary,
+            processingStatus: detail.processingStatus,
+            processingError: detail.processingError,
+          };
+          this.patchListFlags(detail);
+        },
+      });
+    }
+  }
+
+  private scheduleImagePreviews(images: ManagementRecordingImageDto[]): void {
+    const keep = new Set(images.map((i) => i.id));
+    for (const id of [...this.imagePreviewUrls.keys()]) {
+      if (!keep.has(id)) {
+        this.revokeOneImagePreview(id);
+      }
+    }
+    for (const img of images) {
+      if (this.imagePreviewUrls.has(img.id)) {
+        continue;
+      }
+      this.api.getRecordingImageBlob(img.id, 'inline').subscribe({
+        next: (blob) => {
+          if (!this.detail?.images?.some((i) => i.id === img.id)) {
+            return;
+          }
+          this.imagePreviewUrls.set(img.id, URL.createObjectURL(blob));
+        },
+      });
+    }
+  }
+
+  private revokeOneImagePreview(id: number): void {
+    const url = this.imagePreviewUrls.get(id);
+    if (url) {
+      URL.revokeObjectURL(url);
+      this.imagePreviewUrls.delete(id);
+    }
+  }
+
+  private revokeImagePreviews(): void {
+    for (const url of this.imagePreviewUrls.values()) {
+      URL.revokeObjectURL(url);
+    }
+    this.imagePreviewUrls.clear();
   }
 
   private loadAudio(path: string): void {

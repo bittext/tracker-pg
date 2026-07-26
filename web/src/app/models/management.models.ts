@@ -354,8 +354,17 @@ export interface ManagementRecordingDetailDto {
   summary: string | null;
   summarizedAt: string | null;
   segments: ManagementRecordingTranscriptSegmentDto[] | null;
+  images: ManagementRecordingImageDto[] | null;
   processingStatus: 'IDLE' | 'PENDING' | 'PROCESSING' | 'READY' | 'FAILED' | null;
   processingError: string | null;
+}
+
+export interface ManagementRecordingImageDto {
+  id: number;
+  originalFilename: string;
+  contentType: string | null;
+  sizeBytes: number;
+  createdAt: string | null;
 }
 
 export interface ManagementRecordingTranscriptSegmentDto {

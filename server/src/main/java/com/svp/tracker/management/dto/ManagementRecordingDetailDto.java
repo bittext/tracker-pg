@@ -15,5 +15,6 @@ public record ManagementRecordingDetailDto(
         String summary,
         Instant summarizedAt,
         List<ManagementRecordingTranscriptSegmentDto> segments,
+        List<ManagementRecordingImageDto> images,
         String processingStatus,
         String processingError) {}

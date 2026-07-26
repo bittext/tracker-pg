@@ -243,6 +243,99 @@
   margin-right: 0.35rem;
 }
 
+.rec-images {
+  margin: 0 0 1rem;
+  padding: 0.75rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--mat-sys-surface-variant, #e8eaf0) 35%, transparent);
+}
+
+.rec-images__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
+}
+
+.rec-images__title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.rec-images__empty {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.rec-images mat-spinner {
+  display: inline-block;
+  margin-right: 0.35rem;
+}
+
+.rec-thumbs {
+  display: flex;
+  gap: 0.65rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  scroll-snap-type: x mandatory;
+}
+
+.rec-thumb {
+  position: relative;
+  flex: 0 0 auto;
+  width: 7.5rem;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--mat-sys-surface, #fff) 88%, transparent);
+  cursor: pointer;
+  overflow: hidden;
+  scroll-snap-align: start;
+  text-align: left;
+}
+
+.rec-thumb img,
+.rec-thumb__placeholder {
+  display: block;
+  width: 7.5rem;
+  height: 5.5rem;
+  object-fit: cover;
+}
+
+.rec-thumb__placeholder {
+  display: grid;
+  place-items: center;
+  opacity: 0.45;
+}
+
+.rec-thumb__name {
+  display: block;
+  padding: 0.3rem 0.4rem 0.45rem;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rec-thumb__delete {
+  position: absolute;
+  top: 0.1rem;
+  right: 0.1rem;
+  width: 1.7rem !important;
+  height: 1.7rem !important;
+  background: rgba(15, 23, 42, 0.55);
+  color: #fff;
+}
+
+.rec-thumb__delete mat-icon {
+  font-size: 1rem;
+  width: 1rem;
+  height: 1rem;
+}
+
 .rec-actions {
   display: flex;
   flex-wrap: wrap;
