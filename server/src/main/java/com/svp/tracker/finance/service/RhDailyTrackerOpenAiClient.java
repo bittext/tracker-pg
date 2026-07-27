@@ -252,15 +252,12 @@ public class RhDailyTrackerOpenAiClient {
         }
         String mergedSource = (source == null ? "whisper-1" : source) + "+chunked";
         String mergedText = text.toString().trim();
-        if (!hasSpeakerLabels(mergedText) && !segments.isEmpty()) {
-            // Prefer timed segments from chunked Whisper when chat speaker labels are absent.
-            return new TranscriptionResult(mergedText, mergedSource, segments);
-        }
         if (!hasSpeakerLabels(mergedText)) {
             try {
                 String split = splitTranscriptBySpeaker(mergedText);
                 if (hasSpeakerLabels(split)) {
-                    return new TranscriptionResult(split, mergedSource + "+speakers", List.of());
+                    // Keep timed Whisper segments so the UI can seek / follow playback.
+                    return new TranscriptionResult(split, mergedSource + "+speakers", segments);
                 }
             } catch (ResponseStatusException splitError) {
                 log.warn("Chat speaker split failed after chunked transcription ({})", splitError.getReason());
@@ -320,8 +317,9 @@ public class RhDailyTrackerOpenAiClient {
             try {
                 String split = splitTranscriptBySpeaker(text);
                 if (hasSpeakerLabels(split)) {
-                    // Chat speaker turns are not time-aligned — drop segment times.
-                    return new TranscriptionResult(split, source + "+speakers", List.of());
+                    // Speaker labels from chat are approximate; keep Whisper/diarize times for seek/follow.
+                    return new TranscriptionResult(
+                            split, source + "+speakers", segments == null ? List.of() : segments);
                 }
                 log.warn("Chat speaker split did not produce labeled turns; returning flat transcript");
             } catch (ResponseStatusException splitError) {

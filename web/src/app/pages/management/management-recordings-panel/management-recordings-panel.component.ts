@@ -741,6 +741,10 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
       if (start == null) {
         continue;
       }
+      const end = turns[i].endSeconds;
+      if (end != null && Number.isFinite(end) && t >= start && t < end) {
+        return i;
+      }
       if (start <= t) {
         idx = i;
       } else {
@@ -759,7 +763,7 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
       return;
     }
     const el = root.querySelector(`[data-turn-index="${this.activeTurnIndex}"]`) as HTMLElement | null;
-    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }
 
   formatBytes(n: number): string {

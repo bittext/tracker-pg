@@ -214,6 +214,7 @@
                   [src]="audioObjectUrl"
                   (timeupdate)="onAudioTime()"
                   (seeked)="onAudioTime()"
+                  (play)="onAudioTime()"
                 >
                   Your browser does not support audio.
                 </audio>
@@ -393,11 +394,32 @@
                 <mat-label>Filter transcript lines</mat-label>
                 <input matInput [(ngModel)]="transcriptFilter" name="transcriptFilter" autocomplete="off" />
               </mat-form-field>
-              @if (hasTimedTurns) {
-                <label class="rec-follow">
-                  <input type="checkbox" [(ngModel)]="followPlayback" name="followPlayback" />
-                  Follow playback
-                  <span class="muted rec-follow__hint">· click a turn to seek</span>
+              @if (detail?.transcript && !hasTimedTurns) {
+                <div class="rec-untimed-banner" role="status">
+                  <mat-icon aria-hidden="true">schedule</mat-icon>
+                  <div>
+                    <p class="rec-untimed-banner__title">No timestamps on this transcript</p>
+                    <p class="muted">
+                      Click a turn won’t seek, and follow-playback is unavailable until you
+                      <strong>Re-transcribe</strong> or <strong>Reprocess</strong> (timed Whisper/diarize segments).
+                    </p>
+                  </div>
+                </div>
+              }
+              @if (detail?.transcript) {
+                <label class="rec-follow" [class.rec-follow--disabled]="!hasTimedTurns">
+                  <input
+                    type="checkbox"
+                    [(ngModel)]="followPlayback"
+                    name="followPlayback"
+                    [disabled]="!hasTimedTurns"
+                  />
+                  Scroll transcript with audio
+                  @if (hasTimedTurns) {
+                    <span class="muted rec-follow__hint">· click a timed turn to jump and play</span>
+                  } @else {
+                    <span class="muted rec-follow__hint">· needs timed transcript</span>
+                  }
                 </label>
               }
               @if (loadingDetail) {
@@ -413,6 +435,11 @@
                       [attr.data-turn-index]="$index"
                       [class.rec-turn--active]="$index === activeTurnIndex"
                       [class.rec-turn--seekable]="turn.startSeconds != null"
+                      [attr.title]="
+                        turn.startSeconds != null
+                          ? 'Jump to ' + formatTurnTime(turn.startSeconds) + ' and play'
+                          : null
+                      "
                       (click)="seekToTurn(turn, $index)"
                     >
                       <header class="rec-turn__meta">
