@@ -15,6 +15,8 @@ import com.svp.tracker.journal.dto.JournalTagDefDto;
 import com.svp.tracker.journal.repository.JournalAttachmentRepository;
 import com.svp.tracker.journal.repository.JournalEntryRepository;
 import com.svp.tracker.journal.repository.JournalTagDefRepository;
+import com.svp.tracker.util.ImageCaptureTime;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Instant;
@@ -255,18 +257,22 @@ public class JournalService {
                 .findById(entryId)
                 .orElseThrow(() -> new NotFoundException("Entry not found: " + entryId));
         assertRowAccess(entry.getOwnerUserId());
+        String filename = Objects.requireNonNullElse(file.getOriginalFilename(), "file");
+        byte[] bytes = file.getBytes();
+        Instant capturedAt = ImageCaptureTime.resolve(filename, file.getContentType(), bytes);
         String key;
-        try (var in = file.getInputStream()) {
-            key = blobStore.put(entry.getOwnerUserId(), entry.getId(), in, file.getSize());
+        try (var in = new ByteArrayInputStream(bytes)) {
+            key = blobStore.put(entry.getOwnerUserId(), entry.getId(), in, bytes.length);
         } catch (IOException ex) {
             throw new UncheckedIOException(ex);
         }
         JournalAttachment a = new JournalAttachment();
         a.setEntry(entry);
         a.setStorageKey(key);
-        a.setOriginalFilename(Objects.requireNonNullElse(file.getOriginalFilename(), "file"));
+        a.setOriginalFilename(filename);
         a.setContentType(file.getContentType());
-        a.setSizeBytes(file.getSize());
+        a.setSizeBytes((long) bytes.length);
+        a.setCapturedAt(capturedAt);
         a.setCreatedAt(Instant.now());
         a = attachmentRepository.save(a);
         return toAttachmentDto(a);
@@ -408,18 +414,24 @@ public class JournalService {
     }
 
     private JournalAttachmentDto toAttachmentDto(JournalAttachment a) {
+        Instant captured = a.getCapturedAt();
+        if (captured == null) {
+            captured = ImageCaptureTime.fromFilename(a.getOriginalFilename());
+        }
         return JournalAttachmentDto.builder()
                 .id(a.getId())
                 .originalFilename(a.getOriginalFilename())
                 .contentType(a.getContentType())
                 .sizeBytes(a.getSizeBytes())
                 .downloadPath("/api/journal/attachments/" + a.getId() + "/file")
+                .capturedAt(captured)
+                .createdAt(a.getCreatedAt())
                 .build();
     }
 
     private JournalEntryDto toDto(JournalEntry e) {
         List<JournalAttachment> attList = new ArrayList<>(e.getAttachments());
-        attList.sort(Comparator.comparing(JournalAttachment::getId));
+        attList.sort(attachmentCaptureOrder());
         return toDto(e, attList);
     }
 
@@ -427,7 +439,7 @@ public class JournalService {
         List<JournalTagDefDto> tagDtos =
                 e.getTags().stream().sorted(Comparator.comparing(JournalTagDef::getName)).map(this::toTagDefDto).toList();
         List<JournalAttachmentDto> atts = attachmentList.stream()
-                .sorted(Comparator.comparing(JournalAttachment::getId))
+                .sorted(attachmentCaptureOrder())
                 .map(this::toAttachmentDto)
                 .toList();
         return JournalEntryDto.builder()
@@ -441,5 +453,14 @@ public class JournalService {
                 .createdAt(e.getCreatedAt())
                 .updatedAt(e.getUpdatedAt())
                 .build();
+    }
+
+    /** Oldest capture (or upload) time first. */
+    private static Comparator<JournalAttachment> attachmentCaptureOrder() {
+        return Comparator.comparing(
+                        (JournalAttachment a) ->
+                                a.getCapturedAt() != null ? a.getCapturedAt() : a.getCreatedAt(),
+                        Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(JournalAttachment::getId, Comparator.nullsLast(Comparator.naturalOrder()));
     }
 }

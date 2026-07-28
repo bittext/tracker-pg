@@ -1,4 +1,4 @@
-package com.svp.tracker.finance.service;
+package com.svp.tracker.util;
 
 import com.drew.imaging.ImageMetadataReader;
 import com.drew.metadata.Metadata;
@@ -18,7 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /** Resolve when an image was captured (EXIF or filename), not when it was uploaded. */
 @Slf4j
-final class JournalImageCaptureTime {
+public final class ImageCaptureTime {
 
     private static final ZoneId CENTRAL = ZoneId.of("America/Chicago");
 
@@ -33,9 +33,9 @@ final class JournalImageCaptureTime {
             "Screenshot\\s+(\\d{4})-(\\d{2})-(\\d{2})\\s+at\\s+(\\d{1,2})[.:](\\d{2})[.:](\\d{2})(?:\\s*(AM|PM))?",
             Pattern.CASE_INSENSITIVE);
 
-    private JournalImageCaptureTime() {}
+    private ImageCaptureTime() {}
 
-    static Instant resolve(String originalFilename, String contentType, byte[] bytes) {
+    public static Instant resolve(String originalFilename, String contentType, byte[] bytes) {
         Instant fromExif = fromExif(contentType, bytes);
         if (fromExif != null) {
             return fromExif;
@@ -47,7 +47,7 @@ final class JournalImageCaptureTime {
         return null;
     }
 
-    static Instant fromFilename(String originalFilename) {
+    public static Instant fromFilename(String originalFilename) {
         if (originalFilename == null || originalFilename.isBlank()) {
             return null;
         }

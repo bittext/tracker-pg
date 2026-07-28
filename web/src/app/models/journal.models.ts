@@ -10,6 +10,9 @@ export interface JournalAttachmentDto {
   contentType?: string | null;
   sizeBytes?: number | null;
   downloadPath: string;
+  /** Photo capture time when known (EXIF / filename). */
+  capturedAt?: string | null;
+  createdAt?: string | null;
 }
 
 export interface JournalEntryDto {

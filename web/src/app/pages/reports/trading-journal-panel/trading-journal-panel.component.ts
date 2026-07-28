@@ -374,6 +374,14 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
       input.value = '';
       return;
     }
+    files.sort((a, b) => {
+      const ta = Number.isFinite(a.lastModified) ? a.lastModified : 0;
+      const tb = Number.isFinite(b.lastModified) ? b.lastModified : 0;
+      if (ta !== tb) {
+        return ta - tb;
+      }
+      return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+    });
     this.ensureEntry(() => {
       this.uploading = true;
       let i = 0;

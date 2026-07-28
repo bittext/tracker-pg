@@ -132,11 +132,20 @@
                     }
                     <div class="markdown-body" [innerHTML]="e.bodyMarkdown | safeMarkdown"></div>
                     <div class="attach-row">
-                      <label class="file-link">
-                        <input type="file" (change)="onFileSelected($event, e.id)" hidden />
-                        <span class="muted">+ Add attachment</span>
+                      <label class="file-link" [class.file-link--busy]="uploadingEntryId === e.id">
+                        <input
+                          type="file"
+                          multiple
+                          accept="image/*,.pdf,.png,.jpg,.jpeg,.gif,.webp,.heic,.heif"
+                          (change)="onFileSelected($event, e.id)"
+                          [disabled]="uploadingEntryId === e.id"
+                          hidden
+                        />
+                        <span class="muted">{{
+                          uploadingEntryId === e.id ? 'Uploading…' : '+ Add attachment(s)'
+                        }}</span>
                       </label>
-                      @for (a of e.attachments; track a.id) {
+                      @for (a of sortedAttachments(e); track a.id) {
                         <button mat-button type="button" class="att-link" (click)="openAttachment(a)">
                           {{ a.originalFilename }}
                         </button>

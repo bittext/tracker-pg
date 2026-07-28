@@ -77,6 +77,8 @@ export class JournalComponent implements OnInit {
 
   form: JournalEntryWriteBody = { loggedOn: '', bodyMarkdown: '', tagIds: [] };
   editingId: number | null = null;
+  /** Entry id currently receiving a multi-file upload, or null. */
+  uploadingEntryId: number | null = null;
 
   ngOnInit(): void {
     const t = this.todayIso();
@@ -328,21 +330,114 @@ export class JournalComponent implements OnInit {
 
   onFileSelected(event: Event, entryId: number): void {
     const input = event.target as HTMLInputElement;
-    const f = input.files?.[0];
-    input.value = '';
-    if (!f) {
+    const files = input.files ? Array.from(input.files) : [];
+    if (!files.length) {
+      input.value = '';
       return;
     }
-    this.api.uploadAttachment(entryId, f).subscribe({
-      next: () => {
-        this.snackBar.open('Attachment uploaded', undefined, { duration: 2000 });
+    // Oldest image first (file mtime / name cues); server also sorts by EXIF captured_at.
+    const ordered = this.sortFilesOldestFirst(files);
+    this.uploadingEntryId = entryId;
+    let i = 0;
+    const step = (): void => {
+      if (i >= ordered.length) {
+        this.uploadingEntryId = null;
+        input.value = '';
+        this.snackBar.open(
+          ordered.length === 1 ? 'Attachment uploaded' : `${ordered.length} attachments uploaded`,
+          undefined,
+          { duration: 2500 },
+        );
         this.loadDay();
         this.api.calendar(this.calendarYear, this.calendarMonth).subscribe({
           next: (c) => (this.calendarDays = c),
         });
-      },
-      error: (e) => this.err('Upload failed', e),
+        return;
+      }
+      this.api.uploadAttachment(entryId, ordered[i]).subscribe({
+        next: () => {
+          i += 1;
+          step();
+        },
+        error: (e) => {
+          this.uploadingEntryId = null;
+          input.value = '';
+          this.err('Upload failed', e);
+          this.loadDay();
+        },
+      });
+    };
+    step();
+  }
+
+  /** Display attachments oldest capture/upload first (matches server order). */
+  sortedAttachments(entry: JournalEntryDto): JournalAttachmentDto[] {
+    const atts = entry.attachments ?? [];
+    return [...atts].sort((a, b) => {
+      const ta = Date.parse(a.capturedAt || a.createdAt || '') || 0;
+      const tb = Date.parse(b.capturedAt || b.createdAt || '') || 0;
+      if (ta !== tb) {
+        return ta - tb;
+      }
+      return a.id - b.id;
     });
+  }
+
+  /** Prefer lastModified (often capture time on phone exports), then filename date cues, then name. */
+  private sortFilesOldestFirst(files: File[]): File[] {
+    return [...files].sort((a, b) => {
+      const ta = this.fileSortInstantMs(a);
+      const tb = this.fileSortInstantMs(b);
+      if (ta !== tb) {
+        return ta - tb;
+      }
+      return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+    });
+  }
+
+  private fileSortInstantMs(file: File): number {
+    const fromName = this.filenameCaptureMs(file.name);
+    if (fromName != null) {
+      return fromName;
+    }
+    return Number.isFinite(file.lastModified) ? file.lastModified : 0;
+  }
+
+  /** Best-effort parse of IMG_/SCR-/Screenshot filenames (Central-ish local wall clock). */
+  private filenameCaptureMs(name: string): number | null {
+    const base = name.replace(/^.*[/\\]/, '');
+    const mac = base.match(
+      /Screenshot\s+(\d{4})-(\d{2})-(\d{2})\s+at\s+(\d{1,2})[.:](\d{2})[.:](\d{2})(?:\s*(AM|PM))?/i,
+    );
+    if (mac) {
+      let hour = Number(mac[4]);
+      const minute = Number(mac[5]);
+      const second = Number(mac[6]);
+      const ampm = mac[7];
+      if (ampm) {
+        const pm = ampm.toUpperCase() === 'PM';
+        if (pm && hour < 12) {
+          hour += 12;
+        } else if (!pm && hour === 12) {
+          hour = 0;
+        }
+      }
+      return Date.UTC(Number(mac[1]), Number(mac[2]) - 1, Number(mac[3]), hour, minute, second);
+    }
+    const compact = base.match(/(?:IMG[_-]?)?(\d{8})[_-](\d{6})/i) || base.match(/SCR[-_](\d{8})[-_]?(\d{6})?/i);
+    if (compact) {
+      const d = compact[1];
+      const t = compact[2] || '000000';
+      return Date.UTC(
+        Number(d.slice(0, 4)),
+        Number(d.slice(4, 6)) - 1,
+        Number(d.slice(6, 8)),
+        Number(t.slice(0, 2)),
+        Number(t.slice(2, 4)),
+        Number(t.slice(4, 6)),
+      );
+    }
+    return null;
   }
 
   removeAttachment(id: number, ev: Event): void {

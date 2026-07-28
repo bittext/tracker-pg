@@ -25,6 +25,7 @@ import com.svp.tracker.finance.repository.TradingJournalAttachmentRepository;
 import com.svp.tracker.finance.repository.TradingJournalEntryRepository;
 import com.svp.tracker.finance.repository.TradingJournalRefRepository;
 import com.svp.tracker.journal.service.JournalBlobStore;
+import com.svp.tracker.util.ImageCaptureTime;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -302,7 +303,7 @@ public class TradingJournalService {
         try {
             byte[] bytes = file.getBytes();
             Instant capturedAt =
-                    JournalImageCaptureTime.resolve(filename, file.getContentType(), bytes);
+                    ImageCaptureTime.resolve(filename, file.getContentType(), bytes);
             try (InputStream in = new ByteArrayInputStream(bytes)) {
                 String key = blobStore.put(uid, entry.getId(), in, bytes.length);
                 TradingJournalAttachment row = new TradingJournalAttachment();
@@ -497,7 +498,7 @@ public class TradingJournalService {
     private TradingJournalAttachmentDto toAttachmentDto(TradingJournalAttachment a) {
         Instant captured = a.getCapturedAt();
         if (captured == null) {
-            captured = JournalImageCaptureTime.fromFilename(a.getOriginalFilename());
+            captured = ImageCaptureTime.fromFilename(a.getOriginalFilename());
         }
         if (captured == null) {
             captured = a.getCreatedAt();

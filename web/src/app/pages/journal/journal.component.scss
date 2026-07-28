@@ -299,6 +299,11 @@
   margin-right: 0.25rem;
 }
 
+.file-link--busy {
+  opacity: 0.65;
+  pointer-events: none;
+}
+
 .att-link {
   font-size: 0.8rem;
 }
