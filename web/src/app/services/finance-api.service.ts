@@ -904,6 +904,9 @@ export class FinanceApiService {
   tradingJournalAddAttachment(date: string, file: File) {
     const form = new FormData();
     form.append('file', file, file.name);
+    if (Number.isFinite(file.lastModified) && file.lastModified > 0) {
+      form.append('clientLastModifiedMs', String(file.lastModified));
+    }
     return this.http.post<TradingJournalAttachmentDto>(`${this.tradingJournalRoot}/${date}/attachments`, form);
   }
 

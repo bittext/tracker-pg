@@ -447,14 +447,17 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
     if (!raw) {
       return '';
     }
-    return new Intl.DateTimeFormat('en-US', {
+    // Finder-style: “Monday, July 27, 2026 at 9:13 PM” (America/Chicago).
+    const formatted = new Intl.DateTimeFormat('en-US', {
       timeZone: 'America/Chicago',
-      month: 'short',
+      weekday: 'long',
+      month: 'long',
       day: 'numeric',
       year: 'numeric',
       hour: 'numeric',
       minute: '2-digit',
     }).format(new Date(raw));
+    return formatted.replace(/, (\d{1,2}:\d{2}\s*[AP]M)$/i, ' at $1');
   }
 
   private sortAttachmentsByCreatedAsc(atts: TradingJournalAttachmentDto[]): TradingJournalAttachmentDto[] {

@@ -111,6 +111,9 @@ export class JournalApiService {
   uploadAttachment(entryId: number, file: File) {
     const fd = new FormData();
     fd.append('file', file);
+    if (Number.isFinite(file.lastModified) && file.lastModified > 0) {
+      fd.append('clientLastModifiedMs', String(file.lastModified));
+    }
     return this.http.post<JournalAttachmentDto>(`${this.root}/entries/${entryId}/attachments`, fd);
   }
 

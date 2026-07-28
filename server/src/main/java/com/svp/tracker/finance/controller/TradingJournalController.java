@@ -115,8 +115,9 @@ public class TradingJournalController {
     @ResponseStatus(HttpStatus.CREATED)
     public TradingJournalAttachmentDto addAttachment(
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-            @RequestParam("file") MultipartFile file) {
-        return tradingJournalService.addAttachment(date, file);
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "clientLastModifiedMs", required = false) Long clientLastModifiedMs) {
+        return tradingJournalService.addAttachment(date, file, clientLastModifiedMs);
     }
 
     @DeleteMapping("/attachments/{attachmentId}")

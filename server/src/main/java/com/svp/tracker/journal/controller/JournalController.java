@@ -123,9 +123,12 @@ public class JournalController {
 
     @PostMapping("/entries/{id}/attachments")
     @ResponseStatus(HttpStatus.CREATED)
-    public JournalAttachmentDto uploadAttachment(@PathVariable long id, @RequestParam("file") MultipartFile file)
+    public JournalAttachmentDto uploadAttachment(
+            @PathVariable long id,
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "clientLastModifiedMs", required = false) Long clientLastModifiedMs)
             throws IOException {
-        return journalService.addAttachment(id, file);
+        return journalService.addAttachment(id, file, clientLastModifiedMs);
     }
 
     @DeleteMapping("/attachments/{attachmentId}")

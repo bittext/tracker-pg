@@ -244,7 +244,8 @@ public class JournalService {
     }
 
     @Transactional
-    public JournalAttachmentDto addAttachment(long entryId, MultipartFile file) throws IOException {
+    public JournalAttachmentDto addAttachment(long entryId, MultipartFile file, Long clientLastModifiedMs)
+            throws IOException {
         if (file == null || file.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File required");
         }
@@ -259,7 +260,8 @@ public class JournalService {
         assertRowAccess(entry.getOwnerUserId());
         String filename = Objects.requireNonNullElse(file.getOriginalFilename(), "file");
         byte[] bytes = file.getBytes();
-        Instant capturedAt = ImageCaptureTime.resolve(filename, file.getContentType(), bytes);
+        Instant capturedAt =
+                ImageCaptureTime.resolve(filename, file.getContentType(), bytes, clientLastModifiedMs);
         String key;
         try (var in = new ByteArrayInputStream(bytes)) {
             key = blobStore.put(entry.getOwnerUserId(), entry.getId(), in, bytes.length);
@@ -276,6 +278,10 @@ public class JournalService {
         a.setCreatedAt(Instant.now());
         a = attachmentRepository.save(a);
         return toAttachmentDto(a);
+    }
+
+    public JournalAttachmentDto addAttachment(long entryId, MultipartFile file) throws IOException {
+        return addAttachment(entryId, file, null);
     }
 
     @Transactional

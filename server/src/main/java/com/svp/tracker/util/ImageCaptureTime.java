@@ -1,26 +1,47 @@
 package com.svp.tracker.util;
 
 import com.drew.imaging.ImageMetadataReader;
+import com.drew.metadata.Directory;
 import com.drew.metadata.Metadata;
+import com.drew.metadata.exif.ExifDirectoryBase;
 import com.drew.metadata.exif.ExifIFD0Directory;
 import com.drew.metadata.exif.ExifSubIFDDirectory;
+import com.drew.metadata.png.PngDirectory;
+import com.drew.metadata.xmp.XmpDirectory;
 import java.io.ByteArrayInputStream;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Date;
 import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 
-/** Resolve when an image was captured (EXIF or filename), not when it was uploaded. */
+/**
+ * Resolve when an image was captured from embedded metadata (EXIF / PNG / XMP), filename cues, or
+ * the browser file last-modified time — not the upload instant.
+ *
+ * <p>EXIF {@code DateTimeOriginal} is a <em>local wall clock</em> with no zone. We honor
+ * OffsetTimeOriginal when present; otherwise interpret as America/Chicago so Lightsail (UTC) does
+ * not shift evening photos to the afternoon.
+ */
 @Slf4j
 public final class ImageCaptureTime {
 
     private static final ZoneId CENTRAL = ZoneId.of("America/Chicago");
+
+    private static final DateTimeFormatter EXIF_LOCAL =
+            DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss");
+    private static final DateTimeFormatter EXIF_LOCAL_FRAC =
+            DateTimeFormatter.ofPattern("yyyy:MM:dd HH:mm:ss.SSS");
 
     /** SCR-20260724-225612… / SCR-20260724_225612… */
     private static final Pattern SCR =
@@ -36,13 +57,26 @@ public final class ImageCaptureTime {
     private ImageCaptureTime() {}
 
     public static Instant resolve(String originalFilename, String contentType, byte[] bytes) {
-        Instant fromExif = fromExif(contentType, bytes);
-        if (fromExif != null) {
-            return fromExif;
+        return resolve(originalFilename, contentType, bytes, null);
+    }
+
+    /**
+     * @param clientLastModifiedMs browser {@code File.lastModified} (epoch millis); used when the
+     *     file has no usable embedded capture time (common for some PNGs). Matches Finder “Created”
+     *     for many Mac photo/screenshot exports.
+     */
+    public static Instant resolve(
+            String originalFilename, String contentType, byte[] bytes, Long clientLastModifiedMs) {
+        Instant fromMeta = fromImageMetadata(contentType, originalFilename, bytes);
+        if (fromMeta != null) {
+            return fromMeta;
         }
         Instant fromName = fromFilename(originalFilename);
         if (fromName != null) {
             return fromName;
+        }
+        if (clientLastModifiedMs != null && clientLastModifiedMs > 0) {
+            return Instant.ofEpochMilli(clientLastModifiedMs);
         }
         return null;
     }
@@ -71,7 +105,7 @@ public final class ImageCaptureTime {
                     hour = 0;
                 }
             }
-            return toInstant(
+            return toCentralInstant(
                     Integer.parseInt(mac.group(1)),
                     Integer.parseInt(mac.group(2)),
                     Integer.parseInt(mac.group(3)),
@@ -105,10 +139,10 @@ public final class ImageCaptureTime {
         int hour = Integer.parseInt(hhmmss.substring(0, 2));
         int minute = Integer.parseInt(hhmmss.substring(2, 4));
         int second = Integer.parseInt(hhmmss.substring(4, 6));
-        return toInstant(y, m, d, hour, minute, second);
+        return toCentralInstant(y, m, d, hour, minute, second);
     }
 
-    private static Instant toInstant(int y, int m, int d, int hour, int minute, int second) {
+    private static Instant toCentralInstant(int y, int m, int d, int hour, int minute, int second) {
         try {
             LocalDateTime ldt = LocalDateTime.of(LocalDate.of(y, m, d), LocalTime.of(hour, minute, second));
             return ldt.atZone(CENTRAL).toInstant();
@@ -117,37 +151,240 @@ public final class ImageCaptureTime {
         }
     }
 
-    private static Instant fromExif(String contentType, byte[] bytes) {
+    private static Instant fromImageMetadata(String contentType, String filename, byte[] bytes) {
         if (bytes == null || bytes.length == 0) {
             return null;
         }
-        String ct = contentType == null ? "" : contentType.toLowerCase(Locale.ROOT);
-        if (!(ct.startsWith("image/") || ct.isBlank())) {
+        if (!looksLikeImage(contentType, filename, bytes)) {
             return null;
         }
         try {
             Metadata metadata = ImageMetadataReader.readMetadata(new ByteArrayInputStream(bytes));
-            ExifSubIFDDirectory sub = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory.class);
-            if (sub != null) {
-                Date original = sub.getDateOriginal();
-                if (original != null) {
-                    return original.toInstant();
-                }
-                Date digitized = sub.getDateDigitized();
-                if (digitized != null) {
-                    return digitized.toInstant();
-                }
+            Instant exif = fromExifDirectories(metadata);
+            if (exif != null) {
+                return exif;
             }
-            ExifIFD0Directory ifd0 = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
-            if (ifd0 != null) {
-                Date modified = ifd0.getDate(ExifIFD0Directory.TAG_DATETIME);
-                if (modified != null) {
-                    return modified.toInstant();
-                }
+            Instant png = fromPng(metadata);
+            if (png != null) {
+                return png;
+            }
+            Instant xmp = fromXmp(metadata);
+            if (xmp != null) {
+                return xmp;
             }
         } catch (Exception e) {
-            log.debug("EXIF capture time unavailable: {}", e.toString());
+            log.debug("Image capture metadata unavailable: {}", e.toString());
         }
         return null;
+    }
+
+    private static boolean looksLikeImage(String contentType, String filename, byte[] bytes) {
+        String ct = contentType == null ? "" : contentType.toLowerCase(Locale.ROOT);
+        if (ct.startsWith("image/") || ct.isBlank() || ct.contains("octet-stream")) {
+            return true;
+        }
+        String name = filename == null ? "" : filename.toLowerCase(Locale.ROOT);
+        if (name.matches(".*\\.(jpe?g|png|gif|webp|heic|heif|tiff?|bmp)$")) {
+            return true;
+        }
+        // JPEG / PNG magic
+        if (bytes.length >= 3 && (bytes[0] & 0xFF) == 0xFF && (bytes[1] & 0xFF) == 0xD8) {
+            return true;
+        }
+        if (bytes.length >= 8
+                && bytes[0] == (byte) 0x89
+                && bytes[1] == 0x50
+                && bytes[2] == 0x4E
+                && bytes[3] == 0x47) {
+            return true;
+        }
+        return false;
+    }
+
+    private static Instant fromExifDirectories(Metadata metadata) {
+        ExifSubIFDDirectory sub = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory.class);
+        if (sub != null) {
+            Instant original = readExifLocalDateTime(
+                    sub,
+                    ExifDirectoryBase.TAG_DATETIME_ORIGINAL,
+                    ExifDirectoryBase.TAG_TIME_ZONE_ORIGINAL);
+            if (original != null) {
+                return original;
+            }
+            Instant digitized = readExifLocalDateTime(
+                    sub,
+                    ExifDirectoryBase.TAG_DATETIME_DIGITIZED,
+                    ExifDirectoryBase.TAG_TIME_ZONE_DIGITIZED);
+            if (digitized != null) {
+                return digitized;
+            }
+        }
+        ExifIFD0Directory ifd0 = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
+        if (ifd0 != null) {
+            Instant modified = readExifLocalDateTime(
+                    ifd0, ExifDirectoryBase.TAG_DATETIME, ExifDirectoryBase.TAG_TIME_ZONE);
+            if (modified != null) {
+                return modified;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Parse EXIF date tags as wall-clock local time. Do <em>not</em> use {@link Directory#getDate(int)}
+     * then {@link Date#toInstant()} — that applies the JVM default zone (UTC on Lightsail) and shifts
+     * Central-evening captures by several hours.
+     */
+    private static Instant readExifLocalDateTime(Directory dir, int dateTag, int offsetTag) {
+        String raw = dir.getString(dateTag);
+        Instant parsed = parseExifDateTimeString(raw, dir.getString(offsetTag));
+        if (parsed != null) {
+            return parsed;
+        }
+        // Rare: library already decoded to Date — reinterpret calendar fields in Central.
+        try {
+            Date date = dir.getDate(dateTag);
+            if (date != null) {
+                LocalDateTime ldt =
+                        LocalDateTime.ofInstant(date.toInstant(), ZoneId.systemDefault());
+                String offset = dir.getString(offsetTag);
+                if (offset != null && !offset.isBlank()) {
+                    try {
+                        return ldt.atOffset(ZoneOffset.of(offset.trim())).toInstant();
+                    } catch (Exception ignored) {
+                        // fall through to Central
+                    }
+                }
+                return ldt.atZone(CENTRAL).toInstant();
+            }
+        } catch (Exception ignored) {
+            // ignore
+        }
+        return null;
+    }
+
+    static Instant parseExifDateTimeString(String raw, String offsetRaw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String cleaned = raw.trim().replace('/', ':');
+        // Normalize "2026-07-27 21:13:00" → EXIF colon form
+        if (cleaned.length() >= 19 && cleaned.charAt(4) == '-') {
+            cleaned = cleaned.substring(0, 10).replace('-', ':') + cleaned.substring(10);
+        }
+        LocalDateTime ldt;
+        try {
+            if (cleaned.length() >= 23 && cleaned.charAt(19) == '.') {
+                ldt = LocalDateTime.parse(cleaned.substring(0, 23), EXIF_LOCAL_FRAC);
+            } else if (cleaned.length() >= 19) {
+                ldt = LocalDateTime.parse(cleaned.substring(0, 19), EXIF_LOCAL);
+            } else {
+                return null;
+            }
+        } catch (DateTimeParseException e) {
+            return null;
+        }
+        if (offsetRaw != null && !offsetRaw.isBlank()) {
+            try {
+                return ldt.atOffset(ZoneOffset.of(offsetRaw.trim())).toInstant();
+            } catch (Exception ignored) {
+                // fall through
+            }
+        }
+        return ldt.atZone(CENTRAL).toInstant();
+    }
+
+    private static Instant fromPng(Metadata metadata) {
+        for (PngDirectory dir : metadata.getDirectoriesOfType(PngDirectory.class)) {
+            Object textual = dir.getObject(PngDirectory.TAG_TEXTUAL_DATA);
+            if (textual instanceof Map<?, ?> map) {
+                for (Map.Entry<?, ?> e : map.entrySet()) {
+                    String key = String.valueOf(e.getKey()).toLowerCase(Locale.ROOT);
+                    if (key.contains("creation") || key.equals("create") || key.contains("datetime")) {
+                        Instant parsed = parseFlexibleDateTime(String.valueOf(e.getValue()));
+                        if (parsed != null) {
+                            return parsed;
+                        }
+                    }
+                }
+            }
+            Instant lastMod = parseFlexibleDateTime(dir.getString(PngDirectory.TAG_LAST_MODIFICATION_TIME));
+            if (lastMod != null) {
+                return lastMod;
+            }
+            try {
+                Date d = dir.getDate(PngDirectory.TAG_LAST_MODIFICATION_TIME);
+                if (d != null) {
+                    LocalDateTime ldt = LocalDateTime.ofInstant(d.toInstant(), ZoneId.systemDefault());
+                    return ldt.atZone(CENTRAL).toInstant();
+                }
+            } catch (Exception ignored) {
+                // ignore
+            }
+        }
+        return null;
+    }
+
+    private static Instant fromXmp(Metadata metadata) {
+        XmpDirectory xmp = metadata.getFirstDirectoryOfType(XmpDirectory.class);
+        if (xmp == null) {
+            return null;
+        }
+        Map<String, String> props = xmp.getXmpProperties();
+        if (props == null || props.isEmpty()) {
+            return null;
+        }
+        String[] preferred = {
+            "exif:DateTimeOriginal",
+            "xmp:CreateDate",
+            "photoshop:DateCreated",
+            "exif:DateTimeDigitized",
+            "xmp:ModifyDate"
+        };
+        for (String key : preferred) {
+            Instant direct = parseFlexibleDateTime(props.get(key));
+            if (direct != null) {
+                return direct;
+            }
+        }
+        for (Map.Entry<String, String> e : props.entrySet()) {
+            String k = e.getKey() == null ? "" : e.getKey().toLowerCase(Locale.ROOT);
+            if (k.contains("datetimeoriginal") || k.contains("createdate") || k.contains("datecreated")) {
+                Instant parsed = parseFlexibleDateTime(e.getValue());
+                if (parsed != null) {
+                    return parsed;
+                }
+            }
+        }
+        return null;
+    }
+
+    /** PNG / XMP style timestamps, including ISO-8601 with offset. */
+    static Instant parseFlexibleDateTime(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String s = raw.trim();
+        try {
+            return OffsetDateTime.parse(s).toInstant();
+        } catch (DateTimeParseException ignored) {
+            // continue
+        }
+        try {
+            return Instant.parse(s);
+        } catch (DateTimeParseException ignored) {
+            // continue
+        }
+        Instant exif = parseExifDateTimeString(s, null);
+        if (exif != null) {
+            return exif;
+        }
+        // "2026-07-27T21:13:00" without zone → Central
+        try {
+            LocalDateTime ldt = LocalDateTime.parse(s);
+            return ldt.atZone(CENTRAL).toInstant();
+        } catch (DateTimeParseException ignored) {
+            return null;
+        }
     }
 }

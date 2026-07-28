@@ -138,7 +138,7 @@ public class TradingJournalService {
                 snapshotDate, toEntryDto(entry), wrap, ai, focusAccountHoldings(wrap));
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public TradingJournalDayDetailDto getDay(LocalDate snapshotDate) {
         long uid = currentUser.requireUserId();
         requireDate(snapshotDate);
@@ -290,7 +290,8 @@ public class TradingJournalService {
     }
 
     @Transactional
-    public TradingJournalAttachmentDto addAttachment(LocalDate snapshotDate, MultipartFile file) {
+    public TradingJournalAttachmentDto addAttachment(
+            LocalDate snapshotDate, MultipartFile file, Long clientLastModifiedMs) {
         long uid = currentUser.requireUserId();
         TradingJournalEntry entry = requireOwnedEntry(uid, snapshotDate);
         if (file == null || file.isEmpty()) {
@@ -303,7 +304,7 @@ public class TradingJournalService {
         try {
             byte[] bytes = file.getBytes();
             Instant capturedAt =
-                    ImageCaptureTime.resolve(filename, file.getContentType(), bytes);
+                    ImageCaptureTime.resolve(filename, file.getContentType(), bytes, clientLastModifiedMs);
             try (InputStream in = new ByteArrayInputStream(bytes)) {
                 String key = blobStore.put(uid, entry.getId(), in, bytes.length);
                 TradingJournalAttachment row = new TradingJournalAttachment();
@@ -496,13 +497,7 @@ public class TradingJournalService {
     }
 
     private TradingJournalAttachmentDto toAttachmentDto(TradingJournalAttachment a) {
-        Instant captured = a.getCapturedAt();
-        if (captured == null) {
-            captured = ImageCaptureTime.fromFilename(a.getOriginalFilename());
-        }
-        if (captured == null) {
-            captured = a.getCreatedAt();
-        }
+        Instant captured = resolveCapturedAt(a);
         return new TradingJournalAttachmentDto(
                 a.getId(),
                 a.getOriginalFilename(),
@@ -511,6 +506,38 @@ public class TradingJournalService {
                 "/api/markets/trading-journal/attachments/" + a.getId() + "/file",
                 a.getCreatedAt(),
                 captured);
+    }
+
+    /**
+     * Prefer embedded image metadata (re-read so older uploads with UTC-skewed EXIF get corrected),
+     * then filename cues, then stored column / upload time.
+     */
+    private Instant resolveCapturedAt(TradingJournalAttachment a) {
+        try {
+            byte[] bytes = blobStore.readAllBytes(a.getStorageKey());
+            Instant resolved =
+                    ImageCaptureTime.resolve(a.getOriginalFilename(), a.getContentType(), bytes, null);
+            if (resolved != null) {
+                if (!resolved.equals(a.getCapturedAt())) {
+                    a.setCapturedAt(resolved);
+                    attachmentRepository.save(a);
+                }
+                return resolved;
+            }
+        } catch (Exception e) {
+            log.debug(
+                    "Could not re-read capture time for trading journal attachment {}: {}",
+                    a.getId(),
+                    e.toString());
+        }
+        Instant captured = a.getCapturedAt();
+        if (captured == null) {
+            captured = ImageCaptureTime.fromFilename(a.getOriginalFilename());
+        }
+        if (captured == null) {
+            captured = a.getCreatedAt();
+        }
+        return captured;
     }
 
     /** Holdings at the scheduled close for journal focus accounts (3370, 3550, 8696). */

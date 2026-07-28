@@ -206,16 +206,16 @@ export class TradingJournalImageGalleryDialogComponent implements OnInit, OnDest
     if (!raw) {
       return '';
     }
-    return (
-      new Intl.DateTimeFormat('en-US', {
-        timeZone: 'America/Chicago',
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-      }).format(new Date(raw)) + ' CT'
-    );
+    const formatted = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Chicago',
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(new Date(raw));
+    return formatted.replace(/, (\d{1,2}:\d{2}\s*[AP]M)$/i, ' at $1');
   }
 
   @HostListener('window:keydown', ['$event'])
