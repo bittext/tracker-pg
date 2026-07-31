@@ -514,6 +514,62 @@
   }
 }
 
+.tj__md-preview {
+  margin: -0.35rem 0 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
+  background: color-mix(in srgb, var(--app-surface-2, #f8fafc) 80%, transparent);
+}
+
+.tj__md-preview-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+
+.tj__md-preview .markdown-body {
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--mat-sys-on-surface, #0f172a);
+}
+
+.tj__md-preview .markdown-body ::ng-deep table,
+.markdown-body ::ng-deep table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.6rem 0;
+  font-size: 0.88rem;
+  overflow-x: auto;
+  display: block;
+}
+
+.tj__md-preview .markdown-body ::ng-deep thead,
+.tj__md-preview .markdown-body ::ng-deep tbody,
+.tj__md-preview .markdown-body ::ng-deep tr {
+  display: table;
+  width: 100%;
+  table-layout: auto;
+}
+
+.tj__md-preview .markdown-body ::ng-deep th,
+.tj__md-preview .markdown-body ::ng-deep td,
+.markdown-body ::ng-deep th,
+.markdown-body ::ng-deep td {
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.14));
+  padding: 0.4rem 0.55rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.tj__md-preview .markdown-body ::ng-deep th,
+.markdown-body ::ng-deep th {
+  background: color-mix(in srgb, var(--mat-sys-primary, #3f51b5) 8%, transparent);
+  font-weight: 600;
+}
+
 .tj__grades,
 .tj__ref-form {
   display: flex;

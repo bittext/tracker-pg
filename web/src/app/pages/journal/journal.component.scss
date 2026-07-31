@@ -285,6 +285,35 @@
   padding: 0;
 }
 
+.markdown-body :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.55rem 0;
+  font-size: 0.85rem;
+  display: block;
+  overflow-x: auto;
+}
+
+.markdown-body :deep(thead),
+.markdown-body :deep(tbody),
+.markdown-body :deep(tr) {
+  display: table;
+  width: 100%;
+}
+
+.markdown-body :deep(th),
+.markdown-body :deep(td) {
+  border: 1px solid #cbd5e1;
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.markdown-body :deep(th) {
+  background: #eef2ff;
+  font-weight: 600;
+}
+
 .attach-row {
   display: flex;
   flex-wrap: wrap;

@@ -34,6 +34,7 @@ import {
   TradingJournalImageGalleryDialogComponent,
   TradingJournalImageGalleryData,
 } from './trading-journal-image-gallery-dialog.component';
+import { SafeMarkdownPipe } from '../../../pipes/safe-markdown.pipe';
 
 export interface TradingJournalCalCell {
   type: 'pad' | 'day';
@@ -63,6 +64,7 @@ export interface TradingJournalCalCell {
     MatSelectModule,
     MatSnackBarModule,
     MatTooltipModule,
+    SafeMarkdownPipe,
   ],
   templateUrl: './trading-journal-panel.component.html',
   styleUrl: './trading-journal-panel.component.scss',
