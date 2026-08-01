@@ -1,0 +1,93 @@
+/* Photo atmosphere for Life + Markets (most-used workspaces).
+ * Shell roots carry .app-shell--atmosphere; body::after paints a fixed cover image
+ * under a theme wash so tables and forms stay readable.
+ */
+
+body:has(.app-shell--atmosphere)::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-color: var(--app-bg);
+  background-image:
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--app-bg) 88%, transparent) 0%,
+      color-mix(in srgb, var(--app-bg) 92%, transparent) 52%,
+      color-mix(in srgb, var(--app-bg) 94%, transparent) 100%
+    ),
+    url('/bg-rain-run.png');
+  background-size: cover, cover;
+  background-position: center, center 34%;
+  background-repeat: no-repeat;
+  background-attachment: fixed, fixed;
+  opacity: 0.72;
+}
+
+html[data-theme-mode='dark'] body:has(.app-shell--atmosphere)::after {
+  background-image:
+    linear-gradient(
+      165deg,
+      color-mix(in srgb, var(--app-bg) 90%, transparent) 0%,
+      color-mix(in srgb, var(--app-bg) 93%, transparent) 55%,
+      color-mix(in srgb, var(--app-bg) 95%, transparent) 100%
+    ),
+    url('/bg-rain-run.png');
+  opacity: 0.55;
+}
+
+body:has(.app-shell--atmosphere) app-root {
+  position: relative;
+  z-index: 1;
+  background: transparent !important;
+}
+
+/* Let the photo show through shell chrome; frost nav / header for contrast. */
+body:has(.app-shell--atmosphere) {
+  .app-platform-layout,
+  .app-content-column,
+  .app-platform-main,
+  .life-classic-shell,
+  .life-classic-shell__main,
+  .markets-shell,
+  .markets-classic-shell,
+  .markets-classic-shell__main {
+    background: transparent;
+  }
+
+  .app-sidebar,
+  .app-content-header,
+  .life-classic-shell__bar,
+  .life-classic-shell__tabs,
+  .markets-classic-shell__bar,
+  .markets-classic-shell__tabs {
+    background: color-mix(in srgb, var(--app-surface-sidebar, var(--app-surface, #fff)) 88%, transparent);
+    backdrop-filter: blur(20px) saturate(1.2);
+    -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  }
+
+  .finance-panel,
+  .mat-mdc-card,
+  .cr__card,
+  .cr__detail-pane,
+  .cr__quote,
+  .cr__note,
+  .cr__table-wrap,
+  .welcome-hero {
+    backdrop-filter: blur(14px) saturate(1.1);
+    -webkit-backdrop-filter: blur(14px) saturate(1.1);
+  }
+}
+
+/* Aura bloom would fight the photo — keep a faint wash only. */
+html[data-theme-preset='aura'] body:has(.app-shell--atmosphere)::before {
+  opacity: 0.22;
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body:has(.app-shell--atmosphere)::after {
+    background-attachment: scroll, scroll;
+  }
+}

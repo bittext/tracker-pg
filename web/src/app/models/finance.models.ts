@@ -2056,6 +2056,59 @@ export interface TradingJournalAiDraftDto {
   generated: boolean;
 }
 
+/** Markets → AI Token Factory (AI infrastructure supply-chain map). */
+export interface AiTokenFactoryDashboardDto {
+  title: string;
+  fetchedAt: string;
+  note: string;
+  pulseNarrative: string;
+  avgDayChangePercent: number | null;
+  avgYtdChangePercent: number | null;
+  publicTickerCount: number;
+  privateNameCount: number;
+  warnings: string[];
+  layers: AiTokenFactoryLayerDto[];
+}
+
+export interface AiTokenFactoryLayerDto {
+  id: string;
+  title: string;
+  subtitle: string;
+  economicsTag: string;
+  layerAvgDayPercent: number | null;
+  layerAvgYtdPercent: number | null;
+  companies: AiTokenFactoryCompanyDto[];
+}
+
+export interface AiTokenFactoryCompanyDto {
+  name: string;
+  symbol: string | null;
+  publicTicker: boolean;
+  coveredOnWatchImage: boolean;
+  role: string;
+  economicsNote: string;
+  price: number | null;
+  changePercentDay: number | null;
+  changePercentMonthToDate: number | null;
+  changePercentYearToDate: number | null;
+  percentOf52WeekRange: number | null;
+  pulseScore: number | null;
+  pulseLabel: string;
+  quoteUrl: string | null;
+  companyResearchUrl: string | null;
+  flags: string[];
+}
+
+export interface AiTokenFactoryWatchRequestDto {
+  symbols: string[];
+  thesisTag?: string | null;
+}
+
+export interface AiTokenFactoryWatchResultDto {
+  addedOrUpdated: number;
+  symbols: string[];
+}
+
 /** Finviz Elite CSV export table (Markets → Finviz Elite). */
 export interface FinvizEliteStatusDto {
   enabled: boolean;

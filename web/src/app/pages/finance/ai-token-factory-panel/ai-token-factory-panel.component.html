@@ -1,0 +1,208 @@
+<p class="muted intro">
+  Map of the <strong>AI Token Factory</strong> — demand (hyperscalers → labs) through power &amp; plant.
+  Session / MTD / YTD and a heuristic <strong>pulse score</strong> help you monitor the stack.
+  <strong>Not investment advice.</strong>
+</p>
+
+<div class="finance-toolbar">
+  <button mat-flat-button color="primary" type="button" (click)="refresh()" [disabled]="loading">
+    <mat-icon>refresh</mat-icon>
+    Refresh pulse
+  </button>
+  <mat-form-field appearance="outline" class="atf-filter">
+    <mat-label>Layer</mat-label>
+    <mat-select [(ngModel)]="selectedLayerId" name="atfLayer">
+      <mat-option value="all">All layers</mat-option>
+      @for (l of data?.layers ?? []; track l.id) {
+        <mat-option [value]="l.id">{{ l.title }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+  <mat-form-field appearance="outline" class="atf-filter">
+    <mat-label>Economics</mat-label>
+    <mat-select [(ngModel)]="filterEconomics" name="atfEcon">
+      <mat-option value="all">All</mat-option>
+      <mat-option value="profit_pool">Profit pools</mat-option>
+      <mat-option value="scarce">Scarce inputs</mat-option>
+      <mat-option value="demand">Demand side</mat-option>
+      <mat-option value="commoditized">Commoditized</mat-option>
+      <mat-option value="private">Private only</mat-option>
+    </mat-select>
+  </mat-form-field>
+  <label class="atf-check">
+    <input type="checkbox" [(ngModel)]="publicOnly" name="atfPub" />
+    Public tickers only
+  </label>
+  <label class="atf-check">
+    <input type="checkbox" [(ngModel)]="coveredOnly" name="atfCov" />
+    Image “watch” dots
+  </label>
+</div>
+
+@if (loading) {
+  <p class="muted">Loading AI Token Factory pulse…</p>
+}
+
+@if (data && !loading) {
+  <section class="atf-pulse" aria-labelledby="atf-pulse-heading">
+    <h2 id="atf-pulse-heading" class="section-title">Factory pulse</h2>
+    <p class="atf-narrative">{{ data.pulseNarrative }}</p>
+    <div class="atf-kpis">
+      <div class="atf-kpi">
+        <span class="atf-kpi__label">Avg day</span>
+        <span class="atf-kpi__value" [class]="chgClass(data.avgDayChangePercent)">{{
+          formatPct(data.avgDayChangePercent)
+        }}</span>
+      </div>
+      <div class="atf-kpi">
+        <span class="atf-kpi__label">Avg YTD</span>
+        <span class="atf-kpi__value" [class]="chgClass(data.avgYtdChangePercent)">{{
+          formatPct(data.avgYtdChangePercent)
+        }}</span>
+      </div>
+      <div class="atf-kpi">
+        <span class="atf-kpi__label">Public</span>
+        <span class="atf-kpi__value">{{ data.publicTickerCount }}</span>
+      </div>
+      <div class="atf-kpi">
+        <span class="atf-kpi__label">Private</span>
+        <span class="atf-kpi__value">{{ data.privateNameCount }}</span>
+      </div>
+    </div>
+    @if (data.note) {
+      <p class="muted stocks-news-note">{{ data.note }}</p>
+    }
+    @for (w of data.warnings; track w) {
+      <p class="atf-warn">{{ w }}</p>
+    }
+  </section>
+
+  <div class="finance-toolbar atf-actions">
+    <button mat-flat-button color="primary" type="button" (click)="addSelectedToWatch()" [disabled]="!selected.size">
+      <mat-icon>bookmark_add</mat-icon>
+      Add selected to Your Watch ({{ selected.size }})
+    </button>
+    <button mat-stroked-button type="button" (click)="clearSelection()" [disabled]="!selected.size">Clear</button>
+    <a mat-stroked-button routerLink="/markets/research" [queryParams]="{ tab: 'watch' }">Open Watch</a>
+  </div>
+
+  <aside class="atf-legend" aria-label="How to read this dashboard">
+    <h3 class="section-title">Decision frame</h3>
+    <ul>
+      <li><strong>Profit pools</strong> — chips, software, critical components (higher structural margins).</li>
+      <li><strong>Scarce inputs</strong> — power, HBM, optics, packaging (bottlenecks that can price power).</li>
+      <li><strong>Commoditized</strong> — assembly / generic capacity (volume, thinner moats).</li>
+      <li><strong>Pulse score</strong> — blends day / MTD / YTD momentum with 52-week range location (heuristic).</li>
+      <li><strong>Near 52w high/low</strong> — flags stretch vs discount vs the last year of closes.</li>
+    </ul>
+  </aside>
+
+  @for (layer of visibleLayers(); track layer.id) {
+    <section class="atf-layer" [attr.aria-labelledby]="'atf-' + layer.id">
+      <header class="atf-layer__head">
+        <div>
+          <h2 [id]="'atf-' + layer.id" class="section-title">{{ layer.title }}</h2>
+          <p class="muted section-note">{{ layer.subtitle }}</p>
+        </div>
+        <div class="atf-layer__meta">
+          <span class="atf-tag">{{ economicsLabel(layer.economicsTag) }}</span>
+          <span class="muted" [class]="chgClass(layer.layerAvgDayPercent)"
+            >Day {{ formatPct(layer.layerAvgDayPercent) }}</span
+          >
+          <span class="muted" [class]="chgClass(layer.layerAvgYtdPercent)"
+            >YTD {{ formatPct(layer.layerAvgYtdPercent) }}</span
+          >
+          <button mat-button type="button" (click)="selectLayerPublic(layer)">Select public</button>
+        </div>
+      </header>
+
+      @if (filteredCompanies(layer).length === 0) {
+        <p class="muted">No companies match filters in this layer.</p>
+      } @else {
+        <div class="table-wrap">
+          <table class="atf-table full-width">
+            <thead>
+              <tr>
+                <th scope="col">Watch</th>
+                <th scope="col">Company</th>
+                <th scope="col">Role</th>
+                <th scope="col">Price</th>
+                <th scope="col">Day</th>
+                <th scope="col">MTD</th>
+                <th scope="col">YTD</th>
+                <th scope="col">52w%</th>
+                <th scope="col">Pulse</th>
+                <th scope="col">Flags</th>
+                <th scope="col">Links</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (c of filteredCompanies(layer); track c.name + (c.symbol || '')) {
+                <tr [class.atf-row--private]="!c.publicTicker">
+                  <td>
+                    @if (c.symbol) {
+                      <mat-checkbox
+                        [checked]="isSelected(c.symbol)"
+                        (change)="toggle(c.symbol, $event.checked)"
+                        [attr.aria-label]="'Select ' + c.symbol"
+                      />
+                    }
+                  </td>
+                  <td>
+                    <strong>{{ c.name }}</strong>
+                    @if (c.symbol) {
+                      <div class="muted atf-sym">{{ c.symbol }}</div>
+                    }
+                    @if (c.coveredOnWatchImage) {
+                      <span class="atf-dot" title="Covered on map watch legend">●</span>
+                    }
+                  </td>
+                  <td>{{ c.role }}</td>
+                  <td>{{ formatUsd(c.price) }}</td>
+                  <td [class]="chgClass(c.changePercentDay)">{{ formatPct(c.changePercentDay) }}</td>
+                  <td [class]="chgClass(c.changePercentMonthToDate)">{{
+                    formatPct(c.changePercentMonthToDate)
+                  }}</td>
+                  <td [class]="chgClass(c.changePercentYearToDate)">{{
+                    formatPct(c.changePercentYearToDate)
+                  }}</td>
+                  <td>
+                    {{
+                      c.percentOf52WeekRange == null ? '—' : c.percentOf52WeekRange.toFixed(0) + '%'
+                    }}
+                  </td>
+                  <td>
+                    @if (c.pulseScore != null) {
+                      <span class="atf-score" [class]="scoreClass(c.pulseScore)"
+                        >{{ c.pulseScore }} · {{ c.pulseLabel }}</span
+                      >
+                    } @else {
+                      <span class="muted">{{ c.pulseLabel }}</span>
+                    }
+                  </td>
+                  <td class="atf-flags">
+                    @for (f of c.flags; track f) {
+                      <span class="atf-flag">{{ economicsLabel(f) === f ? f : economicsLabel(f) }}</span>
+                    }
+                  </td>
+                  <td class="atf-links">
+                    @if (c.quoteUrl) {
+                      <a [href]="c.quoteUrl" target="_blank" rel="noopener noreferrer">Yahoo</a>
+                    }
+                    @if (c.symbol) {
+                      <a
+                        [routerLink]="['/markets/research']"
+                        [queryParams]="{ tab: 'watch', symbol: c.symbol }"
+                        >Watch</a
+                      >
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+  }
+}

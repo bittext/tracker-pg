@@ -976,6 +976,16 @@
       </mat-tab>
       }
 
+      @if (showTradingTab('ai-factory')) {
+      <mat-tab label="AI Factory">
+        <div class="finance-panel">
+          @if (tradingSubTabActive('ai-factory')) {
+            <app-ai-token-factory-panel />
+          }
+        </div>
+      </mat-tab>
+      }
+
 
       @if (showTradingTab('summary')) {
       <mat-tab label="Summary">

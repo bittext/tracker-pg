@@ -98,6 +98,9 @@ import {
   FinvizEliteTableDto,
   FinvizEliteWatchRequestDto,
   FinvizEliteWatchResultDto,
+  AiTokenFactoryDashboardDto,
+  AiTokenFactoryWatchRequestDto,
+  AiTokenFactoryWatchResultDto,
 } from '../models/finance.models';
 
 export type FinancePeriod = 'all' | 'year' | 'month';
@@ -529,6 +532,16 @@ export class FinanceApiService {
 
   finvizWatch(body: FinvizEliteWatchRequestDto) {
     return this.http.post<FinvizEliteWatchResultDto>(`${this.finvizRoot}/watch`, body);
+  }
+
+  private readonly aiTokenFactoryRoot = `${environment.apiBaseUrl}/api/markets/ai-token-factory`;
+
+  aiTokenFactoryDashboard() {
+    return this.http.get<AiTokenFactoryDashboardDto>(this.aiTokenFactoryRoot);
+  }
+
+  aiTokenFactoryWatch(body: AiTokenFactoryWatchRequestDto) {
+    return this.http.post<AiTokenFactoryWatchResultDto>(`${this.aiTokenFactoryRoot}/watch`, body);
   }
 
   /** Markets Workspace → Backtest: options wheel simulation on Yahoo underlying history. */

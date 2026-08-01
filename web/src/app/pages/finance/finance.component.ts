@@ -39,6 +39,7 @@ import { OptionsBacktestPanelComponent } from './options-backtest-panel/options-
 import { InvestmentThenNowPanelComponent } from './investment-then-now-panel/investment-then-now-panel.component';
 import { CompanyResearchPanelComponent } from './company-research-panel/company-research-panel.component';
 import { FinvizElitePanelComponent } from './finviz-elite-panel/finviz-elite-panel.component';
+import { AiTokenFactoryPanelComponent } from './ai-token-factory-panel/ai-token-factory-panel.component';
 import { LoansPanelComponent } from './loans-panel/loans-panel.component';
 import { InvestmentsPanelComponent } from './investments-panel/investments-panel.component';
 import { MoneyPanelComponent } from './money-panel/money-panel.component';
@@ -54,6 +55,7 @@ type TradingTabId =
   | 'crawler'
   | 'screeners'
   | 'finviz'
+  | 'ai-factory'
   | 'predicts'
   | 'backtest'
   | 'then-now'
@@ -97,6 +99,7 @@ type FinanceCategory =
     InvestmentThenNowPanelComponent,
     CompanyResearchPanelComponent,
     FinvizElitePanelComponent,
+    AiTokenFactoryPanelComponent,
     LoansPanelComponent,
     InvestmentsPanelComponent,
     MoneyPanelComponent,
@@ -265,7 +268,7 @@ export class FinanceComponent implements OnInit {
       case 'trade':
         return ['robinhood'];
       case 'research':
-        return ['watch', 'news', 'crawler', 'screeners', 'finviz', 'predicts', 'backtest', 'then-now'];
+        return ['watch', 'news', 'crawler', 'screeners', 'finviz', 'ai-factory', 'predicts', 'backtest', 'then-now'];
       case 'history':
         return ['transactions', 'by-symbol', 'summary'];
       case 'alerts':
@@ -278,6 +281,7 @@ export class FinanceComponent implements OnInit {
           'crawler',
           'screeners',
           'finviz',
+          'ai-factory',
           'predicts',
           'backtest',
           'then-now',
