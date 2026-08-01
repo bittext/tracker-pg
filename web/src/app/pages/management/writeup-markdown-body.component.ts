@@ -60,7 +60,7 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
     const raw = marked(src, { async: false, breaks: true }) as string;
     const clean = DOMPurify.sanitize(raw, {
       USE_PROFILES: { html: true },
-      ADD_ATTR: ['data-life-width', 'width', 'height'],
+      ADD_ATTR: ['data-life-width', 'data-life-float', 'width', 'height'],
     });
     this.html = this.sanitizer.bypassSecurityTrustHtml(clean);
     const seq = ++this.loadSeq;
@@ -104,23 +104,35 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
     });
   }
 
-  /** Honor data-life-width / width so inserts stay smaller than the full note column. */
+  /** Honor data-life-width / data-life-float so text wraps around inset images. */
   private applyEmbeddedImageSize(img: HTMLImageElement): void {
     const pctRaw = img.getAttribute('data-life-width');
-    if (pctRaw) {
-      const pct = Math.min(100, Math.max(10, Number(pctRaw) || 40));
-      img.style.maxWidth = `${pct}%`;
-      img.style.width = `${pct}%`;
-      img.style.height = 'auto';
-      img.classList.add('life-embed-img');
-      return;
-    }
-    const widthAttr = img.getAttribute('width');
-    if (widthAttr && /^\d+$/.test(widthAttr)) {
-      img.style.maxWidth = `${widthAttr}px`;
-      img.style.width = `${widthAttr}px`;
-      img.style.height = 'auto';
-      img.classList.add('life-embed-img');
+    const pct = pctRaw
+      ? Math.min(100, Math.max(10, Number(pctRaw) || 30))
+      : 30;
+    const floatRaw = (img.getAttribute('data-life-float') || 'left').toLowerCase();
+    const floatSide = floatRaw === 'right' || floatRaw === 'none' ? floatRaw : 'left';
+
+    img.style.height = 'auto';
+    img.style.maxWidth = `${pct}%`;
+    img.style.width = pct >= 100 || floatSide === 'none' ? (pct >= 100 ? '100%' : 'auto') : `${pct}%`;
+    img.classList.add('life-embed-img');
+
+    if (floatSide === 'right') {
+      img.style.float = 'right';
+      img.style.display = 'block';
+      img.style.margin = '0.1rem 0 0.85rem 1rem';
+      img.style.shapeOutside = 'margin-box';
+    } else if (floatSide === 'none') {
+      img.style.float = 'none';
+      img.style.display = 'block';
+      img.style.margin = '0.75rem 0';
+      img.style.shapeOutside = '';
+    } else {
+      img.style.float = 'left';
+      img.style.display = 'block';
+      img.style.margin = '0.1rem 1rem 0.85rem 0';
+      img.style.shapeOutside = 'margin-box';
     }
   }
 

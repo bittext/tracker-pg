@@ -72,13 +72,20 @@ export class LifePhotosComponent implements OnInit {
   noteMonthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
   noteSelectedAttachments: LifeMonthNoteAttachmentDto[] = [];
   /** Default insert width as % of the note column (not full bleed). */
-  insertImageWidthPct = 40;
+  insertImageWidthPct = 30;
+  /** Text wraps around floated images (like a magazine layout). */
+  insertImageFloat: 'left' | 'right' | 'none' = 'left';
   readonly imageWidthOptions = [
     { pct: 25, label: 'S' },
-    { pct: 40, label: 'M' },
-    { pct: 55, label: 'L' },
-    { pct: 70, label: 'XL' },
+    { pct: 30, label: 'M' },
+    { pct: 45, label: 'L' },
+    { pct: 60, label: 'XL' },
     { pct: 100, label: 'Full' },
+  ];
+  readonly imageFloatOptions: { id: 'left' | 'right' | 'none'; label: string }[] = [
+    { id: 'left', label: 'Wrap left' },
+    { id: 'right', label: 'Wrap right' },
+    { id: 'none', label: 'Block' },
   ];
   /** Last caret in the Life note body editor — Insert and drag-drop use this. */
   noteBodyCaret = 0;
@@ -382,11 +389,19 @@ export class LifePhotosComponent implements OnInit {
       }
     }
     const pct = Math.min(100, Math.max(10, widthPct ?? this.insertImageWidthPct));
+    const floatSide = this.insertImageFloat;
     const name = (a.originalFilename || 'image').replace(/"/g, '');
     const src = `/api/life/notes/attachments/${a.id}/file`;
+    const margin =
+      floatSide === 'right'
+        ? '0.1rem 0 0.85rem 1rem'
+        : floatSide === 'none'
+          ? '0.75rem 0'
+          : '0.1rem 1rem 0.85rem 0';
+    const floatCss = floatSide === 'none' ? 'none' : floatSide;
     const tag =
-      `<img src="${src}" alt="${name}" data-life-width="${pct}" ` +
-      `style="max-width:${pct}%;width:${pct}%;height:auto;" />`;
+      `<img src="${src}" alt="${name}" data-life-width="${pct}" data-life-float="${floatSide}" ` +
+      `style="float:${floatCss};max-width:${pct}%;width:${pct}%;height:auto;margin:${margin};" />`;
     let body = this.noteDraft.body ?? '';
     const imgRe = new RegExp(
       `<img\\b[^>]*\\bsrc=["'][^"']*\\/api\\/life\\/notes\\/attachments\\/${a.id}\\/file[^"']*["'][^>]*>`,

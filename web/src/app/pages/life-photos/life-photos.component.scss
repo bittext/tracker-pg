@@ -153,19 +153,27 @@
 
 :host ::ng-deep .life-embed-img,
 :host ::ng-deep app-writeup-markdown-body img.life-embed-img {
-  display: inline-block;
-  vertical-align: middle;
   border-radius: 8px;
-  margin: 0.5rem 0.75rem 0.5rem 0;
   max-width: 100%;
   height: auto;
 }
 
+:host ::ng-deep app-writeup-markdown-body .markdown-body {
+  overflow: auto;
+}
+
+:host ::ng-deep app-writeup-markdown-body .markdown-body::after {
+  content: '';
+  display: table;
+  clear: both;
+}
+
 :host ::ng-deep app-writeup-markdown-body img:not(.life-embed-img) {
-  max-width: min(55%, 100%);
-  width: auto;
+  float: left;
+  max-width: min(30%, 100%);
+  width: 30%;
   height: auto;
-  display: inline-block;
+  display: block;
   border-radius: 8px;
-  margin: 0.5rem 0.75rem 0.5rem 0;
+  margin: 0.1rem 1rem 0.85rem 0;
 }

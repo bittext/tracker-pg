@@ -177,8 +177,8 @@
         @if (noteEditingId != null) {
           <div class="wu-read-attach life-attach">
             <p class="muted wu-attach-hint">
-              Upload images, pick a size, then <strong>drag</strong> onto the editor (or Insert at the caret). Dragging
-              an already-inserted image moves it. Click the filename to preview.
+              Upload images, pick size + wrap (text flows around the photo), then <strong>drag</strong> onto the editor
+              (or Insert at the caret). Click the filename to preview.
             </p>
             <div class="life-size-bar" role="group" aria-label="Insert image size">
               <span class="muted life-size-label">Size</span>
@@ -191,6 +191,19 @@
                 >
                   {{ opt.label }}
                   <span class="life-size-pct">{{ opt.pct }}%</span>
+                </button>
+              }
+            </div>
+            <div class="life-size-bar" role="group" aria-label="Text wrap around image">
+              <span class="muted life-size-label">Wrap</span>
+              @for (opt of imageFloatOptions; track opt.id) {
+                <button
+                  type="button"
+                  class="life-size-chip"
+                  [class.life-size-chip--active]="insertImageFloat === opt.id"
+                  (click)="insertImageFloat = opt.id"
+                >
+                  {{ opt.label }}
                 </button>
               }
             </div>
@@ -276,6 +289,19 @@
               >
                 {{ opt.label }}
                 <span class="life-size-pct">{{ opt.pct }}%</span>
+              </button>
+            }
+          </div>
+          <div class="life-size-bar" role="group" aria-label="Text wrap around image">
+            <span class="muted life-size-label">Wrap</span>
+            @for (opt of imageFloatOptions; track opt.id) {
+              <button
+                type="button"
+                class="life-size-chip"
+                [class.life-size-chip--active]="insertImageFloat === opt.id"
+                (click)="insertImageFloat = opt.id"
+              >
+                {{ opt.label }}
               </button>
             }
           </div>

@@ -1566,9 +1566,12 @@ export class ManagementComponent implements OnInit {
     if (this.writeupViewMode !== 'compose') {
       this.startEditWriteup();
     }
-    const name = (a.originalFilename || 'image').replace(/[\[\]]/g, '');
+    const name = (a.originalFilename || 'image').replace(/"/g, '');
     const src = `/api/management/writeups/attachments/${a.id}/file`;
-    const tag = `![${name}](${src})`;
+    // Float so following paragraphs wrap beside the image (magazine-style layout).
+    const tag =
+      `<img src="${src}" alt="${name}" data-life-width="30" data-life-float="left" ` +
+      `style="float:left;max-width:30%;width:30%;height:auto;margin:0.1rem 1rem 0.85rem 0;" />`;
     let body = this.writeupDraft.body ?? '';
     const imgHtmlRe = new RegExp(
       `<img\\b[^>]*\\bsrc=["'][^"']*\\/api\\/management\\/writeups\\/attachments\\/${a.id}\\/file[^"']*["'][^>]*>`,

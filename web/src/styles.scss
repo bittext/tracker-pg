@@ -931,8 +931,30 @@ app-management app-writeup-markdown-body .markdown-body img {
   max-width: 100%;
   height: auto;
   border-radius: 8px;
-  margin: 0.75rem 0;
+}
+
+app-management app-writeup-markdown-body .markdown-body {
+  overflow: auto;
+}
+
+app-management app-writeup-markdown-body .markdown-body::after {
+  content: '';
+  display: table;
+  clear: both;
+}
+
+app-management app-writeup-markdown-body .markdown-body img.life-embed-img {
+  /* float / width applied inline via data-life-* for text wrapping */
   display: block;
+}
+
+app-management app-writeup-markdown-body .markdown-body img:not(.life-embed-img) {
+  float: left;
+  max-width: min(30%, 100%);
+  width: 30%;
+  height: auto;
+  display: block;
+  margin: 0.1rem 1rem 0.85rem 0;
 }
 app-management .wu-att-insert {
   margin-left: 0.25rem;
