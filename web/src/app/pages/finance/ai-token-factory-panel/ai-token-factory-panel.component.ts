@@ -46,9 +46,65 @@ export class AiTokenFactoryPanelComponent implements OnInit {
   coveredOnly = false;
   selectedLayerId = 'all';
   selected = new Set<string>();
+  flashLayerId: string | null = null;
+  private flashTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Approximate image-map regions (percent of the reference PNG) → analysis layers. */
+  readonly mapHotspots: {
+    layerId: string;
+    label: string;
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  }[] = [
+    { layerId: 'demand-hyperscalers', label: 'Hyperscalers', left: 1.5, top: 10, width: 24, height: 14 },
+    { layerId: 'demand-neoclouds', label: 'Neoclouds', left: 1.5, top: 25, width: 24, height: 12 },
+    { layerId: 'demand-ai-labs', label: 'AI Labs', left: 1.5, top: 38, width: 24, height: 12 },
+    { layerId: 'layer-6-software', label: 'Software + Models', left: 28, top: 14, width: 44, height: 9 },
+    { layerId: 'layer-5-networking', label: 'Networking + Optics', left: 28, top: 24, width: 44, height: 9 },
+    { layerId: 'layer-4-memory', label: 'Memory + Storage', left: 28, top: 34, width: 44, height: 9 },
+    { layerId: 'layer-3-servers', label: 'Servers + Compute', left: 28, top: 44, width: 44, height: 10 },
+    { layerId: 'layer-2-cooling', label: 'Cooling', left: 28, top: 55, width: 44, height: 8 },
+    { layerId: 'layer-1-power', label: 'Power + Plant', left: 28, top: 64, width: 44, height: 12 },
+  ];
+
+  readonly mapJumpLinks: { layerId: string; label: string; icon: string }[] = [
+    { layerId: 'demand-hyperscalers', label: 'Hyperscalers', icon: 'cloud' },
+    { layerId: 'demand-neoclouds', label: 'Neoclouds', icon: 'dns' },
+    { layerId: 'demand-ai-labs', label: 'AI Labs', icon: 'science' },
+    { layerId: 'layer-6-software', label: 'L6 Software', icon: 'terminal' },
+    { layerId: 'layer-5-networking', label: 'L5 Networking', icon: 'hub' },
+    { layerId: 'layer-4-memory', label: 'L4 Memory', icon: 'memory' },
+    { layerId: 'layer-3-servers', label: 'L3 Compute', icon: 'developer_board' },
+    { layerId: 'layer-2-cooling', label: 'L2 Cooling', icon: 'ac_unit' },
+    { layerId: 'layer-1-power', label: 'L1 Power', icon: 'bolt' },
+  ];
 
   ngOnInit(): void {
     this.refresh();
+  }
+
+  jumpToLayer(layerId: string): void {
+    this.selectedLayerId = 'all';
+    this.filterEconomics = 'all';
+    this.publicOnly = false;
+    this.coveredOnly = false;
+    // Wait a tick so filtered-out layers reappear before scrolling.
+    setTimeout(() => {
+      const el = document.getElementById('atf-section-' + layerId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      this.flashLayerId = layerId;
+      if (this.flashTimer) {
+        clearTimeout(this.flashTimer);
+      }
+      this.flashTimer = setTimeout(() => {
+        this.flashLayerId = null;
+        this.flashTimer = null;
+      }, 1600);
+    }, 0);
   }
 
   refresh(): void {

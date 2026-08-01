@@ -4,6 +4,47 @@
   <strong>Not investment advice.</strong>
 </p>
 
+<section class="atf-map" aria-label="AI Token Factory reference map">
+  <div class="atf-map__media">
+    <img
+      class="atf-map__img"
+      src="/ai-token-factory-map.png"
+      width="1024"
+      height="659"
+      alt="AI Token Factory supply-chain map — reference for layer translations"
+    />
+    <div class="atf-map__hotspots" aria-hidden="true">
+      @for (h of mapHotspots; track h.layerId + h.label) {
+        <button
+          type="button"
+          class="atf-map__hot"
+          [style.left.%]="h.left"
+          [style.top.%]="h.top"
+          [style.width.%]="h.width"
+          [style.height.%]="h.height"
+          [attr.title]="'Jump to ' + h.label"
+          (click)="jumpToLayer(h.layerId)"
+        ></button>
+      }
+    </div>
+  </div>
+  <aside class="atf-map__aside">
+    <h2 class="section-title">Reference map</h2>
+    <p class="muted">
+      Use this diagram as the translation key for the pulse tables below. Click a factory band on the image, or a
+      quick link here, to jump straight to that analysis block.
+    </p>
+    <nav class="atf-map__jumps" aria-label="Jump to factory layer analysis">
+      @for (j of mapJumpLinks; track j.layerId) {
+        <button type="button" class="atf-map__jump" (click)="jumpToLayer(j.layerId)">
+          <mat-icon aria-hidden="true">{{ j.icon }}</mat-icon>
+          <span>{{ j.label }}</span>
+        </button>
+      }
+    </nav>
+  </aside>
+</section>
+
 <div class="finance-toolbar">
   <button mat-flat-button color="primary" type="button" (click)="refresh()" [disabled]="loading">
     <mat-icon>refresh</mat-icon>
@@ -98,7 +139,12 @@
   </aside>
 
   @for (layer of visibleLayers(); track layer.id) {
-    <section class="atf-layer" [attr.aria-labelledby]="'atf-' + layer.id">
+    <section
+      class="atf-layer"
+      [class.atf-layer--flash]="flashLayerId === layer.id"
+      [attr.aria-labelledby]="'atf-' + layer.id"
+      [attr.id]="'atf-section-' + layer.id"
+    >
       <header class="atf-layer__head">
         <div>
           <h2 [id]="'atf-' + layer.id" class="section-title">{{ layer.title }}</h2>
