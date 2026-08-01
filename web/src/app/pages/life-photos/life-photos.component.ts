@@ -2,15 +2,25 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { LifeMonthNoteCalendarDto, LifeMonthNoteDto, LifeMonthNoteWriteBody } from '../../models/life.models';
-import { SafeMarkdownPipe } from '../../pipes/safe-markdown.pipe';
+import {
+  LifeMonthNoteAttachmentDto,
+  LifeMonthNoteCalendarDto,
+  LifeMonthNoteDto,
+  LifeMonthNoteWriteBody,
+} from '../../models/life.models';
 import { LifeApiService } from '../../services/life-api.service';
 import { formatHttpErrorDetail } from '../../util/http-error';
+import {
+  WriteupAttachmentPreviewDialogComponent,
+  WriteupAttachmentPreviewData,
+} from '../management/writeup-attachment-preview-dialog.component';
+import { WriteupMarkdownBodyComponent } from '../management/writeup-markdown-body.component';
 
 const MONTH_NAMES = [
   'January',
@@ -34,12 +44,13 @@ const MONTH_NAMES = [
     CommonModule,
     FormsModule,
     MatButtonModule,
+    MatDialogModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
     MatSelectModule,
     MatSnackBarModule,
-    SafeMarkdownPipe,
+    WriteupMarkdownBodyComponent,
   ],
   templateUrl: './life-photos.component.html',
   styleUrl: './life-photos.component.scss',
@@ -47,6 +58,7 @@ const MONTH_NAMES = [
 export class LifePhotosComponent implements OnInit {
   private readonly api = inject(LifeApiService);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
 
   noteYear = new Date().getFullYear();
   noteFilterMonth: number | null = new Date().getMonth() + 1;
@@ -58,6 +70,7 @@ export class LifePhotosComponent implements OnInit {
   noteEditingId: number | null = null;
   noteUploading = false;
   noteMonthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
+  noteSelectedAttachments: LifeMonthNoteAttachmentDto[] = [];
   noteDraft: LifeMonthNoteWriteBody = {
     year: new Date().getFullYear(),
     month: new Date().getMonth() + 1,
@@ -95,10 +108,6 @@ export class LifePhotosComponent implements OnInit {
     return (MONTH_NAMES[m - 1] ?? String(m)).slice(0, 3);
   }
 
-  isImageAttachment(contentType: string | null): boolean {
-    return !!contentType && contentType.toLowerCase().startsWith('image/');
-  }
-
   reloadMonthNotesData(): void {
     this.api.notesCalendar(this.noteYear).subscribe({
       next: (c) => (this.noteCalendar = c),
@@ -111,7 +120,20 @@ export class LifePhotosComponent implements OnInit {
     this.api.listMonthNotes(this.noteYear, this.noteFilterMonth).subscribe({
       next: (rows) => {
         this.monthNotes = rows;
-        this.syncNoteSelectionAfterLoad();
+        if (this.noteViewMode === 'compose' && this.noteEditingId != null) {
+          const found = rows.find((r) => r.id === this.noteEditingId);
+          if (!found) {
+            this.resetMonthNoteForm();
+          } else {
+            this.noteSelectedAttachments = [...(found.attachments ?? [])];
+          }
+        } else {
+          this.syncNoteSelectionAfterLoad();
+          if (this.noteSelectedId != null) {
+            const found = rows.find((r) => r.id === this.noteSelectedId);
+            this.noteSelectedAttachments = [...(found?.attachments ?? [])];
+          }
+        }
       },
       error: (e) => this.err('Could not load notes', e),
     });
@@ -125,6 +147,8 @@ export class LifePhotosComponent implements OnInit {
       return;
     }
     this.noteSelectedId = this.monthNotes[0]?.id ?? null;
+    const found = this.monthNotes.find((n) => n.id === this.noteSelectedId);
+    this.noteSelectedAttachments = [...(found?.attachments ?? [])];
   }
 
   private emptyNoteCalendarMonths(): { month: number; noteCount: number }[] {
@@ -136,6 +160,7 @@ export class LifePhotosComponent implements OnInit {
     this.noteSelectedId = null;
     this.noteViewMode = 'compose';
     this.noteComposerPane = 'split';
+    this.noteSelectedAttachments = [];
     this.noteDraft = {
       year: this.noteYear,
       month: this.noteFilterMonth != null ? this.noteFilterMonth : new Date().getMonth() + 1,
@@ -148,6 +173,7 @@ export class LifePhotosComponent implements OnInit {
     this.noteSelectedId = n.id;
     this.noteViewMode = 'read';
     this.noteEditingId = null;
+    this.noteSelectedAttachments = [...(n.attachments ?? [])];
   }
 
   setNoteComposerPane(pane: 'split' | 'write' | 'preview'): void {
@@ -165,8 +191,10 @@ export class LifePhotosComponent implements OnInit {
       this.noteFilterMonth = null;
     } else {
       this.noteFilterMonth = m;
+      this.noteDraft.month = m;
     }
     this.noteViewMode = 'read';
+    this.noteSelectedId = null;
     this.reloadMonthNotesListOnly();
   }
 
@@ -183,7 +211,6 @@ export class LifePhotosComponent implements OnInit {
   }
 
   resetMonthNoteForm(): void {
-    this.noteViewMode = 'read';
     this.noteEditingId = null;
     this.noteDraft = {
       year: this.noteYear,
@@ -191,6 +218,7 @@ export class LifePhotosComponent implements OnInit {
       subject: '',
       body: '',
     };
+    this.noteViewMode = 'read';
     this.syncNoteSelectionAfterLoad();
   }
 
@@ -199,49 +227,50 @@ export class LifePhotosComponent implements OnInit {
     this.noteSelectedId = n.id;
     this.noteViewMode = 'compose';
     this.noteComposerPane = 'split';
+    this.noteSelectedAttachments = [...(n.attachments ?? [])];
     this.noteDraft = {
       year: n.year,
       month: n.month,
       subject: n.subject,
-      body: n.body,
+      body: n.body ?? '',
     };
   }
 
   saveMonthNote(): void {
     const subject = (this.noteDraft.subject || '').trim();
     if (!subject) {
-      this.err('Subject is required');
+      this.snackBar.open('Subject is required', undefined, { duration: 2500 });
       return;
     }
     const body: LifeMonthNoteWriteBody = {
       year: this.noteDraft.year,
       month: this.noteDraft.month,
       subject,
-      body: this.noteDraft.body ?? '',
+      body: (this.noteDraft.body || '').trim(),
     };
     if (this.noteEditingId != null) {
       this.api.updateMonthNote(this.noteEditingId, body).subscribe({
-        next: (row) => {
-          this.snackBar.open('Note saved', 'Dismiss', { duration: 2500 });
-          this.noteSelectedId = row.id;
+        next: (saved) => {
+          this.snackBar.open('Note updated', undefined, { duration: 2000 });
+          this.noteSelectedId = saved.id;
           this.noteViewMode = 'read';
           this.noteEditingId = null;
           this.reloadMonthNotesData();
         },
-        error: (e) => this.err('Could not save note', e),
+        error: (e) => this.err('Could not update note', e),
       });
     } else {
       this.api.createMonthNote(body).subscribe({
-        next: (row) => {
-          this.snackBar.open('Note created', 'Dismiss', { duration: 2500 });
-          this.noteSelectedId = row.id;
+        next: (saved) => {
+          this.snackBar.open('Note saved', undefined, { duration: 2000 });
+          this.noteSelectedId = saved.id;
           this.noteViewMode = 'read';
           this.noteEditingId = null;
-          this.noteYear = row.year;
-          this.noteFilterMonth = row.month;
+          this.noteYear = saved.year;
+          this.noteFilterMonth = saved.month;
           this.reloadMonthNotesData();
         },
-        error: (e) => this.err('Could not create note', e),
+        error: (e) => this.err('Could not save note', e),
       });
     }
   }
@@ -252,9 +281,12 @@ export class LifePhotosComponent implements OnInit {
     }
     this.api.deleteMonthNote(n.id).subscribe({
       next: () => {
-        this.snackBar.open('Note deleted', 'Dismiss', { duration: 2500 });
-        if (this.noteSelectedId === n.id) {
+        this.snackBar.open('Note removed', undefined, { duration: 2000 });
+        if (this.noteEditingId === n.id) {
+          this.resetMonthNoteForm();
+        } else if (this.noteSelectedId === n.id) {
           this.noteSelectedId = null;
+          this.syncNoteSelectionAfterLoad();
         }
         this.reloadMonthNotesData();
       },
@@ -262,61 +294,103 @@ export class LifePhotosComponent implements OnInit {
     });
   }
 
-  onMonthNoteFilesSelected(ev: Event, noteId: number): void {
-    const input = ev.target as HTMLInputElement;
-    const files = input.files ? Array.from(input.files) : [];
-    input.value = '';
-    if (!files.length) {
+  onMonthNoteFilesSelected(event: Event, noteId: number): void {
+    const input = event.target as HTMLInputElement;
+    const files = input.files;
+    if (!files?.length) {
       return;
     }
     this.noteUploading = true;
-    let remaining = files.length;
-    let ok = 0;
-    for (const file of files) {
-      this.api.uploadMonthNoteAttachment(noteId, file).subscribe({
+    const list = Array.from(files);
+    let i = 0;
+    const step = (): void => {
+      if (i >= list.length) {
+        this.noteUploading = false;
+        input.value = '';
+        this.reloadMonthNotesData();
+        this.snackBar.open('Attachment(s) uploaded', undefined, { duration: 2000 });
+        return;
+      }
+      this.api.uploadMonthNoteAttachment(noteId, list[i]).subscribe({
         next: () => {
-          ok += 1;
-          remaining -= 1;
-          if (remaining === 0) {
-            this.noteUploading = false;
-            this.snackBar.open(ok === 1 ? 'Photo added' : `${ok} files added`, 'Dismiss', {
-              duration: 3000,
-            });
-            this.reloadMonthNotesData();
-          }
+          i += 1;
+          step();
         },
         error: (e) => {
-          remaining -= 1;
-          this.err(`Upload failed for ${file.name}`, e);
-          if (remaining === 0) {
-            this.noteUploading = false;
-            if (ok) {
-              this.reloadMonthNotesData();
-            }
-          }
+          this.noteUploading = false;
+          input.value = '';
+          this.err('Upload failed', e);
         },
       });
-    }
+    };
+    step();
   }
 
-  openMonthNoteAttachment(id: number, filename: string): void {
-    this.api.getMonthNoteAttachmentBlob(id, 'inline').subscribe({
-      next: (blob) => {
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank', 'noopener');
-        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  openMonthNoteAttachment(attachment: LifeMonthNoteAttachmentDto): void {
+    this.dialog.open<WriteupAttachmentPreviewDialogComponent, WriteupAttachmentPreviewData>(
+      WriteupAttachmentPreviewDialogComponent,
+      {
+        width: 'min(96vw, 56rem)',
+        maxWidth: '96vw',
+        maxHeight: '92vh',
+        data: {
+          attachmentId: attachment.id,
+          filename: attachment.originalFilename || 'attachment',
+          contentType: attachment.contentType,
+          source: 'life',
+        },
       },
-      error: (e) => this.err(`Could not open ${filename}`, e),
+    );
+  }
+
+  isImageAttachment(a: LifeMonthNoteAttachmentDto): boolean {
+    const ct = (a.contentType || '').toLowerCase();
+    if (ct.startsWith('image/')) {
+      return true;
+    }
+    return /\.(jpe?g|png|gif|webp|bmp|svg|heic|heif)$/i.test(a.originalFilename || '');
+  }
+
+  /**
+   * Insert a stable markdown image tag that references the uploaded attachment.
+   * Do not paste blob: URLs — they expire when the tab reloads.
+   */
+  insertImageIntoBody(a: LifeMonthNoteAttachmentDto): void {
+    if (!this.isImageAttachment(a)) {
+      this.snackBar.open('Only image attachments can be inserted into the body', undefined, {
+        duration: 3000,
+      });
+      return;
+    }
+    if (this.noteViewMode !== 'compose') {
+      const n = this.selectedMonthNote;
+      if (n) {
+        this.startEditMonthNote(n);
+      }
+    }
+    const name = (a.originalFilename || 'image').replace(/[\[\]]/g, '');
+    const tag = `![${name}](/api/life/notes/attachments/${a.id}/file)`;
+    const body = this.noteDraft.body ?? '';
+    const needle = `/api/life/notes/attachments/${a.id}/file`;
+    if (body.includes(needle)) {
+      this.snackBar.open('That image is already in the body', undefined, { duration: 2500 });
+      return;
+    }
+    const sep = !body.trim() ? '' : body.endsWith('\n') ? '\n' : '\n\n';
+    this.noteDraft = {
+      ...this.noteDraft,
+      body: `${body}${sep}${tag}\n`,
+    };
+    this.snackBar.open('Image inserted into markdown body — Save the note', undefined, {
+      duration: 3500,
     });
   }
 
-  removeMonthNoteAttachment(noteId: number, attachmentId: number): void {
-    if (!confirm('Remove this attachment?')) {
-      return;
-    }
+  removeMonthNoteAttachment(attachmentId: number, ev?: Event): void {
+    ev?.stopPropagation();
     this.api.deleteMonthNoteAttachment(attachmentId).subscribe({
       next: () => {
-        this.snackBar.open('Attachment removed', 'Dismiss', { duration: 2500 });
+        this.snackBar.open('Attachment removed', undefined, { duration: 2000 });
         this.reloadMonthNotesData();
       },
       error: (e) => this.err('Could not remove attachment', e),
@@ -325,6 +399,6 @@ export class LifePhotosComponent implements OnInit {
 
   private err(msg: string, e?: unknown): void {
     const detail = e != null ? formatHttpErrorDetail(e) : '';
-    this.snackBar.open(detail ? `${msg}: ${detail}` : msg, 'Dismiss', { duration: 6000 });
+    this.snackBar.open(detail ? `${msg}: ${detail}` : msg, 'Dismiss', { duration: 8000 });
   }
 }

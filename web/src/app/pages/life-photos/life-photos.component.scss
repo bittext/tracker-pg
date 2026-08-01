@@ -8,10 +8,77 @@
   font-weight: 600;
 }
 
-.life-att-icon {
-  font-size: 1rem;
-  width: 1rem;
-  height: 1rem;
-  vertical-align: -0.15em;
-  margin-right: 0.2rem;
+/* Match Management write-up attachment chrome on Life. */
+.life-attach {
+  margin-top: 1.25rem;
+  padding-top: 0.85rem;
+  border-top: 1px dashed var(--app-border, rgba(15, 23, 42, 0.12));
+}
+
+.wu-attach-hint {
+  margin: 0 0 0.65rem;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.wu-file-label {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.wu-file-label input[type='file'] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.wu-file-label-text {
+  display: inline-block;
+  padding: 0.4rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.14));
+  background: var(--app-surface-muted, rgba(15, 23, 42, 0.04));
+  font-size: 0.875rem;
+}
+
+.wu-attachment-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.wu-attachment-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+}
+
+.wu-att-link {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--app-accent, #2563eb);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.wu-att-insert {
+  margin-left: 0.25rem;
+}
+
+.wu-att-insert mat-icon {
+  font-size: 1.05rem;
+  width: 1.05rem;
+  height: 1.05rem;
+  margin-right: 0.15rem;
+  vertical-align: middle;
 }
