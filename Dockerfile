@@ -38,9 +38,13 @@ RUN --mount=type=cache,target=/root/.m2 \
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 # curl for health checks; ffmpeg compresses/splits oversized Just Press Record clips for Whisper (25MB cap);
-# libheif-examples (heif-convert) turns Apple HEIC/HEIF uploads into JPEG for browser display.
+# libheif + libde265 plugin decode Apple HEIC/HEIF so uploads can be stored/served as JPEG.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl ffmpeg libheif-examples \
+    && apt-get install -y --no-install-recommends \
+      curl \
+      ffmpeg \
+      libheif-examples \
+      libheif-plugin-libde265 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /workspace/server/target/tracker-pg-server-*.jar /app/app.jar

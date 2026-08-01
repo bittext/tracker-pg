@@ -79,24 +79,23 @@ public final class HeicImageNormalizer {
             Exception last = null;
             for (String[] cmd : conversionCommands(in, out)) {
                 try {
-                    run(cmd, 60);
-                    if (Files.isRegularFile(out) && Files.size(out) > 0) {
+                    Files.deleteIfExists(out);
+                    run(cmd, 90);
+                    if (Files.isRegularFile(out) && Files.size(out) > 32) {
+                        log.info("Converted HEIC/HEIF to JPEG via {} ({} bytes → {} bytes)", cmd[0], heicBytes.length, Files.size(out));
                         return Files.readAllBytes(out);
                     }
+                    throw new IOException(cmd[0] + " produced empty output");
                 } catch (Exception e) {
                     last = e;
-                    log.debug("HEIC convert attempt failed ({}): {}", cmd[0], e.toString());
-                    try {
-                        Files.deleteIfExists(out);
-                    } catch (IOException ignored) {
-                        // best-effort
-                    }
+                    log.warn("HEIC convert attempt failed ({}): {}", cmd[0], e.toString());
                 }
             }
             String hint = last == null ? "no converter succeeded" : last.getMessage();
             throw new ResponseStatusException(
                     HttpStatus.UNPROCESSABLE_ENTITY,
-                    "Could not convert HEIC/HEIF to JPEG for display. Install libheif-examples (heif-convert) or ImageMagick. "
+                    "Could not convert HEIC/HEIF to JPEG for display. "
+                            + "API image needs libheif-plugin-libde265 (or ffmpeg). "
                             + hint);
         } catch (ResponseStatusException e) {
             throw e;
@@ -111,12 +110,13 @@ public final class HeicImageNormalizer {
     private static String[][] conversionCommands(Path in, Path out) {
         String inPath = in.toAbsolutePath().toString();
         String outPath = out.toAbsolutePath().toString();
+        // Prefer heif-convert when libde265 plugin is installed; ffmpeg is a reliable fallback for HEVC HEIC.
         return new String[][] {
             {"heif-convert", inPath, outPath},
+            {"ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", inPath, "-frames:v", "1", "-update", "1", outPath},
             {"magick", inPath, outPath},
             {"convert", inPath, outPath},
             {"sips", "-s", "format", "jpeg", inPath, "--out", outPath},
-            {"ffmpeg", "-y", "-i", inPath, "-frames:v", "1", outPath},
         };
     }
 
@@ -135,8 +135,8 @@ public final class HeicImageNormalizer {
         }
         if (process.exitValue() != 0) {
             String hint = output == null ? "" : output.trim();
-            if (hint.length() > 200) {
-                hint = hint.substring(hint.length() - 200);
+            if (hint.length() > 240) {
+                hint = hint.substring(hint.length() - 240);
             }
             throw new IOException(command[0] + " exit " + process.exitValue() + (hint.isEmpty() ? "" : ": " + hint));
         }
