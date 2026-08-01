@@ -6,11 +6,11 @@
 @use 'styles/atmosphere-bg';
 
 /* Management → Notes tab (global to keep component style budget under limit) */
-:is(app-management, app-life-photos) .mgmt-notes-panel {
+:is(app-management, app-life-photos, app-tracker-notes) .mgmt-notes-panel {
   max-width: 100%;
 }
 
-:is(app-management, app-life-photos) .notes-year-bar {
+:is(app-management, app-life-photos, app-tracker-notes) .notes-year-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -18,7 +18,7 @@
   margin: 0.5rem 0 0.75rem;
 }
 
-:is(app-management, app-life-photos) .notes-year-chip {
+:is(app-management, app-life-photos, app-tracker-notes) .notes-year-chip {
   font: inherit;
   font-weight: 700;
   font-size: 1.1rem;
@@ -33,17 +33,17 @@
     box-shadow 0.15s ease;
 }
 
-:is(app-management, app-life-photos) .notes-year-chip:hover {
+:is(app-management, app-life-photos, app-tracker-notes) .notes-year-chip:hover {
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(37, 99, 235, 0.12) 100%);
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
 }
 
-:is(app-management, app-life-photos) .notes-filter-hint {
+:is(app-management, app-life-photos, app-tracker-notes) .notes-filter-hint {
   font-size: 0.88rem;
   color: var(--app-text-muted, #64748b);
 }
 
-:is(app-management, app-life-photos) .notes-month-grid {
+:is(app-management, app-life-photos, app-tracker-notes) .notes-month-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.5rem;
@@ -51,17 +51,17 @@
   margin-bottom: 1.1rem;
 }
 @media (min-width: 640px) {
-  :is(app-management, app-life-photos) .notes-month-grid {
+  :is(app-management, app-life-photos, app-tracker-notes) .notes-month-grid {
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 }
 @media (min-width: 900px) {
-  :is(app-management, app-life-photos) .notes-month-grid {
+  :is(app-management, app-life-photos, app-tracker-notes) .notes-month-grid {
     grid-template-columns: repeat(12, minmax(0, 1fr));
   }
 }
 
-:is(app-management, app-life-photos) .notes-month-cell {
+:is(app-management, app-life-photos, app-tracker-notes) .notes-month-cell {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -80,59 +80,59 @@
     border-color 0.12s ease,
     box-shadow 0.12s ease;
 }
-:is(app-management, app-life-photos) .notes-month-cell:hover {
+:is(app-management, app-life-photos, app-tracker-notes) .notes-month-cell:hover {
   border-color: rgba(37, 99, 235, 0.25);
 }
-:is(app-management, app-life-photos) .notes-month-cell.notes-month-cell--has {
+:is(app-management, app-life-photos, app-tracker-notes) .notes-month-cell.notes-month-cell--has {
   background: rgba(16, 185, 129, 0.1);
   border-color: rgba(16, 185, 129, 0.35);
 }
-:is(app-management, app-life-photos) .notes-month-cell.notes-month-cell--active {
+:is(app-management, app-life-photos, app-tracker-notes) .notes-month-cell.notes-month-cell--active {
   outline: 2px solid var(--app-accent, #2563eb);
   outline-offset: 1px;
 }
 
-:is(app-management, app-life-photos) .notes-month-label {
+:is(app-management, app-life-photos, app-tracker-notes) .notes-month-label {
   font-size: 0.72rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--app-text-subtle, #94a3b8);
 }
-:is(app-management, app-life-photos) .notes-month-count {
+:is(app-management, app-life-photos, app-tracker-notes) .notes-month-count {
   font-size: 0.95rem;
   font-weight: 700;
   color: #047857;
 }
-:is(app-management, app-life-photos) .notes-form-card {
+:is(app-management, app-life-photos, app-tracker-notes) .notes-form-card {
   border: 1px solid rgba(99, 102, 241, 0.2) !important;
   background: linear-gradient(180deg, #fff 0%, rgba(248, 250, 255, 0.85) 100%) !important;
 }
-:is(app-management, app-life-photos) .notes-list-card {
+:is(app-management, app-life-photos, app-tracker-notes) .notes-list-card {
   border: 1px solid rgba(16, 185, 129, 0.18) !important;
   background: linear-gradient(180deg, #fff 0%, rgba(240, 253, 250, 0.55) 100%) !important;
 }
 @media (min-width: 960px) {
-  :is(app-management, app-life-photos) .notes-layout {
+  :is(app-management, app-life-photos, app-tracker-notes) .notes-layout {
     grid-template-columns: minmax(24rem, min(48vw, 44rem)) minmax(0, 1fr);
   }
 }
-:is(app-management, app-life-photos) .notes-entry-list {
+:is(app-management, app-life-photos, app-tracker-notes) .notes-entry-list {
   display: grid;
   gap: 0.85rem;
 }
-:is(app-management, app-life-photos) .notes-entry {
+:is(app-management, app-life-photos, app-tracker-notes) .notes-entry {
   border-radius: var(--app-radius-sm, 10px);
   border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
   padding: 0.9rem 1rem;
   background: var(--app-surface, #fff);
   box-shadow: var(--app-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.04));
 }
-:is(app-management, app-life-photos) .notes-entry.notes-entry--editing {
+:is(app-management, app-life-photos, app-tracker-notes) .notes-entry.notes-entry--editing {
   border-color: rgba(99, 102, 241, 0.45);
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.07) 0%, #fff 55%);
 }
-:is(app-management, app-life-photos) .notes-entry-subject {
+:is(app-management, app-life-photos, app-tracker-notes) .notes-entry-subject {
   margin: 0 0 0.35rem;
   font-size: 1.05rem;
   font-weight: 800;
@@ -141,35 +141,35 @@
   line-height: 1.3;
   font-family: var(--app-font-display, 'Plus Jakarta Sans', sans-serif);
 }
-:is(app-management, app-life-photos) .notes-entry-meta {
+:is(app-management, app-life-photos, app-tracker-notes) .notes-entry-meta {
   margin: 0 0 0.5rem;
   font-size: 0.8rem;
   color: var(--app-text-muted, #64748b);
 }
-:is(app-management, app-life-photos) .notes-body-field textarea.mat-mdc-input-element {
+:is(app-management, app-life-photos, app-tracker-notes) .notes-body-field textarea.mat-mdc-input-element {
   min-height: min(48vh, 30rem);
   resize: vertical;
   line-height: 1.5;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
   font-size: 0.9rem;
 }
-:is(app-management, app-life-photos) .notes-entry-body,
+:is(app-management, app-life-photos, app-tracker-notes) .notes-entry-body,
 app-management-work-panel .notes-entry-body {
   margin: 0 0 0.65rem;
   line-height: 1.55;
   font-size: 0.95rem;
   color: var(--app-text, #0f172a);
 }
-:is(app-management, app-life-photos) .notes-entry-body--empty,
+:is(app-management, app-life-photos, app-tracker-notes) .notes-entry-body--empty,
 app-management-work-panel .notes-entry-body--empty {
   margin: 0 0 0.65rem;
 }
-:is(app-management, app-life-photos) .markdown-body.notes-entry-body h1,
-:is(app-management, app-life-photos) .markdown-body.notes-entry-body h2,
-:is(app-management, app-life-photos) .markdown-body.notes-entry-body h3,
-:is(app-management, app-life-photos) .markdown-body.notes-entry-body h4,
-:is(app-management, app-life-photos) .markdown-body.notes-entry-body h5,
-:is(app-management, app-life-photos) .markdown-body.notes-entry-body h6,
+:is(app-management, app-life-photos, app-tracker-notes) .markdown-body.notes-entry-body h1,
+:is(app-management, app-life-photos, app-tracker-notes) .markdown-body.notes-entry-body h2,
+:is(app-management, app-life-photos, app-tracker-notes) .markdown-body.notes-entry-body h3,
+:is(app-management, app-life-photos, app-tracker-notes) .markdown-body.notes-entry-body h4,
+:is(app-management, app-life-photos, app-tracker-notes) .markdown-body.notes-entry-body h5,
+:is(app-management, app-life-photos, app-tracker-notes) .markdown-body.notes-entry-body h6,
 app-management-work-panel .markdown-body.notes-entry-body h1,
 app-management-work-panel .markdown-body.notes-entry-body h2,
 app-management-work-panel .markdown-body.notes-entry-body h3,
@@ -181,25 +181,25 @@ app-management-work-panel .markdown-body.notes-entry-body h6 {
   line-height: 1.3;
   color: var(--app-text, #0f172a);
 }
-:is(app-management, app-life-photos) .markdown-body.notes-entry-body h1,
+:is(app-management, app-life-photos, app-tracker-notes) .markdown-body.notes-entry-body h1,
 app-management-work-panel .markdown-body.notes-entry-body h1 {
   font-size: 1.25rem;
 }
-:is(app-management, app-life-photos) .markdown-body.notes-entry-body h2,
+:is(app-management, app-life-photos, app-tracker-notes) .markdown-body.notes-entry-body h2,
 app-management-work-panel .markdown-body.notes-entry-body h2 {
   font-size: 1.1rem;
 }
-:is(app-management, app-life-photos) .markdown-body.notes-entry-body p,
+:is(app-management, app-life-photos, app-tracker-notes) .markdown-body.notes-entry-body p,
 app-management-work-panel .markdown-body.notes-entry-body p {
   margin: 0.4rem 0;
 }
-:is(app-management, app-life-photos) .markdown-body.notes-entry-body a,
+:is(app-management, app-life-photos, app-tracker-notes) .markdown-body.notes-entry-body a,
 app-management-work-panel .markdown-body.notes-entry-body a {
   color: var(--app-accent, #2563eb);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
-:is(app-management, app-life-photos) .markdown-body.notes-entry-body pre,
+:is(app-management, app-life-photos, app-tracker-notes) .markdown-body.notes-entry-body pre,
 app-management-work-panel .markdown-body.notes-entry-body pre {
   margin: 0.45rem 0;
   padding: 0.6rem 0.75rem;
@@ -208,7 +208,7 @@ app-management-work-panel .markdown-body.notes-entry-body pre {
   overflow: auto;
   font-size: 0.82rem;
 }
-:is(app-management, app-life-photos) .markdown-body.notes-entry-body code,
+:is(app-management, app-life-photos, app-tracker-notes) .markdown-body.notes-entry-body code,
 app-management-work-panel .markdown-body.notes-entry-body code {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
   font-size: 0.85em;
@@ -216,32 +216,32 @@ app-management-work-panel .markdown-body.notes-entry-body code {
   padding: 0.1rem 0.3rem;
   border-radius: 4px;
 }
-:is(app-management, app-life-photos) .markdown-body.notes-entry-body pre code,
+:is(app-management, app-life-photos, app-tracker-notes) .markdown-body.notes-entry-body pre code,
 app-management-work-panel .markdown-body.notes-entry-body pre code {
   background: none;
   padding: 0;
 }
-:is(app-management, app-life-photos) .markdown-body.notes-entry-body ul,
-:is(app-management, app-life-photos) .markdown-body.notes-entry-body ol,
+:is(app-management, app-life-photos, app-tracker-notes) .markdown-body.notes-entry-body ul,
+:is(app-management, app-life-photos, app-tracker-notes) .markdown-body.notes-entry-body ol,
 app-management-work-panel .markdown-body.notes-entry-body ul,
 app-management-work-panel .markdown-body.notes-entry-body ol {
   margin: 0.35rem 0 0.35rem 1.2rem;
   padding: 0;
 }
-:is(app-management, app-life-photos) .markdown-body.notes-entry-body blockquote,
+:is(app-management, app-life-photos, app-tracker-notes) .markdown-body.notes-entry-body blockquote,
 app-management-work-panel .markdown-body.notes-entry-body blockquote {
   margin: 0.4rem 0;
   padding: 0.25rem 0 0.25rem 0.75rem;
   border-left: 3px solid rgba(37, 99, 235, 0.35);
   color: var(--app-text-muted, #475569);
 }
-:is(app-management, app-life-photos) .markdown-body.notes-entry-body hr,
+:is(app-management, app-life-photos, app-tracker-notes) .markdown-body.notes-entry-body hr,
 app-management-work-panel .markdown-body.notes-entry-body hr {
   margin: 0.75rem 0;
   border: 0;
   border-top: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
 }
-:is(app-management, app-life-photos) .markdown-body.notes-entry-body table,
+:is(app-management, app-life-photos, app-tracker-notes) .markdown-body.notes-entry-body table,
 app-management-work-panel .markdown-body.notes-entry-body table {
   border-collapse: collapse;
   width: 100%;
@@ -249,34 +249,34 @@ app-management-work-panel .markdown-body.notes-entry-body table {
   margin: 0.5rem 0;
   font-size: 0.88rem;
 }
-:is(app-management, app-life-photos) .markdown-body.notes-entry-body th,
-:is(app-management, app-life-photos) .markdown-body.notes-entry-body td,
+:is(app-management, app-life-photos, app-tracker-notes) .markdown-body.notes-entry-body th,
+:is(app-management, app-life-photos, app-tracker-notes) .markdown-body.notes-entry-body td,
 app-management-work-panel .markdown-body.notes-entry-body th,
 app-management-work-panel .markdown-body.notes-entry-body td {
   border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
   padding: 0.35rem 0.5rem;
 }
-:is(app-management, app-life-photos) .markdown-body.notes-entry-body th,
+:is(app-management, app-life-photos, app-tracker-notes) .markdown-body.notes-entry-body th,
 app-management-work-panel .markdown-body.notes-entry-body th {
   background: #f8fafc;
   font-weight: 600;
 }
-:is(app-management, app-life-photos) .markdown-body.notes-entry-body img,
+:is(app-management, app-life-photos, app-tracker-notes) .markdown-body.notes-entry-body img,
 app-management-work-panel .markdown-body.notes-entry-body img {
   max-width: 100%;
   height: auto;
 }
-:is(app-management, app-life-photos) .notes-entry-actions {
+:is(app-management, app-life-photos, app-tracker-notes) .notes-entry-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
   margin-bottom: 0.5rem;
 }
-:is(app-management, app-life-photos) .notes-attach-row,
+:is(app-management, app-life-photos, app-tracker-notes) .notes-attach-row,
 app-management-work-panel .notes-attach-row {
   margin: 0.15rem 0 0.35rem;
 }
-:is(app-management, app-life-photos) .notes-file-label,
+:is(app-management, app-life-photos, app-tracker-notes) .notes-file-label,
 app-management-work-panel .notes-file-label {
   display: inline-flex;
   align-items: center;
@@ -285,22 +285,22 @@ app-management-work-panel .notes-file-label {
   font-size: 0.86rem;
   color: var(--app-accent, #2563eb);
 }
-:is(app-management, app-life-photos) .notes-file-label input[type='file'],
+:is(app-management, app-life-photos, app-tracker-notes) .notes-file-label input[type='file'],
 app-management-work-panel .notes-file-label input[type='file'] {
   max-width: 9rem;
   font-size: 0.8rem;
 }
-:is(app-management, app-life-photos) .notes-file-label-text,
+:is(app-management, app-life-photos, app-tracker-notes) .notes-file-label-text,
 app-management-work-panel .notes-file-label-text {
   font-weight: 500;
 }
-:is(app-management, app-life-photos) .notes-attachment-list,
+:is(app-management, app-life-photos, app-tracker-notes) .notes-attachment-list,
 app-management-work-panel .notes-attachment-list {
   margin: 0.25rem 0 0;
   padding-left: 1.1rem;
   font-size: 0.88rem;
 }
-:is(app-management, app-life-photos) .notes-attachment-list li,
+:is(app-management, app-life-photos, app-tracker-notes) .notes-attachment-list li,
 app-management-work-panel .notes-attachment-list li {
   display: flex;
   flex-wrap: wrap;
@@ -308,7 +308,7 @@ app-management-work-panel .notes-attachment-list li {
   gap: 0.25rem 0.35rem;
   margin-bottom: 0.2rem;
 }
-:is(app-management, app-life-photos) .notes-att-link,
+:is(app-management, app-life-photos, app-tracker-notes) .notes-att-link,
 app-management-work-panel .notes-att-link {
   background: none;
   border: none;
@@ -321,32 +321,32 @@ app-management-work-panel .notes-att-link {
 }
 
 /* Month notes — full-width workspace */
-:is(app-management, app-life-photos) .mn-workspace {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-workspace {
   display: flex;
   flex-direction: column;
   gap: 1rem;
   width: 100%;
 }
-:is(app-management, app-life-photos) .mn-toolbar {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-toolbar {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
 }
-:is(app-management, app-life-photos) .mn-toolbar-primary {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-toolbar-primary {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem 0.75rem;
 }
-:is(app-management, app-life-photos) .mn-toolbar-meta {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-toolbar-meta {
   font-size: 0.88rem;
 }
-:is(app-management, app-life-photos) .mn-note-strip {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-note-strip {
   display: flex;
   flex-wrap: wrap;
   gap: 0.45rem;
 }
-:is(app-management, app-life-photos) .mn-note-chip {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-note-chip {
   display: inline-flex;
   flex-direction: column;
   align-items: flex-start;
@@ -365,16 +365,16 @@ app-management-work-panel .notes-att-link {
     box-shadow 0.12s ease,
     background 0.12s ease;
 }
-:is(app-management, app-life-photos) .mn-note-chip:hover {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-note-chip:hover {
   border-color: rgba(37, 99, 235, 0.35);
   background: var(--app-surface-muted, #f8fafc);
 }
-:is(app-management, app-life-photos) .mn-note-chip.mn-note-chip--active {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-note-chip.mn-note-chip--active {
   border-color: var(--app-accent, #2563eb);
   background: rgba(37, 99, 235, 0.08);
   box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.15);
 }
-:is(app-management, app-life-photos) .mn-note-chip-subject {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-note-chip-subject {
   font-size: 0.88rem;
   font-weight: 600;
   overflow: hidden;
@@ -382,72 +382,72 @@ app-management-work-panel .notes-att-link {
   white-space: nowrap;
   max-width: 100%;
 }
-:is(app-management, app-life-photos) .mn-note-chip-date {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-note-chip-date {
   font-size: 0.72rem;
 }
-:is(app-management, app-life-photos) .mn-compose,
-:is(app-management, app-life-photos) .mn-read {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-compose,
+:is(app-management, app-life-photos, app-tracker-notes) .mn-read {
   border-radius: var(--app-radius, 12px);
   border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
   background: var(--app-surface, #fff);
   box-shadow: var(--app-shadow-sm, 0 1px 2px rgba(15, 23, 42, 0.05));
 }
-:is(app-management, app-life-photos) .mn-compose {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-compose {
   padding: 1rem 1.1rem 1.1rem;
 }
-:is(app-management, app-life-photos) .mn-compose-meta {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-compose-meta {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 0.65rem;
   margin-bottom: 0.75rem;
 }
 @media (min-width: 720px) {
-  :is(app-management, app-life-photos) .mn-compose-meta {
+  :is(app-management, app-life-photos, app-tracker-notes) .mn-compose-meta {
     grid-template-columns: minmax(0, 1fr) 7rem 9rem;
     align-items: start;
   }
 }
-:is(app-management, app-life-photos) .mn-subject-field,
-:is(app-management, app-life-photos) .mn-meta-field {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-subject-field,
+:is(app-management, app-life-photos, app-tracker-notes) .mn-meta-field {
   width: 100%;
 }
-:is(app-management, app-life-photos) .mn-pane-toggle {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-pane-toggle {
   display: inline-flex;
   flex-wrap: wrap;
   gap: 0.35rem;
   margin-bottom: 0.65rem;
 }
-:is(app-management, app-life-photos) .mn-pane-toggle button {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-pane-toggle button {
   min-width: auto;
 }
-:is(app-management, app-life-photos) .mn-pane-toggle .mn-pane-toggle--active {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-pane-toggle .mn-pane-toggle--active {
   background: rgba(37, 99, 235, 0.1);
   border-color: rgba(37, 99, 235, 0.35);
   color: var(--app-accent, #2563eb);
 }
-:is(app-management, app-life-photos) .mn-split {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-split {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 0.85rem;
   min-height: min(62vh, 36rem);
 }
 @media (min-width: 960px) {
-  :is(app-management, app-life-photos) .mn-split {
+  :is(app-management, app-life-photos, app-tracker-notes) .mn-split {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
-  :is(app-management, app-life-photos) .mn-split.mn-split--write,
-  :is(app-management, app-life-photos) .mn-split.mn-split--preview {
+  :is(app-management, app-life-photos, app-tracker-notes) .mn-split.mn-split--write,
+  :is(app-management, app-life-photos, app-tracker-notes) .mn-split.mn-split--preview {
     grid-template-columns: minmax(0, 1fr);
   }
 }
-:is(app-management, app-life-photos) .mn-split.mn-split--write .mn-preview-pane {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-split.mn-split--write .mn-preview-pane {
   display: none;
 }
-:is(app-management, app-life-photos) .mn-split.mn-split--preview .mn-editor-pane {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-split.mn-split--preview .mn-editor-pane {
   display: none;
 }
-:is(app-management, app-life-photos) .mn-editor-pane,
-:is(app-management, app-life-photos) .mn-preview-pane {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-editor-pane,
+:is(app-management, app-life-photos, app-tracker-notes) .mn-preview-pane {
   display: flex;
   flex-direction: column;
   min-height: min(58vh, 34rem);
@@ -455,7 +455,7 @@ app-management-work-panel .notes-att-link {
   border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
   overflow: hidden;
 }
-:is(app-management, app-life-photos) .mn-pane-head {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-pane-head {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -465,17 +465,17 @@ app-management-work-panel .notes-att-link {
   background: var(--app-surface-muted, #f8fafc);
   flex-shrink: 0;
 }
-:is(app-management, app-life-photos) .mn-pane-title {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-pane-title {
   font-size: 0.78rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--app-text-muted, #64748b);
 }
-:is(app-management, app-life-photos) .mn-pane-hint {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-pane-hint {
   font-size: 0.78rem;
 }
-:is(app-management, app-life-photos) .mn-editor-input {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-editor-input {
   flex: 1;
   width: 100%;
   min-height: 0;
@@ -488,21 +488,21 @@ app-management-work-panel .notes-att-link {
   color: var(--app-text, #0f172a);
   background: var(--app-surface, #fff);
 }
-:is(app-management, app-life-photos) .mn-editor-input:focus {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-editor-input:focus {
   outline: none;
 }
-:is(app-management, app-life-photos) .mn-preview-body {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-preview-body {
   flex: 1;
   overflow: auto;
   padding: 0.85rem 1rem;
   min-height: 0;
 }
-:is(app-management, app-life-photos) .mn-preview-empty {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-preview-empty {
   margin: 0;
   font-size: 0.9rem;
   line-height: 1.5;
 }
-:is(app-management, app-life-photos) .mn-compose-actions {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-compose-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
@@ -510,10 +510,10 @@ app-management-work-panel .notes-att-link {
   padding-top: 0.75rem;
   border-top: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
 }
-:is(app-management, app-life-photos) .mn-read {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-read {
   padding: 1.1rem 1.25rem 1.25rem;
 }
-:is(app-management, app-life-photos) .mn-read-head {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-read-head {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-start;
@@ -523,7 +523,7 @@ app-management-work-panel .notes-att-link {
   padding-bottom: 0.85rem;
   border-bottom: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
 }
-:is(app-management, app-life-photos) .mn-read-subject {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-read-subject {
   margin: 0 0 0.25rem;
   font-size: clamp(1.15rem, 2vw, 1.45rem);
   font-weight: 800;
@@ -532,24 +532,24 @@ app-management-work-panel .notes-att-link {
   line-height: 1.25;
   font-family: var(--app-font-display, 'Plus Jakarta Sans', sans-serif);
 }
-:is(app-management, app-life-photos) .mn-read-meta {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-read-meta {
   margin: 0;
   font-size: 0.82rem;
 }
-:is(app-management, app-life-photos) .mn-read-actions {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-read-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem;
 }
-:is(app-management, app-life-photos) .mn-read-body {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-read-body {
   max-width: none;
 }
-:is(app-management, app-life-photos) .mn-read-attach {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-read-attach {
   margin-top: 1.25rem;
   padding-top: 0.85rem;
   border-top: 1px dashed var(--app-border, rgba(15, 23, 42, 0.12));
 }
-:is(app-management, app-life-photos) .mn-empty {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-empty {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -559,7 +559,7 @@ app-management-work-panel .notes-att-link {
   border: 1px dashed var(--app-border, rgba(15, 23, 42, 0.15));
   background: var(--app-surface-muted, #f8fafc);
 }
-:is(app-management, app-life-photos) .mn-empty p {
+:is(app-management, app-life-photos, app-tracker-notes) .mn-empty p {
   margin: 0;
 }
 

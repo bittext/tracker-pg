@@ -14,12 +14,13 @@ import { Observable } from 'rxjs';
 import { marked } from 'marked';
 import { LifeApiService } from '../../services/life-api.service';
 import { ManagementApiService } from '../../services/management-api.service';
+import { TrackerApiService } from '../../services/tracker-api.service';
 
-type AttachmentKind = 'writeup' | 'life';
+type AttachmentKind = 'writeup' | 'life' | 'tracker';
 
 /**
  * Renders markdown and rewrites authenticated attachment image URLs to blob: URLs
- * so images embedded via insert (write-ups or Life notes) display on the page.
+ * so images embedded via insert (write-ups, Life notes, or Markets Tracker notes) display.
  */
 @Component({
   selector: 'app-writeup-markdown-body',
@@ -30,6 +31,7 @@ type AttachmentKind = 'writeup' | 'life';
 export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
   private readonly managementApi = inject(ManagementApiService);
   private readonly lifeApi = inject(LifeApiService);
+  private readonly trackerApi = inject(TrackerApiService);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly host = inject(ElementRef<HTMLElement>);
 
@@ -60,7 +62,14 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
     const raw = marked(src, { async: false, breaks: true }) as string;
     const clean = DOMPurify.sanitize(raw, {
       USE_PROFILES: { html: true },
-      ADD_ATTR: ['data-life-width', 'data-life-float', 'width', 'height'],
+      ADD_ATTR: [
+        'data-life-width',
+        'data-life-float',
+        'data-tracker-width',
+        'data-tracker-float',
+        'width',
+        'height',
+      ],
     });
     this.html = this.sanitizer.bypassSecurityTrustHtml(clean);
     const seq = ++this.loadSeq;
@@ -104,13 +113,17 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
     });
   }
 
-  /** Honor data-life-width / data-life-float so text wraps around inset images. */
+  /** Honor data-*-width / data-*-float so text wraps around inset images. */
   private applyEmbeddedImageSize(img: HTMLImageElement): void {
-    const pctRaw = img.getAttribute('data-life-width');
+    const pctRaw = img.getAttribute('data-tracker-width') || img.getAttribute('data-life-width');
     const pct = pctRaw
       ? Math.min(100, Math.max(10, Number(pctRaw) || 30))
       : 30;
-    const floatRaw = (img.getAttribute('data-life-float') || 'left').toLowerCase();
+    const floatRaw = (
+      img.getAttribute('data-tracker-float') ||
+      img.getAttribute('data-life-float') ||
+      'left'
+    ).toLowerCase();
     const floatSide = floatRaw === 'right' || floatRaw === 'none' ? floatRaw : 'left';
 
     img.style.height = 'auto';
@@ -140,6 +153,9 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
     if (ref.kind === 'life') {
       return this.lifeApi.getMonthNoteAttachmentBlob(ref.id, 'inline');
     }
+    if (ref.kind === 'tracker') {
+      return this.trackerApi.getMonthNoteAttachmentBlob(ref.id, 'inline');
+    }
     return this.managementApi.getWriteupAttachmentBlob(ref.id, 'inline');
   }
 
@@ -151,6 +167,12 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
     const life = src.match(/\/api\/life\/notes\/attachments\/(\d+)\/file(?:\?.*)?$/i);
     if (life) {
       return { kind: 'life', id: Number(life[1]) };
+    }
+    const tracker = src.match(
+      /\/api\/markets\/tracker\/notes\/attachments\/(\d+)\/file(?:\?.*)?$/i,
+    );
+    if (tracker) {
+      return { kind: 'tracker', id: Number(tracker[1]) };
     }
     const writeup = src.match(/\/api\/management\/writeups\/attachments\/(\d+)\/file(?:\?.*)?$/i);
     if (writeup) {

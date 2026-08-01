@@ -10,6 +10,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ManagementApiService } from '../../services/management-api.service';
 import { LifeApiService } from '../../services/life-api.service';
+import { TrackerApiService } from '../../services/tracker-api.service';
 
 export type WriteupAttachmentPreviewKind = 'loading' | 'image' | 'pdf' | 'text' | 'unsupported' | 'error';
 
@@ -17,8 +18,8 @@ export interface WriteupAttachmentPreviewData {
   attachmentId: number;
   filename: string;
   contentType: string | null;
-  /** Defaults to write-up vault; Life notes use {@code 'life'}. */
-  source?: 'writeup' | 'life';
+  /** Defaults to write-up vault; month notes use {@code 'life'} or {@code 'tracker'}. */
+  source?: 'writeup' | 'life' | 'tracker';
 }
 
 @Component({
@@ -136,6 +137,7 @@ export interface WriteupAttachmentPreviewData {
 export class WriteupAttachmentPreviewDialogComponent implements OnInit, OnDestroy {
   private readonly managementApi = inject(ManagementApiService);
   private readonly lifeApi = inject(LifeApiService);
+  private readonly trackerApi = inject(TrackerApiService);
   private readonly dialogRef = inject(MatDialogRef<WriteupAttachmentPreviewDialogComponent>);
   private readonly sanitizer = inject(DomSanitizer);
   readonly data = inject<WriteupAttachmentPreviewData>(MAT_DIALOG_DATA);
@@ -166,7 +168,9 @@ export class WriteupAttachmentPreviewDialogComponent implements OnInit, OnDestro
     const req =
       source === 'life'
         ? this.lifeApi.getMonthNoteAttachmentBlob(this.data.attachmentId, 'inline')
-        : this.managementApi.getWriteupAttachmentBlob(this.data.attachmentId, 'inline');
+        : source === 'tracker'
+          ? this.trackerApi.getMonthNoteAttachmentBlob(this.data.attachmentId, 'inline')
+          : this.managementApi.getWriteupAttachmentBlob(this.data.attachmentId, 'inline');
     req.subscribe({
       next: (blob) => this.applyBlob(blob),
       error: () => {

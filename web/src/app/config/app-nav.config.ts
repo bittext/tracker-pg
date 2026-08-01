@@ -137,6 +137,14 @@ export const MARKETS_PRIMARY_NAV: NavEntry[] = [
     exact: true,
   },
   {
+    id: 'tracker',
+    label: 'Tracker',
+    path: '/markets/tracker',
+    icon: 'photo_library',
+    shell: 'markets-primary',
+    exact: true,
+  },
+  {
     id: 'history',
     label: 'History',
     path: '/markets/history',
