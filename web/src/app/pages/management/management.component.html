@@ -1078,6 +1078,7 @@
                   <label class="notes-file-label">
                     <input
                       type="file"
+                accept="image/*,.heic,.heif,image/heic,image/heif"
                       multiple
                       [attr.data-note-id]="n.id"
                       (change)="onMonthNoteFilesSelected($event, n.id)"
@@ -1338,6 +1339,7 @@
                       <label class="wu-file-label">
                         <input
                           type="file"
+                accept="image/*,.heic,.heif,image/heic,image/heif"
                           multiple
                           (change)="onWriteupFilesSelected($event, writeupEditingId)"
                           [disabled]="writeupUploading"
@@ -1417,6 +1419,7 @@
                     <label class="wu-file-label">
                       <input
                         type="file"
+                accept="image/*,.heic,.heif,image/heic,image/heif"
                         multiple
                         (change)="onWriteupFilesSelected($event, w.id)"
                         [disabled]="writeupUploading"

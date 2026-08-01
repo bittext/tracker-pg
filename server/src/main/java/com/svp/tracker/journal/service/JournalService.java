@@ -15,6 +15,7 @@ import com.svp.tracker.journal.dto.JournalTagDefDto;
 import com.svp.tracker.journal.repository.JournalAttachmentRepository;
 import com.svp.tracker.journal.repository.JournalEntryRepository;
 import com.svp.tracker.journal.repository.JournalTagDefRepository;
+import com.svp.tracker.util.HeicImageNormalizer;
 import com.svp.tracker.util.ImageCaptureTime;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -262,6 +263,10 @@ public class JournalService {
         byte[] bytes = file.getBytes();
         Instant capturedAt =
                 ImageCaptureTime.resolve(filename, file.getContentType(), bytes, clientLastModifiedMs);
+        var normalized = HeicImageNormalizer.normalize(filename, file.getContentType(), bytes);
+        filename = normalized.filename();
+        bytes = normalized.bytes();
+        String contentType = normalized.contentType();
         String key;
         try (var in = new ByteArrayInputStream(bytes)) {
             key = blobStore.put(entry.getOwnerUserId(), entry.getId(), in, bytes.length);
@@ -272,7 +277,7 @@ public class JournalService {
         a.setEntry(entry);
         a.setStorageKey(key);
         a.setOriginalFilename(filename);
-        a.setContentType(file.getContentType());
+        a.setContentType(contentType);
         a.setSizeBytes((long) bytes.length);
         a.setCapturedAt(capturedAt);
         a.setCreatedAt(Instant.now());
@@ -308,10 +313,14 @@ public class JournalService {
         assertRowAccess(a.getEntry().getOwnerUserId());
         try {
             byte[] body = blobStore.readAllBytes(a.getStorageKey());
+            var normalized =
+                    HeicImageNormalizer.normalize(a.getOriginalFilename(), a.getContentType(), body);
             return new AttachmentFile(
-                    a.getContentType() != null ? a.getContentType() : "application/octet-stream",
-                    a.getOriginalFilename(),
-                    body);
+                    normalized.contentType() != null
+                            ? normalized.contentType()
+                            : "application/octet-stream",
+                    normalized.filename(),
+                    normalized.bytes());
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

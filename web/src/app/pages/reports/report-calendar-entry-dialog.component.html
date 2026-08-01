@@ -60,7 +60,7 @@
       <h3 id="rc-attach-heading" class="rc-attach-title">Files &amp; images</h3>
       <p class="muted rc-attach-hint">Upload photos, PDFs, or other documents. Images show inline below.</p>
       <label class="rc-file-label">
-        <input type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt" (change)="onFilesSelected($event)" [disabled]="uploading" />
+        <input type="file" multiple accept="image/*,.heic,.heif,image/heic,image/heif,.pdf,.doc,.docx,.xls,.xlsx,.txt" (change)="onFilesSelected($event)" [disabled]="uploading" />
         <span class="rc-file-label-text">Add file(s)</span>
       </label>
       @if (attachments.length) {

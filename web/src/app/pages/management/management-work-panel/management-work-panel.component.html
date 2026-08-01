@@ -342,6 +342,7 @@
                   <label class="notes-file-label">
                     <input
                       type="file"
+                accept="image/*,.heic,.heif,image/heic,image/heif"
                       multiple
                       (change)="onWorkLogFilesSelected($event, e.id)"
                       [disabled]="logUploading"

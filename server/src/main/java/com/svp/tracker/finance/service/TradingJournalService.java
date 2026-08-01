@@ -25,6 +25,7 @@ import com.svp.tracker.finance.repository.TradingJournalAttachmentRepository;
 import com.svp.tracker.finance.repository.TradingJournalEntryRepository;
 import com.svp.tracker.finance.repository.TradingJournalRefRepository;
 import com.svp.tracker.journal.service.JournalBlobStore;
+import com.svp.tracker.util.HeicImageNormalizer;
 import com.svp.tracker.util.ImageCaptureTime;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -305,6 +306,10 @@ public class TradingJournalService {
             byte[] bytes = file.getBytes();
             Instant capturedAt =
                     ImageCaptureTime.resolve(filename, file.getContentType(), bytes, clientLastModifiedMs);
+            var normalized = HeicImageNormalizer.normalize(filename, file.getContentType(), bytes);
+            filename = normalized.filename();
+            bytes = normalized.bytes();
+            String contentType = normalized.contentType();
             try (InputStream in = new ByteArrayInputStream(bytes)) {
                 String key = blobStore.put(uid, entry.getId(), in, bytes.length);
                 TradingJournalAttachment row = new TradingJournalAttachment();
@@ -312,7 +317,7 @@ public class TradingJournalService {
                 row.setEntryId(entry.getId());
                 row.setStorageKey(key);
                 row.setOriginalFilename(trimTo(filename, 512));
-                row.setContentType(file.getContentType());
+                row.setContentType(contentType);
                 row.setSizeBytes((long) bytes.length);
                 row.setCapturedAt(capturedAt);
                 row = attachmentRepository.save(row);
@@ -346,12 +351,22 @@ public class TradingJournalService {
 
     @Transactional(readOnly = true)
     public byte[] readAttachmentBytes(long attachmentId) {
+        return readAttachmentFile(attachmentId).bytes();
+    }
+
+    public record AttachmentFile(String contentType, String filename, byte[] bytes) {}
+
+    @Transactional(readOnly = true)
+    public AttachmentFile readAttachmentFile(long attachmentId) {
         long uid = currentUser.requireUserId();
         TradingJournalAttachment row = attachmentRepository
                 .findByIdAndOwnerUserId(attachmentId, uid)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Attachment not found"));
         try {
-            return blobStore.readAllBytes(row.getStorageKey());
+            byte[] body = blobStore.readAllBytes(row.getStorageKey());
+            var normalized =
+                    HeicImageNormalizer.normalize(row.getOriginalFilename(), row.getContentType(), body);
+            return new AttachmentFile(normalized.contentType(), normalized.filename(), normalized.bytes());
         } catch (IOException e) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Failed to read attachment");
         }

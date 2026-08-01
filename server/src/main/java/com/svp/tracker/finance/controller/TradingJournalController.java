@@ -131,20 +131,20 @@ public class TradingJournalController {
             @PathVariable long attachmentId,
             @RequestParam(defaultValue = "attachment") String disposition) {
         TradingJournalAttachment meta = tradingJournalService.requireAttachmentMeta(attachmentId);
-        byte[] bytes = tradingJournalService.readAttachmentBytes(attachmentId);
+        var file = tradingJournalService.readAttachmentFile(attachmentId);
         MediaType type = MediaType.APPLICATION_OCTET_STREAM;
-        if (meta.getContentType() != null && !meta.getContentType().isBlank()) {
+        if (file.contentType() != null && !file.contentType().isBlank()) {
             try {
-                type = MediaType.parseMediaType(meta.getContentType());
+                type = MediaType.parseMediaType(file.contentType());
             } catch (Exception ignored) {
                 /* keep octet-stream */
             }
         }
-        String safeName = meta.getOriginalFilename().replace("\"", "");
+        String safeName = (file.filename() != null ? file.filename() : meta.getOriginalFilename()).replace("\"", "");
         String disp = "inline".equalsIgnoreCase(disposition) ? "inline" : "attachment";
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, disp + "; filename=\"" + safeName + "\"")
                 .contentType(type)
-                .body(bytes);
+                .body(file.bytes());
     }
 }

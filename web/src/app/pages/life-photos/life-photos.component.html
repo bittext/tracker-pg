@@ -210,6 +210,7 @@
             <label class="wu-file-label">
               <input
                 type="file"
+                accept="image/*,.heic,.heif,image/heic,image/heif"
                 multiple
                 (change)="onMonthNoteFilesSelected($event, noteEditingId)"
                 [disabled]="noteUploading"
@@ -308,6 +309,7 @@
           <label class="wu-file-label">
             <input
               type="file"
+                accept="image/*,.heic,.heif,image/heic,image/heif"
               multiple
               (change)="onMonthNoteFilesSelected($event, n.id)"
               [disabled]="noteUploading"

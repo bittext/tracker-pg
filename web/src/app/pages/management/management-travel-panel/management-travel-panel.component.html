@@ -350,7 +350,7 @@
                     </div>
                     <div class="notes-attach-row">
                       <label class="notes-file-label">
-                        <input type="file" accept="image/*" (change)="onPlacePhotoSelected($event, p.id)" [disabled]="photoUploading" />
+                        <input type="file" accept="image/*,.heic,.heif,image/heic,image/heif" (change)="onPlacePhotoSelected($event, p.id)" [disabled]="photoUploading" />
                         <span class="notes-file-label-text">Add photo</span>
                       </label>
                     </div>

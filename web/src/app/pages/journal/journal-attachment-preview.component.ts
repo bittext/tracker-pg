@@ -75,7 +75,10 @@ export class JournalAttachmentPreviewComponent implements OnInit, OnDestroy {
 
   get isImage(): boolean {
     const t = (this.data.contentType ?? '').toLowerCase();
-    return t.startsWith('image/');
+    if (t.startsWith('image/') || t.includes('heic') || t.includes('heif')) {
+      return true;
+    }
+    return /\.(jpe?g|png|gif|webp|bmp|svg|heic|heif)$/i.test(this.data.filename || '');
   }
 
   get isPdf(): boolean {

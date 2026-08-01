@@ -18,6 +18,8 @@ import com.svp.tracker.management.dto.ManagementRecordingReprocessDto;
 import com.svp.tracker.management.dto.ManagementRecordingTranscriptSegmentDto;
 import com.svp.tracker.management.repository.ManagementRecordingCacheRepository;
 import com.svp.tracker.management.repository.ManagementRecordingImageRepository;
+import com.svp.tracker.util.HeicImageNormalizer;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -276,9 +278,21 @@ public class ManagementRecordingsService {
                 throw new ResponseStatusException(
                         HttpStatus.PAYLOAD_TOO_LARGE, "Image exceeds max size of " + maxBytes + " bytes");
             }
+            byte[] bytes;
+            try {
+                bytes = file.getBytes();
+            } catch (IOException ex) {
+                throw new UncheckedIOException(ex);
+            }
+            var normalized = HeicImageNormalizer.normalize(
+                    Path.of(originalName).getFileName().toString(), file.getContentType(), bytes);
+            if (normalized.bytes().length > maxBytes) {
+                throw new ResponseStatusException(
+                        HttpStatus.PAYLOAD_TOO_LARGE, "Image exceeds max size of " + maxBytes + " bytes");
+            }
             String key;
-            try (var in = file.getInputStream()) {
-                key = blobStore.put(owner, 0L, in, file.getSize());
+            try (var in = new ByteArrayInputStream(normalized.bytes())) {
+                key = blobStore.put(owner, 0L, in, normalized.bytes().length);
             } catch (IOException ex) {
                 throw new UncheckedIOException(ex);
             }
@@ -286,9 +300,9 @@ public class ManagementRecordingsService {
             img.setRecording(row);
             img.setOwnerUserId(owner);
             img.setStorageKey(key);
-            img.setOriginalFilename(Path.of(originalName).getFileName().toString());
-            img.setContentType(guessImageContentType(originalName, file.getContentType()));
-            img.setSizeBytes(file.getSize());
+            img.setOriginalFilename(normalized.filename());
+            img.setContentType(guessImageContentType(normalized.filename(), normalized.contentType()));
+            img.setSizeBytes((long) normalized.bytes().length);
             img.setSortOrder(sort++);
             img = imageRepository.save(img);
             out.add(toImageDto(img));
@@ -313,7 +327,8 @@ public class ManagementRecordingsService {
             String fn = img.getOriginalFilename() == null || img.getOriginalFilename().isBlank()
                     ? "image.jpg"
                     : img.getOriginalFilename();
-            return new RecordingFile(fn, ct, body);
+            var normalized = HeicImageNormalizer.normalize(fn, ct, body);
+            return new RecordingFile(normalized.filename(), normalized.contentType(), normalized.bytes());
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

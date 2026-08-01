@@ -11,6 +11,8 @@ import com.svp.tracker.management.dto.ManagementWriteupDto;
 import com.svp.tracker.management.dto.ManagementWriteupWriteRequest;
 import com.svp.tracker.management.repository.ManagementWriteupAttachmentRepository;
 import com.svp.tracker.management.repository.ManagementWriteupRepository;
+import com.svp.tracker.util.HeicImageNormalizer;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Instant;
@@ -113,18 +115,26 @@ public class ManagementWriteupService {
                 .findByIdWithAttachments(writeupId)
                 .orElseThrow(() -> new NotFoundException("Write-up not found: " + writeupId));
         assertOwner(w.getOwnerUserId());
+        String filename = Objects.requireNonNullElse(file.getOriginalFilename(), "file");
+        byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException ex) {
+            throw new UncheckedIOException(ex);
+        }
+        var normalized = HeicImageNormalizer.normalize(filename, file.getContentType(), bytes);
         String key;
-        try (var in = file.getInputStream()) {
-            key = blobStore.put(w.getOwnerUserId(), w.getId(), in, file.getSize());
+        try (var in = new ByteArrayInputStream(normalized.bytes())) {
+            key = blobStore.put(w.getOwnerUserId(), w.getId(), in, normalized.bytes().length);
         } catch (IOException ex) {
             throw new UncheckedIOException(ex);
         }
         ManagementWriteupAttachment a = new ManagementWriteupAttachment();
         a.setWriteup(w);
         a.setStorageKey(key);
-        a.setOriginalFilename(Objects.requireNonNullElse(file.getOriginalFilename(), "file"));
-        a.setContentType(file.getContentType());
-        a.setSizeBytes(file.getSize());
+        a.setOriginalFilename(normalized.filename());
+        a.setContentType(normalized.contentType());
+        a.setSizeBytes((long) normalized.bytes().length);
         a.setCreatedAt(Instant.now());
         a = attachmentRepository.save(a);
         w.setUpdatedAt(Instant.now());
@@ -159,10 +169,14 @@ public class ManagementWriteupService {
         assertOwner(a.getWriteup().getOwnerUserId());
         try {
             byte[] body = blobStore.readAllBytes(a.getStorageKey());
+            var normalized =
+                    HeicImageNormalizer.normalize(a.getOriginalFilename(), a.getContentType(), body);
             return new AttachmentFile(
-                    a.getContentType() != null ? a.getContentType() : "application/octet-stream",
-                    a.getOriginalFilename(),
-                    body);
+                    normalized.contentType() != null
+                            ? normalized.contentType()
+                            : "application/octet-stream",
+                    normalized.filename(),
+                    normalized.bytes());
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

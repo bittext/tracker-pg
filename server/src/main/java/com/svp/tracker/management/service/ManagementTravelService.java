@@ -19,6 +19,8 @@ import com.svp.tracker.management.dto.TravelTripWriteRequest;
 import com.svp.tracker.management.repository.TravelPlacePhotoRepository;
 import com.svp.tracker.management.repository.TravelPlaceRepository;
 import com.svp.tracker.management.repository.TravelTripRepository;
+import com.svp.tracker.util.HeicImageNormalizer;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.time.Instant;
@@ -241,18 +243,26 @@ public class ManagementTravelService {
                 .findByIdAndOwnerWithTrip(placeId, owner)
                 .orElseThrow(() -> new NotFoundException("Place not found: " + placeId));
         TravelTrip trip = p.getTrip();
+        String filename = Objects.requireNonNullElse(file.getOriginalFilename(), "file");
+        byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException ex) {
+            throw new UncheckedIOException(ex);
+        }
+        var normalized = HeicImageNormalizer.normalize(filename, file.getContentType(), bytes);
         String key;
-        try (var in = file.getInputStream()) {
-            key = blobStore.put(trip.getOwnerUserId(), p.getId(), in, file.getSize());
+        try (var in = new ByteArrayInputStream(normalized.bytes())) {
+            key = blobStore.put(trip.getOwnerUserId(), p.getId(), in, normalized.bytes().length);
         } catch (IOException ex) {
             throw new UncheckedIOException(ex);
         }
         TravelPlacePhoto ph = new TravelPlacePhoto();
         ph.setPlace(p);
         ph.setStorageKey(key);
-        ph.setOriginalFilename(Objects.requireNonNullElse(file.getOriginalFilename(), "file"));
-        ph.setContentType(file.getContentType());
-        ph.setSizeBytes(file.getSize());
+        ph.setOriginalFilename(normalized.filename());
+        ph.setContentType(normalized.contentType());
+        ph.setSizeBytes((long) normalized.bytes().length);
         ph.setCreatedAt(Instant.now());
         ph = photoRepository.save(ph);
         p.setUpdatedAt(Instant.now());
@@ -289,10 +299,14 @@ public class ManagementTravelService {
         assertOwner(ph.getPlace().getTrip().getOwnerUserId());
         try {
             byte[] body = blobStore.readAllBytes(ph.getStorageKey());
+            var normalized =
+                    HeicImageNormalizer.normalize(ph.getOriginalFilename(), ph.getContentType(), body);
             return new PhotoFile(
-                    ph.getContentType() != null ? ph.getContentType() : "application/octet-stream",
-                    ph.getOriginalFilename(),
-                    body);
+                    normalized.contentType() != null
+                            ? normalized.contentType()
+                            : "application/octet-stream",
+                    normalized.filename(),
+                    normalized.bytes());
         } catch (IOException ex) {
             throw new UncheckedIOException(ex);
         }
