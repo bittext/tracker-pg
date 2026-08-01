@@ -71,6 +71,15 @@ export class LifePhotosComponent implements OnInit {
   noteUploading = false;
   noteMonthOptions = Array.from({ length: 12 }, (_, i) => i + 1);
   noteSelectedAttachments: LifeMonthNoteAttachmentDto[] = [];
+  /** Default insert width as % of the note column (not full bleed). */
+  insertImageWidthPct = 40;
+  readonly imageWidthOptions = [
+    { pct: 25, label: 'S' },
+    { pct: 40, label: 'M' },
+    { pct: 55, label: 'L' },
+    { pct: 70, label: 'XL' },
+    { pct: 100, label: 'Full' },
+  ];
   noteDraft: LifeMonthNoteWriteBody = {
     year: new Date().getFullYear(),
     month: new Date().getMonth() + 1,
@@ -352,10 +361,10 @@ export class LifePhotosComponent implements OnInit {
   }
 
   /**
-   * Insert a stable markdown image tag that references the uploaded attachment.
-   * Do not paste blob: URLs — they expire when the tab reloads.
+   * Insert (or resize) a stable HTML image that references the uploaded attachment.
+   * Width is a % of the note column so embeds stay inset while writing.
    */
-  insertImageIntoBody(a: LifeMonthNoteAttachmentDto): void {
+  insertImageIntoBody(a: LifeMonthNoteAttachmentDto, widthPct?: number): void {
     if (!this.isImageAttachment(a)) {
       this.snackBar.open('Only image attachments can be inserted into the body', undefined, {
         duration: 3000,
@@ -368,22 +377,33 @@ export class LifePhotosComponent implements OnInit {
         this.startEditMonthNote(n);
       }
     }
-    const name = (a.originalFilename || 'image').replace(/[\[\]]/g, '');
-    const tag = `![${name}](/api/life/notes/attachments/${a.id}/file)`;
+    const pct = Math.min(100, Math.max(10, widthPct ?? this.insertImageWidthPct));
+    const name = (a.originalFilename || 'image').replace(/"/g, '');
+    const src = `/api/life/notes/attachments/${a.id}/file`;
+    const tag =
+      `<img src="${src}" alt="${name}" data-life-width="${pct}" ` +
+      `style="max-width:${pct}%;width:${pct}%;height:auto;" />`;
     const body = this.noteDraft.body ?? '';
-    const needle = `/api/life/notes/attachments/${a.id}/file`;
-    if (body.includes(needle)) {
-      this.snackBar.open('That image is already in the body', undefined, { duration: 2500 });
-      return;
+    const imgRe = new RegExp(
+      `<img\\b[^>]*\\bsrc=["'][^"']*\\/api\\/life\\/notes\\/attachments\\/${a.id}\\/file[^"']*["'][^>]*>`,
+      'i',
+    );
+    const mdRe = new RegExp(`!\\[[^\\]]*\\]\\([^)]*\\/api\\/life\\/notes\\/attachments\\/${a.id}\\/file[^)]*\\)`, 'i');
+    let next: string;
+    if (imgRe.test(body)) {
+      next = body.replace(imgRe, tag);
+      this.snackBar.open(`Image size set to ${pct}% — Save the note`, undefined, { duration: 3000 });
+    } else if (mdRe.test(body)) {
+      next = body.replace(mdRe, tag);
+      this.snackBar.open(`Image size set to ${pct}% — Save the note`, undefined, { duration: 3000 });
+    } else {
+      const sep = !body.trim() ? '' : body.endsWith('\n') ? '\n' : '\n\n';
+      next = `${body}${sep}${tag}\n`;
+      this.snackBar.open(`Image inserted at ${pct}% width — Save the note`, undefined, {
+        duration: 3500,
+      });
     }
-    const sep = !body.trim() ? '' : body.endsWith('\n') ? '\n' : '\n\n';
-    this.noteDraft = {
-      ...this.noteDraft,
-      body: `${body}${sep}${tag}\n`,
-    };
-    this.snackBar.open('Image inserted into markdown body — Save the note', undefined, {
-      duration: 3500,
-    });
+    this.noteDraft = { ...this.noteDraft, body: next };
   }
 
   removeMonthNoteAttachment(attachmentId: number, ev?: Event): void {

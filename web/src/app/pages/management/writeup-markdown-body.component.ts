@@ -58,7 +58,10 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
       return;
     }
     const raw = marked(src, { async: false, breaks: true }) as string;
-    const clean = DOMPurify.sanitize(raw, { USE_PROFILES: { html: true } });
+    const clean = DOMPurify.sanitize(raw, {
+      USE_PROFILES: { html: true },
+      ADD_ATTR: ['data-life-width', 'width', 'height'],
+    });
     this.html = this.sanitizer.bypassSecurityTrustHtml(clean);
     const seq = ++this.loadSeq;
     queueMicrotask(() => {
@@ -73,6 +76,7 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
     const root = this.host.nativeElement;
     const imgs = root.querySelectorAll('img');
     imgs.forEach((img: HTMLImageElement) => {
+      this.applyEmbeddedImageSize(img);
       const ref = this.extractAttachmentRef(img.getAttribute('src') || '');
       if (ref == null) {
         return;
@@ -88,6 +92,7 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
           const url = URL.createObjectURL(blob);
           this.blobUrls.push(url);
           img.src = url;
+          this.applyEmbeddedImageSize(img);
         },
         error: () => {
           if (seq !== this.loadSeq) {
@@ -97,6 +102,26 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
         },
       });
     });
+  }
+
+  /** Honor data-life-width / width so inserts stay smaller than the full note column. */
+  private applyEmbeddedImageSize(img: HTMLImageElement): void {
+    const pctRaw = img.getAttribute('data-life-width');
+    if (pctRaw) {
+      const pct = Math.min(100, Math.max(10, Number(pctRaw) || 40));
+      img.style.maxWidth = `${pct}%`;
+      img.style.width = `${pct}%`;
+      img.style.height = 'auto';
+      img.classList.add('life-embed-img');
+      return;
+    }
+    const widthAttr = img.getAttribute('width');
+    if (widthAttr && /^\d+$/.test(widthAttr)) {
+      img.style.maxWidth = `${widthAttr}px`;
+      img.style.width = `${widthAttr}px`;
+      img.style.height = 'auto';
+      img.classList.add('life-embed-img');
+    }
   }
 
   private fetchBlob(ref: { kind: AttachmentKind; id: number }): Observable<Blob> {

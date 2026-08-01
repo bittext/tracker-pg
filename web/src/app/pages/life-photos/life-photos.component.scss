@@ -82,3 +82,59 @@
   margin-right: 0.15rem;
   vertical-align: middle;
 }
+
+.life-size-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0 0 0.75rem;
+}
+
+.life-size-label {
+  font-size: 0.82rem;
+  margin-right: 0.15rem;
+}
+
+.life-size-chip {
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.14));
+  background: var(--app-surface-muted, rgba(15, 23, 42, 0.04));
+  color: var(--app-text, #0f172a);
+  cursor: pointer;
+}
+
+.life-size-chip--active {
+  border-color: color-mix(in srgb, var(--app-accent, #2563eb) 55%, transparent);
+  background: color-mix(in srgb, var(--app-accent, #2563eb) 12%, transparent);
+  color: var(--app-accent, #2563eb);
+}
+
+.life-size-pct {
+  opacity: 0.7;
+  font-weight: 500;
+  margin-left: 0.2rem;
+}
+
+:host ::ng-deep .life-embed-img,
+:host ::ng-deep app-writeup-markdown-body img.life-embed-img {
+  display: inline-block;
+  vertical-align: middle;
+  border-radius: 8px;
+  margin: 0.5rem 0.75rem 0.5rem 0;
+  max-width: 100%;
+  height: auto;
+}
+
+:host ::ng-deep app-writeup-markdown-body img:not(.life-embed-img) {
+  max-width: min(55%, 100%);
+  width: auto;
+  height: auto;
+  display: inline-block;
+  border-radius: 8px;
+  margin: 0.5rem 0.75rem 0.5rem 0;
+}
