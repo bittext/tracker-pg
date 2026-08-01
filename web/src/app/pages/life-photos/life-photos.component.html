@@ -1,0 +1,237 @@
+<div class="page-head">
+  <h1 class="page-title">Life</h1>
+  <p class="muted">
+    Month-scoped notes—same flow as Management → Notes. Pick a year and month, write a subject and Markdown body, then
+    attach photos and files.
+  </p>
+</div>
+
+<section class="mgmt-notes-panel" aria-labelledby="life-notes-heading">
+  <h2 id="life-notes-heading" class="subsection-title">Life notes</h2>
+  <p class="muted">
+    Notes are stored at <strong>month</strong> resolution (no day). Pick a year, then a month or the whole year to
+    filter. The note body supports
+    <a href="https://www.markdownguide.org/basic-syntax/" target="_blank" rel="noopener noreferrer">basic Markdown</a>
+    (headings, lists, links, code, blockquotes, and more). Add a subject, body, and attach photos to each note.
+  </p>
+
+  <div class="notes-year-bar">
+    <button mat-icon-button type="button" (click)="prevNoteYear()" aria-label="Previous year">
+      <mat-icon>chevron_left</mat-icon>
+    </button>
+    <button type="button" class="notes-year-chip" (click)="selectNotesYearOnly()">{{ noteYear }}</button>
+    <button mat-icon-button type="button" (click)="nextNoteYear()" aria-label="Next year">
+      <mat-icon>chevron_right</mat-icon>
+    </button>
+    @if (noteFilterMonth != null) {
+      <span class="notes-filter-hint">· {{ monthName(noteFilterMonth) }} {{ noteYear }}</span>
+      <button mat-button type="button" (click)="selectNotesYearOnly()">Show full year</button>
+    } @else {
+      <span class="notes-filter-hint">· All months</span>
+    }
+  </div>
+
+  <div class="notes-month-grid" role="group" aria-label="Notes by month">
+    @for (cell of noteMonthCells; track cell.month) {
+      <button
+        type="button"
+        class="notes-month-cell"
+        [class.notes-month-cell--active]="noteFilterMonth === cell.month"
+        [class.notes-month-cell--has]="cell.noteCount > 0"
+        (click)="selectNoteMonth(cell.month)"
+      >
+        <span class="notes-month-label">{{ shortMonthName(cell.month) }}</span>
+        <span class="notes-month-count">{{ cell.noteCount }}</span>
+      </button>
+    }
+  </div>
+
+  <div class="mn-workspace">
+    <div class="mn-toolbar">
+      <div class="mn-toolbar-primary">
+        <button mat-flat-button color="primary" type="button" (click)="startNewMonthNote()">
+          <mat-icon>add</mat-icon>
+          New note
+        </button>
+        @if (noteViewMode === 'compose') {
+          <button mat-button type="button" (click)="resetMonthNoteForm()">Cancel</button>
+        }
+        <span class="muted mn-toolbar-meta">{{ notePeriodLabel }} · {{ monthNotes.length }} note(s)</span>
+      </div>
+      @if (monthNotes.length) {
+        <div class="mn-note-strip" role="tablist" aria-label="Notes in this period">
+          @for (n of monthNotes; track n.id) {
+            <button
+              type="button"
+              role="tab"
+              class="mn-note-chip"
+              [class.mn-note-chip--active]="noteSelectedId === n.id && noteViewMode === 'read'"
+              [attr.aria-selected]="noteSelectedId === n.id && noteViewMode === 'read'"
+              (click)="selectMonthNote(n)"
+            >
+              <span class="mn-note-chip-subject">{{ n.subject }}</span>
+              <span class="mn-note-chip-date muted">{{ shortMonthName(n.month) }}</span>
+            </button>
+          }
+        </div>
+      }
+    </div>
+
+    @if (noteViewMode === 'compose') {
+      <section class="mn-compose" aria-label="Compose life note">
+        <div class="mn-compose-meta">
+          <mat-form-field appearance="outline" class="mn-subject-field">
+            <mat-label>Subject</mat-label>
+            <input matInput name="nnSubject" [(ngModel)]="noteDraft.subject" required placeholder="Short title" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="mn-meta-field">
+            <mat-label>Year</mat-label>
+            <input matInput type="number" name="nnYear" [(ngModel)]="noteDraft.year" min="1970" max="9999" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="mn-meta-field">
+            <mat-label>Month</mat-label>
+            <mat-select name="nnMonth" [(ngModel)]="noteDraft.month">
+              @for (m of noteMonthOptions; track m) {
+                <mat-option [value]="m">{{ monthName(m) }}</mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <div class="mn-pane-toggle" role="group" aria-label="Editor layout">
+          <button
+            mat-stroked-button
+            type="button"
+            [class.mn-pane-toggle--active]="noteComposerPane === 'split'"
+            (click)="setNoteComposerPane('split')"
+          >
+            Split
+          </button>
+          <button
+            mat-stroked-button
+            type="button"
+            [class.mn-pane-toggle--active]="noteComposerPane === 'write'"
+            (click)="setNoteComposerPane('write')"
+          >
+            Write
+          </button>
+          <button
+            mat-stroked-button
+            type="button"
+            [class.mn-pane-toggle--active]="noteComposerPane === 'preview'"
+            (click)="setNoteComposerPane('preview')"
+          >
+            Preview
+          </button>
+        </div>
+
+        <div
+          class="mn-split"
+          [class.mn-split--write]="noteComposerPane === 'write'"
+          [class.mn-split--preview]="noteComposerPane === 'preview'"
+        >
+          <div class="mn-editor-pane">
+            <div class="mn-pane-head">
+              <span class="mn-pane-title">Markdown</span>
+              <span class="muted mn-pane-hint">Headings, lists, links, code blocks</span>
+            </div>
+            <textarea
+              class="mn-editor-input"
+              name="nnBody"
+              rows="24"
+              [(ngModel)]="noteDraft.body"
+              placeholder="# Heading&#10;&#10;Write in **Markdown** — preview updates live on the right."
+              aria-label="Note body in Markdown"
+            ></textarea>
+          </div>
+          <div class="mn-preview-pane" aria-label="Live Markdown preview">
+            <div class="mn-pane-head">
+              <span class="mn-pane-title">Live preview</span>
+              <span class="muted mn-pane-hint">Same formatting as saved notes</span>
+            </div>
+            <div class="mn-preview-body">
+              @if ((noteDraft.body || '').trim()) {
+                <div class="markdown-body notes-entry-body" [innerHTML]="noteDraft.body | safeMarkdown"></div>
+              } @else {
+                <p class="muted mn-preview-empty">Start typing Markdown to see the preview here before you save.</p>
+              }
+            </div>
+          </div>
+        </div>
+
+        <div class="mn-compose-actions">
+          <button mat-flat-button color="primary" type="button" (click)="saveMonthNote()">
+            {{ noteEditingId != null ? 'Save changes' : 'Save note' }}
+          </button>
+          <button mat-button type="button" (click)="resetMonthNoteForm()">Discard</button>
+        </div>
+      </section>
+    } @else if (selectedMonthNote; as n) {
+      <article class="mn-read" aria-label="Life note">
+        <header class="mn-read-head">
+          <div>
+            <h3 class="mn-read-subject">{{ n.subject }}</h3>
+            <p class="mn-read-meta muted">
+              {{ monthName(n.month) }} {{ n.year }} · updated {{ n.updatedAt | date: 'medium' }}
+            </p>
+          </div>
+          <div class="mn-read-actions">
+            <button mat-stroked-button type="button" color="primary" (click)="startEditMonthNote(n)">
+              <mat-icon>edit</mat-icon>
+              Edit
+            </button>
+            <button mat-button type="button" color="warn" (click)="deleteMonthNote(n)">Delete</button>
+          </div>
+        </header>
+        @if (!(n.body || '').trim()) {
+          <div class="notes-entry-body notes-entry-body--empty muted mn-read-body">—</div>
+        } @else {
+          <div class="markdown-body notes-entry-body mn-read-body" [innerHTML]="n.body | safeMarkdown"></div>
+        }
+        <div class="mn-read-attach">
+          <label class="notes-file-label">
+            <input
+              type="file"
+              accept="image/*,*/*"
+              multiple
+              [attr.data-note-id]="n.id"
+              (change)="onMonthNoteFilesSelected($event, n.id)"
+              [disabled]="noteUploading"
+            />
+            <span class="notes-file-label-text">Add photo(s) / attachment(s)</span>
+          </label>
+          @if (n.attachments.length) {
+            <ul class="notes-attachment-list">
+              @for (a of n.attachments; track a.id) {
+                <li>
+                  <button type="button" class="notes-att-link" (click)="openMonthNoteAttachment(a.id, a.originalFilename)">
+                    @if (isImageAttachment(a.contentType)) {
+                      <mat-icon class="life-att-icon">image</mat-icon>
+                    }
+                    {{ a.originalFilename }}
+                  </button>
+                  <span class="muted">({{ (a.sizeBytes / 1024) | number: '1.0-0' }} KB)</span>
+                  <button
+                    mat-icon-button
+                    type="button"
+                    (click)="removeMonthNoteAttachment(n.id, a.id)"
+                    aria-label="Remove attachment"
+                  >
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      </article>
+    } @else {
+      <div class="mn-empty">
+        <p class="muted">No notes for {{ notePeriodLabel }} yet.</p>
+        <button mat-stroked-button type="button" color="primary" (click)="startNewMonthNote()">
+          Create your first note
+        </button>
+      </div>
+    }
+  </div>
+</section>

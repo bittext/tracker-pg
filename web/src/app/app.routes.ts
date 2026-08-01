@@ -14,6 +14,7 @@ import { ContactComponent } from './pages/contact/contact.component';
 import { ExerciseComponent } from './pages/exercise/exercise.component';
 import { FinanceComponent } from './pages/finance/finance.component';
 import { JournalComponent } from './pages/journal/journal.component';
+import { LifePhotosComponent } from './pages/life-photos/life-photos.component';
 import { ManagementComponent } from './pages/management/management.component';
 import { MarketsOverviewComponent } from './pages/markets/markets-overview/markets-overview.component';
 import { ReportsComponent } from './pages/reports/reports.component';
@@ -61,6 +62,7 @@ export const routes: Routes = [
       { path: 'exercise', component: ExerciseComponent },
       { path: 'management', component: ManagementComponent },
       { path: 'journal', component: JournalComponent },
+      { path: 'life', component: LifePhotosComponent },
       { path: 'contact', component: ContactComponent },
       { path: 'money', component: FinanceComponent, data: { workspace: 'money' } },
       { path: 'settings', component: SettingsComponent },

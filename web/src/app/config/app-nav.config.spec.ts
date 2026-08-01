@@ -12,10 +12,10 @@ describe('app-nav.config', () => {
     expect(validateAppNavRegistry(APP_NAV_REGISTRY)).toEqual([]);
   });
 
-  it('Life primary nav has 7 unique labels', () => {
+  it('Life primary nav has 8 unique labels', () => {
     const labels = LIFE_PRIMARY_NAV.map((e) => e.label);
     expect(new Set(labels).size).toBe(labels.length);
-    expect(labels.length).toBe(7);
+    expect(labels.length).toBe(8);
   });
 
   it('Markets primary nav has 6 unique labels', () => {

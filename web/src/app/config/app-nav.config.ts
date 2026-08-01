@@ -45,6 +45,15 @@ export const LIFE_PRIMARY_NAV: NavEntry[] = [
   },
   { id: 'journal', label: 'Journal', path: '/life/journal', icon: 'menu_book', shell: 'life-primary', exact: true },
   {
+    id: 'life',
+    label: 'Life',
+    path: '/life/life',
+    icon: 'photo_library',
+    shell: 'life-primary',
+    exact: true,
+    ariaLabel: 'Life — month notes and photos',
+  },
+  {
     id: 'money',
     label: 'Money',
     path: '/life/money',
