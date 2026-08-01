@@ -267,6 +267,10 @@ export class ManagementComponent implements OnInit {
   writeupUploading = false;
   /** Attachments for the write-up currently being edited (synced from API after load). */
   writeupSelectedAttachments: ManagementWriteupAttachmentDto[] = [];
+  /** Last caret in the write-up body editor — used for Insert and drag-drop placement. */
+  writeupBodyCaret = 0;
+  writeupEditorDragOver = false;
+  private writeupDragAttachmentId: number | null = null;
 
   ngOnInit(): void {
     const t = this.todayIso();
@@ -1549,10 +1553,10 @@ export class ManagementComponent implements OnInit {
   }
 
   /**
-   * Insert a stable markdown image tag that references the uploaded attachment.
+   * Insert (or move) a stable markdown image at the editor caret / drop index.
    * Do not paste blob: URLs — they expire when the tab reloads.
    */
-  insertWriteupImageIntoBody(a: ManagementWriteupAttachmentDto): void {
+  insertWriteupImageIntoBody(a: ManagementWriteupAttachmentDto, atIndex?: number): void {
     if (!this.isWriteupImageAttachment(a)) {
       this.snackBar.open('Only image attachments can be inserted into the body', undefined, {
         duration: 3000,
@@ -1563,21 +1567,172 @@ export class ManagementComponent implements OnInit {
       this.startEditWriteup();
     }
     const name = (a.originalFilename || 'image').replace(/[\[\]]/g, '');
-    const tag = `![${name}](/api/management/writeups/attachments/${a.id}/file)`;
-    const body = this.writeupDraft.body ?? '';
-    const needle = `/api/management/writeups/attachments/${a.id}/file`;
-    if (body.includes(needle)) {
-      this.snackBar.open('That image is already in the body', undefined, { duration: 2500 });
-      return;
-    }
-    const sep = !body.trim() ? '' : body.endsWith('\n') ? '\n' : '\n\n';
+    const src = `/api/management/writeups/attachments/${a.id}/file`;
+    const tag = `![${name}](${src})`;
+    let body = this.writeupDraft.body ?? '';
+    const imgHtmlRe = new RegExp(
+      `<img\\b[^>]*\\bsrc=["'][^"']*\\/api\\/management\\/writeups\\/attachments\\/${a.id}\\/file[^"']*["'][^>]*>`,
+      'gi',
+    );
+    const mdRe = new RegExp(
+      `!\\[[^\\]]*\\]\\([^)]*\\/api\\/management\\/writeups\\/attachments\\/${a.id}\\/file[^)]*\\)`,
+      'gi',
+    );
+    const hadExisting = imgHtmlRe.test(body) || mdRe.test(body);
+    imgHtmlRe.lastIndex = 0;
+    mdRe.lastIndex = 0;
+    body = body.replace(imgHtmlRe, '').replace(mdRe, '');
+    body = body.replace(/\n{3,}/g, '\n\n');
+    const idx =
+      atIndex != null
+        ? atIndex
+        : Math.max(0, Math.min(body.length, this.writeupBodyCaret ?? body.length));
+    // After removals, clamp caret into the shortened string.
+    const insertAt = Math.max(0, Math.min(body.length, idx));
     this.writeupDraft = {
       ...this.writeupDraft,
-      body: `${body}${sep}${tag}\n`,
+      body: this.insertTextAt(body, insertAt, tag),
     };
-    this.snackBar.open('Image inserted into markdown body — Save the write-up', undefined, {
-      duration: 3500,
-    });
+    this.writeupBodyCaret = insertAt + tag.length + 1;
+    this.snackBar.open(
+      hadExisting
+        ? 'Image moved in the write-up — Save when ready'
+        : 'Image placed in the write-up — Save when ready',
+      undefined,
+      { duration: 3000 },
+    );
+  }
+
+  onWriteupBodyCaret(ev: Event): void {
+    const t = ev.target as HTMLTextAreaElement;
+    this.writeupBodyCaret = t.selectionStart ?? (this.writeupDraft.body ?? '').length;
+  }
+
+  onWriteupAttachDragStart(ev: DragEvent, a: ManagementWriteupAttachmentDto): void {
+    if (!this.isWriteupImageAttachment(a)) {
+      ev.preventDefault();
+      return;
+    }
+    this.writeupDragAttachmentId = a.id;
+    ev.dataTransfer?.setData('application/x-tracker-writeup-att', String(a.id));
+    ev.dataTransfer?.setData('text/plain', a.originalFilename || 'image');
+    if (ev.dataTransfer) {
+      ev.dataTransfer.effectAllowed = 'copyMove';
+    }
+  }
+
+  onWriteupAttachDragEnd(): void {
+    this.writeupDragAttachmentId = null;
+  }
+
+  onWriteupEditorDragOver(ev: DragEvent): void {
+    const types = ev.dataTransfer?.types ? Array.from(ev.dataTransfer.types) : [];
+    const ok =
+      types.includes('application/x-tracker-writeup-att') ||
+      types.includes('Files') ||
+      this.writeupDragAttachmentId != null;
+    if (!ok) {
+      return;
+    }
+    ev.preventDefault();
+    this.writeupEditorDragOver = true;
+    if (ev.dataTransfer) {
+      ev.dataTransfer.dropEffect = types.includes('Files') ? 'copy' : 'move';
+    }
+    const ta = ev.currentTarget as HTMLTextAreaElement;
+    if (document.activeElement !== ta) {
+      ta.focus();
+    }
+  }
+
+  onWriteupEditorDragLeave(ev: DragEvent): void {
+    const related = ev.relatedTarget as Node | null;
+    const pane = ev.currentTarget as HTMLElement;
+    if (related && pane.contains(related)) {
+      return;
+    }
+    this.writeupEditorDragOver = false;
+  }
+
+  onWriteupEditorDrop(ev: DragEvent): void {
+    ev.preventDefault();
+    this.writeupEditorDragOver = false;
+    const ta = ev.currentTarget as HTMLTextAreaElement;
+    const dropAt = ta.selectionStart ?? this.writeupBodyCaret;
+
+    const files = ev.dataTransfer?.files;
+    if (files && files.length && this.writeupEditingId != null) {
+      this.uploadWriteupFilesAndPlace(Array.from(files), this.writeupEditingId, dropAt);
+      return;
+    }
+
+    const idRaw =
+      ev.dataTransfer?.getData('application/x-tracker-writeup-att') ||
+      (this.writeupDragAttachmentId != null ? String(this.writeupDragAttachmentId) : '');
+    const id = Number(idRaw);
+    this.writeupDragAttachmentId = null;
+    if (!Number.isFinite(id)) {
+      return;
+    }
+    const a =
+      this.writeupSelectedAttachments.find((x) => x.id === id) ??
+      this.selectedWriteup?.attachments?.find((x) => x.id === id);
+    if (a) {
+      this.writeupBodyCaret = dropAt;
+      this.insertWriteupImageIntoBody(a, dropAt);
+      queueMicrotask(() => {
+        ta.focus();
+        const caret = this.writeupBodyCaret;
+        ta.setSelectionRange(caret, caret);
+      });
+    }
+  }
+
+  private uploadWriteupFilesAndPlace(files: File[], writeupId: number, atIndex: number): void {
+    const images = files.filter(
+      (f) => f.type.startsWith('image/') || /\.(jpe?g|png|gif|webp|bmp|svg|heic|heif)$/i.test(f.name),
+    );
+    if (!images.length) {
+      this.snackBar.open('Drop image files to upload and place them', undefined, { duration: 3000 });
+      return;
+    }
+    this.writeupUploading = true;
+    let i = 0;
+    let caret = atIndex;
+    const step = (): void => {
+      if (i >= images.length) {
+        this.writeupUploading = false;
+        this.loadWriteups();
+        this.snackBar.open('Image(s) uploaded and placed — Save when ready', undefined, {
+          duration: 3000,
+        });
+        return;
+      }
+      this.api.uploadWriteupAttachment(writeupId, images[i]).subscribe({
+        next: (att) => {
+          if (this.isWriteupImageAttachment(att)) {
+            this.insertWriteupImageIntoBody(att, caret);
+            caret = this.writeupBodyCaret;
+          }
+          i += 1;
+          step();
+        },
+        error: (e) => {
+          this.writeupUploading = false;
+          this.err('Upload failed', e);
+        },
+      });
+    };
+    step();
+  }
+
+  private insertTextAt(body: string, index: number, text: string): string {
+    const i = Math.max(0, Math.min(body.length, index));
+    const before = body.slice(0, i);
+    const after = body.slice(i);
+    const leftPad = !before.length || before.endsWith('\n') ? '' : '\n';
+    const rightPad = !after.length || after.startsWith('\n') ? '' : '\n';
+    return `${before}${leftPad}${text}${rightPad}${after}`;
   }
 
   removeWriteupAttachment(attachmentId: number, ev: Event): void {

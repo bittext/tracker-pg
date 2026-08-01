@@ -134,14 +134,21 @@
           <div class="mn-editor-pane">
             <div class="mn-pane-head">
               <span class="mn-pane-title">Markdown</span>
-              <span class="muted mn-pane-hint">Headings, lists, links, embedded photos</span>
+              <span class="muted mn-pane-hint">Drop / drag images here · size chips below · Insert at caret</span>
             </div>
             <textarea
               class="mn-editor-input"
+              [class.mn-editor-input--drag]="noteEditorDragOver"
               name="nnBody"
               rows="24"
               [(ngModel)]="noteDraft.body"
-              placeholder="# Heading&#10;&#10;Write in **Markdown** — upload images below, then Insert."
+              (click)="onNoteBodyCaret($event)"
+              (keyup)="onNoteBodyCaret($event)"
+              (select)="onNoteBodyCaret($event)"
+              (dragover)="onNoteEditorDragOver($event)"
+              (dragleave)="onNoteEditorDragLeave($event)"
+              (drop)="onNoteEditorDrop($event)"
+              placeholder="# Heading&#10;&#10;Write in **Markdown** — drag a photo from attachments onto this editor."
               aria-label="Note body in Markdown"
             ></textarea>
           </div>
@@ -170,8 +177,8 @@
         @if (noteEditingId != null) {
           <div class="wu-read-attach life-attach">
             <p class="muted wu-attach-hint">
-              Upload images, pick a size (default medium — not full width), then <strong>Insert</strong> into the body.
-              Click size again on an inserted image to resize. Click the filename to preview. Do not paste blob: links.
+              Upload images, pick a size, then <strong>drag</strong> onto the editor (or Insert at the caret). Dragging
+              an already-inserted image moves it. Click the filename to preview.
             </p>
             <div class="life-size-bar" role="group" aria-label="Insert image size">
               <span class="muted life-size-label">Size</span>
@@ -205,6 +212,16 @@
                     </button>
                     <span class="muted">({{ (a.sizeBytes / 1024) | number: '1.0-0' }} KB)</span>
                     @if (isImageAttachment(a)) {
+                      <span
+                        class="wu-att-drag"
+                        draggable="true"
+                        title="Drag onto the Markdown editor to place"
+                        (dragstart)="onNoteAttachDragStart($event, a)"
+                        (dragend)="onNoteAttachDragEnd()"
+                      >
+                        <mat-icon>drag_indicator</mat-icon>
+                        Drag
+                      </span>
                       <button mat-stroked-button type="button" class="wu-att-insert" (click)="insertImageIntoBody(a)">
                         <mat-icon>image</mat-icon>
                         Insert {{ insertImageWidthPct }}%

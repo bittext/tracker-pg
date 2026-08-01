@@ -1272,14 +1272,23 @@
                     <div class="wu-editor-pane">
                       <div class="wu-pane-head">
                         <span class="wu-pane-title">Markdown</span>
-                        <span class="muted wu-pane-hint">Detailed findings, tables, links</span>
+                        <span class="muted wu-pane-hint"
+                          >Drop images here to place · click to set caret · Insert uses caret</span
+                        >
                       </div>
                       <textarea
                         class="wu-editor-input"
+                        [class.wu-editor-input--drag]="writeupEditorDragOver"
                         name="wuBody"
                         rows="20"
                         [(ngModel)]="writeupDraft.body"
-                        placeholder="# Section&#10;&#10;Detailed narrative…"
+                        (click)="onWriteupBodyCaret($event)"
+                        (keyup)="onWriteupBodyCaret($event)"
+                        (select)="onWriteupBodyCaret($event)"
+                        (dragover)="onWriteupEditorDragOver($event)"
+                        (dragleave)="onWriteupEditorDragLeave($event)"
+                        (drop)="onWriteupEditorDrop($event)"
+                        placeholder="# Section&#10;&#10;Detailed narrative…&#10;&#10;Drag a photo from attachments below onto this editor to place it."
                         aria-label="Write-up body in Markdown"
                       ></textarea>
                     </div>
@@ -1322,8 +1331,9 @@
                   @if (writeupEditingId != null) {
                     <div class="wu-read-attach">
                       <p class="muted wu-attach-hint">
-                        Upload images, then click <strong>Insert</strong> to place them in the markdown body (do not paste
-                        blob: links — they expire). Click the filename to preview.
+                        Upload images, then <strong>drag</strong> them onto the Markdown editor (or click
+                        <strong>Insert</strong> at the caret). Click the filename to preview. Do not paste blob: links —
+                        they expire.
                       </p>
                       <label class="wu-file-label">
                         <input
@@ -1343,6 +1353,16 @@
                               </button>
                               <span class="muted">({{ (a.sizeBytes / 1024) | number: '1.0-0' }} KB)</span>
                               @if (isWriteupImageAttachment(a)) {
+                                <span
+                                  class="wu-att-drag"
+                                  draggable="true"
+                                  title="Drag onto the Markdown editor to place"
+                                  (dragstart)="onWriteupAttachDragStart($event, a)"
+                                  (dragend)="onWriteupAttachDragEnd()"
+                                >
+                                  <mat-icon>drag_indicator</mat-icon>
+                                  Drag
+                                </span>
                                 <button
                                   mat-stroked-button
                                   type="button"

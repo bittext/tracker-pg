@@ -80,6 +80,10 @@ export class LifePhotosComponent implements OnInit {
     { pct: 70, label: 'XL' },
     { pct: 100, label: 'Full' },
   ];
+  /** Last caret in the Life note body editor — Insert and drag-drop use this. */
+  noteBodyCaret = 0;
+  noteEditorDragOver = false;
+  private noteDragAttachmentId: number | null = null;
   noteDraft: LifeMonthNoteWriteBody = {
     year: new Date().getFullYear(),
     month: new Date().getMonth() + 1,
@@ -361,10 +365,10 @@ export class LifePhotosComponent implements OnInit {
   }
 
   /**
-   * Insert (or resize) a stable HTML image that references the uploaded attachment.
+   * Insert (or move/resize) a stable HTML image at the editor caret / drop index.
    * Width is a % of the note column so embeds stay inset while writing.
    */
-  insertImageIntoBody(a: LifeMonthNoteAttachmentDto, widthPct?: number): void {
+  insertImageIntoBody(a: LifeMonthNoteAttachmentDto, widthPct?: number, atIndex?: number): void {
     if (!this.isImageAttachment(a)) {
       this.snackBar.open('Only image attachments can be inserted into the body', undefined, {
         duration: 3000,
@@ -383,27 +387,163 @@ export class LifePhotosComponent implements OnInit {
     const tag =
       `<img src="${src}" alt="${name}" data-life-width="${pct}" ` +
       `style="max-width:${pct}%;width:${pct}%;height:auto;" />`;
-    const body = this.noteDraft.body ?? '';
+    let body = this.noteDraft.body ?? '';
     const imgRe = new RegExp(
       `<img\\b[^>]*\\bsrc=["'][^"']*\\/api\\/life\\/notes\\/attachments\\/${a.id}\\/file[^"']*["'][^>]*>`,
-      'i',
+      'gi',
     );
-    const mdRe = new RegExp(`!\\[[^\\]]*\\]\\([^)]*\\/api\\/life\\/notes\\/attachments\\/${a.id}\\/file[^)]*\\)`, 'i');
-    let next: string;
-    if (imgRe.test(body)) {
-      next = body.replace(imgRe, tag);
-      this.snackBar.open(`Image size set to ${pct}% — Save the note`, undefined, { duration: 3000 });
-    } else if (mdRe.test(body)) {
-      next = body.replace(mdRe, tag);
-      this.snackBar.open(`Image size set to ${pct}% — Save the note`, undefined, { duration: 3000 });
-    } else {
-      const sep = !body.trim() ? '' : body.endsWith('\n') ? '\n' : '\n\n';
-      next = `${body}${sep}${tag}\n`;
-      this.snackBar.open(`Image inserted at ${pct}% width — Save the note`, undefined, {
-        duration: 3500,
+    const mdRe = new RegExp(`!\\[[^\\]]*\\]\\([^)]*\\/api\\/life\\/notes\\/attachments\\/${a.id}\\/file[^)]*\\)`, 'gi');
+    const hadExisting = imgRe.test(body) || mdRe.test(body);
+    imgRe.lastIndex = 0;
+    mdRe.lastIndex = 0;
+    body = body.replace(imgRe, '').replace(mdRe, '');
+    body = body.replace(/\n{3,}/g, '\n\n');
+    const idx =
+      atIndex != null
+        ? atIndex
+        : Math.max(0, Math.min(body.length, this.noteBodyCaret ?? body.length));
+    const insertAt = Math.max(0, Math.min(body.length, idx));
+    this.noteDraft = { ...this.noteDraft, body: this.insertTextAt(body, insertAt, tag) };
+    this.noteBodyCaret = insertAt + tag.length + 1;
+    this.snackBar.open(
+      hadExisting
+        ? `Image moved / sized to ${pct}% — Save the note`
+        : `Image placed at ${pct}% — Save the note`,
+      undefined,
+      { duration: 3000 },
+    );
+  }
+
+  onNoteBodyCaret(ev: Event): void {
+    const t = ev.target as HTMLTextAreaElement;
+    this.noteBodyCaret = t.selectionStart ?? (this.noteDraft.body ?? '').length;
+  }
+
+  onNoteAttachDragStart(ev: DragEvent, a: LifeMonthNoteAttachmentDto): void {
+    if (!this.isImageAttachment(a)) {
+      ev.preventDefault();
+      return;
+    }
+    this.noteDragAttachmentId = a.id;
+    ev.dataTransfer?.setData('application/x-tracker-life-att', String(a.id));
+    ev.dataTransfer?.setData('text/plain', a.originalFilename || 'image');
+    if (ev.dataTransfer) {
+      ev.dataTransfer.effectAllowed = 'copyMove';
+    }
+  }
+
+  onNoteAttachDragEnd(): void {
+    this.noteDragAttachmentId = null;
+  }
+
+  onNoteEditorDragOver(ev: DragEvent): void {
+    const types = ev.dataTransfer?.types ? Array.from(ev.dataTransfer.types) : [];
+    const ok =
+      types.includes('application/x-tracker-life-att') ||
+      types.includes('Files') ||
+      this.noteDragAttachmentId != null;
+    if (!ok) {
+      return;
+    }
+    ev.preventDefault();
+    this.noteEditorDragOver = true;
+    if (ev.dataTransfer) {
+      ev.dataTransfer.dropEffect = types.includes('Files') ? 'copy' : 'move';
+    }
+    const ta = ev.currentTarget as HTMLTextAreaElement;
+    if (document.activeElement !== ta) {
+      ta.focus();
+    }
+  }
+
+  onNoteEditorDragLeave(ev: DragEvent): void {
+    const related = ev.relatedTarget as Node | null;
+    const pane = ev.currentTarget as HTMLElement;
+    if (related && pane.contains(related)) {
+      return;
+    }
+    this.noteEditorDragOver = false;
+  }
+
+  onNoteEditorDrop(ev: DragEvent): void {
+    ev.preventDefault();
+    this.noteEditorDragOver = false;
+    const ta = ev.currentTarget as HTMLTextAreaElement;
+    const dropAt = ta.selectionStart ?? this.noteBodyCaret;
+
+    const files = ev.dataTransfer?.files;
+    if (files && files.length && this.noteEditingId != null) {
+      this.uploadLifeFilesAndPlace(Array.from(files), this.noteEditingId, dropAt);
+      return;
+    }
+
+    const idRaw =
+      ev.dataTransfer?.getData('application/x-tracker-life-att') ||
+      (this.noteDragAttachmentId != null ? String(this.noteDragAttachmentId) : '');
+    const id = Number(idRaw);
+    this.noteDragAttachmentId = null;
+    if (!Number.isFinite(id)) {
+      return;
+    }
+    const a =
+      this.noteSelectedAttachments.find((x) => x.id === id) ??
+      this.selectedMonthNote?.attachments?.find((x) => x.id === id);
+    if (a) {
+      this.noteBodyCaret = dropAt;
+      this.insertImageIntoBody(a, this.insertImageWidthPct, dropAt);
+      queueMicrotask(() => {
+        ta.focus();
+        const caret = this.noteBodyCaret;
+        ta.setSelectionRange(caret, caret);
       });
     }
-    this.noteDraft = { ...this.noteDraft, body: next };
+  }
+
+  private uploadLifeFilesAndPlace(files: File[], noteId: number, atIndex: number): void {
+    const images = files.filter(
+      (f) => f.type.startsWith('image/') || /\.(jpe?g|png|gif|webp|bmp|svg|heic|heif)$/i.test(f.name),
+    );
+    if (!images.length) {
+      this.snackBar.open('Drop image files to upload and place them', undefined, { duration: 3000 });
+      return;
+    }
+    this.noteUploading = true;
+    let i = 0;
+    let caret = atIndex;
+    const step = (): void => {
+      if (i >= images.length) {
+        this.noteUploading = false;
+        this.reloadMonthNotesData();
+        this.snackBar.open('Image(s) uploaded and placed — Save when ready', undefined, {
+          duration: 3000,
+        });
+        return;
+      }
+      this.api.uploadMonthNoteAttachment(noteId, images[i]).subscribe({
+        next: (att) => {
+          if (this.isImageAttachment(att)) {
+            this.insertImageIntoBody(att, this.insertImageWidthPct, caret);
+            caret = this.noteBodyCaret;
+          }
+          i += 1;
+          step();
+        },
+        error: (e) => {
+          this.noteUploading = false;
+          this.err('Upload failed', e);
+        },
+      });
+    };
+    step();
+  }
+
+  private insertTextAt(body: string, index: number, text: string): string {
+    const i = Math.max(0, Math.min(body.length, index));
+    const before = body.slice(0, i);
+    const after = body.slice(i);
+    const leftPad = !before.length || before.endsWith('\n') ? '' : '\n';
+    const rightPad = !after.length || after.startsWith('\n') ? '' : '\n';
+    return `${before}${leftPad}${text}${rightPad}${after}`;
   }
 
   removeMonthNoteAttachment(attachmentId: number, ev?: Event): void {
