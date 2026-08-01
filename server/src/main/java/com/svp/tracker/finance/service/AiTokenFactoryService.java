@@ -52,7 +52,8 @@ public class AiTokenFactoryService {
                     + "?range=2y&interval=1d&includeAdjustedClose=true";
     private static final ZoneId NY = ZoneId.of("America/New_York");
 
-    private final ObjectMapper objectMapper;
+    /** Spring Boot 4 does not expose an ObjectMapper bean; local mapper for Yahoo chart JSON. */
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private final CompanyResearchService companyResearchService;
 
     public AiTokenFactoryDashboardDto dashboard() {
