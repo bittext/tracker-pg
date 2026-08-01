@@ -8,6 +8,7 @@ import {
   SimpleChanges,
   inject,
 } from '@angular/core';
+import { MatDialog } from '@angular/material/dialog';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import DOMPurify from 'dompurify';
 import { Observable } from 'rxjs';
@@ -15,18 +16,27 @@ import { marked } from 'marked';
 import { LifeApiService } from '../../services/life-api.service';
 import { ManagementApiService } from '../../services/management-api.service';
 import { TrackerApiService } from '../../services/tracker-api.service';
+import {
+  WriteupAttachmentPreviewDialogComponent,
+  WriteupAttachmentPreviewData,
+} from './writeup-attachment-preview-dialog.component';
 
 type AttachmentKind = 'writeup' | 'life' | 'tracker';
 
 /**
- * Renders markdown and rewrites authenticated attachment image URLs to blob: URLs
- * so images embedded via insert (write-ups, Life notes, or Markets Tracker notes) display.
+ * Renders markdown and rewrites authenticated attachment URLs to blob: URLs
+ * so images embedded via insert display. PDF (and other non-image) attachments
+ * become clickable cards that open the preview dialog.
  */
 @Component({
   selector: 'app-writeup-markdown-body',
   standalone: true,
   imports: [CommonModule],
-  template: `<div class="markdown-body wu-read-body notes-entry-body" [innerHTML]="html"></div>`,
+  template: `<div
+    class="markdown-body wu-read-body notes-entry-body"
+    [innerHTML]="html"
+    (click)="onBodyClick($event)"
+  ></div>`,
 })
 export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
   private readonly managementApi = inject(ManagementApiService);
@@ -34,6 +44,7 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
   private readonly trackerApi = inject(TrackerApiService);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly host = inject(ElementRef<HTMLElement>);
+  private readonly dialog = inject(MatDialog);
 
   @Input() body: string | null | undefined = '';
 
@@ -52,6 +63,33 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
     this.revokeAll();
   }
 
+  onBodyClick(ev: MouseEvent): void {
+    const t = ev.target as HTMLElement | null;
+    if (!t) {
+      return;
+    }
+    const clickable = t.closest(
+      'img[data-att-id], a.note-embed-file, button.note-embed-file',
+    ) as HTMLElement | null;
+    if (!clickable) {
+      return;
+    }
+    const kind = (clickable.getAttribute('data-att-kind') || '') as AttachmentKind;
+    const idRaw = clickable.getAttribute('data-att-id');
+    if (!idRaw || (kind !== 'life' && kind !== 'tracker' && kind !== 'writeup')) {
+      return;
+    }
+    ev.preventDefault();
+    ev.stopPropagation();
+    const filename =
+      clickable.getAttribute('data-att-name') ||
+      clickable.getAttribute('alt') ||
+      clickable.textContent?.trim() ||
+      'attachment';
+    const contentType = clickable.getAttribute('data-att-content-type');
+    this.openPreview({ kind, id: Number(idRaw) }, filename, contentType);
+  }
+
   private render(): void {
     this.revokeAll();
     const src = (this.body ?? '').trim();
@@ -67,9 +105,14 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
         'data-life-float',
         'data-tracker-width',
         'data-tracker-float',
+        'data-att-kind',
+        'data-att-id',
+        'data-att-name',
+        'data-att-content-type',
         'width',
         'height',
       ],
+      ADD_TAGS: ['button'],
     });
     this.html = this.sanitizer.bypassSecurityTrustHtml(clean);
     const seq = ++this.loadSeq;
@@ -77,31 +120,41 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
       if (seq !== this.loadSeq) {
         return;
       }
-      this.hydrateAttachmentImages(seq);
+      this.hydrateAttachments(seq);
     });
   }
 
-  private hydrateAttachmentImages(seq: number): void {
+  private hydrateAttachments(seq: number): void {
     const root = this.host.nativeElement;
-    const imgs = root.querySelectorAll('img');
-    imgs.forEach((img: HTMLImageElement) => {
+    root.querySelectorAll('img').forEach((img: HTMLImageElement) => {
       this.applyEmbeddedImageSize(img);
       const ref = this.extractAttachmentRef(img.getAttribute('src') || '');
       if (ref == null) {
         return;
       }
-      img.alt = img.alt || `attachment ${ref.id}`;
+      const name = img.alt || `attachment ${ref.id}`;
+      img.alt = name;
       img.setAttribute('data-att-kind', ref.kind);
       img.setAttribute('data-att-id', String(ref.id));
+      img.setAttribute('data-att-name', name);
+      img.title = 'Click to open';
+      img.style.cursor = 'pointer';
+
       this.fetchBlob(ref).subscribe({
-        next: (blob: Blob) => {
-          if (seq !== this.loadSeq) {
-            return;
-          }
-          const url = URL.createObjectURL(blob);
-          this.blobUrls.push(url);
-          img.src = url;
-          this.applyEmbeddedImageSize(img);
+        next: (blob) => {
+          void this.classifyBlob(blob, name).then((kind) => {
+            if (seq !== this.loadSeq) {
+              return;
+            }
+            if (kind === 'pdf' || kind === 'file') {
+              this.replaceWithFileCard(img, ref, name, kind);
+              return;
+            }
+            const url = URL.createObjectURL(blob);
+            this.blobUrls.push(url);
+            img.src = url;
+            this.applyEmbeddedImageSize(img);
+          });
         },
         error: () => {
           if (seq !== this.loadSeq) {
@@ -111,6 +164,122 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
         },
       });
     });
+
+    root.querySelectorAll('a[href]').forEach((anchor: Element) => {
+      const a = anchor as HTMLAnchorElement;
+      const ref = this.extractAttachmentRef(a.getAttribute('href') || '');
+      if (ref == null) {
+        return;
+      }
+      const name = (a.textContent || '').trim() || `attachment ${ref.id}`;
+      a.classList.add('note-embed-file', 'note-embed-file--link');
+      a.setAttribute('data-att-kind', ref.kind);
+      a.setAttribute('data-att-id', String(ref.id));
+      a.setAttribute('data-att-name', name);
+      a.title = 'Click to open';
+    });
+  }
+
+  private replaceWithFileCard(
+    img: HTMLImageElement,
+    ref: { kind: AttachmentKind; id: number },
+    name: string,
+    kind: 'pdf' | 'file',
+  ): void {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `note-embed-file note-embed-file--${kind}`;
+    btn.setAttribute('data-att-kind', ref.kind);
+    btn.setAttribute('data-att-id', String(ref.id));
+    btn.setAttribute('data-att-name', name);
+    if (kind === 'pdf') {
+      btn.setAttribute('data-att-content-type', 'application/pdf');
+    }
+    btn.title = kind === 'pdf' ? 'Open PDF' : 'Open attachment';
+
+    const pctRaw = img.getAttribute('data-tracker-width') || img.getAttribute('data-life-width');
+    const pct = pctRaw ? Math.min(100, Math.max(10, Number(pctRaw) || 30)) : 30;
+    const floatRaw = (
+      img.getAttribute('data-tracker-float') ||
+      img.getAttribute('data-life-float') ||
+      'left'
+    ).toLowerCase();
+    const floatSide = floatRaw === 'right' || floatRaw === 'none' ? floatRaw : 'left';
+    btn.style.maxWidth = pct >= 100 ? '100%' : `${pct}%`;
+    btn.style.width = pct >= 100 ? '100%' : `${pct}%`;
+    if (floatSide === 'right') {
+      btn.style.float = 'right';
+      btn.style.margin = '0.1rem 0 0.85rem 1rem';
+    } else if (floatSide === 'none') {
+      btn.style.float = 'none';
+      btn.style.margin = '0.75rem 0';
+      btn.style.display = 'flex';
+    } else {
+      btn.style.float = 'left';
+      btn.style.margin = '0.1rem 1rem 0.85rem 0';
+    }
+
+    const badge = document.createElement('span');
+    badge.className = 'note-embed-file-badge';
+    badge.textContent = kind === 'pdf' ? 'PDF' : 'FILE';
+    const label = document.createElement('span');
+    label.className = 'note-embed-file-name';
+    label.textContent = name;
+    btn.append(badge, label);
+    img.replaceWith(btn);
+  }
+
+  private openPreview(
+    ref: { kind: AttachmentKind; id: number },
+    filename: string,
+    contentType: string | null,
+  ): void {
+    const inferred =
+      contentType ||
+      (filename.toLowerCase().endsWith('.pdf') ? 'application/pdf' : null);
+    this.dialog.open<WriteupAttachmentPreviewDialogComponent, WriteupAttachmentPreviewData>(
+      WriteupAttachmentPreviewDialogComponent,
+      {
+        width: 'min(96vw, 56rem)',
+        maxWidth: '96vw',
+        maxHeight: '92vh',
+        data: {
+          attachmentId: ref.id,
+          filename,
+          contentType: inferred,
+          source: ref.kind === 'writeup' ? 'writeup' : ref.kind,
+        },
+      },
+    );
+  }
+
+  private async classifyBlob(blob: Blob, name: string): Promise<'image' | 'pdf' | 'file'> {
+    const ct = (blob.type || '').toLowerCase();
+    const lower = name.toLowerCase();
+    if (ct.includes('pdf') || lower.endsWith('.pdf')) {
+      return 'pdf';
+    }
+    if (ct.startsWith('image/')) {
+      return 'image';
+    }
+    try {
+      const head = new Uint8Array(await blob.slice(0, 5).arrayBuffer());
+      if (
+        head.length >= 4 &&
+        head[0] === 0x25 &&
+        head[1] === 0x50 &&
+        head[2] === 0x44 &&
+        head[3] === 0x46
+      ) {
+        return 'pdf';
+      }
+    } catch {
+      /* ignore */
+    }
+    if (/\.(jpe?g|png|gif|webp|bmp|svg|heic|heif)$/i.test(lower)) {
+      return 'image';
+    }
+    return ct ? 'file' : 'image';
   }
 
   /** Honor data-*-width / data-*-float so text wraps around inset images. */

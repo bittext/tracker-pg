@@ -194,33 +194,49 @@ export class WriteupAttachmentPreviewDialogComponent implements OnInit, OnDestro
     const ct = declared || fromBlob || 'application/octet-stream';
     const name = (this.data.filename || '').toLowerCase();
 
-    if (this.isText(ct, name)) {
-      blob
-        .text()
-        .then((t) => {
-          this.kind = 'text';
-          this.previewText = t;
-          // Keep a blob URL so Download still works for text.
-          this.blobUrl = URL.createObjectURL(blob);
-        })
-        .catch(() => {
-          this.kind = 'unsupported';
-          this.blobUrl = URL.createObjectURL(blob);
-        });
-      return;
-    }
+    void this.looksLikePdf(blob).then((pdfMagic) => {
+      if (this.isText(ct, name) && !this.isPdf(ct, name) && !pdfMagic) {
+        blob
+          .text()
+          .then((t) => {
+            this.kind = 'text';
+            this.previewText = t;
+            this.blobUrl = URL.createObjectURL(blob);
+          })
+          .catch(() => {
+            this.kind = 'unsupported';
+            this.blobUrl = URL.createObjectURL(blob);
+          });
+        return;
+      }
 
-    this.blobUrl = URL.createObjectURL(blob);
-    if (this.isImage(ct, name)) {
-      this.kind = 'image';
-      return;
+      this.blobUrl = URL.createObjectURL(blob);
+      if (this.isPdf(ct, name) || pdfMagic) {
+        this.kind = 'pdf';
+        this.safePdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.blobUrl);
+        return;
+      }
+      if (this.isImage(ct, name)) {
+        this.kind = 'image';
+        return;
+      }
+      this.kind = 'unsupported';
+    });
+  }
+
+  private async looksLikePdf(blob: Blob): Promise<boolean> {
+    try {
+      const head = new Uint8Array(await blob.slice(0, 5).arrayBuffer());
+      return (
+        head.length >= 4 &&
+        head[0] === 0x25 &&
+        head[1] === 0x50 &&
+        head[2] === 0x44 &&
+        head[3] === 0x46
+      );
+    } catch {
+      return false;
     }
-    if (this.isPdf(ct, name)) {
-      this.kind = 'pdf';
-      this.safePdfUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.blobUrl);
-      return;
-    }
-    this.kind = 'unsupported';
   }
 
   private isImage(ct: string, name: string): boolean {

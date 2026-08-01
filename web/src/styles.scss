@@ -943,18 +943,61 @@ app-management app-writeup-markdown-body .markdown-body::after {
   clear: both;
 }
 
-app-management app-writeup-markdown-body .markdown-body img.life-embed-img {
+:is(app-management, app-life-photos, app-tracker-notes) app-writeup-markdown-body .markdown-body img.life-embed-img {
   /* float / width applied inline via data-life-* for text wrapping */
   display: block;
 }
 
-app-management app-writeup-markdown-body .markdown-body img:not(.life-embed-img) {
+:is(app-management, app-life-photos, app-tracker-notes) app-writeup-markdown-body .markdown-body img:not(.life-embed-img) {
   float: left;
   max-width: min(30%, 100%);
   width: 30%;
   height: auto;
   display: block;
   margin: 0.1rem 1rem 0.85rem 0;
+}
+
+:is(app-management, app-life-photos, app-tracker-notes) app-writeup-markdown-body .note-embed-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  max-width: 100%;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, currentColor 5%, transparent);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+:is(app-management, app-life-photos, app-tracker-notes) app-writeup-markdown-body .note-embed-file:hover {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+:is(app-management, app-life-photos, app-tracker-notes) app-writeup-markdown-body .note-embed-file-badge {
+  flex: 0 0 auto;
+  padding: 0.15rem 0.4rem;
+  border-radius: 5px;
+  background: #b91c1c;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+:is(app-management, app-life-photos, app-tracker-notes) app-writeup-markdown-body .note-embed-file--file .note-embed-file-badge {
+  background: #334155;
+}
+
+:is(app-management, app-life-photos, app-tracker-notes) app-writeup-markdown-body .note-embed-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.92rem;
+  font-weight: 600;
 }
 app-management .wu-att-insert {
   margin-left: 0.25rem;

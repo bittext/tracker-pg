@@ -91,6 +91,8 @@ export class LifePhotosComponent implements OnInit {
   noteBodyCaret = 0;
   noteEditorDragOver = false;
   private noteDragAttachmentId: number | null = null;
+  /** Ignores out-of-order list responses when months are clicked quickly. */
+  private noteListLoadSeq = 0;
   noteDraft: LifeMonthNoteWriteBody = {
     year: new Date().getFullYear(),
     month: new Date().getMonth() + 1,
@@ -137,8 +139,14 @@ export class LifePhotosComponent implements OnInit {
   }
 
   private reloadMonthNotesListOnly(): void {
-    this.api.listMonthNotes(this.noteYear, this.noteFilterMonth).subscribe({
+    const seq = ++this.noteListLoadSeq;
+    const year = this.noteYear;
+    const month = this.noteFilterMonth;
+    this.api.listMonthNotes(year, month).subscribe({
       next: (rows) => {
+        if (seq !== this.noteListLoadSeq) {
+          return;
+        }
         this.monthNotes = rows;
         if (this.noteViewMode === 'compose' && this.noteEditingId != null) {
           const found = rows.find((r) => r.id === this.noteEditingId);
@@ -155,7 +163,12 @@ export class LifePhotosComponent implements OnInit {
           }
         }
       },
-      error: (e) => this.err('Could not load notes', e),
+      error: (e) => {
+        if (seq !== this.noteListLoadSeq) {
+          return;
+        }
+        this.err('Could not load notes', e);
+      },
     });
   }
 

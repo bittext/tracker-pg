@@ -210,7 +210,7 @@
             <label class="wu-file-label">
               <input
                 type="file"
-                accept="image/*,.heic,.heif,image/heic,image/heif"
+                accept="image/*,.heic,.heif,image/heic,image/heif,.pdf,application/pdf"
                 multiple
                 (change)="onMonthNoteFilesSelected($event, noteEditingId)"
                 [disabled]="noteUploading"
@@ -239,6 +239,16 @@
                       <button mat-stroked-button type="button" class="wu-att-insert" (click)="insertImageIntoBody(a)">
                         <mat-icon>image</mat-icon>
                         Insert {{ insertImageWidthPct }}%
+                      </button>
+                    } @else if (isPdfAttachment(a)) {
+                      <button mat-stroked-button type="button" class="wu-att-insert" (click)="insertFileIntoBody(a)">
+                        <mat-icon>picture_as_pdf</mat-icon>
+                        Insert PDF
+                      </button>
+                    } @else {
+                      <button mat-stroked-button type="button" class="wu-att-insert" (click)="insertFileIntoBody(a)">
+                        <mat-icon>attach_file</mat-icon>
+                        Insert link
                       </button>
                     }
                     <button
@@ -309,7 +319,7 @@
           <label class="wu-file-label">
             <input
               type="file"
-                accept="image/*,.heic,.heif,image/heic,image/heif"
+                accept="image/*,.heic,.heif,image/heic,image/heif,.pdf,application/pdf"
               multiple
               (change)="onMonthNoteFilesSelected($event, n.id)"
               [disabled]="noteUploading"
@@ -328,8 +338,16 @@
                       <mat-icon>image</mat-icon>
                       Insert {{ insertImageWidthPct }}%
                     </button>
+                  } @else if (isPdfAttachment(a)) {
+                    <button mat-stroked-button type="button" class="wu-att-insert" (click)="insertFileIntoBody(a)">
+                      <mat-icon>picture_as_pdf</mat-icon>
+                      Insert PDF
+                    </button>
                   } @else {
-                    <span class="muted"> · preview</span>
+                    <button mat-stroked-button type="button" class="wu-att-insert" (click)="insertFileIntoBody(a)">
+                      <mat-icon>attach_file</mat-icon>
+                      Insert link
+                    </button>
                   }
                 </li>
               }

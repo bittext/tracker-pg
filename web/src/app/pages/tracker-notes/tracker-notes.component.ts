@@ -91,6 +91,8 @@ export class TrackerNotesComponent implements OnInit {
   noteBodyCaret = 0;
   noteEditorDragOver = false;
   private noteDragAttachmentId: number | null = null;
+  /** Ignores out-of-order list responses when months are clicked quickly. */
+  private noteListLoadSeq = 0;
   noteDraft: TrackerMonthNoteWriteBody = {
     year: new Date().getFullYear(),
     month: new Date().getMonth() + 1,
@@ -137,8 +139,14 @@ export class TrackerNotesComponent implements OnInit {
   }
 
   private reloadMonthNotesListOnly(): void {
-    this.api.listMonthNotes(this.noteYear, this.noteFilterMonth).subscribe({
+    const seq = ++this.noteListLoadSeq;
+    const year = this.noteYear;
+    const month = this.noteFilterMonth;
+    this.api.listMonthNotes(year, month).subscribe({
       next: (rows) => {
+        if (seq !== this.noteListLoadSeq) {
+          return;
+        }
         this.monthNotes = rows;
         if (this.noteViewMode === 'compose' && this.noteEditingId != null) {
           const found = rows.find((r) => r.id === this.noteEditingId);
@@ -155,7 +163,12 @@ export class TrackerNotesComponent implements OnInit {
           }
         }
       },
-      error: (e) => this.err('Could not load notes', e),
+      error: (e) => {
+        if (seq !== this.noteListLoadSeq) {
+          return;
+        }
+        this.err('Could not load notes', e);
+      },
     });
   }
 
@@ -364,11 +377,61 @@ export class TrackerNotesComponent implements OnInit {
   }
 
   isImageAttachment(a: TrackerMonthNoteAttachmentDto): boolean {
+    if (this.isPdfAttachment(a)) {
+      return false;
+    }
     const ct = (a.contentType || '').toLowerCase();
     if (ct.startsWith('image/')) {
       return true;
     }
     return /\.(jpe?g|png|gif|webp|bmp|svg|heic|heif)$/i.test(a.originalFilename || '');
+  }
+
+  isPdfAttachment(a: TrackerMonthNoteAttachmentDto): boolean {
+    const ct = (a.contentType || '').toLowerCase();
+    if (ct === 'application/pdf' || ct.includes('pdf')) {
+      return true;
+    }
+    return /\.pdf$/i.test(a.originalFilename || '');
+  }
+
+  /** Insert a clickable PDF / file link into the Markdown body. */
+  insertFileIntoBody(a: TrackerMonthNoteAttachmentDto): void {
+    if (this.noteViewMode !== 'compose') {
+      const n = this.selectedMonthNote;
+      if (n) {
+        this.startEditMonthNote(n);
+      }
+    }
+    const name = (a.originalFilename || (this.isPdfAttachment(a) ? 'document.pdf' : 'file')).replace(
+      /"/g,
+      '',
+    );
+    const src = `/api/markets/tracker/notes/attachments/${a.id}/file`;
+    const label = this.isPdfAttachment(a) ? `PDF: ${name}` : name;
+    const tag =
+      `<a class="note-embed-file note-embed-file--link" href="${src}" ` +
+      `data-att-kind="tracker" data-att-id="${a.id}" data-att-name="${name}"` +
+      (this.isPdfAttachment(a) ? ` data-att-content-type="application/pdf"` : '') +
+      `>${label}</a>`;
+    let body = this.noteDraft.body ?? '';
+    const linkRe = new RegExp(
+      `<a\\b[^>]*\\bhref=["'][^"']*\\/api\\/markets\\/tracker\\/notes\\/attachments\\/${a.id}\\/file[^"']*["'][^>]*>[\\s\\S]*?<\\/a>`,
+      'gi',
+    );
+    const imgRe = new RegExp(
+      `<img\\b[^>]*\\bsrc=["'][^"']*\\/api\\/markets\\/tracker\\/notes\\/attachments\\/${a.id}\\/file[^"']*["'][^>]*>`,
+      'gi',
+    );
+    body = body.replace(linkRe, '').replace(imgRe, '').replace(/\n{3,}/g, '\n\n');
+    const idx = Math.max(0, Math.min(body.length, this.noteBodyCaret ?? body.length));
+    this.noteDraft = { ...this.noteDraft, body: this.insertTextAt(body, idx, tag) };
+    this.noteBodyCaret = idx + tag.length + 1;
+    this.snackBar.open(
+      this.isPdfAttachment(a) ? 'PDF link placed — Save the note' : 'File link placed — Save the note',
+      undefined,
+      { duration: 3000 },
+    );
   }
 
   /**

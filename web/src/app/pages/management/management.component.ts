@@ -234,6 +234,8 @@ export class ManagementComponent implements OnInit {
   noteFilterMonth: number | null = new Date().getMonth() + 1;
   noteCalendar: ManagementMonthNoteCalendarDto | null = null;
   monthNotes: ManagementMonthNoteDto[] = [];
+  /** Ignores out-of-order list responses when months are clicked quickly. */
+  private noteListLoadSeq = 0;
   noteEditingId: number | null = null;
   /** Read saved note vs compose (new/edit) with live preview. */
   noteViewMode: 'read' | 'compose' = 'read';
@@ -1849,22 +1851,27 @@ export class ManagementComponent implements OnInit {
       next: (c) => (this.noteCalendar = c),
       error: (e) => this.err('Could not load notes calendar', e),
     });
-    this.api.listMonthNotes(this.noteYear, this.noteFilterMonth).subscribe({
-      next: (rows) => {
-        this.monthNotes = rows;
-        this.syncNoteSelectionAfterLoad();
-      },
-      error: (e) => this.err('Could not load notes', e),
-    });
+    this.reloadMonthNotesListOnly();
   }
 
   private reloadMonthNotesListOnly(): void {
-    this.api.listMonthNotes(this.noteYear, this.noteFilterMonth).subscribe({
+    const seq = ++this.noteListLoadSeq;
+    const year = this.noteYear;
+    const month = this.noteFilterMonth;
+    this.api.listMonthNotes(year, month).subscribe({
       next: (rows) => {
+        if (seq !== this.noteListLoadSeq) {
+          return;
+        }
         this.monthNotes = rows;
         this.syncNoteSelectionAfterLoad();
       },
-      error: (e) => this.err('Could not load notes', e),
+      error: (e) => {
+        if (seq !== this.noteListLoadSeq) {
+          return;
+        }
+        this.err('Could not load notes', e);
+      },
     });
   }
 
