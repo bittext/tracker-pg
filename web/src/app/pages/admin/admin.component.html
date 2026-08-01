@@ -474,8 +474,17 @@
                           [(ngModel)]="financeNotificationForm.smsEnabled"
                           name="financeAlertSmsEnabled"
                         />
-                        SMS enabled
+                        SMS enabled (requires My profile SMS consent)
                       </label>
+                    </div>
+                    <p class="muted small admin-sms-consent-note">
+                      Recipients must have opted into Health Tracker &amp; PFM SMS (stock/event alerts, trading approvals,
+                      OTP). Message frequency varies. Msg &amp; data rates may apply. Reply HELP for help, STOP to cancel.
+                      <a routerLink="/privacy" fragment="sms">Privacy</a>
+                      ·
+                      <a routerLink="/terms" fragment="sms">SMS terms</a>
+                    </p>
+                    <div class="form-row wrap">
                       <button
                         mat-flat-button
                         color="primary"

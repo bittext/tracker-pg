@@ -1,0 +1,92 @@
+<article class="terms-page" aria-labelledby="terms-title">
+  <div class="page-head">
+    <h1 id="terms-title" class="page-title">Terms of service</h1>
+    <p class="muted">
+      Terms for using Health Tracker &amp; PFM (Personal Financial Management), including the optional SMS notification
+      program.
+    </p>
+  </div>
+
+  <mat-card class="terms-card">
+    <mat-card-content>
+      <h2 class="policy-section-title">Agreement</h2>
+      <p>
+        By creating an account or using Health Tracker &amp; PFM (“the application”, “we”, “us”), you agree to these Terms
+        and our <a routerLink="/privacy">Privacy policy</a>. If you do not agree, do not use the application.
+      </p>
+
+      <h2 class="policy-section-title">The service</h2>
+      <p>
+        Health Tracker &amp; PFM is a personal productivity and finance companion. Features may include health and journal
+        tracking, markets research tools, and optional email or SMS notifications you enable. The application is provided
+        as-is for your own use; it is not investment, legal, tax, or medical advice.
+      </p>
+
+      <h2 id="sms" class="policy-section-title anchor-target">SMS program terms</h2>
+      <p>
+        <strong>Program name:</strong> Health Tracker &amp; PFM SMS alerts (transactional notifications).
+      </p>
+      <p>
+        <strong>Consent:</strong> You will not receive SMS alerts unless you opt in. Opt-in happens when you check the SMS
+        consent control on <em>Admin → My profile</em> and save, and (for finance alerts) configure an E.164 mobile number
+        under <em>Admin → Finance → Notifications</em>. Consent is not shared or sold. SMS is never turned on by default.
+      </p>
+      <p>
+        <strong>Message types:</strong> Stock and market event alerts, trading approval requests, security or sign-in
+        one-time passcodes, and other application notifications you enable.
+      </p>
+      <p>
+        <strong>Frequency:</strong> Message frequency varies based on the alerts and events you configure.
+      </p>
+      <p>
+        <strong>Cost:</strong> Message and data rates may apply. The application does not charge a separate SMS fee; your
+        carrier’s standard messaging rates apply.
+      </p>
+      <p>
+        <strong>Help:</strong> Reply <strong>HELP</strong> for help, or contact support via the channels listed in the
+        application / Privacy policy.
+      </p>
+      <p>
+        <strong>Opt out:</strong> Reply <strong>STOP</strong> to cancel. You can also uncheck SMS consent in My profile,
+        disable SMS under Finance → Notifications, or remove your stored mobile number. After opting out we stop sending
+        SMS from this program (except any legally required notices, if applicable).
+      </p>
+      <p>
+        Supported carriers may vary by region. Wireless carriers are not liable for delayed or undelivered messages.
+      </p>
+
+      <h2 class="policy-section-title">Accounts &amp; acceptable use</h2>
+      <p>
+        You are responsible for safeguarding your credentials and for activity under your account. Do not misuse the
+        service, attempt unauthorized access, or use SMS features to spam or harass others.
+      </p>
+
+      <h2 class="policy-section-title">Limitation of liability</h2>
+      <p>
+        To the fullest extent permitted by law, operators of this deployment are not liable for indirect, incidental, or
+        consequential damages arising from use of the application or delivery/non-delivery of SMS or email notices.
+      </p>
+
+      <h2 class="policy-section-title">Changes</h2>
+      <p>
+        These terms may be updated when features change. Material updates may be posted on this page; continued use after
+        posting constitutes acceptance of the revised terms where permitted by law.
+      </p>
+
+      <h2 class="policy-section-title">Contact</h2>
+      <p>
+        Questions about these terms: use your administrator support channel or
+        <a routerLink="/contact">Contact Us</a> when signed in.
+      </p>
+
+      <p class="terms-back">
+        <span class="terms-back-actions">
+          <a *ngIf="!authenticated" mat-stroked-button color="primary" routerLink="/login">Back to sign in</a>
+          <a *ngIf="authenticated" mat-stroked-button color="primary" routerLink="/life/welcome">Back to the app</a>
+          <a mat-button color="primary" routerLink="/privacy">Privacy policy</a>
+          <a mat-button color="primary" routerLink="/privacy" fragment="sms">SMS privacy</a>
+        </span>
+      </p>
+    </mat-card-content>
+  </mat-card>
+</article>

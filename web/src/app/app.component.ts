@@ -40,6 +40,7 @@ export class AppComponent implements OnInit {
     return (
       path === '/login' ||
       path === '/privacy' ||
+      path === '/terms' ||
       path === '/security' ||
       path.startsWith('/onboarding/') ||
       path === '/logs'

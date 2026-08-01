@@ -1,0 +1,40 @@
+.terms-page {
+  max-width: 40rem;
+  margin: 0 auto;
+}
+
+.terms-card {
+  margin-top: 0.5rem;
+}
+
+.policy-section-title {
+  margin: 0 0 1rem;
+  font-family: var(--app-font-display, 'Plus Jakarta Sans', sans-serif);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--app-text);
+  line-height: 1.35;
+}
+
+.terms-card mat-card-content p {
+  margin: 0 0 0.9rem;
+  line-height: 1.6;
+  color: var(--app-text);
+  font-size: 0.9375rem;
+}
+
+.anchor-target {
+  scroll-margin-top: 5rem;
+}
+
+.terms-back {
+  margin-top: 1.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+}
+
+.terms-back-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}

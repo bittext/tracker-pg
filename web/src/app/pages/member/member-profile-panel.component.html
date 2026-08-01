@@ -229,9 +229,14 @@
     <mat-checkbox [(ngModel)]="form.marketingEmailOptIn" name="mpOptEmail"
       >Send me email notifications from Health Tracker &amp; PFM (alerts and product messages)</mat-checkbox
     >
-    <mat-checkbox [(ngModel)]="form.marketingSmsOptIn" name="mpOptSms"
-      >Send me SMS notifications from Health Tracker &amp; PFM (alerts and product messages)</mat-checkbox
-    >
+    <mat-checkbox [(ngModel)]="form.marketingSmsOptIn" name="mpOptSms">
+      I agree to receive SMS messages from Health Tracker &amp; PFM for stock/event alerts, trading approvals, and
+      account/security codes. Message frequency varies. Message and data rates may apply. Reply HELP for help, STOP to
+      cancel.
+      <a routerLink="/privacy" fragment="sms">Privacy</a>
+      ·
+      <a routerLink="/terms" fragment="sms">SMS terms</a>
+    </mat-checkbox>
   </div>
   </fieldset>
 

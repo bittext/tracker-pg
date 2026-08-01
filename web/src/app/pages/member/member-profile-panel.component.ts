@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, Input, OnChanges, OnInit, SimpleChanges, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -24,6 +24,7 @@ import { formatHttpErrorDetail } from '../../util/http-error';
   imports: [
     CommonModule,
     FormsModule,
+    RouterLink,
     MatCardModule,
     MatButtonModule,
     MatFormFieldModule,

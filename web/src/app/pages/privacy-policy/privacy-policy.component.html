@@ -134,29 +134,41 @@
         may also use <a routerLink="/contact">Contact Us</a> where enabled.
       </p>
 
-      <h3 class="policy-subtitle">Email and SMS communications</h3>
+      <h2 id="sms" class="policy-section-title anchor-target">Email and SMS communications</h2>
       <p>
-        The application may use email and SMS functionality to communicate with users. Any personal data collected for this
-        purpose, including email addresses and phone numbers, is processed solely for application-related communications.
+        <strong>Health Tracker &amp; PFM</strong> may send transactional SMS messages when you explicitly opt in. Typical
+        message types include stock and market event alerts, trading approval requests, account/security one-time passcodes
+        (OTP), and similar application notifications you enable.
       </p>
       <p>
-        Such data is treated as confidential and is not sold, rented, or shared with third parties for marketing, except
-        where required by law or necessary to provide the service in compliance with applicable regulations referenced above.
+        <strong>How you opt in:</strong> In <em>Admin → My profile</em>, check the SMS consent box and save. SMS alerts also
+        require a stored E.164 mobile number under <em>Admin → Finance → Notifications</em>. SMS is never enabled
+        automatically.
       </p>
       <p>
-        Users may exercise their right to withdraw consent for these channels by logging into their account, navigating to the
-        Admin section, and removing the stored email or SMS credentials. Upon removal, the application will cease related
-        communications.
+        <strong>Message frequency</strong> varies based on the alerts and events you configure (not a fixed messages-per-month
+        cadence). <strong>Message and data rates may apply</strong> according to your mobile carrier.
       </p>
       <p>
-        The application does not charge users for its services. Any charges incurred for SMS messages or emails are
-        determined by the user’s telecommunications or service provider.
+        <strong>Help / Opt out:</strong> Reply <strong>HELP</strong> for help, or <strong>STOP</strong> to cancel SMS. You may
+        also uncheck SMS consent in My profile, disable SMS under Finance → Notifications, or remove your stored mobile number.
+        After STOP or removing consent, we stop sending SMS alerts from this program.
+      </p>
+      <p>
+        Phone numbers and related consent records are processed solely to deliver these application communications. We do not
+        sell or rent SMS contact data for third-party marketing. See also our
+        <a routerLink="/terms">Terms of service</a> (including the SMS program terms).
+      </p>
+      <p>
+        The application does not charge a separate fee for SMS; any carrier charges for receiving texts are between you and your
+        wireless provider.
       </p>
 
       <p class="privacy-back">
         <span class="privacy-back-actions">
           <a *ngIf="!authenticated" mat-stroked-button color="primary" routerLink="/login">Back to sign in</a>
           <a *ngIf="authenticated" mat-stroked-button color="primary" routerLink="/life/welcome">Back to the app</a>
+          <a mat-button color="primary" routerLink="/terms">Terms of service</a>
           <a mat-button color="primary" routerLink="/security">Information security</a>
         </span>
       </p>
