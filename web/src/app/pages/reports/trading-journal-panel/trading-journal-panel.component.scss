@@ -515,19 +515,60 @@
 }
 
 .tj__md-preview {
-  margin: -0.35rem 0 1rem;
+  margin: 0 0 1rem;
   padding: 0.85rem 1rem;
   border-radius: 10px;
   border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
   background: color-mix(in srgb, var(--app-surface-2, #f8fafc) 80%, transparent);
 }
 
-.tj__md-preview-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  margin-bottom: 0.5rem;
+.tj__md-preview--solo {
+  margin-top: 0.75rem;
+}
+
+.tj__view-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.tj__view-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 650;
+}
+
+.tj__view-tags {
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+}
+
+.tj__empty-body {
+  margin: 0.75rem 0;
+}
+
+.tj__view-actions,
+.tj__edit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+  margin-top: 0.75rem;
+}
+
+.tj__template-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 1rem;
+  margin: 0 0 0.75rem;
+}
+
+.tj__template-hint {
+  font-size: 0.8rem;
 }
 
 .tj__md-preview .markdown-body {
@@ -560,8 +601,29 @@
 .markdown-body ::ng-deep td {
   border: 1px solid var(--app-border, rgba(15, 23, 42, 0.14));
   padding: 0.4rem 0.55rem;
-  text-align: left;
   vertical-align: top;
+}
+
+/* Honor GFM align="left|center|right" from |:---|:---:|---:| separators. */
+.tj__md-preview .markdown-body ::ng-deep th[align='left'],
+.tj__md-preview .markdown-body ::ng-deep td[align='left'],
+.markdown-body ::ng-deep th[align='left'],
+.markdown-body ::ng-deep td[align='left'] {
+  text-align: left;
+}
+
+.tj__md-preview .markdown-body ::ng-deep th[align='center'],
+.tj__md-preview .markdown-body ::ng-deep td[align='center'],
+.markdown-body ::ng-deep th[align='center'],
+.markdown-body ::ng-deep td[align='center'] {
+  text-align: center;
+}
+
+.tj__md-preview .markdown-body ::ng-deep th[align='right'],
+.tj__md-preview .markdown-body ::ng-deep td[align='right'],
+.markdown-body ::ng-deep th[align='right'],
+.markdown-body ::ng-deep td[align='right'] {
+  text-align: right;
 }
 
 .tj__md-preview .markdown-body ::ng-deep th,
@@ -570,7 +632,6 @@
   font-weight: 600;
 }
 
-.tj__grades,
 .tj__ref-form {
   display: flex;
   flex-wrap: wrap;

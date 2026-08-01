@@ -305,8 +305,22 @@
 .markdown-body :deep(td) {
   border: 1px solid #cbd5e1;
   padding: 0.35rem 0.5rem;
-  text-align: left;
   vertical-align: top;
+}
+
+.markdown-body :deep(th[align='left']),
+.markdown-body :deep(td[align='left']) {
+  text-align: left;
+}
+
+.markdown-body :deep(th[align='center']),
+.markdown-body :deep(td[align='center']) {
+  text-align: center;
+}
+
+.markdown-body :deep(th[align='right']),
+.markdown-body :deep(td[align='right']) {
+  text-align: right;
 }
 
 .markdown-body :deep(th) {

@@ -104,8 +104,8 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
   titleDraft = '';
   bodyDraft = '';
   tagsDraft = '';
-  processGrade: number | null = null;
-  riskGrade: number | null = null;
+  /** When false, show rendered journal; when true, show markdown editor. */
+  editingJournal = false;
 
   refKind: 'SYMBOL' | 'URL' | 'NOTE' = 'SYMBOL';
   refSymbol = '';
@@ -131,7 +131,20 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
     { value: 12, label: 'December' },
   ];
 
-  readonly gradeChoices = [1, 2, 3, 4, 5];
+  /** Built-in Example 1 – Stock Trade body template. */
+  static readonly STOCK_TRADE_TEMPLATE = `## Stock trade
+
+| Field | Detail |
+|:------|:-------|
+| **Asset** | Company name & Symbol |
+| **Strategy** | Breakout after consolidation |
+| **Entry** | |
+| **Stop-Loss** | |
+| **Exit** | |
+| **Notes** | Entered when price broke resistance; aligned with strong CPI data. |
+| **Result** | |
+
+`;
 
   ngOnInit(): void {
     this.dayLoadSub = this.dayLoad$
@@ -265,12 +278,11 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
         title: this.titleDraft,
         bodyMarkdown: this.bodyDraft,
         tags: this.parseTags(this.tagsDraft),
-        processGrade: this.processGrade,
-        riskGrade: this.riskGrade,
       })
       .subscribe({
         next: (entry) => {
           this.saving = false;
+          this.editingJournal = false;
           this.snackBar.open('Journal saved', 'OK', { duration: 2500 });
           this.patchEntry(entry);
           this.loadList();
@@ -761,11 +773,50 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
     this.titleDraft = e?.title ?? '';
     this.bodyDraft = e?.bodyMarkdown ?? '';
     this.tagsDraft = (e?.tags ?? []).join(', ');
-    this.processGrade = e?.processGrade ?? null;
-    this.riskGrade = e?.riskGrade ?? null;
+    // Empty day → start in editor; existing content → read-only preview.
+    this.editingJournal = !(e?.bodyMarkdown ?? '').trim() && !(e?.title ?? '').trim();
     if (reloadPreviews) {
       this.scheduleImagePreviews(e?.attachments ?? []);
     }
+  }
+
+  startEditingJournal(): void {
+    this.editingJournal = true;
+  }
+
+  cancelEditingJournal(): void {
+    const e = this.detail?.entry;
+    this.titleDraft = e?.title ?? '';
+    this.bodyDraft = e?.bodyMarkdown ?? '';
+    this.tagsDraft = (e?.tags ?? []).join(', ');
+    this.editingJournal = false;
+  }
+
+  /** Insert Example 1 – Stock Trade template into the journal body. */
+  applyStockTradeTemplate(): void {
+    const tpl = TradingJournalPanelComponent.STOCK_TRADE_TEMPLATE;
+    this.editingJournal = true;
+    if (!this.titleDraft.trim()) {
+      this.titleDraft = 'Stock trade';
+    }
+    if (!this.bodyDraft.trim()) {
+      this.bodyDraft = tpl;
+    } else if (!this.bodyDraft.includes('## Stock trade')) {
+      this.bodyDraft = `${this.bodyDraft.trim()}\n\n${tpl}`;
+    } else {
+      this.snackBar.open('Stock trade section already in body — edit it in place', 'OK', {
+        duration: 3500,
+      });
+      return;
+    }
+    if (!this.tagsDraft.toLowerCase().includes('stock')) {
+      this.tagsDraft = this.tagsDraft.trim()
+        ? `${this.tagsDraft.trim()}, stock-trade`
+        : 'stock-trade';
+    }
+    this.snackBar.open('Stock trade template ready — fill in Entry / Stop / Exit / Result', 'OK', {
+      duration: 4000,
+    });
   }
 
   private scheduleImagePreviews(atts: TradingJournalAttachmentDto[]): void {

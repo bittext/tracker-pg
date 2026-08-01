@@ -1,6 +1,6 @@
 <div class="tj" [class.tj--year]="isYearView()">
   <p class="muted tj__intro">
-    Day wrap, 9 PM CT close, notes, grades, refs, and attachments. Search titles, body, tags, and symbols.
+    Day wrap, 9 PM CT close, notes, refs, and attachments. Search titles, body, tags, and symbols.
   </p>
 
   <div class="tj__toolbar">
@@ -459,57 +459,76 @@
       </div>
 
       <div class="tj__editor">
-        <mat-form-field appearance="outline" class="tj__full">
-          <mat-label>Title</mat-label>
-          <input matInput [(ngModel)]="titleDraft" name="tjTitle" />
-        </mat-form-field>
-        <mat-form-field appearance="outline" class="tj__full tj__body-field">
-          <mat-label>Journal body (markdown)</mat-label>
-          <textarea matInput rows="18" [(ngModel)]="bodyDraft" name="tjBody"></textarea>
-          <mat-hint
-            >Tables need a header row, a <code>|---|---|</code> separator, then data rows. Preview
-            below.</mat-hint
-          >
-        </mat-form-field>
-        @if (bodyDraft.trim()) {
-          <div class="tj__md-preview" aria-label="Markdown preview">
-            <div class="tj__md-preview-label muted">Preview</div>
-            <div class="markdown-body" [innerHTML]="bodyDraft | safeMarkdown"></div>
+        @if (!editingJournal) {
+          <div class="tj__view">
+            <div class="tj__view-head">
+              <h2 class="tj__view-title">{{ titleDraft.trim() || 'Untitled' }}</h2>
+              <button mat-stroked-button type="button" (click)="startEditingJournal()">
+                <mat-icon>edit</mat-icon>
+                Edit
+              </button>
+            </div>
+            @if (tagsDraft.trim()) {
+              <p class="tj__view-tags muted">{{ tagsDraft }}</p>
+            }
+            @if (bodyDraft.trim()) {
+              <div class="tj__md-preview tj__md-preview--solo" aria-label="Journal body">
+                <div class="markdown-body" [innerHTML]="bodyDraft | safeMarkdown"></div>
+              </div>
+            } @else {
+              <p class="muted tj__empty-body">No journal body yet. Click Edit to write, or start from a template.</p>
+            }
+            <div class="tj__view-actions">
+              <button mat-stroked-button type="button" (click)="applyStockTradeTemplate()">
+                <mat-icon>description</mat-icon>
+                Stock trade template
+              </button>
+              @if (d.aiDraftAvailable) {
+                <button mat-stroked-button type="button" (click)="startEditingJournal(); generateAiDraft()" [disabled]="saving">
+                  <mat-icon>auto_awesome</mat-icon>
+                  AI wrap draft
+                </button>
+              }
+            </div>
+          </div>
+        } @else {
+          <mat-form-field appearance="outline" class="tj__full">
+            <mat-label>Title</mat-label>
+            <input matInput [(ngModel)]="titleDraft" name="tjTitle" />
+          </mat-form-field>
+          <div class="tj__template-bar">
+            <button mat-stroked-button type="button" (click)="applyStockTradeTemplate()">
+              <mat-icon>description</mat-icon>
+              Insert stock trade template
+            </button>
+            <span class="muted tj__template-hint"
+              >Asset · Strategy · Entry · Stop-Loss · Exit · Notes · Result</span
+            >
+          </div>
+          <mat-form-field appearance="outline" class="tj__full tj__body-field">
+            <mat-label>Journal body (markdown)</mat-label>
+            <textarea matInput rows="18" [(ngModel)]="bodyDraft" name="tjBody"></textarea>
+            <mat-hint>
+              Tables: header, then <code>|:---|:---:|---:|</code> for left / center / right, then data rows.
+            </mat-hint>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="tj__full">
+            <mat-label>Tags</mat-label>
+            <input matInput [(ngModel)]="tagsDraft" name="tjTags" placeholder="process, earnings, size" />
+          </mat-form-field>
+          <div class="tj__edit-actions">
+            <button mat-flat-button color="primary" type="button" (click)="saveEntry()" [disabled]="saving">
+              Save
+            </button>
+            <button mat-button type="button" (click)="cancelEditingJournal()" [disabled]="saving">Cancel</button>
+            @if (d.aiDraftAvailable) {
+              <button mat-stroked-button type="button" (click)="generateAiDraft()" [disabled]="saving">
+                <mat-icon>auto_awesome</mat-icon>
+                AI wrap draft
+              </button>
+            }
           </div>
         }
-        <mat-form-field appearance="outline" class="tj__full">
-          <mat-label>Tags</mat-label>
-          <input matInput [(ngModel)]="tagsDraft" name="tjTags" placeholder="process, earnings, size" />
-        </mat-form-field>
-        <div class="tj__grades">
-          <mat-form-field appearance="outline">
-            <mat-label>Process grade</mat-label>
-            <mat-select [(ngModel)]="processGrade" name="tjProcess">
-              <mat-option [value]="null">—</mat-option>
-              @for (g of gradeChoices; track g) {
-                <mat-option [value]="g">{{ g }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Risk grade</mat-label>
-            <mat-select [(ngModel)]="riskGrade" name="tjRisk">
-              <mat-option [value]="null">—</mat-option>
-              @for (g of gradeChoices; track g) {
-                <mat-option [value]="g">{{ g }}</mat-option>
-              }
-            </mat-select>
-          </mat-form-field>
-          <button mat-flat-button color="primary" type="button" (click)="saveEntry()" [disabled]="saving">
-            Save
-          </button>
-          @if (d.aiDraftAvailable) {
-            <button mat-stroked-button type="button" (click)="generateAiDraft()" [disabled]="saving">
-              <mat-icon>auto_awesome</mat-icon>
-              AI wrap draft
-            </button>
-          }
-        </div>
       </div>
 
       <div class="tj__refs">
