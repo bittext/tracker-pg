@@ -29,6 +29,7 @@ import com.svp.tracker.finance.service.OptionsBacktestService;
 import com.svp.tracker.finance.dto.RobinhoodRhAccountsTrackDto;
 import com.svp.tracker.finance.service.RobinhoodAccountTrackerService;
 import com.svp.tracker.finance.service.RobinhoodRhAccountsTrackService;
+import com.svp.tracker.finance.dto.RobinhoodOwnershipHistoryDto;
 import com.svp.tracker.finance.dto.RobinhoodRhCryptoCaptureResultDto;
 import com.svp.tracker.finance.dto.RobinhoodRhCryptoTrackerReportDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyCaptureResultDto;
@@ -45,6 +46,7 @@ import com.svp.tracker.finance.dto.RhDailyTrackerAlertTestResultDto;
 import com.svp.tracker.finance.dto.RhDailyTrackerAiInsightDto;
 import com.svp.tracker.finance.dto.RhDailyTrackerAiInsightRequestDto;
 import com.svp.tracker.finance.dto.RhDailyTrackerAiInsightStatusDto;
+import com.svp.tracker.finance.service.RobinhoodOwnershipHistoryService;
 import com.svp.tracker.finance.service.RobinhoodRhCryptoTrackerService;
 import com.svp.tracker.finance.service.RobinhoodRhDailyTrackerAlertService;
 import com.svp.tracker.finance.service.RhDailyTrackerAiInsightService;
@@ -89,6 +91,7 @@ public class FinanceController {
     private final RobinhoodRhAccountsTrackService rhAccountsTrackService;
     private final RobinhoodRhDailyTrackerService rhDailyTrackerService;
     private final RobinhoodRhCryptoTrackerService rhCryptoTrackerService;
+    private final RobinhoodOwnershipHistoryService ownershipHistoryService;
     private final RobinhoodRhDailyTrackerAlertService rhDailyTrackerAlertService;
     private final RhDailyTrackerAiInsightService rhDailyTrackerAiInsightService;
     private final FinanceProperties financeProperties;
@@ -185,6 +188,26 @@ public class FinanceController {
     @GetMapping("/daily-tracker/refresh-hint")
     public RobinhoodRhDailyTrackerRefreshHintDto dailyTrackerRefreshHint() {
         return rhDailyTrackerService.refreshHint();
+    }
+
+    /**
+     * Per-symbol share-count history from Daily Tracker {@code holdings_json} (own vs margin estimates).
+     * Refreshes whenever the existing daily/hourly snapshot job captures accounts.
+     */
+    @GetMapping("/ownership-history")
+    public RobinhoodOwnershipHistoryDto ownershipHistory(
+            @RequestParam(name = "year") int year,
+            @RequestParam(name = "symbol", required = false) String symbol,
+            @RequestParam(name = "accountSuffix", required = false) String accountSuffix,
+            @RequestParam(name = "captureKind", required = false) String captureKind) {
+        validateYear(year);
+        log.info(
+                "GET /api/finance/robinhood/ownership-history year={} symbol={} accountSuffix={} captureKind={}",
+                year,
+                symbol,
+                accountSuffix,
+                captureKind);
+        return ownershipHistoryService.build(symbol, year, accountSuffix, captureKind);
     }
 
     /** Crypto holdings timeline (separate from Daily Tracker). */

@@ -127,6 +127,48 @@ export interface RobinhoodRhDailyBenchmarkPointDto {
   close: number;
 }
 
+/** GET /api/finance/robinhood/ownership-history — share counts from Daily Tracker holdings_json. */
+export interface RobinhoodOwnershipHistoryDto {
+  symbol: string;
+  accountSuffix: string;
+  accountMasked: string;
+  year: number;
+  captureKind: string;
+  availableSymbols: string[];
+  availableAccountSuffixes: string[];
+  highDate: string | null;
+  highQuantity: number | null;
+  lowDate: string | null;
+  lowQuantity: number | null;
+  latestQuantity: number;
+  latestOwnSharesEstimate: number;
+  latestMarginSharesEstimate: number;
+  latestMarginLoan: number;
+  latestMarketValue: number | null;
+  latestCostBasis: number | null;
+  points: RobinhoodOwnershipHistoryPointDto[];
+  notes: string[];
+}
+
+export interface RobinhoodOwnershipHistoryPointDto {
+  snapshotDate: string;
+  snapshotAt: string;
+  captureKind: string;
+  snapshotId: number;
+  quantity: number;
+  marketValue: number;
+  averageBuyPrice: number | null;
+  costBasis: number | null;
+  unrealizedPnL: number | null;
+  currentUnitPrice: number | null;
+  cashBalance: number;
+  equityMarketValue: number;
+  totalAccountValue: number;
+  marginLoan: number;
+  ownSharesEstimate: number;
+  marginSharesEstimate: number;
+}
+
 /** GET /api/finance/robinhood/crypto-tracker — crypto holdings timeline (separate from Daily Tracker). */
 export type RobinhoodRhCryptoTrackerStatus = 'READY' | 'NOT_CONNECTED';
 

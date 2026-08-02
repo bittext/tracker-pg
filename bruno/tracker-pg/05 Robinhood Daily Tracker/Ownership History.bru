@@ -1,0 +1,23 @@
+meta {
+  name: Ownership History
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/api/finance/robinhood/ownership-history?year={{year}}&symbol={{symbol}}&accountSuffix={{accountSuffix}}&captureKind=SCHEDULED
+  body: none
+  auth: inherit
+}
+
+params:query {
+  year: {{year}}
+  symbol: {{symbol}}
+  accountSuffix: {{accountSuffix}}
+  captureKind: SCHEDULED
+}
+
+docs {
+Per-symbol share-count history from Daily Tracker holdings_json (own vs margin estimates).
+Updated by the existing hourly / 9 PM snapshot job — no separate cron.
+}

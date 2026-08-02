@@ -1,0 +1,196 @@
+<section class="own-hist" aria-labelledby="own-hist-heading">
+  <h2 id="own-hist-heading" class="own-hist__title">Stock ownership history</h2>
+  <p class="muted own-hist__lead">
+    Share counts from Daily Tracker snapshots (same job that captures holdings nightly / hourly). Pick any equity
+    symbol that appears in the account’s snapshots. Own vs margin is estimated from cash / equity market value.
+  </p>
+
+  <div class="own-hist__toolbar">
+    <mat-form-field appearance="outline" class="own-hist__year">
+      <mat-label>Year</mat-label>
+      <mat-select [(ngModel)]="reportYear" name="ownHistYear" (selectionChange)="load()">
+        @for (y of yearChoices(); track y) {
+          <mat-option [value]="y">{{ y }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="own-hist__symbol">
+      <mat-label>Symbol</mat-label>
+      <mat-select [ngModel]="symbol" name="ownHistSymbol" (ngModelChange)="onSymbolChange($event)">
+        @if (report(); as r) {
+          @for (s of r.availableSymbols; track s) {
+            <mat-option [value]="s">{{ s }}</mat-option>
+          }
+        }
+        @if (!report()?.availableSymbols?.length) {
+          <mat-option value="NBIS">NBIS</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="own-hist__account">
+      <mat-label>Account</mat-label>
+      <mat-select [(ngModel)]="accountSuffix" name="ownHistAcct" (selectionChange)="load()">
+        @if (report(); as r) {
+          @for (suf of r.availableAccountSuffixes; track suf) {
+            <mat-option [value]="suf">••••{{ suf }}</mat-option>
+          }
+        }
+        @if (!report()?.availableAccountSuffixes?.length && accountSuffix) {
+          <mat-option [value]="accountSuffix">••••{{ accountSuffix }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="own-hist__kind">
+      <mat-label>Capture</mat-label>
+      <mat-select [(ngModel)]="captureKind" name="ownHistKind" (selectionChange)="load()">
+        @for (k of captureKinds; track k.value) {
+          <mat-option [value]="k.value">{{ k.label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <button mat-flat-button color="primary" type="button" (click)="load()" [disabled]="loading">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+    @if (loading) {
+      <mat-spinner diameter="28" aria-label="Loading ownership history" />
+    }
+  </div>
+
+  @if (report(); as r) {
+    <p class="muted small own-hist__meta">
+      {{ r.symbol }} · {{ r.accountMasked }} · {{ r.captureKind }} · {{ r.points.length }} day(s) in {{ r.year }}
+    </p>
+
+    <div class="own-hist__kpis" role="group" aria-label="Summary">
+      <div class="own-hist__kpi">
+        <span class="own-hist__kpi-label">Latest shares</span>
+        <span class="own-hist__kpi-value">{{ r.latestQuantity | number: '1.0-4' }}</span>
+      </div>
+      <div class="own-hist__kpi">
+        <span class="own-hist__kpi-label">Est. own-funded</span>
+        <span class="own-hist__kpi-value own-hist__kpi-value--own">{{
+          r.latestOwnSharesEstimate | number: '1.0-2'
+        }}</span>
+      </div>
+      <div class="own-hist__kpi">
+        <span class="own-hist__kpi-label">Est. margin-funded</span>
+        <span class="own-hist__kpi-value own-hist__kpi-value--mgn">{{
+          r.latestMarginSharesEstimate | number: '1.0-2'
+        }}</span>
+      </div>
+      <div class="own-hist__kpi">
+        <span class="own-hist__kpi-label">Margin loan</span>
+        <span class="own-hist__kpi-value">{{ r.latestMarginLoan | currency: 'USD':'symbol':'1.0-0' }}</span>
+      </div>
+      <div class="own-hist__kpi">
+        <span class="own-hist__kpi-label">Highest</span>
+        <span class="own-hist__kpi-value">{{ r.highQuantity != null ? (r.highQuantity | number: '1.0-2') : '—' }}</span>
+        <span class="own-hist__kpi-sub muted">{{ formatDay(r.highDate) }}</span>
+      </div>
+      <div class="own-hist__kpi">
+        <span class="own-hist__kpi-label">Lowest (&gt;0)</span>
+        <span class="own-hist__kpi-value">{{ r.lowQuantity != null ? (r.lowQuantity | number: '1.0-2') : '—' }}</span>
+        <span class="own-hist__kpi-sub muted">{{ formatDay(r.lowDate) }}</span>
+      </div>
+    </div>
+
+    @if (chartBars().length) {
+      <div class="own-hist__chart" role="img" [attr.aria-label]="r.symbol + ' share count over time'">
+        <div class="own-hist__chart-title">{{ r.symbol }} shares over time</div>
+        <div class="own-hist__bars" [style.--bar-count]="chartBars().length">
+          @for (bar of chartBars(); track bar.date) {
+            <div class="own-hist__bar-col" [attr.title]="bar.title">
+              <span class="own-hist__bar" [style.height.%]="bar.heightPct"></span>
+              <span class="own-hist__bar-label">{{ bar.date | slice: 5 }}</span>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+    @if (changeRows().length) {
+      <h3 class="own-hist__section-title">When the count changed</h3>
+      <div class="table-wrap">
+        <table class="own-hist__changes">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>From</th>
+              <th>To</th>
+              <th>Δ</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (c of changeRows(); track c.date + c.to) {
+              <tr>
+                <td>{{ formatDay(c.date) }}</td>
+                <td>{{ c.from | number: '1.0-4' }}</td>
+                <td>{{ c.to | number: '1.0-4' }}</td>
+                <td [class.own-hist__delta--pos]="c.delta > 0" [class.own-hist__delta--neg]="c.delta < 0">
+                  {{ c.delta > 0 ? '+' : '' }}{{ c.delta | number: '1.0-4' }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+
+    <h3 class="own-hist__section-title">Day-by-day</h3>
+    <div class="table-wrap">
+      <table mat-table [dataSource]="r.points" class="full-width own-hist__table">
+        <ng-container matColumnDef="snapshotDate">
+          <th mat-header-cell *matHeaderCellDef>Date</th>
+          <td mat-cell *matCellDef="let row">{{ formatDay(row.snapshotDate) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="quantity">
+          <th mat-header-cell *matHeaderCellDef>Shares</th>
+          <td mat-cell *matCellDef="let row">{{ row.quantity | number: '1.0-4' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="own">
+          <th mat-header-cell *matHeaderCellDef>Own ≈</th>
+          <td mat-cell *matCellDef="let row">{{ row.ownSharesEstimate | number: '1.0-2' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="margin">
+          <th mat-header-cell *matHeaderCellDef>Margin ≈</th>
+          <td mat-cell *matCellDef="let row">{{ row.marginSharesEstimate | number: '1.0-2' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="loan">
+          <th mat-header-cell *matHeaderCellDef>Loan</th>
+          <td mat-cell *matCellDef="let row">{{ row.marginLoan | currency: 'USD':'symbol':'1.0-0' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="price">
+          <th mat-header-cell *matHeaderCellDef>Price</th>
+          <td mat-cell *matCellDef="let row">
+            {{ row.currentUnitPrice != null ? (row.currentUnitPrice | currency: 'USD':'symbol':'1.2-2') : '—' }}
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="marketValue">
+          <th mat-header-cell *matHeaderCellDef>Mkt value</th>
+          <td mat-cell *matCellDef="let row">{{ row.marketValue | currency: 'USD':'symbol':'1.0-0' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="costBasis">
+          <th mat-header-cell *matHeaderCellDef>Cost</th>
+          <td mat-cell *matCellDef="let row">
+            {{ row.costBasis != null ? (row.costBasis | currency: 'USD':'symbol':'1.0-0') : '—' }}
+          </td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="tableColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: tableColumns; trackBy: trackPoint"></tr>
+      </table>
+    </div>
+
+    @if (r.notes.length) {
+      <ul class="own-hist__notes muted small">
+        @for (n of r.notes; track n) {
+          <li>{{ n }}</li>
+        }
+      </ul>
+    }
+  }
+</section>

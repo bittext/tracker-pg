@@ -581,9 +581,17 @@
     </div>
   </mat-tab>
 
-  <mat-tab label="Journal">
+  <mat-tab label="Ownership history">
     <div class="rh-report-tab-panel">
       @if (journalNav.analyticsTabIndex() === 2) {
+        <app-reports-finance-robinhood-ownership-history />
+      }
+    </div>
+  </mat-tab>
+
+  <mat-tab label="Journal">
+    <div class="rh-report-tab-panel">
+      @if (journalNav.analyticsTabIndex() === 3) {
         <app-trading-journal-panel />
       }
     </div>

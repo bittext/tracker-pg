@@ -30,6 +30,7 @@ import {
   RobinhoodRhDailySnapshotDetailDto,
   RobinhoodRhDailyTrackerReportDto,
   RobinhoodRhDailyTrackerRefreshHintDto,
+  RobinhoodOwnershipHistoryDto,
   RhDailyTrackerAiInsightDto,
   RhDailyTrackerAiInsightRequestDto,
   RhDailyTrackerAiInsightStatusDto,
@@ -168,6 +169,26 @@ export class FinanceApiService {
 
   robinhoodDailyTrackerRefreshHint() {
     return this.http.get<RobinhoodRhDailyTrackerRefreshHintDto>(`${this.root}/daily-tracker/refresh-hint`);
+  }
+
+  /** Per-symbol ownership history from Daily Tracker snapshots (own vs margin estimates). */
+  robinhoodOwnershipHistory(opts: {
+    year: number;
+    symbol?: string | null;
+    accountSuffix?: string | null;
+    captureKind?: string | null;
+  }) {
+    let params = new HttpParams().set('year', String(opts.year));
+    if (opts.symbol?.trim()) {
+      params = params.set('symbol', opts.symbol.trim());
+    }
+    if (opts.accountSuffix?.trim()) {
+      params = params.set('accountSuffix', opts.accountSuffix.trim());
+    }
+    if (opts.captureKind?.trim()) {
+      params = params.set('captureKind', opts.captureKind.trim());
+    }
+    return this.http.get<RobinhoodOwnershipHistoryDto>(`${this.root}/ownership-history`, { params });
   }
 
   robinhoodDailyTrackerAiInsightStatus() {
