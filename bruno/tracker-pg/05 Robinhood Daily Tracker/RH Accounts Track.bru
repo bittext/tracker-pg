@@ -1,0 +1,15 @@
+meta {
+  name: RH Accounts Track
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/finance/robinhood/rh-accounts-track
+  body: none
+  auth: inherit
+}
+
+params:query {
+  sync: false
+}

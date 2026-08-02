@@ -1,0 +1,11 @@
+meta {
+  name: Plaid Status
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/finance/banking/plaid/status
+  body: none
+  auth: inherit
+}

@@ -1,0 +1,16 @@
+meta {
+  name: Daily Tracker
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/finance/robinhood/daily-tracker
+  body: none
+  auth: inherit
+}
+
+params:query {
+  year: {{year}}
+  months: {{month}}
+}

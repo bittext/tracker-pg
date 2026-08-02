@@ -1,0 +1,114 @@
+meta {
+  name: tracker-pg
+}
+
+auth {
+  mode: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+headers {
+  Accept: application/json
+  Content-Type: application/json
+}
+
+script:pre-request {
+  // Skip for public auth endpoints (request auth: none).
+  const url = String(req.getUrl() || "");
+  if (
+    url.includes("/api/auth/login") ||
+    url.includes("/api/auth/mfa/") ||
+    url.includes("/api/auth/register")
+  ) {
+    return;
+  }
+
+  const token = String(bru.getEnvVar("token") || "").trim();
+  if (token) {
+    return;
+  }
+
+  const autoLogin = String(bru.getEnvVar("autoLogin") || "").toLowerCase() === "true";
+  if (!autoLogin) {
+    throw new Error(
+      "No token — unauthorized. Run 01 Auth → Login (sets token), or set autoLogin=true with username/password in the active environment."
+    );
+  }
+
+  const baseUrl = String(bru.getEnvVar("baseUrl") || "").replace(/\/$/, "");
+  const username = bru.getEnvVar("username");
+  const password = bru.getEnvVar("password");
+  if (!baseUrl || !username || !password) {
+    throw new Error(
+      "autoLogin=true but baseUrl/username/password missing in the active environment."
+    );
+  }
+
+  const loginRes = await bru.sendRequest({
+    method: "POST",
+    url: baseUrl + "/api/auth/login",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    data: {
+      username,
+      password,
+      locationFingerprintSource: bru.getEnvVar("locationFingerprintSource") || "bruno-collection",
+      locationLabel: bru.getEnvVar("locationLabel") || "Bruno collection auto-login",
+    },
+  });
+
+  const body = loginRes.data || {};
+  if (body.mfaRequired) {
+    bru.setEnvVar("challengeId", body.challengeId || "", { persist: true });
+    throw new Error(
+      "MFA required — set otpCode and run 01 Auth → MFA Verify, then retry."
+    );
+  }
+  if (!body.token || !body.token.token) {
+    throw new Error("Auto-login failed: " + JSON.stringify(body));
+  }
+
+  bru.setEnvVar("token", body.token.token, { persist: true });
+  bru.setEnvVar("username", body.token.username || username, { persist: true });
+  bru.setEnvVar("role", body.token.role || "", { persist: true });
+  bru.setEnvVar("expiresAt", body.token.expiresAt || "", { persist: true });
+  console.log("Collection auto-login OK as", body.token.username);
+}
+
+script:post-response {
+  if (res.getStatus() === 401) {
+    const body = res.getBody();
+    console.log(
+      "401 unauthorized — clear env token and re-run Login, or enable autoLogin with username/password.",
+      typeof body === "object" ? JSON.stringify(body) : body
+    );
+  }
+}
+
+docs {
+  # tracker-pg API
+
+  Bearer JWT collection. Authenticate once, then call any grouped request.
+
+  ## Auth options
+
+  1. **Standalone login** — run `01 Auth / Login (sets token)`.
+     Saves `token`, `username`, `role`, `expiresAt` into the active environment.
+  2. **Collection auto-login** — set env `autoLogin` to `true` and fill `username` /
+     `password`. Any request without a token will login first (Local defaults to this).
+  3. **Pre-authenticated** — paste a JWT into env var `token`.
+  4. **Ensure Authenticated** — `01 Auth / Ensure Authenticated` as an explicit gate.
+  5. **MFA** — if login returns `mfaRequired`, run `01 Auth / MFA Verify` with
+     `challengeId` + OTP.
+  6. **Step-up** — for 403 `step_up_required`, run `01 Auth / Step-Up` then use header
+     `X-Step-Up-Token: {{stepUpToken}}` on the sensitive call.
+
+  ## Environments
+
+  - **Local** → `http://127.0.0.1:9091` (`autoLogin` defaults to `true`)
+  - **Production** → `https://phoenix-nexus.com`
+
+  Set `username` / `password` (secret) in the environment before calling protected APIs.
+}

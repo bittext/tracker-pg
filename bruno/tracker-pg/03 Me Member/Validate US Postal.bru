@@ -1,0 +1,15 @@
+meta {
+  name: Validate US Postal
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/me/address/validate-us-postal
+  body: none
+  auth: inherit
+}
+
+params:query {
+  postalCode: {{postalCode}}
+}

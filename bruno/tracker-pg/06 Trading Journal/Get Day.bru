@@ -1,0 +1,11 @@
+meta {
+  name: Get Day
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/markets/trading-journal/{{snapshotDate}}
+  body: none
+  auth: inherit
+}

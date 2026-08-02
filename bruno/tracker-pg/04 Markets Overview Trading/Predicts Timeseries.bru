@@ -1,0 +1,15 @@
+meta {
+  name: Predicts Timeseries
+  type: http
+  seq: 18
+}
+
+get {
+  url: {{baseUrl}}/api/finance/predicts/{{symbol}}/timeseries
+  body: none
+  auth: inherit
+}
+
+params:query {
+  window: 30
+}

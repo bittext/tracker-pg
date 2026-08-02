@@ -1,0 +1,15 @@
+meta {
+  name: Logs
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/admin/logs
+  body: none
+  auth: inherit
+}
+
+params:query {
+  limit: 100
+}

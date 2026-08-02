@@ -1,0 +1,18 @@
+meta {
+  name: Options Backtest
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/finance/robinhood/options-backtest
+  body: json
+  auth: inherit
+}
+
+body:json {
+{
+  "symbol": "{{symbol}}",
+  "strategy": "long_call"
+}
+}

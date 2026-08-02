@@ -1,0 +1,61 @@
+meta {
+  name: Ensure Authenticated
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/auth/me
+  body: none
+  auth: inherit
+}
+
+script:pre-request {
+
+  const token = (bru.getEnvVar("token") || "").trim();
+  const autoLogin = String(bru.getEnvVar("autoLogin") || "").toLowerCase() === "true";
+  if (token) {
+    console.log("Using existing token");
+    return;
+  }
+  if (!autoLogin) {
+    throw new Error("No token. Run Login (sets token), or set autoLogin=true with username/password.");
+  }
+  const baseUrl = bru.getEnvVar("baseUrl");
+  const username = bru.getEnvVar("username");
+  const password = bru.getEnvVar("password");
+  if (!username || !password) {
+    throw new Error("autoLogin=true but username/password not set in environment.");
+  }
+  const loginRes = await bru.sendRequest({
+    method: "POST",
+    url: baseUrl + "/api/auth/login",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    data: {
+      username,
+      password,
+      locationFingerprintSource: bru.getEnvVar("locationFingerprintSource") || "bruno-collection",
+      locationLabel: bru.getEnvVar("locationLabel") || "Bruno Ensure Authenticated",
+    },
+  });
+  const body = loginRes.data || {};
+  if (body.mfaRequired) {
+    bru.setEnvVar("challengeId", body.challengeId || "", { persist: true });
+    throw new Error("MFA required — run MFA Verify with challengeId + OTP.");
+  }
+  if (!body.token || !body.token.token) {
+    throw new Error("Auto-login failed: " + JSON.stringify(body));
+  }
+  bru.setEnvVar("token", body.token.token, { persist: true });
+  bru.setEnvVar("username", body.token.username || username, { persist: true });
+  bru.setEnvVar("role", body.token.role || "", { persist: true });
+  console.log("Auto-login OK as", body.token.username);
+
+}
+
+docs {
+Uses existing `token`, or auto-logs in when `autoLogin=true`.
+
+Note: the collection also runs the same auto-login in a pre-request on every protected
+call when `autoLogin=true` and `token` is empty — so this request is optional on Local.
+}

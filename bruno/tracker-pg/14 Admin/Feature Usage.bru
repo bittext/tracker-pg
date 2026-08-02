@@ -1,0 +1,15 @@
+meta {
+  name: Feature Usage
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/admin/usage/feature-usage
+  body: none
+  auth: inherit
+}
+
+params:query {
+  days: 30
+}

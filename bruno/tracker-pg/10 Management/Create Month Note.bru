@@ -1,0 +1,20 @@
+meta {
+  name: Create Month Note
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/management/notes
+  body: json
+  auth: inherit
+}
+
+body:json {
+{
+  "year": {{year}},
+  "month": {{month}},
+  "subject": "Bruno management note",
+  "body": "Sample"
+}
+}

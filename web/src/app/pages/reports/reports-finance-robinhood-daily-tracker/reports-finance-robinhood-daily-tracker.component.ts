@@ -221,6 +221,8 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   private readonly expandedAlertEventIds = new Set<number>();
   focusDetailsExpanded = false;
   selectedFocusDate: string | null = null;
+  /** Floating-monkey chart + briefing section (same collapse pattern as snapshot breakdown). */
+  monkeyChartExpanded = true;
   /** Full floating-monkey briefing panel (opened by clicking the capital chart). */
   monkeyAnalysisExpanded = false;
 
@@ -1451,16 +1453,22 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     });
   }
 
+  toggleMonkeyChart(): void {
+    this.monkeyChartExpanded = !this.monkeyChartExpanded;
+    if (!this.monkeyChartExpanded) {
+      this.monkeyAnalysisExpanded = false;
+    }
+  }
+
   toggleMonkeyAnalysis(event?: Event): void {
     event?.preventDefault();
     event?.stopPropagation();
+    if (!this.monkeyChartExpanded) {
+      this.monkeyChartExpanded = true;
+      this.monkeyAnalysisExpanded = true;
+      return;
+    }
     this.monkeyAnalysisExpanded = !this.monkeyAnalysisExpanded;
-  }
-
-  openMonkeyAnalysis(event?: Event): void {
-    event?.preventDefault();
-    event?.stopPropagation();
-    this.monkeyAnalysisExpanded = true;
   }
 
   /** Strategic briefing for the floating-monkey capital map (same narrative as the risk canvas). */

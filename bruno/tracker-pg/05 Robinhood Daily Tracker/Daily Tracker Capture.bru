@@ -1,0 +1,15 @@
+meta {
+  name: Daily Tracker Capture
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/finance/robinhood/daily-tracker/capture
+  body: none
+  auth: inherit
+}
+
+params:query {
+  sync: false
+}

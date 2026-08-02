@@ -1,0 +1,16 @@
+meta {
+  name: List Entries
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/report-calendar/entries
+  body: none
+  auth: inherit
+}
+
+params:query {
+  from: {{fromDate}}
+  to: {{toDate}}
+}

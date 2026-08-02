@@ -1,0 +1,15 @@
+meta {
+  name: Calendar
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/markets/tracker/notes/calendar
+  body: none
+  auth: inherit
+}
+
+params:query {
+  year: {{year}}
+}

@@ -1,0 +1,20 @@
+meta {
+  name: Update Note
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/api/life/notes/{{noteId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+{
+  "year": {{year}},
+  "month": {{month}},
+  "subject": "Bruno sample life note (updated)",
+  "body": "Updated from Bruno."
+}
+}

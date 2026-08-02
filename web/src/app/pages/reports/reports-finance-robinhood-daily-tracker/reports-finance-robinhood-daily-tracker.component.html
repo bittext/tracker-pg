@@ -734,16 +734,36 @@
           </div>
 
           @if (monkeyCapitalPoints().length) {
+            <section
+              class="rh-daily__monkey-section"
+              [class.rh-daily__monkey-section--open]="monkeyChartExpanded"
+              aria-labelledby="rh-daily-monkey-title"
+            >
+              <button
+                type="button"
+                class="rh-daily__focus-details-toggle rh-daily__monkey-section-toggle"
+                (click)="toggleMonkeyChart()"
+                [attr.aria-expanded]="monkeyChartExpanded"
+              >
+                <mat-icon aria-hidden="true">{{ monkeyChartExpanded ? 'expand_less' : 'expand_more' }}</mat-icon>
+                <span id="rh-daily-monkey-title">Floating monkey · capital safety map</span>
+                @if (monkeyLatestPoint(); as live) {
+                  <span class="muted">
+                    {{ monkeyZoneLabel(live.zone) }} · {{ live.value | currency }}
+                  </span>
+                }
+              </button>
+
+              @if (monkeyChartExpanded) {
             <div class="rh-daily__focus-chart-wrap rh-daily__monkey-chart-wrap">
               <div class="rh-daily__focus-chart-head">
                 <div class="rh-daily__focus-chart-title-block">
-                  <h4 class="rh-daily__focus-chart-title">Floating monkey · capital safety map</h4>
                   <p class="rh-daily__focus-chart-sub muted">
                     Owned equity (total account value) for ••••{{ focusAccountSuffix }} since
                     {{ monkeyCapitalStartDate | date: 'mediumDate' }} · Growth Monkey above
                     {{ monkeySafetyUsd | currency: 'USD':'symbol':'1.0-0' }} · drown below
                     {{ monkeySurvivalUsd | currency: 'USD':'symbol':'1.0-0' }} ·
-                    <strong>click the chart</strong> for the full analysis
+                    <strong>click the chart</strong> to show or hide the analysis
                   </p>
                 </div>
                 <div class="rh-daily__focus-chart-toolbar">
@@ -804,7 +824,7 @@
                       } @else {
                         Below the survival line — capital defense first; no discretionary risk.
                       }
-                      <span class="rh-daily__monkey-status-hint"> · Click for full analysis</span>
+                      <span class="rh-daily__monkey-status-hint"> · Click to toggle analysis</span>
                     </p>
                   </div>
                 </button>
@@ -815,10 +835,10 @@
                 role="button"
                 tabindex="0"
                 [attr.aria-expanded]="monkeyAnalysisExpanded"
-                aria-label="Open floating monkey capital analysis"
-                (click)="openMonkeyAnalysis($event)"
-                (keydown.enter)="openMonkeyAnalysis($event)"
-                (keydown.space)="openMonkeyAnalysis($event)"
+                aria-label="Toggle floating monkey capital analysis"
+                (click)="toggleMonkeyAnalysis($event)"
+                (keydown.enter)="toggleMonkeyAnalysis($event)"
+                (keydown.space)="toggleMonkeyAnalysis($event)"
               >
                 <div class="rh-daily__focus-y-labels" aria-hidden="true">
                   @for (tick of monkeyYAxisLabels(); track tick.y) {
@@ -966,10 +986,19 @@
                         [src]="monkeySrcForZone(analysis.zone)"
                         [alt]="analysis.zoneLabel"
                       />
-                      <div>
+                      <div class="rh-daily__monkey-analysis-head-copy">
                         <h5 class="rh-daily__monkey-analysis-title">{{ analysis.headline }}</h5>
                         <p class="muted rh-daily__monkey-analysis-posture">{{ analysis.posture }}</p>
                       </div>
+                      <button
+                        mat-icon-button
+                        type="button"
+                        class="rh-daily__monkey-analysis-close"
+                        (click)="toggleMonkeyAnalysis($event)"
+                        aria-label="Hide monkey analysis"
+                      >
+                        <mat-icon>expand_less</mat-icon>
+                      </button>
                     </header>
 
                     <table class="rh-daily__monkey-analysis-table">
@@ -1036,6 +1065,8 @@
                 }
               }
             </div>
+              }
+            </section>
           }
 
           <div class="rh-daily__focus-compare" role="group" aria-label="Period comparison">

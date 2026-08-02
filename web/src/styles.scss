@@ -1351,8 +1351,34 @@ app-management-work-panel tr.mat-mdc-row.mgmt-due-row--overdue_31_plus {
 
 /* Daily Tracker — floating monkey capital safety chart (kept global to stay under component style budget) */
 app-reports-finance-robinhood-daily-tracker {
-  .rh-daily__monkey-chart-wrap {
+  .rh-daily__monkey-section {
     margin-top: 0.85rem;
+    border-radius: 9px;
+    border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+    background: var(--app-surface, #fff);
+  }
+
+  .rh-daily__monkey-section--open {
+    border-color: rgba(217, 119, 6, 0.28);
+  }
+
+  .rh-daily__monkey-section-toggle {
+    border-radius: 9px;
+  }
+
+  .rh-daily__monkey-chart-wrap {
+    margin-top: 0;
+    padding: 0 0.7rem 0.75rem;
+  }
+
+  .rh-daily__monkey-analysis-head-copy {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .rh-daily__monkey-analysis-close {
+    flex-shrink: 0;
+    margin: -0.25rem -0.35rem 0 0;
   }
 
   .rh-daily__monkey-swatch--growth {

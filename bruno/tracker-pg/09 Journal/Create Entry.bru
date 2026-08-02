@@ -1,0 +1,20 @@
+meta {
+  name: Create Entry
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/journal/entries
+  body: json
+  auth: inherit
+}
+
+body:json {
+{
+  "entryDate": "{{snapshotDate}}",
+  "title": "Bruno sample entry",
+  "body": "Sample journal body",
+  "tagIds": []
+}
+}

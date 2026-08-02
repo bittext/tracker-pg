@@ -1,0 +1,15 @@
+meta {
+  name: Nasdaq Mid Cap Screener
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/finance/robinhood/nasdaq-mid-cap-screener
+  body: none
+  auth: inherit
+}
+
+params:query {
+  limit: 25
+}

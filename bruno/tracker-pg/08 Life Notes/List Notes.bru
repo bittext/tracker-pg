@@ -1,0 +1,16 @@
+meta {
+  name: List Notes
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/life/notes
+  body: none
+  auth: inherit
+}
+
+params:query {
+  year: {{year}}
+  month: {{month}}
+}

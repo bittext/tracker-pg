@@ -1,0 +1,16 @@
+meta {
+  name: Monthly Report
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/fitness/reports/monthly
+  body: none
+  auth: inherit
+}
+
+params:query {
+  year: {{year}}
+  month: {{month}}
+}

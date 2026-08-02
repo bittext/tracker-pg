@@ -1,0 +1,17 @@
+meta {
+  name: Transactions
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/finance/robinhood/transactions
+  body: none
+  auth: inherit
+}
+
+params:query {
+  year: {{year}}
+  month: {{month}}
+  ~symbol: {{symbol}}
+}

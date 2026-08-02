@@ -1,0 +1,15 @@
+meta {
+  name: Open or Create Day
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/markets/trading-journal/{{snapshotDate}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+{}
+}

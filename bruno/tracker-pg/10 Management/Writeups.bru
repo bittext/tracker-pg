@@ -1,0 +1,15 @@
+meta {
+  name: Writeups
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/api/management/writeups
+  body: none
+  auth: inherit
+}
+
+params:query {
+  year: {{year}}
+}

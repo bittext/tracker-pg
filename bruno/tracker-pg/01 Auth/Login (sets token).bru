@@ -1,0 +1,70 @@
+meta {
+  name: Login (sets token)
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+{
+  "username": "{{username}}",
+  "password": "{{password}}",
+  "locationFingerprintSource": "{{locationFingerprintSource}}",
+  "locationLabel": "{{locationLabel}}"
+}
+}
+
+script:post-response {
+
+  const body = res.getBody() || {};
+  if (body.mfaRequired) {
+    bru.setEnvVar("challengeId", body.challengeId || "", { persist: true });
+    console.log("MFA required. Set otpCode and run MFA Verify. challengeId saved.");
+    return;
+  }
+  const tok = body.token;
+  if (tok && tok.token) {
+    bru.setEnvVar("token", tok.token, { persist: true });
+    bru.setEnvVar("username", tok.username || bru.getEnvVar("username"), { persist: true });
+    bru.setEnvVar("role", tok.role || "", { persist: true });
+    bru.setEnvVar("expiresAt", tok.expiresAt || "", { persist: true });
+    console.log("Authenticated as", tok.username, "role=", tok.role);
+  } else {
+    console.log("Login response had no token:", JSON.stringify(body));
+  }
+
+}
+
+tests {
+
+  test("status 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+}
+
+docs {
+Standalone authentication. Saves JWT into env `token`.
+
+Sample success (token present):
+```json
+{
+  "mfaRequired": false,
+  "challengeId": null,
+  "message": "OK",
+  "token": {
+    "token": "<jwt>",
+    "expiresAt": "2026-08-03T12:00:00Z",
+    "username": "you",
+    "role": "ADMIN",
+    "marketsEnabled": true
+  }
+}
+```
+
+}

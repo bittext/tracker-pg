@@ -1,0 +1,11 @@
+meta {
+  name: Daily Tracker Refresh Hint
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/finance/robinhood/daily-tracker/refresh-hint
+  body: none
+  auth: inherit
+}

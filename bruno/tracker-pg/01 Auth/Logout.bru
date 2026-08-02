@@ -1,0 +1,26 @@
+meta {
+  name: Logout
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/auth/logout
+  body: json
+  auth: inherit
+}
+
+body:json {
+{
+  "locationFingerprintSource": "{{locationFingerprintSource}}",
+  "locationLabel": "{{locationLabel}}"
+}
+}
+
+script:post-response {
+
+  bru.setEnvVar("token", "", { persist: true });
+  bru.setEnvVar("stepUpToken", "", { persist: true });
+  console.log("Local token cleared");
+
+}

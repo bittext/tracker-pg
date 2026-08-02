@@ -1,0 +1,16 @@
+meta {
+  name: Work Log Calendar
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{baseUrl}}/api/management/work-log/calendar
+  body: none
+  auth: inherit
+}
+
+params:query {
+  year: {{year}}
+  month: {{month}}
+}

@@ -1,0 +1,17 @@
+meta {
+  name: Entries Search
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/journal/entries/search
+  body: none
+  auth: inherit
+}
+
+params:query {
+  from: {{fromDate}}
+  to: {{toDate}}
+  ~q: 
+}

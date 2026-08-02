@@ -1,0 +1,15 @@
+meta {
+  name: Crypto Tracker
+  type: http
+  seq: 13
+}
+
+get {
+  url: {{baseUrl}}/api/finance/robinhood/crypto-tracker
+  body: none
+  auth: inherit
+}
+
+params:query {
+  year: {{year}}
+}

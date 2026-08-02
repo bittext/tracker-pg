@@ -1,0 +1,15 @@
+meta {
+  name: Import Summary
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/markets/trading-journal/{{snapshotDate}}/import-summary
+  body: json
+  auth: inherit
+}
+
+body:json {
+{}
+}

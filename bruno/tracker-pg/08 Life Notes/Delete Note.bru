@@ -1,0 +1,11 @@
+meta {
+  name: Delete Note
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{baseUrl}}/api/life/notes/{{noteId}}
+  body: none
+  auth: inherit
+}

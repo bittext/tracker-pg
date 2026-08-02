@@ -1,0 +1,15 @@
+meta {
+  name: Performance Report
+  type: http
+  seq: 16
+}
+
+get {
+  url: {{baseUrl}}/api/finance/robinhood/performance-report
+  body: none
+  auth: inherit
+}
+
+params:query {
+  year: {{year}}
+}

@@ -1,0 +1,15 @@
+meta {
+  name: AI Draft
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/markets/trading-journal/{{snapshotDate}}/ai-draft
+  body: json
+  auth: inherit
+}
+
+body:json {
+{}
+}

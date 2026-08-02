@@ -1,0 +1,16 @@
+meta {
+  name: Courses
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/journal/courses
+  body: none
+  auth: inherit
+}
+
+params:query {
+  ~status: 
+  ~q: 
+}

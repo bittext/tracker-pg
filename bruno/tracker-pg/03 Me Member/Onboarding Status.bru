@@ -1,0 +1,11 @@
+meta {
+  name: Onboarding Status
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/me/onboarding-status
+  body: none
+  auth: inherit
+}

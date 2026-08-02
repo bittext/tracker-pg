@@ -1,0 +1,11 @@
+meta {
+  name: CSV Import Status
+  type: http
+  seq: 19
+}
+
+get {
+  url: {{baseUrl}}/api/finance/robinhood/csv-import-upload-status
+  body: none
+  auth: inherit
+}

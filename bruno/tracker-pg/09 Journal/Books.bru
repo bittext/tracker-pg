@@ -1,0 +1,16 @@
+meta {
+  name: Books
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/api/journal/books
+  body: none
+  auth: inherit
+}
+
+params:query {
+  ~status: 
+  ~q: 
+}

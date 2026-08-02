@@ -1,0 +1,16 @@
+meta {
+  name: Entry Documents
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{baseUrl}}/api/finance/entry-documents
+  body: none
+  auth: inherit
+}
+
+params:query {
+  ~entityType: LOAN
+  ~entityId: 1
+}

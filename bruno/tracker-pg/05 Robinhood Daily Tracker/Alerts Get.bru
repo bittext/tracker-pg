@@ -1,0 +1,11 @@
+meta {
+  name: Alerts Get
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{baseUrl}}/api/finance/robinhood/daily-tracker/alerts
+  body: none
+  auth: inherit
+}

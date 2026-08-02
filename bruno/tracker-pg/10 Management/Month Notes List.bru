@@ -1,0 +1,16 @@
+meta {
+  name: Month Notes List
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/api/management/notes
+  body: none
+  auth: inherit
+}
+
+params:query {
+  year: {{year}}
+  month: {{month}}
+}

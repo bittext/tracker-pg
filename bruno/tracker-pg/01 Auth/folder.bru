@@ -1,0 +1,12 @@
+meta {
+  name: 01 Auth
+  seq: 1
+}
+
+docs {
+  Login, session, MFA, step-up, logout.
+
+  On Local (`autoLogin=true`), protected requests auto-login when `token` is empty —
+  still set username/password in the environment. Use Login explicitly for Production
+  or when you need MFA / a fresh token.
+}

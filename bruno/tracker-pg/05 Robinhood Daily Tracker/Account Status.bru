@@ -1,0 +1,11 @@
+meta {
+  name: Account Status
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/finance/robinhood/account-status
+  body: none
+  auth: inherit
+}

@@ -1,0 +1,16 @@
+meta {
+  name: Stocks Summary
+  type: http
+  seq: 17
+}
+
+get {
+  url: {{baseUrl}}/api/finance/robinhood/stocks-summary
+  body: none
+  auth: inherit
+}
+
+params:query {
+  year: {{year}}
+  ~symbol: {{symbol}}
+}

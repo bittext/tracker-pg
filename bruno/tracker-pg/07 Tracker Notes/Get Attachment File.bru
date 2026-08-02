@@ -1,0 +1,15 @@
+meta {
+  name: Get Attachment File
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/markets/tracker/notes/attachments/{{attachmentId}}/file
+  body: none
+  auth: inherit
+}
+
+params:query {
+  disposition: inline
+}

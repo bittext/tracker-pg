@@ -1,0 +1,20 @@
+meta {
+  name: Update Note
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/api/markets/tracker/notes/{{noteId}}
+  body: json
+  auth: inherit
+}
+
+body:json {
+{
+  "year": {{year}},
+  "month": {{month}},
+  "subject": "Bruno sample tracker note (updated)",
+  "body": "# Sample\n\nUpdated from Bruno."
+}
+}

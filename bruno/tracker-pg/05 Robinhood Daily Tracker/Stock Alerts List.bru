@@ -1,0 +1,11 @@
+meta {
+  name: Stock Alerts List
+  type: http
+  seq: 18
+}
+
+get {
+  url: {{baseUrl}}/api/finance/robinhood/alerts
+  body: none
+  auth: inherit
+}

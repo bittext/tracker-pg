@@ -1,0 +1,41 @@
+meta {
+  name: MFA Verify
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/auth/mfa/verify
+  body: json
+  auth: none
+}
+
+body:json {
+{
+  "challengeId": "{{challengeId}}",
+  "otpCode": "{{otpCode}}",
+  "locationFingerprintSource": "{{locationFingerprintSource}}",
+  "locationLabel": "{{locationLabel}}"
+}
+}
+
+script:post-response {
+
+  const body = res.getBody() || {};
+  // MFA verify may return AuthTokenDto directly or wrapped
+  const tok = body.token ? body : body;
+  if (tok && tok.token && typeof tok.token === "string") {
+    bru.setEnvVar("token", tok.token, { persist: true });
+    bru.setEnvVar("username", tok.username || "", { persist: true });
+    bru.setEnvVar("role", tok.role || "", { persist: true });
+    console.log("MFA OK — token saved");
+  } else if (body.token && body.token.token) {
+    bru.setEnvVar("token", body.token.token, { persist: true });
+    console.log("MFA OK — nested token saved");
+  }
+
+}
+
+docs {
+Complete MFA after Login returns mfaRequired. Set env `otpCode`.
+}

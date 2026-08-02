@@ -1,0 +1,11 @@
+meta {
+  name: Predicts Summary
+  type: http
+  seq: 17
+}
+
+get {
+  url: {{baseUrl}}/api/finance/predicts/{{symbol}}/summary
+  body: none
+  auth: inherit
+}

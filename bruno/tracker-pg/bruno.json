@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "tracker-pg",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

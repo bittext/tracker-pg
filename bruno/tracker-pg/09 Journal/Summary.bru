@@ -1,0 +1,16 @@
+meta {
+  name: Summary
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/journal/summary
+  body: none
+  auth: inherit
+}
+
+params:query {
+  from: {{fromDate}}
+  to: {{toDate}}
+}

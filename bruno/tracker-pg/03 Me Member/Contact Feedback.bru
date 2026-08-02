@@ -1,0 +1,19 @@
+meta {
+  name: Contact Feedback
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/me/contact-feedback
+  body: json
+  auth: inherit
+}
+
+body:json {
+{
+  "displayName": "Bruno",
+  "subject": "API collection test",
+  "details": "Sample contact feedback from Bruno."
+}
+}

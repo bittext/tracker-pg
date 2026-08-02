@@ -1,0 +1,15 @@
+meta {
+  name: Daily Tracker Snapshot
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/api/finance/robinhood/daily-tracker/snapshot
+  body: none
+  auth: inherit
+}
+
+params:query {
+  id: 1
+}

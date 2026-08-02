@@ -1,0 +1,15 @@
+meta {
+  name: Journal Dates
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/markets/trading-journal/dates
+  body: none
+  auth: inherit
+}
+
+params:query {
+  year: {{year}}
+}

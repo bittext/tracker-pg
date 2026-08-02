@@ -1,0 +1,16 @@
+meta {
+  name: News
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/finance/robinhood/news
+  body: none
+  auth: inherit
+}
+
+params:query {
+  symbol: {{symbol}}
+  limit: 20
+}

@@ -1,0 +1,15 @@
+meta {
+  name: Day Logs
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/fitness/day-logs
+  body: none
+  auth: inherit
+}
+
+params:query {
+  day: {{snapshotDate}}
+}

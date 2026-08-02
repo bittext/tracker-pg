@@ -1,0 +1,15 @@
+meta {
+  name: Company Research List
+  type: http
+  seq: 15
+}
+
+get {
+  url: {{baseUrl}}/api/markets/company-research/
+  body: none
+  auth: inherit
+}
+
+params:query {
+  q: {{symbol}}
+}

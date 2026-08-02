@@ -1,0 +1,15 @@
+meta {
+  name: Plaid Notice Ack
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/api/me/privacy/plaid-financial-data-notice
+  body: json
+  auth: inherit
+}
+
+body:json {
+{}
+}

@@ -1,0 +1,18 @@
+meta {
+  name: Day Note Put
+  type: http
+  seq: 10
+}
+
+put {
+  url: {{baseUrl}}/api/finance/robinhood/daily-tracker/day-note
+  body: json
+  auth: inherit
+}
+
+body:json {
+{
+  "snapshotDate": "{{snapshotDate}}",
+  "noteText": "Bruno sample day note"
+}
+}

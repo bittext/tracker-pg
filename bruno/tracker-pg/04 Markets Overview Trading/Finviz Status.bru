@@ -1,0 +1,11 @@
+meta {
+  name: Finviz Status
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/api/markets/finviz/status
+  body: none
+  auth: inherit
+}

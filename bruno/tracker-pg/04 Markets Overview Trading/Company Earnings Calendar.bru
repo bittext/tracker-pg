@@ -1,0 +1,16 @@
+meta {
+  name: Company Earnings Calendar
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{baseUrl}}/api/markets/company-research/earnings-calendar
+  body: none
+  auth: inherit
+}
+
+params:query {
+  from: {{fromDate}}
+  days: 30
+}

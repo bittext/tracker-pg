@@ -1,0 +1,11 @@
+meta {
+  name: Delete Note
+  type: http
+  seq: 6
+}
+
+delete {
+  url: {{baseUrl}}/api/markets/tracker/notes/{{noteId}}
+  body: none
+  auth: inherit
+}

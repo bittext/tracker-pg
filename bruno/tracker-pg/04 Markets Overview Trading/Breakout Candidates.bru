@@ -1,0 +1,15 @@
+meta {
+  name: Breakout Candidates
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/finance/robinhood/breakout-candidates
+  body: none
+  auth: inherit
+}
+
+params:query {
+  limit: 25
+}

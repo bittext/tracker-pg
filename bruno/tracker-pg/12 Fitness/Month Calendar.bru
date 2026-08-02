@@ -1,0 +1,16 @@
+meta {
+  name: Month Calendar
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/fitness/reports/month-calendar
+  body: none
+  auth: inherit
+}
+
+params:query {
+  year: {{year}}
+  month: {{month}}
+}

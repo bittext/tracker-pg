@@ -1,0 +1,16 @@
+meta {
+  name: Tasks Calendar
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/management/calendar
+  body: none
+  auth: inherit
+}
+
+params:query {
+  year: {{year}}
+  month: {{month}}
+}

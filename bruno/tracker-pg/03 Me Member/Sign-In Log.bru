@@ -1,0 +1,16 @@
+meta {
+  name: Sign-In Log
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/api/me/sign-in-log
+  body: none
+  auth: inherit
+}
+
+params:query {
+  limit: 50
+  ~q: 
+}

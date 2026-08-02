@@ -1,0 +1,16 @@
+meta {
+  name: Calendar
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/journal/calendar
+  body: none
+  auth: inherit
+}
+
+params:query {
+  year: {{year}}
+  month: {{month}}
+}

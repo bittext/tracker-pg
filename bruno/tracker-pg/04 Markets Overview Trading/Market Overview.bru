@@ -1,0 +1,11 @@
+meta {
+  name: Market Overview
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/finance/robinhood/market-overview
+  body: none
+  auth: inherit
+}

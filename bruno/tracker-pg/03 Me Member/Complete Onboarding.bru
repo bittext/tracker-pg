@@ -1,0 +1,15 @@
+meta {
+  name: Complete Onboarding
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/me/onboarding/complete
+  body: json
+  auth: inherit
+}
+
+body:json {
+{}
+}
