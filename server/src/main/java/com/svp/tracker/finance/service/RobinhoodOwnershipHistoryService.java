@@ -41,7 +41,7 @@ public class RobinhoodOwnershipHistoryService {
     private final RobinhoodRhDailySnapshotRepository snapshotRepository;
     private final RobinhoodAccountTrackerConfigService accountTrackerConfigService;
     private final CurrentUserService currentUser;
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Transactional(readOnly = true)
     public RobinhoodOwnershipHistoryDto build(
