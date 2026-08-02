@@ -968,15 +968,30 @@
                 <div class="mn-compose-meta">
                   <mat-form-field appearance="outline" class="mn-subject-field">
                     <mat-label>Subject</mat-label>
-                    <input matInput name="nnSubject" [(ngModel)]="noteDraft.subject" required placeholder="Short title" />
+                    <input
+                      matInput
+                      name="nnSubject"
+                      [(ngModel)]="noteDraft.subject"
+                      (ngModelChange)="onNoteDraftChanged()"
+                      (blur)="onNoteDraftBlur()"
+                      placeholder="Short title"
+                    />
                   </mat-form-field>
                   <mat-form-field appearance="outline" class="mn-meta-field">
                     <mat-label>Year</mat-label>
-                    <input matInput type="number" name="nnYear" [(ngModel)]="noteDraft.year" min="1970" max="9999" />
+                    <input
+                      matInput
+                      type="number"
+                      name="nnYear"
+                      [(ngModel)]="noteDraft.year"
+                      (ngModelChange)="onNoteDraftChanged()"
+                      min="1970"
+                      max="9999"
+                    />
                   </mat-form-field>
                   <mat-form-field appearance="outline" class="mn-meta-field">
                     <mat-label>Month</mat-label>
-                    <mat-select name="nnMonth" [(ngModel)]="noteDraft.month">
+                    <mat-select name="nnMonth" [(ngModel)]="noteDraft.month" (ngModelChange)="onNoteDraftChanged()">
                       @for (m of noteMonthOptions; track m) {
                         <mat-option [value]="m">{{ monthName(m) }}</mat-option>
                       }
@@ -1026,6 +1041,8 @@
                       name="nnBody"
                       rows="24"
                       [(ngModel)]="noteDraft.body"
+                      (ngModelChange)="onNoteDraftChanged()"
+                      (blur)="onNoteDraftBlur()"
                       placeholder="# Heading&#10;&#10;Write in **Markdown** — preview updates live on the right."
                       aria-label="Note body in Markdown"
                     ></textarea>
@@ -1050,6 +1067,9 @@
                     {{ noteEditingId != null ? 'Save changes' : 'Save note' }}
                   </button>
                   <button mat-button type="button" (click)="resetMonthNoteForm()">Discard</button>
+                  @if (noteSaveStatusLabel) {
+                    <span class="muted mn-autosave-status" [attr.data-status]="noteSaveStatus">{{ noteSaveStatusLabel }}</span>
+                  }
                 </div>
               </section>
             } @else if (selectedMonthNote; as n) {

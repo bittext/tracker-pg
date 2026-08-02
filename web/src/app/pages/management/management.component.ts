@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject, viewChild } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit, inject, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -15,7 +15,8 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatTabsModule } from '@angular/material/tabs';
-import { catchError, forkJoin, of } from 'rxjs';
+import { Observable, catchError, forkJoin, of, throwError } from 'rxjs';
+import { tap } from 'rxjs/operators';
 import {
   BalanceUrgency,
   ManagementAccountDto,
@@ -43,6 +44,11 @@ import { ReportCalendarApiService } from '../../services/report-calendar-api.ser
 import { AuthService } from '../../services/auth.service';
 import { SafeMarkdownPipe } from '../../pipes/safe-markdown.pipe';
 import { formatHttpErrorDetail } from '../../util/http-error';
+import {
+  NoteAutosave,
+  NoteSaveStatus,
+  noteDraftFingerprint,
+} from '../../util/note-autosave';
 import {
   MgmtTaskDueVisual,
   mgmtCalendarDayDueVisual,
@@ -125,7 +131,7 @@ interface AccountEntry {
   templateUrl: './management.component.html',
   styleUrl: './management.component.scss',
 })
-export class ManagementComponent implements OnInit {
+export class ManagementComponent implements OnInit, OnDestroy {
   /**
    * Legacy unscoped key (pre–per-user storage). The string is kept verbatim so prior installs can still be detected
    * and migrated to the server vault on first login. Do not rename the string value.
@@ -250,6 +256,12 @@ export class ManagementComponent implements OnInit {
   };
   noteUploading = false;
   readonly noteMonthOptions = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
+  noteSaveStatus: NoteSaveStatus = 'idle';
+  private noteLastSavedFp = '';
+  private readonly noteAutosave = new NoteAutosave({
+    persist: () => this.persistMonthNote$({ exitCompose: false, quiet: true }),
+    onStatus: (s) => (this.noteSaveStatus = s),
+  });
 
   /** Write-up: year-scoped long-form entries (current user only; API-enforced). */
   writeupYear = new Date().getFullYear();
@@ -285,6 +297,47 @@ export class ManagementComponent implements OnInit {
     this.loadRepCalCalendarTypes();
     this.loadReportCalendar();
     this.loadAccountsFromServer();
+  }
+
+  ngOnDestroy(): void {
+    this.noteAutosave.destroy();
+  }
+
+  @HostListener('window:beforeunload', ['$event'])
+  onBeforeUnload(event: BeforeUnloadEvent): void {
+    if (this.noteViewMode === 'compose' && this.noteAutosave.isDirty) {
+      event.preventDefault();
+      event.returnValue = '';
+    }
+  }
+
+  onNoteDraftChanged(): void {
+    if (this.noteViewMode !== 'compose') {
+      return;
+    }
+    this.noteAutosave.markDirtyAndSchedule();
+  }
+
+  onNoteDraftBlur(): void {
+    if (this.noteViewMode !== 'compose') {
+      return;
+    }
+    this.noteAutosave.flush();
+  }
+
+  get noteSaveStatusLabel(): string {
+    switch (this.noteSaveStatus) {
+      case 'dirty':
+        return 'Unsaved changes…';
+      case 'saving':
+        return 'Saving…';
+      case 'saved':
+        return 'Saved';
+      case 'error':
+        return 'Save failed';
+      default:
+        return '';
+    }
   }
 
   private loadRepCalCalendarTypes(): void {
@@ -1886,22 +1939,32 @@ export class ManagementComponent implements OnInit {
   }
 
   startNewMonthNote(): void {
-    this.noteEditingId = null;
-    this.noteSelectedId = null;
-    this.noteViewMode = 'compose';
-    this.noteComposerPane = 'split';
-    this.noteDraft = {
-      year: this.noteYear,
-      month: this.noteFilterMonth != null ? this.noteFilterMonth : new Date().getMonth() + 1,
-      subject: '',
-      body: '',
-    };
+    this.noteAutosave.flush(() => {
+      this.noteAutosave.cancel();
+      this.noteLastSavedFp = '';
+      this.noteEditingId = null;
+      this.noteSelectedId = null;
+      this.noteViewMode = 'compose';
+      this.noteComposerPane = 'split';
+      this.noteDraft = {
+        year: this.noteYear,
+        month: this.noteFilterMonth != null ? this.noteFilterMonth : new Date().getMonth() + 1,
+        subject: '',
+        body: '',
+      };
+      this.noteSaveStatus = 'idle';
+    });
   }
 
   selectMonthNote(n: ManagementMonthNoteDto): void {
-    this.noteSelectedId = n.id;
-    this.noteViewMode = 'read';
-    this.noteEditingId = null;
+    this.noteAutosave.flush(() => {
+      this.noteAutosave.cancel();
+      this.noteLastSavedFp = '';
+      this.noteSelectedId = n.id;
+      this.noteViewMode = 'read';
+      this.noteEditingId = null;
+      this.noteSaveStatus = 'idle';
+    });
   }
 
   setNoteComposerPane(pane: 'split' | 'write' | 'preview'): void {
@@ -1909,33 +1972,55 @@ export class ManagementComponent implements OnInit {
   }
 
   selectNotesYearOnly(): void {
-    this.noteFilterMonth = null;
-    this.noteViewMode = 'read';
-    this.reloadMonthNotesListOnly();
+    this.noteAutosave.flush(() => {
+      this.noteAutosave.cancel();
+      this.noteFilterMonth = null;
+      this.noteViewMode = 'read';
+      this.noteEditingId = null;
+      this.noteSaveStatus = 'idle';
+      this.reloadMonthNotesListOnly();
+    });
   }
 
   selectNoteMonth(m: number): void {
-    if (this.noteFilterMonth === m) {
-      this.noteFilterMonth = null;
-    } else {
-      this.noteFilterMonth = m;
-      this.noteDraft.month = m;
-    }
-    this.noteViewMode = 'read';
-    this.noteSelectedId = null;
-    this.reloadMonthNotesListOnly();
+    this.noteAutosave.flush(() => {
+      this.noteAutosave.cancel();
+      if (this.noteFilterMonth === m) {
+        this.noteFilterMonth = null;
+      } else {
+        this.noteFilterMonth = m;
+        this.noteDraft.month = m;
+      }
+      this.noteViewMode = 'read';
+      this.noteEditingId = null;
+      this.noteSelectedId = null;
+      this.noteSaveStatus = 'idle';
+      this.reloadMonthNotesListOnly();
+    });
   }
 
   prevNoteYear(): void {
-    this.noteYear -= 1;
-    this.noteDraft.year = this.noteYear;
-    this.reloadMonthNotesData();
+    this.noteAutosave.flush(() => {
+      this.noteAutosave.cancel();
+      this.noteYear -= 1;
+      this.noteDraft.year = this.noteYear;
+      this.noteViewMode = 'read';
+      this.noteEditingId = null;
+      this.noteSaveStatus = 'idle';
+      this.reloadMonthNotesData();
+    });
   }
 
   nextNoteYear(): void {
-    this.noteYear += 1;
-    this.noteDraft.year = this.noteYear;
-    this.reloadMonthNotesData();
+    this.noteAutosave.flush(() => {
+      this.noteAutosave.cancel();
+      this.noteYear += 1;
+      this.noteDraft.year = this.noteYear;
+      this.noteViewMode = 'read';
+      this.noteEditingId = null;
+      this.noteSaveStatus = 'idle';
+      this.reloadMonthNotesData();
+    });
   }
 
   monthName(m: number): string {
@@ -1947,43 +2032,75 @@ export class ManagementComponent implements OnInit {
   }
 
   saveMonthNote(): void {
-    const subject = (this.noteDraft.subject || '').trim();
-    if (!subject) {
-      this.snackBar.open('Subject is required', undefined, { duration: 2500 });
-      return;
+    this.noteAutosave.cancel();
+    this.persistMonthNote$({ exitCompose: true, quiet: false }).subscribe({
+      error: () => undefined,
+    });
+  }
+
+  private persistMonthNote$(opts: {
+    exitCompose: boolean;
+    quiet: boolean;
+  }): Observable<ManagementMonthNoteDto> {
+    if (this.noteViewMode !== 'compose' && opts.quiet) {
+      return of(null as unknown as ManagementMonthNoteDto);
     }
+
+    const subject = (this.noteDraft.subject || '').trim() || 'Untitled';
     const body = {
       year: this.noteDraft.year,
       month: this.noteDraft.month,
       subject,
-      body: (this.noteDraft.body || '').trim(),
+      body: this.noteDraft.body || '',
     };
-    if (this.noteEditingId != null) {
-      this.api.updateMonthNote(this.noteEditingId, body).subscribe({
-        next: (saved) => {
-          this.snackBar.open('Note updated', undefined, { duration: 2000 });
-          this.noteSelectedId = saved.id;
-          this.noteViewMode = 'read';
-          this.noteEditingId = null;
-          this.reloadMonthNotesData();
-        },
-        error: (e) => this.err('Could not update note', e),
-      });
-    } else {
-      this.api.createMonthNote(body).subscribe({
-        next: (saved) => {
-          this.snackBar.open('Note saved', undefined, { duration: 2000 });
-          this.noteSelectedId = saved.id;
-          this.noteViewMode = 'read';
-          this.noteEditingId = null;
-          this.reloadMonthNotesData();
-        },
-        error: (e) => this.err('Could not save note', e),
-      });
+    const fp = noteDraftFingerprint(body);
+    if (opts.quiet && fp === this.noteLastSavedFp && this.noteEditingId != null) {
+      return of(null as unknown as ManagementMonthNoteDto);
     }
+
+    const req$ =
+      this.noteEditingId != null
+        ? this.api.updateMonthNote(this.noteEditingId, body)
+        : this.api.createMonthNote(body);
+
+    return req$.pipe(
+      tap((saved) => {
+        this.noteLastSavedFp = noteDraftFingerprint({
+          year: saved.year,
+          month: saved.month,
+          subject: saved.subject,
+          body: saved.body ?? '',
+        });
+        this.noteSelectedId = saved.id;
+        if (!(this.noteDraft.subject || '').trim()) {
+          this.noteDraft = { ...this.noteDraft, subject: saved.subject || 'Untitled' };
+        }
+        if (opts.exitCompose) {
+          const wasUpdate = this.noteEditingId != null;
+          this.noteViewMode = 'read';
+          this.noteEditingId = null;
+          this.noteYear = saved.year;
+          this.noteFilterMonth = saved.month;
+          if (!opts.quiet) {
+            this.snackBar.open(wasUpdate ? 'Note updated' : 'Note saved', undefined, { duration: 2000 });
+          }
+        } else {
+          this.noteEditingId = saved.id;
+        }
+        this.reloadMonthNotesData();
+      }),
+      catchError((e) => {
+        if (!opts.quiet) {
+          this.err(this.noteEditingId != null ? 'Could not update note' : 'Could not save note', e);
+        }
+        return throwError(() => e);
+      }),
+    );
   }
 
   resetMonthNoteForm(): void {
+    this.noteAutosave.cancel();
+    this.noteLastSavedFp = '';
     this.noteEditingId = null;
     this.noteDraft = {
       year: this.noteYear,
@@ -1992,20 +2109,26 @@ export class ManagementComponent implements OnInit {
       body: '',
     };
     this.noteViewMode = 'read';
+    this.noteSaveStatus = 'idle';
     this.syncNoteSelectionAfterLoad();
   }
 
   startEditMonthNote(n: ManagementMonthNoteDto): void {
-    this.noteEditingId = n.id;
-    this.noteSelectedId = n.id;
-    this.noteViewMode = 'compose';
-    this.noteComposerPane = 'split';
-    this.noteDraft = {
-      year: n.year,
-      month: n.month,
-      subject: n.subject,
-      body: n.body ?? '',
-    };
+    this.noteAutosave.flush(() => {
+      this.noteAutosave.cancel();
+      this.noteEditingId = n.id;
+      this.noteSelectedId = n.id;
+      this.noteViewMode = 'compose';
+      this.noteComposerPane = 'split';
+      this.noteDraft = {
+        year: n.year,
+        month: n.month,
+        subject: n.subject,
+        body: n.body ?? '',
+      };
+      this.noteLastSavedFp = noteDraftFingerprint(this.noteDraft);
+      this.noteSaveStatus = 'idle';
+    });
   }
 
   deleteMonthNote(n: ManagementMonthNoteDto): void {

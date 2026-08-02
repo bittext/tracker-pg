@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -8,6 +8,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { Observable, of, throwError } from 'rxjs';
+import { catchError, tap } from 'rxjs/operators';
 import {
   TrackerMonthNoteAttachmentDto,
   TrackerMonthNoteCalendarDto,
@@ -16,6 +18,11 @@ import {
 } from '../../models/tracker.models';
 import { TrackerApiService } from '../../services/tracker-api.service';
 import { formatHttpErrorDetail } from '../../util/http-error';
+import {
+  NoteAutosave,
+  NoteSaveStatus,
+  noteDraftFingerprint,
+} from '../../util/note-autosave';
 import {
   WriteupAttachmentPreviewDialogComponent,
   WriteupAttachmentPreviewData,
@@ -55,7 +62,7 @@ const MONTH_NAMES = [
   templateUrl: './tracker-notes.component.html',
   styleUrl: './tracker-notes.component.scss',
 })
-export class TrackerNotesComponent implements OnInit {
+export class TrackerNotesComponent implements OnInit, OnDestroy {
   private readonly api = inject(TrackerApiService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
@@ -101,9 +108,56 @@ export class TrackerNotesComponent implements OnInit {
     subject: '',
     body: '',
   };
+  noteSaveStatus: NoteSaveStatus = 'idle';
+  private noteLastSavedFp = '';
+  private readonly noteAutosave = new NoteAutosave({
+    persist: () => this.persistMonthNote$({ exitCompose: false, quiet: true }),
+    onStatus: (s) => (this.noteSaveStatus = s),
+  });
 
   ngOnInit(): void {
     this.reloadMonthNotesData();
+  }
+
+  ngOnDestroy(): void {
+    this.noteAutosave.destroy();
+  }
+
+  @HostListener('window:beforeunload', ['$event'])
+  onBeforeUnload(event: BeforeUnloadEvent): void {
+    if (this.noteViewMode === 'compose' && this.noteAutosave.isDirty) {
+      event.preventDefault();
+      event.returnValue = '';
+    }
+  }
+
+  onNoteDraftChanged(): void {
+    if (this.noteViewMode !== 'compose') {
+      return;
+    }
+    this.noteAutosave.markDirtyAndSchedule();
+  }
+
+  onNoteDraftBlur(): void {
+    if (this.noteViewMode !== 'compose') {
+      return;
+    }
+    this.noteAutosave.flush();
+  }
+
+  get noteSaveStatusLabel(): string {
+    switch (this.noteSaveStatus) {
+      case 'dirty':
+        return 'Unsaved changes…';
+      case 'saving':
+        return 'Saving…';
+      case 'saved':
+        return 'Saved';
+      case 'error':
+        return 'Save failed';
+      default:
+        return '';
+    }
   }
 
   get noteMonthCells(): { month: number; noteCount: number }[] {
@@ -191,24 +245,34 @@ export class TrackerNotesComponent implements OnInit {
   }
 
   startNewMonthNote(): void {
-    this.noteEditingId = null;
-    this.noteSelectedId = null;
-    this.noteViewMode = 'compose';
-    this.noteComposerPane = 'split';
-    this.noteSelectedAttachments = [];
-    this.noteDraft = {
-      year: this.noteYear,
-      month: this.noteFilterMonth != null ? this.noteFilterMonth : new Date().getMonth() + 1,
-      subject: '',
-      body: '',
-    };
+    this.noteAutosave.flush(() => {
+      this.noteAutosave.cancel();
+      this.noteLastSavedFp = '';
+      this.noteEditingId = null;
+      this.noteSelectedId = null;
+      this.noteViewMode = 'compose';
+      this.noteComposerPane = 'split';
+      this.noteSelectedAttachments = [];
+      this.noteDraft = {
+        year: this.noteYear,
+        month: this.noteFilterMonth != null ? this.noteFilterMonth : new Date().getMonth() + 1,
+        subject: '',
+        body: '',
+      };
+      this.noteSaveStatus = 'idle';
+    });
   }
 
   selectMonthNote(n: TrackerMonthNoteDto): void {
-    this.noteSelectedId = n.id;
-    this.noteViewMode = 'read';
-    this.noteEditingId = null;
-    this.noteSelectedAttachments = [...(n.attachments ?? [])];
+    this.noteAutosave.flush(() => {
+      this.noteAutosave.cancel();
+      this.noteLastSavedFp = '';
+      this.noteSelectedId = n.id;
+      this.noteViewMode = 'read';
+      this.noteEditingId = null;
+      this.noteSelectedAttachments = [...(n.attachments ?? [])];
+      this.noteSaveStatus = 'idle';
+    });
   }
 
   setNoteComposerPane(pane: 'split' | 'write' | 'preview'): void {
@@ -216,36 +280,60 @@ export class TrackerNotesComponent implements OnInit {
   }
 
   selectNotesYearOnly(): void {
-    this.noteFilterMonth = null;
-    this.noteViewMode = 'read';
-    this.reloadMonthNotesListOnly();
+    this.noteAutosave.flush(() => {
+      this.noteAutosave.cancel();
+      this.noteFilterMonth = null;
+      this.noteViewMode = 'read';
+      this.noteEditingId = null;
+      this.noteSaveStatus = 'idle';
+      this.reloadMonthNotesListOnly();
+    });
   }
 
   selectNoteMonth(m: number): void {
-    if (this.noteFilterMonth === m) {
-      this.noteFilterMonth = null;
-    } else {
-      this.noteFilterMonth = m;
-      this.noteDraft.month = m;
-    }
-    this.noteViewMode = 'read';
-    this.noteSelectedId = null;
-    this.reloadMonthNotesListOnly();
+    this.noteAutosave.flush(() => {
+      this.noteAutosave.cancel();
+      if (this.noteFilterMonth === m) {
+        this.noteFilterMonth = null;
+      } else {
+        this.noteFilterMonth = m;
+        this.noteDraft.month = m;
+      }
+      this.noteViewMode = 'read';
+      this.noteEditingId = null;
+      this.noteSelectedId = null;
+      this.noteSaveStatus = 'idle';
+      this.reloadMonthNotesListOnly();
+    });
   }
 
   prevNoteYear(): void {
-    this.noteYear -= 1;
-    this.noteDraft.year = this.noteYear;
-    this.reloadMonthNotesData();
+    this.noteAutosave.flush(() => {
+      this.noteAutosave.cancel();
+      this.noteYear -= 1;
+      this.noteDraft.year = this.noteYear;
+      this.noteViewMode = 'read';
+      this.noteEditingId = null;
+      this.noteSaveStatus = 'idle';
+      this.reloadMonthNotesData();
+    });
   }
 
   nextNoteYear(): void {
-    this.noteYear += 1;
-    this.noteDraft.year = this.noteYear;
-    this.reloadMonthNotesData();
+    this.noteAutosave.flush(() => {
+      this.noteAutosave.cancel();
+      this.noteYear += 1;
+      this.noteDraft.year = this.noteYear;
+      this.noteViewMode = 'read';
+      this.noteEditingId = null;
+      this.noteSaveStatus = 'idle';
+      this.reloadMonthNotesData();
+    });
   }
 
   resetMonthNoteForm(): void {
+    this.noteAutosave.cancel();
+    this.noteLastSavedFp = '';
     this.noteEditingId = null;
     this.noteDraft = {
       year: this.noteYear,
@@ -254,64 +342,99 @@ export class TrackerNotesComponent implements OnInit {
       body: '',
     };
     this.noteViewMode = 'read';
+    this.noteSaveStatus = 'idle';
     this.syncNoteSelectionAfterLoad();
   }
 
   startEditMonthNote(n: TrackerMonthNoteDto): void {
-    this.noteEditingId = n.id;
-    this.noteSelectedId = n.id;
-    this.noteViewMode = 'compose';
-    this.noteComposerPane = 'split';
-    this.noteSelectedAttachments = [...(n.attachments ?? [])];
-    this.noteDraft = {
-      year: n.year,
-      month: n.month,
-      subject: n.subject,
-      body: this.repairBrokenPdfCoverImgTags(n.body ?? ''),
-    };
+    this.noteAutosave.flush(() => {
+      this.noteAutosave.cancel();
+      this.noteEditingId = n.id;
+      this.noteSelectedId = n.id;
+      this.noteViewMode = 'compose';
+      this.noteComposerPane = 'split';
+      this.noteSelectedAttachments = [...(n.attachments ?? [])];
+      this.noteDraft = {
+        year: n.year,
+        month: n.month,
+        subject: n.subject,
+        body: this.repairBrokenPdfCoverImgTags(n.body ?? ''),
+      };
+      this.noteLastSavedFp = noteDraftFingerprint(this.noteDraft);
+      this.noteSaveStatus = 'idle';
+    });
   }
 
   saveMonthNote(): void {
-    const subject = (this.noteDraft.subject || '').trim();
-    if (!subject) {
-      this.snackBar.open('Subject is required', undefined, { duration: 2500 });
-      return;
+    this.noteAutosave.cancel();
+    this.persistMonthNote$({ exitCompose: true, quiet: false }).subscribe({
+      error: () => undefined,
+    });
+  }
+
+  /**
+   * Create/update the current draft. Quiet path stays in compose and uses Untitled when subject is blank.
+   */
+  private persistMonthNote$(opts: { exitCompose: boolean; quiet: boolean }): Observable<TrackerMonthNoteDto> {
+    if (this.noteViewMode !== 'compose' && opts.quiet) {
+      return of(null as unknown as TrackerMonthNoteDto);
     }
-    this.noteDraft = {
-      ...this.noteDraft,
-      body: this.repairBrokenPdfCoverImgTags(this.noteDraft.body ?? ''),
-    };
+
+    const repairedBody = this.repairBrokenPdfCoverImgTags(this.noteDraft.body ?? '');
+    if (repairedBody !== (this.noteDraft.body ?? '')) {
+      this.noteDraft = { ...this.noteDraft, body: repairedBody };
+    }
+
+    const subject = (this.noteDraft.subject || '').trim() || 'Untitled';
     const body: TrackerMonthNoteWriteBody = {
       year: this.noteDraft.year,
       month: this.noteDraft.month,
       subject,
-      body: (this.noteDraft.body || '').trim(),
+      body: repairedBody,
     };
-    if (this.noteEditingId != null) {
-      this.api.updateMonthNote(this.noteEditingId, body).subscribe({
-        next: (saved) => {
-          this.snackBar.open('Note updated', undefined, { duration: 2000 });
-          this.noteSelectedId = saved.id;
-          this.noteViewMode = 'read';
-          this.noteEditingId = null;
-          this.reloadMonthNotesData();
-        },
-        error: (e) => this.err('Could not update note', e),
-      });
-    } else {
-      this.api.createMonthNote(body).subscribe({
-        next: (saved) => {
-          this.snackBar.open('Note saved', undefined, { duration: 2000 });
-          this.noteSelectedId = saved.id;
+    const fp = noteDraftFingerprint(body);
+    if (opts.quiet && fp === this.noteLastSavedFp && this.noteEditingId != null) {
+      return of(null as unknown as TrackerMonthNoteDto);
+    }
+
+    const req$ =
+      this.noteEditingId != null
+        ? this.api.updateMonthNote(this.noteEditingId, body)
+        : this.api.createMonthNote(body);
+
+    return req$.pipe(
+      tap((saved) => {
+        this.noteLastSavedFp = noteDraftFingerprint({
+          year: saved.year,
+          month: saved.month,
+          subject: saved.subject,
+          body: saved.body ?? '',
+        });
+        this.noteSelectedId = saved.id;
+        if (!(this.noteDraft.subject || '').trim()) {
+          this.noteDraft = { ...this.noteDraft, subject: saved.subject || 'Untitled' };
+        }
+        if (opts.exitCompose) {
+          const wasUpdate = this.noteEditingId != null;
           this.noteViewMode = 'read';
           this.noteEditingId = null;
           this.noteYear = saved.year;
           this.noteFilterMonth = saved.month;
-          this.reloadMonthNotesData();
-        },
-        error: (e) => this.err('Could not save note', e),
-      });
-    }
+          if (!opts.quiet) {
+            this.snackBar.open(wasUpdate ? 'Note updated' : 'Note saved', undefined, { duration: 2000 });
+          }
+        } else {
+          this.noteEditingId = saved.id;
+        }
+        this.reloadMonthNotesData();
+      }),
+      catchError((e) => {
+        if (!opts.quiet) {
+          this.err(this.noteEditingId != null ? 'Could not update note' : 'Could not save note', e);
+        }
+        return throwError(() => e);
+      }),
+    );
   }
 
   deleteMonthNote(n: TrackerMonthNoteDto): void {
@@ -524,6 +647,7 @@ export class TrackerNotesComponent implements OnInit {
         .trim(),
     );
     this.noteDraft = { ...this.noteDraft, body: this.repairBrokenPdfCoverImgTags(body) };
+    this.onNoteDraftChanged();
   }
 
   /** Link exactly one image attachment embed to one PDF. */
@@ -544,7 +668,8 @@ export class TrackerNotesComponent implements OnInit {
       return;
     }
     this.noteDraft = { ...this.noteDraft, body: rewritten.body };
-    this.snackBar.open('Image linked to PDF — click cover opens the book. Save the note.', undefined, {
+    this.onNoteDraftChanged();
+    this.snackBar.open('Image linked to PDF — click cover opens the book.', undefined, {
       duration: 3200,
     });
   }
@@ -581,10 +706,11 @@ export class TrackerNotesComponent implements OnInit {
     const idx = Math.max(0, Math.min(body.length, this.noteBodyCaret ?? body.length));
     this.noteDraft = { ...this.noteDraft, body: this.insertTextAt(body, idx, tag) };
     this.noteBodyCaret = idx + tag.length + 1;
+    this.onNoteDraftChanged();
     this.snackBar.open(
-      this.isPdfAttachment(a) ? 'PDF link placed — Save the note' : 'File link placed — Save the note',
+      this.isPdfAttachment(a) ? 'PDF link placed' : 'File link placed',
       undefined,
-      { duration: 3000 },
+      { duration: 2500 },
     );
   }
 
@@ -645,16 +771,17 @@ export class TrackerNotesComponent implements OnInit {
     const insertAt = Math.max(0, Math.min(body.length, idx));
     this.noteDraft = { ...this.noteDraft, body: this.insertTextAt(body, insertAt, tag) };
     this.noteBodyCaret = insertAt + tag.length + 1;
+    this.onNoteDraftChanged();
     this.snackBar.open(
       pdf
         ? hadExisting
-          ? `Cover linked to PDF — Save the note`
-          : `Cover placed; click opens PDF — Save the note`
+          ? `Cover linked to PDF`
+          : `Cover placed; click opens PDF`
         : hadExisting
-          ? `Image moved / sized to ${pct}% — Save the note`
-          : `Image placed at ${pct}% — Save the note`,
+          ? `Image moved / sized to ${pct}%`
+          : `Image placed at ${pct}%`,
       undefined,
-      { duration: 3000 },
+      { duration: 2500 },
     );
   }
 
