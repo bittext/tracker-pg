@@ -999,6 +999,21 @@ app-management app-writeup-markdown-body .markdown-body::after {
   font-size: 0.92rem;
   font-weight: 600;
 }
+
+:is(app-management, app-life-photos, app-tracker-notes) app-writeup-markdown-body .note-embed-pdf-cover {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  transition: outline-color 0.15s ease;
+}
+
+:is(app-management, app-life-photos, app-tracker-notes) app-writeup-markdown-body .note-embed-pdf-cover:hover {
+  outline-color: color-mix(in srgb, #b91c1c 55%, transparent);
+}
+
+:is(app-management, app-life-photos, app-tracker-notes) .wu-att-insert--active {
+  border-color: #b91c1c !important;
+  color: #b91c1c;
+}
 app-management .wu-att-insert {
   margin-left: 0.25rem;
 }

@@ -245,6 +245,17 @@
                         <mat-icon>picture_as_pdf</mat-icon>
                         Insert PDF
                       </button>
+                      <button
+                        mat-stroked-button
+                        type="button"
+                        class="wu-att-insert"
+                        [class.wu-att-insert--active]="notePdfCoverTargetId === a.id"
+                        (click)="bindPdfToCoverImages(a)"
+                        title="Cover images in the note will open this PDF when clicked"
+                      >
+                        <mat-icon>menu_book</mat-icon>
+                        Link covers → PDF
+                      </button>
                     } @else {
                       <button mat-stroked-button type="button" class="wu-att-insert" (click)="insertFileIntoBody(a)">
                         <mat-icon>attach_file</mat-icon>
@@ -342,6 +353,17 @@
                     <button mat-stroked-button type="button" class="wu-att-insert" (click)="insertFileIntoBody(a)">
                       <mat-icon>picture_as_pdf</mat-icon>
                       Insert PDF
+                    </button>
+                    <button
+                      mat-stroked-button
+                      type="button"
+                      class="wu-att-insert"
+                      [class.wu-att-insert--active]="notePdfCoverTargetId === a.id"
+                      (click)="bindPdfToCoverImages(a)"
+                      title="Cover images in the note will open this PDF when clicked"
+                    >
+                      <mat-icon>menu_book</mat-icon>
+                      Link covers → PDF
                     </button>
                   } @else {
                     <button mat-stroked-button type="button" class="wu-att-insert" (click)="insertFileIntoBody(a)">

@@ -69,24 +69,34 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
       return;
     }
     const clickable = t.closest(
-      'img[data-att-id], a.note-embed-file, button.note-embed-file',
+      'img[data-att-id], img[data-open-pdf-id], a.note-embed-file, button.note-embed-file',
     ) as HTMLElement | null;
     if (!clickable) {
       return;
     }
-    const kind = (clickable.getAttribute('data-att-kind') || '') as AttachmentKind;
-    const idRaw = clickable.getAttribute('data-att-id');
+    const openPdfId = clickable.getAttribute('data-open-pdf-id');
+    let kind = (clickable.getAttribute('data-att-kind') || '') as AttachmentKind;
+    if (kind !== 'life' && kind !== 'tracker' && kind !== 'writeup') {
+      const fromSrc = this.extractAttachmentRef(
+        clickable.getAttribute('src') || clickable.getAttribute('href') || '',
+      );
+      kind = fromSrc?.kind ?? ('' as AttachmentKind);
+    }
+    const idRaw = openPdfId || clickable.getAttribute('data-att-id');
     if (!idRaw || (kind !== 'life' && kind !== 'tracker' && kind !== 'writeup')) {
       return;
     }
     ev.preventDefault();
     ev.stopPropagation();
     const filename =
+      (openPdfId ? clickable.getAttribute('data-open-pdf-name') : null) ||
       clickable.getAttribute('data-att-name') ||
       clickable.getAttribute('alt') ||
       clickable.textContent?.trim() ||
-      'attachment';
-    const contentType = clickable.getAttribute('data-att-content-type');
+      (openPdfId ? 'document.pdf' : 'attachment');
+    const contentType = openPdfId
+      ? 'application/pdf'
+      : clickable.getAttribute('data-att-content-type');
     this.openPreview({ kind, id: Number(idRaw) }, filename, contentType);
   }
 
@@ -109,6 +119,8 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
         'data-att-id',
         'data-att-name',
         'data-att-content-type',
+        'data-open-pdf-id',
+        'data-open-pdf-name',
         'width',
         'height',
       ],
@@ -137,8 +149,12 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
       img.setAttribute('data-att-kind', ref.kind);
       img.setAttribute('data-att-id', String(ref.id));
       img.setAttribute('data-att-name', name);
-      img.title = 'Click to open';
+      const openPdfId = img.getAttribute('data-open-pdf-id');
+      img.title = openPdfId ? 'Click to open PDF' : 'Click to open';
       img.style.cursor = 'pointer';
+      if (openPdfId) {
+        img.classList.add('note-embed-pdf-cover');
+      }
 
       this.fetchBlob(ref).subscribe({
         next: (blob) => {
@@ -146,7 +162,8 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
             if (seq !== this.loadSeq) {
               return;
             }
-            if (kind === 'pdf' || kind === 'file') {
+            // Cover images stay as images even if misclassified; open-pdf target handles the click.
+            if ((kind === 'pdf' || kind === 'file') && !openPdfId) {
               this.replaceWithFileCard(img, ref, name, kind);
               return;
             }

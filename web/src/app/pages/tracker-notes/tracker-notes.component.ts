@@ -75,6 +75,8 @@ export class TrackerNotesComponent implements OnInit {
   insertImageWidthPct = 30;
   /** Text wraps around floated images (like a magazine layout). */
   insertImageFloat: 'left' | 'right' | 'none' = 'left';
+  /** When set, newly inserted cover images open this PDF on click. */
+  notePdfCoverTargetId: number | null = null;
   readonly imageWidthOptions = [
     { pct: 25, label: 'S' },
     { pct: 30, label: 'M' },
@@ -395,6 +397,82 @@ export class TrackerNotesComponent implements OnInit {
     return /\.pdf$/i.test(a.originalFilename || '');
   }
 
+  private currentAttachments(): TrackerMonthNoteAttachmentDto[] {
+    if (this.noteViewMode === 'compose' && this.noteSelectedAttachments.length) {
+      return this.noteSelectedAttachments;
+    }
+    return this.selectedMonthNote?.attachments ?? this.noteSelectedAttachments;
+  }
+
+  /** Explicit pick, else the only PDF on the note (convenient for cover+book). */
+  resolvePdfCoverTarget(): TrackerMonthNoteAttachmentDto | null {
+    const pdfs = this.currentAttachments().filter((a) => this.isPdfAttachment(a));
+    if (this.notePdfCoverTargetId != null) {
+      return pdfs.find((p) => p.id === this.notePdfCoverTargetId) ?? null;
+    }
+    return pdfs.length === 1 ? pdfs[0]! : null;
+  }
+
+  selectPdfCoverTarget(a: TrackerMonthNoteAttachmentDto): void {
+    if (!this.isPdfAttachment(a)) {
+      return;
+    }
+    this.notePdfCoverTargetId = this.notePdfCoverTargetId === a.id ? null : a.id;
+    this.snackBar.open(
+      this.notePdfCoverTargetId != null
+        ? 'Cover images will open this PDF — Insert image or Link covers'
+        : 'PDF cover target cleared',
+      undefined,
+      { duration: 2800 },
+    );
+  }
+
+  /**
+   * Patch existing &lt;img&gt; embeds in the draft body so click opens this PDF.
+   * Use after uploading a cover image + PDF without re-inserting the image.
+   */
+  bindPdfToCoverImages(pdf: TrackerMonthNoteAttachmentDto): void {
+    if (!this.isPdfAttachment(pdf)) {
+      return;
+    }
+    if (this.noteViewMode !== 'compose') {
+      const n = this.selectedMonthNote;
+      if (n) {
+        this.startEditMonthNote(n);
+      }
+    }
+    this.notePdfCoverTargetId = pdf.id;
+    const pdfName = (pdf.originalFilename || 'document.pdf').replace(/"/g, '');
+    let body = this.noteDraft.body ?? '';
+    let changed = 0;
+    body = body.replace(
+      /<img\b([^>]*?)(\/?)>/gi,
+      (_full, attrs: string, slash: string) => {
+        if (!/\/api\/markets\/tracker\/notes\/attachments\/\d+\/file/i.test(attrs)) {
+          return _full;
+        }
+        changed += 1;
+        let next = attrs
+          .replace(/\sdata-open-pdf-id=(["'])[^"']*\1/gi, '')
+          .replace(/\sdata-open-pdf-name=(["'])[^"']*\1/gi, '');
+        next += ` data-open-pdf-id="${pdf.id}" data-open-pdf-name="${pdfName}"`;
+        return `<img${next}${slash}>`;
+      },
+    );
+    if (!changed) {
+      this.snackBar.open('No cover images in the note body yet — Insert an image first', undefined, {
+        duration: 3000,
+      });
+      return;
+    }
+    this.noteDraft = { ...this.noteDraft, body };
+    this.snackBar.open(
+      `Linked ${changed} cover image(s) → PDF — Save the note`,
+      undefined,
+      { duration: 3200 },
+    );
+  }
+
   /** Insert a clickable PDF / file link into the Markdown body. */
   insertFileIntoBody(a: TrackerMonthNoteAttachmentDto): void {
     if (this.noteViewMode !== 'compose') {
@@ -462,8 +540,13 @@ export class TrackerNotesComponent implements OnInit {
           ? '0.75rem 0'
           : '0.1rem 1rem 0.85rem 0';
     const floatCss = floatSide === 'none' ? 'none' : floatSide;
+    const pdf = this.resolvePdfCoverTarget();
+    const pdfAttrs = pdf
+      ? ` data-open-pdf-id="${pdf.id}" data-open-pdf-name="${(pdf.originalFilename || 'document.pdf').replace(/"/g, '')}"`
+      : '';
     const tag =
-      `<img src="${src}" alt="${name}" data-tracker-width="${pct}" data-tracker-float="${floatSide}" ` +
+      `<img src="${src}" alt="${name}" data-tracker-width="${pct}" data-tracker-float="${floatSide}"` +
+      `${pdfAttrs} ` +
       `style="float:${floatCss};max-width:${pct}%;width:${pct}%;height:auto;margin:${margin};" />`;
     let body = this.noteDraft.body ?? '';
     const imgRe = new RegExp(
@@ -487,9 +570,13 @@ export class TrackerNotesComponent implements OnInit {
     this.noteDraft = { ...this.noteDraft, body: this.insertTextAt(body, insertAt, tag) };
     this.noteBodyCaret = insertAt + tag.length + 1;
     this.snackBar.open(
-      hadExisting
-        ? `Image moved / sized to ${pct}% — Save the note`
-        : `Image placed at ${pct}% — Save the note`,
+      pdf
+        ? hadExisting
+          ? `Cover linked to PDF — Save the note`
+          : `Cover placed; click opens PDF — Save the note`
+        : hadExisting
+          ? `Image moved / sized to ${pct}% — Save the note`
+          : `Image placed at ${pct}% — Save the note`,
       undefined,
       { duration: 3000 },
     );
