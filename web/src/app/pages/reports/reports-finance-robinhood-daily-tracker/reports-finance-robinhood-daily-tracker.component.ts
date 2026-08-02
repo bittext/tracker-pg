@@ -116,6 +116,16 @@ export interface RhDailyBenchmarkPoint {
   y: number;
 }
 
+/** Absolute equity point for the floating-monkey safety / survival chart. */
+export interface RhDailyMonkeyCapitalPoint {
+  key: string;
+  label: string;
+  value: number;
+  zone: 'growth' | 'risk' | 'drown';
+  x: number;
+  y: number;
+}
+
 export interface RhDailyFocusMetrics {
   startValue: number;
   latestValue: number;
@@ -157,6 +167,12 @@ export interface RhDailyFocusMetrics {
 })
 export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   readonly focusAccountSuffix = '3370';
+  /** Owned-equity chart: Growth Monkey above this line may take risk. */
+  readonly monkeySafetyUsd = 170_000;
+  /** Below this line the monkey drowns — capital survival mode. */
+  readonly monkeySurvivalUsd = 130_000;
+  /** First date included on the monkey capital chart. */
+  readonly monkeyCapitalStartDate = '2026-06-28';
   private readonly financeApi = inject(FinanceApiService);
   private readonly journalNav = inject(TradingJournalNavService);
   private readonly snackBar = inject(MatSnackBar);
@@ -1267,6 +1283,153 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     }
     const middle = points[Math.floor((points.length - 1) / 2)];
     return [points[0], middle, points[points.length - 1]];
+  }
+
+  /** Absolute owned equity for ••••3370 from {@link monkeyCapitalStartDate}. */
+  monkeyCapitalPoints(): RhDailyMonkeyCapitalPoint[] {
+    const raw = this.focusPoints().filter((p) => p.key >= this.monkeyCapitalStartDate);
+    if (!raw.length) {
+      return [];
+    }
+    const values = [...raw.map((p) => p.value), this.monkeySafetyUsd, this.monkeySurvivalUsd];
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const pad = Math.max((max - min) * 0.08, 5_000);
+    const lo = min - pad;
+    const hi = max + pad;
+    const range = Math.max(hi - lo, 1);
+    const xDenominator = Math.max(raw.length - 1, 1);
+    const yFor = (v: number) => 36 - ((v - lo) / range) * 32;
+    return raw.map((p, index) => ({
+      key: p.key,
+      label: p.label,
+      value: p.value,
+      zone: this.monkeyZoneFor(p.value),
+      x: (index / xDenominator) * 100,
+      y: yFor(p.value),
+    }));
+  }
+
+  monkeyZoneFor(equity: number): 'growth' | 'risk' | 'drown' {
+    if (equity >= this.monkeySafetyUsd) {
+      return 'growth';
+    }
+    if (equity >= this.monkeySurvivalUsd) {
+      return 'risk';
+    }
+    return 'drown';
+  }
+
+  monkeyZoneLabel(zone: 'growth' | 'risk' | 'drown'): string {
+    if (zone === 'growth') {
+      return 'Growth Monkey';
+    }
+    if (zone === 'risk') {
+      return 'Risk Monkey';
+    }
+    return 'Drown zone';
+  }
+
+  monkeySrcForZone(zone: 'growth' | 'risk' | 'drown'): string {
+    if (zone === 'growth') {
+      return '/monkeys/growth-monkey.png';
+    }
+    // Risk + drown share the downside mascot; drown gets a CSS wash.
+    return '/monkeys/risk-monkey.png';
+  }
+
+  monkeyCapitalTrendPath(): string {
+    const points = this.monkeyCapitalPoints();
+    if (!points.length) {
+      return '';
+    }
+    return points
+      .map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`)
+      .join(' ');
+  }
+
+  monkeyCapitalAreaPath(): string {
+    const points = this.monkeyCapitalPoints();
+    if (!points.length) {
+      return '';
+    }
+    const line = this.monkeyCapitalTrendPath();
+    const first = points[0];
+    const last = points[points.length - 1];
+    return `${line} L ${last.x.toFixed(2)} 36 L ${first.x.toFixed(2)} 36 Z`;
+  }
+
+  private monkeyCapitalValueRange(): { lo: number; hi: number } | null {
+    const points = this.monkeyCapitalPoints();
+    if (!points.length) {
+      return null;
+    }
+    const values = [...points.map((p) => p.value), this.monkeySafetyUsd, this.monkeySurvivalUsd];
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const pad = Math.max((max - min) * 0.08, 5_000);
+    return { lo: min - pad, hi: max + pad };
+  }
+
+  private monkeyYForValue(value: number): number | null {
+    const range = this.monkeyCapitalValueRange();
+    if (!range) {
+      return null;
+    }
+    const span = Math.max(range.hi - range.lo, 1);
+    return 36 - ((value - range.lo) / span) * 32;
+  }
+
+  monkeySafetyLineY(): number | null {
+    return this.monkeyYForValue(this.monkeySafetyUsd);
+  }
+
+  monkeySurvivalLineY(): number | null {
+    return this.monkeyYForValue(this.monkeySurvivalUsd);
+  }
+
+  monkeyYAxisLabels(): Array<{ y: number; value: number }> {
+    const range = this.monkeyCapitalValueRange();
+    if (!range) {
+      return [];
+    }
+    return [
+      { y: 4, value: range.hi },
+      { y: 20, value: range.lo + (range.hi - range.lo) / 2 },
+      { y: 36, value: range.lo },
+    ];
+  }
+
+  monkeyXAxisLabels(): RhDailyMonkeyCapitalPoint[] {
+    const points = this.monkeyCapitalPoints();
+    if (points.length <= 3) {
+      return points;
+    }
+    const middle = points[Math.floor((points.length - 1) / 2)];
+    return [points[0], middle, points[points.length - 1]];
+  }
+
+  monkeyLatestPoint(): RhDailyMonkeyCapitalPoint | null {
+    const points = this.monkeyCapitalPoints();
+    return points.length ? points[points.length - 1] : null;
+  }
+
+  monkeyGapToSafety(): number | null {
+    const latest = this.monkeyLatestPoint();
+    return latest ? this.monkeySafetyUsd - latest.value : null;
+  }
+
+  monkeyCushionAboveSurvival(): number | null {
+    const latest = this.monkeyLatestPoint();
+    return latest ? latest.value - this.monkeySurvivalUsd : null;
+  }
+
+  formatMonkeyUsd(value: number): string {
+    return value.toLocaleString('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 0,
+    });
   }
 
   focusDetailRows(): Array<{

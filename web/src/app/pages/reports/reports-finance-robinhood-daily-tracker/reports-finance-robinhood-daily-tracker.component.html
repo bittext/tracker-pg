@@ -733,6 +733,203 @@
             </div>
           </div>
 
+          @if (monkeyCapitalPoints().length) {
+            <div class="rh-daily__focus-chart-wrap rh-daily__monkey-chart-wrap">
+              <div class="rh-daily__focus-chart-head">
+                <div class="rh-daily__focus-chart-title-block">
+                  <h4 class="rh-daily__focus-chart-title">Floating monkey · capital safety map</h4>
+                  <p class="rh-daily__focus-chart-sub muted">
+                    Owned equity (total account value) for ••••{{ focusAccountSuffix }} since
+                    {{ monkeyCapitalStartDate | date: 'mediumDate' }} · Growth Monkey above
+                    {{ monkeySafetyUsd | currency: 'USD':'symbol':'1.0-0' }} · drown below
+                    {{ monkeySurvivalUsd | currency: 'USD':'symbol':'1.0-0' }}
+                  </p>
+                </div>
+                <div class="rh-daily__focus-chart-toolbar">
+                  <ul class="rh-daily__focus-legend" aria-label="Monkey zone legend">
+                    <li>
+                      <span class="rh-daily__focus-legend-swatch rh-daily__monkey-swatch--growth"></span>
+                      Safety / Growth
+                    </li>
+                    <li>
+                      <span class="rh-daily__focus-legend-swatch rh-daily__monkey-swatch--risk"></span>
+                      Risk float
+                    </li>
+                    <li>
+                      <span class="rh-daily__focus-legend-swatch rh-daily__monkey-swatch--drown"></span>
+                      Survival / Drown
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              @if (monkeyLatestPoint(); as live) {
+                <div
+                  class="rh-daily__monkey-status"
+                  [class.rh-daily__monkey-status--growth]="live.zone === 'growth'"
+                  [class.rh-daily__monkey-status--risk]="live.zone === 'risk'"
+                  [class.rh-daily__monkey-status--drown]="live.zone === 'drown'"
+                >
+                  <img
+                    class="rh-daily__monkey-status-img"
+                    [src]="monkeySrcForZone(live.zone)"
+                    [class.rh-daily__monkey-status-img--drown]="live.zone === 'drown'"
+                    [alt]="monkeyZoneLabel(live.zone)"
+                  />
+                  <div class="rh-daily__monkey-status-copy">
+                    <strong>{{ monkeyZoneLabel(live.zone) }} · {{ live.value | currency }}</strong>
+                    <p class="muted">
+                      @if (live.zone === 'growth') {
+                        Above the safety line — room to take calculated risk.
+                      } @else if (live.zone === 'risk') {
+                        Floating between survival and safety —
+                        @if (monkeyCushionAboveSurvival(); as cushion) {
+                          {{ cushion | currency }} above drown,
+                        }
+                        @if (monkeyGapToSafety(); as gap) {
+                          {{ gap | currency }} below Growth altitude.
+                        }
+                      } @else {
+                        Below the survival line — capital defense first; no discretionary risk.
+                      }
+                    </p>
+                  </div>
+                </div>
+              }
+
+              <div class="rh-daily__focus-chart-stage">
+                <div class="rh-daily__focus-y-labels" aria-hidden="true">
+                  @for (tick of monkeyYAxisLabels(); track tick.y) {
+                    <span [style.top.%]="(tick.y / 40) * 100">{{ formatMonkeyUsd(tick.value) }}</span>
+                  }
+                </div>
+                <div class="rh-daily__focus-plot">
+                  <div class="rh-daily__focus-plot-canvas">
+                    <svg
+                      class="rh-daily__focus-chart rh-daily__monkey-chart"
+                      viewBox="0 0 100 40"
+                      preserveAspectRatio="none"
+                      role="img"
+                      [attr.aria-label]="
+                        'Owned equity chart with safety and survival lines for account ' + focusAccountSuffix
+                      "
+                    >
+                      @if (monkeySafetyLineY() != null && monkeySurvivalLineY() != null) {
+                        <rect
+                          x="0"
+                          y="0"
+                          width="100"
+                          [attr.height]="monkeySafetyLineY()!"
+                          class="rh-daily__monkey-band rh-daily__monkey-band--growth"
+                        />
+                        <rect
+                          x="0"
+                          [attr.y]="monkeySafetyLineY()!"
+                          width="100"
+                          [attr.height]="monkeySurvivalLineY()! - monkeySafetyLineY()!"
+                          class="rh-daily__monkey-band rh-daily__monkey-band--risk"
+                        />
+                        <rect
+                          x="0"
+                          [attr.y]="monkeySurvivalLineY()!"
+                          width="100"
+                          [attr.height]="40 - monkeySurvivalLineY()!"
+                          class="rh-daily__monkey-band rh-daily__monkey-band--drown"
+                        />
+                      }
+                      <line x1="0" y1="4" x2="100" y2="4" class="rh-daily__focus-grid" />
+                      <line x1="0" y1="20" x2="100" y2="20" class="rh-daily__focus-grid" />
+                      <line x1="0" y1="36" x2="100" y2="36" class="rh-daily__focus-axis" />
+                      @if (monkeySafetyLineY() != null) {
+                        <line
+                          x1="0"
+                          [attr.y1]="monkeySafetyLineY()"
+                          x2="100"
+                          [attr.y2]="monkeySafetyLineY()"
+                          class="rh-daily__monkey-line rh-daily__monkey-line--safety"
+                        />
+                      }
+                      @if (monkeySurvivalLineY() != null) {
+                        <line
+                          x1="0"
+                          [attr.y1]="monkeySurvivalLineY()"
+                          x2="100"
+                          [attr.y2]="monkeySurvivalLineY()"
+                          class="rh-daily__monkey-line rh-daily__monkey-line--survival"
+                        />
+                      }
+                      <path [attr.d]="monkeyCapitalAreaPath()" class="rh-daily__focus-area" />
+                      <path [attr.d]="monkeyCapitalTrendPath()" class="rh-daily__focus-line rh-daily__monkey-equity-line" />
+                      @for (point of monkeyCapitalPoints(); track point.key) {
+                        <circle
+                          [attr.cx]="point.x"
+                          [attr.cy]="point.y"
+                          r="1.35"
+                          class="rh-daily__focus-hit"
+                          role="button"
+                          tabindex="0"
+                          [attr.aria-label]="
+                            point.key +
+                            ', equity ' +
+                            (point.value | currency) +
+                            ', ' +
+                            monkeyZoneLabel(point.zone)
+                          "
+                          (click)="selectFocusPoint(point.key, $event)"
+                          (keydown.enter)="selectFocusPoint(point.key, $event)"
+                          (keydown.space)="selectFocusPoint(point.key, $event)"
+                        >
+                          <title>
+                            {{ point.key }} · {{ point.value | currency }} · {{ monkeyZoneLabel(point.zone) }}
+                          </title>
+                        </circle>
+                      }
+                    </svg>
+
+                    <div class="rh-daily__monkey-marker-layer" aria-hidden="true">
+                      @if (monkeySafetyLineY(); as sy) {
+                        <img
+                          class="rh-daily__monkey-on-line rh-daily__monkey-on-line--safety"
+                          src="/monkeys/growth-monkey.png"
+                          alt=""
+                          [style.top.%]="(sy / 40) * 100"
+                          title="Safety line $170,000 — Growth Monkey"
+                        />
+                      }
+                      @if (monkeySurvivalLineY(); as vy) {
+                        <img
+                          class="rh-daily__monkey-on-line rh-daily__monkey-on-line--survival"
+                          src="/monkeys/risk-monkey.png"
+                          alt=""
+                          [style.top.%]="(vy / 40) * 100"
+                          title="Survival line $130,000 — drown below"
+                        />
+                      }
+                      @if (monkeyLatestPoint(); as live) {
+                        <img
+                          class="rh-daily__monkey-on-line rh-daily__monkey-on-line--live"
+                          [class.rh-daily__monkey-on-line--drown]="live.zone === 'drown'"
+                          [src]="monkeySrcForZone(live.zone)"
+                          alt=""
+                          [style.left.%]="live.x"
+                          [style.top.%]="(live.y / 40) * 100"
+                          [title]="
+                            monkeyZoneLabel(live.zone) + ' at ' + (live.value | currency) + ' on ' + live.key
+                          "
+                        />
+                      }
+                    </div>
+                  </div>
+                  <div class="rh-daily__focus-labels" aria-hidden="true">
+                    @for (point of monkeyXAxisLabels(); track point.key) {
+                      <span [style.left.%]="point.x">{{ point.label }}</span>
+                    }
+                  </div>
+                </div>
+              </div>
+            </div>
+          }
+
           <div class="rh-daily__focus-compare" role="group" aria-label="Period comparison">
             <div class="rh-daily__focus-compare-cell">
               <span class="rh-daily__focus-kpi-label">Launch-day 9 PM</span>
