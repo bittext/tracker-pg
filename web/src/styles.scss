@@ -1014,6 +1014,22 @@ app-management app-writeup-markdown-body .markdown-body::after {
   border-color: #b91c1c !important;
   color: #b91c1c;
 }
+
+:is(app-management, app-life-photos, app-tracker-notes) .wu-att-pdf-pick {
+  width: min(14rem, 100%);
+  margin: 0 0.15rem;
+}
+
+:is(app-management, app-life-photos, app-tracker-notes) .wu-att-pdf-pick .mat-mdc-form-field-infix {
+  min-height: 2.25rem;
+  padding-top: 0.45rem;
+  padding-bottom: 0.45rem;
+}
+
+:is(app-management, app-life-photos, app-tracker-notes) .wu-att-hint {
+  font-size: 0.78rem;
+  margin-left: 0.35rem;
+}
 app-management .wu-att-insert {
   margin-left: 0.25rem;
 }

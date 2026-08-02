@@ -240,22 +240,26 @@
                         <mat-icon>image</mat-icon>
                         Insert {{ insertImageWidthPct }}%
                       </button>
+                      @if (pdfAttachments.length) {
+                        <mat-form-field appearance="outline" class="wu-att-pdf-pick" subscriptSizing="dynamic">
+                          <mat-label>Opens PDF</mat-label>
+                          <mat-select
+                            [value]="linkedPdfIdForImage(a.id)"
+                            (selectionChange)="onImagePdfLinkChange(a, $event.value)"
+                          >
+                            <mat-option [value]="null">None</mat-option>
+                            @for (p of pdfAttachments; track p.id) {
+                              <mat-option [value]="p.id">{{ shortAttachmentLabel(p) }}</mat-option>
+                            }
+                          </mat-select>
+                        </mat-form-field>
+                      }
                     } @else if (isPdfAttachment(a)) {
                       <button mat-stroked-button type="button" class="wu-att-insert" (click)="insertFileIntoBody(a)">
                         <mat-icon>picture_as_pdf</mat-icon>
                         Insert PDF
                       </button>
-                      <button
-                        mat-stroked-button
-                        type="button"
-                        class="wu-att-insert"
-                        [class.wu-att-insert--active]="notePdfCoverTargetId === a.id"
-                        (click)="bindPdfToCoverImages(a)"
-                        title="Cover images in the note will open this PDF when clicked"
-                      >
-                        <mat-icon>menu_book</mat-icon>
-                        Link covers → PDF
-                      </button>
+                      <span class="muted wu-att-hint">Link from an image’s Opens PDF</span>
                     } @else {
                       <button mat-stroked-button type="button" class="wu-att-insert" (click)="insertFileIntoBody(a)">
                         <mat-icon>attach_file</mat-icon>
@@ -349,22 +353,26 @@
                       <mat-icon>image</mat-icon>
                       Insert {{ insertImageWidthPct }}%
                     </button>
+                    @if (pdfAttachments.length) {
+                      <mat-form-field appearance="outline" class="wu-att-pdf-pick" subscriptSizing="dynamic">
+                        <mat-label>Opens PDF</mat-label>
+                        <mat-select
+                          [value]="linkedPdfIdForImage(a.id)"
+                          (selectionChange)="onImagePdfLinkChange(a, $event.value)"
+                        >
+                          <mat-option [value]="null">None</mat-option>
+                          @for (p of pdfAttachments; track p.id) {
+                            <mat-option [value]="p.id">{{ shortAttachmentLabel(p) }}</mat-option>
+                          }
+                        </mat-select>
+                      </mat-form-field>
+                    }
                   } @else if (isPdfAttachment(a)) {
                     <button mat-stroked-button type="button" class="wu-att-insert" (click)="insertFileIntoBody(a)">
                       <mat-icon>picture_as_pdf</mat-icon>
                       Insert PDF
                     </button>
-                    <button
-                      mat-stroked-button
-                      type="button"
-                      class="wu-att-insert"
-                      [class.wu-att-insert--active]="notePdfCoverTargetId === a.id"
-                      (click)="bindPdfToCoverImages(a)"
-                      title="Cover images in the note will open this PDF when clicked"
-                    >
-                      <mat-icon>menu_book</mat-icon>
-                      Link covers → PDF
-                    </button>
+                    <span class="muted wu-att-hint">Link from an image’s Opens PDF</span>
                   } @else {
                     <button mat-stroked-button type="button" class="wu-att-insert" (click)="insertFileIntoBody(a)">
                       <mat-icon>attach_file</mat-icon>

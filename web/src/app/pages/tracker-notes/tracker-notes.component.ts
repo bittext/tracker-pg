@@ -75,7 +75,7 @@ export class TrackerNotesComponent implements OnInit {
   insertImageWidthPct = 30;
   /** Text wraps around floated images (like a magazine layout). */
   insertImageFloat: 'left' | 'right' | 'none' = 'left';
-  /** When set, newly inserted cover images open this PDF on click. */
+  /** When set, newly inserted images open this PDF on click (from the per-image Opens PDF picker). */
   notePdfCoverTargetId: number | null = null;
   readonly imageWidthOptions = [
     { pct: 25, label: 'S' },
@@ -404,35 +404,52 @@ export class TrackerNotesComponent implements OnInit {
     return this.selectedMonthNote?.attachments ?? this.noteSelectedAttachments;
   }
 
+  get pdfAttachments(): TrackerMonthNoteAttachmentDto[] {
+    return this.currentAttachments().filter((a) => this.isPdfAttachment(a));
+  }
+
+  private workingBody(): string {
+    if (this.noteViewMode === 'compose') {
+      return this.noteDraft.body ?? '';
+    }
+    return this.selectedMonthNote?.body ?? this.noteDraft.body ?? '';
+  }
+
   /** Explicit pick, else the only PDF on the note (convenient for cover+book). */
   resolvePdfCoverTarget(): TrackerMonthNoteAttachmentDto | null {
-    const pdfs = this.currentAttachments().filter((a) => this.isPdfAttachment(a));
+    const pdfs = this.pdfAttachments;
     if (this.notePdfCoverTargetId != null) {
       return pdfs.find((p) => p.id === this.notePdfCoverTargetId) ?? null;
     }
     return pdfs.length === 1 ? pdfs[0]! : null;
   }
 
-  selectPdfCoverTarget(a: TrackerMonthNoteAttachmentDto): void {
-    if (!this.isPdfAttachment(a)) {
-      return;
-    }
-    this.notePdfCoverTargetId = this.notePdfCoverTargetId === a.id ? null : a.id;
-    this.snackBar.open(
-      this.notePdfCoverTargetId != null
-        ? 'Cover images will open this PDF — Insert image or Link covers'
-        : 'PDF cover target cleared',
-      undefined,
-      { duration: 2800 },
+  /** Which PDF (if any) this image embed currently opens. */
+  linkedPdfIdForImage(imageId: number): number | null {
+    const body = this.workingBody();
+    const re = new RegExp(
+      `<img\\b[^>]*\\bsrc=["'][^"']*\\/api\\/markets\\/tracker\\/notes\\/attachments\\/${imageId}\\/file[^"']*["'][^>]*>`,
+      'i',
     );
+    const tag = body.match(re)?.[0];
+    if (!tag) {
+      return null;
+    }
+    const idm = tag.match(/\bdata-open-pdf-id=["'](\d+)["']/i);
+    return idm ? Number(idm[1]) : null;
+  }
+
+  shortAttachmentLabel(a: TrackerMonthNoteAttachmentDto, max = 36): string {
+    const name = a.originalFilename || `file ${a.id}`;
+    return name.length > max ? `${name.slice(0, max - 1)}…` : name;
   }
 
   /**
-   * Patch existing &lt;img&gt; embeds in the draft body so click opens this PDF.
-   * Use after uploading a cover image + PDF without re-inserting the image.
+   * Per-image provision: choose which PDF this one image opens on click.
+   * Inserts the image into the body if it is not already present.
    */
-  bindPdfToCoverImages(pdf: TrackerMonthNoteAttachmentDto): void {
-    if (!this.isPdfAttachment(pdf)) {
+  onImagePdfLinkChange(image: TrackerMonthNoteAttachmentDto, pdfId: number | null): void {
+    if (!this.isImageAttachment(image)) {
       return;
     }
     if (this.noteViewMode !== 'compose') {
@@ -441,36 +458,63 @@ export class TrackerNotesComponent implements OnInit {
         this.startEditMonthNote(n);
       }
     }
+    if (pdfId == null) {
+      this.unlinkImageFromPdf(image.id);
+      this.snackBar.open('PDF link removed from image — Save the note', undefined, { duration: 2800 });
+      return;
+    }
+    const pdf = this.pdfAttachments.find((p) => p.id === pdfId);
+    if (!pdf) {
+      return;
+    }
+    this.linkOneImageToPdf(image, pdf);
+  }
+
+  private unlinkImageFromPdf(imageId: number): void {
+    let body = this.noteDraft.body ?? '';
+    const imgRe = new RegExp(
+      `<img\\b([^>]*\\bsrc=["'][^"']*\\/api\\/markets\\/tracker\\/notes\\/attachments\\/${imageId}\\/file[^"']*["'][^>]*)(\\/?)>`,
+      'gi',
+    );
+    body = body.replace(imgRe, (_full, attrs: string, slash: string) => {
+      const next = attrs
+        .replace(/\sdata-open-pdf-id=(["'])[^"']*\1/gi, '')
+        .replace(/\sdata-open-pdf-name=(["'])[^"']*\1/gi, '');
+      return `<img${next}${slash}>`;
+    });
+    this.noteDraft = { ...this.noteDraft, body };
+  }
+
+  /** Link exactly one image attachment embed to one PDF. */
+  linkOneImageToPdf(image: TrackerMonthNoteAttachmentDto, pdf: TrackerMonthNoteAttachmentDto): void {
     this.notePdfCoverTargetId = pdf.id;
     const pdfName = (pdf.originalFilename || 'document.pdf').replace(/"/g, '');
     let body = this.noteDraft.body ?? '';
-    let changed = 0;
-    body = body.replace(
-      /<img\b([^>]*?)(\/?)>/gi,
-      (_full, attrs: string, slash: string) => {
-        if (!/\/api\/markets\/tracker\/notes\/attachments\/\d+\/file/i.test(attrs)) {
-          return _full;
-        }
-        changed += 1;
-        let next = attrs
-          .replace(/\sdata-open-pdf-id=(["'])[^"']*\1/gi, '')
-          .replace(/\sdata-open-pdf-name=(["'])[^"']*\1/gi, '');
-        next += ` data-open-pdf-id="${pdf.id}" data-open-pdf-name="${pdfName}"`;
-        return `<img${next}${slash}>`;
-      },
+    const imgRe = new RegExp(
+      `<img\\b([^>]*\\bsrc=["'][^"']*\\/api\\/markets\\/tracker\\/notes\\/attachments\\/${image.id}\\/file[^"']*["'][^>]*)(\\/?)>`,
+      'gi',
     );
+    let changed = 0;
+    body = body.replace(imgRe, (_full, attrs: string, slash: string) => {
+      changed += 1;
+      let next = attrs
+        .replace(/\sdata-open-pdf-id=(["'])[^"']*\1/gi, '')
+        .replace(/\sdata-open-pdf-name=(["'])[^"']*\1/gi, '');
+      next += ` data-open-pdf-id="${pdf.id}" data-open-pdf-name="${pdfName}"`;
+      return `<img${next}${slash}>`;
+    });
     if (!changed) {
-      this.snackBar.open('No cover images in the note body yet — Insert an image first', undefined, {
-        duration: 3000,
-      });
+      // Image not in body yet — insert it already linked to this PDF.
+      const prev = this.notePdfCoverTargetId;
+      this.notePdfCoverTargetId = pdf.id;
+      this.insertImageIntoBody(image);
+      this.notePdfCoverTargetId = prev ?? pdf.id;
       return;
     }
     this.noteDraft = { ...this.noteDraft, body };
-    this.snackBar.open(
-      `Linked ${changed} cover image(s) → PDF — Save the note`,
-      undefined,
-      { duration: 3200 },
-    );
+    this.snackBar.open('Image linked to PDF — click cover opens the book. Save the note.', undefined, {
+      duration: 3200,
+    });
   }
 
   /** Insert a clickable PDF / file link into the Markdown body. */
