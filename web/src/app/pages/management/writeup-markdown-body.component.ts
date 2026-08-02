@@ -102,7 +102,7 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
 
   private render(): void {
     this.revokeAll();
-    const src = (this.body ?? '').trim();
+    const src = this.repairBrokenPdfCoverImgTags((this.body ?? '').trim());
     if (!src) {
       this.html = this.sanitizer.bypassSecurityTrustHtml('');
       return;
@@ -365,6 +365,27 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
       return { kind: 'writeup', id: Number(writeup[1]) };
     }
     return null;
+  }
+
+  /**
+   * Repair {@code <img … / data-open-pdf-id="…">} (slash before PDF attrs) so covers
+   * still render after an earlier linker bug.
+   */
+  private repairBrokenPdfCoverImgTags(body: string): string {
+    if (!body || !body.includes('data-open-pdf-id')) {
+      return body;
+    }
+    return body.replace(
+      /<img\b([^>]*?)\s\/\s*((?:data-open-pdf-(?:id|name)=(?:"[^"]*"|'[^']*')\s*)+)\s*\/?>/gi,
+      (_m, attrs: string, pdfAttrs: string) => {
+        const cleaned = String(attrs)
+          .replace(/\s\/\s*$/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+        const pdf = String(pdfAttrs).replace(/\s+/g, ' ').trim();
+        return `<img ${cleaned} ${pdf} />`;
+      },
+    );
   }
 
   private revokeAll(): void {

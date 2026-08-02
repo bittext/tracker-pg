@@ -267,7 +267,7 @@ export class TrackerNotesComponent implements OnInit {
       year: n.year,
       month: n.month,
       subject: n.subject,
-      body: n.body ?? '',
+      body: this.repairBrokenPdfCoverImgTags(n.body ?? ''),
     };
   }
 
@@ -277,6 +277,10 @@ export class TrackerNotesComponent implements OnInit {
       this.snackBar.open('Subject is required', undefined, { duration: 2500 });
       return;
     }
+    this.noteDraft = {
+      ...this.noteDraft,
+      body: this.repairBrokenPdfCoverImgTags(this.noteDraft.body ?? ''),
+    };
     const body: TrackerMonthNoteWriteBody = {
       year: this.noteDraft.year,
       month: this.noteDraft.month,
@@ -470,48 +474,76 @@ export class TrackerNotesComponent implements OnInit {
     this.linkOneImageToPdf(image, pdf);
   }
 
-  private unlinkImageFromPdf(imageId: number): void {
-    let body = this.noteDraft.body ?? '';
+  /**
+   * Normalize img attribute text so a stray self-closing slash never sits before
+   * data-open-pdf-* (that pattern breaks HTML and hides the image in preview).
+   */
+  private normalizeImgAttrs(attrs: string): string {
+    return attrs
+      .replace(/\s\/\s+(?=data-open-pdf-|data-tracker-|data-life-|data-att-|alt=|src=|style=|class=)/gi, ' ')
+      .replace(/\/\s*$/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private rewriteTrackerImageTags(
+    body: string,
+    imageId: number,
+    mutator: (attrs: string) => string,
+  ): { body: string; changed: number } {
     const imgRe = new RegExp(
-      `<img\\b([^>]*\\bsrc=["'][^"']*\\/api\\/markets\\/tracker\\/notes\\/attachments\\/${imageId}\\/file[^"']*["'][^>]*)(\\/?)>`,
+      `<img\\b([^>]*\\bsrc=["'][^"']*\\/api\\/markets\\/tracker\\/notes\\/attachments\\/${imageId}\\/file[^"']*["'][^>]*?)\\s*\\/?>`,
       'gi',
     );
-    body = body.replace(imgRe, (_full, attrs: string, slash: string) => {
-      const next = attrs
-        .replace(/\sdata-open-pdf-id=(["'])[^"']*\1/gi, '')
-        .replace(/\sdata-open-pdf-name=(["'])[^"']*\1/gi, '');
-      return `<img${next}${slash}>`;
+    let changed = 0;
+    const nextBody = body.replace(imgRe, (_full, attrs: string) => {
+      changed += 1;
+      const next = mutator(this.normalizeImgAttrs(attrs));
+      return `<img ${next} />`;
     });
-    this.noteDraft = { ...this.noteDraft, body };
+    return { body: nextBody, changed };
+  }
+
+  /** Fix previously saved broken tags: {@code <img ... / data-open-pdf-id="…">}. */
+  repairBrokenPdfCoverImgTags(body: string): string {
+    return body.replace(
+      /<img\b([^>]*?)\s\/\s*((?:data-open-pdf-(?:id|name)=(?:"[^"]*"|'[^']*')\s*)+)\s*\/?>/gi,
+      (_m, attrs: string, pdfAttrs: string) => {
+        const cleaned = this.normalizeImgAttrs(String(attrs));
+        const pdf = String(pdfAttrs).replace(/\s+/g, ' ').trim();
+        return `<img ${cleaned} ${pdf} />`;
+      },
+    );
+  }
+
+  private unlinkImageFromPdf(imageId: number): void {
+    const { body } = this.rewriteTrackerImageTags(this.noteDraft.body ?? '', imageId, (attrs) =>
+      attrs
+        .replace(/\sdata-open-pdf-id=(["'])[^"']*\1/gi, '')
+        .replace(/\sdata-open-pdf-name=(["'])[^"']*\1/gi, '')
+        .trim(),
+    );
+    this.noteDraft = { ...this.noteDraft, body: this.repairBrokenPdfCoverImgTags(body) };
   }
 
   /** Link exactly one image attachment embed to one PDF. */
   linkOneImageToPdf(image: TrackerMonthNoteAttachmentDto, pdf: TrackerMonthNoteAttachmentDto): void {
     this.notePdfCoverTargetId = pdf.id;
     const pdfName = (pdf.originalFilename || 'document.pdf').replace(/"/g, '');
-    let body = this.noteDraft.body ?? '';
-    const imgRe = new RegExp(
-      `<img\\b([^>]*\\bsrc=["'][^"']*\\/api\\/markets\\/tracker\\/notes\\/attachments\\/${image.id}\\/file[^"']*["'][^>]*)(\\/?)>`,
-      'gi',
-    );
-    let changed = 0;
-    body = body.replace(imgRe, (_full, attrs: string, slash: string) => {
-      changed += 1;
-      let next = attrs
+    let body = this.repairBrokenPdfCoverImgTags(this.noteDraft.body ?? '');
+    const rewritten = this.rewriteTrackerImageTags(body, image.id, (attrs) => {
+      const base = attrs
         .replace(/\sdata-open-pdf-id=(["'])[^"']*\1/gi, '')
-        .replace(/\sdata-open-pdf-name=(["'])[^"']*\1/gi, '');
-      next += ` data-open-pdf-id="${pdf.id}" data-open-pdf-name="${pdfName}"`;
-      return `<img${next}${slash}>`;
+        .replace(/\sdata-open-pdf-name=(["'])[^"']*\1/gi, '')
+        .trim();
+      return `${base} data-open-pdf-id="${pdf.id}" data-open-pdf-name="${pdfName}"`;
     });
-    if (!changed) {
-      // Image not in body yet — insert it already linked to this PDF.
-      const prev = this.notePdfCoverTargetId;
+    if (!rewritten.changed) {
       this.notePdfCoverTargetId = pdf.id;
       this.insertImageIntoBody(image);
-      this.notePdfCoverTargetId = prev ?? pdf.id;
       return;
     }
-    this.noteDraft = { ...this.noteDraft, body };
+    this.noteDraft = { ...this.noteDraft, body: rewritten.body };
     this.snackBar.open('Image linked to PDF — click cover opens the book. Save the note.', undefined, {
       duration: 3200,
     });
