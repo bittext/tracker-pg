@@ -126,6 +126,23 @@ export interface RhDailyMonkeyCapitalPoint {
   y: number;
 }
 
+/** Click-to-open briefing for the floating-monkey capital map. */
+export interface RhDailyMonkeyAnalysis {
+  liveValue: number;
+  zone: 'growth' | 'risk' | 'drown';
+  zoneLabel: string;
+  headline: string;
+  posture: string;
+  gapToSafety: number;
+  cushionAboveSurvival: number;
+  daysAboveSafety: number;
+  daysBelowSurvival: number;
+  peak: { key: string; value: number };
+  trough: { key: string; value: number };
+  trendBullets: string[];
+  playbook: string;
+}
+
 export interface RhDailyFocusMetrics {
   startValue: number;
   latestValue: number;
@@ -204,6 +221,8 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   private readonly expandedAlertEventIds = new Set<number>();
   focusDetailsExpanded = false;
   selectedFocusDate: string | null = null;
+  /** Full floating-monkey briefing panel (opened by clicking the capital chart). */
+  monkeyAnalysisExpanded = false;
 
   readonly aiScopes: RhDailyTrackerAiInsightScope[] = ['YEAR', 'MONTH', 'WEEK', 'DAY'];
 
@@ -1430,6 +1449,88 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       currency: 'USD',
       maximumFractionDigits: 0,
     });
+  }
+
+  toggleMonkeyAnalysis(event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.monkeyAnalysisExpanded = !this.monkeyAnalysisExpanded;
+  }
+
+  openMonkeyAnalysis(event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.monkeyAnalysisExpanded = true;
+  }
+
+  /** Strategic briefing for the floating-monkey capital map (same narrative as the risk canvas). */
+  monkeyAnalysis(): RhDailyMonkeyAnalysis | null {
+    const points = this.monkeyCapitalPoints();
+    const live = this.monkeyLatestPoint();
+    if (!points.length || !live) {
+      return null;
+    }
+    const peak = points.reduce((a, b) => (b.value > a.value ? b : a));
+    const trough = points.reduce((a, b) => (b.value < a.value ? b : a));
+    const daysAboveSafety = points.filter((p) => p.value >= this.monkeySafetyUsd).length;
+    const daysBelowSurvival = points.filter((p) => p.value < this.monkeySurvivalUsd).length;
+    const gapToSafety = this.monkeySafetyUsd - live.value;
+    const cushionAboveSurvival = live.value - this.monkeySurvivalUsd;
+    const zoneLabel = this.monkeyZoneLabel(live.zone);
+
+    let headline: string;
+    let posture: string;
+    if (live.zone === 'growth') {
+      headline = `Your monkey is in the Growth Monkey band — above safety at ${this.formatMonkeyUsd(live.value)}.`;
+      posture =
+        'Balloon is high enough for calculated risk. Keep an eye on the survival floor if leverage expands.';
+    } else if (live.zone === 'risk') {
+      headline = `Your monkey is in the Risk Monkey band — floating, not drowning, and not yet at Growth altitude.`;
+      posture =
+        'Balloon still airborne; not high enough for aggressive new leverage. Defend capital until safety is reclaimed.';
+    } else {
+      headline = `Your monkey is in the drown zone — below the survival line at ${this.formatMonkeyUsd(live.value)}.`;
+      posture = 'Capital defense first. No discretionary risk until equity climbs back above survival.';
+    }
+
+    const startLabel = this.monkeyCapitalStartDate.slice(5).replace('-', '/');
+    const trendBullets: string[] = [
+      `Only ${daysAboveSafety} day${daysAboveSafety === 1 ? '' : 's'} cleared safety ` +
+        `(peak ${this.formatMonkeyUsd(peak.value)} on ${peak.key}).`,
+      `${daysBelowSurvival} day${daysBelowSurvival === 1 ? '' : 's'} under survival ` +
+        `(worst ${this.formatMonkeyUsd(trough.value)} on ${trough.key}).`,
+    ];
+    const marginWindow = points.filter((p) => p.key >= '2026-07-21' && p.key <= '2026-07-30');
+    if (marginWindow.length) {
+      const kissedGrowth = marginWindow.some((p) => p.zone === 'growth');
+      trendBullets.push(
+        kissedGrowth
+          ? 'Jul 21–30: sharp swings as margin came on — equity briefly kissed Growth, then fell back into Risk / Drown.'
+          : 'Jul 21–30: sharp swings as margin came on — equity stayed below the Growth safety line.',
+      );
+    }
+    trendBullets.push(`Series starts ${startLabel} (owned equity = total account value for ••••${this.focusAccountSuffix}).`);
+
+    const playbook =
+      live.zone === 'growth'
+        ? `Growth Monkey rules are active above ${this.formatMonkeyUsd(this.monkeySafetyUsd)}. Size risk so a drawdown does not drop you through survival at ${this.formatMonkeyUsd(this.monkeySurvivalUsd)}.`
+        : `Growth Monkey rules unlock only with a sustained reclaim of ${this.formatMonkeyUsd(this.monkeySafetyUsd)}. Until then, treat margin as repair, not expansion.`;
+
+    return {
+      liveValue: live.value,
+      zone: live.zone,
+      zoneLabel,
+      headline,
+      posture,
+      gapToSafety,
+      cushionAboveSurvival,
+      daysAboveSafety,
+      daysBelowSurvival,
+      peak: { key: peak.key, value: peak.value },
+      trough: { key: trough.key, value: trough.value },
+      trendBullets,
+      playbook,
+    };
   }
 
   focusDetailRows(): Array<{

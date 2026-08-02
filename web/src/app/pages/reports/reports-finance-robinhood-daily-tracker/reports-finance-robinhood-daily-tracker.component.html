@@ -742,7 +742,8 @@
                     Owned equity (total account value) for ••••{{ focusAccountSuffix }} since
                     {{ monkeyCapitalStartDate | date: 'mediumDate' }} · Growth Monkey above
                     {{ monkeySafetyUsd | currency: 'USD':'symbol':'1.0-0' }} · drown below
-                    {{ monkeySurvivalUsd | currency: 'USD':'symbol':'1.0-0' }}
+                    {{ monkeySurvivalUsd | currency: 'USD':'symbol':'1.0-0' }} ·
+                    <strong>click the chart</strong> for the full analysis
                   </p>
                 </div>
                 <div class="rh-daily__focus-chart-toolbar">
@@ -760,15 +761,26 @@
                       Survival / Drown
                     </li>
                   </ul>
+                  <button
+                    mat-stroked-button
+                    type="button"
+                    (click)="toggleMonkeyAnalysis($event)"
+                    [attr.aria-expanded]="monkeyAnalysisExpanded"
+                  >
+                    <mat-icon>{{ monkeyAnalysisExpanded ? 'expand_less' : 'analytics' }}</mat-icon>
+                    {{ monkeyAnalysisExpanded ? 'Hide analysis' : 'Monkey analysis' }}
+                  </button>
                 </div>
               </div>
 
               @if (monkeyLatestPoint(); as live) {
-                <div
+                <button
+                  type="button"
                   class="rh-daily__monkey-status"
                   [class.rh-daily__monkey-status--growth]="live.zone === 'growth'"
                   [class.rh-daily__monkey-status--risk]="live.zone === 'risk'"
                   [class.rh-daily__monkey-status--drown]="live.zone === 'drown'"
+                  (click)="toggleMonkeyAnalysis($event)"
                 >
                   <img
                     class="rh-daily__monkey-status-img"
@@ -792,12 +804,22 @@
                       } @else {
                         Below the survival line — capital defense first; no discretionary risk.
                       }
+                      <span class="rh-daily__monkey-status-hint"> · Click for full analysis</span>
                     </p>
                   </div>
-                </div>
+                </button>
               }
 
-              <div class="rh-daily__focus-chart-stage">
+              <div
+                class="rh-daily__focus-chart-stage rh-daily__monkey-chart-stage"
+                role="button"
+                tabindex="0"
+                [attr.aria-expanded]="monkeyAnalysisExpanded"
+                aria-label="Open floating monkey capital analysis"
+                (click)="openMonkeyAnalysis($event)"
+                (keydown.enter)="openMonkeyAnalysis($event)"
+                (keydown.space)="openMonkeyAnalysis($event)"
+              >
                 <div class="rh-daily__focus-y-labels" aria-hidden="true">
                   @for (tick of monkeyYAxisLabels(); track tick.y) {
                     <span [style.top.%]="(tick.y / 40) * 100">{{ formatMonkeyUsd(tick.value) }}</span>
@@ -927,6 +949,92 @@
                   </div>
                 </div>
               </div>
+
+              @if (monkeyAnalysisExpanded) {
+                @if (monkeyAnalysis(); as analysis) {
+                  <section
+                    class="rh-daily__monkey-analysis"
+                    [class.rh-daily__monkey-analysis--growth]="analysis.zone === 'growth'"
+                    [class.rh-daily__monkey-analysis--risk]="analysis.zone === 'risk'"
+                    [class.rh-daily__monkey-analysis--drown]="analysis.zone === 'drown'"
+                    aria-label="Floating monkey capital analysis"
+                    (click)="$event.stopPropagation()"
+                  >
+                    <header class="rh-daily__monkey-analysis-head">
+                      <img
+                        class="rh-daily__monkey-analysis-img"
+                        [src]="monkeySrcForZone(analysis.zone)"
+                        [alt]="analysis.zoneLabel"
+                      />
+                      <div>
+                        <h5 class="rh-daily__monkey-analysis-title">{{ analysis.headline }}</h5>
+                        <p class="muted rh-daily__monkey-analysis-posture">{{ analysis.posture }}</p>
+                      </div>
+                    </header>
+
+                    <table class="rh-daily__monkey-analysis-table">
+                      <caption class="sr-only">
+                        Where the monkey sits for account ••••{{ focusAccountSuffix }}
+                      </caption>
+                      <thead>
+                        <tr>
+                          <th scope="col">Line</th>
+                          <th scope="col">Level</th>
+                          <th scope="col">Meaning</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <th scope="row">Safety</th>
+                          <td>{{ monkeySafetyUsd | currency: 'USD':'symbol':'1.0-0' }}</td>
+                          <td>Growth Monkey — take risk</td>
+                        </tr>
+                        <tr class="rh-daily__monkey-analysis-row--you">
+                          <th scope="row">You now</th>
+                          <td>{{ analysis.liveValue | currency: 'USD':'symbol':'1.0-0' }}</td>
+                          <td>
+                            @if (analysis.zone === 'growth') {
+                              {{ analysis.zoneLabel }} — take risk
+                            } @else if (analysis.zone === 'risk') {
+                              {{ analysis.zoneLabel }} — float / defend
+                            } @else {
+                              {{ analysis.zoneLabel }} — defend only
+                            }
+                          </td>
+                        </tr>
+                        <tr>
+                          <th scope="row">Survival</th>
+                          <td>{{ monkeySurvivalUsd | currency: 'USD':'symbol':'1.0-0' }}</td>
+                          <td>Below = drown</td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                    <div class="rh-daily__monkey-analysis-gaps">
+                      <span>
+                        {{ analysis.cushionAboveSurvival | currency: 'USD':'symbol':'1.0-0' }} above survival
+                      </span>
+                      <span>
+                        {{ analysis.gapToSafety | currency: 'USD':'symbol':'1.0-0' }} below safety
+                      </span>
+                    </div>
+
+                    <div class="rh-daily__monkey-analysis-block">
+                      <h6>Trend since {{ monkeyCapitalStartDate | date: 'MMM d' }}</h6>
+                      <ul>
+                        @for (bullet of analysis.trendBullets; track bullet) {
+                          <li>{{ bullet }}</li>
+                        }
+                      </ul>
+                    </div>
+
+                    <div class="rh-daily__monkey-analysis-block rh-daily__monkey-analysis-playbook">
+                      <h6>Playbook from the map</h6>
+                      <p>{{ analysis.playbook }}</p>
+                    </div>
+                  </section>
+                }
+              }
             </div>
           }
 
