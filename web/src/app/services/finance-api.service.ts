@@ -171,16 +171,24 @@ export class FinanceApiService {
     return this.http.get<RobinhoodRhDailyTrackerRefreshHintDto>(`${this.root}/daily-tracker/refresh-hint`);
   }
 
-  /** Per-symbol ownership history from Daily Tracker snapshots (own vs margin estimates). */
+  /** Equity or option ownership history from Daily Tracker snapshots. */
   robinhoodOwnershipHistory(opts: {
     year: number;
+    assetKind?: 'equity' | 'option' | null;
     symbol?: string | null;
+    contractKey?: string | null;
     accountSuffix?: string | null;
     captureKind?: string | null;
   }) {
     let params = new HttpParams().set('year', String(opts.year));
+    if (opts.assetKind?.trim()) {
+      params = params.set('assetKind', opts.assetKind.trim());
+    }
     if (opts.symbol?.trim()) {
       params = params.set('symbol', opts.symbol.trim());
+    }
+    if (opts.contractKey?.trim()) {
+      params = params.set('contractKey', opts.contractKey.trim());
     }
     if (opts.accountSuffix?.trim()) {
       params = params.set('accountSuffix', opts.accountSuffix.trim());

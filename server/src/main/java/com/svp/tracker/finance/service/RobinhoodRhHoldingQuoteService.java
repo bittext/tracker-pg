@@ -111,7 +111,14 @@ public class RobinhoodRhHoldingQuoteService {
     /** Resolve option instrument id when holdings use per-share avg but positions store contract premium. */
     static String lookupOptionInstrumentId(
             RobinhoodRhHoldingDto h, Map<String, String> optionInstrumentByMatchKey) {
-        if (!"option".equalsIgnoreCase(h.positionType()) || optionInstrumentByMatchKey == null) {
+        if (!"option".equalsIgnoreCase(h.positionType())) {
+            return null;
+        }
+        String fromKey = optionInstrumentId(h.positionKey());
+        if (fromKey != null && !fromKey.isBlank()) {
+            return fromKey;
+        }
+        if (optionInstrumentByMatchKey == null) {
             return null;
         }
         String direct = optionInstrumentByMatchKey.get(matchKey(h));

@@ -20,8 +20,37 @@
   width: 7rem;
 }
 
+.own-hist__asset {
+  margin-right: 0.25rem;
+}
+
 .own-hist__symbol {
   min-width: 8rem;
+}
+
+.own-hist__contract {
+  min-width: 16rem;
+}
+
+.own-hist__legacy {
+  display: inline-block;
+  margin-left: 0.35rem;
+  font-size: 0.7rem;
+}
+
+.own-hist__back {
+  margin: 0 0 0.75rem;
+}
+
+.own-hist__link {
+  padding: 0;
+  min-width: 0;
+  line-height: 1.3;
+  font-weight: 500;
+}
+
+.own-hist__contracts td {
+  vertical-align: middle;
 }
 
 .own-hist__account {

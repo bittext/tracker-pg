@@ -103,6 +103,12 @@ final class RobinhoodRhDailySnapshotCompare {
         String type = holding.positionType() == null || holding.positionType().isBlank()
                 ? "STOCK"
                 : holding.positionType().trim().toUpperCase(Locale.ROOT);
+        if ("OPTION".equals(type)) {
+            String contract = RobinhoodRhContractKeys.contractKeyForHolding(holding);
+            if (contract != null && !contract.isBlank()) {
+                return contract;
+            }
+        }
         return symbol + "|" + type;
     }
 

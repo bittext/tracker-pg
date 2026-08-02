@@ -191,23 +191,27 @@ public class FinanceController {
     }
 
     /**
-     * Per-symbol share-count history from Daily Tracker {@code holdings_json} (own vs margin estimates).
-     * Refreshes whenever the existing daily/hourly snapshot job captures accounts.
+     * Equity share-count or option-contract history from Daily Tracker {@code holdings_json}.
+     * Options default from 2026-06-28. Refreshes with the existing daily/hourly snapshot job.
      */
     @GetMapping("/ownership-history")
     public RobinhoodOwnershipHistoryDto ownershipHistory(
             @RequestParam(name = "year") int year,
+            @RequestParam(name = "assetKind", required = false) String assetKind,
             @RequestParam(name = "symbol", required = false) String symbol,
+            @RequestParam(name = "contractKey", required = false) String contractKey,
             @RequestParam(name = "accountSuffix", required = false) String accountSuffix,
             @RequestParam(name = "captureKind", required = false) String captureKind) {
         validateYear(year);
         log.info(
-                "GET /api/finance/robinhood/ownership-history year={} symbol={} accountSuffix={} captureKind={}",
+                "GET /api/finance/robinhood/ownership-history year={} assetKind={} symbol={} contractKey={} accountSuffix={} captureKind={}",
                 year,
+                assetKind,
                 symbol,
+                contractKey,
                 accountSuffix,
                 captureKind);
-        return ownershipHistoryService.build(symbol, year, accountSuffix, captureKind);
+        return ownershipHistoryService.build(assetKind, symbol, contractKey, year, accountSuffix, captureKind);
     }
 
     /** Crypto holdings timeline (separate from Daily Tracker). */

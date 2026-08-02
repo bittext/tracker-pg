@@ -127,14 +127,42 @@ export interface RobinhoodRhDailyBenchmarkPointDto {
   close: number;
 }
 
-/** GET /api/finance/robinhood/ownership-history — share counts from Daily Tracker holdings_json. */
+/** GET /api/finance/robinhood/ownership-history — equity shares or option contracts from Daily Tracker. */
+export type RobinhoodOwnershipAssetKind = 'equity' | 'option';
+
+export interface RobinhoodOwnershipContractDto {
+  contractKey: string;
+  label: string;
+  chainSymbol: string;
+  optionType: string | null;
+  strikePrice: number | null;
+  expirationDate: string | null;
+  legacyIdentity: boolean;
+  firstDate: string;
+  lastDate: string;
+  latestQuantity: number;
+  latestMarketValue: number;
+  highQuantity: number | null;
+  highDate: string | null;
+}
+
+export interface RobinhoodOwnershipContractSeriesDto {
+  contract: RobinhoodOwnershipContractDto;
+  points: RobinhoodOwnershipHistoryPointDto[];
+}
+
 export interface RobinhoodOwnershipHistoryDto {
-  symbol: string;
+  assetKind: RobinhoodOwnershipAssetKind;
+  symbol: string | null;
+  contractKey: string | null;
+  contractLabel: string | null;
   accountSuffix: string;
   accountMasked: string;
   year: number;
+  fromDate: string;
   captureKind: string;
   availableSymbols: string[];
+  availableContracts: RobinhoodOwnershipContractDto[];
   availableAccountSuffixes: string[];
   highDate: string | null;
   highQuantity: number | null;
@@ -147,6 +175,7 @@ export interface RobinhoodOwnershipHistoryDto {
   latestMarketValue: number | null;
   latestCostBasis: number | null;
   points: RobinhoodOwnershipHistoryPointDto[];
+  contractSeries: RobinhoodOwnershipContractSeriesDto[];
   notes: string[];
 }
 
@@ -616,6 +645,11 @@ export interface RobinhoodRhHoldingDto {
   costBasis: number;
   unrealizedPnL: number;
   unrealizedPnLPercent?: number;
+  positionKey?: string | null;
+  chainSymbol?: string | null;
+  optionType?: string | null;
+  strikePrice?: number | null;
+  expirationDate?: string | null;
 }
 
 /** Robinhood Agentic Trading MCP (Phase 1) */

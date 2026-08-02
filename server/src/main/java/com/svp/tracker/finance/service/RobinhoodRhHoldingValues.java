@@ -44,7 +44,12 @@ final class RobinhoodRhHoldingValues {
                     scaleOptionMarketValue(isOptionType(p.getPositionType()), decimalOrZero(p.getMarketValue())),
                     BigDecimal.ZERO,
                     BigDecimal.ZERO,
-                    BigDecimal.ZERO));
+                    BigDecimal.ZERO,
+                    blankToNull(p.getPositionKey()),
+                    blankToNull(p.getChainSymbol()),
+                    blankToNull(p.getOptionType()),
+                    p.getStrikePrice(),
+                    p.getExpirationDate()));
         }
         raw.sort(Comparator.comparing(RobinhoodRhHoldingDto::symbol, String.CASE_INSENSITIVE_ORDER));
         Map<String, String> optionInstrumentIds = RobinhoodRhHoldingQuoteService.instrumentIdsByMatchKey(positions);
@@ -103,8 +108,8 @@ final class RobinhoodRhHoldingValues {
         }
         RobinhoodRhHoldingDto working = withAverage(h, normalizeOptionAveragePerShare(h.averageBuyPrice()));
         if (!isOptionType(working.positionType())) {
-            working = new RobinhoodRhHoldingDto(
-                    working.symbol(),
+            working = rebuild(
+                    working,
                     "option",
                     working.quantity(),
                     working.averageBuyPrice(),
@@ -129,8 +134,8 @@ final class RobinhoodRhHoldingValues {
         BigDecimal perShareFromCurrent = normalizeOptionPerShareFromLegacy(working.currentUnitPrice(), avg);
         BigDecimal perShare = resolveOptionSnapshotPerShare(avg, perShareFromMv, perShareFromCurrent);
         BigDecimal unrealized = mv.subtract(cost).setScale(2, RoundingMode.HALF_UP);
-        return new RobinhoodRhHoldingDto(
-                working.symbol(),
+        return rebuild(
+                working,
                 working.positionType(),
                 qty,
                 avg,
@@ -387,8 +392,8 @@ final class RobinhoodRhHoldingValues {
         } else {
             currentUnit = scaleUnitPrice(current);
         }
-        return new RobinhoodRhHoldingDto(
-                h.symbol(),
+        return rebuild(
+                h,
                 h.positionType(),
                 qty,
                 avg,
@@ -400,8 +405,8 @@ final class RobinhoodRhHoldingValues {
     }
 
     private static RobinhoodRhHoldingDto withAverage(RobinhoodRhHoldingDto h, BigDecimal avg) {
-        return new RobinhoodRhHoldingDto(
-                h.symbol(),
+        return rebuild(
+                h,
                 h.positionType(),
                 h.quantity(),
                 avg,
@@ -461,8 +466,8 @@ final class RobinhoodRhHoldingValues {
     }
 
     private static RobinhoodRhHoldingDto clearComputedFields(RobinhoodRhHoldingDto h) {
-        return new RobinhoodRhHoldingDto(
-                h.symbol(),
+        return rebuild(
+                h,
                 h.positionType(),
                 h.quantity(),
                 h.averageBuyPrice(),
@@ -511,8 +516,8 @@ final class RobinhoodRhHoldingValues {
     }
 
     private static RobinhoodRhHoldingDto withMarketValue(RobinhoodRhHoldingDto h, BigDecimal marketValue) {
-        return new RobinhoodRhHoldingDto(
-                h.symbol(),
+        return rebuild(
+                h,
                 h.positionType(),
                 h.quantity(),
                 h.averageBuyPrice(),
@@ -521,6 +526,42 @@ final class RobinhoodRhHoldingValues {
                 h.costBasis(),
                 h.unrealizedPnL(),
                 h.unrealizedPnLPercent());
+    }
+
+    /** Rebuild value fields while preserving option contract identity. */
+    private static RobinhoodRhHoldingDto rebuild(
+            RobinhoodRhHoldingDto base,
+            String positionType,
+            BigDecimal quantity,
+            BigDecimal averageBuyPrice,
+            BigDecimal currentUnitPrice,
+            BigDecimal marketValue,
+            BigDecimal costBasis,
+            BigDecimal unrealizedPnL,
+            BigDecimal unrealizedPnLPercent) {
+        return new RobinhoodRhHoldingDto(
+                base.symbol(),
+                positionType,
+                quantity,
+                averageBuyPrice,
+                currentUnitPrice,
+                marketValue,
+                costBasis,
+                unrealizedPnL,
+                unrealizedPnLPercent,
+                base.positionKey(),
+                base.chainSymbol(),
+                base.optionType(),
+                base.strikePrice(),
+                base.expirationDate());
+    }
+
+    private static String blankToNull(String s) {
+        if (s == null) {
+            return null;
+        }
+        String t = s.trim();
+        return t.isEmpty() ? null : t;
     }
 
     private static RobinhoodRhHoldingDto restoreMarketValueIfMissing(RobinhoodRhHoldingDto h) {

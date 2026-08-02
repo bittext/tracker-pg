@@ -1,0 +1,16 @@
+meta {
+  name: Ownership History Options
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/api/finance/robinhood/ownership-history?year={{year}}&assetKind=option&accountSuffix={{accountSuffix}}&captureKind=SCHEDULED
+  body: none
+  auth: inherit
+}
+
+docs {
+All owned option contracts since 2026-06-28 for the account (Daily Tracker holdings_json).
+Add &contractKey=... to drill into one series. Identity uses strike/expiry when present; older snapshots use legacy chain+avg labels.
+}
