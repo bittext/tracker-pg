@@ -11,22 +11,37 @@ get {
 }
 
 script:pre-request {
-
   const token = (bru.getEnvVar("token") || "").trim();
-  const autoLogin = String(bru.getEnvVar("autoLogin") || "").toLowerCase() === "true";
   if (token) {
     console.log("Using existing token");
     return;
   }
-  if (!autoLogin) {
-    throw new Error("No token. Run Login (sets token), or set autoLogin=true with username/password.");
-  }
-  const baseUrl = bru.getEnvVar("baseUrl");
-  const username = bru.getEnvVar("username");
-  const password = bru.getEnvVar("password");
+
+  const baseUrl = String(bru.getEnvVar("baseUrl") || "").replace(/\/$/, "");
+  const username = String(
+    bru.getEnvVar("username") ||
+      (typeof bru.getProcessEnv === "function" ? bru.getProcessEnv("BRUNO_USERNAME") : "") ||
+      ""
+  ).trim();
+  const password = String(
+    bru.getEnvVar("password") ||
+      (typeof bru.getProcessEnv === "function" ? bru.getProcessEnv("BRUNO_PASSWORD") : "") ||
+      ""
+  );
+  const autoLogin = String(bru.getEnvVar("autoLogin") || "").toLowerCase() === "true";
+
   if (!username || !password) {
-    throw new Error("autoLogin=true but username/password not set in environment.");
+    throw new Error(
+      "Missing credentials. Set BRUNO_USERNAME/BRUNO_PASSWORD in bruno/tracker-pg/.env, or username/password on the active env."
+    );
   }
+  if (!autoLogin && !(username && password)) {
+    throw new Error("No token. Run Login (sets token), or enable autoLogin with credentials.");
+  }
+  if (!baseUrl) {
+    throw new Error("No baseUrl — select Local or Production environment.");
+  }
+
   const loginRes = await bru.sendRequest({
     method: "POST",
     url: baseUrl + "/api/auth/login",
@@ -50,12 +65,9 @@ script:pre-request {
   bru.setEnvVar("username", body.token.username || username, { persist: true });
   bru.setEnvVar("role", body.token.role || "", { persist: true });
   console.log("Auto-login OK as", body.token.username);
-
 }
 
 docs {
-Uses existing `token`, or auto-logs in when `autoLogin=true`.
-
-Note: the collection also runs the same auto-login in a pre-request on every protected
-call when `autoLogin=true` and `token` is empty — so this request is optional on Local.
+Uses cached `token`, else logs in via env credentials or `bruno/tracker-pg/.env`
+(`BRUNO_USERNAME` / `BRUNO_PASSWORD`).
 }

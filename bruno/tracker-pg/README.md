@@ -6,10 +6,18 @@ API collection for the Phoenix Nexus / tracker-pg Angular + Spring app.
 
 1. Install [Bruno](https://www.usebruno.com/).
 2. **Open Collection** → select this folder: `bruno/tracker-pg`
-3. Choose environment **Local** or **Production**.
-4. Set `username` and secret `password`.
-5. For **Local**, `autoLogin` is `true` — any protected request will login and save `token`.
-6. For **Production**, run **01 Auth → Login (sets token)** (or set `autoLogin` = `true`).
+3. In the top-right environment dropdown, select **Local** or **Production**
+   (`environments/Local.bru`, `environments/Production.bru`).
+4. Set `username` and secret `password` (password is on the Secrets tab).
+5. For **Local** and **Production**, `autoLogin` is `true` — protected requests login and save `token` when it is empty.
+6. Or run **01 Auth → Login (sets token)** explicitly anytime.
+
+Bruno 4 tip: Preferences → Cache → enable **File cache** so collection environments load.
+If the dropdown still says **No Environment**, click it → **Configure** and select **Local**.
+
+Bruno 4 tip: query params are inlined on the request URL (e.g. `?year={{year}}&month={{month}}`).
+A Bruno 4.0 bug can leave `params:query` unticked in the URL bar — if you see HTTP 400
+“Required request parameter 'year'…”, reopen the request or toggle a Params checkbox once.
 
 If you still see `{"error":"unauthorized"}`, the active environment has no token and
 auto-login could not run (missing credentials, or `autoLogin=false`).

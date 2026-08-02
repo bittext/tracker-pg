@@ -5,7 +5,7 @@ meta {
 }
 
 get {
-  url: {{baseUrl}}/api/finance/robinhood/stocks-summary
+  url: {{baseUrl}}/api/finance/robinhood/stocks-summary?year={{year}}&symbol={{symbol}}
   body: none
   auth: inherit
 }

@@ -16,48 +16,94 @@ headers {
 }
 
 script:pre-request {
-  // Skip for public auth endpoints (request auth: none).
   const url = String(req.getUrl() || "");
+  // Public endpoints — no JWT required.
   if (
+    url.includes("/api/version") ||
     url.includes("/api/auth/login") ||
     url.includes("/api/auth/mfa/") ||
-    url.includes("/api/auth/register")
+    url.includes("/api/auth/register") ||
+    url.includes("/privacy") ||
+    url.includes("/terms")
   ) {
     return;
   }
+
+  // Request opted out of collection bearer auth.
+  try {
+    if (typeof req.getAuthMode === "function" && req.getAuthMode() === "none") {
+      return;
+    }
+  } catch (_) {}
 
   const token = String(bru.getEnvVar("token") || "").trim();
   if (token) {
     return;
   }
 
-  const autoLogin = String(bru.getEnvVar("autoLogin") || "").toLowerCase() === "true";
-  if (!autoLogin) {
-    throw new Error(
-      "No token — unauthorized. Run 01 Auth → Login (sets token), or set autoLogin=true with username/password in the active environment."
-    );
-  }
-
   const baseUrl = String(bru.getEnvVar("baseUrl") || "").replace(/\/$/, "");
-  const username = bru.getEnvVar("username");
-  const password = bru.getEnvVar("password");
-  if (!baseUrl || !username || !password) {
+  if (!baseUrl) {
     throw new Error(
-      "autoLogin=true but baseUrl/username/password missing in the active environment."
+      "No active environment. Top-right dropdown → select Local (or Production), then set username/password."
     );
   }
 
-  const loginRes = await bru.sendRequest({
-    method: "POST",
-    url: baseUrl + "/api/auth/login",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    data: {
-      username,
-      password,
-      locationFingerprintSource: bru.getEnvVar("locationFingerprintSource") || "bruno-collection",
-      locationLabel: bru.getEnvVar("locationLabel") || "Bruno collection auto-login",
-    },
-  });
+  const username = String(
+    bru.getEnvVar("username") ||
+      (typeof bru.getProcessEnv === "function" ? bru.getProcessEnv("BRUNO_USERNAME") : "") ||
+      ""
+  ).trim();
+  const password = String(
+    bru.getEnvVar("password") ||
+      (typeof bru.getProcessEnv === "function" ? bru.getProcessEnv("BRUNO_PASSWORD") : "") ||
+      ""
+  );
+  const autoLogin = String(bru.getEnvVar("autoLogin") || "").toLowerCase() === "true";
+  // Auto-login when credentials exist (or autoLogin=true).
+  const shouldAutoLogin = Boolean(username && password) || autoLogin;
+
+  if (!shouldAutoLogin) {
+    throw new Error(
+      "No token. Select Local/Production, set credentials in .env (BRUNO_USERNAME/BRUNO_PASSWORD) or the env Secrets tab, then retry — or run 01 Auth → Login."
+    );
+  }
+
+  if (!username || !password) {
+    throw new Error(
+      "Missing credentials. Set BRUNO_USERNAME and BRUNO_PASSWORD in bruno/tracker-pg/.env (gitignored), or fill username/password on the active environment Secrets tab."
+    );
+  }
+
+  let loginRes;
+  try {
+    loginRes = await bru.sendRequest({
+      method: "POST",
+      url: baseUrl + "/api/auth/login",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      data: {
+        username,
+        password,
+        locationFingerprintSource: bru.getEnvVar("locationFingerprintSource") || "bruno-collection",
+        locationLabel: bru.getEnvVar("locationLabel") || "Bruno collection auto-login",
+      },
+    });
+  } catch (err) {
+    const status = err?.response?.status || err?.status || "";
+    const detail =
+      err?.response?.data?.message ||
+      err?.response?.data?.error ||
+      err?.message ||
+      String(err);
+    throw new Error(
+      "Login failed" +
+        (status ? " (" + status + ")" : "") +
+        ": " +
+        detail +
+        ". Update BRUNO_USERNAME / BRUNO_PASSWORD in bruno/tracker-pg/.env for " +
+        baseUrl +
+        " (admin/admin123 is only the local bootstrap default)."
+    );
+  }
 
   const body = loginRes.data || {};
   if (body.mfaRequired) {
@@ -107,8 +153,9 @@ docs {
 
   ## Environments
 
-  - **Local** → `http://127.0.0.1:9091` (`autoLogin` defaults to `true`)
-  - **Production** → `https://phoenix-nexus.com`
+- **Local** → `http://127.0.0.1:9091` (`autoLogin` defaults to `true`)
+- **Production** → `https://phoenix-nexus.com` (`autoLogin` defaults to `true`)
 
-  Set `username` / `password` (secret) in the environment before calling protected APIs.
+Set `username` / `password` (Secrets tab) in the active environment. Protected
+requests reuse `token` when present; otherwise they login, cache the JWT, and continue.
 }

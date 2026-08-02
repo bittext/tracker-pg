@@ -1,4 +1,7 @@
 .env.stack
+bruno/tracker-pg/.env
+bruno/tracker-pg/.env.*
+!bruno/tracker-pg/.env.example
 .cursor/
 target/
 .idea/
