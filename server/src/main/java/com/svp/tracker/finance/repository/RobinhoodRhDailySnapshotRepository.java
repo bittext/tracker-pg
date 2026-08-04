@@ -1,6 +1,7 @@
 package com.svp.tracker.finance.repository;
 
 import com.svp.tracker.finance.domain.RobinhoodRhDailySnapshot;
+import com.svp.tracker.finance.dto.RhScheduledTotalRow;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -32,4 +33,20 @@ public interface RobinhoodRhDailySnapshotRepository extends JpaRepository<Robinh
 
     @Query("SELECT COUNT(s) FROM RobinhoodRhDailySnapshot s WHERE s.ownerUserId = :ownerUserId")
     long countByOwnerUserId(@Param("ownerUserId") long ownerUserId);
+
+    /** Scheduled close totals only — avoids loading holdings_json / trades_json for lookback ranges. */
+    @Query(
+            """
+            SELECT new com.svp.tracker.finance.dto.RhScheduledTotalRow(
+                s.snapshotDate, s.accountSuffix, s.totalAccountValue)
+            FROM RobinhoodRhDailySnapshot s
+            WHERE s.ownerUserId = :ownerUserId
+              AND s.snapshotDate BETWEEN :from AND :to
+              AND s.captureKind = 'SCHEDULED'
+            ORDER BY s.snapshotDate DESC, s.accountSuffix ASC
+            """)
+    List<RhScheduledTotalRow> findScheduledTotalsBetween(
+            @Param("ownerUserId") long ownerUserId,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to);
 }

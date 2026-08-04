@@ -752,18 +752,24 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
   }
 
   private prefetchAdjacent(date: string): void {
-    const base = new Date(date + 'T12:00:00');
-    for (const delta of [-1, 1]) {
-      const d = new Date(base);
-      d.setDate(d.getDate() + delta);
-      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      if (this.dayCache.has(iso)) {
-        continue;
+    // Defer so the visible day paints first; adjacent loads used to triple cold-path work.
+    window.setTimeout(() => {
+      if (this.selectedDate !== date) {
+        return;
       }
-      this.api.tradingJournalGetDay(iso).subscribe({
-        next: (detail) => this.dayCache.set(detail.snapshotDate, detail),
-      });
-    }
+      const base = new Date(date + 'T12:00:00');
+      for (const delta of [-1, 1]) {
+        const d = new Date(base);
+        d.setDate(d.getDate() + delta);
+        const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        if (this.dayCache.has(iso)) {
+          continue;
+        }
+        this.api.tradingJournalGetDay(iso).subscribe({
+          next: (detail) => this.dayCache.set(detail.snapshotDate, detail),
+        });
+      }
+    }, 1500);
   }
 
   private applyDetail(d: TradingJournalDayDetailDto, reloadPreviews: boolean): void {

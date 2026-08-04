@@ -5,7 +5,6 @@ import com.svp.tracker.config.RobinhoodRhDailyTrackerProperties;
 import com.svp.tracker.finance.domain.TradingJournalAttachment;
 import com.svp.tracker.finance.domain.TradingJournalEntry;
 import com.svp.tracker.finance.domain.TradingJournalRef;
-import com.svp.tracker.finance.dto.RobinhoodRhDailySnapshotDetailDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerAccountCellDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerDayDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTradeDto;
@@ -139,7 +138,7 @@ public class TradingJournalService {
                 snapshotDate, toEntryDto(entry), wrap, ai, focusAccountHoldings(wrap));
     }
 
-    @Transactional
+    @Transactional(readOnly = true)
     public TradingJournalDayDetailDto getDay(LocalDate snapshotDate) {
         long uid = currentUser.requireUserId();
         requireDate(snapshotDate);
@@ -524,31 +523,14 @@ public class TradingJournalService {
     }
 
     /**
-     * Prefer embedded image metadata (re-read so older uploads with UTC-skewed EXIF get corrected),
-     * then filename cues, then stored column / upload time.
+     * Prefer stored capture time. Only fall back to filename / upload time when unset — do not re-read
+     * attachment blobs on every journal day open (that made days with screenshots very slow).
      */
     private Instant resolveCapturedAt(TradingJournalAttachment a) {
-        try {
-            byte[] bytes = blobStore.readAllBytes(a.getStorageKey());
-            Instant resolved =
-                    ImageCaptureTime.resolve(a.getOriginalFilename(), a.getContentType(), bytes, null);
-            if (resolved != null) {
-                if (!resolved.equals(a.getCapturedAt())) {
-                    a.setCapturedAt(resolved);
-                    attachmentRepository.save(a);
-                }
-                return resolved;
-            }
-        } catch (Exception e) {
-            log.debug(
-                    "Could not re-read capture time for trading journal attachment {}: {}",
-                    a.getId(),
-                    e.toString());
+        if (a.getCapturedAt() != null) {
+            return a.getCapturedAt();
         }
-        Instant captured = a.getCapturedAt();
-        if (captured == null) {
-            captured = ImageCaptureTime.fromFilename(a.getOriginalFilename());
-        }
+        Instant captured = ImageCaptureTime.fromFilename(a.getOriginalFilename());
         if (captured == null) {
             captured = a.getCreatedAt();
         }
@@ -567,17 +549,16 @@ public class TradingJournalService {
                 continue;
             }
             try {
-                RobinhoodRhDailySnapshotDetailDto detail =
-                        dailyTrackerService.getSnapshotDetail(cell.snapshotId());
-                List<RobinhoodRhHoldingDto> holdings = detail.holdings() == null
-                        ? List.of()
-                        : detail.holdings().stream()
-                                .sorted(Comparator.comparing(
-                                        h -> h.marketValue() == null ? BigDecimal.ZERO : h.marketValue(),
-                                        Comparator.reverseOrder()))
-                                .toList();
-                String label = detail.label() == null || detail.label().isBlank() ? suffix : detail.label();
-                out.add(new TradingJournalAccountHoldingsDto(suffix, label, holdings));
+                var bundle = dailyTrackerService.holdingsForSnapshot(cell.snapshotId());
+                List<RobinhoodRhHoldingDto> sorted = bundle.holdings().stream()
+                        .sorted(Comparator.comparing(
+                                h -> h.marketValue() == null ? BigDecimal.ZERO : h.marketValue(),
+                                Comparator.reverseOrder()))
+                        .toList();
+                String label = bundle.label() == null || bundle.label().isBlank()
+                        ? "••••" + suffix
+                        : bundle.label();
+                out.add(new TradingJournalAccountHoldingsDto(suffix, label, sorted));
             } catch (Exception e) {
                 log.debug("Skip journal holdings for ••••{}: {}", suffix, e.toString());
             }
