@@ -1,5 +1,5 @@
 import { CommonModule, NgTemplateOutlet } from '@angular/common';
-import { Component, OnDestroy, OnInit, inject } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -18,6 +18,7 @@ import {
   of,
   switchMap,
   tap,
+  throwError,
 } from 'rxjs';
 import {
   RobinhoodRhDailyTrackerDayDto,
@@ -30,6 +31,7 @@ import {
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { TradingJournalNavService } from '../../../services/trading-journal-nav.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
+import { NoteAutosave, NoteSaveStatus } from '../../../util/note-autosave';
 import {
   TradingJournalImageGalleryDialogComponent,
   TradingJournalImageGalleryData,
@@ -90,6 +92,12 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
   detailLoading = false;
   saving = false;
   uploading = false;
+  journalSaveStatus: NoteSaveStatus = 'idle';
+  private journalLastSavedFp = '';
+  private readonly journalAutosave = new NoteAutosave({
+    persist: () => this.persistJournal$({ exitEdit: false, quiet: true }),
+    onStatus: (s) => (this.journalSaveStatus = s),
+  });
 
   /** Authenticated thumbnail blob URLs keyed by attachment id. */
   readonly imagePreviewUrls = new Map<number, string>();
@@ -195,8 +203,46 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.journalAutosave.destroy();
     this.dayLoadSub?.unsubscribe();
     this.revokeAllPreviews();
+  }
+
+  @HostListener('window:beforeunload', ['$event'])
+  onBeforeUnload(event: BeforeUnloadEvent): void {
+    if (this.editingJournal && this.journalAutosave.isDirty) {
+      event.preventDefault();
+      event.returnValue = '';
+    }
+  }
+
+  get journalSaveStatusLabel(): string {
+    switch (this.journalSaveStatus) {
+      case 'dirty':
+        return 'Unsaved changes…';
+      case 'saving':
+        return 'Saving…';
+      case 'saved':
+        return 'Saved';
+      case 'error':
+        return 'Save failed';
+      default:
+        return '';
+    }
+  }
+
+  onJournalDraftChanged(): void {
+    if (!this.editingJournal) {
+      return;
+    }
+    this.journalAutosave.markDirtyAndSchedule();
+  }
+
+  onJournalDraftBlur(): void {
+    if (!this.editingJournal) {
+      return;
+    }
+    this.journalAutosave.flush();
   }
 
   yearChoices(): number[] {
@@ -234,10 +280,23 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
   }
 
   openDay(date: string, create: boolean, force = false): void {
-    if (force) {
-      this.invalidateDay(date);
+    const go = (): void => {
+      if (force) {
+        this.invalidateDay(date);
+      }
+      this.dayLoad$.next({ date, create, force });
+    };
+    if (this.editingJournal && this.journalAutosave.isDirty && this.selectedDate && this.selectedDate !== date) {
+      this.journalAutosave.flush(() => {
+        this.journalAutosave.cancel();
+        go();
+      });
+      return;
     }
-    this.dayLoad$.next({ date, create, force });
+    if (this.selectedDate !== date) {
+      this.journalAutosave.cancel();
+    }
+    go();
   }
 
   createOrOpenSelected(): void {
@@ -255,43 +314,81 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
   }
 
   saveEntry(): void {
-    if (!this.selectedDate || !this.detail?.entry) {
-      if (this.selectedDate) {
-        this.api.tradingJournalOpenDay(this.selectedDate).subscribe({
-          next: () => this.persistUpdate(),
-          error: (err) => this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 }),
-        });
-        return;
-      }
-      return;
-    }
-    this.persistUpdate();
-  }
-
-  private persistUpdate(): void {
     if (!this.selectedDate) {
       return;
     }
+    if (this.draftFingerprint() !== this.journalLastSavedFp) {
+      this.journalAutosave.markDirtyAndSchedule();
+    }
     this.saving = true;
-    this.api
-      .tradingJournalUpdate(this.selectedDate, {
-        title: this.titleDraft,
-        bodyMarkdown: this.bodyDraft,
-        tags: this.parseTags(this.tagsDraft),
-      })
-      .subscribe({
-        next: (entry) => {
-          this.saving = false;
+    this.journalAutosave.flush(() => {
+      this.saving = false;
+      if (this.journalSaveStatus === 'error') {
+        return;
+      }
+      this.editingJournal = false;
+      this.snackBar.open('Journal saved', 'OK', { duration: 2500 });
+      this.loadList();
+    });
+  }
+
+  /**
+   * Create/update the current draft. Quiet autosave stays in the editor; explicit Save can exit edit.
+   */
+  private persistJournal$(opts: { exitEdit: boolean; quiet: boolean }): Observable<TradingJournalEntryDto | null> {
+    if (!this.selectedDate) {
+      return of(null);
+    }
+    if (!this.editingJournal && opts.quiet) {
+      return of(null);
+    }
+
+    const date = this.selectedDate;
+    const title = this.titleDraft;
+    const bodyMarkdown = this.bodyDraft;
+    const tags = this.parseTags(this.tagsDraft);
+    const fp = this.draftFingerprint();
+    if (opts.quiet && fp === this.journalLastSavedFp && this.detail?.entry) {
+      return of(null);
+    }
+
+    const update$ = this.api.tradingJournalUpdate(date, { title, bodyMarkdown, tags }).pipe(
+      tap((entry) => {
+        this.journalLastSavedFp = this.fingerprintFromEntry(entry);
+        this.patchEntry(entry);
+        if (opts.exitEdit) {
           this.editingJournal = false;
-          this.snackBar.open('Journal saved', 'OK', { duration: 2500 });
-          this.patchEntry(entry);
+        }
+        if (!opts.quiet) {
           this.loadList();
-        },
-        error: (err) => {
-          this.saving = false;
+        }
+      }),
+      catchError((err) => {
+        if (!opts.quiet) {
           this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
-        },
-      });
+        }
+        return throwError(() => err);
+      }),
+    );
+
+    if (this.detail?.entry) {
+      return update$;
+    }
+    return this.api.tradingJournalOpenDay(date).pipe(
+      tap((d) => {
+        this.dayCache.set(d.snapshotDate, d);
+        this.detail = d;
+      }),
+      switchMap(() => update$),
+    );
+  }
+
+  private draftFingerprint(): string {
+    return `${this.selectedDate ?? ''}|${(this.titleDraft || '').trim()}|${this.bodyDraft || ''}|${this.tagsDraft || ''}`;
+  }
+
+  private fingerprintFromEntry(entry: TradingJournalEntryDto): string {
+    return `${entry.snapshotDate}|${(entry.title || '').trim()}|${entry.bodyMarkdown || ''}|${(entry.tags ?? []).join(', ')}`;
   }
 
   importSummary(): void {
@@ -302,7 +399,7 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
       this.api.tradingJournalImportSummary(this.selectedDate!).subscribe({
         next: (entry) => {
           this.snackBar.open('Call summary imported', 'OK', { duration: 3000 });
-          this.patchEntry(entry);
+          this.patchEntry(entry, true);
           this.loadList();
         },
         error: (err) => this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 }),
@@ -341,7 +438,8 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
         this.bodyDraft = this.bodyDraft.trim()
           ? `${this.bodyDraft.trim()}\n\n## AI wrap draft\n\n${draft}\n`
           : `## AI wrap draft\n\n${draft}\n`;
-        this.snackBar.open('AI draft appended — review and save', 'OK', { duration: 4000 });
+        this.onJournalDraftChanged();
+        this.snackBar.open('AI draft appended — autosave will keep it', 'OK', { duration: 4000 });
       },
       error: (err) => {
         this.saving = false;
@@ -735,7 +833,7 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
     this.loadList();
   }
 
-  private patchEntry(entry: TradingJournalEntryDto): void {
+  private patchEntry(entry: TradingJournalEntryDto, syncDrafts = false): void {
     if (!this.detail || this.detail.snapshotDate !== entry.snapshotDate) {
       return;
     }
@@ -744,7 +842,13 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
       entry,
     };
     this.dayCache.set(entry.snapshotDate, next);
-    this.applyDetail(next, true);
+    this.detail = next;
+    if (syncDrafts || !this.editingJournal) {
+      this.titleDraft = entry.title ?? '';
+      this.bodyDraft = entry.bodyMarkdown ?? '';
+      this.tagsDraft = (entry.tags ?? []).join(', ');
+    }
+    this.journalLastSavedFp = this.draftFingerprint();
   }
 
   private invalidateDay(date: string): void {
@@ -773,12 +877,14 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
   }
 
   private applyDetail(d: TradingJournalDayDetailDto, reloadPreviews: boolean): void {
+    this.journalAutosave.cancel();
     this.detail = d;
     this.selectedDate = d.snapshotDate;
     const e = d.entry;
     this.titleDraft = e?.title ?? '';
     this.bodyDraft = e?.bodyMarkdown ?? '';
     this.tagsDraft = (e?.tags ?? []).join(', ');
+    this.journalLastSavedFp = this.draftFingerprint();
     // Empty day → start in editor; existing content → read-only preview.
     this.editingJournal = !(e?.bodyMarkdown ?? '').trim() && !(e?.title ?? '').trim();
     if (reloadPreviews) {
@@ -788,13 +894,16 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
 
   startEditingJournal(): void {
     this.editingJournal = true;
+    this.journalSaveStatus = 'idle';
   }
 
   cancelEditingJournal(): void {
+    this.journalAutosave.cancel();
     const e = this.detail?.entry;
     this.titleDraft = e?.title ?? '';
     this.bodyDraft = e?.bodyMarkdown ?? '';
     this.tagsDraft = (e?.tags ?? []).join(', ');
+    this.journalLastSavedFp = this.draftFingerprint();
     this.editingJournal = false;
   }
 
@@ -820,6 +929,7 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
         ? `${this.tagsDraft.trim()}, stock-trade`
         : 'stock-trade';
     }
+    this.onJournalDraftChanged();
     this.snackBar.open('Stock trade template ready — fill in Entry / Stop / Exit / Result', 'OK', {
       duration: 4000,
     });

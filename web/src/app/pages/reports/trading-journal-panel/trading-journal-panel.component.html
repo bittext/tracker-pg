@@ -494,7 +494,13 @@
         } @else {
           <mat-form-field appearance="outline" class="tj__full">
             <mat-label>Title</mat-label>
-            <input matInput [(ngModel)]="titleDraft" name="tjTitle" />
+            <input
+              matInput
+              [(ngModel)]="titleDraft"
+              name="tjTitle"
+              (ngModelChange)="onJournalDraftChanged()"
+              (blur)="onJournalDraftBlur()"
+            />
           </mat-form-field>
           <div class="tj__template-bar">
             <button mat-stroked-button type="button" (click)="applyStockTradeTemplate()">
@@ -507,20 +513,39 @@
           </div>
           <mat-form-field appearance="outline" class="tj__full tj__body-field">
             <mat-label>Journal body (markdown)</mat-label>
-            <textarea matInput rows="18" [(ngModel)]="bodyDraft" name="tjBody"></textarea>
+            <textarea
+              matInput
+              rows="18"
+              [(ngModel)]="bodyDraft"
+              name="tjBody"
+              (ngModelChange)="onJournalDraftChanged()"
+              (blur)="onJournalDraftBlur()"
+            ></textarea>
             <mat-hint>
               Tables: header, then <code>|:---|:---:|---:|</code> for left / center / right, then data rows.
             </mat-hint>
           </mat-form-field>
           <mat-form-field appearance="outline" class="tj__full">
             <mat-label>Tags</mat-label>
-            <input matInput [(ngModel)]="tagsDraft" name="tjTags" placeholder="process, earnings, size" />
+            <input
+              matInput
+              [(ngModel)]="tagsDraft"
+              name="tjTags"
+              placeholder="process, earnings, size"
+              (ngModelChange)="onJournalDraftChanged()"
+              (blur)="onJournalDraftBlur()"
+            />
           </mat-form-field>
           <div class="tj__edit-actions">
             <button mat-flat-button color="primary" type="button" (click)="saveEntry()" [disabled]="saving">
               Save
             </button>
             <button mat-button type="button" (click)="cancelEditingJournal()" [disabled]="saving">Cancel</button>
+            @if (journalSaveStatusLabel) {
+              <span class="muted mn-autosave-status" [attr.data-status]="journalSaveStatus">{{
+                journalSaveStatusLabel
+              }}</span>
+            }
             @if (d.aiDraftAvailable) {
               <button mat-stroked-button type="button" (click)="generateAiDraft()" [disabled]="saving">
                 <mat-icon>auto_awesome</mat-icon>
