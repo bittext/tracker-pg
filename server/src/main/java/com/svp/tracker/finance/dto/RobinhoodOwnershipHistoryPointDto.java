@@ -24,4 +24,9 @@ public record RobinhoodOwnershipHistoryPointDto(
         /** qty × (1 − marginLoan/equityMV), when equityMV &gt; 0. */
         BigDecimal ownSharesEstimate,
         /** qty × (marginLoan/equityMV), when equityMV &gt; 0. */
-        BigDecimal marginSharesEstimate) {}
+        BigDecimal marginSharesEstimate,
+        /**
+         * Account margin used as percent of equity market value: {@code 100 × marginLoan / equityMV}
+         * (0–100+; null when equity MV is missing or zero).
+         */
+        BigDecimal marginUsedPercent) {}

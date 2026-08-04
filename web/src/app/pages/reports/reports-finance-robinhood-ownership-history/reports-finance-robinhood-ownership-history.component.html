@@ -128,6 +128,19 @@
           <span class="own-hist__kpi-label">Margin loan</span>
           <span class="own-hist__kpi-value">{{ r.latestMarginLoan | currency: 'USD':'symbol':'1.0-0' }}</span>
         </div>
+        <div class="own-hist__kpi">
+          <span class="own-hist__kpi-label">Margin used</span>
+          <span
+            class="own-hist__kpi-value"
+            [class.own-hist__kpi-value--warn]="
+              latestMarginUsedPercent() != null && latestMarginUsedPercent()! >= marginUsedWarnPercent
+            "
+            >{{
+              latestMarginUsedPercent() != null ? (latestMarginUsedPercent() | number: '1.0-1') + '%' : '—'
+            }}</span
+          >
+          <span class="own-hist__kpi-sub muted">loan ÷ equity MV</span>
+        </div>
       } @else {
         <div class="own-hist__kpi">
           <span class="own-hist__kpi-label">Latest mkt value</span>
@@ -315,6 +328,19 @@
           <ng-container matColumnDef="loan">
             <th mat-header-cell *matHeaderCellDef>Loan</th>
             <td mat-cell *matCellDef="let row">{{ row.marginLoan | currency: 'USD':'symbol':'1.0-0' }}</td>
+          </ng-container>
+          <ng-container matColumnDef="marginUsed">
+            <th mat-header-cell *matHeaderCellDef>Margin used</th>
+            <td
+              mat-cell
+              *matCellDef="let row"
+              [class.own-hist__margin-used--high]="marginUsedHigh(row)"
+              [attr.title]="'Loan ÷ equity market value' + (marginUsedHigh(row) ? ' (≥' + marginUsedWarnPercent + '%)' : '')"
+            >
+              {{
+                row.marginUsedPercent != null ? (row.marginUsedPercent | number: '1.0-1') + '%' : '—'
+              }}
+            </td>
           </ng-container>
           <ng-container matColumnDef="price">
             <th mat-header-cell *matHeaderCellDef>{{ r.assetKind === 'option' ? 'Mark / sh' : 'Price' }}</th>

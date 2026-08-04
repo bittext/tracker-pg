@@ -135,6 +135,7 @@ public class RobinhoodOwnershipHistoryService {
                 "Updated automatically by the Daily Tracker snapshot job (hourly intraday + 9 PM Central scheduled close).");
         notes.add(
                 "Own vs margin share split estimates margin loan as max(0, −cash) and attributes shares by loan ÷ equity market value.");
+        notes.add("Margin used % is 100 × loan ÷ equity market value; the UI highlights values at 33% or higher.");
         if (points.isEmpty()) {
             notes.add("No " + captureKind + " snapshots for account ••••" + accountSuffix + " in " + year + ".");
         }
@@ -469,6 +470,12 @@ public class RobinhoodOwnershipHistoryService {
             own = estimateOwnMargin ? agg.qty : ZERO;
             marginShares = ZERO;
         }
+        BigDecimal marginUsedPercent = null;
+        if (equityMv.signum() > 0) {
+            marginUsedPercent = marginLoan
+                    .multiply(BigDecimal.valueOf(100))
+                    .divide(equityMv, 2, RoundingMode.HALF_UP);
+        }
         return new RobinhoodOwnershipHistoryPointDto(
                 row.getSnapshotDate(),
                 row.getSnapshotAt(),
@@ -485,7 +492,8 @@ public class RobinhoodOwnershipHistoryService {
                 scaleMoney(nullToZero(row.getTotalAccountValue())),
                 scaleMoney(marginLoan),
                 own,
-                marginShares);
+                marginShares,
+                marginUsedPercent);
     }
 
     private List<RobinhoodRhHoldingDto> readHoldings(RobinhoodRhDailySnapshot row) {

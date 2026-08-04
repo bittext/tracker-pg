@@ -61,6 +61,7 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
     'own',
     'margin',
     'loan',
+    'marginUsed',
     'price',
     'marketValue',
     'costBasis',
@@ -69,10 +70,15 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
   readonly optionTableColumns: string[] = [
     'snapshotDate',
     'quantity',
+    'loan',
+    'marginUsed',
     'price',
     'marketValue',
     'costBasis',
   ];
+
+  /** Highlight margin used at or above this percent. */
+  readonly marginUsedWarnPercent = 33;
 
   readonly captureKinds = [
     { value: 'SCHEDULED', label: 'Daily close (SCHEDULED)' },
@@ -230,5 +236,19 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
 
   trackPoint(_i: number, p: RobinhoodOwnershipHistoryPointDto): number {
     return p.snapshotId;
+  }
+
+  marginUsedHigh(row: RobinhoodOwnershipHistoryPointDto | null | undefined): boolean {
+    const pct = row?.marginUsedPercent;
+    return pct != null && Number(pct) >= this.marginUsedWarnPercent;
+  }
+
+  latestMarginUsedPercent(): number | null {
+    const pts = this.report()?.points ?? [];
+    if (!pts.length) {
+      return null;
+    }
+    const pct = pts[pts.length - 1].marginUsedPercent;
+    return pct == null ? null : Number(pct);
   }
 }

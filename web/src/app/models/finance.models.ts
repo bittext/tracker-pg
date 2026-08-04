@@ -196,6 +196,8 @@ export interface RobinhoodOwnershipHistoryPointDto {
   marginLoan: number;
   ownSharesEstimate: number;
   marginSharesEstimate: number;
+  /** 100 × marginLoan / equityMarketValue; null when equity MV is 0. */
+  marginUsedPercent: number | null;
 }
 
 /** GET /api/finance/robinhood/crypto-tracker — crypto holdings timeline (separate from Daily Tracker). */
