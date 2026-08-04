@@ -132,7 +132,7 @@ public class RobinhoodOwnershipHistoryService {
 
         List<String> notes = new ArrayList<>();
         notes.add(
-                "Updated automatically by the Daily Tracker snapshot job (hourly intraday + 9 PM Eastern scheduled close).");
+                "Updated automatically by the Daily Tracker snapshot job (hourly intraday + 9 PM Central scheduled close).");
         notes.add(
                 "Own vs margin share split estimates margin loan as max(0, −cash) and attributes shares by loan ÷ equity market value.");
         if (points.isEmpty()) {

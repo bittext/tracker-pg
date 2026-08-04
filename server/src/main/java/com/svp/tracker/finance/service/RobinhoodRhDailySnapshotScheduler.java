@@ -15,7 +15,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
-/** Captures RH account snapshots hourly; official daily close at configured hour (default 9 PM Eastern). */
+/** Captures RH account snapshots hourly; official daily close at configured hour (default 9 PM Central). */
 @Service
 @RequiredArgsConstructor
 @Slf4j

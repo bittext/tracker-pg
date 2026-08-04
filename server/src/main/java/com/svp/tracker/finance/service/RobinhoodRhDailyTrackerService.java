@@ -67,7 +67,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-/** Daily Robinhood account snapshots for Reports → Daily Tracker (official close 9 PM Eastern). */
+/** Daily Robinhood account snapshots for Reports → Daily Tracker (official close 9 PM Central). */
 @Service
 @RequiredArgsConstructor
 @Slf4j

@@ -25,7 +25,7 @@ public record RobinhoodRhDailyTrackerProperties(
             snapshotCron = snapshotCron.trim();
         }
         if (snapshotZone == null || snapshotZone.isBlank()) {
-            snapshotZone = "America/New_York";
+            snapshotZone = "America/Chicago";
         } else {
             snapshotZone = snapshotZone.trim();
         }
