@@ -834,10 +834,6 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   }
 
   accountLabel(suffix: string): string {
-    const fromTracker = this.tracker?.accounts.find((a) => a.accountSuffix === suffix)?.label;
-    if (fromTracker) {
-      return fromTracker;
-    }
     return robinhoodAccountDisplayLabel(suffix);
   }
 

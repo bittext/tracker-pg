@@ -109,9 +109,11 @@ public class RobinhoodOwnershipHistoryService {
                 .toList();
 
         if ("option".equals(assetKind)) {
-            return buildOptions(accountRows, year, from, accountSuffix, captureKind, contractKeyRaw);
+            return buildOptions(
+                    accountRows, year, from, accountSuffix, captureKind, contractKeyRaw, availableSuffixes);
         }
-        return buildEquity(accountRows, year, from, accountSuffix, captureKind, symbolRaw);
+        return buildEquity(
+                accountRows, year, from, accountSuffix, captureKind, symbolRaw, availableSuffixes);
     }
 
     private RobinhoodOwnershipHistoryDto buildEquity(
@@ -120,7 +122,8 @@ public class RobinhoodOwnershipHistoryService {
             LocalDate from,
             String accountSuffix,
             String captureKind,
-            String symbolRaw) {
+            String symbolRaw,
+            List<String> availableSuffixes) {
         List<String> availableSymbols = collectEquitySymbols(accountRows);
         String symbol = resolveSymbol(symbolRaw, availableSymbols);
 
@@ -158,7 +161,7 @@ public class RobinhoodOwnershipHistoryService {
                 captureKind,
                 availableSymbols,
                 List.of(),
-                availableSuffixesFrom(accountRows),
+                availableSuffixes,
                 summary.highDate,
                 summary.highQty,
                 summary.lowDate,
@@ -180,7 +183,8 @@ public class RobinhoodOwnershipHistoryService {
             LocalDate from,
             String accountSuffix,
             String captureKind,
-            String contractKeyRaw) {
+            String contractKeyRaw,
+            List<String> availableSuffixes) {
         Map<String, List<DayHolding>> byContract = collectOptionDays(accountRows);
         List<RobinhoodOwnershipContractSeriesDto> allSeries = new ArrayList<>();
         List<RobinhoodOwnershipContractDto> availableContracts = new ArrayList<>();
@@ -248,7 +252,7 @@ public class RobinhoodOwnershipHistoryService {
                     captureKind,
                     List.of(),
                     availableContracts,
-                    availableSuffixesFrom(accountRows),
+                    availableSuffixes,
                     highDate,
                     highQty,
                     null,
@@ -290,7 +294,7 @@ public class RobinhoodOwnershipHistoryService {
                 captureKind,
                 List.of(),
                 availableContracts,
-                availableSuffixesFrom(accountRows),
+                availableSuffixes,
                 summary.highDate,
                 summary.highQty,
                 summary.lowDate,
@@ -353,17 +357,6 @@ public class RobinhoodOwnershipHistoryService {
                 latestPt == null ? ZERO : nullToZero(latestPt.marketValue()),
                 summary.highQty,
                 summary.highDate);
-    }
-
-    private static List<String> availableSuffixesFrom(List<RobinhoodRhDailySnapshot> rows) {
-        return rows.stream()
-                .map(RobinhoodRhDailySnapshot::getAccountSuffix)
-                .filter(Objects::nonNull)
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .collect(java.util.stream.Collectors.toCollection(TreeSet::new))
-                .stream()
-                .toList();
     }
 
     private static String normalizeAssetKind(String raw) {
