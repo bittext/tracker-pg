@@ -64,11 +64,11 @@
       <mat-select [(ngModel)]="accountSuffix" name="ownHistAcct" (selectionChange)="load()">
         @if (report(); as r) {
           @for (suf of r.availableAccountSuffixes; track suf) {
-            <mat-option [value]="suf">••••{{ suf }}</mat-option>
+            <mat-option [value]="suf">{{ accountOptionLabel(suf) }}</mat-option>
           }
         }
         @if (!report()?.availableAccountSuffixes?.length && accountSuffix) {
-          <mat-option [value]="accountSuffix">••••{{ accountSuffix }}</mat-option>
+          <mat-option [value]="accountSuffix">{{ accountOptionLabel(accountSuffix) }}</mat-option>
         }
       </mat-select>
     </mat-form-field>

@@ -159,8 +159,7 @@ public class RobinhoodRhDailyTrackerService {
             suffixOrder.add(row.getAccountSuffix());
             columnBySuffix.putIfAbsent(
                     row.getAccountSuffix(),
-                    new RobinhoodRhDailyTrackerAccountColumnDto(
-                            row.getAccountSuffix(), row.getLabel(), row.getAccountKind()));
+                    accountColumn(row));
         }
 
         Map<LocalDate, List<RobinhoodRhDailySnapshot>> scheduledByDate = new TreeMap<>(Comparator.reverseOrder());
@@ -434,9 +433,7 @@ public class RobinhoodRhDailyTrackerService {
         if (isHiddenAccount(ownerUserId, row.getAccountSuffix())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Snapshot not found");
         }
-        String label = row.getLabel() == null || row.getLabel().isBlank()
-                ? row.getAccountSuffix()
-                : row.getLabel();
+        String label = RobinhoodRhDailyTrackerAccountPolicy.displayLabel(row.getAccountSuffix());
         List<RobinhoodRhHoldingDto> holdings = RobinhoodRhHoldingValues.normalizeStoredSnapshotHoldings(
                 readJson(row.getHoldingsJson(), new TypeReference<>() {}));
         return new SnapshotHoldings(row.getAccountSuffix(), label, holdings == null ? List.of() : holdings);
@@ -538,10 +535,7 @@ public class RobinhoodRhDailyTrackerService {
                 accountTotalChange = scaleMoney(nullToZero(row.getTotalAccountValue())
                         .subtract(nullToZero(previousAccountTotals.get(row.getAccountSuffix()))));
             }
-            columnBySuffix.putIfAbsent(
-                    row.getAccountSuffix(),
-                    new RobinhoodRhDailyTrackerAccountColumnDto(
-                            row.getAccountSuffix(), row.getLabel(), row.getAccountKind()));
+            columnBySuffix.putIfAbsent(row.getAccountSuffix(), accountColumn(row));
             cells.add(new RobinhoodRhDailyTrackerAccountCellDto(
                     row.getId(),
                     row.getAccountSuffix(),
@@ -557,10 +551,7 @@ public class RobinhoodRhDailyTrackerService {
         }
 
         for (RobinhoodRhDailySnapshot row : dayRows) {
-            columnBySuffix.putIfAbsent(
-                    row.getAccountSuffix(),
-                    new RobinhoodRhDailyTrackerAccountColumnDto(
-                            row.getAccountSuffix(), row.getLabel(), row.getAccountKind()));
+            columnBySuffix.putIfAbsent(row.getAccountSuffix(), accountColumn(row));
         }
 
         List<RobinhoodRhDailyTradeDto> dayTrades = buildDayTrades(
@@ -1175,6 +1166,13 @@ public class RobinhoodRhDailyTrackerService {
 
     private boolean isHiddenAccount(long ownerUserId, String suffix) {
         return !isDailyTrackerAccount(ownerUserId, suffix);
+    }
+
+    private static RobinhoodRhDailyTrackerAccountColumnDto accountColumn(RobinhoodRhDailySnapshot row) {
+        return new RobinhoodRhDailyTrackerAccountColumnDto(
+                row.getAccountSuffix(),
+                RobinhoodRhDailyTrackerAccountPolicy.displayLabel(row.getAccountSuffix()),
+                row.getAccountKind());
     }
 
     /** See {@link RobinhoodAccountTrackerConfigService#isDailyTrackerSuffix}. */

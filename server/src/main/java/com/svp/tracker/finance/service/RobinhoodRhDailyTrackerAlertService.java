@@ -343,7 +343,10 @@ public class RobinhoodRhDailyTrackerAlertService {
             if (!accountTrackerConfigService.isDailyTrackerSuffix(ownerUserId, suffix)) {
                 continue;
             }
-            out.add(new AccountMeta(suffix.trim(), acct.label(), acct.accountKind()));
+            out.add(new AccountMeta(
+                    suffix.trim(),
+                    RobinhoodRhDailyTrackerAccountPolicy.displayLabel(suffix),
+                    acct.accountKind()));
         }
         out.sort(Comparator.comparing(AccountMeta::suffix));
         return out;

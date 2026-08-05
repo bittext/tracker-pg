@@ -34,6 +34,7 @@ import {
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { TradingJournalNavService } from '../../../services/trading-journal-nav.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
+import { robinhoodAccountDisplayLabel } from '../../../util/robinhood-account-display';
 import {
   RobinhoodDailySnapshotDialogComponent,
   RobinhoodDailySnapshotDialogData,
@@ -833,7 +834,11 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   }
 
   accountLabel(suffix: string): string {
-    return this.tracker?.accounts.find((a) => a.accountSuffix === suffix)?.label ?? `••••${suffix}`;
+    const fromTracker = this.tracker?.accounts.find((a) => a.accountSuffix === suffix)?.label;
+    if (fromTracker) {
+      return fromTracker;
+    }
+    return robinhoodAccountDisplayLabel(suffix);
   }
 
   formatCaptureTime(capturedAt: string): string {
@@ -1000,10 +1005,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   }
 
   focusAccountLabel(): string {
-    return (
-      this.tracker?.accounts.find((account) => account.accountSuffix === this.focusAccountSuffix)?.label ??
-      `Account ••••${this.focusAccountSuffix}`
-    );
+    return this.accountLabel(this.focusAccountSuffix);
   }
 
   focusMargin(): RobinhoodRhMarginDetailsDto | null {

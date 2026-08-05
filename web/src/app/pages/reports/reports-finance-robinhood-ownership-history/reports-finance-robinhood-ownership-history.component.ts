@@ -16,6 +16,7 @@ import {
 } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { formatHttpErrorMessage } from '../../../util/http-error';
+import { robinhoodAccountDisplayLabel } from '../../../util/robinhood-account-display';
 
 @Component({
   selector: 'app-reports-finance-robinhood-ownership-history',
@@ -241,6 +242,10 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
   marginUsedHigh(row: RobinhoodOwnershipHistoryPointDto | null | undefined): boolean {
     const pct = row?.marginUsedPercent;
     return pct != null && Number(pct) >= this.marginUsedWarnPercent;
+  }
+
+  accountOptionLabel(suffix: string): string {
+    return robinhoodAccountDisplayLabel(suffix);
   }
 
   latestMarginUsedPercent(): number | null {

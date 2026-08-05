@@ -201,7 +201,7 @@ public class RobinhoodRhAccountsTrackService {
         return buildSummaryFromParts(
                 maskSuffix(individualSuffix),
                 individualSuffix,
-                "Individual " + maskSuffix(individualSuffix),
+                RobinhoodRhDailyTrackerAccountPolicy.displayLabel(individualSuffix),
                 "INDIVIDUAL",
                 false,
                 false,
@@ -745,20 +745,28 @@ public class RobinhoodRhAccountsTrackService {
 
     private static String accountLabel(
             boolean individual, boolean agentic, boolean managed, String suffix, String agenticNickname) {
+        // Known Daily Tracker suffixes (incl. Ammu's ••••8696) use a fixed friendly name.
+        if (suffix != null
+                && (RobinhoodRhDailyTrackerAccountPolicy.SPULICKAL_PROFILE_SUFFIXES.contains(suffix.trim())
+                        || RobinhoodRhDailyTrackerAccountPolicy.NISHA_PROFILE_SUFFIXES.contains(suffix.trim()))) {
+            return RobinhoodRhDailyTrackerAccountPolicy.displayLabel(suffix);
+        }
         if (individual) {
-            return "Individual " + maskSuffix(suffix);
+            return "Individual a/c (..." + nullToEmpty(suffix) + ")";
         }
         if (agentic) {
             String nick = agenticNickname == null ? "" : agenticNickname.trim();
-            if (!nick.isBlank()) {
-                return "Agentic " + maskSuffix(suffix) + " · " + nick;
-            }
-            return "Agentic " + maskSuffix(suffix);
+            String base = "Agentic a/c (..." + nullToEmpty(suffix) + ")";
+            return nick.isBlank() ? base : base + " · " + nick;
         }
         if (managed) {
-            return "Managed " + maskSuffix(suffix);
+            return "Managed a/c (..." + nullToEmpty(suffix) + ")";
         }
-        return "Account " + maskSuffix(suffix);
+        return RobinhoodRhDailyTrackerAccountPolicy.displayLabel(suffix);
+    }
+
+    private static String nullToEmpty(String value) {
+        return value == null ? "" : value.trim();
     }
 
     private static PortfolioTotals parsePortfolio(JsonNode portfolioNode) {

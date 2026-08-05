@@ -133,6 +133,27 @@ final class RobinhoodRhDailyTrackerAccountPolicy {
     }
 
     /**
+     * Human-facing account label for UI: {@code Ammu's a/c (...8696)}.
+     * Known pulickal / nisha Daily Tracker suffixes get fixed names; others fall back to
+     * {@code Account (...####)}.
+     */
+    static String displayLabel(String suffix) {
+        if (suffix == null || suffix.isBlank()) {
+            return "Account";
+        }
+        String s = suffix.trim();
+        return switch (s) {
+            case "3370" -> "Individual a/c (...3370)";
+            case "3550" -> "Agentic a/c (...3550)";
+            case "4123" -> "Managed a/c (...4123)";
+            case "8696" -> "Ammu's a/c (...8696)";
+            case "4190" -> "Individual a/c (...4190)";
+            case "7581" -> "Agentic a/c (...7581)";
+            default -> "Account (..." + s + ")";
+        };
+    }
+
+    /**
      * Rejects Agentic sync when the OAuth token belongs to the wrong MCP profile for spulickal/nisha.
      */
     static Optional<String> validateAgenticSyncProfile(String username, Set<String> syncedSuffixes) {

@@ -264,7 +264,6 @@
                 <tr>
                   <td>
                     <span class="rh-daily__alerts-acct">{{ row.label }}</span>
-                    <span class="muted">••••{{ row.accountSuffix }}</span>
                   </td>
                   <td>
                     <mat-checkbox [(ngModel)]="row.enabled" [name]="'alertEn' + row.accountSuffix" />
@@ -341,7 +340,7 @@
         <p class="muted">No Daily Tracker accounts available for alerts yet.</p>
       }
       @if (focusAlertEvents().length) {
-        <h4 class="rh-daily__alerts-recent-title">Recent alerts · ••••{{ focusAccountSuffix }}</h4>
+        <h4 class="rh-daily__alerts-recent-title">Recent alerts · {{ focusAccountLabel() }}</h4>
         <ul class="rh-daily__alerts-events">
           @for (ev of focusAlertEvents(); track ev.id) {
             <li class="rh-daily__alerts-event" [class.rh-daily__alerts-event--open]="isAlertEventExpanded(ev.id)">
@@ -352,7 +351,7 @@
                 [attr.aria-expanded]="isAlertEventExpanded(ev.id)"
               >
                 <span class="rh-daily__alert-status" [class]="alertStatusClass(ev.emailStatus)">{{ ev.emailStatus }}</span>
-                <span>••••{{ ev.accountSuffix }}</span>
+                <span>{{ accountLabel(ev.accountSuffix) }}</span>
                 <span class="muted">{{ alertTriggerLabel(ev.triggerReasons) }}</span>
                 @if (ev.deltaDollars != null) {
                   <span [class]="pnlClass(ev.deltaDollars)">{{ ev.deltaDollars | currency }}</span>
@@ -462,7 +461,7 @@
             <div>
               <span class="rh-daily__focus-eyebrow">Focused account</span>
               <h3 id="rh-daily-focus-title" class="rh-daily__focus-title">
-                {{ focusAccountLabel() }} · ••••{{ focusAccountSuffix }}
+                {{ focusAccountLabel() }}
               </h3>
             </div>
             <span class="muted rh-daily__focus-period">{{ monthsFilterLabel() }} {{ reportYear }}</span>
