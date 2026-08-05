@@ -765,10 +765,6 @@ public class RobinhoodRhAccountsTrackService {
         return RobinhoodRhDailyTrackerAccountPolicy.displayLabel(suffix);
     }
 
-    private static String nullToEmpty(String value) {
-        return value == null ? "" : value.trim();
-    }
-
     private static PortfolioTotals parsePortfolio(JsonNode portfolioNode) {
         if (portfolioNode == null || portfolioNode.isNull()) {
             return PortfolioTotals.empty();
