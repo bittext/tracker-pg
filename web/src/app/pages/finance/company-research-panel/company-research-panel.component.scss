@@ -303,8 +303,27 @@
   text-align: right;
 }
 
+.cr__workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(20rem, 28rem);
+  gap: 1rem;
+  align-items: start;
+}
+
+.cr__calendar-pane {
+  min-width: 0;
+}
+
+.cr__day-pane {
+  position: sticky;
+  top: 0.75rem;
+  max-height: min(70vh, 42rem);
+  overflow: auto;
+  align-self: start;
+}
+
 .cr__selected-day {
-  margin-top: 0.8rem;
+  margin-top: 0;
   padding: 0.65rem 0.75rem;
   border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
   border-radius: 10px;
@@ -398,6 +417,59 @@
   grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
   gap: 1.25rem;
   align-items: start;
+  scroll-margin-top: 0.75rem;
+}
+
+.cr__list-pane,
+.cr__detail-pane {
+  max-height: min(70vh, 48rem);
+  overflow: auto;
+}
+
+@media (min-width: 1100px) {
+  .cr__calendar-cell,
+  .cr__calendar-day {
+    min-height: 4.4rem;
+  }
+
+  .cr__calendar-day {
+    padding: 0.32rem;
+  }
+
+  .cr__calendar-symbols span:nth-child(n + 3) {
+    display: none;
+  }
+
+  .cr__selected-company {
+    grid-template-columns: 3.75rem minmax(0, 1fr) auto;
+
+    > .muted:nth-of-type(n + 2) {
+      display: none;
+    }
+  }
+}
+
+@media (max-width: 1099px) {
+  .cr__workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .cr__day-pane {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    scroll-margin-top: 0.75rem;
+  }
+
+  .cr__selected-day {
+    margin-top: 0.25rem;
+  }
+
+  .cr__list-pane,
+  .cr__detail-pane {
+    max-height: none;
+    overflow: visible;
+  }
 }
 
 @media (max-width: 900px) {
@@ -448,6 +520,15 @@
     left: 50%;
     max-height: 70vh;
     transform: translate(-50%, -50%);
+  }
+
+  .cr__selected-day-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cr__selected-day-actions {
+    justify-content: flex-start;
   }
 }
 

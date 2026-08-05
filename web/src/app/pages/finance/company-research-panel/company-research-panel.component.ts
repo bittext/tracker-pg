@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -22,6 +22,8 @@ import {
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
 
+/** Match `.cr__workspace` desktop split breakpoint in the SCSS. */
+const WATCH_WORKSPACE_DESKTOP_MIN_PX = 1100;
 const STATUSES: { value: CompanyResearchDecisionStatus | 'ALL'; label: string }[] = [
   { value: 'ALL', label: 'All statuses' },
   { value: 'WATCHING', label: 'Watching' },
@@ -65,6 +67,8 @@ interface EarningsCalendarCell {
 export class CompanyResearchPanelComponent implements OnInit {
   private readonly api = inject(FinanceApiService);
   private readonly snackBar = inject(MatSnackBar);
+
+  @ViewChild('selectedDayPane') private selectedDayPane?: ElementRef<HTMLElement>;
 
   readonly statusChoices = STATUSES;
   readonly decisionChoices = STATUSES.filter((s) => s.value !== 'ALL') as {
@@ -283,7 +287,7 @@ export class CompanyResearchPanelComponent implements OnInit {
         this.selectedCalendarDate = card.nextEarningsDate;
         this.loadCalendar();
       } else {
-        this.selectedCalendarDate = card.nextEarningsDate;
+        this.selectCalendarDate(card.nextEarningsDate);
       }
     }
     this.openDetail(card.symbol);
@@ -557,6 +561,22 @@ export class CompanyResearchPanelComponent implements OnInit {
 
   selectCalendarDate(date: string): void {
     this.selectedCalendarDate = date;
+    this.scrollSelectedDayIntoViewIfNeeded();
+  }
+
+  jumpToYourWatch(): void {
+    document.getElementById('cr-your-watch')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  private scrollSelectedDayIntoViewIfNeeded(): void {
+    if (typeof window === 'undefined' || window.matchMedia(`(min-width: ${WATCH_WORKSPACE_DESKTOP_MIN_PX}px)`).matches) {
+      return;
+    }
+    // Wait a tick so the selected-day list re-renders before scrolling.
+    queueMicrotask(() => {
+      const el = this.selectedDayPane?.nativeElement ?? document.getElementById('cr-selected-day');
+      el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
   }
 
   selectedCalendarEvents(): CompanyEarningsEventDto[] {
