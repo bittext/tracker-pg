@@ -10,4 +10,6 @@ public record CompanyResearchDetailDto(
         StockNewsDto news,
         /** Yahoo Finance headline RSS for this symbol (dedicated tab). */
         StockNewsDto yahooNews,
-        List<CompanyResearchNoteDto> notes) {}
+        List<CompanyResearchNoteDto> notes,
+        /** Alpha Vantage OVERVIEW fundamentals when API key is configured; otherwise null. */
+        CompanyResearchFundamentalsDto fundamentals) {}

@@ -332,7 +332,10 @@
 
     <section class="cr__detail-pane">
       @if (!selectedSymbol) {
-        <p class="muted cr__detail-empty">Select a company to explore quote, earnings history, news, and notes.</p>
+        <p class="muted cr__detail-empty">
+          Select a company to explore quote, fundamentals (PE / short / ownership), earnings, news, options intel, and
+          notes.
+        </p>
       } @else if (detailLoading && !detail) {
         <p class="muted">Loading {{ selectedSymbol }}…</p>
       } @else if (detail) {
@@ -385,6 +388,83 @@
             }
           </div>
         }
+
+        <div class="cr__block cr__dossier">
+          <h4 class="cr__block-title">Fundamentals &amp; positioning</h4>
+          @if (detail.fundamentals; as f) {
+            @if (f.description) {
+              <p class="muted cr__dossier-desc">{{ f.description }}</p>
+            }
+            <div class="cr__metrics">
+              @for (m of fundamentalMetrics(f); track m.label) {
+                <div class="cr__metric">
+                  <span class="cr__metric-label">{{ m.label }}</span>
+                  <span class="cr__metric-value">{{ m.value }}</span>
+                </div>
+              }
+            </div>
+            @if (shortInterestNote(f); as shortNote) {
+              <p class="cr__dossier-note">{{ shortNote }}</p>
+            }
+            @if (peVsIndustryNote(f); as peNote) {
+              <p class="cr__dossier-note">{{ peNote }}</p>
+            }
+            @if (f.coverageNote) {
+              <p class="muted cr__dossier-coverage">{{ f.coverageNote }}</p>
+            }
+          } @else {
+            <p class="muted">
+              Fundamentals unavailable (needs Alpha Vantage API key on the server). Use Finviz / Yahoo / OpenInsider chips
+              above for short float, peers, and insider Form 4s.
+            </p>
+          }
+        </div>
+
+        <div class="cr__block">
+          <h4 class="cr__block-title">Options / flow (Finviz Elite)</h4>
+          @if (finvizIntelLoading) {
+            <p class="muted">Loading options export for {{ detail.card.symbol }}…</p>
+          } @else if (finvizIntel; as table) {
+            @if (table.note) {
+              <p class="muted cr__dossier-coverage">{{ table.note }}</p>
+            }
+            @if (table.rows?.length) {
+              <div class="cr__table-wrap">
+                <table class="cr__table">
+                  <thead>
+                    <tr>
+                      @for (col of finvizPreviewColumns(); track col) {
+                        <th>{{ col }}</th>
+                      }
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (row of table.rows.slice(0, 12); track $index) {
+                      <tr>
+                        @for (col of finvizPreviewColumns(); track col) {
+                          <td>{{ finvizCell(row, col) }}</td>
+                        }
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+              <p class="muted">
+                Showing up to 12 rows from {{ table.sourceLabel || 'Finviz Elite' }}. Whale / dark-pool prints are not
+                available in-app — use Barchart unusual and OpenInsider chips for flow / Form 4s.
+              </p>
+            } @else {
+              <p class="muted">No options rows returned for {{ detail.card.symbol }}.</p>
+            }
+          } @else if (finvizIntelError) {
+            <p class="muted">
+              Finviz Elite options unavailable: {{ finvizIntelError }}. Open the Finviz Elite chip or Yahoo options for
+              the chain.
+            </p>
+          } @else {
+            <p class="muted">Options intel not loaded.</p>
+          }
+        </div>
 
         <div class="cr__decisions">
           <span class="cr__decisions-label muted">Decision</span>

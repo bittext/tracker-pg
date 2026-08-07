@@ -18,6 +18,8 @@ import {
   CompanyResearchCardDto,
   CompanyResearchDecisionStatus,
   CompanyResearchDetailDto,
+  CompanyResearchFundamentalsDto,
+  FinvizEliteTableDto,
 } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
@@ -101,6 +103,10 @@ export class CompanyResearchPanelComponent implements OnInit {
   tagsDraft = '';
   noteDraft = '';
   noteTagsDraft = '';
+  /** Finviz Elite options / overview table for the open symbol (best-effort). */
+  finvizIntel: FinvizEliteTableDto | null = null;
+  finvizIntelLoading = false;
+  finvizIntelError: string | null = null;
   private searchDebounce: ReturnType<typeof setTimeout> | null = null;
   /** Client-side month buffer keyed by month|largeCap. */
   private readonly calendarBuffer = new Map<string, CompanyEarningsCalendarDto>();
@@ -251,18 +257,170 @@ export class CompanyResearchPanelComponent implements OnInit {
     this.selectedSymbol = symbol;
     this.detailLoading = true;
     this.newsTab = 'all';
+    this.finvizIntel = null;
+    this.finvizIntelError = null;
     this.api.companyResearchDetail(symbol, true).subscribe({
       next: (d) => {
         this.detail = d;
         this.thesisDraft = d.card.thesis ?? '';
         this.tagsDraft = (d.card.tags ?? []).join(', ');
         this.detailLoading = false;
+        this.loadFinvizIntel(symbol);
       },
       error: (err) => {
         this.detailLoading = false;
         this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
       },
     });
+  }
+
+  private loadFinvizIntel(symbol: string): void {
+    this.finvizIntelLoading = true;
+    this.finvizIntelError = null;
+    this.api.finvizOptions(symbol, 40, false).subscribe({
+      next: (table) => {
+        this.finvizIntel = table;
+        this.finvizIntelLoading = false;
+      },
+      error: (err) => {
+        this.finvizIntel = null;
+        this.finvizIntelLoading = false;
+        this.finvizIntelError = formatHttpErrorDetail(err);
+      },
+    });
+  }
+
+  fundamentalMetrics(f: CompanyResearchFundamentalsDto | null | undefined): { label: string; value: string }[] {
+    if (!f) {
+      return [];
+    }
+    const rows: { label: string; value: string }[] = [
+      { label: 'Sector', value: f.sector ?? '—' },
+      { label: 'Industry', value: f.industry ?? '—' },
+      { label: 'Market cap', value: this.formatLargeNumber(f.marketCap) },
+      { label: 'P/E (TTM)', value: f.peRatio ?? '—' },
+      { label: 'Forward P/E', value: f.forwardPe ?? '—' },
+      { label: 'PEG', value: f.pegRatio ?? '—' },
+      { label: 'EPS', value: f.eps ?? '—' },
+      { label: 'Beta', value: f.beta ?? '—' },
+      { label: 'Short % float', value: this.pctLabel(f.shortPercentFloat) },
+      { label: 'Short ratio', value: f.shortRatio ?? '—' },
+      { label: 'Short % outst.', value: this.pctLabel(f.shortPercentOutstanding) },
+      { label: 'Insider %', value: this.pctLabel(f.percentInsiders) },
+      { label: 'Institution %', value: this.pctLabel(f.percentInstitutions) },
+      { label: 'Analyst target', value: f.analystTarget ?? '—' },
+      { label: '52w high', value: f.week52High ?? '—' },
+      { label: '52w low', value: f.week52Low ?? '—' },
+    ];
+    return rows;
+  }
+
+  shortInterestNote(f: CompanyResearchFundamentalsDto | null | undefined): string | null {
+    if (!f) {
+      return null;
+    }
+    const pct = this.parseNumber(f.shortPercentFloat);
+    const ratio = this.parseNumber(f.shortRatio);
+    if (pct == null && ratio == null) {
+      return 'Short interest not available from Alpha Vantage for this symbol.';
+    }
+    const parts: string[] = [];
+    if (pct != null) {
+      if (pct >= 20) {
+        parts.push(`Short float is elevated at ${pct.toFixed(1)}% (≥20% often marks crowded shorts).`);
+      } else if (pct >= 10) {
+        parts.push(`Short float is moderate-high at ${pct.toFixed(1)}%.`);
+      } else {
+        parts.push(`Short float is relatively light at ${pct.toFixed(1)}%.`);
+      }
+    }
+    if (ratio != null) {
+      parts.push(
+        ratio >= 5
+          ? `Days-to-cover (short ratio) ${ratio.toFixed(1)} is high — squeeze risk if buying accelerates.`
+          : `Days-to-cover (short ratio) ${ratio.toFixed(1)}.`,
+      );
+    }
+    parts.push('This is a single snapshot, not a daily short-interest history.');
+    return parts.join(' ');
+  }
+
+  peVsIndustryNote(f: CompanyResearchFundamentalsDto | null | undefined): string | null {
+    if (!f?.peRatio && !f?.forwardPe) {
+      return null;
+    }
+    const industry = f.industry || 'its industry';
+    return (
+      `Stock P/E ${f.peRatio ?? '—'} / forward ${f.forwardPe ?? '—'}. ` +
+      `Industry-average P/E is not in Alpha OVERVIEW — compare peers on Finviz groups for ${industry}, ` +
+      `or open the Finviz Elite / Finviz chips below.`
+    );
+  }
+
+  finvizPreviewColumns(): string[] {
+    const cols = this.finvizIntel?.columns ?? [];
+    if (!cols.length) {
+      return [];
+    }
+    const prefer = ['Option', 'Strike', 'Expiration', 'Volume', 'Open Interest', 'OI', 'Vol', 'Premium', 'Type', 'Ticker'];
+    const picked = prefer.filter((p) => cols.some((c) => c.toLowerCase() === p.toLowerCase()));
+    if (picked.length) {
+      return picked.slice(0, 6);
+    }
+    return cols.slice(0, 6);
+  }
+
+  finvizCell(row: Record<string, string>, col: string): string {
+    const exact = row[col];
+    if (exact != null && exact !== '') {
+      return exact;
+    }
+    const key = Object.keys(row).find((k) => k.toLowerCase() === col.toLowerCase());
+    return key ? row[key] ?? '—' : '—';
+  }
+
+  private formatLargeNumber(raw: string | null | undefined): string {
+    const n = this.parseNumber(raw);
+    if (n == null) {
+      return raw?.trim() || '—';
+    }
+    if (n >= 1e12) {
+      return `$${(n / 1e12).toFixed(2)}T`;
+    }
+    if (n >= 1e9) {
+      return `$${(n / 1e9).toFixed(2)}B`;
+    }
+    if (n >= 1e6) {
+      return `$${(n / 1e6).toFixed(1)}M`;
+    }
+    return n.toLocaleString();
+  }
+
+  private pctLabel(raw: string | null | undefined): string {
+    if (!raw?.trim()) {
+      return '—';
+    }
+    const n = this.parseNumber(raw);
+    if (n == null) {
+      return raw;
+    }
+    // Alpha sometimes returns 0.123 meaning 12.3%, sometimes already 12.3.
+    if (n > 0 && n < 1) {
+      return `${(n * 100).toFixed(2)}%`;
+    }
+    return `${n.toFixed(2)}%`;
+  }
+
+  private parseNumber(raw: string | null | undefined): number | null {
+    if (!raw) {
+      return null;
+    }
+    const cleaned = raw.replace(/[%$,]/g, '').trim();
+    if (!cleaned) {
+      return null;
+    }
+    const n = Number(cleaned);
+    return Number.isFinite(n) ? n : null;
   }
 
   activeNews() {
@@ -675,7 +833,8 @@ export class CompanyResearchPanelComponent implements OnInit {
   }
 
   externalLinks(symbol: string): { label: string; url: string; icon: string; hint: string }[] {
-    const s = encodeURIComponent((symbol ?? '').trim().toUpperCase());
+    const raw = (symbol ?? '').trim().toUpperCase();
+    const s = encodeURIComponent(raw);
     return [
       {
         label: 'Yahoo chart',
@@ -696,10 +855,34 @@ export class CompanyResearchPanelComponent implements OnInit {
         hint: 'Latest Yahoo Finance headlines for this symbol',
       },
       {
+        label: 'Yahoo options',
+        url: `https://finance.yahoo.com/quote/${s}/options`,
+        icon: 'candlestick_chart',
+        hint: 'Listed options chain on Yahoo Finance',
+      },
+      {
         label: 'Finviz',
         url: `https://finviz.com/quote.ashx?t=${s}`,
         icon: 'insights',
-        hint: 'Technical chart and peer comparison on Finviz',
+        hint: 'Technical chart, short float, and peer comparison on Finviz',
+      },
+      {
+        label: 'OpenInsider',
+        url: `http://openinsider.com/search?q=${s}`,
+        icon: 'badge',
+        hint: 'Form 4 insider buys and sales for this ticker',
+      },
+      {
+        label: 'SEC filings',
+        url: `https://www.sec.gov/edgar/search/#/entityName=${s}`,
+        icon: 'description',
+        hint: 'EDGAR filings search for this issuer',
+      },
+      {
+        label: 'Barchart unusual',
+        url: `https://www.barchart.com/stocks/quotes/${s}/unusual-activity`,
+        icon: 'bolt',
+        hint: 'Unusual options activity feed (external)',
       },
       {
         label: 'Sector heatmap',
@@ -708,10 +891,10 @@ export class CompanyResearchPanelComponent implements OnInit {
         hint: 'Market heatmap — every sector shaded by relative performance',
       },
       {
-        label: 'Sector ranking',
-        url: 'https://finviz.com/groups.ashx?g=sector&v=210&o=-perfytd',
-        icon: 'leaderboard',
-        hint: 'Sectors ranked against each other by performance',
+        label: 'Industry peers',
+        url: 'https://finviz.com/groups.ashx?g=industry&v=120&o=name',
+        icon: 'hub',
+        hint: 'Finviz industry groups — compare average valuation vs peers',
       },
     ];
   }

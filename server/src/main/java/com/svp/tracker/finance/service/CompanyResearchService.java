@@ -9,6 +9,7 @@ import com.svp.tracker.finance.dto.CompanyEarningsHistoryRowDto;
 import com.svp.tracker.finance.dto.CompanyQuoteSnapshotDto;
 import com.svp.tracker.finance.dto.CompanyResearchCardDto;
 import com.svp.tracker.finance.dto.CompanyResearchDetailDto;
+import com.svp.tracker.finance.dto.CompanyResearchFundamentalsDto;
 import com.svp.tracker.finance.dto.CompanyResearchListDto;
 import com.svp.tracker.finance.dto.CompanyResearchNoteDto;
 import com.svp.tracker.finance.dto.CompanyResearchNoteRequestDto;
@@ -51,6 +52,7 @@ public class CompanyResearchService {
     private final FinanceCompanyResearchNoteRepository noteRepository;
     private final NasdaqEarningsService nasdaqEarningsService;
     private final StockNewsService stockNewsService;
+    private final AlphaVantageOverviewService alphaVantageOverviewService;
 
     @Transactional(readOnly = true)
     public CompanyEarningsCalendarDto earningsCalendar(
@@ -219,7 +221,20 @@ public class CompanyResearchService {
                 .stream()
                 .map(n -> toNote(n, row.getSymbol()))
                 .toList();
-        return new CompanyResearchDetailDto(toCard(row), quote, history, news, yahooNews, notes);
+        CompanyResearchFundamentalsDto fundamentals = null;
+        try {
+            fundamentals = alphaVantageOverviewService.overview(row.getSymbol());
+        } catch (Exception e) {
+            log.warn("Fundamentals load failed for {}: {}", row.getSymbol(), e.toString());
+        }
+        if (fundamentals != null
+                && (row.getCompanyName() == null || row.getCompanyName().isBlank())
+                && fundamentals.name() != null
+                && !fundamentals.name().isBlank()) {
+            row.setCompanyName(trimTo(fundamentals.name(), 256));
+            researchRepository.save(row);
+        }
+        return new CompanyResearchDetailDto(toCard(row), quote, history, news, yahooNews, notes, fundamentals);
     }
 
     @Transactional(readOnly = true)

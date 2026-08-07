@@ -823,6 +823,53 @@
   font-weight: 600;
 }
 
+.cr__dossier-desc {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.cr__metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr));
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.cr__metric {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.03);
+}
+
+.cr__metric-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--app-muted, #64748b);
+}
+
+.cr__metric-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.cr__dossier-note {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.cr__dossier-coverage {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
 .cr__table-wrap {
   overflow-x: auto;
   border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));

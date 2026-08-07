@@ -2018,6 +2018,37 @@ export interface CompanyQuoteSnapshotDto {
   upcomingEarningsMessage: string | null;
 }
 
+export interface CompanyResearchFundamentalsDto {
+  source: string;
+  name: string | null;
+  description: string | null;
+  sector: string | null;
+  industry: string | null;
+  marketCap: string | null;
+  peRatio: string | null;
+  forwardPe: string | null;
+  pegRatio: string | null;
+  eps: string | null;
+  profitMargin: string | null;
+  operatingMargin: string | null;
+  roe: string | null;
+  revenueTtm: string | null;
+  bookValue: string | null;
+  dividendYield: string | null;
+  beta: string | null;
+  week52High: string | null;
+  week52Low: string | null;
+  analystTarget: string | null;
+  shortRatio: string | null;
+  shortPercentFloat: string | null;
+  shortPercentOutstanding: string | null;
+  percentInsiders: string | null;
+  percentInstitutions: string | null;
+  sharesOutstanding: string | null;
+  sharesFloat: string | null;
+  coverageNote: string | null;
+}
+
 export interface CompanyResearchDetailDto {
   card: CompanyResearchCardDto;
   quote: CompanyQuoteSnapshotDto | null;
@@ -2025,6 +2056,7 @@ export interface CompanyResearchDetailDto {
   news: StockNewsDto | null;
   yahooNews?: StockNewsDto | null;
   notes: CompanyResearchNoteDto[];
+  fundamentals?: CompanyResearchFundamentalsDto | null;
 }
 
 /** Markets Analytics → Trading Journal */
