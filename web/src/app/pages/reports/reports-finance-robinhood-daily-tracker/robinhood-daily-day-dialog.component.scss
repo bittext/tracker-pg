@@ -1,0 +1,210 @@
+.rh-day-dialog__title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 650;
+}
+
+.rh-day-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-width: min(28rem, 90vw);
+}
+
+.rh-day-dialog__hero {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+  background: color-mix(in srgb, var(--app-surface, #fff) 92%, #e2e8f0);
+
+  &.rh-day-dialog__pnl--pos {
+    background: color-mix(in srgb, #16a34a 10%, var(--app-surface, #fff));
+    border-color: color-mix(in srgb, #16a34a 28%, transparent);
+  }
+
+  &.rh-day-dialog__pnl--neg {
+    background: color-mix(in srgb, #dc2626 10%, var(--app-surface, #fff));
+    border-color: color-mix(in srgb, #dc2626 28%, transparent);
+  }
+}
+
+.rh-day-dialog__hero-main,
+.rh-day-dialog__hero-delta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+
+  > .muted {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+}
+
+.rh-day-dialog__total {
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.rh-day-dialog__hero-delta strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 1.1rem;
+
+  mat-icon {
+    width: 1.15rem;
+    height: 1.15rem;
+    font-size: 1.15rem;
+  }
+
+  small {
+    font-weight: 500;
+    opacity: 0.85;
+  }
+}
+
+.rh-day-dialog__live {
+  font-size: 0.75rem;
+}
+
+.rh-day-dialog__flows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+  font-size: 0.82rem;
+}
+
+.rh-day-dialog__section {
+  margin: 0.25rem 0 0;
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.rh-day-dialog__accounts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.rh-day-dialog__acct {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) auto minmax(5.5rem, auto) auto;
+  gap: 0.55rem;
+  align-items: center;
+  width: 100%;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+  border-radius: 10px;
+  background: var(--app-surface, #fff);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--mat-sys-primary, #1a5f4a) 35%, transparent);
+    background: color-mix(in srgb, var(--mat-sys-primary, #1a5f4a) 5%, #fff);
+  }
+}
+
+.rh-day-dialog__acct-label {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rh-day-dialog__acct-value {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.rh-day-dialog__acct-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  justify-content: flex-end;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.88rem;
+
+  mat-icon {
+    width: 1rem;
+    height: 1rem;
+    font-size: 1rem;
+  }
+}
+
+.rh-day-dialog__acct-chevron {
+  color: var(--app-text-muted, #64748b);
+  width: 1.1rem;
+  height: 1.1rem;
+  font-size: 1.1rem;
+}
+
+.rh-day-dialog__trades {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+
+  li {
+    display: grid;
+    grid-template-columns: 4.5rem 4rem auto 1fr;
+    gap: 0.5rem;
+    align-items: baseline;
+    padding: 0.3rem 0.2rem;
+    font-size: 0.85rem;
+    border-bottom: 1px solid var(--app-border, rgba(15, 23, 42, 0.06));
+  }
+}
+
+.rh-day-dialog__pnl--pos {
+  color: #15803d;
+}
+
+.rh-day-dialog__pnl--neg {
+  color: #b91c1c;
+}
+
+@media (max-width: 560px) {
+  .rh-day-dialog__hero {
+    grid-template-columns: 1fr;
+  }
+
+  .rh-day-dialog__acct {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'label chevron'
+      'value delta';
+  }
+
+  .rh-day-dialog__acct-label {
+    grid-area: label;
+  }
+
+  .rh-day-dialog__acct-value {
+    grid-area: value;
+  }
+
+  .rh-day-dialog__acct-delta {
+    grid-area: delta;
+  }
+
+  .rh-day-dialog__acct-chevron {
+    grid-area: chevron;
+  }
+
+  .rh-day-dialog__trades li {
+    grid-template-columns: 3.5rem 3.5rem 1fr;
+  }
+}

@@ -658,6 +658,19 @@ app-management .rep-cal-table-wrap table.mat-mdc-table {
   max-height: calc(92vh - 7.5rem);
 }
 
+.cdk-overlay-container .rh-day-dialog-panel {
+  max-width: 96vw !important;
+}
+
+.cdk-overlay-container .rh-day-dialog-panel .mat-mdc-dialog-container {
+  width: min(720px, 96vw);
+  max-width: 96vw;
+}
+
+.cdk-overlay-container .rh-day-dialog-panel .mat-mdc-dialog-content {
+  max-height: calc(90vh - 7.5rem);
+}
+
 /* Management → Write-up tab */
 app-management .mgmt-writeup-panel {
   max-width: min(100%, 96rem);

@@ -8,12 +8,12 @@
       </span>
       <span class="rh-daily__live-badge muted">Live sync — updates automatically after each capture</span>
       —
-      Each day’s <strong>9:00 PM CT</strong> snapshot is the frozen daily close — click to expand the day board
-      (hourly captures, accounts, trades, and notes). Before close, today’s row shows the latest hourly total the same
-      way. Add call-summary notes and manage manual captures inside each expanded day.
+      Browse the month calendar for gains and losses, then click a day for a detail popup. Each day’s
+      <strong>9:00 PM CT</strong> snapshot is the frozen daily close. Open the classic timeline for charts, captures,
+      and notes.
     } @else {
-      Daily snapshots appear as a row — click to expand. Add call-summary notes, and manage manual captures, inside
-      each expanded day.
+      Browse the month calendar for gains and losses, click a day for details, or open the classic timeline for the full
+      day board.
     }
     <a routerLink="/finance">Finance</a> → Trading to connect Agentic sync.
   </p>
@@ -425,6 +425,101 @@
       </div>
     </div>
 
+    <section class="rh-daily__cal" aria-labelledby="rh-daily-cal-title">
+      <header class="rh-daily__cal-head">
+        <div>
+          <h3 id="rh-daily-cal-title" class="rh-daily__cal-title">Month at a glance</h3>
+          <p class="muted rh-daily__cal-lead">Green / red cells show day gains and losses. Click a day for details.</p>
+        </div>
+        <div class="rh-daily__cal-nav">
+          <button mat-icon-button type="button" (click)="previousCalendarMonth()" aria-label="Previous month">
+            <mat-icon>chevron_left</mat-icon>
+          </button>
+          <button
+            type="button"
+            class="rh-daily__cal-month"
+            (click)="currentCalendarMonth()"
+            matTooltip="Jump to current month"
+          >
+            {{ calendarTitle() }}
+          </button>
+          <button mat-icon-button type="button" (click)="nextCalendarMonth()" aria-label="Next month">
+            <mat-icon>chevron_right</mat-icon>
+          </button>
+        </div>
+      </header>
+
+      @if (calendarMonthGainLoss(); as gl) {
+        <div class="rh-daily__cal-summary" role="group" aria-label="Month gain and loss totals">
+          <div class="rh-daily__cal-summary-item">
+            <span class="muted">Gains</span>
+            <strong class="rh-daily__pnl--pos">{{ gl.gain | currency }}</strong>
+          </div>
+          <div class="rh-daily__cal-summary-item">
+            <span class="muted">Losses</span>
+            <strong class="rh-daily__pnl--neg">{{ gl.loss | currency }}</strong>
+          </div>
+          <div class="rh-daily__cal-summary-item">
+            <span class="muted">Net</span>
+            <strong [class]="pnlClass(gl.net)">{{ gl.net | currency }}</strong>
+          </div>
+          <div class="rh-daily__cal-summary-item">
+            <span class="muted">Days moved</span>
+            <strong>{{ gl.daysWithDelta }}</strong>
+          </div>
+        </div>
+      }
+
+      <div class="rh-daily__cal-grid" aria-label="Daily gains and losses calendar">
+        <div class="rh-daily__cal-weekdays" role="row">
+          @for (weekday of ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']; track weekday) {
+            <span role="columnheader">{{ weekday }}</span>
+          }
+        </div>
+        @for (week of calendarRows(); track $index) {
+          <div class="rh-daily__cal-week" role="row">
+            @for (cell of week; track cell.trackKey) {
+              @if (cell.type === 'pad') {
+                <div class="rh-daily__cal-cell rh-daily__cal-cell--pad" aria-hidden="true"></div>
+              } @else {
+                <button
+                  type="button"
+                  class="rh-daily__cal-cell"
+                  [class.rh-daily__cal-cell--today]="cell.isToday"
+                  [class.rh-daily__cal-cell--alert]="cell.hasAlert"
+                  [class.rh-daily__cal-cell--empty]="!cell.hasData"
+                  [class.rh-daily__cal-cell--pos]="calendarCellTone(cell) === 'pos'"
+                  [class.rh-daily__cal-cell--neg]="calendarCellTone(cell) === 'neg'"
+                  [class.rh-daily__cal-cell--flat]="calendarCellTone(cell) === 'flat'"
+                  [style.--rh-heat]="cell.heat"
+                  [disabled]="!cell.hasData"
+                  (click)="onCalendarCellClick(cell)"
+                  [attr.aria-label]="
+                    (cell.date | date: 'fullDate') +
+                    (cell.delta != null ? ', change ' + (cell.delta | currency) : ', no snapshot')
+                  "
+                >
+                  <span class="rh-daily__cal-daynum">{{ cell.dayNumber }}</span>
+                  @if (cell.hasData) {
+                    <span class="rh-daily__cal-delta" [class]="pnlClass(cell.delta ?? 0)">
+                      @if (cell.delta != null) {
+                        {{ cell.delta | currency: 'USD':'symbol':'1.0-0' }}
+                      } @else {
+                        —
+                      }
+                    </span>
+                    @if (cell.total != null) {
+                      <span class="rh-daily__cal-total muted">{{ cell.total | currency: 'USD':'symbol':'1.0-0' }}</span>
+                    }
+                  }
+                </button>
+              }
+            }
+          </div>
+        }
+      </div>
+    </section>
+
     @if (!t.days.length) {
       @if (t.autoCaptureScheduled) {
         <p class="muted">No daily snapshots for this period. Use <strong>Capture now</strong> or wait for the 9 PM job.</p>
@@ -436,25 +531,37 @@
         <button
           mat-stroked-button
           type="button"
-          (click)="expandAllDays()"
-          [disabled]="loading || allDaysExpanded()"
+          (click)="timelineExpanded = !timelineExpanded"
+          [attr.aria-expanded]="timelineExpanded"
         >
-          <mat-icon>unfold_more</mat-icon>
-          Expand all
+          <mat-icon>{{ timelineExpanded ? 'expand_less' : 'calendar_view_day' }}</mat-icon>
+          {{ timelineExpanded ? 'Hide classic timeline' : 'Show classic timeline' }}
         </button>
-        <button
-          mat-stroked-button
-          type="button"
-          (click)="collapseAllDays()"
-          [disabled]="loading || !hasAnyDayExpanded()"
-        >
-          <mat-icon>unfold_less</mat-icon>
-          Collapse all
-        </button>
-        <mat-checkbox [(ngModel)]="journalDaysOnly" name="rhJournalDaysOnly">
-          Journal days only
-        </mat-checkbox>
+        @if (timelineExpanded) {
+          <button
+            mat-stroked-button
+            type="button"
+            (click)="expandAllDays()"
+            [disabled]="loading || allDaysExpanded()"
+          >
+            <mat-icon>unfold_more</mat-icon>
+            Expand all
+          </button>
+          <button
+            mat-stroked-button
+            type="button"
+            (click)="collapseAllDays()"
+            [disabled]="loading || !hasAnyDayExpanded()"
+          >
+            <mat-icon>unfold_less</mat-icon>
+            Collapse all
+          </button>
+          <mat-checkbox [(ngModel)]="journalDaysOnly" name="rhJournalDaysOnly">
+            Journal days only
+          </mat-checkbox>
+        }
       </div>
+      @if (timelineExpanded) {
       @if (focusMetrics(); as metrics) {
         <section class="rh-daily__focus" aria-labelledby="rh-daily-focus-title">
           <header class="rh-daily__focus-head">
@@ -1212,6 +1319,7 @@
         @for (day of visibleDays(t.days); track day.snapshotDate; let dayIndex = $index) {
           <li
             class="rh-daily__day-item"
+            [id]="'rh-day-' + day.snapshotDate"
             [class.rh-daily__day-item--alt]="dayIndex % 2 === 1"
             [class.rh-daily__day-item--weekend]="isWeekendDay(day)"
             [class.rh-daily__day-item--today]="isTrackerToday(day)"
@@ -1807,6 +1915,7 @@
           </li>
         }
       </ul>
+      }
     }
   }
 </section>

@@ -11,6 +11,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import { filter, interval, switchMap } from 'rxjs';
 import {
@@ -40,8 +41,27 @@ import {
   RobinhoodDailySnapshotDialogData,
   RH_SNAPSHOT_DIALOG_CONFIG,
 } from './robinhood-daily-snapshot-dialog.component';
+import {
+  RobinhoodDailyDayDialogComponent,
+  RobinhoodDailyDayDialogData,
+  RH_DAY_DIALOG_CONFIG,
+} from './robinhood-daily-day-dialog.component';
 
-/** One row in the intraday capture comparison table. */
+/** One cell in the gains/losses month calendar. */
+export interface RhDailyCalendarCell {
+  type: 'pad' | 'day';
+  trackKey: string;
+  date: string;
+  dayNumber: number | null;
+  day: RobinhoodRhDailyTrackerDayDto | null;
+  total: number | null;
+  delta: number | null;
+  /** 0–1 intensity for heat tint from |delta|. */
+  heat: number;
+  isToday: boolean;
+  hasAlert: boolean;
+  hasData: boolean;
+}
 export interface RhDailyCaptureTimelineRow {
   capturedAt: string;
   kind: 'scheduled' | 'intraday' | 'manual';
@@ -176,6 +196,7 @@ export interface RhDailyFocusMetrics {
     MatSelectModule,
     MatSnackBarModule,
     MatCheckboxModule,
+    MatTooltipModule,
     CurrencyPipe,
     DatePipe,
     DecimalPipe,
@@ -200,6 +221,10 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   reportYear = new Date().getFullYear();
   /** Empty = all months in the selected year. */
   reportMonths: number[] = [];
+  /** Month shown in the gains/losses calendar grid (1–12). */
+  calendarMonth = new Date().getMonth() + 1;
+  /** Classic expandable day timeline (secondary to the calendar). */
+  timelineExpanded = false;
   loading = false;
   /** Background refresh after scheduled/manual capture (no full-page spinner). */
   softRefreshing = false;
@@ -367,6 +392,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     this.financeApi.robinhoodDailyTracker(this.reportYear, months).subscribe({
       next: (t) => {
         this.tracker = t;
+        this.syncCalendarMonthFromTracker(t);
         const validDates = new Set(t.days.map((d) => d.snapshotDate));
         if (!silent) {
           // Fresh open / hard refresh always starts collapse-all.
@@ -535,6 +561,239 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         scheduledCaptureEnabled: this.tracker?.autoCaptureScheduled ?? false,
       } satisfies RobinhoodDailySnapshotDialogData,
     });
+  }
+
+  openDayDetail(day: RobinhoodRhDailyTrackerDayDto): void {
+    const total = this.dayHeaderTotal(day);
+    const delta = this.dayHeaderDelta(day);
+    const accounts = this.accountColumns()
+      .map((col) => {
+        const cell = this.cellForDay(day, col.accountSuffix);
+        if (!cell) {
+          return null;
+        }
+        return {
+          cell,
+          label: col.label || this.accountLabel(col.accountSuffix),
+          change: day.hasScheduledSnapshot
+            ? day.hasPreviousScheduledSnapshot
+              ? cell.totalChangeFromPrevious
+              : null
+            : day.hasPriorPull
+              ? cell.totalChangeFromPrevious
+              : null,
+        };
+      })
+      .filter((row): row is NonNullable<typeof row> => row != null);
+
+    const ref = this.dialog.open(RobinhoodDailyDayDialogComponent, {
+      ...RH_DAY_DIALOG_CONFIG,
+      data: {
+        day,
+        total,
+        delta,
+        liveBadge: day.hasScheduledSnapshot ? null : this.dayHeaderLiveBadge(day),
+        accounts,
+        autoCaptureScheduled: this.tracker?.autoCaptureScheduled ?? false,
+      } satisfies RobinhoodDailyDayDialogData,
+    });
+    ref.afterClosed().subscribe((result: { expandTimeline?: boolean; snapshotDate?: string } | undefined) => {
+      if (result?.expandTimeline && result.snapshotDate) {
+        this.timelineExpanded = true;
+        const target = this.tracker?.days.find((d) => d.snapshotDate === result.snapshotDate);
+        if (target) {
+          this.expandedDays.add(target.snapshotDate);
+          this.persistExpansionState();
+          queueMicrotask(() => {
+            document
+              .getElementById(`rh-day-${target.snapshotDate}`)
+              ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+        }
+      }
+    });
+  }
+
+  calendarTitle(): string {
+    return new Date(this.reportYear, this.calendarMonth - 1, 1).toLocaleDateString(undefined, {
+      month: 'long',
+      year: 'numeric',
+    });
+  }
+
+  calendarMonthGainLoss(): { gain: number; loss: number; net: number; daysWithDelta: number } {
+    let gain = 0;
+    let loss = 0;
+    let daysWithDelta = 0;
+    for (const day of this.daysForCalendarMonth()) {
+      const delta = this.dayHeaderDelta(day);
+      if (delta == null || delta === 0) {
+        continue;
+      }
+      daysWithDelta += 1;
+      if (delta > 0) {
+        gain += delta;
+      } else {
+        loss += delta;
+      }
+    }
+    return { gain, loss, net: gain + loss, daysWithDelta };
+  }
+
+  previousCalendarMonth(): void {
+    this.shiftCalendarMonth(-1);
+  }
+
+  nextCalendarMonth(): void {
+    this.shiftCalendarMonth(1);
+  }
+
+  currentCalendarMonth(): void {
+    const now = new Date();
+    this.reportYear = now.getFullYear();
+    this.calendarMonth = now.getMonth() + 1;
+    this.reportMonths = [this.calendarMonth];
+    this.load();
+  }
+
+  onCalendarCellClick(cell: RhDailyCalendarCell): void {
+    if (cell.type !== 'day' || !cell.day) {
+      return;
+    }
+    this.openDayDetail(cell.day);
+  }
+
+  calendarRows(): RhDailyCalendarCell[][] {
+    const year = this.reportYear;
+    const month = this.calendarMonth;
+    const firstDow = new Date(year, month - 1, 1).getDay();
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const today = this.todayIsoCentral();
+    const byDate = new Map(this.daysForCalendarMonth().map((d) => [d.snapshotDate, d]));
+
+    let maxAbs = 0;
+    const dayMeta = new Map<string, { total: number | null; delta: number | null }>();
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const day = byDate.get(date) ?? null;
+      const total = day ? this.dayHeaderTotal(day) : null;
+      const delta = day ? this.dayHeaderDelta(day) : null;
+      dayMeta.set(date, { total, delta });
+      if (delta != null) {
+        maxAbs = Math.max(maxAbs, Math.abs(delta));
+      }
+    }
+    if (maxAbs <= 0) {
+      maxAbs = 1;
+    }
+
+    const flat: RhDailyCalendarCell[] = [];
+    for (let i = 0; i < firstDow; i++) {
+      flat.push({
+        type: 'pad',
+        trackKey: `pad-${i}`,
+        date: '',
+        dayNumber: null,
+        day: null,
+        total: null,
+        delta: null,
+        heat: 0,
+        isToday: false,
+        hasAlert: false,
+        hasData: false,
+      });
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const day = byDate.get(date) ?? null;
+      const meta = dayMeta.get(date)!;
+      const heat = meta.delta != null ? Math.min(1, Math.abs(meta.delta) / maxAbs) : 0;
+      flat.push({
+        type: 'day',
+        trackKey: date,
+        date,
+        dayNumber: d,
+        day,
+        total: meta.total,
+        delta: meta.delta,
+        heat,
+        isToday: date === today,
+        hasAlert: day ? this.dayHasSpikeAlerts(day) : false,
+        hasData: day != null,
+      });
+    }
+    while (flat.length % 7 !== 0) {
+      flat.push({
+        type: 'pad',
+        trackKey: `trail-${flat.length}`,
+        date: '',
+        dayNumber: null,
+        day: null,
+        total: null,
+        delta: null,
+        heat: 0,
+        isToday: false,
+        hasAlert: false,
+        hasData: false,
+      });
+    }
+    const rows: RhDailyCalendarCell[][] = [];
+    for (let i = 0; i < flat.length; i += 7) {
+      rows.push(flat.slice(i, i + 7));
+    }
+    return rows;
+  }
+
+  calendarCellTone(cell: RhDailyCalendarCell): 'pos' | 'neg' | 'flat' | 'empty' {
+    if (!cell.hasData || cell.delta == null) {
+      return cell.hasData ? 'flat' : 'empty';
+    }
+    if (cell.delta > 0) {
+      return 'pos';
+    }
+    if (cell.delta < 0) {
+      return 'neg';
+    }
+    return 'flat';
+  }
+
+  private daysForCalendarMonth(): RobinhoodRhDailyTrackerDayDto[] {
+    const prefix = `${this.reportYear}-${String(this.calendarMonth).padStart(2, '0')}-`;
+    return (this.tracker?.days ?? []).filter((d) => d.snapshotDate.startsWith(prefix));
+  }
+
+  private syncCalendarMonthFromTracker(t: RobinhoodRhDailyTrackerReportDto): void {
+    const months = this.normalizedReportMonths();
+    if (months.length === 1) {
+      this.calendarMonth = months[0];
+      return;
+    }
+    if (t.months?.length === 1) {
+      this.calendarMonth = t.months[0];
+      return;
+    }
+    const withData = [...new Set((t.days ?? []).map((d) => Number(d.snapshotDate.slice(5, 7))))].sort(
+      (a, b) => a - b,
+    );
+    if (withData.length) {
+      this.calendarMonth = withData[withData.length - 1];
+    }
+  }
+
+  private shiftCalendarMonth(delta: number): void {
+    let m = this.calendarMonth + delta;
+    let y = this.reportYear;
+    if (m < 1) {
+      m = 12;
+      y -= 1;
+    } else if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+    this.reportYear = y;
+    this.calendarMonth = m;
+    this.reportMonths = [m];
+    this.load();
   }
 
   cellForDay(day: RobinhoodRhDailyTrackerDayDto, suffix: string): RobinhoodRhDailyTrackerAccountCellDto | undefined {
