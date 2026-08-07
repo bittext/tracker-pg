@@ -31,16 +31,16 @@ public class AlphaVantageOverviewService {
                     + "options/groups and the external chips for those.";
 
     private final FinanceProperties props;
-    private final ObjectMapper objectMapper;
+    /** Spring Boot 4 does not expose an ObjectMapper bean; local mapper for OVERVIEW JSON. */
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(12))
             .followRedirects(HttpClient.Redirect.NORMAL)
             .build();
     private final ConcurrentHashMap<String, CacheEntry> cache = new ConcurrentHashMap<>();
 
-    public AlphaVantageOverviewService(FinanceProperties props, ObjectMapper objectMapper) {
+    public AlphaVantageOverviewService(FinanceProperties props) {
         this.props = props;
-        this.objectMapper = objectMapper;
     }
 
     public CompanyResearchFundamentalsDto overview(String symbolRaw) {
