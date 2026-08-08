@@ -409,13 +409,10 @@ public class RobinhoodOwnershipHistoryService {
         if (raw != null && !raw.isBlank()) {
             return raw.trim().toUpperCase(Locale.ROOT);
         }
-        if (available.contains("NBIS")) {
-            return "NBIS";
-        }
         if (!available.isEmpty()) {
             return available.get(0);
         }
-        return "NBIS";
+        return "";
     }
 
     private List<String> collectEquitySymbols(List<RobinhoodRhDailySnapshot> rows) {

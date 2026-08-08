@@ -1,385 +1,510 @@
-<section class="own-hist" aria-labelledby="own-hist-heading">
-  <h2 id="own-hist-heading" class="own-hist__title">Ownership history</h2>
-  <p class="muted own-hist__lead">
-    @if (assetKind === 'equity') {
-      Share counts from Daily Tracker snapshots (same job that captures holdings nightly / hourly). Own vs margin
-      is estimated from cash / equity market value.
-    } @else {
-      Owned option contracts from Daily Tracker snapshots since {{ optionsHistoryStart | date: 'mediumDate' }}.
-      New captures store strike, expiry, and call/put; older days without that metadata are labeled by chain +
-      average buy.
-    }
-  </p>
+<section class="own" aria-labelledby="own-heading">
+  <header class="own__hero">
+    <div class="own__hero-copy">
+      <p class="own__eyebrow">Robinhood · Daily Tracker</p>
+      <h2 id="own-heading" class="own__title">Ownership</h2>
+      <p class="own__lead">
+        How many shares or option contracts you held — any symbol from your snapshots. Green / red days mark when the
+        count changed.
+      </p>
+    </div>
+    <div class="own__toolbar">
+      <mat-button-toggle-group
+        [value]="assetKind"
+        (change)="onAssetKindChange($event.value)"
+        aria-label="Asset type"
+        class="own__asset"
+      >
+        <mat-button-toggle value="equity">Stocks</mat-button-toggle>
+        <mat-button-toggle value="option">Options</mat-button-toggle>
+      </mat-button-toggle-group>
 
-  <div class="own-hist__toolbar">
-    <mat-button-toggle-group
-      [value]="assetKind"
-      (change)="onAssetKindChange($event.value)"
-      aria-label="Asset type"
-      class="own-hist__asset"
-    >
-      <mat-button-toggle value="equity">Stocks</mat-button-toggle>
-      <mat-button-toggle value="option">Options</mat-button-toggle>
-    </mat-button-toggle-group>
-
-    <mat-form-field appearance="outline" class="own-hist__year">
-      <mat-label>Year</mat-label>
-      <mat-select [(ngModel)]="reportYear" name="ownHistYear" (selectionChange)="load()">
-        @for (y of yearChoices(); track y) {
-          <mat-option [value]="y">{{ y }}</mat-option>
-        }
-      </mat-select>
-    </mat-form-field>
-
-    @if (assetKind === 'equity') {
-      <mat-form-field appearance="outline" class="own-hist__symbol">
-        <mat-label>Symbol</mat-label>
-        <mat-select [ngModel]="symbol" name="ownHistSymbol" (ngModelChange)="onSymbolChange($event)">
-          @if (report(); as r) {
-            @for (s of r.availableSymbols; track s) {
-              <mat-option [value]="s">{{ s }}</mat-option>
-            }
-          }
-          @if (!report()?.availableSymbols?.length) {
-            <mat-option value="NBIS">NBIS</mat-option>
+      <mat-form-field appearance="outline" class="own__field own__field--year" subscriptSizing="dynamic">
+        <mat-label>Year</mat-label>
+        <mat-select [(ngModel)]="reportYear" name="ownHistYear" (selectionChange)="onYearChange()">
+          @for (y of yearChoices(); track y) {
+            <mat-option [value]="y">{{ y }}</mat-option>
           }
         </mat-select>
       </mat-form-field>
-    } @else {
-      <mat-form-field appearance="outline" class="own-hist__contract">
-        <mat-label>Contract</mat-label>
-        <mat-select [ngModel]="contractKey" name="ownHistContract" (ngModelChange)="onContractChange($event)">
-          <mat-option value="">All contracts</mat-option>
+
+      <mat-form-field appearance="outline" class="own__field own__field--account" subscriptSizing="dynamic">
+        <mat-label>Account</mat-label>
+        <mat-select [(ngModel)]="accountSuffix" name="ownHistAcct" (selectionChange)="load()">
           @if (report(); as r) {
-            @for (c of r.availableContracts; track c.contractKey) {
-              <mat-option [value]="c.contractKey">{{ c.label }}</mat-option>
+            @for (suf of r.availableAccountSuffixes; track suf) {
+              <mat-option [value]="suf">{{ accountOptionLabel(suf) }}</mat-option>
             }
+          }
+          @if (!report()?.availableAccountSuffixes?.length && accountSuffix) {
+            <mat-option [value]="accountSuffix">{{ accountOptionLabel(accountSuffix) }}</mat-option>
           }
         </mat-select>
       </mat-form-field>
-    }
 
-    <mat-form-field appearance="outline" class="own-hist__account">
-      <mat-label>Account</mat-label>
-      <mat-select [(ngModel)]="accountSuffix" name="ownHistAcct" (selectionChange)="load()">
-        @if (report(); as r) {
-          @for (suf of r.availableAccountSuffixes; track suf) {
-            <mat-option [value]="suf">{{ accountOptionLabel(suf) }}</mat-option>
+      <mat-form-field appearance="outline" class="own__field own__field--capture" subscriptSizing="dynamic">
+        <mat-label>Capture</mat-label>
+        <mat-select [(ngModel)]="captureKind" name="ownHistKind" (selectionChange)="load()">
+          @for (k of captureKinds; track k.value) {
+            <mat-option [value]="k.value">{{ k.label }}</mat-option>
           }
-        }
-        @if (!report()?.availableAccountSuffixes?.length && accountSuffix) {
-          <mat-option [value]="accountSuffix">{{ accountOptionLabel(accountSuffix) }}</mat-option>
-        }
-      </mat-select>
-    </mat-form-field>
+        </mat-select>
+      </mat-form-field>
 
-    <mat-form-field appearance="outline" class="own-hist__kind">
-      <mat-label>Capture</mat-label>
-      <mat-select [(ngModel)]="captureKind" name="ownHistKind" (selectionChange)="load()">
-        @for (k of captureKinds; track k.value) {
-          <mat-option [value]="k.value">{{ k.label }}</mat-option>
-        }
-      </mat-select>
-    </mat-form-field>
-
-    <button mat-flat-button color="primary" type="button" (click)="load()" [disabled]="loading">
-      <mat-icon>refresh</mat-icon>
-      Refresh
-    </button>
-    @if (loading) {
-      <mat-spinner diameter="28" aria-label="Loading ownership history" />
-    }
-  </div>
-
-  @if (report(); as r) {
-    <p class="muted small own-hist__meta">
-      @if (r.assetKind === 'equity') {
-        {{ r.symbol }} · {{ r.accountMasked }} · {{ r.captureKind }} · {{ r.points.length }} day(s) in {{ r.year }}
-      } @else if (r.contractKey) {
-        {{ r.contractLabel }} · {{ r.accountMasked }} · from {{ formatDay(r.fromDate) }} ·
-        {{ r.points.length }} day(s)
-      } @else {
-        All contracts · {{ r.accountMasked }} · from {{ formatDay(r.fromDate) }} ·
-        {{ r.availableContracts.length }} contract(s)
-      }
-    </p>
-
-    <div class="own-hist__kpis" role="group" aria-label="Summary">
-      <div class="own-hist__kpi">
-        <span class="own-hist__kpi-label">{{
-          r.assetKind === 'option' && !r.contractKey ? 'Open contracts (sum)' : r.assetKind === 'option' ? 'Latest contracts' : 'Latest shares'
-        }}</span>
-        <span class="own-hist__kpi-value">{{ r.latestQuantity | number: '1.0-4' }}</span>
-      </div>
-      @if (r.assetKind === 'equity') {
-        <div class="own-hist__kpi">
-          <span class="own-hist__kpi-label">Est. own-funded</span>
-          <span class="own-hist__kpi-value own-hist__kpi-value--own">{{
-            r.latestOwnSharesEstimate | number: '1.0-2'
-          }}</span>
-        </div>
-        <div class="own-hist__kpi">
-          <span class="own-hist__kpi-label">Est. margin-funded</span>
-          <span class="own-hist__kpi-value own-hist__kpi-value--mgn">{{
-            r.latestMarginSharesEstimate | number: '1.0-2'
-          }}</span>
-        </div>
-        <div class="own-hist__kpi">
-          <span class="own-hist__kpi-label">Margin loan</span>
-          <span class="own-hist__kpi-value">{{ r.latestMarginLoan | currency: 'USD':'symbol':'1.0-0' }}</span>
-        </div>
-        <div class="own-hist__kpi">
-          <span class="own-hist__kpi-label">Margin used</span>
-          <span
-            class="own-hist__kpi-value"
-            [class.own-hist__kpi-value--warn]="
-              latestMarginUsedPercent() != null && latestMarginUsedPercent()! >= marginUsedWarnPercent
-            "
-            >{{
-              latestMarginUsedPercent() != null ? (latestMarginUsedPercent() | number: '1.0-1') + '%' : '—'
-            }}</span
-          >
-          <span class="own-hist__kpi-sub muted">loan ÷ equity MV</span>
-        </div>
-      } @else {
-        <div class="own-hist__kpi">
-          <span class="own-hist__kpi-label">Latest mkt value</span>
-          <span class="own-hist__kpi-value">{{
-            r.latestMarketValue != null ? (r.latestMarketValue | currency: 'USD':'symbol':'1.0-0') : '—'
-          }}</span>
-        </div>
-        <div class="own-hist__kpi">
-          <span class="own-hist__kpi-label">Contracts tracked</span>
-          <span class="own-hist__kpi-value">{{ r.availableContracts.length }}</span>
-        </div>
-      }
-      <div class="own-hist__kpi">
-        <span class="own-hist__kpi-label">Highest</span>
-        <span class="own-hist__kpi-value">{{ r.highQuantity != null ? (r.highQuantity | number: '1.0-2') : '—' }}</span>
-        <span class="own-hist__kpi-sub muted">{{ formatDay(r.highDate) }}</span>
-      </div>
-      @if (r.assetKind === 'equity' || r.contractKey) {
-        <div class="own-hist__kpi">
-          <span class="own-hist__kpi-label">Lowest (&gt;0)</span>
-          <span class="own-hist__kpi-value">{{ r.lowQuantity != null ? (r.lowQuantity | number: '1.0-2') : '—' }}</span>
-          <span class="own-hist__kpi-sub muted">{{ formatDay(r.lowDate) }}</span>
-        </div>
+      <button mat-stroked-button type="button" class="own__refresh" (click)="load()" [disabled]="loading">
+        <mat-icon>refresh</mat-icon>
+        Refresh
+      </button>
+      @if (loading) {
+        <mat-spinner diameter="26" aria-label="Loading ownership" />
       }
     </div>
+  </header>
 
-    @if (showingAllContracts()) {
-      <h3 class="own-hist__section-title">Contracts since {{ formatDay(r.fromDate) }}</h3>
-      <div class="table-wrap">
-        <table class="own-hist__changes own-hist__contracts">
-          <thead>
-            <tr>
-              <th>Contract</th>
-              <th>First</th>
-              <th>Last</th>
-              <th>Latest qty</th>
-              <th>Latest MV</th>
-              <th>High</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (c of r.availableContracts; track c.contractKey) {
-              <tr>
-                <td>
-                  {{ c.label }}
-                  @if (c.legacyIdentity) {
-                    <span class="own-hist__legacy muted">legacy id</span>
-                  }
-                </td>
-                <td>{{ formatDay(c.firstDate) }}</td>
-                <td>{{ formatDay(c.lastDate) }}</td>
-                <td>{{ c.latestQuantity | number: '1.0-4' }}</td>
-                <td>{{ c.latestMarketValue | currency: 'USD':'symbol':'1.0-0' }}</td>
-                <td>
-                  {{ c.highQuantity != null ? (c.highQuantity | number: '1.0-2') : '—' }}
-                  <span class="muted">{{ formatDay(c.highDate) }}</span>
-                </td>
-                <td>
-                  <button mat-button type="button" color="primary" (click)="selectContract(c.contractKey)">
-                    Chart
-                  </button>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-
-      <h3 class="own-hist__section-title">Day-by-day (all contracts)</h3>
-      <div class="table-wrap">
-        <table class="own-hist__changes">
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Contract</th>
-              <th>Contracts</th>
-              <th>Mark / sh</th>
-              <th>Mkt value</th>
-              <th>Cost</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (row of allContractDayRows(); track row.date + row.contractKey) {
-              <tr>
-                <td>{{ formatDay(row.date) }}</td>
-                <td>
-                  <button mat-button type="button" class="own-hist__link" (click)="selectContract(row.contractKey)">
-                    {{ row.label }}
-                  </button>
-                  @if (row.legacy) {
-                    <span class="own-hist__legacy muted">legacy</span>
-                  }
-                </td>
-                <td>{{ row.quantity | number: '1.0-4' }}</td>
-                <td>{{ row.price != null ? (row.price | currency: 'USD':'symbol':'1.2-2') : '—' }}</td>
-                <td>{{ row.marketValue | currency: 'USD':'symbol':'1.0-0' }}</td>
-                <td>{{ row.costBasis != null ? (row.costBasis | currency: 'USD':'symbol':'1.0-0') : '—' }}</td>
-              </tr>
-            }
-          </tbody>
-        </table>
+  @if (report(); as r) {
+    @if (r.assetKind === 'equity') {
+      <div class="own__symbols" role="list" aria-label="Held stock symbols">
+        @if (!r.availableSymbols.length) {
+          <p class="own__empty-inline muted">No equity symbols in snapshots for this account / year.</p>
+        } @else {
+          @for (s of r.availableSymbols; track s) {
+            <button
+              type="button"
+              class="own__sym-chip"
+              role="listitem"
+              [class.own__sym-chip--active]="s === r.symbol"
+              (click)="onSymbolChange(s)"
+            >
+              {{ s }}
+            </button>
+          }
+        }
       </div>
     } @else {
-      @if (r.assetKind === 'option' && r.contractKey) {
-        <p class="own-hist__back">
-          <button mat-button type="button" (click)="showAllContracts()">
+      <div class="own__contract-bar">
+        @if (r.contractKey) {
+          <button mat-button type="button" class="own__back" (click)="showAllContracts()">
             <mat-icon>arrow_back</mat-icon>
             All contracts
           </button>
-        </p>
-      }
-
-      @if (chartBars().length) {
-        <div
-          class="own-hist__chart"
-          role="img"
-          [attr.aria-label]="(r.contractLabel || r.symbol || 'Position') + ' count over time'"
-        >
-          <div class="own-hist__chart-title">
-            {{ r.contractLabel || r.symbol }} {{ r.assetKind === 'option' ? 'contracts' : 'shares' }} over time
-          </div>
-          <div class="own-hist__bars" [style.--bar-count]="chartBars().length">
-            @for (bar of chartBars(); track bar.date) {
-              <div class="own-hist__bar-col" [attr.title]="bar.title">
-                <span class="own-hist__bar" [style.height.%]="bar.heightPct"></span>
-                <span class="own-hist__bar-label">{{ bar.date | slice: 5 }}</span>
-              </div>
+        }
+        <mat-form-field appearance="outline" class="own__field own__field--contract" subscriptSizing="dynamic">
+          <mat-label>Contract</mat-label>
+          <mat-select [ngModel]="contractKey" name="ownHistContract" (ngModelChange)="onContractChange($event)">
+            <mat-option value="">All contracts</mat-option>
+            @for (c of r.availableContracts; track c.contractKey) {
+              <mat-option [value]="c.contractKey">{{ c.label }}</mat-option>
             }
-          </div>
-        </div>
-      }
-
-      @if (changeRows().length) {
-        <h3 class="own-hist__section-title">When the count changed</h3>
-        <div class="table-wrap">
-          <table class="own-hist__changes">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>From</th>
-                <th>To</th>
-                <th>Δ</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (c of changeRows(); track c.date + c.to) {
-                <tr>
-                  <td>{{ formatDay(c.date) }}</td>
-                  <td>{{ c.from | number: '1.0-4' }}</td>
-                  <td>{{ c.to | number: '1.0-4' }}</td>
-                  <td [class.own-hist__delta--pos]="c.delta > 0" [class.own-hist__delta--neg]="c.delta < 0">
-                    {{ c.delta > 0 ? '+' : '' }}{{ c.delta | number: '1.0-4' }}
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      }
-
-      <h3 class="own-hist__section-title">Day-by-day</h3>
-      <div class="table-wrap">
-        <table
-          mat-table
-          [dataSource]="r.points"
-          class="full-width own-hist__table"
-        >
-          <ng-container matColumnDef="snapshotDate">
-            <th mat-header-cell *matHeaderCellDef>Date</th>
-            <td mat-cell *matCellDef="let row">{{ formatDay(row.snapshotDate) }}</td>
-          </ng-container>
-          <ng-container matColumnDef="quantity">
-            <th mat-header-cell *matHeaderCellDef>{{ r.assetKind === 'option' ? 'Contracts' : 'Shares' }}</th>
-            <td mat-cell *matCellDef="let row">{{ row.quantity | number: '1.0-4' }}</td>
-          </ng-container>
-          <ng-container matColumnDef="own">
-            <th mat-header-cell *matHeaderCellDef>Own ≈</th>
-            <td mat-cell *matCellDef="let row">{{ row.ownSharesEstimate | number: '1.0-2' }}</td>
-          </ng-container>
-          <ng-container matColumnDef="margin">
-            <th mat-header-cell *matHeaderCellDef>Margin ≈</th>
-            <td mat-cell *matCellDef="let row">{{ row.marginSharesEstimate | number: '1.0-2' }}</td>
-          </ng-container>
-          <ng-container matColumnDef="loan">
-            <th mat-header-cell *matHeaderCellDef>Loan</th>
-            <td mat-cell *matCellDef="let row">{{ row.marginLoan | currency: 'USD':'symbol':'1.0-0' }}</td>
-          </ng-container>
-          <ng-container matColumnDef="marginUsed">
-            <th mat-header-cell *matHeaderCellDef>Margin used</th>
-            <td
-              mat-cell
-              *matCellDef="let row"
-              [class.own-hist__margin-used--high]="marginUsedHigh(row)"
-              [attr.title]="'Loan ÷ equity market value' + (marginUsedHigh(row) ? ' (≥' + marginUsedWarnPercent + '%)' : '')"
-            >
-              {{
-                row.marginUsedPercent != null ? (row.marginUsedPercent | number: '1.0-1') + '%' : '—'
-              }}
-            </td>
-          </ng-container>
-          <ng-container matColumnDef="price">
-            <th mat-header-cell *matHeaderCellDef>{{ r.assetKind === 'option' ? 'Mark / sh' : 'Price' }}</th>
-            <td mat-cell *matCellDef="let row">
-              {{ row.currentUnitPrice != null ? (row.currentUnitPrice | currency: 'USD':'symbol':'1.2-2') : '—' }}
-            </td>
-          </ng-container>
-          <ng-container matColumnDef="marketValue">
-            <th mat-header-cell *matHeaderCellDef>Mkt value</th>
-            <td mat-cell *matCellDef="let row">{{ row.marketValue | currency: 'USD':'symbol':'1.0-0' }}</td>
-          </ng-container>
-          <ng-container matColumnDef="costBasis">
-            <th mat-header-cell *matHeaderCellDef>Cost</th>
-            <td mat-cell *matCellDef="let row">
-              {{ row.costBasis != null ? (row.costBasis | currency: 'USD':'symbol':'1.0-0') : '—' }}
-            </td>
-          </ng-container>
-          <tr
-            mat-header-row
-            *matHeaderRowDef="r.assetKind === 'option' ? optionTableColumns : equityTableColumns"
-          ></tr>
-          <tr
-            mat-row
-            *matRowDef="
-              let row;
-              columns: r.assetKind === 'option' ? optionTableColumns : equityTableColumns;
-              trackBy: trackPoint
-            "
-          ></tr>
-        </table>
+          </mat-select>
+        </mat-form-field>
+        <p class="own__meta muted">
+          Since {{ optionsHistoryStart | date: 'mediumDate' }} · {{ r.accountMasked }}
+        </p>
       </div>
     }
 
+    <div class="own__summary">
+      <div class="own__summary-main">
+        <span class="own__summary-label">{{ positionTitle(r) }}</span>
+        <span class="own__summary-qty">
+          {{ r.latestQuantity | number: '1.0-4' }}
+          <span class="own__summary-unit">{{
+            r.assetKind === 'option' && !r.contractKey ? 'open (sum)' : qtyUnit(r)
+          }}</span>
+        </span>
+        <span class="own__summary-meta muted">
+          {{ r.accountMasked }} · {{ r.captureKind }} · {{ r.points.length }} day(s) in {{ r.year }}
+        </span>
+      </div>
+      <div class="own__kpis" role="group" aria-label="Position summary">
+        @if (r.assetKind === 'equity') {
+          <div class="own__kpi">
+            <span class="own__kpi-label">Own ≈</span>
+            <span class="own__kpi-value own__kpi-value--own">{{ r.latestOwnSharesEstimate | number: '1.0-2' }}</span>
+          </div>
+          <div class="own__kpi">
+            <span class="own__kpi-label">Margin ≈</span>
+            <span class="own__kpi-value own__kpi-value--mgn">{{
+              r.latestMarginSharesEstimate | number: '1.0-2'
+            }}</span>
+          </div>
+          <div class="own__kpi">
+            <span class="own__kpi-label">Loan</span>
+            <span class="own__kpi-value">{{ r.latestMarginLoan | currency: 'USD':'symbol':'1.0-0' }}</span>
+          </div>
+          <div class="own__kpi">
+            <span class="own__kpi-label">Margin used</span>
+            <span
+              class="own__kpi-value"
+              [class.own__kpi-value--warn]="
+                latestMarginUsedPercent() != null && latestMarginUsedPercent()! >= marginUsedWarnPercent
+              "
+              >{{
+                latestMarginUsedPercent() != null ? (latestMarginUsedPercent() | number: '1.0-1') + '%' : '—'
+              }}</span
+            >
+          </div>
+        } @else {
+          <div class="own__kpi">
+            <span class="own__kpi-label">Mkt value</span>
+            <span class="own__kpi-value">{{
+              r.latestMarketValue != null ? (r.latestMarketValue | currency: 'USD':'symbol':'1.0-0') : '—'
+            }}</span>
+          </div>
+          <div class="own__kpi">
+            <span class="own__kpi-label">Tracked</span>
+            <span class="own__kpi-value">{{ r.availableContracts.length }}</span>
+          </div>
+        }
+        <div class="own__kpi">
+          <span class="own__kpi-label">Peak</span>
+          <span class="own__kpi-value">{{ r.highQuantity != null ? (r.highQuantity | number: '1.0-2') : '—' }}</span>
+          <span class="own__kpi-sub muted">{{ formatDay(r.highDate) }}</span>
+        </div>
+        @if (r.assetKind === 'equity' || r.contractKey) {
+          <div class="own__kpi">
+            <span class="own__kpi-label">Low (&gt;0)</span>
+            <span class="own__kpi-value">{{ r.lowQuantity != null ? (r.lowQuantity | number: '1.0-2') : '—' }}</span>
+            <span class="own__kpi-sub muted">{{ formatDay(r.lowDate) }}</span>
+          </div>
+        }
+      </div>
+    </div>
+
+    @if (showingAllContracts()) {
+      <section class="own__panel" aria-labelledby="own-contracts-title">
+        <div class="own__panel-head">
+          <h3 id="own-contracts-title" class="own__panel-title">Contracts</h3>
+          <p class="muted own__panel-sub">Pick one to see when the contract count changed on the calendar.</p>
+        </div>
+        <div class="own__contract-grid">
+          @for (c of r.availableContracts; track c.contractKey) {
+            <button type="button" class="own__contract-card" (click)="selectContract(c.contractKey)">
+              <span class="own__contract-card-label">
+                {{ c.label }}
+                @if (c.legacyIdentity) {
+                  <span class="own__legacy">legacy</span>
+                }
+              </span>
+              <span class="own__contract-card-qty">{{ c.latestQuantity | number: '1.0-4' }} open</span>
+              <span class="own__contract-card-meta muted">
+                {{ c.latestMarketValue | currency: 'USD':'symbol':'1.0-0' }} ·
+                {{ formatDay(c.firstDate) }} → {{ formatDay(c.lastDate) }}
+              </span>
+            </button>
+          }
+        </div>
+      </section>
+    } @else {
+      <div class="own__workspace">
+        <section class="own__panel own__cal-panel" aria-labelledby="own-cal-title">
+          <div class="own__panel-head own__cal-head">
+            <div>
+              <h3 id="own-cal-title" class="own__panel-title">When the count changed</h3>
+              <p class="muted own__panel-sub">
+                Calendar for {{ positionTitle(r) }}. Colored days = quantity moved; tap a day for detail.
+              </p>
+            </div>
+            <div class="own__cal-nav">
+              <button
+                mat-icon-button
+                type="button"
+                (click)="shiftCalendarMonth(-1)"
+                [disabled]="!canShiftMonth(-1)"
+                aria-label="Previous month"
+              >
+                <mat-icon>chevron_left</mat-icon>
+              </button>
+              <span class="own__cal-month">{{ calendarMonthLabel() }}</span>
+              <button
+                mat-icon-button
+                type="button"
+                (click)="shiftCalendarMonth(1)"
+                [disabled]="!canShiftMonth(1)"
+                aria-label="Next month"
+              >
+                <mat-icon>chevron_right</mat-icon>
+              </button>
+            </div>
+          </div>
+
+          @if (changeMonthsInYear().length) {
+            <div class="own__month-chips" aria-label="Months with activity">
+              @for (ym of changeMonthsInYear(); track ym) {
+                <button
+                  type="button"
+                  class="own__month-chip"
+                  [class.own__month-chip--active]="calendarMonth.startsWith(ym)"
+                  (click)="jumpToMonth(ym)"
+                >
+                  {{ ym | slice: 5 }}
+                </button>
+              }
+            </div>
+          }
+
+          <div class="own__cal-legend" aria-hidden="true">
+            <span class="own__legend own__legend--pos">Bought / added</span>
+            <span class="own__legend own__legend--neg">Sold / reduced</span>
+            <span class="own__legend own__legend--hold">Held (no change)</span>
+          </div>
+
+          <div class="own__cal-grid">
+            <div class="own__cal-weekdays">
+              @for (w of weekdayLabels; track w) {
+                <span>{{ w }}</span>
+              }
+            </div>
+            @for (week of calendarWeeks(); track $index) {
+              <div class="own__cal-week">
+                @for (cell of week; track cell.trackKey) {
+                  @if (cell.type === 'pad') {
+                    <div class="own__cal-cell own__cal-cell--pad" aria-hidden="true"></div>
+                  } @else {
+                    <button
+                      type="button"
+                      class="own__cal-cell"
+                      [class.own__cal-cell--today]="cell.isToday"
+                      [class.own__cal-cell--selected]="cell.isSelected"
+                      [class.own__cal-cell--pos]="cellTone(cell) === 'pos'"
+                      [class.own__cal-cell--neg]="cellTone(cell) === 'neg'"
+                      [class.own__cal-cell--hold]="cellTone(cell) === 'hold'"
+                      [class.own__cal-cell--empty]="cellTone(cell) === 'empty'"
+                      [disabled]="!cell.hasSnapshot && cell.delta == null"
+                      (click)="selectDay(cell)"
+                      [matTooltip]="
+                        cell.delta != null
+                          ? formatDay(cell.date) +
+                            ': ' +
+                            (cell.delta > 0 ? '+' : '') +
+                            cell.delta +
+                            ' → ' +
+                            cell.quantity
+                          : cell.hasSnapshot
+                            ? formatDay(cell.date) + ': ' + cell.quantity + ' ' + qtyUnit()
+                            : formatDay(cell.date)
+                      "
+                    >
+                      <span class="own__cal-daynum">{{ cell.dayNumber }}</span>
+                      @if (cell.delta != null) {
+                        <span class="own__cal-delta"
+                          >{{ cell.delta > 0 ? '+' : '' }}{{ cell.delta | number: '1.0-2' }}</span
+                        >
+                        <span class="own__cal-qty muted">{{ cell.quantity | number: '1.0-2' }}</span>
+                      } @else if (cell.hasSnapshot) {
+                        <span class="own__cal-qty">{{ cell.quantity | number: '1.0-2' }}</span>
+                      }
+                    </button>
+                  }
+                }
+              </div>
+            }
+          </div>
+
+          @if (!changeRows().length && !r.points.length) {
+            <p class="own__empty muted">No ownership snapshots for this selection yet.</p>
+          } @else if (!changeRows().length) {
+            <p class="own__empty muted">
+              Quantity stayed flat across {{ r.points.length }} day(s) — days with a holding are shaded lightly.
+            </p>
+          }
+        </section>
+
+        <aside class="own__panel own__day-panel" aria-label="Selected day">
+          @if (selectedDate; as day) {
+            <h3 class="own__panel-title">{{ formatDayFriendly(day) }}</h3>
+            @if (selectedChange(); as ch) {
+              <p class="own__day-change" [class.own__day-change--pos]="ch.delta > 0" [class.own__day-change--neg]="ch.delta < 0">
+                Count changed
+                <strong>{{ ch.from | number: '1.0-4' }}</strong>
+                →
+                <strong>{{ ch.to | number: '1.0-4' }}</strong>
+                <span class="own__day-delta"
+                  >({{ ch.delta > 0 ? '+' : '' }}{{ ch.delta | number: '1.0-4' }} {{ qtyUnit() }})</span
+                >
+              </p>
+            } @else if (selectedPoint()) {
+              <p class="muted own__day-flat">No quantity change this day — holding carried forward.</p>
+            } @else {
+              <p class="muted">No snapshot on this day.</p>
+            }
+
+            @if (selectedPoint(); as p) {
+              <dl class="own__day-facts">
+                <div>
+                  <dt>{{ qtyUnit() | titlecase }}</dt>
+                  <dd>{{ p.quantity | number: '1.0-4' }}</dd>
+                </div>
+                <div>
+                  <dt>Mkt value</dt>
+                  <dd>{{ p.marketValue | currency: 'USD':'symbol':'1.0-0' }}</dd>
+                </div>
+                <div>
+                  <dt>{{ r.assetKind === 'option' ? 'Mark / sh' : 'Price' }}</dt>
+                  <dd>
+                    {{ p.currentUnitPrice != null ? (p.currentUnitPrice | currency: 'USD':'symbol':'1.2-2') : '—' }}
+                  </dd>
+                </div>
+                @if (r.assetKind === 'equity') {
+                  <div>
+                    <dt>Own ≈</dt>
+                    <dd>{{ p.ownSharesEstimate | number: '1.0-2' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Margin ≈</dt>
+                    <dd>{{ p.marginSharesEstimate | number: '1.0-2' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Margin used</dt>
+                    <dd [class.own__kpi-value--warn]="marginUsedHigh(p)">
+                      {{
+                        p.marginUsedPercent != null ? (p.marginUsedPercent | number: '1.0-1') + '%' : '—'
+                      }}
+                    </dd>
+                  </div>
+                }
+                <div>
+                  <dt>Loan</dt>
+                  <dd>{{ p.marginLoan | currency: 'USD':'symbol':'1.0-0' }}</dd>
+                </div>
+                <div>
+                  <dt>Cost</dt>
+                  <dd>{{ p.costBasis != null ? (p.costBasis | currency: 'USD':'symbol':'1.0-0') : '—' }}</dd>
+                </div>
+              </dl>
+            }
+          } @else {
+            <h3 class="own__panel-title">Day detail</h3>
+            <p class="muted">Select a day on the calendar.</p>
+          }
+
+          @if (changeRows().length) {
+            <div class="own__change-list">
+              <h4 class="own__change-list-title">All changes in {{ r.year }}</h4>
+              <ul>
+                @for (c of changeRows(); track c.date + c.to) {
+                  <li>
+                    <button
+                      type="button"
+                      class="own__change-row"
+                      [class.own__change-row--active]="c.date === selectedDate"
+                      (click)="focusDate(c.date)"
+                    >
+                      <span class="own__change-date">{{ formatDay(c.date) }}</span>
+                      <span
+                        class="own__change-delta"
+                        [class.own__delta--pos]="c.delta > 0"
+                        [class.own__delta--neg]="c.delta < 0"
+                        >{{ c.delta > 0 ? '+' : '' }}{{ c.delta | number: '1.0-4' }}</span
+                      >
+                      <span class="muted own__change-range"
+                        >{{ c.from | number: '1.0-2' }} → {{ c.to | number: '1.0-2' }}</span
+                      >
+                    </button>
+                  </li>
+                }
+              </ul>
+            </div>
+          }
+        </aside>
+      </div>
+
+      @if (chartBars().length) {
+        <section class="own__panel own__spark" aria-label="Quantity over time">
+          <h3 class="own__panel-title">{{ positionTitle(r) }} over time</h3>
+          <div class="own__bars" [style.--bar-count]="chartBars().length" role="img">
+            @for (bar of chartBars(); track bar.date) {
+              <button
+                type="button"
+                class="own__bar-col"
+                [class.own__bar-col--changed]="bar.changed"
+                [attr.title]="bar.title"
+                (click)="focusDate(bar.date)"
+              >
+                <span
+                  class="own__bar"
+                  [class.own__bar--pos]="bar.delta != null && bar.delta > 0"
+                  [class.own__bar--neg]="bar.delta != null && bar.delta < 0"
+                  [style.height.%]="bar.heightPct"
+                ></span>
+              </button>
+            }
+          </div>
+        </section>
+      }
+
+      <button
+        mat-button
+        type="button"
+        class="own__details-toggle"
+        (click)="detailsExpanded = !detailsExpanded"
+        [attr.aria-expanded]="detailsExpanded"
+      >
+        <mat-icon>{{ detailsExpanded ? 'expand_less' : 'table_rows' }}</mat-icon>
+        {{ detailsExpanded ? 'Hide day-by-day table' : 'Show day-by-day table' }}
+      </button>
+
+      @if (detailsExpanded) {
+        <section class="own__panel" aria-label="Day by day table">
+          <div class="own__table-wrap">
+            <table class="own__table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>{{ r.assetKind === 'option' ? 'Contracts' : 'Shares' }}</th>
+                  @if (r.assetKind === 'equity') {
+                    <th>Own ≈</th>
+                    <th>Margin ≈</th>
+                    <th>Margin used</th>
+                  }
+                  <th>Loan</th>
+                  <th>{{ r.assetKind === 'option' ? 'Mark' : 'Price' }}</th>
+                  <th>Mkt value</th>
+                  <th>Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of r.points; track row.snapshotId) {
+                  <tr
+                    [class.own__table-row--selected]="row.snapshotDate.slice(0, 10) === selectedDate"
+                    (click)="focusDate(row.snapshotDate)"
+                  >
+                    <td>{{ formatDay(row.snapshotDate) }}</td>
+                    <td>{{ row.quantity | number: '1.0-4' }}</td>
+                    @if (r.assetKind === 'equity') {
+                      <td>{{ row.ownSharesEstimate | number: '1.0-2' }}</td>
+                      <td>{{ row.marginSharesEstimate | number: '1.0-2' }}</td>
+                      <td [class.own__kpi-value--warn]="marginUsedHigh(row)">
+                        {{
+                          row.marginUsedPercent != null ? (row.marginUsedPercent | number: '1.0-1') + '%' : '—'
+                        }}
+                      </td>
+                    }
+                    <td>{{ row.marginLoan | currency: 'USD':'symbol':'1.0-0' }}</td>
+                    <td>
+                      {{
+                        row.currentUnitPrice != null ? (row.currentUnitPrice | currency: 'USD':'symbol':'1.2-2') : '—'
+                      }}
+                    </td>
+                    <td>{{ row.marketValue | currency: 'USD':'symbol':'1.0-0' }}</td>
+                    <td>{{ row.costBasis != null ? (row.costBasis | currency: 'USD':'symbol':'1.0-0') : '—' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+      }
+    }
+
     @if (r.notes.length) {
-      <ul class="own-hist__notes muted small">
+      <ul class="own__notes muted">
         @for (n of r.notes; track n) {
           <li>{{ n }}</li>
         }
       </ul>
     }
+  } @else if (!loading) {
+    <p class="own__empty muted">Load ownership to see stocks and options from Daily Tracker snapshots.</p>
   }
 </section>
