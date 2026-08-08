@@ -77,10 +77,35 @@ public class ManagementWriteupController {
             @PathVariable("id") long attachmentId, @RequestParam(defaultValue = "inline") String disposition) {
         AttachmentFile f = service.readAttachmentFile(attachmentId);
         String mode = "attachment".equalsIgnoreCase(disposition) ? "attachment" : "inline";
+        String contentType = f.contentType() == null || f.contentType().isBlank()
+                ? "application/octet-stream"
+                : f.contentType();
+        // Markup / script types must not render inline in the browser.
+        if (isForcedAttachmentContentType(contentType, f.filename())) {
+            mode = "attachment";
+            contentType = "application/octet-stream";
+        }
         HttpHeaders h = new HttpHeaders();
-        h.setContentType(MediaType.parseMediaType(f.contentType()));
+        h.setContentType(MediaType.parseMediaType(contentType));
         h.setContentDisposition(
                 ContentDisposition.builder(mode).filename(f.filename(), StandardCharsets.UTF_8).build());
         return new ResponseEntity<>(f.body(), h, HttpStatus.OK);
+    }
+
+    private static boolean isForcedAttachmentContentType(String contentType, String filename) {
+        String ct = contentType == null ? "" : contentType.trim().toLowerCase();
+        String name = filename == null ? "" : filename.trim().toLowerCase();
+        if (ct.contains("html")
+                || ct.contains("javascript")
+                || ct.equals("image/svg+xml")
+                || ct.equals("application/xhtml+xml")
+                || ct.equals("text/xml") && name.endsWith(".svg")) {
+            return true;
+        }
+        return name.endsWith(".html")
+                || name.endsWith(".htm")
+                || name.endsWith(".svg")
+                || name.endsWith(".js")
+                || name.endsWith(".mjs");
     }
 }

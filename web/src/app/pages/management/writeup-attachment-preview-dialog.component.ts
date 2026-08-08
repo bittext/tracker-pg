@@ -12,7 +12,15 @@ import { ManagementApiService } from '../../services/management-api.service';
 import { LifeApiService } from '../../services/life-api.service';
 import { TrackerApiService } from '../../services/tracker-api.service';
 
-export type WriteupAttachmentPreviewKind = 'loading' | 'image' | 'pdf' | 'text' | 'unsupported' | 'error';
+export type WriteupAttachmentPreviewKind =
+  | 'loading'
+  | 'image'
+  | 'pdf'
+  | 'text'
+  | 'video'
+  | 'audio'
+  | 'unsupported'
+  | 'error';
 
 export interface WriteupAttachmentPreviewData {
   attachmentId: number;
@@ -47,6 +55,10 @@ export interface WriteupAttachmentPreviewData {
         <iframe class="pdf-frame" title="PDF preview" [src]="safePdfUrl"></iframe>
       } @else if (kind === 'text') {
         <pre class="text-preview">{{ previewText }}</pre>
+      } @else if (kind === 'video' && blobUrl) {
+        <video class="av-player" controls [src]="blobUrl" [attr.title]="data.filename"></video>
+      } @else if (kind === 'audio' && blobUrl) {
+        <audio class="av-player av-player--audio" controls [src]="blobUrl" [attr.title]="data.filename"></audio>
       } @else {
         <div class="prev-fallback">
           <mat-icon>insert_drive_file</mat-icon>
@@ -120,6 +132,18 @@ export interface WriteupAttachmentPreviewData {
       white-space: pre-wrap;
       word-break: break-word;
     }
+    .av-player {
+      display: block;
+      width: 100%;
+      max-height: 70vh;
+      border-radius: 8px;
+      background: #0f172a;
+    }
+    .av-player--audio {
+      background: transparent;
+      margin: 2rem auto;
+      max-width: 36rem;
+    }
     .prev-fallback {
       display: grid;
       place-items: center;
@@ -156,6 +180,10 @@ export class WriteupAttachmentPreviewDialogComponent implements OnInit, OnDestro
         return 'picture_as_pdf';
       case 'text':
         return 'article';
+      case 'video':
+        return 'movie';
+      case 'audio':
+        return 'audio_file';
       case 'loading':
         return 'hourglass_empty';
       default:
@@ -220,6 +248,14 @@ export class WriteupAttachmentPreviewDialogComponent implements OnInit, OnDestro
         this.kind = 'image';
         return;
       }
+      if (this.isVideo(ct, name)) {
+        this.kind = 'video';
+        return;
+      }
+      if (this.isAudio(ct, name)) {
+        this.kind = 'audio';
+        return;
+      }
       this.kind = 'unsupported';
     });
   }
@@ -257,6 +293,14 @@ export class WriteupAttachmentPreviewDialogComponent implements OnInit, OnDestro
       ct === 'application/xml' ||
       /\.(txt|md|csv|json|xml|log|yml|yaml)$/i.test(name)
     );
+  }
+
+  private isVideo(ct: string, name: string): boolean {
+    return ct.startsWith('video/') || /\.(mp4|webm|ogg|mov|m4v)$/i.test(name);
+  }
+
+  private isAudio(ct: string, name: string): boolean {
+    return ct.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|aac|flac)$/i.test(name);
   }
 
   private revoke(): void {

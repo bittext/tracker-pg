@@ -285,6 +285,24 @@ export class ManagementComponent implements OnInit, OnDestroy {
   writeupBodyCaret = 0;
   writeupEditorDragOver = false;
   private writeupDragAttachmentId: number | null = null;
+  /** Image insert defaults (same UX as Markets → Tracker notes). */
+  writeupImageWidthPct = 30;
+  writeupImageFloat: 'left' | 'right' | 'none' = 'left';
+  writeupPdfCoverTargetId: number | null = null;
+  readonly writeupImageWidthOptions = [
+    { pct: 25, label: 'S' },
+    { pct: 30, label: 'M' },
+    { pct: 45, label: 'L' },
+    { pct: 60, label: 'XL' },
+    { pct: 100, label: 'Full' },
+  ];
+  readonly writeupImageFloatOptions: { id: 'left' | 'right' | 'none'; label: string }[] = [
+    { id: 'left', label: 'Wrap left' },
+    { id: 'right', label: 'Wrap right' },
+    { id: 'none', label: 'Block' },
+  ];
+  /** Draft URL while linking an image to an external page. */
+  writeupImageUrlDraftById: Record<number, string> = {};
 
   ngOnInit(): void {
     const t = this.todayIso();
@@ -1600,6 +1618,9 @@ export class ManagementComponent implements OnInit, OnDestroy {
   }
 
   isWriteupImageAttachment(a: ManagementWriteupAttachmentDto): boolean {
+    if (this.isWriteupPdfAttachment(a)) {
+      return false;
+    }
     const ct = (a.contentType || '').toLowerCase();
     if (ct.startsWith('image/')) {
       return true;
@@ -1607,27 +1628,278 @@ export class ManagementComponent implements OnInit, OnDestroy {
     return /\.(jpe?g|png|gif|webp|bmp|svg|heic|heif)$/i.test(a.originalFilename || '');
   }
 
-  /**
-   * Insert (or move) a stable markdown image at the editor caret / drop index.
-   * Do not paste blob: URLs — they expire when the tab reloads.
-   */
-  insertWriteupImageIntoBody(a: ManagementWriteupAttachmentDto, atIndex?: number): void {
-    if (!this.isWriteupImageAttachment(a)) {
-      this.snackBar.open('Only image attachments can be inserted into the body', undefined, {
-        duration: 3000,
-      });
+  isWriteupPdfAttachment(a: ManagementWriteupAttachmentDto): boolean {
+    const ct = (a.contentType || '').toLowerCase();
+    return ct === 'application/pdf' || ct.includes('pdf') || /\.pdf$/i.test(a.originalFilename || '');
+  }
+
+  private writeupCurrentAttachments(): ManagementWriteupAttachmentDto[] {
+    if (this.writeupViewMode === 'compose' && this.writeupSelectedAttachments.length) {
+      return this.writeupSelectedAttachments;
+    }
+    return this.selectedWriteup?.attachments ?? this.writeupSelectedAttachments;
+  }
+
+  get writeupPdfAttachments(): ManagementWriteupAttachmentDto[] {
+    return this.writeupCurrentAttachments().filter((a) => this.isWriteupPdfAttachment(a));
+  }
+
+  private writeupWorkingBody(): string {
+    if (this.writeupViewMode === 'compose') {
+      return this.writeupDraft.body ?? '';
+    }
+    return this.selectedWriteup?.body ?? this.writeupDraft.body ?? '';
+  }
+
+  private writeupAttachmentFilePath(id: number): string {
+    return `/api/management/writeups/attachments/${id}/file`;
+  }
+
+  resolveWriteupPdfCoverTarget(): ManagementWriteupAttachmentDto | null {
+    const pdfs = this.writeupPdfAttachments;
+    if (this.writeupPdfCoverTargetId != null) {
+      return pdfs.find((p) => p.id === this.writeupPdfCoverTargetId) ?? null;
+    }
+    return pdfs.length === 1 ? pdfs[0]! : null;
+  }
+
+  linkedPdfIdForWriteupImage(imageId: number): number | null {
+    const body = this.writeupWorkingBody();
+    const re = new RegExp(
+      `<img\\b[^>]*\\bsrc=["'][^"']*\\/api\\/management\\/writeups\\/attachments\\/${imageId}\\/file[^"']*["'][^>]*>`,
+      'i',
+    );
+    const tag = body.match(re)?.[0];
+    if (!tag) {
+      return null;
+    }
+    const idm = tag.match(/\bdata-open-pdf-id=["'](\d+)["']/i);
+    return idm ? Number(idm[1]) : null;
+  }
+
+  linkedUrlForWriteupImage(imageId: number): string {
+    const body = this.writeupWorkingBody();
+    const re = new RegExp(
+      `<img\\b[^>]*\\bsrc=["'][^"']*\\/api\\/management\\/writeups\\/attachments\\/${imageId}\\/file[^"']*["'][^>]*>`,
+      'i',
+    );
+    const tag = body.match(re)?.[0];
+    if (!tag) {
+      return this.writeupImageUrlDraftById[imageId] ?? '';
+    }
+    const um = tag.match(/\bdata-open-url=["']([^"']*)["']/i);
+    return um ? um[1] : this.writeupImageUrlDraftById[imageId] ?? '';
+  }
+
+  shortWriteupAttachmentLabel(a: ManagementWriteupAttachmentDto, max = 36): string {
+    const name = a.originalFilename || `file ${a.id}`;
+    return name.length > max ? `${name.slice(0, max - 1)}…` : name;
+  }
+
+  onWriteupImagePdfLinkChange(image: ManagementWriteupAttachmentDto, pdfId: number | null): void {
+    if (!this.isWriteupImageAttachment(image)) {
       return;
     }
     if (this.writeupViewMode !== 'compose') {
       this.startEditWriteup();
     }
+    if (pdfId == null) {
+      this.unlinkWriteupImageFromPdf(image.id);
+      this.snackBar.open('PDF link removed from image — Save when ready', undefined, { duration: 2800 });
+      return;
+    }
+    const pdf = this.writeupPdfAttachments.find((p) => p.id === pdfId);
+    if (!pdf) {
+      return;
+    }
+    this.linkWriteupImageToPdf(image, pdf);
+  }
+
+  applyWriteupImageUrl(image: ManagementWriteupAttachmentDto): void {
+    if (!this.isWriteupImageAttachment(image)) {
+      return;
+    }
+    if (this.writeupViewMode !== 'compose') {
+      this.startEditWriteup();
+    }
+    const raw = (this.writeupImageUrlDraftById[image.id] ?? this.linkedUrlForWriteupImage(image.id)).trim();
+    if (!raw) {
+      this.unlinkWriteupImageUrl(image.id);
+      this.snackBar.open('URL link removed from image — Save when ready', undefined, { duration: 2800 });
+      return;
+    }
+    let url = raw;
+    if (!/^https?:\/\//i.test(url) && !url.startsWith('/')) {
+      url = `https://${url}`;
+    }
+    if (!this.isSafeWriteupOpenUrl(url)) {
+      this.snackBar.open('Only http(s) or site-relative URLs are allowed', undefined, { duration: 3200 });
+      return;
+    }
+    this.linkWriteupImageToUrl(image, url);
+  }
+
+  private isSafeWriteupOpenUrl(url: string): boolean {
+    if (url.startsWith('/')) {
+      return !url.startsWith('//');
+    }
+    try {
+      const u = new URL(url);
+      return u.protocol === 'http:' || u.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }
+
+  private normalizeWriteupImgAttrs(attrs: string): string {
+    return attrs
+      .replace(/\s\/\s+(?=data-open-pdf-|data-open-url=|data-tracker-|data-life-|data-att-|alt=|src=|style=|class=)/gi, ' ')
+      .replace(/\/\s*$/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private rewriteWriteupImageTags(
+    body: string,
+    imageId: number,
+    mutator: (attrs: string) => string,
+  ): { body: string; changed: number } {
+    const imgRe = new RegExp(
+      `<img\\b([^>]*\\bsrc=["'][^"']*\\/api\\/management\\/writeups\\/attachments\\/${imageId}\\/file[^"']*["'][^>]*?)\\s*\\/?>`,
+      'gi',
+    );
+    let changed = 0;
+    const nextBody = body.replace(imgRe, (_full, attrs: string) => {
+      changed += 1;
+      const next = mutator(this.normalizeWriteupImgAttrs(attrs));
+      return `<img ${next} />`;
+    });
+    return { body: nextBody, changed };
+  }
+
+  private repairBrokenWriteupPdfCoverImgTags(body: string): string {
+    return body.replace(
+      /<img\b([^>]*?)\s\/\s*((?:data-open-(?:pdf-(?:id|name)|url)=(?:"[^"]*"|'[^']*')\s*)+)\s*\/?>/gi,
+      (_m, attrs: string, extraAttrs: string) => {
+        const cleaned = this.normalizeWriteupImgAttrs(String(attrs));
+        const extra = String(extraAttrs).replace(/\s+/g, ' ').trim();
+        return `<img ${cleaned} ${extra} />`;
+      },
+    );
+  }
+
+  private unlinkWriteupImageFromPdf(imageId: number): void {
+    const { body } = this.rewriteWriteupImageTags(this.writeupDraft.body ?? '', imageId, (attrs) =>
+      attrs
+        .replace(/\sdata-open-pdf-id=(["'])[^"']*\1/gi, '')
+        .replace(/\sdata-open-pdf-name=(["'])[^"']*\1/gi, '')
+        .trim(),
+    );
+    this.writeupDraft = { ...this.writeupDraft, body: this.repairBrokenWriteupPdfCoverImgTags(body) };
+  }
+
+  private unlinkWriteupImageUrl(imageId: number): void {
+    const { body } = this.rewriteWriteupImageTags(this.writeupDraft.body ?? '', imageId, (attrs) =>
+      attrs.replace(/\sdata-open-url=(["'])[^"']*\1/gi, '').trim(),
+    );
+    this.writeupDraft = { ...this.writeupDraft, body: this.repairBrokenWriteupPdfCoverImgTags(body) };
+    delete this.writeupImageUrlDraftById[imageId];
+  }
+
+  private linkWriteupImageToPdf(
+    image: ManagementWriteupAttachmentDto,
+    pdf: ManagementWriteupAttachmentDto,
+  ): void {
+    this.writeupPdfCoverTargetId = pdf.id;
+    const pdfName = (pdf.originalFilename || 'document.pdf').replace(/"/g, '');
+    let body = this.repairBrokenWriteupPdfCoverImgTags(this.writeupDraft.body ?? '');
+    const rewritten = this.rewriteWriteupImageTags(body, image.id, (attrs) => {
+      const base = attrs
+        .replace(/\sdata-open-pdf-id=(["'])[^"']*\1/gi, '')
+        .replace(/\sdata-open-pdf-name=(["'])[^"']*\1/gi, '')
+        .replace(/\sdata-open-url=(["'])[^"']*\1/gi, '')
+        .trim();
+      return `${base} data-open-pdf-id="${pdf.id}" data-open-pdf-name="${pdfName}"`;
+    });
+    if (!rewritten.changed) {
+      this.writeupPdfCoverTargetId = pdf.id;
+      this.insertWriteupImageIntoBody(image);
+      return;
+    }
+    this.writeupDraft = { ...this.writeupDraft, body: rewritten.body };
+    this.snackBar.open('Image linked to PDF — click cover opens the document.', undefined, {
+      duration: 3200,
+    });
+  }
+
+  private linkWriteupImageToUrl(image: ManagementWriteupAttachmentDto, url: string): void {
+    const safe = url.replace(/"/g, '');
+    this.writeupImageUrlDraftById[image.id] = safe;
+    let body = this.repairBrokenWriteupPdfCoverImgTags(this.writeupDraft.body ?? '');
+    const rewritten = this.rewriteWriteupImageTags(body, image.id, (attrs) => {
+      const base = attrs
+        .replace(/\sdata-open-url=(["'])[^"']*\1/gi, '')
+        .replace(/\sdata-open-pdf-id=(["'])[^"']*\1/gi, '')
+        .replace(/\sdata-open-pdf-name=(["'])[^"']*\1/gi, '')
+        .trim();
+      return `${base} data-open-url="${safe}"`;
+    });
+    if (!rewritten.changed) {
+      this.insertWriteupImageIntoBody(image);
+      // Re-apply URL after insert
+      const again = this.rewriteWriteupImageTags(this.writeupDraft.body ?? '', image.id, (attrs) => {
+        const base = attrs
+          .replace(/\sdata-open-url=(["'])[^"']*\1/gi, '')
+          .replace(/\sdata-open-pdf-id=(["'])[^"']*\1/gi, '')
+          .replace(/\sdata-open-pdf-name=(["'])[^"']*\1/gi, '')
+          .trim();
+        return `${base} data-open-url="${safe}"`;
+      });
+      this.writeupDraft = { ...this.writeupDraft, body: again.body };
+    } else {
+      this.writeupDraft = { ...this.writeupDraft, body: rewritten.body };
+    }
+    this.snackBar.open('Image linked to URL — click opens the link.', undefined, { duration: 3200 });
+  }
+
+  /**
+   * Insert (or move/resize) a stable HTML image at the editor caret / drop index.
+   * Width + wrap match Markets → Tracker notes so text can flow around the photo.
+   */
+  insertWriteupImageIntoBody(a: ManagementWriteupAttachmentDto, atIndex?: number): void {
+    if (!this.isWriteupImageAttachment(a)) {
+      this.insertWriteupFileIntoBody(a, atIndex);
+      return;
+    }
+    if (this.writeupViewMode !== 'compose') {
+      this.startEditWriteup();
+    }
+    const pct = Math.min(100, Math.max(10, this.writeupImageWidthPct));
+    const floatSide = this.writeupImageFloat;
     const name = (a.originalFilename || 'image').replace(/"/g, '');
-    const src = `/api/management/writeups/attachments/${a.id}/file`;
-    // Float so following paragraphs wrap beside the image (magazine-style layout).
+    const src = this.writeupAttachmentFilePath(a.id);
+    const margin =
+      floatSide === 'right'
+        ? '0.1rem 0 0.85rem 1rem'
+        : floatSide === 'none'
+          ? '0.75rem 0'
+          : '0.1rem 1rem 0.85rem 0';
+    const floatCss = floatSide === 'none' ? 'none' : floatSide;
+    const pdf = this.resolveWriteupPdfCoverTarget();
+    const existingUrl = (this.writeupImageUrlDraftById[a.id] ?? this.linkedUrlForWriteupImage(a.id)).trim();
+    const pdfAttrs =
+      pdf && !existingUrl
+        ? ` data-open-pdf-id="${pdf.id}" data-open-pdf-name="${(pdf.originalFilename || 'document.pdf').replace(/"/g, '')}"`
+        : '';
+    const urlAttrs =
+      existingUrl && this.isSafeWriteupOpenUrl(existingUrl)
+        ? ` data-open-url="${existingUrl.replace(/"/g, '')}"`
+        : '';
     const tag =
-      `<img src="${src}" alt="${name}" data-life-width="30" data-life-float="left" ` +
-      `style="float:left;max-width:30%;width:30%;height:auto;margin:0.1rem 1rem 0.85rem 0;" />`;
-    let body = this.writeupDraft.body ?? '';
+      `<img src="${src}" alt="${name}" data-life-width="${pct}" data-life-float="${floatSide}"` +
+      `${pdfAttrs}${urlAttrs} ` +
+      `style="float:${floatCss};max-width:${pct}%;width:${pct}%;height:auto;margin:${margin};" />`;
+    let body = this.repairBrokenWriteupPdfCoverImgTags(this.writeupDraft.body ?? '');
     const imgHtmlRe = new RegExp(
       `<img\\b[^>]*\\bsrc=["'][^"']*\\/api\\/management\\/writeups\\/attachments\\/${a.id}\\/file[^"']*["'][^>]*>`,
       'gi',
@@ -1645,7 +1917,71 @@ export class ManagementComponent implements OnInit, OnDestroy {
       atIndex != null
         ? atIndex
         : Math.max(0, Math.min(body.length, this.writeupBodyCaret ?? body.length));
-    // After removals, clamp caret into the shortened string.
+    const insertAt = Math.max(0, Math.min(body.length, idx));
+    this.writeupDraft = {
+      ...this.writeupDraft,
+      body: this.insertTextAt(body, insertAt, tag),
+    };
+    this.writeupBodyCaret = insertAt + tag.length + 1;
+    this.snackBar.open(
+      pdfAttrs
+        ? hadExisting
+          ? 'Cover linked to PDF'
+          : 'Cover placed; click opens PDF'
+        : urlAttrs
+          ? hadExisting
+            ? `Image resized to ${pct}% (URL kept)`
+            : `Image placed at ${pct}% with URL`
+          : hadExisting
+            ? `Image moved / sized to ${pct}%`
+            : `Image placed at ${pct}%`,
+      undefined,
+      { duration: 2800 },
+    );
+  }
+
+  /** Insert a clickable PDF / file link into the Markdown body. */
+  insertWriteupFileIntoBody(a: ManagementWriteupAttachmentDto, atIndex?: number): void {
+    if (this.isWriteupImageAttachment(a)) {
+      this.insertWriteupImageIntoBody(a, atIndex);
+      return;
+    }
+    if (this.writeupViewMode !== 'compose') {
+      this.startEditWriteup();
+    }
+    const name = (a.originalFilename || (this.isWriteupPdfAttachment(a) ? 'document.pdf' : 'file')).replace(
+      /"/g,
+      '',
+    );
+    const src = this.writeupAttachmentFilePath(a.id);
+    const label = this.isWriteupPdfAttachment(a) ? `PDF: ${name}` : name;
+    const ctAttr = (a.contentType || '').replace(/"/g, '');
+    const tag =
+      `<a class="note-embed-file note-embed-file--link" href="${src}" ` +
+      `data-att-kind="writeup" data-att-id="${a.id}" data-att-name="${name}"` +
+      (ctAttr
+        ? ` data-att-content-type="${ctAttr}"`
+        : this.isWriteupPdfAttachment(a)
+          ? ` data-att-content-type="application/pdf"`
+          : '') +
+      `>${label}</a>`;
+    let body = this.writeupDraft.body ?? '';
+    const linkRe = new RegExp(
+      `<a\\b[^>]*\\bhref=["'][^"']*\\/api\\/management\\/writeups\\/attachments\\/${a.id}\\/file[^"']*["'][^>]*>[\\s\\S]*?<\\/a>`,
+      'gi',
+    );
+    const imgRe = new RegExp(
+      `<img\\b[^>]*\\bsrc=["'][^"']*\\/api\\/management\\/writeups\\/attachments\\/${a.id}\\/file[^"']*["'][^>]*>`,
+      'gi',
+    );
+    const hadExisting = linkRe.test(body) || imgRe.test(body);
+    linkRe.lastIndex = 0;
+    imgRe.lastIndex = 0;
+    body = body.replace(linkRe, '').replace(imgRe, '').replace(/\n{3,}/g, '\n\n');
+    const idx =
+      atIndex != null
+        ? atIndex
+        : Math.max(0, Math.min(body.length, this.writeupBodyCaret ?? body.length));
     const insertAt = Math.max(0, Math.min(body.length, idx));
     this.writeupDraft = {
       ...this.writeupDraft,
@@ -1654,11 +1990,28 @@ export class ManagementComponent implements OnInit, OnDestroy {
     this.writeupBodyCaret = insertAt + tag.length + 1;
     this.snackBar.open(
       hadExisting
-        ? 'Image moved in the write-up — Save when ready'
-        : 'Image placed in the write-up — Save when ready',
+        ? 'File link moved — Save when ready'
+        : this.isWriteupPdfAttachment(a)
+          ? 'PDF link placed — Save when ready'
+          : 'File link placed — Save when ready',
       undefined,
-      { duration: 3000 },
+      { duration: 2500 },
     );
+  }
+
+  /** Insert a blank line (new paragraph) at the caret. */
+  insertWriteupParagraphBreak(): void {
+    if (this.writeupViewMode !== 'compose') {
+      return;
+    }
+    const body = this.writeupDraft.body ?? '';
+    const idx = Math.max(0, Math.min(body.length, this.writeupBodyCaret ?? body.length));
+    const before = body.slice(0, idx);
+    const after = body.slice(idx);
+    const needsLead = before.length > 0 && !before.endsWith('\n');
+    const insert = `${needsLead ? '\n' : ''}\n`;
+    this.writeupDraft = { ...this.writeupDraft, body: `${before}${insert}${after}` };
+    this.writeupBodyCaret = idx + insert.length;
   }
 
   onWriteupBodyCaret(ev: Event): void {
@@ -1667,13 +2020,9 @@ export class ManagementComponent implements OnInit, OnDestroy {
   }
 
   onWriteupAttachDragStart(ev: DragEvent, a: ManagementWriteupAttachmentDto): void {
-    if (!this.isWriteupImageAttachment(a)) {
-      ev.preventDefault();
-      return;
-    }
     this.writeupDragAttachmentId = a.id;
     ev.dataTransfer?.setData('application/x-tracker-writeup-att', String(a.id));
-    ev.dataTransfer?.setData('text/plain', a.originalFilename || 'image');
+    ev.dataTransfer?.setData('text/plain', a.originalFilename || 'attachment');
     if (ev.dataTransfer) {
       ev.dataTransfer.effectAllowed = 'copyMove';
     }
@@ -1737,7 +2086,11 @@ export class ManagementComponent implements OnInit, OnDestroy {
       this.selectedWriteup?.attachments?.find((x) => x.id === id);
     if (a) {
       this.writeupBodyCaret = dropAt;
-      this.insertWriteupImageIntoBody(a, dropAt);
+      if (this.isWriteupImageAttachment(a)) {
+        this.insertWriteupImageIntoBody(a, dropAt);
+      } else {
+        this.insertWriteupFileIntoBody(a, dropAt);
+      }
       queueMicrotask(() => {
         ta.focus();
         const caret = this.writeupBodyCaret;
@@ -1747,31 +2100,29 @@ export class ManagementComponent implements OnInit, OnDestroy {
   }
 
   private uploadWriteupFilesAndPlace(files: File[], writeupId: number, atIndex: number): void {
-    const images = files.filter(
-      (f) => f.type.startsWith('image/') || /\.(jpe?g|png|gif|webp|bmp|svg|heic|heif)$/i.test(f.name),
-    );
-    if (!images.length) {
-      this.snackBar.open('Drop image files to upload and place them', undefined, { duration: 3000 });
+    if (!files.length) {
       return;
     }
     this.writeupUploading = true;
     let i = 0;
     let caret = atIndex;
     const step = (): void => {
-      if (i >= images.length) {
+      if (i >= files.length) {
         this.writeupUploading = false;
         this.loadWriteups();
-        this.snackBar.open('Image(s) uploaded and placed — Save when ready', undefined, {
+        this.snackBar.open('File(s) uploaded and placed — Save when ready', undefined, {
           duration: 3000,
         });
         return;
       }
-      this.api.uploadWriteupAttachment(writeupId, images[i]).subscribe({
+      this.api.uploadWriteupAttachment(writeupId, files[i]).subscribe({
         next: (att) => {
           if (this.isWriteupImageAttachment(att)) {
             this.insertWriteupImageIntoBody(att, caret);
-            caret = this.writeupBodyCaret;
+          } else {
+            this.insertWriteupFileIntoBody(att, caret);
           }
+          caret = this.writeupBodyCaret;
           i += 1;
           step();
         },

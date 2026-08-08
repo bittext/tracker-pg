@@ -1050,6 +1050,83 @@ app-management app-writeup-markdown-body .markdown-body::after {
   padding-bottom: 0.45rem;
 }
 
+:is(app-management, app-life-photos, app-tracker-notes) .wu-att-url-pick {
+  width: min(16rem, 100%);
+  margin: 0 0.15rem;
+}
+
+:is(app-management, app-life-photos, app-tracker-notes) .wu-att-url-pick .mat-mdc-form-field-infix {
+  min-height: 2.25rem;
+  padding-top: 0.45rem;
+  padding-bottom: 0.45rem;
+}
+
+app-management .life-size-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0 0 0.75rem;
+}
+
+app-management .life-size-label {
+  font-size: 0.82rem;
+  margin-right: 0.15rem;
+}
+
+app-management .life-size-chip {
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.14));
+  background: var(--app-surface-muted, rgba(15, 23, 42, 0.04));
+  color: var(--app-text, #0f172a);
+  cursor: pointer;
+}
+
+app-management .life-size-chip--active {
+  border-color: color-mix(in srgb, var(--app-accent, #2563eb) 55%, transparent);
+  background: color-mix(in srgb, var(--app-accent, #2563eb) 12%, transparent);
+  color: var(--app-accent, #2563eb);
+}
+
+app-management .life-size-pct {
+  opacity: 0.7;
+  font-weight: 500;
+  margin-left: 0.2rem;
+}
+
+app-management .wu-format-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  margin: 0 0 0.55rem;
+}
+
+app-management .wu-format-hint {
+  font-size: 0.78rem;
+  max-width: 28rem;
+}
+
+app-management .wu-att-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.45rem;
+}
+
+app-management .wu-editor-input {
+  white-space: pre-wrap;
+}
+
+app-management .note-embed-url-cover {
+  outline: 2px solid color-mix(in srgb, var(--app-accent, #2563eb) 35%, transparent);
+  outline-offset: 2px;
+}
+
 :is(app-management, app-life-photos, app-tracker-notes) .wu-att-hint {
   font-size: 0.78rem;
   margin-left: 0.35rem;

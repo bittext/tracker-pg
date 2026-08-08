@@ -1294,7 +1294,16 @@
                       <div class="wu-pane-head">
                         <span class="wu-pane-title">Markdown</span>
                         <span class="muted wu-pane-hint"
-                          >Drop images here to place · click to set caret · Insert uses caret</span
+                          >Blank line = paragraph · Enter = line break · drop images at caret</span
+                        >
+                      </div>
+                      <div class="wu-format-bar" role="toolbar" aria-label="Text formatting">
+                        <button mat-stroked-button type="button" (click)="insertWriteupParagraphBreak()">
+                          <mat-icon>notes</mat-icon>
+                          Paragraph break
+                        </button>
+                        <span class="muted wu-format-hint"
+                          >Use blank lines between paragraphs so text wraps cleanly around floated images.</span
                         >
                       </div>
                       <textarea
@@ -1309,7 +1318,7 @@
                         (dragover)="onWriteupEditorDragOver($event)"
                         (dragleave)="onWriteupEditorDragLeave($event)"
                         (drop)="onWriteupEditorDrop($event)"
-                        placeholder="# Section&#10;&#10;Detailed narrative…&#10;&#10;Drag a photo from attachments below onto this editor to place it."
+                        placeholder="# Section&#10;&#10;First paragraph…&#10;&#10;Second paragraph (blank line above).&#10;&#10;Drag a photo from attachments below — text will wrap around it."
                         aria-label="Write-up body in Markdown"
                       ></textarea>
                     </div>
@@ -1352,14 +1361,39 @@
                   @if (writeupEditingId != null) {
                     <div class="wu-read-attach">
                       <p class="muted wu-attach-hint">
-                        Upload images, then <strong>drag</strong> them onto the Markdown editor (or click
-                        <strong>Insert</strong> at the caret). Text wraps around the photo. Click the filename to
-                        preview. Do not paste blob: links — they expire.
+                        Upload any files. Pick <strong>size</strong> + <strong>wrap</strong>, then Insert / drag images so
+                        text flows around them. Link an image to a PDF or an external URL. Blank lines create paragraphs.
                       </p>
+                      <div class="life-size-bar" role="group" aria-label="Insert image size">
+                        <span class="muted life-size-label">Size</span>
+                        @for (opt of writeupImageWidthOptions; track opt.pct) {
+                          <button
+                            type="button"
+                            class="life-size-chip"
+                            [class.life-size-chip--active]="writeupImageWidthPct === opt.pct"
+                            (click)="writeupImageWidthPct = opt.pct"
+                          >
+                            {{ opt.label }}
+                            <span class="life-size-pct">{{ opt.pct }}%</span>
+                          </button>
+                        }
+                      </div>
+                      <div class="life-size-bar" role="group" aria-label="Text wrap around image">
+                        <span class="muted life-size-label">Wrap</span>
+                        @for (opt of writeupImageFloatOptions; track opt.id) {
+                          <button
+                            type="button"
+                            class="life-size-chip"
+                            [class.life-size-chip--active]="writeupImageFloat === opt.id"
+                            (click)="writeupImageFloat = opt.id"
+                          >
+                            {{ opt.label }}
+                          </button>
+                        }
+                      </div>
                       <label class="wu-file-label">
                         <input
                           type="file"
-                accept="image/*,.heic,.heif,image/heic,image/heif"
                           multiple
                           (change)="onWriteupFilesSelected($event, writeupEditingId)"
                           [disabled]="writeupUploading"
@@ -1369,7 +1403,7 @@
                       @if (writeupSelectedAttachments.length) {
                         <ul class="wu-attachment-list">
                           @for (a of writeupSelectedAttachments; track a.id) {
-                            <li>
+                            <li class="wu-att-row">
                               <button type="button" class="wu-att-link" (click)="openWriteupAttachment(a)">
                                 {{ a.originalFilename }}
                               </button>
@@ -1392,7 +1426,76 @@
                                   (click)="insertWriteupImageIntoBody(a)"
                                 >
                                   <mat-icon>image</mat-icon>
-                                  Insert
+                                  Insert {{ writeupImageWidthPct }}%
+                                </button>
+                                @if (writeupPdfAttachments.length) {
+                                  <mat-form-field appearance="outline" class="wu-att-pdf-pick" subscriptSizing="dynamic">
+                                    <mat-label>Opens PDF</mat-label>
+                                    <mat-select
+                                      [value]="linkedPdfIdForWriteupImage(a.id)"
+                                      (selectionChange)="onWriteupImagePdfLinkChange(a, $event.value)"
+                                    >
+                                      <mat-option [value]="null">None</mat-option>
+                                      @for (p of writeupPdfAttachments; track p.id) {
+                                        <mat-option [value]="p.id">{{ shortWriteupAttachmentLabel(p) }}</mat-option>
+                                      }
+                                    </mat-select>
+                                  </mat-form-field>
+                                }
+                                <mat-form-field appearance="outline" class="wu-att-url-pick" subscriptSizing="dynamic">
+                                  <mat-label>Opens URL</mat-label>
+                                  <input
+                                    matInput
+                                    [ngModel]="linkedUrlForWriteupImage(a.id)"
+                                    [ngModelOptions]="{ standalone: true }"
+                                    (ngModelChange)="writeupImageUrlDraftById[a.id] = $event"
+                                    (keydown.enter)="applyWriteupImageUrl(a)"
+                                    placeholder="https://…"
+                                  />
+                                  <button mat-icon-button matSuffix type="button" (click)="applyWriteupImageUrl(a)" aria-label="Apply URL">
+                                    <mat-icon>link</mat-icon>
+                                  </button>
+                                </mat-form-field>
+                              } @else if (isWriteupPdfAttachment(a)) {
+                                <span
+                                  class="wu-att-drag"
+                                  draggable="true"
+                                  title="Drag onto the Markdown editor to place a link"
+                                  (dragstart)="onWriteupAttachDragStart($event, a)"
+                                  (dragend)="onWriteupAttachDragEnd()"
+                                >
+                                  <mat-icon>drag_indicator</mat-icon>
+                                  Drag
+                                </span>
+                                <button
+                                  mat-stroked-button
+                                  type="button"
+                                  class="wu-att-insert"
+                                  (click)="insertWriteupFileIntoBody(a)"
+                                >
+                                  <mat-icon>picture_as_pdf</mat-icon>
+                                  Insert PDF
+                                </button>
+                                <span class="muted wu-att-hint">Or link from an image’s Opens PDF</span>
+                              } @else {
+                                <span
+                                  class="wu-att-drag"
+                                  draggable="true"
+                                  title="Drag onto the Markdown editor to place a link"
+                                  (dragstart)="onWriteupAttachDragStart($event, a)"
+                                  (dragend)="onWriteupAttachDragEnd()"
+                                >
+                                  <mat-icon>drag_indicator</mat-icon>
+                                  Drag
+                                </span>
+                                <button
+                                  mat-stroked-button
+                                  type="button"
+                                  class="wu-att-insert"
+                                  (click)="insertWriteupFileIntoBody(a)"
+                                >
+                                  <mat-icon>attach_file</mat-icon>
+                                  Insert link
                                 </button>
                               }
                               <button
@@ -1436,10 +1539,36 @@
                     <app-writeup-markdown-body [body]="w.body" />
                   }
                   <div class="wu-read-attach">
+                    <div class="life-size-bar" role="group" aria-label="Insert image size">
+                      <span class="muted life-size-label">Size</span>
+                      @for (opt of writeupImageWidthOptions; track opt.pct) {
+                        <button
+                          type="button"
+                          class="life-size-chip"
+                          [class.life-size-chip--active]="writeupImageWidthPct === opt.pct"
+                          (click)="writeupImageWidthPct = opt.pct"
+                        >
+                          {{ opt.label }}
+                          <span class="life-size-pct">{{ opt.pct }}%</span>
+                        </button>
+                      }
+                    </div>
+                    <div class="life-size-bar" role="group" aria-label="Text wrap around image">
+                      <span class="muted life-size-label">Wrap</span>
+                      @for (opt of writeupImageFloatOptions; track opt.id) {
+                        <button
+                          type="button"
+                          class="life-size-chip"
+                          [class.life-size-chip--active]="writeupImageFloat === opt.id"
+                          (click)="writeupImageFloat = opt.id"
+                        >
+                          {{ opt.label }}
+                        </button>
+                      }
+                    </div>
                     <label class="wu-file-label">
                       <input
                         type="file"
-                accept="image/*,.heic,.heif,image/heic,image/heif"
                         multiple
                         (change)="onWriteupFilesSelected($event, w.id)"
                         [disabled]="writeupUploading"
@@ -1449,7 +1578,7 @@
                     @if (w.attachments?.length) {
                       <ul class="wu-attachment-list wu-attachment-list--read">
                         @for (a of w.attachments; track a.id) {
-                          <li>
+                          <li class="wu-att-row">
                             <button type="button" class="wu-att-link" (click)="openWriteupAttachment(a)">
                               {{ a.originalFilename }}
                             </button>
@@ -1461,10 +1590,46 @@
                                 (click)="insertWriteupImageIntoBody(a)"
                               >
                                 <mat-icon>image</mat-icon>
-                                Insert into body
+                                Insert {{ writeupImageWidthPct }}%
                               </button>
+                              @if (writeupPdfAttachments.length) {
+                                <mat-form-field appearance="outline" class="wu-att-pdf-pick" subscriptSizing="dynamic">
+                                  <mat-label>Opens PDF</mat-label>
+                                  <mat-select
+                                    [value]="linkedPdfIdForWriteupImage(a.id)"
+                                    (selectionChange)="onWriteupImagePdfLinkChange(a, $event.value)"
+                                  >
+                                    <mat-option [value]="null">None</mat-option>
+                                    @for (p of writeupPdfAttachments; track p.id) {
+                                      <mat-option [value]="p.id">{{ shortWriteupAttachmentLabel(p) }}</mat-option>
+                                    }
+                                  </mat-select>
+                                </mat-form-field>
+                              }
+                              <mat-form-field appearance="outline" class="wu-att-url-pick" subscriptSizing="dynamic">
+                                <mat-label>Opens URL</mat-label>
+                                <input
+                                  matInput
+                                  [ngModel]="linkedUrlForWriteupImage(a.id)"
+                                  [ngModelOptions]="{ standalone: true }"
+                                  (ngModelChange)="writeupImageUrlDraftById[a.id] = $event"
+                                  (keydown.enter)="applyWriteupImageUrl(a)"
+                                  placeholder="https://…"
+                                />
+                                <button mat-icon-button matSuffix type="button" (click)="applyWriteupImageUrl(a)" aria-label="Apply URL">
+                                  <mat-icon>link</mat-icon>
+                                </button>
+                              </mat-form-field>
                             } @else {
-                              <span class="muted"> · preview</span>
+                              <button
+                                mat-stroked-button
+                                type="button"
+                                class="wu-att-insert"
+                                (click)="insertWriteupFileIntoBody(a)"
+                              >
+                                <mat-icon>{{ isWriteupPdfAttachment(a) ? 'picture_as_pdf' : 'attach_file' }}</mat-icon>
+                                {{ isWriteupPdfAttachment(a) ? 'Insert PDF' : 'Insert link' }}
+                              </button>
                             }
                           </li>
                         }

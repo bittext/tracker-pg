@@ -69,9 +69,16 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
       return;
     }
     const clickable = t.closest(
-      'img[data-att-id], img[data-open-pdf-id], a.note-embed-file, button.note-embed-file',
+      'img[data-att-id], img[data-open-pdf-id], img[data-open-url], a.note-embed-file, button.note-embed-file',
     ) as HTMLElement | null;
     if (!clickable) {
+      return;
+    }
+    const openUrl = clickable.getAttribute('data-open-url');
+    if (openUrl && this.isSafeOpenUrl(openUrl)) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      window.open(openUrl, '_blank', 'noopener,noreferrer');
       return;
     }
     const openPdfId = clickable.getAttribute('data-open-pdf-id');
@@ -100,6 +107,18 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
     this.openPreview({ kind, id: Number(idRaw) }, filename, contentType);
   }
 
+  private isSafeOpenUrl(url: string): boolean {
+    if (url.startsWith('/') && !url.startsWith('//')) {
+      return true;
+    }
+    try {
+      const u = new URL(url);
+      return u.protocol === 'http:' || u.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }
+
   private render(): void {
     this.revokeAll();
     const src = this.repairBrokenPdfCoverImgTags((this.body ?? '').trim());
@@ -107,7 +126,7 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
       this.html = this.sanitizer.bypassSecurityTrustHtml('');
       return;
     }
-    const raw = marked(src, { async: false, breaks: true }) as string;
+    const raw = marked(src, { async: false, breaks: true, gfm: true }) as string;
     const clean = DOMPurify.sanitize(raw, {
       USE_PROFILES: { html: true },
       ADD_ATTR: [
@@ -121,6 +140,7 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
         'data-att-content-type',
         'data-open-pdf-id',
         'data-open-pdf-name',
+        'data-open-url',
         'width',
         'height',
       ],
@@ -150,10 +170,18 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
       img.setAttribute('data-att-id', String(ref.id));
       img.setAttribute('data-att-name', name);
       const openPdfId = img.getAttribute('data-open-pdf-id');
-      img.title = openPdfId ? 'Click to open PDF' : 'Click to open';
+      const openUrl = img.getAttribute('data-open-url');
+      img.title = openUrl
+        ? 'Click to open link'
+        : openPdfId
+          ? 'Click to open PDF'
+          : 'Click to open';
       img.style.cursor = 'pointer';
       if (openPdfId) {
         img.classList.add('note-embed-pdf-cover');
+      }
+      if (openUrl) {
+        img.classList.add('note-embed-url-cover');
       }
 
       this.fetchBlob(ref).subscribe({
