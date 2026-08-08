@@ -6,7 +6,8 @@ public enum FinanceEntryEntityType {
     INVESTMENT,
     LOAN,
     CREDIT_CARD,
-    INSURANCE;
+    INSURANCE,
+    CREDIT_STANDING;
 
     public static FinanceEntryEntityType parse(String raw) {
         if (raw == null || raw.isBlank()) {

@@ -5,6 +5,7 @@ import com.svp.tracker.config.JournalProperties;
 import com.svp.tracker.finance.domain.FinanceEntryDocument;
 import com.svp.tracker.finance.dto.FinanceEntryDocumentDto;
 import com.svp.tracker.finance.repository.FinanceCreditCardRepository;
+import com.svp.tracker.finance.repository.FinanceCreditStandingRepository;
 import com.svp.tracker.finance.repository.FinanceEntryDocumentRepository;
 import com.svp.tracker.finance.repository.FinanceInsurancePolicyRepository;
 import com.svp.tracker.finance.repository.FinanceInvestmentRepository;
@@ -32,6 +33,7 @@ public class FinanceEntryDocumentService {
     private final FinanceLoanRepository loanRepository;
     private final FinanceCreditCardRepository creditCardRepository;
     private final FinanceInsurancePolicyRepository insurancePolicyRepository;
+    private final FinanceCreditStandingRepository creditStandingRepository;
     private final JournalBlobStore blobStore;
     private final JournalProperties journalProperties;
 
@@ -127,6 +129,10 @@ public class FinanceEntryDocumentService {
                     case LOAN -> loanRepository.findByIdAndOwnerUserId(entityId, ownerUserId).isPresent();
                     case CREDIT_CARD -> creditCardRepository.findByIdAndOwnerUserId(entityId, ownerUserId).isPresent();
                     case INSURANCE -> insurancePolicyRepository.findByIdAndOwnerUserId(entityId, ownerUserId).isPresent();
+                    case CREDIT_STANDING -> creditStandingRepository
+                            .findByOwnerUserId(ownerUserId)
+                            .map(s -> Objects.equals(s.getId(), entityId))
+                            .orElse(false);
                 };
         if (!owned) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, entityType.wire() + " entry not found");

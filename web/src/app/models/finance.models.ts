@@ -1504,7 +1504,7 @@ export interface FinanceTax1040ReturnDto {
 }
 
 /** Banking imports (CSV, QFX, QIF, QBO, Excel, PDF) scoped to the logged-in user. */
-export type BankingLedgerRange = 'MONTH' | 'QUARTER' | 'YEAR';
+export type BankingLedgerRange = 'WEEK' | 'BIWEEK' | 'MONTH' | 'QUARTER' | 'YEAR';
 
 export interface BankingInstitutionTypeDto {
   id: number;
@@ -1908,7 +1908,33 @@ export interface FinanceInsurancePolicyRequestDto {
 }
 
 /** GET /api/finance/entry-documents */
-export type FinanceEntryEntityType = 'INVESTMENT' | 'LOAN' | 'CREDIT_CARD' | 'INSURANCE';
+export type FinanceEntryEntityType =
+  | 'INVESTMENT'
+  | 'LOAN'
+  | 'CREDIT_CARD'
+  | 'INSURANCE'
+  | 'CREDIT_STANDING';
+
+/** GET/PUT /api/finance/credit-standing — bureau score + AnnualCreditReport tracking. */
+export interface FinanceCreditStandingDto {
+  id: number | null;
+  score: number | null;
+  bureau: string;
+  reportedAsOf: string | null;
+  notes: string;
+  annualReportPulledAt: string | null;
+  documentCount: number;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface FinanceCreditStandingRequestDto {
+  score?: number | null;
+  bureau?: string | null;
+  reportedAsOf?: string | null;
+  notes?: string | null;
+  annualReportPulledAt?: string | null;
+}
 
 export interface FinanceEntryDocumentDto {
   id: number;

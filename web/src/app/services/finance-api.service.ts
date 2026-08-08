@@ -739,6 +739,7 @@ export class FinanceApiService {
     quarter?: number | null,
     institutionId?: number | null,
     institutionTypeId?: number | null,
+    weekStart?: string | null,
   ) {
     let params = new HttpParams().set('range', range).set('year', String(year));
     if (month != null) {
@@ -746,6 +747,9 @@ export class FinanceApiService {
     }
     if (quarter != null) {
       params = params.set('quarter', String(quarter));
+    }
+    if (weekStart) {
+      params = params.set('weekStart', weekStart);
     }
     if (institutionId != null && institutionId > 0) {
       params = params.set('institutionId', String(institutionId));

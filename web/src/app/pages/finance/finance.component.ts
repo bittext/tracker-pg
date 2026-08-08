@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, Input, OnInit, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -43,6 +44,7 @@ import { AiTokenFactoryPanelComponent } from './ai-token-factory-panel/ai-token-
 import { LoansPanelComponent } from './loans-panel/loans-panel.component';
 import { InvestmentsPanelComponent } from './investments-panel/investments-panel.component';
 import { MoneyPanelComponent } from './money-panel/money-panel.component';
+import { MoneyStandingPanelComponent } from './money-standing-panel/money-standing-panel.component';
 import { CreditPanelComponent } from './credit-panel/credit-panel.component';
 import { InsurancePanelComponent } from './insurance-panel/insurance-panel.component';
 
@@ -64,6 +66,7 @@ type TradingTabId =
   | 'by-symbol'
   | 'summary';
 type FinanceCategory =
+  | 'standing'
   | 'banking'
   | 'investments'
   | 'loans'
@@ -103,6 +106,7 @@ type FinanceCategory =
     LoansPanelComponent,
     InvestmentsPanelComponent,
     MoneyPanelComponent,
+    MoneyStandingPanelComponent,
     CreditPanelComponent,
     InsurancePanelComponent,
   ],
@@ -126,6 +130,7 @@ export class FinanceComponent implements OnInit {
     'taxes',
   ];
   private static readonly MONEY_CATEGORY_ORDER: FinanceCategory[] = [
+    'standing',
     'banking',
     'investments',
     'loans',
@@ -143,8 +148,26 @@ export class FinanceComponent implements OnInit {
   /** Markets destination within trading workspace (Trade / Research / History / Alerts). */
   tradingSection: TradingSection = 'all';
 
-  /** Finance category tabs: 0=banking, 1=investments, 2=loans, 3=market, 4=money, 5=credit, 6=trading, 7=insurance, 8=taxes. */
+  /** Finance category tabs — Money workspace inserts Standing at index 0. */
   financeCategoryTabIndex = 0;
+
+  constructor() {
+    const routeWorkspace = this.route.snapshot.data['workspace'] as FinanceWorkspace | undefined;
+    if (routeWorkspace === 'money' || routeWorkspace === 'trading') {
+      this.workspace = routeWorkspace;
+    }
+    const routeSection = this.route.snapshot.data['tradingSection'] as TradingSection | undefined;
+    if (
+      routeSection === 'trade' ||
+      routeSection === 'research' ||
+      routeSection === 'history' ||
+      routeSection === 'alerts' ||
+      routeSection === 'all'
+    ) {
+      this.tradingSection = routeSection;
+    }
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe(() => this.applyMoneyCategoryQueryParam());
+  }
   /** Index within the visible trading tabs for the current section. */
   financeSubTabIndex = 0;
   activeTradingTabId: TradingTabId = 'robinhood';
@@ -231,10 +254,27 @@ export class FinanceComponent implements OnInit {
     }
     this.financeSubTabIndex = 0;
     this.activeTradingTabId = this.visibleTradingTabs[0] ?? 'robinhood';
+    this.applyMoneyCategoryQueryParam();
     this.applyFinvizQueryParams();
     this.ensureStockSymbolsLoaded(undefined, true);
     if (this.isTradingWorkspace) {
       this.onFinanceSubTabIndexChange(this.financeSubTabIndex);
+    }
+  }
+
+  /** Deep-link: `/life/money?tab=standing|credit|loans|…` */
+  private applyMoneyCategoryQueryParam(): void {
+    if (this.isTradingWorkspace) {
+      return;
+    }
+    const tab = (this.route.snapshot.queryParamMap.get('tab') || '').trim().toLowerCase();
+    if (!tab) {
+      return;
+    }
+    const cats = this.effectiveCategories();
+    const idx = cats.indexOf(tab as FinanceCategory);
+    if (idx >= 0) {
+      this.financeCategoryTabIndex = idx;
     }
   }
 
@@ -334,7 +374,7 @@ export class FinanceComponent implements OnInit {
       }
     }
     if (this.isMoneyWorkspace) {
-      return 'Banking, investments, loans, money, credit, insurance, and taxes — personal finance without trading tabs.';
+      return 'Weekly standing, banking, investments, loans, cash flow, credit, insurance, and taxes — personal finance without trading tabs.';
     }
     return 'Banking, investments, loans, market, money, credit, trading, insurance, and taxes are grouped under one Finance page.';
   }

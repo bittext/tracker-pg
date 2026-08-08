@@ -15,6 +15,16 @@
       [(selectedIndex)]="financeCategoryTabIndex"
       (selectedIndexChange)="onFinanceCategoryTabIndexChange($event)"
     >
+      @if (isMoneyWorkspace) {
+      <mat-tab label="Standing">
+        <div class="finance-panel">
+          @if (categoryActive('standing')) {
+            <app-money-standing-panel />
+          }
+        </div>
+      </mat-tab>
+      }
+
       <mat-tab label="Banking">
         <div class="finance-panel">
           <app-banking-panel segment="ledger" />

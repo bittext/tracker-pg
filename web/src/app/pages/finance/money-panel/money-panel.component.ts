@@ -1,7 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -42,7 +41,6 @@ import { formatHttpErrorDetail } from '../../../util/http-error';
   imports: [
     CommonModule,
     FormsModule,
-    RouterLink,
     MatTabsModule,
     MatCardModule,
     MatButtonModule,
@@ -67,6 +65,8 @@ export class MoneyPanelComponent implements OnInit {
   ledgerYear = new Date().getFullYear();
   ledgerMonth = new Date().getMonth() + 1;
   ledgerQuarter = Math.floor(new Date().getMonth() / 3) + 1;
+  /** Monday (yyyy-MM-dd) for WEEK / BIWEEK ranges. */
+  ledgerWeekStart = MoneyPanelComponent.mondayIso(new Date());
   filterInstitutionId = '';
   filterInstitutionTypeId = '';
 
@@ -139,6 +139,8 @@ export class MoneyPanelComponent implements OnInit {
     this.loading = true;
     const inst = this.filterInstitutionId ? Number(this.filterInstitutionId) : null;
     const typ = this.filterInstitutionTypeId ? Number(this.filterInstitutionTypeId) : null;
+    const weekStart =
+      this.ledgerRange === 'WEEK' || this.ledgerRange === 'BIWEEK' ? this.ledgerWeekStart : null;
     this.financeApi
       .bankingLedger(
         this.ledgerRange,
@@ -147,6 +149,7 @@ export class MoneyPanelComponent implements OnInit {
         this.ledgerRange === 'QUARTER' ? this.ledgerQuarter : null,
         inst,
         typ,
+        weekStart,
       )
       .subscribe({
         next: (dto) => {
@@ -210,6 +213,14 @@ export class MoneyPanelComponent implements OnInit {
       return '—';
     }
     return new Date(d + 'T12:00:00').toLocaleDateString();
+  }
+
+  private static mondayIso(d: Date): string {
+    const x = new Date(d);
+    const day = x.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    x.setDate(x.getDate() + diff);
+    return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
   }
 
   netClass(v: number): string {

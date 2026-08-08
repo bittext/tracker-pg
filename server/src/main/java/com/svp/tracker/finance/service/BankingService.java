@@ -347,6 +347,7 @@ public class BankingService {
             int year,
             Integer month,
             Integer quarter,
+            LocalDate weekStart,
             Long institutionId,
             Long institutionTypeId) {
         long uid = currentUserService.requireUserId();
@@ -360,6 +361,20 @@ public class BankingService {
         LocalDate to;
         String label;
         switch (range) {
+            case WEEK, BIWEEK -> {
+                LocalDate start = weekStart != null ? weekStart : LocalDate.now(ZoneOffset.UTC);
+                // Normalize to Monday of the selected week.
+                from = start.with(java.time.DayOfWeek.MONDAY);
+                int days = range == BankingLedgerRange.WEEK ? 6 : 13;
+                to = from.plusDays(days);
+                DateTimeFormatter fmt = DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH);
+                label = (range == BankingLedgerRange.WEEK ? "Week of " : "Bi-week ")
+                        + from.format(fmt)
+                        + " – "
+                        + to.format(fmt)
+                        + ", "
+                        + to.getYear();
+            }
             case MONTH -> {
                 int m = month == null ? 1 : month;
                 YearMonth ym = YearMonth.of(year, m);

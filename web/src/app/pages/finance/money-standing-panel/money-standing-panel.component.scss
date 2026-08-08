@@ -1,0 +1,264 @@
+.stand {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.stand__head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem 1.5rem;
+  align-items: flex-start;
+}
+
+.stand__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.stand__lead {
+  margin: 0;
+  max-width: 42rem;
+  line-height: 1.45;
+}
+
+.stand__period {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  align-items: flex-end;
+}
+
+.stand__period-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+}
+
+.stand__period-label {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  min-width: 12rem;
+  text-align: center;
+}
+
+.stand__loading {
+  display: grid;
+  place-items: center;
+  gap: 0.75rem;
+  min-height: 10rem;
+}
+
+.stand__narrative {
+  padding: 1rem 1.15rem;
+  border-radius: 14px;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
+  background: color-mix(in srgb, var(--app-accent, #2563eb) 6%, var(--app-surface, #fff));
+}
+
+.stand__narrative-text {
+  margin: 0.35rem 0 0;
+  line-height: 1.55;
+  font-size: 0.98rem;
+}
+
+.stand__section-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.stand__kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: 0.65rem;
+}
+
+.stand__kpi {
+  padding: 0.75rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
+  background: var(--app-surface, #fff);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.stand__kpi--pos .stand__kpi-value {
+  color: #15803d;
+}
+
+.stand__kpi--neg .stand__kpi-value {
+  color: #b91c1c;
+}
+
+.stand__kpi-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--app-text-muted, #64748b);
+  font-weight: 600;
+}
+
+.stand__kpi-value {
+  font-size: 1.2rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.stand__kpi-sub {
+  font-size: 0.78rem;
+}
+
+.stand__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+}
+
+.stand__card {
+  padding: 1rem 1.1rem;
+  border-radius: 14px;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
+  background: var(--app-surface, #fff);
+}
+
+.stand__card--wide {
+  grid-column: 1 / -1;
+}
+
+.stand__card-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.stand__link {
+  font-size: 0.85rem;
+  color: var(--app-accent, #2563eb);
+}
+
+.stand__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.stand__list-main,
+.stand__list-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  align-items: baseline;
+}
+
+.stand__list-meta {
+  font-size: 0.88rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.stand__due {
+  font-size: 0.8rem;
+  margin-top: 0.15rem;
+}
+
+.stand__warn {
+  color: #b45309;
+  font-weight: 700;
+}
+
+.stand__bar {
+  margin-top: 0.35rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 10%, transparent);
+  overflow: hidden;
+}
+
+.stand__bar-fill {
+  height: 100%;
+  background: var(--app-accent, #2563eb);
+  border-radius: inherit;
+}
+
+.stand__callout {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0.85rem 0 0;
+  font-size: 0.88rem;
+  color: #b45309;
+}
+
+.stand__callout mat-icon {
+  font-size: 1.1rem;
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.stand__agentic {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--app-border, rgba(15, 23, 42, 0.14));
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.9rem;
+}
+
+.stand__hint {
+  margin: 0 0 0.85rem;
+  line-height: 1.45;
+}
+
+.stand__form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.5rem 0.75rem;
+}
+
+.stand__notes {
+  grid-column: 1 / -1;
+}
+
+.stand__form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.stand__docs {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+}
+
+.stand__docs-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.92rem;
+}
+
+.stand__foot {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 800px) {
+  .stand__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stand__period {
+    align-items: stretch;
+  }
+}

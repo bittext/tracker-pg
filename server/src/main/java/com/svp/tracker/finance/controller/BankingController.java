@@ -98,10 +98,12 @@ public class BankingController {
             @RequestParam int year,
             @RequestParam(name = "month", required = false) Integer month,
             @RequestParam(name = "quarter", required = false) Integer quarter,
+            @RequestParam(name = "weekStart", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                    LocalDate weekStart,
             @RequestParam(name = "institutionId", required = false) Long institutionId,
             @RequestParam(name = "institutionTypeId", required = false) Long institutionTypeId) {
-        validateLedgerParams(range, year, month, quarter);
-        return bankingService.ledger(range, year, month, quarter, institutionId, institutionTypeId);
+        validateLedgerParams(range, year, month, quarter, weekStart);
+        return bankingService.ledger(range, year, month, quarter, weekStart, institutionId, institutionTypeId);
     }
 
     /** Admin-style listing of uploads across a date span (same owner scope as ledger import files). */
@@ -132,11 +134,18 @@ public class BankingController {
         return new ResponseEntity<>(f.body(), h, HttpStatus.OK);
     }
 
-    private static void validateLedgerParams(BankingLedgerRange range, int year, Integer month, Integer quarter) {
+    private static void validateLedgerParams(
+            BankingLedgerRange range, int year, Integer month, Integer quarter, LocalDate weekStart) {
         if (year < 1990 || year > 2100) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "year out of range");
         }
         switch (range) {
+            case WEEK, BIWEEK -> {
+                // weekStart optional — service defaults to current week's Monday
+                if (weekStart != null && (weekStart.getYear() < 1990 || weekStart.getYear() > 2100)) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "weekStart out of range");
+                }
+            }
             case MONTH -> {
                 if (month == null || month < 1 || month > 12) {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "month (1-12) required for MONTH range");

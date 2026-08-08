@@ -1,20 +1,35 @@
 <section class="money-panel" aria-labelledby="money-panel-heading">
   <h2 id="money-panel-heading" class="money-panel__title">Money</h2>
   <p class="muted money-panel__intro">
-    Income, spending, cash flow, and budgeting views are derived from your
-    <a routerLink="/finance">Finance → Banking</a> ledger (uploaded files and Plaid syncs).
-    <strong>Income</strong> = credits (positive amounts); <strong>spending</strong> = debits (outflows).
+    Income, spending, cash flow, and budgeting from your Banking ledger (uploads + Plaid). Choose
+    <strong>Week</strong> or <strong>Bi-week</strong> for paycheck cycles.
+    <strong>Income</strong> = credits; <strong>spending</strong> = debits. See
+    <strong>Standing</strong> for the formulated weekly overview.
   </p>
 
   <div class="money-panel__toolbar">
     <mat-form-field appearance="outline" class="money-field">
       <mat-label>Period</mat-label>
       <mat-select [(ngModel)]="ledgerRange" name="moneyRange" (selectionChange)="loadLedger()">
+        <mat-option value="WEEK">Week</mat-option>
+        <mat-option value="BIWEEK">Bi-week</mat-option>
         <mat-option value="MONTH">Month</mat-option>
         <mat-option value="QUARTER">Quarter</mat-option>
         <mat-option value="YEAR">Year</mat-option>
       </mat-select>
     </mat-form-field>
+    @if (ledgerRange === 'WEEK' || ledgerRange === 'BIWEEK') {
+      <mat-form-field appearance="outline" class="money-field">
+        <mat-label>Week starting</mat-label>
+        <input
+          matInput
+          type="date"
+          [(ngModel)]="ledgerWeekStart"
+          name="moneyWeekStart"
+          (change)="loadLedger()"
+        />
+      </mat-form-field>
+    }
     <mat-form-field appearance="outline" class="money-field narrow">
       <mat-label>Year</mat-label>
       <input

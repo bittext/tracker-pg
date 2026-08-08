@@ -1,0 +1,234 @@
+<div class="stand">
+  <header class="stand__head">
+    <div>
+      <h2 class="stand__title">Weekly standing</h2>
+      <p class="muted stand__lead">
+        Credit, loans, and cash flow for the selected week or bi-week — formulated from your Banking ledger, Credit
+        cards, Loans, and any bureau score you record from
+        <a [href]="annualCreditReportUrl" target="_blank" rel="noopener noreferrer">AnnualCreditReport.com</a>.
+      </p>
+    </div>
+    <div class="stand__period">
+      <mat-button-toggle-group [(ngModel)]="period" (ngModelChange)="onPeriodChange()" aria-label="Period">
+        <mat-button-toggle value="WEEK">Week</mat-button-toggle>
+        <mat-button-toggle value="BIWEEK">Bi-week</mat-button-toggle>
+      </mat-button-toggle-group>
+      <div class="stand__period-nav">
+        <button mat-icon-button type="button" (click)="shiftPeriod(-1)" aria-label="Previous period">
+          <mat-icon>chevron_left</mat-icon>
+        </button>
+        <span class="stand__period-label">{{ rangeLabel }}</span>
+        <button mat-icon-button type="button" (click)="shiftPeriod(1)" aria-label="Next period">
+          <mat-icon>chevron_right</mat-icon>
+        </button>
+        <button mat-stroked-button type="button" (click)="refresh()" [disabled]="loading">
+          <mat-icon>refresh</mat-icon>
+          Refresh
+        </button>
+      </div>
+    </div>
+  </header>
+
+  @if (loading) {
+    <div class="stand__loading">
+      <mat-spinner diameter="36" />
+      <p class="muted">Loading your standing…</p>
+    </div>
+  } @else {
+    <section class="stand__narrative" aria-label="Standing summary">
+      <h3 class="stand__section-title">Your standing</h3>
+      <p class="stand__narrative-text">{{ standingNarrative }}</p>
+    </section>
+
+    <section class="stand__kpis" aria-label="Cash flow">
+      <div class="stand__kpi" [class.stand__kpi--pos]="netCash > 0" [class.stand__kpi--neg]="netCash < 0">
+        <span class="stand__kpi-label">Earnings</span>
+        <span class="stand__kpi-value">{{ earnings | currency: 'USD':'symbol':'1.0-0' }}</span>
+      </div>
+      <div class="stand__kpi">
+        <span class="stand__kpi-label">Expenses</span>
+        <span class="stand__kpi-value">{{ expenses | currency: 'USD':'symbol':'1.0-0' }}</span>
+      </div>
+      <div class="stand__kpi" [class.stand__kpi--pos]="netCash > 0" [class.stand__kpi--neg]="netCash < 0">
+        <span class="stand__kpi-label">Net</span>
+        <span class="stand__kpi-value">{{ netCash | currency: 'USD':'symbol':'1.0-0' }}</span>
+        <span class="muted stand__kpi-sub">{{ txnCount }} txns</span>
+      </div>
+      <div class="stand__kpi">
+        <span class="stand__kpi-label">Credit util.</span>
+        <span class="stand__kpi-value">{{
+          creditSummary?.overallUtilizationPct != null
+            ? (creditSummary!.overallUtilizationPct | number: '1.0-0') + '%'
+            : '—'
+        }}</span>
+        <span class="muted stand__kpi-sub">{{ creditSummary?.healthLabel || 'cards' }}</span>
+      </div>
+      <div class="stand__kpi">
+        <span class="stand__kpi-label">Loan remaining</span>
+        <span class="stand__kpi-value">{{ loanTotalBalance | currency: 'USD':'symbol':'1.0-0' }}</span>
+        <span class="muted stand__kpi-sub">{{
+          loanProgressPct != null ? (loanProgressPct | number: '1.0-0') + '% paid' : loans.length + ' loan(s)'
+        }}</span>
+      </div>
+    </section>
+
+    <div class="stand__grid">
+      <section class="stand__card" aria-labelledby="stand-credit-title">
+        <div class="stand__card-head">
+          <h3 id="stand-credit-title" class="stand__section-title">Credit cards</h3>
+          <a routerLink="/life/money" [queryParams]="{ tab: 'credit' }" class="stand__link">Manage →</a>
+        </div>
+        @if (!cards.length) {
+          <p class="muted">No cards yet. Add them under Credit, or link Robinhood Agentic.</p>
+        } @else {
+          <ul class="stand__list">
+            @for (c of cards; track c.id) {
+              <li>
+                <div class="stand__list-main">
+                  <strong>{{ c.institution }} {{ c.cardName }}</strong>
+                  @if (c.lastFour) {
+                    <span class="muted">••••{{ c.lastFour }}</span>
+                  }
+                </div>
+                <div class="stand__list-meta">
+                  <span>{{ c.currentBalance | currency: 'USD':'symbol':'1.0-0' }}
+                    @if (c.creditLimit != null) {
+                      / {{ c.creditLimit | currency: 'USD':'symbol':'1.0-0' }}
+                    }
+                  </span>
+                  @if (c.utilizationPct != null) {
+                    <span [class.stand__warn]="c.utilizationPct >= 50">{{ c.utilizationPct | number: '1.0-0' }}%</span>
+                  }
+                  <span class="muted">{{ c.healthLabel }}</span>
+                </div>
+                @if (c.paymentDueDate) {
+                  <div class="muted stand__due">Due {{ c.paymentDueDate | slice: 0:10 }}</div>
+                }
+              </li>
+            }
+          </ul>
+          @if (cardsDueSoon.length) {
+            <p class="stand__callout">
+              <mat-icon>event</mat-icon>
+              {{ cardsDueSoon.length }} payment(s) due within 14 days.
+            </p>
+          }
+        }
+        @if (agentic?.connected) {
+          <div class="stand__agentic">
+            <strong>Robinhood Agentic</strong>
+            <span
+              >Avail {{ agentic!.availableBalanceUsd | currency: 'USD':'symbol':'1.0-0' }} · Spent
+              {{ agentic!.totalSpendUsd | currency: 'USD':'symbol':'1.0-0' }}</span
+            >
+          </div>
+        }
+      </section>
+
+      <section class="stand__card" aria-labelledby="stand-loans-title">
+        <div class="stand__card-head">
+          <h3 id="stand-loans-title" class="stand__section-title">Loans</h3>
+          <a routerLink="/life/money" [queryParams]="{ tab: 'loans' }" class="stand__link">Manage →</a>
+        </div>
+        @if (!loans.length) {
+          <p class="muted">No loans on file. Track balances and payoff progress under Loans.</p>
+        } @else {
+          <ul class="stand__list">
+            @for (l of loans; track l.id) {
+              <li>
+                <div class="stand__list-main">
+                  <strong>{{ l.institution }}</strong>
+                  <span class="muted">{{ l.loanNatureLabel }}</span>
+                </div>
+                <div class="stand__list-meta">
+                  <span>Remaining {{ (l.balanceToPay ?? l.currentBalance) | currency: 'USD':'symbol':'1.0-0' }}</span>
+                  @if (loanPaidPct(l) != null) {
+                    <span>{{ loanPaidPct(l)! | number: '1.0-0' }}% paid</span>
+                  }
+                  <span class="muted">{{ l.paymentFrequencyLabel }}</span>
+                </div>
+                @if (loanPaidPct(l) != null) {
+                  <div class="stand__bar" aria-hidden="true">
+                    <div class="stand__bar-fill" [style.width.%]="loanPaidPct(l)"></div>
+                  </div>
+                }
+              </li>
+            }
+          </ul>
+        }
+      </section>
+
+      <section class="stand__card stand__card--wide" aria-labelledby="stand-report-title">
+        <div class="stand__card-head">
+          <h3 id="stand-report-title" class="stand__section-title">Credit report</h3>
+          <a
+            mat-stroked-button
+            color="primary"
+            [href]="annualCreditReportUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <mat-icon>open_in_new</mat-icon>
+            AnnualCreditReport.com
+          </a>
+        </div>
+        <p class="muted stand__hint">
+          U.S. law entitles you to a free report from each bureau once per year at AnnualCreditReport.com (the only
+          authorized free source). We cannot pull bureau data automatically — open the site, download your reports, then
+          record the score and upload the PDF here.
+        </p>
+        <div class="stand__form">
+          <mat-form-field appearance="outline">
+            <mat-label>Score</mat-label>
+            <input matInput type="number" [(ngModel)]="standingForm.score" min="300" max="900" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Bureau</mat-label>
+            <mat-select [(ngModel)]="standingForm.bureau">
+              <mat-option value="">—</mat-option>
+              <mat-option value="Equifax">Equifax</mat-option>
+              <mat-option value="Experian">Experian</mat-option>
+              <mat-option value="TransUnion">TransUnion</mat-option>
+              <mat-option value="VantageScore">VantageScore</mat-option>
+              <mat-option value="FICO">FICO</mat-option>
+              <mat-option value="Other">Other</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Reported as of</mat-label>
+            <input matInput type="date" [(ngModel)]="standingForm.reportedAsOf" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Annual report pulled</mat-label>
+            <input matInput type="date" [(ngModel)]="standingForm.annualReportPulledAt" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="stand__notes">
+            <mat-label>Notes / key factors</mat-label>
+            <textarea matInput rows="3" [(ngModel)]="standingForm.notes"></textarea>
+          </mat-form-field>
+        </div>
+        <div class="stand__form-actions">
+          <button mat-flat-button color="primary" type="button" (click)="saveStanding()" [disabled]="savingStanding">
+            Save standing
+          </button>
+          <button mat-stroked-button type="button" (click)="markAnnualReportPulled()" [disabled]="savingStanding">
+            Mark report pulled today
+          </button>
+        </div>
+        @if (standing?.id) {
+          <div class="stand__docs">
+            <h4 class="stand__docs-title">Report PDFs</h4>
+            <app-finance-entry-documents entityType="CREDIT_STANDING" [entityId]="standing!.id!" />
+          </div>
+        } @else {
+          <p class="muted">Save standing once to attach report PDFs.</p>
+        }
+      </section>
+    </div>
+
+    <p class="muted stand__foot">
+      Tip: keep Banking + Plaid synced so weekly earnings/expenses stay current. Open
+      <strong>Money</strong> for detailed income/spend breakdowns, or <strong>Banking</strong> to sync.
+    </p>
+  }
+</div>

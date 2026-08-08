@@ -1,0 +1,21 @@
+meta {
+  name: Credit Standing Put
+  type: http
+  seq: 21
+}
+
+put {
+  url: {{baseUrl}}/api/finance/credit-standing
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "score": 740,
+    "bureau": "Equifax",
+    "reportedAsOf": "2026-08-01",
+    "notes": "Pulled from AnnualCreditReport.com",
+    "annualReportPulledAt": "2026-08-01"
+  }
+}
