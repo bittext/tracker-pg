@@ -249,7 +249,7 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
         pnlPct,
         heat: this.pnlHeat(pnl, pnlPct),
         open,
-        groupKey: this.optionGroupKey(chainSym || '—', expirationDate),
+        groupKey: this.optionGroupKey(chainSym || '—', expirationDate, c),
         expirationDate,
       });
     }
@@ -891,8 +891,12 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
       }
       const side: OptionActivity['side'] = delta > 0 ? 'buy' : 'sell';
       const prior = i > 0 ? points[i - 1] : null;
+      const incomplete = this.isIncompleteOptionIdentity(contract);
+      // Only trust sell P&L when we know strike/expiry; legacy avg keys mix contracts.
       const realized =
-        side === 'sell' && prior ? this.estimateRealizedSell(prior, Math.abs(delta)) : { pnl: null, pct: null };
+        side === 'sell' && prior && !incomplete
+          ? this.estimateRealizedSell(prior, Math.abs(delta))
+          : { pnl: null, pct: null };
       out.push({
         date: points[i].snapshotDate.slice(0, 10),
         side,
@@ -901,7 +905,8 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
         delta,
         realizedPnl: realized.pnl,
         realizedPnlPct: realized.pct,
-        identityMerge: false,
+        // Qty noise on legacy fingerprints is often enrichment reshuffle, not a sale.
+        identityMerge: side === 'sell' && incomplete,
         marketValue: points[i].marketValue,
         costBasis: points[i].costBasis,
       });
@@ -913,18 +918,17 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
       const lastDate = (contract.closedDate || last.snapshotDate).slice(0, 10);
       const alreadyClosedToZero = out.some((a) => a.to === 0 && (a.side === 'sell' || a.side === 'close'));
       if (lastQty > 0 && !alreadyClosedToZero) {
-        const merge = this.isIdentityMergeClose(contract, lastDate, allSeries);
-        const realized = merge
-          ? { pnl: null as number | null, pct: null as number | null }
-          : this.estimateRealizedSell(last, lastQty);
+        const incomplete = this.isIncompleteOptionIdentity(contract);
+        const merge = incomplete || this.isIdentityMergeClose(contract, lastDate, allSeries);
+        // Legacy avg-only keys are not a real contract — never book last MTM as "realized".
         out.push({
           date: lastDate,
           side: 'close',
           from: lastQty,
           to: 0,
           delta: -lastQty,
-          realizedPnl: realized.pnl,
-          realizedPnlPct: realized.pct,
+          realizedPnl: null,
+          realizedPnlPct: null,
           identityMerge: merge,
           marketValue: last.marketValue,
           costBasis: last.costBasis,
@@ -934,8 +938,22 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
     return out;
   }
 
+  /** True when strike/expiry/type are missing (legacy avg-price fingerprints). */
+  isIncompleteOptionIdentity(c: RobinhoodOwnershipContractDto): boolean {
+    return (
+      !!c.legacyIdentity ||
+      !c.expirationDate ||
+      !c.optionType ||
+      c.strikePrice == null
+    );
+  }
+
   /** Same underlying + expiry + strike + type — used to detect avg-price key reshuffles. */
   optionIdentityKey(c: RobinhoodOwnershipContractDto): string {
+    if (this.isIncompleteOptionIdentity(c)) {
+      // Keep legacy series distinct; do not collapse all chain lots into AAPL|||.
+      return `LEGACY|${(c.chainSymbol || '').toUpperCase()}|${c.contractKey}`;
+    }
     const chain = (c.chainSymbol || '').toUpperCase();
     const exp = c.expirationDate?.slice(0, 10) || '';
     const typ = (c.optionType || '').toUpperCase();
@@ -943,7 +961,10 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
     return `${chain}|${exp}|${typ}|${strike}`;
   }
 
-  optionGroupKey(chainSymbol: string, expirationDate: string | null): string {
+  optionGroupKey(chainSymbol: string, expirationDate: string | null, contract?: RobinhoodOwnershipContractDto): string {
+    if (contract && this.isIncompleteOptionIdentity(contract)) {
+      return `legacy|${(chainSymbol || '—').toUpperCase()}|${contract.contractKey}`;
+    }
     return `${(chainSymbol || '—').toUpperCase()}|${expirationDate || 'open'}`;
   }
 
@@ -981,15 +1002,22 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
     closedDate: string,
     allSeries: RobinhoodOwnershipContractSeriesDto[],
   ): boolean {
-    const identity = this.optionIdentityKey(contract);
-    if (!identity || identity.startsWith('|')) {
+    const chain = (contract.chainSymbol || '').toUpperCase();
+    if (!chain) {
       return false;
     }
+    const incomplete = this.isIncompleteOptionIdentity(contract);
+    const identity = incomplete ? null : this.optionIdentityKey(contract);
     for (const s of allSeries) {
       if (s.contract.contractKey === contract.contractKey) {
         continue;
       }
-      if (this.optionIdentityKey(s.contract) !== identity) {
+      const otherChain = (s.contract.chainSymbol || '').toUpperCase();
+      if (otherChain !== chain) {
+        continue;
+      }
+      // Legacy avg keys often reshuffle into enriched strike/expiry series on the same chain.
+      if (!incomplete && identity && this.optionIdentityKey(s.contract) !== identity) {
         continue;
       }
       if (s.contract.currentlyOpen) {
@@ -1002,7 +1030,7 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
       }
       if (otherFirst && closedDate) {
         const gap = this.dayDiff(closedDate, otherFirst);
-        if (gap >= 0 && gap <= 5) {
+        if (gap >= -2 && gap <= 5) {
           return true;
         }
       }
@@ -1069,7 +1097,7 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
 
   expiryLabel(iso: string | null | undefined): string {
     if (!iso) {
-      return 'No expiry';
+      return 'Legacy lot (no strike/expiry)';
     }
     const d = iso.slice(0, 10);
     const dt = new Date(d + 'T12:00:00');

@@ -17,6 +17,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -185,7 +186,7 @@ public class RobinhoodOwnershipHistoryService {
             String captureKind,
             String contractKeyRaw,
             List<String> availableSuffixes) {
-        Map<String, List<DayHolding>> byContract = collectOptionDays(accountRows);
+        Map<String, List<DayHolding>> byContract = mergeLegacyOptionSeries(collectOptionDays(accountRows));
         LocalDate accountAsOf = accountRows.isEmpty()
                 ? null
                 : accountRows.stream()
@@ -222,10 +223,10 @@ public class RobinhoodOwnershipHistoryService {
                         + OPTIONS_HISTORY_START
                         + ". Updates automatically with the hourly / 9 PM snapshot job.");
         notes.add(
-                "New captures store strike, expiry, and call/put. Older snapshots without that metadata are labeled by chain + average buy price.");
+                "New captures store strike, expiry, and call/put. Older snapshots missing that metadata are stitched "
+                        + "onto the matching enriched series when chain, quantity, and average buy price line up.");
         notes.add(
-                "Open quantity only counts contracts still present on the latest snapshot. Legacy rows with a "
-                        + "different average buy price from earlier days appear as closed lots when they leave the book.");
+                "Open quantity only counts contracts still present on the latest snapshot.");
 
         if (contractKey.isEmpty()) {
             notes.add("Showing all owned contracts in this range. Calendar marks purchase and sell/close days.");
@@ -361,6 +362,195 @@ public class RobinhoodOwnershipHistoryService {
         return byContract;
     }
 
+    /**
+     * Pre-enrichment snapshots only stored chain + avg buy. When a later day has the same position with
+     * strike/expiry, fold the legacy series into that enriched key so ownership history shows the real
+     * contract instead of {@code LEGACY|AAPL|2.48}.
+     */
+    Map<String, List<DayHolding>> mergeLegacyOptionSeries(Map<String, List<DayHolding>> byContract) {
+        if (byContract == null || byContract.isEmpty()) {
+            return byContract == null ? Map.of() : byContract;
+        }
+        Map<String, List<DayHolding>> working = new LinkedHashMap<>();
+        for (Map.Entry<String, List<DayHolding>> e : byContract.entrySet()) {
+            List<DayHolding> days = new ArrayList<>(e.getValue());
+            days.sort(Comparator.comparing((DayHolding d) -> d.row.getSnapshotDate())
+                    .thenComparing(d -> d.row.getSnapshotAt(), Comparator.nullsLast(Comparator.naturalOrder())));
+            working.put(e.getKey(), days);
+        }
+
+        record Candidate(String legacyKey, String enrichedKey, double score) {}
+        List<Candidate> candidates = new ArrayList<>();
+        for (Map.Entry<String, List<DayHolding>> legacyEntry : working.entrySet()) {
+            String legacyKey = legacyEntry.getKey();
+            if (!isLegacyContractKey(legacyKey)) {
+                continue;
+            }
+            List<DayHolding> legacyDays = legacyEntry.getValue();
+            if (legacyDays.isEmpty()) {
+                continue;
+            }
+            DayHolding legacyLast = legacyDays.get(legacyDays.size() - 1);
+            String chain = chainFromContractKey(legacyKey, legacyLast.sample);
+            if (chain.isEmpty()) {
+                continue;
+            }
+            LocalDate legacyLastDate = legacyLast.row.getSnapshotDate();
+            BigDecimal legacyQty = nullToZero(legacyLast.agg.qty);
+            BigDecimal legacyAvg = legacyLast.agg.avg != null
+                    ? legacyLast.agg.avg
+                    : legacyLast.sample == null ? null : legacyLast.sample.averageBuyPrice();
+            for (Map.Entry<String, List<DayHolding>> enrichedEntry : working.entrySet()) {
+                String enrichedKey = enrichedEntry.getKey();
+                if (!isEnrichedContractKey(enrichedKey)) {
+                    continue;
+                }
+                if (!chain.equals(chainFromContractKey(enrichedKey, enrichedEntry.getValue().isEmpty()
+                        ? null
+                        : enrichedEntry.getValue().get(0).sample))) {
+                    continue;
+                }
+                List<DayHolding> enrichedDays = enrichedEntry.getValue();
+                if (enrichedDays.isEmpty()) {
+                    continue;
+                }
+                DayHolding enrichedFirst = enrichedDays.get(0);
+                double score = legacyMergeScore(
+                        legacyLastDate,
+                        legacyQty,
+                        legacyAvg,
+                        enrichedFirst.row.getSnapshotDate(),
+                        nullToZero(enrichedFirst.agg.qty),
+                        enrichedFirst.agg.avg != null
+                                ? enrichedFirst.agg.avg
+                                : enrichedFirst.sample == null ? null : enrichedFirst.sample.averageBuyPrice());
+                if (score >= LEGACY_MERGE_MIN_SCORE) {
+                    candidates.add(new Candidate(legacyKey, enrichedKey, score));
+                }
+            }
+        }
+
+        candidates.sort(Comparator.comparingDouble(Candidate::score).reversed());
+        Set<String> usedLegacy = new HashSet<>();
+        Set<String> usedEnriched = new HashSet<>();
+        for (Candidate c : candidates) {
+            if (usedLegacy.contains(c.legacyKey()) || usedEnriched.contains(c.enrichedKey())) {
+                continue;
+            }
+            List<DayHolding> legacyDays = working.get(c.legacyKey());
+            List<DayHolding> enrichedDays = working.get(c.enrichedKey());
+            if (legacyDays == null || enrichedDays == null) {
+                continue;
+            }
+            Set<LocalDate> enrichedDates = new HashSet<>();
+            for (DayHolding d : enrichedDays) {
+                if (d.row.getSnapshotDate() != null) {
+                    enrichedDates.add(d.row.getSnapshotDate());
+                }
+            }
+            List<DayHolding> merged = new ArrayList<>();
+            for (DayHolding d : legacyDays) {
+                LocalDate date = d.row.getSnapshotDate();
+                if (date != null && enrichedDates.contains(date)) {
+                    continue; // prefer enriched print on the same day
+                }
+                merged.add(d);
+            }
+            merged.addAll(enrichedDays);
+            merged.sort(Comparator.comparing((DayHolding d) -> d.row.getSnapshotDate())
+                    .thenComparing(d -> d.row.getSnapshotAt(), Comparator.nullsLast(Comparator.naturalOrder())));
+            working.put(c.enrichedKey(), merged);
+            working.remove(c.legacyKey());
+            usedLegacy.add(c.legacyKey());
+            usedEnriched.add(c.enrichedKey());
+            log.info(
+                    "Stitched legacy option series {} into {} ({} pre-enrichment day(s))",
+                    c.legacyKey(),
+                    c.enrichedKey(),
+                    legacyDays.size());
+        }
+        return working;
+    }
+
+    private static final double LEGACY_MERGE_MIN_SCORE = 8.0;
+
+    static boolean isLegacyContractKey(String key) {
+        return key != null && key.startsWith("LEGACY|");
+    }
+
+    static boolean isEnrichedContractKey(String key) {
+        if (key == null || key.isBlank() || key.startsWith("LEGACY|") || key.startsWith("PK|")) {
+            return false;
+        }
+        String[] parts = key.split("\\|");
+        if (parts.length < 4) {
+            return false;
+        }
+        String type = parts[1].trim().toLowerCase(Locale.ROOT);
+        return "call".equals(type) || "put".equals(type);
+    }
+
+    static String chainFromContractKey(String key, RobinhoodRhHoldingDto sample) {
+        if (sample != null) {
+            String fromSample = RobinhoodRhContractKeys.chainSymbol(sample);
+            if (!fromSample.isBlank()) {
+                return fromSample;
+            }
+        }
+        if (key == null || key.isBlank()) {
+            return "";
+        }
+        String[] parts = key.split("\\|");
+        if (key.startsWith("LEGACY|")) {
+            return parts.length >= 2 ? parts[1].trim().toUpperCase(Locale.ROOT) : "";
+        }
+        return parts[0].trim().toUpperCase(Locale.ROOT);
+    }
+
+    /**
+     * Higher is better. Requires near-continuous dates and similar qty; avg buy price is a strong hint.
+     */
+    static double legacyMergeScore(
+            LocalDate legacyLastDate,
+            BigDecimal legacyQty,
+            BigDecimal legacyAvg,
+            LocalDate enrichedFirstDate,
+            BigDecimal enrichedQty,
+            BigDecimal enrichedAvg) {
+        if (legacyLastDate == null || enrichedFirstDate == null) {
+            return -1;
+        }
+        long gapDays = enrichedFirstDate.toEpochDay() - legacyLastDate.toEpochDay();
+        // Enriched identity usually appears the next capture after metadata landed; allow a short window.
+        if (gapDays < -1 || gapDays > 10) {
+            return -1;
+        }
+        BigDecimal lq = nullToZero(legacyQty);
+        BigDecimal eq = nullToZero(enrichedQty);
+        if (lq.signum() <= 0 || eq.signum() <= 0) {
+            return -1;
+        }
+        BigDecimal maxQ = lq.max(eq);
+        BigDecimal minQ = lq.min(eq);
+        double qtyRatio = minQ.divide(maxQ, 6, RoundingMode.HALF_UP).doubleValue();
+        if (qtyRatio < 0.80) {
+            return -1;
+        }
+        double score = qtyRatio * 10.0;
+        score += Math.max(0, 6.0 - Math.abs(gapDays));
+        if (legacyAvg != null && enrichedAvg != null && legacyAvg.signum() > 0 && enrichedAvg.signum() > 0) {
+            BigDecimal diff = legacyAvg.subtract(enrichedAvg).abs();
+            BigDecimal rel = diff.divide(legacyAvg.max(enrichedAvg), 6, RoundingMode.HALF_UP);
+            if (rel.compareTo(new BigDecimal("0.25")) > 0 && diff.compareTo(new BigDecimal("0.75")) > 0) {
+                return -1;
+            }
+            score += (1.0 - Math.min(1.0, rel.doubleValue())) * 6.0;
+        } else {
+            score += 1.5; // weak bonus when avg missing
+        }
+        return score;
+    }
+
     private RobinhoodOwnershipContractDto contractMeta(
             String key,
             List<DayHolding> days,
@@ -368,7 +558,18 @@ public class RobinhoodOwnershipHistoryService {
             LocalDate accountAsOf) {
         DayHolding last = days.get(days.size() - 1);
         DayHolding first = days.get(0);
-        RobinhoodRhHoldingDto sample = last.sample != null ? last.sample : first.sample;
+        // Prefer a holding that carries strike/expiry (post-stitch enriched day).
+        RobinhoodRhHoldingDto sample = null;
+        for (int i = days.size() - 1; i >= 0; i--) {
+            RobinhoodRhHoldingDto s = days.get(i).sample;
+            if (s != null && !RobinhoodRhContractKeys.isLegacyIdentity(s)) {
+                sample = s;
+                break;
+            }
+        }
+        if (sample == null) {
+            sample = last.sample != null ? last.sample : first.sample;
+        }
         Summary summary = summarize(points);
         RobinhoodOwnershipHistoryPointDto latestPt = points.isEmpty() ? null : points.get(points.size() - 1);
         BigDecimal latestQty = latestPt == null ? ZERO : nullToZero(latestPt.quantity());

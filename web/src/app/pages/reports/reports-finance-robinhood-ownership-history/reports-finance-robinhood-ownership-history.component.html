@@ -517,7 +517,7 @@
         <div class="own__panel-head">
           <h3 id="own-groups-title" class="own__panel-title">By stock &amp; expiry</h3>
           <p class="muted own__panel-sub">
-            Open contracts use mark-to-market P&amp;L; closed use realized P&amp;L from sells (identity key reshapes excluded).
+            Open = mark-to-market. Sold P&amp;L uses sell-day marks on strike/expiry contracts; pre-enrichment days are stitched onto those series when they match.
             @if (optionsChainFilter()) {
               · {{ optionsChainFilter() }}
             }
