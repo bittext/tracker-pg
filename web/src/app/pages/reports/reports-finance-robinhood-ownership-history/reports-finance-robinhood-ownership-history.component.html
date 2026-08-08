@@ -222,24 +222,37 @@
           [class.own__opt-totals--neg]="tot.pnl < 0"
         >
           <div>
-            <span class="own__kpi-label">Contracts shown</span>
-            <span class="own__kpi-value">{{ tot.count }}</span>
+            <span class="own__kpi-label">Open lots</span>
+            <span class="own__kpi-value">{{ tot.openCount }}</span>
+            <span class="own__kpi-sub muted">{{ tot.closedCount }} closed</span>
           </div>
           <div>
             <span class="own__kpi-label">Open qty</span>
             <span class="own__kpi-value">{{ tot.openQty | number: '1.0-2' }}</span>
           </div>
           <div>
-            <span class="own__kpi-label">Mkt value</span>
+            <span class="own__kpi-label">Open MV</span>
             <span class="own__kpi-value">{{ tot.mv | currency: 'USD':'symbol':'1.0-0' }}</span>
           </div>
           <div>
-            <span class="own__kpi-label">Unrealized P&amp;L</span>
+            <span class="own__kpi-label">Open P&amp;L</span>
             <span class="own__kpi-value">{{ tot.pnl | currency: 'USD':'symbol':'1.0-0' }}</span>
             <span class="own__kpi-sub">{{
               tot.pnlPct != null ? (tot.pnlPct | number: '1.0-1') + '%' : '—'
             }}</span>
           </div>
+          @if (tot.closedCount) {
+            <div>
+              <span class="own__kpi-label">Closed P&amp;L</span>
+              <span
+                class="own__kpi-value"
+                [class.own__delta--pos]="tot.closedPnl > 0"
+                [class.own__delta--neg]="tot.closedPnl < 0"
+                >{{ tot.closedPnl | currency: 'USD':'symbol':'1.0-0' }}</span
+              >
+              <span class="own__kpi-sub muted">at last snapshot</span>
+            </div>
+          }
         </div>
       }
 
@@ -249,7 +262,7 @@
             <div>
               <h3 id="own-opt-cal-title" class="own__panel-title">Options calendar</h3>
               <p class="muted own__panel-sub">
-                Closings (expiry) and buy/sell activity. Color depth = unrealized profit or loss.
+                Purchase, sell, and close days only (not expiry). Color depth = P&amp;L on that day.
               </p>
             </div>
             <div class="own__cal-nav">
@@ -278,7 +291,7 @@
           <div class="own__cal-legend" aria-hidden="true">
             <span class="own__legend own__legend--pos">Profit</span>
             <span class="own__legend own__legend--neg">Loss</span>
-            <span class="own__legend own__legend--hold">Expiry / activity</span>
+            <span class="own__legend own__legend--hold">Buy / sell / close</span>
           </div>
 
           <div class="own__cal-grid">
@@ -303,17 +316,22 @@
                       [class.own__cal-cell--hold]="cell.tone === 'flat'"
                       [class.own__cal-cell--empty]="cell.tone === 'empty'"
                       [style.--own-heat]="cell.heat"
-                      [disabled]="!cell.expiryCount && !cell.activityCount"
+                      [disabled]="!cell.activityCount"
                       (click)="selectOptionsDay(cell)"
                       [matTooltip]="optionCellTooltip(cell)"
                     >
                       <span class="own__cal-daynum">{{ cell.dayNumber }}</span>
-                      @if (cell.expiryCount) {
-                        <span class="own__cal-delta">{{ cell.expiryCount }} exp</span>
-                      } @else if (cell.activityCount) {
-                        <span class="own__cal-delta">{{ cell.activityCount }} Δ</span>
+                      @if (cell.activityCount) {
+                        <span class="own__cal-delta">
+                          @if (cell.buyCount) {
+                            +{{ cell.buyCount }}
+                          }
+                          @if (cell.sellCount || cell.closeCount) {
+                            −{{ cell.sellCount + cell.closeCount }}
+                          }
+                        </span>
                       }
-                      @if (cell.pnl != null && (cell.expiryCount || cell.activityCount)) {
+                      @if (cell.pnl != null && cell.activityCount) {
                         <span class="own__cal-qty">{{ cell.pnl | currency: 'USD':'symbol':'1.0-0' }}</span>
                       }
                     </button>
@@ -328,9 +346,17 @@
           @if (selectedOptionView(); as view) {
             <h3 class="own__panel-title">{{ view.contract.label }}</h3>
             <p class="muted own__panel-sub">
-              {{ view.contract.chainSymbol }} · closes
-              {{ formatDay(view.contract.expirationDate) }} ·
-              {{ view.contract.latestQuantity | number: '1.0-4' }} open
+              {{ view.contract.chainSymbol }} ·
+              @if (view.open) {
+                {{ view.contract.latestQuantity | number: '1.0-4' }} open · first
+                {{ formatDay(view.contract.firstDate) }}
+              } @else {
+                closed {{ formatDay(view.contract.closedDate || view.contract.lastDate) }} · was
+                {{ view.contract.latestQuantity | number: '1.0-4' }}
+              }
+              @if (view.contract.legacyIdentity) {
+                · legacy avg key
+              }
             </p>
             <div
               class="own__opt-pnl"
@@ -338,25 +364,27 @@
               [class.own__opt-pnl--pos]="view.pnl > 0"
               [class.own__opt-pnl--neg]="view.pnl < 0"
             >
-              <span class="own__kpi-label">Unrealized P&amp;L</span>
+              <span class="own__kpi-label">{{ view.open ? 'Unrealized P&L' : 'P&L at close' }}</span>
               <span class="own__kpi-value">{{ view.pnl | currency: 'USD':'symbol':'1.0-0' }}</span>
               <span class="own__kpi-sub"
                 >{{ view.pnlPct != null ? (view.pnlPct | number: '1.0-1') + '%' : '—' }} of cost
-                {{ view.contract.latestCostBasis | currency: 'USD':'symbol':'1.0-0' }} · MV
-                {{ view.contract.latestMarketValue | currency: 'USD':'symbol':'1.0-0' }}</span
-              >
+                {{ view.contract.latestCostBasis | currency: 'USD':'symbol':'1.0-0' }}
+                @if (view.open) {
+                  · MV {{ view.contract.latestMarketValue | currency: 'USD':'symbol':'1.0-0' }}
+                }
+              </span>
             </div>
-            <h4 class="own__change-list-title">Purchases &amp; sells</h4>
+            <h4 class="own__change-list-title">Purchases, sells &amp; closes</h4>
             @if (view.activities.length) {
               <ul class="own__activity-list">
-                @for (a of view.activities; track a.date + a.delta) {
+                @for (a of view.activities; track a.date + a.side + a.delta) {
                   <li
                     class="own__activity"
                     [class.own__activity--buy]="a.side === 'buy'"
-                    [class.own__activity--sell]="a.side === 'sell'"
+                    [class.own__activity--sell]="a.side === 'sell' || a.side === 'close'"
                   >
                     <span class="own__activity-date">{{ formatDay(a.date) }}</span>
-                    <span class="own__activity-side">{{ a.side === 'buy' ? 'Buy' : 'Sell' }}</span>
+                    <span class="own__activity-side">{{ activitySideLabel(a.side) }}</span>
                     <span class="own__activity-delta"
                       >{{ a.delta > 0 ? '+' : '' }}{{ a.delta | number: '1.0-4' }}</span
                     >
@@ -377,52 +405,47 @@
             </button>
           } @else if (selectedOptionsDate(); as day) {
             <h3 class="own__panel-title">{{ formatDayFriendly(day) }}</h3>
-            @if (selectedOptionDayGroups().length) {
-              @for (g of selectedOptionDayGroups(); track g.key) {
-                <div class="own__day-group" [ngStyle]="heatStyle(g.heat, g.pnl)">
-                  <button type="button" class="own__day-group-head" (click)="selectOptionsContract(g.contracts[0].contract.contractKey)">
-                    <strong>{{ g.chainSymbol }}</strong>
-                    <span class="muted">exp {{ formatDay(g.expirationDate) }}</span>
-                    <span
-                      [class.own__delta--pos]="g.pnl > 0"
-                      [class.own__delta--neg]="g.pnl < 0"
-                      >{{ g.pnl | currency: 'USD':'symbol':'1.0-0' }}
-                      ({{ g.pnlPct != null ? (g.pnlPct | number: '1.0-1') + '%' : '—' }})</span
-                    >
-                  </button>
-                  @for (c of g.contracts; track c.contract.contractKey) {
-                    <button
-                      type="button"
-                      class="own__day-group-row"
-                      [ngStyle]="heatStyle(c.heat, c.pnl)"
-                      (click)="selectOptionsContract(c.contract.contractKey)"
-                    >
-                      <span>{{ c.contract.label }}</span>
-                      <span
-                        [class.own__delta--pos]="c.pnl > 0"
-                        [class.own__delta--neg]="c.pnl < 0"
-                        >{{ c.pnl | currency: 'USD':'symbol':'1.0-0' }}
-                        · {{ c.pnlPct != null ? (c.pnlPct | number: '1.0-1') + '%' : '—' }}</span
+            @if (selectedOptionDayActivity().length) {
+              <ul class="own__activity-list">
+                @for (row of selectedOptionDayActivity(); track row.view.contract.contractKey + row.activity.side) {
+                  <li
+                    class="own__activity"
+                    [class.own__activity--buy]="row.activity.side === 'buy'"
+                    [class.own__activity--sell]="row.activity.side === 'sell' || row.activity.side === 'close'"
+                  >
+                    <button type="button" class="own__day-group-row" (click)="selectOptionsContract(row.view.contract.contractKey)">
+                      <span class="own__activity-side">{{ activitySideLabel(row.activity.side) }}</span>
+                      <span>{{ row.view.contract.label }}</span>
+                      <span class="own__activity-delta"
+                        >{{ row.activity.delta > 0 ? '+' : '' }}{{ row.activity.delta | number: '1.0-4' }}</span
                       >
+                      <span
+                        [class.own__delta--pos]="(row.activity.unrealizedPnL ?? 0) > 0"
+                        [class.own__delta--neg]="(row.activity.unrealizedPnL ?? 0) < 0"
+                      >
+                        @if (row.activity.unrealizedPnL != null) {
+                          {{ row.activity.unrealizedPnL | currency: 'USD':'symbol':'1.0-0' }}
+                        }
+                      </span>
                     </button>
-                  }
-                </div>
-              }
+                  </li>
+                }
+              </ul>
             } @else {
-              <p class="muted">No expiries or trades on this day for the current filters.</p>
+              <p class="muted">No purchases, sells, or closes on this day for the current filters.</p>
             }
           } @else {
             <h3 class="own__panel-title">Detail</h3>
-            <p class="muted">Tap a calendar day or a contract group for buys, sells, and P&amp;L.</p>
+            <p class="muted">Tap a purchase/sell/close day or a contract for P&amp;L detail.</p>
           }
         </aside>
       </div>
 
       <section class="own__panel" aria-labelledby="own-groups-title">
         <div class="own__panel-head">
-          <h3 id="own-groups-title" class="own__panel-title">Grouped by stock &amp; closing date</h3>
+          <h3 id="own-groups-title" class="own__panel-title">Grouped by stock</h3>
           <p class="muted own__panel-sub">
-            {{ optionExpiryGroups().length }} group(s)
+            Open lots on the latest snapshot; closed legacy lots listed separately with P&amp;L at last print.
             @if (optionsChainFilter()) {
               · {{ optionsChainFilter() }}
             }
@@ -431,64 +454,100 @@
             }
           </p>
         </div>
-        @if (!optionExpiryGroups().length) {
+        @if (!optionChainGroups().length) {
           <p class="muted">No contracts match the current filters.</p>
         }
         <div class="own__group-list">
-          @for (g of optionExpiryGroups(); track g.key) {
+          @for (g of optionChainGroups(); track g.key) {
             <article
               class="own__group"
-              [class.own__group--neg]="g.pnl < 0"
-              [ngStyle]="heatStyle(g.heat, g.pnl)"
+              [class.own__group--neg]="g.openPnl < 0 || (!g.openContracts.length && g.closedPnl < 0)"
+              [ngStyle]="heatStyle(g.heat, g.openContracts.length ? g.openPnl : g.closedPnl)"
             >
               <header class="own__group-head">
                 <div>
                   <h4 class="own__group-title">{{ g.chainSymbol }}</h4>
                   <p class="muted own__group-sub">
-                    Closes {{ formatDay(g.expirationDate) }} · {{ g.contracts.length }} contract(s) ·
-                    {{ g.openQty | number: '1.0-2' }} open
+                    {{ g.openContracts.length }} open lot(s) · {{ g.openQty | number: '1.0-2' }} contracts
+                    @if (g.closedContracts.length) {
+                      · {{ g.closedContracts.length }} closed
+                    }
                   </p>
                 </div>
                 <div
                   class="own__group-pnl"
-                  [class.own__delta--pos]="g.pnl > 0"
-                  [class.own__delta--neg]="g.pnl < 0"
+                  [class.own__delta--pos]="g.openPnl > 0"
+                  [class.own__delta--neg]="g.openPnl < 0"
                 >
-                  <span class="own__group-pnl-dollar">{{ g.pnl | currency: 'USD':'symbol':'1.0-0' }}</span>
+                  <span class="own__group-pnl-dollar">{{ g.openPnl | currency: 'USD':'symbol':'1.0-0' }}</span>
                   <span class="own__group-pnl-pct">{{
-                    g.pnlPct != null ? (g.pnlPct | number: '1.0-1') + '%' : '—'
+                    g.openPnlPct != null ? (g.openPnlPct | number: '1.0-1') + '%' : '—'
                   }}</span>
                 </div>
               </header>
-              <div class="own__group-contracts">
-                @for (c of g.contracts; track c.contract.contractKey) {
-                  <button
-                    type="button"
-                    class="own__group-contract"
-                    [class.own__group-contract--active]="selectedOptionsContractKey() === c.contract.contractKey"
-                    [ngStyle]="heatStyle(c.heat, c.pnl)"
-                    (click)="selectOptionsContract(c.contract.contractKey)"
-                  >
-                    <span class="own__group-contract-label">
-                      {{ c.contract.label }}
-                      @if (c.contract.legacyIdentity) {
-                        <span class="own__legacy">legacy</span>
-                      }
-                    </span>
-                    <span class="own__group-contract-meta muted"
-                      >{{ c.contract.latestQuantity | number: '1.0-2' }} open · MV
-                      {{ c.contract.latestMarketValue | currency: 'USD':'symbol':'1.0-0' }}</span
+              @if (g.openContracts.length) {
+                <div class="own__group-contracts">
+                  @for (c of g.openContracts; track c.contract.contractKey) {
+                    <button
+                      type="button"
+                      class="own__group-contract"
+                      [class.own__group-contract--active]="selectedOptionsContractKey() === c.contract.contractKey"
+                      [ngStyle]="heatStyle(c.heat, c.pnl)"
+                      (click)="selectOptionsContract(c.contract.contractKey)"
                     >
-                    <span
-                      class="own__group-contract-pnl"
-                      [class.own__delta--pos]="c.pnl > 0"
-                      [class.own__delta--neg]="c.pnl < 0"
-                      >{{ c.pnl | currency: 'USD':'symbol':'1.0-0' }}
-                      ({{ c.pnlPct != null ? (c.pnlPct | number: '1.0-1') + '%' : '—' }})</span
+                      <span class="own__group-contract-label">
+                        {{ c.contract.label }}
+                        @if (c.contract.legacyIdentity) {
+                          <span class="own__legacy">legacy</span>
+                        }
+                      </span>
+                      <span class="own__group-contract-meta muted"
+                        >{{ c.contract.latestQuantity | number: '1.0-2' }} open · bought
+                        {{ formatDay(c.contract.firstDate) }} · MV
+                        {{ c.contract.latestMarketValue | currency: 'USD':'symbol':'1.0-0' }}</span
+                      >
+                      <span
+                        class="own__group-contract-pnl"
+                        [class.own__delta--pos]="c.pnl > 0"
+                        [class.own__delta--neg]="c.pnl < 0"
+                        >{{ c.pnl | currency: 'USD':'symbol':'1.0-0' }}
+                        ({{ c.pnlPct != null ? (c.pnlPct | number: '1.0-1') + '%' : '—' }})</span
+                      >
+                    </button>
+                  }
+                </div>
+              }
+              @if (g.closedContracts.length) {
+                <h4 class="own__change-list-title">Closed</h4>
+                <div class="own__group-contracts">
+                  @for (c of g.closedContracts; track c.contract.contractKey) {
+                    <button
+                      type="button"
+                      class="own__group-contract own__group-contract--closed"
+                      [class.own__group-contract--active]="selectedOptionsContractKey() === c.contract.contractKey"
+                      [ngStyle]="heatStyle(c.heat, c.pnl)"
+                      (click)="selectOptionsContract(c.contract.contractKey)"
                     >
-                  </button>
-                }
-              </div>
+                      <span class="own__group-contract-label">
+                        {{ c.contract.label }}
+                        <span class="own__legacy">closed</span>
+                      </span>
+                      <span class="own__group-contract-meta muted"
+                        >was {{ c.contract.latestQuantity | number: '1.0-2' }} ·
+                        {{ formatDay(c.contract.firstDate) }} →
+                        {{ formatDay(c.contract.closedDate || c.contract.lastDate) }}</span
+                      >
+                      <span
+                        class="own__group-contract-pnl"
+                        [class.own__delta--pos]="c.pnl > 0"
+                        [class.own__delta--neg]="c.pnl < 0"
+                        >{{ c.pnl | currency: 'USD':'symbol':'1.0-0' }}
+                        ({{ c.pnlPct != null ? (c.pnlPct | number: '1.0-1') + '%' : '—' }})</span
+                      >
+                    </button>
+                  }
+                </div>
+              }
             </article>
           }
         </div>

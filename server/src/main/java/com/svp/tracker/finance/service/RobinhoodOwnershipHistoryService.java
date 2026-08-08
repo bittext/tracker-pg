@@ -186,6 +186,12 @@ public class RobinhoodOwnershipHistoryService {
             String contractKeyRaw,
             List<String> availableSuffixes) {
         Map<String, List<DayHolding>> byContract = collectOptionDays(accountRows);
+        LocalDate accountAsOf = accountRows.isEmpty()
+                ? null
+                : accountRows.stream()
+                        .map(RobinhoodRhDailySnapshot::getSnapshotDate)
+                        .max(LocalDate::compareTo)
+                        .orElse(null);
         List<RobinhoodOwnershipContractSeriesDto> allSeries = new ArrayList<>();
         List<RobinhoodOwnershipContractDto> availableContracts = new ArrayList<>();
 
@@ -197,7 +203,7 @@ public class RobinhoodOwnershipHistoryService {
             for (DayHolding d : days) {
                 pts.add(toPoint(d.row, d.agg, false));
             }
-            RobinhoodOwnershipContractDto meta = contractMeta(e.getKey(), days, pts);
+            RobinhoodOwnershipContractDto meta = contractMeta(e.getKey(), days, pts, accountAsOf);
             availableContracts.add(meta);
             allSeries.add(new RobinhoodOwnershipContractSeriesDto(meta, pts));
         }
@@ -217,16 +223,21 @@ public class RobinhoodOwnershipHistoryService {
                         + ". Updates automatically with the hourly / 9 PM snapshot job.");
         notes.add(
                 "New captures store strike, expiry, and call/put. Older snapshots without that metadata are labeled by chain + average buy price.");
+        notes.add(
+                "Open quantity only counts contracts still present on the latest snapshot. Legacy rows with a "
+                        + "different average buy price from earlier days appear as closed lots when they leave the book.");
 
         if (contractKey.isEmpty()) {
-            notes.add("Showing all owned contracts in this range. Select a contract for a single-series chart.");
+            notes.add("Showing all owned contracts in this range. Calendar marks purchase and sell/close days.");
             if (availableContracts.isEmpty()) {
                 notes.add("No option holdings found for account ••••" + accountSuffix + " since " + from + ".");
             }
             BigDecimal latestQty = availableContracts.stream()
+                    .filter(RobinhoodOwnershipContractDto::currentlyOpen)
                     .map(c -> nullToZero(c.latestQuantity()))
                     .reduce(ZERO, BigDecimal::add);
             BigDecimal latestMv = availableContracts.stream()
+                    .filter(RobinhoodOwnershipContractDto::currentlyOpen)
                     .map(c -> nullToZero(c.latestMarketValue()))
                     .reduce(ZERO, BigDecimal::add);
             LocalDate highDate = null;
@@ -351,12 +362,21 @@ public class RobinhoodOwnershipHistoryService {
     }
 
     private RobinhoodOwnershipContractDto contractMeta(
-            String key, List<DayHolding> days, List<RobinhoodOwnershipHistoryPointDto> points) {
+            String key,
+            List<DayHolding> days,
+            List<RobinhoodOwnershipHistoryPointDto> points,
+            LocalDate accountAsOf) {
         DayHolding last = days.get(days.size() - 1);
         DayHolding first = days.get(0);
         RobinhoodRhHoldingDto sample = last.sample != null ? last.sample : first.sample;
         Summary summary = summarize(points);
         RobinhoodOwnershipHistoryPointDto latestPt = points.isEmpty() ? null : points.get(points.size() - 1);
+        BigDecimal latestQty = latestPt == null ? ZERO : nullToZero(latestPt.quantity());
+        boolean currentlyOpen = accountAsOf != null
+                && last.row.getSnapshotDate() != null
+                && last.row.getSnapshotDate().equals(accountAsOf)
+                && latestQty.signum() > 0;
+        LocalDate closedDate = currentlyOpen ? null : last.row.getSnapshotDate();
         BigDecimal latestCost = latestPt == null ? ZERO : nullToZero(latestPt.costBasis());
         BigDecimal latestPnl = latestPt == null ? ZERO : nullToZero(latestPt.unrealizedPnL());
         BigDecimal latestPnlPct = null;
@@ -375,7 +395,9 @@ public class RobinhoodOwnershipHistoryService {
                 RobinhoodRhContractKeys.isLegacyIdentity(sample),
                 first.row.getSnapshotDate(),
                 last.row.getSnapshotDate(),
-                latestPt == null ? ZERO : nullToZero(latestPt.quantity()),
+                currentlyOpen,
+                closedDate,
+                latestQty,
                 latestPt == null ? ZERO : nullToZero(latestPt.marketValue()),
                 latestCost,
                 latestPnl,

@@ -42,7 +42,7 @@ interface CalendarCell {
 
 interface OptionActivity {
   date: string;
-  side: 'buy' | 'sell';
+  side: 'buy' | 'sell' | 'close';
   from: number;
   to: number;
   delta: number;
@@ -58,16 +58,18 @@ interface OptionContractView {
   pnl: number;
   pnlPct: number | null;
   heat: number;
+  open: boolean;
 }
 
-interface OptionExpiryGroup {
+interface OptionChainGroup {
   key: string;
   chainSymbol: string;
-  expirationDate: string | null;
-  contracts: OptionContractView[];
+  openContracts: OptionContractView[];
+  closedContracts: OptionContractView[];
   openQty: number;
-  pnl: number;
-  pnlPct: number | null;
+  openPnl: number;
+  openPnlPct: number | null;
+  closedPnl: number;
   heat: number;
 }
 
@@ -78,7 +80,9 @@ interface OptionCalCell {
   dayNumber: number | null;
   isToday: boolean;
   isSelected: boolean;
-  expiryCount: number;
+  buyCount: number;
+  sellCount: number;
+  closeCount: number;
   activityCount: number;
   pnl: number | null;
   heat: number;
@@ -164,22 +168,21 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
       if (chain && chainSym !== chain) {
         continue;
       }
-      const exp = c.expirationDate?.slice(0, 10) ?? null;
-      const first = c.firstDate?.slice(0, 10) ?? '';
-      const last = c.lastDate?.slice(0, 10) ?? '';
+      const activities = this.activitiesFromContract(c, s.points);
       if (month) {
         const inMonth =
-          (exp && exp.startsWith(month)) ||
-          first.startsWith(month) ||
-          last.startsWith(month) ||
-          s.points.some((p) => p.snapshotDate.slice(0, 10).startsWith(month));
+          c.firstDate?.slice(0, 10).startsWith(month) ||
+          c.lastDate?.slice(0, 10).startsWith(month) ||
+          c.closedDate?.slice(0, 10).startsWith(month) ||
+          activities.some((a) => a.date.startsWith(month));
         if (!inMonth) {
           continue;
         }
       }
-      const activities = this.activitiesFromPoints(s.points);
       const pnl = Number(c.latestUnrealizedPnL) || 0;
-      const pnlPct = c.latestUnrealizedPnLPercent == null ? this.pnlPct(pnl, c.latestCostBasis) : Number(c.latestUnrealizedPnLPercent);
+      const pnlPct =
+        c.latestUnrealizedPnLPercent == null ? this.pnlPct(pnl, c.latestCostBasis) : Number(c.latestUnrealizedPnLPercent);
+      const open = !!c.currentlyOpen;
       views.push({
         contract: c,
         series: s,
@@ -187,56 +190,53 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
         pnl,
         pnlPct,
         heat: this.pnlHeat(pnl, pnlPct),
+        open,
       });
     }
     views.sort((a, b) => {
-      const ae = a.contract.expirationDate || '9999';
-      const be = b.contract.expirationDate || '9999';
-      if (ae !== be) {
-        return ae < be ? -1 : 1;
+      if (a.open !== b.open) {
+        return a.open ? -1 : 1;
+      }
+      const af = a.contract.firstDate || '';
+      const bf = b.contract.firstDate || '';
+      if (af !== bf) {
+        return af < bf ? 1 : -1;
       }
       return a.contract.label.localeCompare(b.contract.label);
     });
     return views;
   });
 
-  readonly optionExpiryGroups = computed((): OptionExpiryGroup[] => {
+  readonly optionChainGroups = computed((): OptionChainGroup[] => {
     const map = new Map<string, OptionContractView[]>();
     for (const v of this.optionContractViews()) {
       const chain = (v.contract.chainSymbol || '—').toUpperCase();
-      const exp = v.contract.expirationDate?.slice(0, 10) || 'unknown';
-      const key = `${chain}|${exp}`;
-      const list = map.get(key) ?? [];
+      const list = map.get(chain) ?? [];
       list.push(v);
-      map.set(key, list);
+      map.set(chain, list);
     }
-    const groups: OptionExpiryGroup[] = [];
-    for (const [key, contracts] of map) {
-      const [chainSymbol, expRaw] = key.split('|');
-      const expirationDate = expRaw === 'unknown' ? null : expRaw;
-      const pnl = contracts.reduce((s, c) => s + c.pnl, 0);
-      const cost = contracts.reduce((s, c) => s + (Number(c.contract.latestCostBasis) || 0), 0);
-      const openQty = contracts.reduce((s, c) => s + (Number(c.contract.latestQuantity) || 0), 0);
-      const pnlPct = this.pnlPct(pnl, cost);
+    const groups: OptionChainGroup[] = [];
+    for (const [chainSymbol, contracts] of map) {
+      const openContracts = contracts.filter((c) => c.open);
+      const closedContracts = contracts.filter((c) => !c.open);
+      const openQty = openContracts.reduce((s, c) => s + (Number(c.contract.latestQuantity) || 0), 0);
+      const openPnl = openContracts.reduce((s, c) => s + c.pnl, 0);
+      const openCost = openContracts.reduce((s, c) => s + (Number(c.contract.latestCostBasis) || 0), 0);
+      const closedPnl = closedContracts.reduce((s, c) => s + c.pnl, 0);
+      const openPnlPct = this.pnlPct(openPnl, openCost);
       groups.push({
-        key,
+        key: chainSymbol,
         chainSymbol,
-        expirationDate,
-        contracts,
+        openContracts,
+        closedContracts,
         openQty,
-        pnl,
-        pnlPct,
-        heat: this.pnlHeat(pnl, pnlPct),
+        openPnl,
+        openPnlPct,
+        closedPnl,
+        heat: this.pnlHeat(openPnl || closedPnl, openPnlPct ?? this.pnlPct(closedPnl, null)),
       });
     }
-    groups.sort((a, b) => {
-      if (a.chainSymbol !== b.chainSymbol) {
-        return a.chainSymbol.localeCompare(b.chainSymbol);
-      }
-      const ae = a.expirationDate || '9999';
-      const be = b.expirationDate || '9999';
-      return ae < be ? -1 : ae > be ? 1 : 0;
-    });
+    groups.sort((a, b) => a.chainSymbol.localeCompare(b.chainSymbol));
     return groups;
   });
 
@@ -247,18 +247,19 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
       return [];
     }
     const views = this.optionContractViews();
-    const byExpiry = new Map<string, OptionContractView[]>();
-    const byActivity = new Map<string, number>();
+    const buys = new Map<string, number>();
+    const sells = new Map<string, number>();
+    const closes = new Map<string, number>();
     const pnlByDay = new Map<string, number>();
     for (const v of views) {
-      const exp = v.contract.expirationDate?.slice(0, 10);
-      if (exp) {
-        const list = byExpiry.get(exp) ?? [];
-        list.push(v);
-        byExpiry.set(exp, list);
-      }
       for (const a of v.activities) {
-        byActivity.set(a.date, (byActivity.get(a.date) ?? 0) + 1);
+        if (a.side === 'buy') {
+          buys.set(a.date, (buys.get(a.date) ?? 0) + 1);
+        } else if (a.side === 'sell') {
+          sells.set(a.date, (sells.get(a.date) ?? 0) + 1);
+        } else {
+          closes.set(a.date, (closes.get(a.date) ?? 0) + 1);
+        }
         pnlByDay.set(a.date, (pnlByDay.get(a.date) ?? 0) + (a.unrealizedPnL ?? 0));
       }
     }
@@ -276,7 +277,9 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
         dayNumber: null,
         isToday: false,
         isSelected: false,
-        expiryCount: 0,
+        buyCount: 0,
+        sellCount: 0,
+        closeCount: 0,
         activityCount: 0,
         pnl: null,
         heat: 0,
@@ -285,20 +288,14 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
     }
     for (let d = 1; d <= daysInMonth; d++) {
       const date = `${ys}-${String(ms).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      const expiryViews = byExpiry.get(date) ?? [];
-      const expiryCount = expiryViews.length;
-      const activityCount = byActivity.get(date) ?? 0;
-      let pnl: number | null = null;
-      if (expiryViews.length) {
-        pnl = expiryViews.reduce((s, v) => s + v.pnl, 0);
-      } else if (activityCount) {
-        pnl = pnlByDay.get(date) ?? 0;
-      }
-      const cost = expiryViews.reduce((s, v) => s + (Number(v.contract.latestCostBasis) || 0), 0);
-      const pct = pnl != null ? this.pnlPct(pnl, cost || null) : null;
-      const heat = pnl != null ? this.pnlHeat(pnl, pct) : 0;
+      const buyCount = buys.get(date) ?? 0;
+      const sellCount = sells.get(date) ?? 0;
+      const closeCount = closes.get(date) ?? 0;
+      const activityCount = buyCount + sellCount + closeCount;
+      const pnl = activityCount ? (pnlByDay.get(date) ?? 0) : null;
+      const heat = pnl != null ? this.pnlHeat(pnl, null) : 0;
       let tone: OptionCalCell['tone'] = 'empty';
-      if (expiryCount || activityCount) {
+      if (activityCount) {
         if (pnl != null && pnl > 0.5) {
           tone = 'pos';
         } else if (pnl != null && pnl < -0.5) {
@@ -314,7 +311,9 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
         dayNumber: d,
         isToday: date === today,
         isSelected: date === selected,
-        expiryCount,
+        buyCount,
+        sellCount,
+        closeCount,
         activityCount,
         pnl,
         heat,
@@ -335,13 +334,20 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
 
   readonly optionMonthsInYear = computed(() => {
     const months = new Set<string>();
+    const chain = this.optionsChainFilter().trim().toUpperCase();
     for (const s of this.report()?.contractSeries ?? []) {
-      const exp = s.contract.expirationDate?.slice(0, 7);
-      if (exp) {
-        months.add(exp);
+      const c = s.contract;
+      if (chain && (c.chainSymbol || '').toUpperCase() !== chain) {
+        continue;
       }
-      for (const p of s.points) {
-        months.add(p.snapshotDate.slice(0, 7));
+      for (const a of this.activitiesFromContract(c, s.points)) {
+        months.add(a.date.slice(0, 7));
+      }
+      if (c.firstDate) {
+        months.add(c.firstDate.slice(0, 7));
+      }
+      if (c.closedDate) {
+        months.add(c.closedDate.slice(0, 7));
       }
     }
     return [...months].sort();
@@ -355,26 +361,44 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
     return this.optionContractViews().find((v) => v.contract.contractKey === key) ?? null;
   });
 
-  readonly selectedOptionDayGroups = computed((): OptionExpiryGroup[] => {
+  readonly selectedOptionDayActivity = computed(() => {
     const day = this.selectedOptionsDate();
     if (!day) {
-      return [];
+      return [] as Array<{ view: OptionContractView; activity: OptionActivity }>;
     }
-    return this.optionExpiryGroups().filter(
-      (g) =>
-        g.expirationDate === day ||
-        g.contracts.some((c) => c.activities.some((a) => a.date === day)),
-    );
+    const out: Array<{ view: OptionContractView; activity: OptionActivity }> = [];
+    for (const v of this.optionContractViews()) {
+      for (const a of v.activities) {
+        if (a.date === day) {
+          out.push({ view: v, activity: a });
+        }
+      }
+    }
+    out.sort((a, b) => a.view.contract.label.localeCompare(b.view.contract.label));
+    return out;
   });
 
   readonly optionsTotals = computed(() => {
     const views = this.optionContractViews();
-    const pnl = views.reduce((s, v) => s + v.pnl, 0);
-    const cost = views.reduce((s, v) => s + (Number(v.contract.latestCostBasis) || 0), 0);
-    const mv = views.reduce((s, v) => s + (Number(v.contract.latestMarketValue) || 0), 0);
-    const openQty = views.reduce((s, v) => s + (Number(v.contract.latestQuantity) || 0), 0);
+    const open = views.filter((v) => v.open);
+    const closed = views.filter((v) => !v.open);
+    const pnl = open.reduce((s, v) => s + v.pnl, 0);
+    const cost = open.reduce((s, v) => s + (Number(v.contract.latestCostBasis) || 0), 0);
+    const mv = open.reduce((s, v) => s + (Number(v.contract.latestMarketValue) || 0), 0);
+    const openQty = open.reduce((s, v) => s + (Number(v.contract.latestQuantity) || 0), 0);
+    const closedPnl = closed.reduce((s, v) => s + v.pnl, 0);
     const pnlPct = this.pnlPct(pnl, cost);
-    return { count: views.length, openQty, mv, cost, pnl, pnlPct, heat: this.pnlHeat(pnl, pnlPct) };
+    return {
+      openCount: open.length,
+      closedCount: closed.length,
+      openQty,
+      mv,
+      cost,
+      pnl,
+      pnlPct,
+      closedPnl,
+      heat: this.pnlHeat(pnl, pnlPct),
+    };
   });
 
   readonly changeRows = computed((): QtyChangeRow[] => {
@@ -656,15 +680,18 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
   selectOptionsContract(key: string): void {
     this.selectedOptionsContractKey.set(key);
     const view = this.optionContractViews().find((v) => v.contract.contractKey === key);
-    const exp = view?.contract.expirationDate?.slice(0, 10);
-    if (exp) {
-      this.calendarMonth.set(exp.slice(0, 7) + '-01');
-      this.selectedOptionsDate.set(exp);
+    const focus =
+      view?.activities[view.activities.length - 1]?.date ||
+      view?.contract.closedDate?.slice(0, 10) ||
+      view?.contract.firstDate?.slice(0, 10);
+    if (focus) {
+      this.calendarMonth.set(focus.slice(0, 7) + '-01');
+      this.selectedOptionsDate.set(focus);
     }
   }
 
   selectOptionsDay(cell: OptionCalCell): void {
-    if (cell.type !== 'day') {
+    if (cell.type !== 'day' || !cell.activityCount) {
       return;
     }
     this.selectedOptionsDate.set(cell.date);
@@ -712,7 +739,10 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
     return new Date(y, m - 1, 1).toLocaleString(undefined, { month: 'long', year: 'numeric' });
   }
 
-  activitiesFromPoints(points: RobinhoodOwnershipHistoryPointDto[]): OptionActivity[] {
+  activitiesFromContract(
+    contract: RobinhoodOwnershipContractDto,
+    points: RobinhoodOwnershipHistoryPointDto[],
+  ): OptionActivity[] {
     const out: OptionActivity[] = [];
     for (let i = 0; i < points.length; i++) {
       const cur = Number(points[i].quantity) || 0;
@@ -731,6 +761,25 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
         costBasis: points[i].costBasis,
         unrealizedPnL: points[i].unrealizedPnL,
       });
+    }
+    // Legacy average-price keys often leave the book without a zero-qty print — treat last sighting as close.
+    if (!contract.currentlyOpen && points.length) {
+      const last = points[points.length - 1];
+      const lastQty = Number(last.quantity) || 0;
+      const lastDate = (contract.closedDate || last.snapshotDate).slice(0, 10);
+      const alreadyClosedToZero = out.some((a) => a.date === lastDate && a.to === 0);
+      if (lastQty > 0 && !alreadyClosedToZero) {
+        out.push({
+          date: lastDate,
+          side: 'close',
+          from: lastQty,
+          to: 0,
+          delta: -lastQty,
+          marketValue: last.marketValue,
+          costBasis: last.costBasis,
+          unrealizedPnL: last.unrealizedPnL,
+        });
+      }
     }
     return out;
   }
@@ -775,16 +824,29 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
       return '';
     }
     const parts = [this.formatDay(cell.date)];
-    if (cell.expiryCount) {
-      parts.push(`${cell.expiryCount} expir${cell.expiryCount === 1 ? 'y' : 'ies'}`);
+    if (cell.buyCount) {
+      parts.push(`${cell.buyCount} buy`);
     }
-    if (cell.activityCount) {
-      parts.push(`${cell.activityCount} trade day move${cell.activityCount === 1 ? '' : 's'}`);
+    if (cell.sellCount) {
+      parts.push(`${cell.sellCount} sell`);
     }
-    if (cell.pnl != null && (cell.expiryCount || cell.activityCount)) {
+    if (cell.closeCount) {
+      parts.push(`${cell.closeCount} close`);
+    }
+    if (cell.pnl != null && cell.activityCount) {
       parts.push(`P&L ${cell.pnl.toLocaleString(undefined, { maximumFractionDigits: 0 })}`);
     }
     return parts.join(' · ');
+  }
+
+  activitySideLabel(side: OptionActivity['side']): string {
+    if (side === 'buy') {
+      return 'Buy';
+    }
+    if (side === 'sell') {
+      return 'Sell';
+    }
+    return 'Closed';
   }
 
   cellTone(cell: CalendarCell): 'pos' | 'neg' | 'hold' | 'empty' {

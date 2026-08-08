@@ -140,6 +140,10 @@ export interface RobinhoodOwnershipContractDto {
   legacyIdentity: boolean;
   firstDate: string;
   lastDate: string;
+  /** Present with qty &gt; 0 on the newest account snapshot. */
+  currentlyOpen: boolean;
+  /** Last held date when not currently open. */
+  closedDate: string | null;
   latestQuantity: number;
   latestMarketValue: number;
   latestCostBasis: number | null;
