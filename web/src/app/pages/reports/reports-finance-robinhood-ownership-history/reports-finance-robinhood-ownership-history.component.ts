@@ -11,6 +11,8 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import {
   RobinhoodOwnershipAssetKind,
+  RobinhoodOwnershipContractDto,
+  RobinhoodOwnershipContractSeriesDto,
   RobinhoodOwnershipHistoryDto,
   RobinhoodOwnershipHistoryPointDto,
 } from '../../../models/finance.models';
@@ -36,6 +38,51 @@ interface CalendarCell {
   isToday: boolean;
   isSelected: boolean;
   point: RobinhoodOwnershipHistoryPointDto | null;
+}
+
+interface OptionActivity {
+  date: string;
+  side: 'buy' | 'sell';
+  from: number;
+  to: number;
+  delta: number;
+  marketValue: number | null;
+  costBasis: number | null;
+  unrealizedPnL: number | null;
+}
+
+interface OptionContractView {
+  contract: RobinhoodOwnershipContractDto;
+  series: RobinhoodOwnershipContractSeriesDto;
+  activities: OptionActivity[];
+  pnl: number;
+  pnlPct: number | null;
+  heat: number;
+}
+
+interface OptionExpiryGroup {
+  key: string;
+  chainSymbol: string;
+  expirationDate: string | null;
+  contracts: OptionContractView[];
+  openQty: number;
+  pnl: number;
+  pnlPct: number | null;
+  heat: number;
+}
+
+interface OptionCalCell {
+  type: 'pad' | 'day';
+  trackKey: string;
+  date: string;
+  dayNumber: number | null;
+  isToday: boolean;
+  isSelected: boolean;
+  expiryCount: number;
+  activityCount: number;
+  pnl: number | null;
+  heat: number;
+  tone: 'pos' | 'neg' | 'flat' | 'empty';
 }
 
 @Component({
@@ -77,8 +124,17 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
   detailsExpanded = false;
 
   /** Calendar month as YYYY-MM-01 */
-  calendarMonth = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`;
-  selectedDate: string | null = null;
+  readonly calendarMonth = signal(
+    `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`,
+  );
+  readonly selectedDate = signal<string | null>(null);
+
+  /** Options overview filters — empty = all underlyings / all months. */
+  readonly optionsChainFilter = signal('');
+  /** '' = all months in year for the grouped list; calendar still uses calendarMonth. */
+  readonly optionsMonthFilter = signal('');
+  readonly selectedOptionsContractKey = signal<string | null>(null);
+  readonly selectedOptionsDate = signal<string | null>(null);
 
   readonly report = signal<RobinhoodOwnershipHistoryDto | null>(null);
 
@@ -94,7 +150,231 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
 
   readonly showingAllContracts = computed(() => {
     const r = this.report();
-    return r?.assetKind === 'option' && !r.contractKey && (r.contractSeries?.length ?? 0) > 0;
+    return r?.assetKind === 'option' && !r.contractKey;
+  });
+
+  readonly optionContractViews = computed((): OptionContractView[] => {
+    const series = this.report()?.contractSeries ?? [];
+    const chain = this.optionsChainFilter().trim().toUpperCase();
+    const month = this.optionsMonthFilter().trim();
+    const views: OptionContractView[] = [];
+    for (const s of series) {
+      const c = s.contract;
+      const chainSym = (c.chainSymbol || '').toUpperCase();
+      if (chain && chainSym !== chain) {
+        continue;
+      }
+      const exp = c.expirationDate?.slice(0, 10) ?? null;
+      const first = c.firstDate?.slice(0, 10) ?? '';
+      const last = c.lastDate?.slice(0, 10) ?? '';
+      if (month) {
+        const inMonth =
+          (exp && exp.startsWith(month)) ||
+          first.startsWith(month) ||
+          last.startsWith(month) ||
+          s.points.some((p) => p.snapshotDate.slice(0, 10).startsWith(month));
+        if (!inMonth) {
+          continue;
+        }
+      }
+      const activities = this.activitiesFromPoints(s.points);
+      const pnl = Number(c.latestUnrealizedPnL) || 0;
+      const pnlPct = c.latestUnrealizedPnLPercent == null ? this.pnlPct(pnl, c.latestCostBasis) : Number(c.latestUnrealizedPnLPercent);
+      views.push({
+        contract: c,
+        series: s,
+        activities,
+        pnl,
+        pnlPct,
+        heat: this.pnlHeat(pnl, pnlPct),
+      });
+    }
+    views.sort((a, b) => {
+      const ae = a.contract.expirationDate || '9999';
+      const be = b.contract.expirationDate || '9999';
+      if (ae !== be) {
+        return ae < be ? -1 : 1;
+      }
+      return a.contract.label.localeCompare(b.contract.label);
+    });
+    return views;
+  });
+
+  readonly optionExpiryGroups = computed((): OptionExpiryGroup[] => {
+    const map = new Map<string, OptionContractView[]>();
+    for (const v of this.optionContractViews()) {
+      const chain = (v.contract.chainSymbol || '—').toUpperCase();
+      const exp = v.contract.expirationDate?.slice(0, 10) || 'unknown';
+      const key = `${chain}|${exp}`;
+      const list = map.get(key) ?? [];
+      list.push(v);
+      map.set(key, list);
+    }
+    const groups: OptionExpiryGroup[] = [];
+    for (const [key, contracts] of map) {
+      const [chainSymbol, expRaw] = key.split('|');
+      const expirationDate = expRaw === 'unknown' ? null : expRaw;
+      const pnl = contracts.reduce((s, c) => s + c.pnl, 0);
+      const cost = contracts.reduce((s, c) => s + (Number(c.contract.latestCostBasis) || 0), 0);
+      const openQty = contracts.reduce((s, c) => s + (Number(c.contract.latestQuantity) || 0), 0);
+      const pnlPct = this.pnlPct(pnl, cost);
+      groups.push({
+        key,
+        chainSymbol,
+        expirationDate,
+        contracts,
+        openQty,
+        pnl,
+        pnlPct,
+        heat: this.pnlHeat(pnl, pnlPct),
+      });
+    }
+    groups.sort((a, b) => {
+      if (a.chainSymbol !== b.chainSymbol) {
+        return a.chainSymbol.localeCompare(b.chainSymbol);
+      }
+      const ae = a.expirationDate || '9999';
+      const be = b.expirationDate || '9999';
+      return ae < be ? -1 : ae > be ? 1 : 0;
+    });
+    return groups;
+  });
+
+  readonly optionCalCells = computed((): OptionCalCell[] => {
+    const monthStart = this.calendarMonth().slice(0, 10);
+    const [ys, ms] = monthStart.split('-').map(Number);
+    if (!ys || !ms) {
+      return [];
+    }
+    const views = this.optionContractViews();
+    const byExpiry = new Map<string, OptionContractView[]>();
+    const byActivity = new Map<string, number>();
+    const pnlByDay = new Map<string, number>();
+    for (const v of views) {
+      const exp = v.contract.expirationDate?.slice(0, 10);
+      if (exp) {
+        const list = byExpiry.get(exp) ?? [];
+        list.push(v);
+        byExpiry.set(exp, list);
+      }
+      for (const a of v.activities) {
+        byActivity.set(a.date, (byActivity.get(a.date) ?? 0) + 1);
+        pnlByDay.set(a.date, (pnlByDay.get(a.date) ?? 0) + (a.unrealizedPnL ?? 0));
+      }
+    }
+    const first = new Date(ys, ms - 1, 1);
+    const daysInMonth = new Date(ys, ms, 0).getDate();
+    const startPad = first.getDay();
+    const today = this.todayIso();
+    const selected = this.selectedOptionsDate();
+    const cells: OptionCalCell[] = [];
+    for (let i = 0; i < startPad; i++) {
+      cells.push({
+        type: 'pad',
+        trackKey: `opad-${monthStart}-${i}`,
+        date: '',
+        dayNumber: null,
+        isToday: false,
+        isSelected: false,
+        expiryCount: 0,
+        activityCount: 0,
+        pnl: null,
+        heat: 0,
+        tone: 'empty',
+      });
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = `${ys}-${String(ms).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const expiryViews = byExpiry.get(date) ?? [];
+      const expiryCount = expiryViews.length;
+      const activityCount = byActivity.get(date) ?? 0;
+      let pnl: number | null = null;
+      if (expiryViews.length) {
+        pnl = expiryViews.reduce((s, v) => s + v.pnl, 0);
+      } else if (activityCount) {
+        pnl = pnlByDay.get(date) ?? 0;
+      }
+      const cost = expiryViews.reduce((s, v) => s + (Number(v.contract.latestCostBasis) || 0), 0);
+      const pct = pnl != null ? this.pnlPct(pnl, cost || null) : null;
+      const heat = pnl != null ? this.pnlHeat(pnl, pct) : 0;
+      let tone: OptionCalCell['tone'] = 'empty';
+      if (expiryCount || activityCount) {
+        if (pnl != null && pnl > 0.5) {
+          tone = 'pos';
+        } else if (pnl != null && pnl < -0.5) {
+          tone = 'neg';
+        } else {
+          tone = 'flat';
+        }
+      }
+      cells.push({
+        type: 'day',
+        trackKey: date,
+        date,
+        dayNumber: d,
+        isToday: date === today,
+        isSelected: date === selected,
+        expiryCount,
+        activityCount,
+        pnl,
+        heat,
+        tone,
+      });
+    }
+    return cells;
+  });
+
+  readonly optionCalWeeks = computed(() => {
+    const cells = this.optionCalCells();
+    const weeks: OptionCalCell[][] = [];
+    for (let i = 0; i < cells.length; i += 7) {
+      weeks.push(cells.slice(i, i + 7));
+    }
+    return weeks;
+  });
+
+  readonly optionMonthsInYear = computed(() => {
+    const months = new Set<string>();
+    for (const s of this.report()?.contractSeries ?? []) {
+      const exp = s.contract.expirationDate?.slice(0, 7);
+      if (exp) {
+        months.add(exp);
+      }
+      for (const p of s.points) {
+        months.add(p.snapshotDate.slice(0, 7));
+      }
+    }
+    return [...months].sort();
+  });
+
+  readonly selectedOptionView = computed((): OptionContractView | null => {
+    const key = this.selectedOptionsContractKey();
+    if (!key) {
+      return null;
+    }
+    return this.optionContractViews().find((v) => v.contract.contractKey === key) ?? null;
+  });
+
+  readonly selectedOptionDayGroups = computed((): OptionExpiryGroup[] => {
+    const day = this.selectedOptionsDate();
+    if (!day) {
+      return [];
+    }
+    return this.optionExpiryGroups().filter(
+      (g) =>
+        g.expirationDate === day ||
+        g.contracts.some((c) => c.activities.some((a) => a.date === day)),
+    );
+  });
+
+  readonly optionsTotals = computed(() => {
+    const views = this.optionContractViews();
+    const pnl = views.reduce((s, v) => s + v.pnl, 0);
+    const cost = views.reduce((s, v) => s + (Number(v.contract.latestCostBasis) || 0), 0);
+    const mv = views.reduce((s, v) => s + (Number(v.contract.latestMarketValue) || 0), 0);
+    const openQty = views.reduce((s, v) => s + (Number(v.contract.latestQuantity) || 0), 0);
+    const pnlPct = this.pnlPct(pnl, cost);
+    return { count: views.length, openQty, mv, cost, pnl, pnlPct, heat: this.pnlHeat(pnl, pnlPct) };
   });
 
   readonly changeRows = computed((): QtyChangeRow[] => {
@@ -129,7 +409,7 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
   });
 
   readonly calendarCells = computed((): CalendarCell[] => {
-    const monthStart = this.calendarMonth.slice(0, 10);
+    const monthStart = this.calendarMonth().slice(0, 10);
     const [ys, ms] = monthStart.split('-').map(Number);
     if (!ys || !ms) {
       return [];
@@ -140,7 +420,7 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
     const today = this.todayIso();
     const changeMap = this.changeByDate();
     const pointMap = this.pointByDate();
-    const selected = this.selectedDate;
+    const selected = this.selectedDate();
 
     const cells: CalendarCell[] = [];
     for (let i = 0; i < startPad; i++) {
@@ -187,7 +467,7 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
   });
 
   readonly selectedPoint = computed(() => {
-    const d = this.selectedDate;
+    const d = this.selectedDate();
     if (!d) {
       return null;
     }
@@ -195,7 +475,7 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
   });
 
   readonly selectedChange = computed(() => {
-    const d = this.selectedDate;
+    const d = this.selectedDate();
     if (!d) {
       return null;
     }
@@ -254,7 +534,11 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
     if (kind === 'option') {
       this.symbol = '';
     }
-    this.selectedDate = null;
+    this.selectedDate.set(null);
+    this.selectedOptionsContractKey.set(null);
+    this.selectedOptionsDate.set(null);
+    this.optionsChainFilter.set('');
+    this.optionsMonthFilter.set('');
     this.load();
   }
 
@@ -292,6 +576,15 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
   }
 
   private alignCalendarToData(r: RobinhoodOwnershipHistoryDto): void {
+    if (r.assetKind === 'option' && !r.contractKey) {
+      const months = this.optionMonthsInYear();
+      const prefer =
+        months.find((m) => m === this.todayIso().slice(0, 7)) ||
+        months[months.length - 1] ||
+        `${r.year}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+      this.calendarMonth.set(prefer.slice(0, 7) + '-01');
+      return;
+    }
     const changes = this.changeRows();
     const prefer =
       changes.length > 0
@@ -300,60 +593,96 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
           ? r.points[r.points.length - 1].snapshotDate.slice(0, 10)
           : null;
     if (prefer) {
-      this.calendarMonth = prefer.slice(0, 7) + '-01';
-      if (!this.selectedDate || this.selectedDate.slice(0, 4) !== String(r.year)) {
-        this.selectedDate = prefer;
+      this.calendarMonth.set(prefer.slice(0, 7) + '-01');
+      const sel = this.selectedDate();
+      if (!sel || sel.slice(0, 4) !== String(r.year)) {
+        this.selectedDate.set(prefer);
       }
     } else {
-      this.calendarMonth = `${r.year}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`;
-      if (Number(this.calendarMonth.slice(0, 4)) !== r.year) {
-        this.calendarMonth = `${r.year}-01-01`;
+      let month = `${r.year}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`;
+      if (Number(month.slice(0, 4)) !== r.year) {
+        month = `${r.year}-01-01`;
       }
+      this.calendarMonth.set(month);
     }
   }
 
   onYearChange(): void {
-    this.selectedDate = null;
-    this.calendarMonth = `${this.reportYear}-01-01`;
+    this.selectedDate.set(null);
+    this.selectedOptionsDate.set(null);
+    this.selectedOptionsContractKey.set(null);
+    this.optionsMonthFilter.set('');
+    this.calendarMonth.set(`${this.reportYear}-01-01`);
     this.load();
   }
 
   onSymbolChange(sym: string): void {
     this.symbol = sym;
-    this.selectedDate = null;
+    this.selectedDate.set(null);
     this.load();
   }
 
   onContractChange(key: string): void {
     this.contractKey = key;
-    this.selectedDate = null;
+    this.selectedDate.set(null);
     this.load();
   }
 
   selectContract(key: string): void {
     this.contractKey = key;
-    this.selectedDate = null;
+    this.selectedDate.set(null);
     this.load();
   }
 
   showAllContracts(): void {
     this.contractKey = '';
-    this.selectedDate = null;
+    this.selectedDate.set(null);
+    this.selectedOptionsContractKey.set(null);
     this.load();
   }
 
+  setOptionsChainFilter(chain: string): void {
+    this.optionsChainFilter.set(chain);
+    this.selectedOptionsContractKey.set(null);
+  }
+
+  setOptionsMonthFilter(ym: string): void {
+    this.optionsMonthFilter.set(ym);
+    if (ym) {
+      this.calendarMonth.set(ym.slice(0, 7) + '-01');
+    }
+  }
+
+  selectOptionsContract(key: string): void {
+    this.selectedOptionsContractKey.set(key);
+    const view = this.optionContractViews().find((v) => v.contract.contractKey === key);
+    const exp = view?.contract.expirationDate?.slice(0, 10);
+    if (exp) {
+      this.calendarMonth.set(exp.slice(0, 7) + '-01');
+      this.selectedOptionsDate.set(exp);
+    }
+  }
+
+  selectOptionsDay(cell: OptionCalCell): void {
+    if (cell.type !== 'day') {
+      return;
+    }
+    this.selectedOptionsDate.set(cell.date);
+    this.selectedOptionsContractKey.set(null);
+  }
+
   shiftCalendarMonth(delta: number): void {
-    const [y, m] = this.calendarMonth.slice(0, 7).split('-').map(Number);
+    const [y, m] = this.calendarMonth().slice(0, 7).split('-').map(Number);
     const d = new Date(y, m - 1 + delta, 1);
     const nextYear = d.getFullYear();
     if (nextYear !== this.reportYear) {
       return;
     }
-    this.calendarMonth = `${nextYear}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+    this.calendarMonth.set(`${nextYear}-${String(d.getMonth() + 1).padStart(2, '0')}-01`);
   }
 
   canShiftMonth(delta: number): boolean {
-    const [y, m] = this.calendarMonth.slice(0, 7).split('-').map(Number);
+    const [y, m] = this.calendarMonth().slice(0, 7).split('-').map(Number);
     const d = new Date(y, m - 1 + delta, 1);
     return d.getFullYear() === this.reportYear;
   }
@@ -362,25 +691,100 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
     if (!ym || ym.length < 7) {
       return;
     }
-    this.calendarMonth = ym.slice(0, 7) + '-01';
+    this.calendarMonth.set(ym.slice(0, 7) + '-01');
   }
 
   selectDay(cell: CalendarCell): void {
     if (cell.type !== 'day') {
       return;
     }
-    this.selectedDate = cell.date;
+    this.selectedDate.set(cell.date);
   }
 
   focusDate(iso: string): void {
     const day = iso.slice(0, 10);
     this.jumpToMonth(day);
-    this.selectedDate = day;
+    this.selectedDate.set(day);
   }
 
   calendarMonthLabel(): string {
-    const [y, m] = this.calendarMonth.slice(0, 7).split('-').map(Number);
+    const [y, m] = this.calendarMonth().slice(0, 7).split('-').map(Number);
     return new Date(y, m - 1, 1).toLocaleString(undefined, { month: 'long', year: 'numeric' });
+  }
+
+  activitiesFromPoints(points: RobinhoodOwnershipHistoryPointDto[]): OptionActivity[] {
+    const out: OptionActivity[] = [];
+    for (let i = 0; i < points.length; i++) {
+      const cur = Number(points[i].quantity) || 0;
+      const prev = i === 0 ? 0 : Number(points[i - 1].quantity) || 0;
+      const delta = cur - prev;
+      if (Math.abs(delta) < 0.0000005) {
+        continue;
+      }
+      out.push({
+        date: points[i].snapshotDate.slice(0, 10),
+        side: delta > 0 ? 'buy' : 'sell',
+        from: prev,
+        to: cur,
+        delta,
+        marketValue: points[i].marketValue,
+        costBasis: points[i].costBasis,
+        unrealizedPnL: points[i].unrealizedPnL,
+      });
+    }
+    return out;
+  }
+
+  pnlPct(pnl: number, cost: number | null | undefined): number | null {
+    const c = Number(cost) || 0;
+    if (c <= 0) {
+      return null;
+    }
+    return (pnl / c) * 100;
+  }
+
+  pnlHeat(pnl: number, pct: number | null): number {
+    if (pct != null && Number.isFinite(pct)) {
+      return Math.min(1, Math.abs(pct) / 40);
+    }
+    if (!Number.isFinite(pnl) || pnl === 0) {
+      return 0.15;
+    }
+    return Math.min(1, Math.abs(pnl) / 2500);
+  }
+
+  heatStyle(heat: number, pnl: number): Record<string, string> {
+    const h = Math.max(0, Math.min(1, heat));
+    const tone = pnl >= 0 ? 'pos' : 'neg';
+    return {
+      '--own-heat': String(h),
+      '--own-pnl-tone': tone,
+    };
+  }
+
+  monthChipLabel(ym: string): string {
+    const [y, m] = ym.split('-').map(Number);
+    if (!y || !m) {
+      return ym;
+    }
+    return new Date(y, m - 1, 1).toLocaleString(undefined, { month: 'short' });
+  }
+
+  optionCellTooltip(cell: OptionCalCell): string {
+    if (cell.type !== 'day') {
+      return '';
+    }
+    const parts = [this.formatDay(cell.date)];
+    if (cell.expiryCount) {
+      parts.push(`${cell.expiryCount} expir${cell.expiryCount === 1 ? 'y' : 'ies'}`);
+    }
+    if (cell.activityCount) {
+      parts.push(`${cell.activityCount} trade day move${cell.activityCount === 1 ? '' : 's'}`);
+    }
+    if (cell.pnl != null && (cell.expiryCount || cell.activityCount)) {
+      parts.push(`P&L ${cell.pnl.toLocaleString(undefined, { maximumFractionDigits: 0 })}`);
+    }
+    return parts.join(' · ');
   }
 
   cellTone(cell: CalendarCell): 'pos' | 'neg' | 'hold' | 'empty' {

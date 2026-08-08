@@ -240,6 +240,13 @@ public class RobinhoodOwnershipHistoryService {
                     highDate = c.highDate();
                 }
             }
+            List<String> chainSymbols = availableContracts.stream()
+                    .map(RobinhoodOwnershipContractDto::chainSymbol)
+                    .filter(s -> s != null && !s.isBlank())
+                    .map(s -> s.trim().toUpperCase(Locale.ROOT))
+                    .collect(java.util.stream.Collectors.toCollection(TreeSet::new))
+                    .stream()
+                    .toList();
             return new RobinhoodOwnershipHistoryDto(
                     "option",
                     null,
@@ -250,7 +257,7 @@ public class RobinhoodOwnershipHistoryService {
                     year,
                     from,
                     captureKind,
-                    List.of(),
+                    chainSymbols,
                     availableContracts,
                     availableSuffixes,
                     highDate,
@@ -281,6 +288,13 @@ public class RobinhoodOwnershipHistoryService {
 
         Summary summary = summarize(points);
         RobinhoodOwnershipHistoryPointDto latest = points.isEmpty() ? null : points.get(points.size() - 1);
+        List<String> chainSymbols = availableContracts.stream()
+                .map(RobinhoodOwnershipContractDto::chainSymbol)
+                .filter(s -> s != null && !s.isBlank())
+                .map(s -> s.trim().toUpperCase(Locale.ROOT))
+                .collect(java.util.stream.Collectors.toCollection(TreeSet::new))
+                .stream()
+                .toList();
 
         return new RobinhoodOwnershipHistoryDto(
                 "option",
@@ -292,7 +306,7 @@ public class RobinhoodOwnershipHistoryService {
                 year,
                 from,
                 captureKind,
-                List.of(),
+                chainSymbols,
                 availableContracts,
                 availableSuffixes,
                 summary.highDate,
@@ -343,6 +357,14 @@ public class RobinhoodOwnershipHistoryService {
         RobinhoodRhHoldingDto sample = last.sample != null ? last.sample : first.sample;
         Summary summary = summarize(points);
         RobinhoodOwnershipHistoryPointDto latestPt = points.isEmpty() ? null : points.get(points.size() - 1);
+        BigDecimal latestCost = latestPt == null ? ZERO : nullToZero(latestPt.costBasis());
+        BigDecimal latestPnl = latestPt == null ? ZERO : nullToZero(latestPt.unrealizedPnL());
+        BigDecimal latestPnlPct = null;
+        if (latestCost.signum() > 0) {
+            latestPnlPct = latestPnl
+                    .multiply(BigDecimal.valueOf(100))
+                    .divide(latestCost, 2, RoundingMode.HALF_UP);
+        }
         return new RobinhoodOwnershipContractDto(
                 key,
                 RobinhoodRhContractKeys.contractLabel(sample),
@@ -355,6 +377,9 @@ public class RobinhoodOwnershipHistoryService {
                 last.row.getSnapshotDate(),
                 latestPt == null ? ZERO : nullToZero(latestPt.quantity()),
                 latestPt == null ? ZERO : nullToZero(latestPt.marketValue()),
+                latestCost,
+                latestPnl,
+                latestPnlPct,
                 summary.highQty,
                 summary.highDate);
     }

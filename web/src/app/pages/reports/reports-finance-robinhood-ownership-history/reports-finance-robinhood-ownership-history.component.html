@@ -80,14 +80,12 @@
           }
         }
       </div>
-    } @else {
+    } @else if (r.contractKey) {
       <div class="own__contract-bar">
-        @if (r.contractKey) {
-          <button mat-button type="button" class="own__back" (click)="showAllContracts()">
-            <mat-icon>arrow_back</mat-icon>
-            All contracts
-          </button>
-        }
+        <button mat-button type="button" class="own__back" (click)="showAllContracts()">
+          <mat-icon>arrow_back</mat-icon>
+          All contracts
+        </button>
         <mat-form-field appearance="outline" class="own__field own__field--contract" subscriptSizing="dynamic">
           <mat-label>Contract</mat-label>
           <mat-select [ngModel]="contractKey" name="ownHistContract" (ngModelChange)="onContractChange($event)">
@@ -172,26 +170,326 @@
     </div>
 
     @if (showingAllContracts()) {
-      <section class="own__panel" aria-labelledby="own-contracts-title">
-        <div class="own__panel-head">
-          <h3 id="own-contracts-title" class="own__panel-title">Contracts</h3>
-          <p class="muted own__panel-sub">Pick one to see when the contract count changed on the calendar.</p>
-        </div>
-        <div class="own__contract-grid">
-          @for (c of r.availableContracts; track c.contractKey) {
-            <button type="button" class="own__contract-card" (click)="selectContract(c.contractKey)">
-              <span class="own__contract-card-label">
-                {{ c.label }}
-                @if (c.legacyIdentity) {
-                  <span class="own__legacy">legacy</span>
-                }
-              </span>
-              <span class="own__contract-card-qty">{{ c.latestQuantity | number: '1.0-4' }} open</span>
-              <span class="own__contract-card-meta muted">
-                {{ c.latestMarketValue | currency: 'USD':'symbol':'1.0-0' }} ·
-                {{ formatDay(c.firstDate) }} → {{ formatDay(c.lastDate) }}
-              </span>
+      <div class="own__opt-filters">
+        <div class="own__symbols" role="list" aria-label="Underlying stocks">
+          <button
+            type="button"
+            class="own__sym-chip"
+            [class.own__sym-chip--active]="!optionsChainFilter()"
+            (click)="setOptionsChainFilter('')"
+          >
+            All stocks
+          </button>
+          @for (s of r.availableSymbols; track s) {
+            <button
+              type="button"
+              class="own__sym-chip"
+              role="listitem"
+              [class.own__sym-chip--active]="optionsChainFilter() === s"
+              (click)="setOptionsChainFilter(s)"
+            >
+              {{ s }}
             </button>
+          }
+        </div>
+        <div class="own__month-chips" aria-label="Month filter">
+          <button
+            type="button"
+            class="own__month-chip"
+            [class.own__month-chip--active]="!optionsMonthFilter()"
+            (click)="setOptionsMonthFilter('')"
+          >
+            All months
+          </button>
+          @for (ym of optionMonthsInYear(); track ym) {
+            <button
+              type="button"
+              class="own__month-chip"
+              [class.own__month-chip--active]="optionsMonthFilter() === ym"
+              (click)="setOptionsMonthFilter(ym)"
+            >
+              {{ monthChipLabel(ym) }}
+            </button>
+          }
+        </div>
+      </div>
+
+      @if (optionsTotals(); as tot) {
+        <div
+          class="own__opt-totals"
+          [ngStyle]="heatStyle(tot.heat, tot.pnl)"
+          [class.own__opt-totals--pos]="tot.pnl > 0"
+          [class.own__opt-totals--neg]="tot.pnl < 0"
+        >
+          <div>
+            <span class="own__kpi-label">Contracts shown</span>
+            <span class="own__kpi-value">{{ tot.count }}</span>
+          </div>
+          <div>
+            <span class="own__kpi-label">Open qty</span>
+            <span class="own__kpi-value">{{ tot.openQty | number: '1.0-2' }}</span>
+          </div>
+          <div>
+            <span class="own__kpi-label">Mkt value</span>
+            <span class="own__kpi-value">{{ tot.mv | currency: 'USD':'symbol':'1.0-0' }}</span>
+          </div>
+          <div>
+            <span class="own__kpi-label">Unrealized P&amp;L</span>
+            <span class="own__kpi-value">{{ tot.pnl | currency: 'USD':'symbol':'1.0-0' }}</span>
+            <span class="own__kpi-sub">{{
+              tot.pnlPct != null ? (tot.pnlPct | number: '1.0-1') + '%' : '—'
+            }}</span>
+          </div>
+        </div>
+      }
+
+      <div class="own__workspace">
+        <section class="own__panel own__cal-panel" aria-labelledby="own-opt-cal-title">
+          <div class="own__panel-head own__cal-head">
+            <div>
+              <h3 id="own-opt-cal-title" class="own__panel-title">Options calendar</h3>
+              <p class="muted own__panel-sub">
+                Closings (expiry) and buy/sell activity. Color depth = unrealized profit or loss.
+              </p>
+            </div>
+            <div class="own__cal-nav">
+              <button
+                mat-icon-button
+                type="button"
+                (click)="shiftCalendarMonth(-1)"
+                [disabled]="!canShiftMonth(-1)"
+                aria-label="Previous month"
+              >
+                <mat-icon>chevron_left</mat-icon>
+              </button>
+              <span class="own__cal-month">{{ calendarMonthLabel() }}</span>
+              <button
+                mat-icon-button
+                type="button"
+                (click)="shiftCalendarMonth(1)"
+                [disabled]="!canShiftMonth(1)"
+                aria-label="Next month"
+              >
+                <mat-icon>chevron_right</mat-icon>
+              </button>
+            </div>
+          </div>
+
+          <div class="own__cal-legend" aria-hidden="true">
+            <span class="own__legend own__legend--pos">Profit</span>
+            <span class="own__legend own__legend--neg">Loss</span>
+            <span class="own__legend own__legend--hold">Expiry / activity</span>
+          </div>
+
+          <div class="own__cal-grid">
+            <div class="own__cal-weekdays">
+              @for (w of weekdayLabels; track w) {
+                <span>{{ w }}</span>
+              }
+            </div>
+            @for (week of optionCalWeeks(); track $index) {
+              <div class="own__cal-week">
+                @for (cell of week; track cell.trackKey) {
+                  @if (cell.type === 'pad') {
+                    <div class="own__cal-cell own__cal-cell--pad" aria-hidden="true"></div>
+                  } @else {
+                    <button
+                      type="button"
+                      class="own__cal-cell"
+                      [class.own__cal-cell--today]="cell.isToday"
+                      [class.own__cal-cell--selected]="cell.isSelected"
+                      [class.own__cal-cell--pos]="cell.tone === 'pos'"
+                      [class.own__cal-cell--neg]="cell.tone === 'neg'"
+                      [class.own__cal-cell--hold]="cell.tone === 'flat'"
+                      [class.own__cal-cell--empty]="cell.tone === 'empty'"
+                      [style.--own-heat]="cell.heat"
+                      [disabled]="!cell.expiryCount && !cell.activityCount"
+                      (click)="selectOptionsDay(cell)"
+                      [matTooltip]="optionCellTooltip(cell)"
+                    >
+                      <span class="own__cal-daynum">{{ cell.dayNumber }}</span>
+                      @if (cell.expiryCount) {
+                        <span class="own__cal-delta">{{ cell.expiryCount }} exp</span>
+                      } @else if (cell.activityCount) {
+                        <span class="own__cal-delta">{{ cell.activityCount }} Δ</span>
+                      }
+                      @if (cell.pnl != null && (cell.expiryCount || cell.activityCount)) {
+                        <span class="own__cal-qty">{{ cell.pnl | currency: 'USD':'symbol':'1.0-0' }}</span>
+                      }
+                    </button>
+                  }
+                }
+              </div>
+            }
+          </div>
+        </section>
+
+        <aside class="own__panel own__day-panel" aria-label="Contract detail">
+          @if (selectedOptionView(); as view) {
+            <h3 class="own__panel-title">{{ view.contract.label }}</h3>
+            <p class="muted own__panel-sub">
+              {{ view.contract.chainSymbol }} · closes
+              {{ formatDay(view.contract.expirationDate) }} ·
+              {{ view.contract.latestQuantity | number: '1.0-4' }} open
+            </p>
+            <div
+              class="own__opt-pnl"
+              [ngStyle]="heatStyle(view.heat, view.pnl)"
+              [class.own__opt-pnl--pos]="view.pnl > 0"
+              [class.own__opt-pnl--neg]="view.pnl < 0"
+            >
+              <span class="own__kpi-label">Unrealized P&amp;L</span>
+              <span class="own__kpi-value">{{ view.pnl | currency: 'USD':'symbol':'1.0-0' }}</span>
+              <span class="own__kpi-sub"
+                >{{ view.pnlPct != null ? (view.pnlPct | number: '1.0-1') + '%' : '—' }} of cost
+                {{ view.contract.latestCostBasis | currency: 'USD':'symbol':'1.0-0' }} · MV
+                {{ view.contract.latestMarketValue | currency: 'USD':'symbol':'1.0-0' }}</span
+              >
+            </div>
+            <h4 class="own__change-list-title">Purchases &amp; sells</h4>
+            @if (view.activities.length) {
+              <ul class="own__activity-list">
+                @for (a of view.activities; track a.date + a.delta) {
+                  <li
+                    class="own__activity"
+                    [class.own__activity--buy]="a.side === 'buy'"
+                    [class.own__activity--sell]="a.side === 'sell'"
+                  >
+                    <span class="own__activity-date">{{ formatDay(a.date) }}</span>
+                    <span class="own__activity-side">{{ a.side === 'buy' ? 'Buy' : 'Sell' }}</span>
+                    <span class="own__activity-delta"
+                      >{{ a.delta > 0 ? '+' : '' }}{{ a.delta | number: '1.0-4' }}</span
+                    >
+                    <span class="muted"
+                      >{{ a.from | number: '1.0-2' }} → {{ a.to | number: '1.0-2' }}
+                      @if (a.unrealizedPnL != null) {
+                        · P&amp;L {{ a.unrealizedPnL | currency: 'USD':'symbol':'1.0-0' }}
+                      }
+                    </span>
+                  </li>
+                }
+              </ul>
+            } @else {
+              <p class="muted">No quantity changes in snapshots (held flat or single-day print).</p>
+            }
+            <button mat-stroked-button type="button" class="own__qty-link" (click)="selectContract(view.contract.contractKey)">
+              Quantity calendar
+            </button>
+          } @else if (selectedOptionsDate(); as day) {
+            <h3 class="own__panel-title">{{ formatDayFriendly(day) }}</h3>
+            @if (selectedOptionDayGroups().length) {
+              @for (g of selectedOptionDayGroups(); track g.key) {
+                <div class="own__day-group" [ngStyle]="heatStyle(g.heat, g.pnl)">
+                  <button type="button" class="own__day-group-head" (click)="selectOptionsContract(g.contracts[0].contract.contractKey)">
+                    <strong>{{ g.chainSymbol }}</strong>
+                    <span class="muted">exp {{ formatDay(g.expirationDate) }}</span>
+                    <span
+                      [class.own__delta--pos]="g.pnl > 0"
+                      [class.own__delta--neg]="g.pnl < 0"
+                      >{{ g.pnl | currency: 'USD':'symbol':'1.0-0' }}
+                      ({{ g.pnlPct != null ? (g.pnlPct | number: '1.0-1') + '%' : '—' }})</span
+                    >
+                  </button>
+                  @for (c of g.contracts; track c.contract.contractKey) {
+                    <button
+                      type="button"
+                      class="own__day-group-row"
+                      [ngStyle]="heatStyle(c.heat, c.pnl)"
+                      (click)="selectOptionsContract(c.contract.contractKey)"
+                    >
+                      <span>{{ c.contract.label }}</span>
+                      <span
+                        [class.own__delta--pos]="c.pnl > 0"
+                        [class.own__delta--neg]="c.pnl < 0"
+                        >{{ c.pnl | currency: 'USD':'symbol':'1.0-0' }}
+                        · {{ c.pnlPct != null ? (c.pnlPct | number: '1.0-1') + '%' : '—' }}</span
+                      >
+                    </button>
+                  }
+                </div>
+              }
+            } @else {
+              <p class="muted">No expiries or trades on this day for the current filters.</p>
+            }
+          } @else {
+            <h3 class="own__panel-title">Detail</h3>
+            <p class="muted">Tap a calendar day or a contract group for buys, sells, and P&amp;L.</p>
+          }
+        </aside>
+      </div>
+
+      <section class="own__panel" aria-labelledby="own-groups-title">
+        <div class="own__panel-head">
+          <h3 id="own-groups-title" class="own__panel-title">Grouped by stock &amp; closing date</h3>
+          <p class="muted own__panel-sub">
+            {{ optionExpiryGroups().length }} group(s)
+            @if (optionsChainFilter()) {
+              · {{ optionsChainFilter() }}
+            }
+            @if (optionsMonthFilter()) {
+              · {{ optionsMonthFilter() }}
+            }
+          </p>
+        </div>
+        @if (!optionExpiryGroups().length) {
+          <p class="muted">No contracts match the current filters.</p>
+        }
+        <div class="own__group-list">
+          @for (g of optionExpiryGroups(); track g.key) {
+            <article
+              class="own__group"
+              [class.own__group--neg]="g.pnl < 0"
+              [ngStyle]="heatStyle(g.heat, g.pnl)"
+            >
+              <header class="own__group-head">
+                <div>
+                  <h4 class="own__group-title">{{ g.chainSymbol }}</h4>
+                  <p class="muted own__group-sub">
+                    Closes {{ formatDay(g.expirationDate) }} · {{ g.contracts.length }} contract(s) ·
+                    {{ g.openQty | number: '1.0-2' }} open
+                  </p>
+                </div>
+                <div
+                  class="own__group-pnl"
+                  [class.own__delta--pos]="g.pnl > 0"
+                  [class.own__delta--neg]="g.pnl < 0"
+                >
+                  <span class="own__group-pnl-dollar">{{ g.pnl | currency: 'USD':'symbol':'1.0-0' }}</span>
+                  <span class="own__group-pnl-pct">{{
+                    g.pnlPct != null ? (g.pnlPct | number: '1.0-1') + '%' : '—'
+                  }}</span>
+                </div>
+              </header>
+              <div class="own__group-contracts">
+                @for (c of g.contracts; track c.contract.contractKey) {
+                  <button
+                    type="button"
+                    class="own__group-contract"
+                    [class.own__group-contract--active]="selectedOptionsContractKey() === c.contract.contractKey"
+                    [ngStyle]="heatStyle(c.heat, c.pnl)"
+                    (click)="selectOptionsContract(c.contract.contractKey)"
+                  >
+                    <span class="own__group-contract-label">
+                      {{ c.contract.label }}
+                      @if (c.contract.legacyIdentity) {
+                        <span class="own__legacy">legacy</span>
+                      }
+                    </span>
+                    <span class="own__group-contract-meta muted"
+                      >{{ c.contract.latestQuantity | number: '1.0-2' }} open · MV
+                      {{ c.contract.latestMarketValue | currency: 'USD':'symbol':'1.0-0' }}</span
+                    >
+                    <span
+                      class="own__group-contract-pnl"
+                      [class.own__delta--pos]="c.pnl > 0"
+                      [class.own__delta--neg]="c.pnl < 0"
+                      >{{ c.pnl | currency: 'USD':'symbol':'1.0-0' }}
+                      ({{ c.pnlPct != null ? (c.pnlPct | number: '1.0-1') + '%' : '—' }})</span
+                    >
+                  </button>
+                }
+              </div>
+            </article>
           }
         </div>
       </section>
@@ -234,7 +532,7 @@
                 <button
                   type="button"
                   class="own__month-chip"
-                  [class.own__month-chip--active]="calendarMonth.startsWith(ym)"
+                  [class.own__month-chip--active]="calendarMonth().startsWith(ym)"
                   (click)="jumpToMonth(ym)"
                 >
                   {{ ym | slice: 5 }}
@@ -311,7 +609,7 @@
         </section>
 
         <aside class="own__panel own__day-panel" aria-label="Selected day">
-          @if (selectedDate; as day) {
+          @if (selectedDate(); as day) {
             <h3 class="own__panel-title">{{ formatDayFriendly(day) }}</h3>
             @if (selectedChange(); as ch) {
               <p class="own__day-change" [class.own__day-change--pos]="ch.delta > 0" [class.own__day-change--neg]="ch.delta < 0">
@@ -387,7 +685,7 @@
                     <button
                       type="button"
                       class="own__change-row"
-                      [class.own__change-row--active]="c.date === selectedDate"
+                      [class.own__change-row--active]="c.date === selectedDate()"
                       (click)="focusDate(c.date)"
                     >
                       <span class="own__change-date">{{ formatDay(c.date) }}</span>
@@ -466,7 +764,7 @@
               <tbody>
                 @for (row of r.points; track row.snapshotId) {
                   <tr
-                    [class.own__table-row--selected]="row.snapshotDate.slice(0, 10) === selectedDate"
+                    [class.own__table-row--selected]="row.snapshotDate.slice(0, 10) === selectedDate()"
                     (click)="focusDate(row.snapshotDate)"
                   >
                     <td>{{ formatDay(row.snapshotDate) }}</td>

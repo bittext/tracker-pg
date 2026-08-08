@@ -142,6 +142,9 @@ export interface RobinhoodOwnershipContractDto {
   lastDate: string;
   latestQuantity: number;
   latestMarketValue: number;
+  latestCostBasis: number | null;
+  latestUnrealizedPnL: number | null;
+  latestUnrealizedPnLPercent: number | null;
   highQuantity: number | null;
   highDate: string | null;
 }

@@ -17,5 +17,9 @@ public record RobinhoodOwnershipContractDto(
         LocalDate lastDate,
         BigDecimal latestQuantity,
         BigDecimal latestMarketValue,
+        BigDecimal latestCostBasis,
+        BigDecimal latestUnrealizedPnL,
+        /** Unrealized P&amp;L as percent of cost basis; null when cost is zero/missing. */
+        BigDecimal latestUnrealizedPnLPercent,
         BigDecimal highQuantity,
         LocalDate highDate) {}
