@@ -222,11 +222,6 @@
           [class.own__opt-totals--neg]="tot.pnl < 0"
         >
           <div>
-            <span class="own__kpi-label">Open lots</span>
-            <span class="own__kpi-value">{{ tot.openCount }}</span>
-            <span class="own__kpi-sub muted">{{ tot.closedCount }} closed</span>
-          </div>
-          <div>
             <span class="own__kpi-label">Open qty</span>
             <span class="own__kpi-value">{{ tot.openQty | number: '1.0-2' }}</span>
           </div>
@@ -241,18 +236,18 @@
               tot.pnlPct != null ? (tot.pnlPct | number: '1.0-1') + '%' : '—'
             }}</span>
           </div>
-          @if (tot.closedCount) {
-            <div>
-              <span class="own__kpi-label">Closed P&amp;L</span>
-              <span
-                class="own__kpi-value"
-                [class.own__delta--pos]="tot.closedPnl > 0"
-                [class.own__delta--neg]="tot.closedPnl < 0"
-                >{{ tot.closedPnl | currency: 'USD':'symbol':'1.0-0' }}</span
-              >
-              <span class="own__kpi-sub muted">at last snapshot</span>
-            </div>
-          }
+          <div>
+            <span class="own__kpi-label">Realized P&amp;L</span>
+            <span
+              class="own__kpi-value"
+              [class.own__delta--pos]="tot.realizedPnl > 0"
+              [class.own__delta--neg]="tot.realizedPnl < 0"
+              >{{ tot.realizedPnl | currency: 'USD':'symbol':'1.0-0' }}</span
+            >
+            <span class="own__kpi-sub muted">{{
+              tot.realizedPnlPct != null ? (tot.realizedPnlPct | number: '1.0-1') + '% on sells' : 'on sells'
+            }}</span>
+          </div>
         </div>
       }
 
@@ -262,7 +257,7 @@
             <div>
               <h3 id="own-opt-cal-title" class="own__panel-title">Options calendar</h3>
               <p class="muted own__panel-sub">
-                Purchase, sell, and close days only (not expiry). Color depth = P&amp;L on that day.
+                Held contracts each day; sold/closed counts and realized P&amp;L when positions exit.
               </p>
             </div>
             <div class="own__cal-nav">
@@ -289,9 +284,9 @@
           </div>
 
           <div class="own__cal-legend" aria-hidden="true">
-            <span class="own__legend own__legend--pos">Profit</span>
-            <span class="own__legend own__legend--neg">Loss</span>
-            <span class="own__legend own__legend--hold">Buy / sell / close</span>
+            <span class="own__legend own__legend--pos">Sold for profit</span>
+            <span class="own__legend own__legend--neg">Sold for loss</span>
+            <span class="own__legend own__legend--hold">Held (no sale)</span>
           </div>
 
           <div class="own__cal-grid">
@@ -323,16 +318,21 @@
                       <span class="own__cal-daynum">{{ cell.dayNumber }}</span>
                       @if (cell.activityCount) {
                         <span class="own__cal-delta">
-                          @if (cell.buyCount) {
-                            +{{ cell.buyCount }}
+                          @if (cell.heldCount) {
+                            H{{ cell.heldCount }}
                           }
-                          @if (cell.sellCount || cell.closeCount) {
-                            −{{ cell.sellCount + cell.closeCount }}
+                          @if (cell.soldCount) {
+                            S{{ cell.soldCount }}
                           }
                         </span>
                       }
-                      @if (cell.pnl != null && cell.activityCount) {
-                        <span class="own__cal-qty">{{ cell.pnl | currency: 'USD':'symbol':'1.0-0' }}</span>
+                      @if (cell.realizedPnl != null && cell.soldCount) {
+                        <span class="own__cal-qty"
+                          >{{ cell.realizedPnl | currency: 'USD':'symbol':'1.0-0' }}
+                          @if (cell.realizedPnlPct != null) {
+                            <span class="own__cal-pct">{{ cell.realizedPnlPct | number: '1.0-0' }}%</span>
+                          }
+                        </span>
                       }
                     </button>
                   }
@@ -364,13 +364,15 @@
               [class.own__opt-pnl--pos]="view.pnl > 0"
               [class.own__opt-pnl--neg]="view.pnl < 0"
             >
-              <span class="own__kpi-label">{{ view.open ? 'Unrealized P&L' : 'P&L at close' }}</span>
+              <span class="own__kpi-label">{{ view.open ? 'Unrealized P&L' : 'Realized P&L' }}</span>
               <span class="own__kpi-value">{{ view.pnl | currency: 'USD':'symbol':'1.0-0' }}</span>
               <span class="own__kpi-sub"
-                >{{ view.pnlPct != null ? (view.pnlPct | number: '1.0-1') + '%' : '—' }} of cost
-                {{ view.contract.latestCostBasis | currency: 'USD':'symbol':'1.0-0' }}
+                >{{ view.pnlPct != null ? (view.pnlPct | number: '1.0-1') + '%' : '—' }}
                 @if (view.open) {
-                  · MV {{ view.contract.latestMarketValue | currency: 'USD':'symbol':'1.0-0' }}
+                  of cost {{ view.contract.latestCostBasis | currency: 'USD':'symbol':'1.0-0' }} · MV
+                  {{ view.contract.latestMarketValue | currency: 'USD':'symbol':'1.0-0' }}
+                } @else {
+                  from sells
                 }
               </span>
             </div>
@@ -381,17 +383,24 @@
                   <li
                     class="own__activity"
                     [class.own__activity--buy]="a.side === 'buy'"
-                    [class.own__activity--sell]="a.side === 'sell' || a.side === 'close'"
+                    [class.own__activity--sell]="(a.side === 'sell' || a.side === 'close') && !a.identityMerge"
                   >
                     <span class="own__activity-date">{{ formatDay(a.date) }}</span>
-                    <span class="own__activity-side">{{ activitySideLabel(a.side) }}</span>
+                    <span class="own__activity-side">{{
+                      a.identityMerge ? 'Merge' : activitySideLabel(a.side)
+                    }}</span>
                     <span class="own__activity-delta"
                       >{{ a.delta > 0 ? '+' : '' }}{{ a.delta | number: '1.0-4' }}</span
                     >
                     <span class="muted"
                       >{{ a.from | number: '1.0-2' }} → {{ a.to | number: '1.0-2' }}
-                      @if (a.unrealizedPnL != null) {
-                        · P&amp;L {{ a.unrealizedPnL | currency: 'USD':'symbol':'1.0-0' }}
+                      @if (a.identityMerge) {
+                        · key reshape (not a sale)
+                      } @else if (a.realizedPnl != null) {
+                        · realized {{ a.realizedPnl | currency: 'USD':'symbol':'1.0-0' }}
+                        @if (a.realizedPnlPct != null) {
+                          ({{ a.realizedPnlPct | number: '1.0-1' }}%)
+                        }
                       }
                     </span>
                   </li>
@@ -403,49 +412,112 @@
             <button mat-stroked-button type="button" class="own__qty-link" (click)="selectContract(view.contract.contractKey)">
               Quantity calendar
             </button>
-          } @else if (selectedOptionsDate(); as day) {
-            <h3 class="own__panel-title">{{ formatDayFriendly(day) }}</h3>
-            @if (selectedOptionDayActivity().length) {
-              <ul class="own__activity-list">
-                @for (row of selectedOptionDayActivity(); track row.view.contract.contractKey + row.activity.side) {
-                  <li
-                    class="own__activity"
-                    [class.own__activity--buy]="row.activity.side === 'buy'"
-                    [class.own__activity--sell]="row.activity.side === 'sell' || row.activity.side === 'close'"
+          } @else if (selectedOptionDayDetail(); as detail) {
+            <h3 class="own__panel-title">{{ formatDayFriendly(detail.day) }}</h3>
+            <p class="muted own__panel-sub">
+              @if (detail.held.length) {
+                {{ detail.held.length }} held
+              }
+              @if (detail.soldRealCount) {
+                · {{ detail.soldRealCount }} sold
+                @if (detail.soldPnl) {
+                  · realized
+                  <span
+                    [class.own__delta--pos]="detail.soldPnl > 0"
+                    [class.own__delta--neg]="detail.soldPnl < 0"
+                    >{{ detail.soldPnl | currency: 'USD':'symbol':'1.0-0' }}</span
                   >
-                    <button type="button" class="own__day-group-row" (click)="selectOptionsContract(row.view.contract.contractKey)">
-                      <span class="own__activity-side">{{ activitySideLabel(row.activity.side) }}</span>
-                      <span>{{ row.view.contract.label }}</span>
-                      <span class="own__activity-delta"
-                        >{{ row.activity.delta > 0 ? '+' : '' }}{{ row.activity.delta | number: '1.0-4' }}</span
-                      >
+                }
+              }
+            </p>
+            @if (detail.heldGroups.length) {
+              <h4 class="own__change-list-title">Held</h4>
+              @for (g of detail.heldGroups; track g.key) {
+                <div class="own__day-group">
+                  <div class="own__day-group-head">
+                    <strong>{{ g.chainSymbol }}</strong>
+                    <span class="muted">{{ expiryLabel(g.expirationDate) }}</span>
+                    <span class="muted">{{ g.quantity | number: '1.0-2' }} ctr</span>
+                    <span
+                      [class.own__delta--pos]="g.unrealizedPnl > 0"
+                      [class.own__delta--neg]="g.unrealizedPnl < 0"
+                      >{{ g.unrealizedPnl | currency: 'USD':'symbol':'1.0-0' }}</span
+                    >
+                  </div>
+                  @for (row of g.rows; track row.contractKey) {
+                    <button
+                      type="button"
+                      class="own__day-group-row"
+                      (click)="selectOptionsContract(row.contractKey)"
+                    >
+                      <span>{{ row.label }}</span>
+                      <span class="muted">{{ row.quantity | number: '1.0-2' }}</span>
                       <span
-                        [class.own__delta--pos]="(row.activity.unrealizedPnL ?? 0) > 0"
-                        [class.own__delta--neg]="(row.activity.unrealizedPnL ?? 0) < 0"
-                      >
-                        @if (row.activity.unrealizedPnL != null) {
-                          {{ row.activity.unrealizedPnL | currency: 'USD':'symbol':'1.0-0' }}
+                        [class.own__delta--pos]="row.unrealizedPnl > 0"
+                        [class.own__delta--neg]="row.unrealizedPnl < 0"
+                        >{{ row.unrealizedPnl | currency: 'USD':'symbol':'1.0-0' }}
+                        @if (row.unrealizedPnlPct != null) {
+                          ({{ row.unrealizedPnlPct | number: '1.0-1' }}%)
                         }
                       </span>
                     </button>
-                  </li>
-                }
-              </ul>
-            } @else {
-              <p class="muted">No purchases, sells, or closes on this day for the current filters.</p>
+                  }
+                </div>
+              }
+            }
+            @if (detail.soldGroups.length) {
+              <h4 class="own__change-list-title">Sold / closed</h4>
+              @for (g of detail.soldGroups; track g.key) {
+                <div
+                  class="own__day-group"
+                  [ngStyle]="heatStyle(pnlHeat(g.realizedPnl, null), g.realizedPnl)"
+                >
+                  <div class="own__day-group-head">
+                    <strong>{{ g.chainSymbol }}</strong>
+                    <span class="muted">{{ expiryLabel(g.expirationDate) }}</span>
+                    <span class="muted">−{{ g.soldQty | number: '1.0-2' }}</span>
+                    <span
+                      [class.own__delta--pos]="g.realizedPnl > 0"
+                      [class.own__delta--neg]="g.realizedPnl < 0"
+                      >{{ g.realizedPnl | currency: 'USD':'symbol':'1.0-0' }}</span
+                    >
+                  </div>
+                  @for (row of g.rows; track row.contractKey) {
+                    <button
+                      type="button"
+                      class="own__day-group-row"
+                      (click)="selectOptionsContract(row.contractKey)"
+                    >
+                      <span>{{ row.label }}</span>
+                      <span class="muted">−{{ row.soldQty | number: '1.0-2' }}</span>
+                      <span
+                        [class.own__delta--pos]="row.realizedPnl > 0"
+                        [class.own__delta--neg]="row.realizedPnl < 0"
+                        >{{ row.realizedPnl | currency: 'USD':'symbol':'1.0-0' }}
+                        @if (row.realizedPnlPct != null) {
+                          ({{ row.realizedPnlPct | number: '1.0-1' }}%)
+                        }
+                      </span>
+                    </button>
+                  }
+                </div>
+              }
+            }
+            @if (!detail.heldGroups.length && !detail.soldGroups.length) {
+              <p class="muted">No held or sold contracts on this day for the current filters.</p>
             }
           } @else {
             <h3 class="own__panel-title">Detail</h3>
-            <p class="muted">Tap a purchase/sell/close day or a contract for P&amp;L detail.</p>
+            <p class="muted">Tap a calendar day or a contract for held/sold detail by stock and expiry.</p>
           }
         </aside>
       </div>
 
       <section class="own__panel" aria-labelledby="own-groups-title">
         <div class="own__panel-head">
-          <h3 id="own-groups-title" class="own__panel-title">Grouped by stock</h3>
+          <h3 id="own-groups-title" class="own__panel-title">By stock &amp; expiry</h3>
           <p class="muted own__panel-sub">
-            Open lots on the latest snapshot; closed legacy lots listed separately with P&amp;L at last print.
+            Open contracts use mark-to-market P&amp;L; closed use realized P&amp;L from sells (identity key reshapes excluded).
             @if (optionsChainFilter()) {
               · {{ optionsChainFilter() }}
             }
@@ -454,34 +526,46 @@
             }
           </p>
         </div>
-        @if (!optionChainGroups().length) {
+        @if (!optionExpiryGroups().length) {
           <p class="muted">No contracts match the current filters.</p>
         }
         <div class="own__group-list">
-          @for (g of optionChainGroups(); track g.key) {
+          @for (g of optionExpiryGroups(); track g.key) {
             <article
               class="own__group"
-              [class.own__group--neg]="g.openPnl < 0 || (!g.openContracts.length && g.closedPnl < 0)"
-              [ngStyle]="heatStyle(g.heat, g.openContracts.length ? g.openPnl : g.closedPnl)"
+              [class.own__group--neg]="g.openPnl < 0 || (!g.openContracts.length && g.realizedPnl < 0)"
+              [ngStyle]="heatStyle(g.heat, g.openContracts.length ? g.openPnl : g.realizedPnl)"
             >
               <header class="own__group-head">
                 <div>
-                  <h4 class="own__group-title">{{ g.chainSymbol }}</h4>
+                  <h4 class="own__group-title">
+                    {{ g.chainSymbol }}
+                    <span class="own__group-expiry">{{ expiryLabel(g.expirationDate) }}</span>
+                  </h4>
                   <p class="muted own__group-sub">
-                    {{ g.openContracts.length }} open lot(s) · {{ g.openQty | number: '1.0-2' }} contracts
+                    {{ g.openQty | number: '1.0-2' }} open
                     @if (g.closedContracts.length) {
-                      · {{ g.closedContracts.length }} closed
+                      · {{ g.closedContracts.length }} closed series
+                    }
+                    @if (g.realizedPnl) {
+                      · realized {{ g.realizedPnl | currency: 'USD':'symbol':'1.0-0' }}
                     }
                   </p>
                 </div>
                 <div
                   class="own__group-pnl"
-                  [class.own__delta--pos]="g.openPnl > 0"
-                  [class.own__delta--neg]="g.openPnl < 0"
+                  [class.own__delta--pos]="(g.openContracts.length ? g.openPnl : g.realizedPnl) > 0"
+                  [class.own__delta--neg]="(g.openContracts.length ? g.openPnl : g.realizedPnl) < 0"
                 >
-                  <span class="own__group-pnl-dollar">{{ g.openPnl | currency: 'USD':'symbol':'1.0-0' }}</span>
+                  <span class="own__group-pnl-dollar">{{
+                    (g.openContracts.length ? g.openPnl : g.realizedPnl) | currency: 'USD':'symbol':'1.0-0'
+                  }}</span>
                   <span class="own__group-pnl-pct">{{
-                    g.openPnlPct != null ? (g.openPnlPct | number: '1.0-1') + '%' : '—'
+                    g.openContracts.length
+                      ? g.openPnlPct != null
+                        ? (g.openPnlPct | number: '1.0-1') + '%'
+                        : '—'
+                      : 'realized'
                   }}</span>
                 </div>
               </header>
@@ -533,8 +617,7 @@
                         <span class="own__legacy">closed</span>
                       </span>
                       <span class="own__group-contract-meta muted"
-                        >was {{ c.contract.latestQuantity | number: '1.0-2' }} ·
-                        {{ formatDay(c.contract.firstDate) }} →
+                        >{{ formatDay(c.contract.firstDate) }} →
                         {{ formatDay(c.contract.closedDate || c.contract.lastDate) }}</span
                       >
                       <span

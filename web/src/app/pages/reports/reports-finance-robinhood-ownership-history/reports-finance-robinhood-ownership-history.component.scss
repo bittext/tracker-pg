@@ -458,6 +458,20 @@
   font-variant-numeric: tabular-nums;
 }
 
+.own__cal-pct {
+  margin-left: 0.2rem;
+  font-size: 0.68em;
+  opacity: 0.85;
+}
+
+.own__group-expiry {
+  display: inline-block;
+  margin-left: 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--own-muted);
+}
+
 .own__day-panel {
   position: sticky;
   top: 0.75rem;

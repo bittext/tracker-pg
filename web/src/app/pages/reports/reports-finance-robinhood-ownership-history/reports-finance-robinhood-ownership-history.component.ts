@@ -46,31 +46,64 @@ interface OptionActivity {
   from: number;
   to: number;
   delta: number;
+  /** Estimated realized $ on sells/closes; null for buys or legacy identity merges. */
+  realizedPnl: number | null;
+  realizedPnlPct: number | null;
+  /** True when another same-chain series continues — not a real sale. */
+  identityMerge: boolean;
   marketValue: number | null;
   costBasis: number | null;
-  unrealizedPnL: number | null;
 }
 
 interface OptionContractView {
   contract: RobinhoodOwnershipContractDto;
   series: RobinhoodOwnershipContractSeriesDto;
   activities: OptionActivity[];
+  /** Open: unrealized on latest snapshot. Closed: sum of real sell/close realized P&L. */
   pnl: number;
   pnlPct: number | null;
   heat: number;
   open: boolean;
+  groupKey: string;
+  expirationDate: string | null;
 }
 
-interface OptionChainGroup {
+interface OptionExpiryGroup {
   key: string;
   chainSymbol: string;
+  expirationDate: string | null;
   openContracts: OptionContractView[];
   closedContracts: OptionContractView[];
   openQty: number;
   openPnl: number;
   openPnlPct: number | null;
-  closedPnl: number;
+  /** Sum of realized sell/close P&L (excludes identity merges). */
+  realizedPnl: number;
   heat: number;
+}
+
+interface OptionDayHeldRow {
+  groupKey: string;
+  chainSymbol: string;
+  expirationDate: string | null;
+  label: string;
+  contractKey: string;
+  quantity: number;
+  marketValue: number;
+  unrealizedPnl: number;
+  unrealizedPnlPct: number | null;
+}
+
+interface OptionDaySoldRow {
+  groupKey: string;
+  chainSymbol: string;
+  expirationDate: string | null;
+  label: string;
+  contractKey: string;
+  soldQty: number;
+  realizedPnl: number;
+  realizedPnlPct: number | null;
+  identityMerge: boolean;
 }
 
 interface OptionCalCell {
@@ -80,11 +113,12 @@ interface OptionCalCell {
   dayNumber: number | null;
   isToday: boolean;
   isSelected: boolean;
-  buyCount: number;
-  sellCount: number;
-  closeCount: number;
+  heldCount: number;
+  soldCount: number;
   activityCount: number;
-  pnl: number | null;
+  /** Realized sell/close P&L that day (excludes identity merges). */
+  realizedPnl: number | null;
+  realizedPnlPct: number | null;
   heat: number;
   tone: 'pos' | 'neg' | 'flat' | 'empty';
 }
@@ -168,21 +202,45 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
       if (chain && chainSym !== chain) {
         continue;
       }
-      const activities = this.activitiesFromContract(c, s.points);
+      const activities = this.activitiesFromContract(c, s.points, series);
       if (month) {
         const inMonth =
           c.firstDate?.slice(0, 10).startsWith(month) ||
           c.lastDate?.slice(0, 10).startsWith(month) ||
           c.closedDate?.slice(0, 10).startsWith(month) ||
-          activities.some((a) => a.date.startsWith(month));
+          c.expirationDate?.slice(0, 10).startsWith(month) ||
+          activities.some((a) => a.date.startsWith(month)) ||
+          s.points.some((p) => p.snapshotDate.slice(0, 10).startsWith(month) && (Number(p.quantity) || 0) > 0);
         if (!inMonth) {
           continue;
         }
       }
-      const pnl = Number(c.latestUnrealizedPnL) || 0;
-      const pnlPct =
-        c.latestUnrealizedPnLPercent == null ? this.pnlPct(pnl, c.latestCostBasis) : Number(c.latestUnrealizedPnLPercent);
       const open = !!c.currentlyOpen;
+      const realized = activities
+        .filter((a) => (a.side === 'sell' || a.side === 'close') && !a.identityMerge && a.realizedPnl != null)
+        .reduce((sum, a) => sum + (a.realizedPnl ?? 0), 0);
+      const realizedCost = activities
+        .filter((a) => (a.side === 'sell' || a.side === 'close') && !a.identityMerge && a.realizedPnl != null)
+        .reduce((sum, a) => {
+          const sold = Math.abs(a.delta);
+          const from = a.from || 0;
+          const cost = Number(a.costBasis) || 0;
+          // costBasis on the activity is post-trade; approximate sold cost from prior avg via from qty.
+          if (from > 0 && sold > 0 && a.side !== 'buy') {
+            // Prefer pct back-solve when present.
+            if (a.realizedPnlPct != null && Math.abs(a.realizedPnlPct) > 0.0001) {
+              return sum + (a.realizedPnl ?? 0) / (a.realizedPnlPct / 100);
+            }
+          }
+          return sum + cost * (sold / Math.max(from, sold));
+        }, 0);
+      const pnl = open ? Number(c.latestUnrealizedPnL) || 0 : realized;
+      const pnlPct = open
+        ? c.latestUnrealizedPnLPercent == null
+          ? this.pnlPct(pnl, c.latestCostBasis)
+          : Number(c.latestUnrealizedPnLPercent)
+        : this.pnlPct(realized, realizedCost);
+      const expirationDate = c.expirationDate?.slice(0, 10) || null;
       views.push({
         contract: c,
         series: s,
@@ -191,52 +249,66 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
         pnlPct,
         heat: this.pnlHeat(pnl, pnlPct),
         open,
+        groupKey: this.optionGroupKey(chainSym || '—', expirationDate),
+        expirationDate,
       });
     }
     views.sort((a, b) => {
+      if (a.groupKey !== b.groupKey) {
+        return a.groupKey.localeCompare(b.groupKey);
+      }
       if (a.open !== b.open) {
         return a.open ? -1 : 1;
-      }
-      const af = a.contract.firstDate || '';
-      const bf = b.contract.firstDate || '';
-      if (af !== bf) {
-        return af < bf ? 1 : -1;
       }
       return a.contract.label.localeCompare(b.contract.label);
     });
     return views;
   });
 
-  readonly optionChainGroups = computed((): OptionChainGroup[] => {
+  readonly optionExpiryGroups = computed((): OptionExpiryGroup[] => {
     const map = new Map<string, OptionContractView[]>();
     for (const v of this.optionContractViews()) {
-      const chain = (v.contract.chainSymbol || '—').toUpperCase();
-      const list = map.get(chain) ?? [];
+      const list = map.get(v.groupKey) ?? [];
       list.push(v);
-      map.set(chain, list);
+      map.set(v.groupKey, list);
     }
-    const groups: OptionChainGroup[] = [];
-    for (const [chainSymbol, contracts] of map) {
+    const groups: OptionExpiryGroup[] = [];
+    for (const [key, contracts] of map) {
       const openContracts = contracts.filter((c) => c.open);
       const closedContracts = contracts.filter((c) => !c.open);
       const openQty = openContracts.reduce((s, c) => s + (Number(c.contract.latestQuantity) || 0), 0);
       const openPnl = openContracts.reduce((s, c) => s + c.pnl, 0);
       const openCost = openContracts.reduce((s, c) => s + (Number(c.contract.latestCostBasis) || 0), 0);
-      const closedPnl = closedContracts.reduce((s, c) => s + c.pnl, 0);
+      const realizedPnl = contracts.reduce(
+        (s, c) =>
+          s +
+          c.activities
+            .filter((a) => (a.side === 'sell' || a.side === 'close') && !a.identityMerge && a.realizedPnl != null)
+            .reduce((x, a) => x + (a.realizedPnl ?? 0), 0),
+        0,
+      );
       const openPnlPct = this.pnlPct(openPnl, openCost);
       groups.push({
-        key: chainSymbol,
-        chainSymbol,
+        key,
+        chainSymbol: contracts[0]?.contract.chainSymbol?.toUpperCase() || '—',
+        expirationDate: contracts[0]?.expirationDate ?? null,
         openContracts,
         closedContracts,
         openQty,
         openPnl,
         openPnlPct,
-        closedPnl,
-        heat: this.pnlHeat(openPnl || closedPnl, openPnlPct ?? this.pnlPct(closedPnl, null)),
+        realizedPnl,
+        heat: this.pnlHeat(openContracts.length ? openPnl : realizedPnl, openPnlPct),
       });
     }
-    groups.sort((a, b) => a.chainSymbol.localeCompare(b.chainSymbol));
+    groups.sort((a, b) => {
+      if (a.chainSymbol !== b.chainSymbol) {
+        return a.chainSymbol.localeCompare(b.chainSymbol);
+      }
+      const ae = a.expirationDate || '9999';
+      const be = b.expirationDate || '9999';
+      return ae < be ? -1 : ae > be ? 1 : 0;
+    });
     return groups;
   });
 
@@ -247,20 +319,30 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
       return [];
     }
     const views = this.optionContractViews();
-    const buys = new Map<string, number>();
-    const sells = new Map<string, number>();
-    const closes = new Map<string, number>();
-    const pnlByDay = new Map<string, number>();
+    const held = new Map<string, number>();
+    const sold = new Map<string, number>();
+    const realizedByDay = new Map<string, number>();
+    const realizedCostByDay = new Map<string, number>();
     for (const v of views) {
-      for (const a of v.activities) {
-        if (a.side === 'buy') {
-          buys.set(a.date, (buys.get(a.date) ?? 0) + 1);
-        } else if (a.side === 'sell') {
-          sells.set(a.date, (sells.get(a.date) ?? 0) + 1);
-        } else {
-          closes.set(a.date, (closes.get(a.date) ?? 0) + 1);
+      for (const p of v.series.points) {
+        const date = p.snapshotDate.slice(0, 10);
+        if ((Number(p.quantity) || 0) > 0) {
+          held.set(date, (held.get(date) ?? 0) + 1);
         }
-        pnlByDay.set(a.date, (pnlByDay.get(a.date) ?? 0) + (a.unrealizedPnL ?? 0));
+      }
+      for (const a of v.activities) {
+        if ((a.side === 'sell' || a.side === 'close') && !a.identityMerge) {
+          sold.set(a.date, (sold.get(a.date) ?? 0) + 1);
+          if (a.realizedPnl != null) {
+            realizedByDay.set(a.date, (realizedByDay.get(a.date) ?? 0) + a.realizedPnl);
+            if (a.realizedPnlPct != null && Math.abs(a.realizedPnlPct) > 0.0001) {
+              realizedCostByDay.set(
+                a.date,
+                (realizedCostByDay.get(a.date) ?? 0) + a.realizedPnl / (a.realizedPnlPct / 100),
+              );
+            }
+          }
+        }
       }
     }
     const first = new Date(ys, ms - 1, 1);
@@ -277,32 +359,29 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
         dayNumber: null,
         isToday: false,
         isSelected: false,
-        buyCount: 0,
-        sellCount: 0,
-        closeCount: 0,
+        heldCount: 0,
+        soldCount: 0,
         activityCount: 0,
-        pnl: null,
+        realizedPnl: null,
+        realizedPnlPct: null,
         heat: 0,
         tone: 'empty',
       });
     }
     for (let d = 1; d <= daysInMonth; d++) {
       const date = `${ys}-${String(ms).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-      const buyCount = buys.get(date) ?? 0;
-      const sellCount = sells.get(date) ?? 0;
-      const closeCount = closes.get(date) ?? 0;
-      const activityCount = buyCount + sellCount + closeCount;
-      const pnl = activityCount ? (pnlByDay.get(date) ?? 0) : null;
-      const heat = pnl != null ? this.pnlHeat(pnl, null) : 0;
+      const heldCount = held.get(date) ?? 0;
+      const soldCount = sold.get(date) ?? 0;
+      const realizedPnl = realizedByDay.has(date) ? (realizedByDay.get(date) ?? 0) : null;
+      const cost = realizedCostByDay.get(date) ?? 0;
+      const realizedPnlPct = realizedPnl != null ? this.pnlPct(realizedPnl, cost) : null;
+      const activityCount = heldCount + soldCount;
+      const heat = realizedPnl != null ? this.pnlHeat(realizedPnl, realizedPnlPct) : heldCount ? 0.12 : 0;
       let tone: OptionCalCell['tone'] = 'empty';
-      if (activityCount) {
-        if (pnl != null && pnl > 0.5) {
-          tone = 'pos';
-        } else if (pnl != null && pnl < -0.5) {
-          tone = 'neg';
-        } else {
-          tone = 'flat';
-        }
+      if (realizedPnl != null) {
+        tone = realizedPnl > 0.5 ? 'pos' : realizedPnl < -0.5 ? 'neg' : 'flat';
+      } else if (heldCount || soldCount) {
+        tone = 'flat';
       }
       cells.push({
         type: 'day',
@@ -311,11 +390,11 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
         dayNumber: d,
         isToday: date === today,
         isSelected: date === selected,
-        buyCount,
-        sellCount,
-        closeCount,
+        heldCount,
+        soldCount,
         activityCount,
-        pnl,
+        realizedPnl,
+        realizedPnlPct,
         heat,
         tone,
       });
@@ -335,19 +414,22 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
   readonly optionMonthsInYear = computed(() => {
     const months = new Set<string>();
     const chain = this.optionsChainFilter().trim().toUpperCase();
-    for (const s of this.report()?.contractSeries ?? []) {
+    const series = this.report()?.contractSeries ?? [];
+    for (const s of series) {
       const c = s.contract;
       if (chain && (c.chainSymbol || '').toUpperCase() !== chain) {
         continue;
       }
-      for (const a of this.activitiesFromContract(c, s.points)) {
+      for (const a of this.activitiesFromContract(c, s.points, series)) {
         months.add(a.date.slice(0, 7));
       }
-      if (c.firstDate) {
-        months.add(c.firstDate.slice(0, 7));
+      for (const p of s.points) {
+        if ((Number(p.quantity) || 0) > 0) {
+          months.add(p.snapshotDate.slice(0, 7));
+        }
       }
-      if (c.closedDate) {
-        months.add(c.closedDate.slice(0, 7));
+      if (c.expirationDate) {
+        months.add(c.expirationDate.slice(0, 7));
       }
     }
     return [...months].sort();
@@ -361,42 +443,97 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
     return this.optionContractViews().find((v) => v.contract.contractKey === key) ?? null;
   });
 
-  readonly selectedOptionDayActivity = computed(() => {
+  readonly selectedOptionDayDetail = computed(() => {
     const day = this.selectedOptionsDate();
     if (!day) {
-      return [] as Array<{ view: OptionContractView; activity: OptionActivity }>;
+      return null;
     }
-    const out: Array<{ view: OptionContractView; activity: OptionActivity }> = [];
+    const held: OptionDayHeldRow[] = [];
+    const sold: OptionDaySoldRow[] = [];
     for (const v of this.optionContractViews()) {
+      const pt = v.series.points.find((p) => p.snapshotDate.slice(0, 10) === day);
+      if (pt && (Number(pt.quantity) || 0) > 0) {
+        const qty = Number(pt.quantity) || 0;
+        const mv = Number(pt.marketValue) || 0;
+        const upnl = Number(pt.unrealizedPnL) || 0;
+        const cost = Number(pt.costBasis) || 0;
+        held.push({
+          groupKey: v.groupKey,
+          chainSymbol: (v.contract.chainSymbol || '—').toUpperCase(),
+          expirationDate: v.expirationDate,
+          label: v.contract.label,
+          contractKey: v.contract.contractKey,
+          quantity: qty,
+          marketValue: mv,
+          unrealizedPnl: upnl,
+          unrealizedPnlPct: this.pnlPct(upnl, cost),
+        });
+      }
       for (const a of v.activities) {
-        if (a.date === day) {
-          out.push({ view: v, activity: a });
+        if (a.date !== day || (a.side !== 'sell' && a.side !== 'close')) {
+          continue;
         }
+        sold.push({
+          groupKey: v.groupKey,
+          chainSymbol: (v.contract.chainSymbol || '—').toUpperCase(),
+          expirationDate: v.expirationDate,
+          label: v.contract.label,
+          contractKey: v.contract.contractKey,
+          soldQty: Math.abs(a.delta),
+          realizedPnl: a.identityMerge ? 0 : (a.realizedPnl ?? 0),
+          realizedPnlPct: a.identityMerge ? null : a.realizedPnlPct,
+          identityMerge: a.identityMerge,
+        });
       }
     }
-    out.sort((a, b) => a.view.contract.label.localeCompare(b.view.contract.label));
-    return out;
+    held.sort((a, b) => a.groupKey.localeCompare(b.groupKey) || a.label.localeCompare(b.label));
+    sold.sort((a, b) => a.groupKey.localeCompare(b.groupKey) || a.label.localeCompare(b.label));
+    const soldReal = sold.filter((s) => !s.identityMerge);
+    const heldGroups = this.groupDayRows(held);
+    const soldGroups = this.groupDaySoldRows(soldReal);
+    const heldPnl = held.reduce((s, r) => s + r.unrealizedPnl, 0);
+    const soldPnl = soldReal.reduce((s, r) => s + r.realizedPnl, 0);
+    return {
+      day,
+      held,
+      sold,
+      soldRealCount: soldReal.length,
+      heldGroups,
+      soldGroups,
+      heldPnl,
+      soldPnl,
+    };
   });
 
   readonly optionsTotals = computed(() => {
     const views = this.optionContractViews();
     const open = views.filter((v) => v.open);
-    const closed = views.filter((v) => !v.open);
     const pnl = open.reduce((s, v) => s + v.pnl, 0);
     const cost = open.reduce((s, v) => s + (Number(v.contract.latestCostBasis) || 0), 0);
     const mv = open.reduce((s, v) => s + (Number(v.contract.latestMarketValue) || 0), 0);
     const openQty = open.reduce((s, v) => s + (Number(v.contract.latestQuantity) || 0), 0);
-    const closedPnl = closed.reduce((s, v) => s + v.pnl, 0);
+    let realizedPnl = 0;
+    let realizedCost = 0;
+    for (const v of views) {
+      for (const a of v.activities) {
+        if ((a.side === 'sell' || a.side === 'close') && !a.identityMerge && a.realizedPnl != null) {
+          realizedPnl += a.realizedPnl;
+          if (a.realizedPnlPct != null && Math.abs(a.realizedPnlPct) > 0.0001) {
+            realizedCost += a.realizedPnl / (a.realizedPnlPct / 100);
+          }
+        }
+      }
+    }
     const pnlPct = this.pnlPct(pnl, cost);
+    const realizedPnlPct = this.pnlPct(realizedPnl, realizedCost);
     return {
-      openCount: open.length,
-      closedCount: closed.length,
       openQty,
       mv,
       cost,
       pnl,
       pnlPct,
-      closedPnl,
+      realizedPnl,
+      realizedPnlPct,
       heat: this.pnlHeat(pnl, pnlPct),
     };
   });
@@ -742,6 +879,7 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
   activitiesFromContract(
     contract: RobinhoodOwnershipContractDto,
     points: RobinhoodOwnershipHistoryPointDto[],
+    allSeries: RobinhoodOwnershipContractSeriesDto[],
   ): OptionActivity[] {
     const out: OptionActivity[] = [];
     for (let i = 0; i < points.length; i++) {
@@ -751,37 +889,194 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
       if (Math.abs(delta) < 0.0000005) {
         continue;
       }
+      const side: OptionActivity['side'] = delta > 0 ? 'buy' : 'sell';
+      const prior = i > 0 ? points[i - 1] : null;
+      const realized =
+        side === 'sell' && prior ? this.estimateRealizedSell(prior, Math.abs(delta)) : { pnl: null, pct: null };
       out.push({
         date: points[i].snapshotDate.slice(0, 10),
-        side: delta > 0 ? 'buy' : 'sell',
+        side,
         from: prev,
         to: cur,
         delta,
+        realizedPnl: realized.pnl,
+        realizedPnlPct: realized.pct,
+        identityMerge: false,
         marketValue: points[i].marketValue,
         costBasis: points[i].costBasis,
-        unrealizedPnL: points[i].unrealizedPnL,
       });
     }
-    // Legacy average-price keys often leave the book without a zero-qty print — treat last sighting as close.
+    // Lot vanishes without a zero-qty print — close, or identity merge when avg-price key reshuffles.
     if (!contract.currentlyOpen && points.length) {
       const last = points[points.length - 1];
       const lastQty = Number(last.quantity) || 0;
       const lastDate = (contract.closedDate || last.snapshotDate).slice(0, 10);
-      const alreadyClosedToZero = out.some((a) => a.date === lastDate && a.to === 0);
+      const alreadyClosedToZero = out.some((a) => a.to === 0 && (a.side === 'sell' || a.side === 'close'));
       if (lastQty > 0 && !alreadyClosedToZero) {
+        const merge = this.isIdentityMergeClose(contract, lastDate, allSeries);
+        const realized = merge
+          ? { pnl: null as number | null, pct: null as number | null }
+          : this.estimateRealizedSell(last, lastQty);
         out.push({
           date: lastDate,
           side: 'close',
           from: lastQty,
           to: 0,
           delta: -lastQty,
+          realizedPnl: realized.pnl,
+          realizedPnlPct: realized.pct,
+          identityMerge: merge,
           marketValue: last.marketValue,
           costBasis: last.costBasis,
-          unrealizedPnL: last.unrealizedPnL,
         });
       }
     }
     return out;
+  }
+
+  /** Same underlying + expiry + strike + type — used to detect avg-price key reshuffles. */
+  optionIdentityKey(c: RobinhoodOwnershipContractDto): string {
+    const chain = (c.chainSymbol || '').toUpperCase();
+    const exp = c.expirationDate?.slice(0, 10) || '';
+    const typ = (c.optionType || '').toUpperCase();
+    const strike = c.strikePrice == null ? '' : String(c.strikePrice);
+    return `${chain}|${exp}|${typ}|${strike}`;
+  }
+
+  optionGroupKey(chainSymbol: string, expirationDate: string | null): string {
+    return `${(chainSymbol || '—').toUpperCase()}|${expirationDate || 'open'}`;
+  }
+
+  /**
+   * Estimate realized P&amp;L for sold contracts from the pre-trade snapshot:
+   * sold share of that day's mark-to-market unrealized.
+   */
+  estimateRealizedSell(
+    prior: RobinhoodOwnershipHistoryPointDto,
+    soldQty: number,
+  ): { pnl: number | null; pct: number | null } {
+    const fromQty = Number(prior.quantity) || 0;
+    if (soldQty <= 0 || fromQty <= 0) {
+      return { pnl: null, pct: null };
+    }
+    const fraction = Math.min(1, soldQty / fromQty);
+    const upnl = Number(prior.unrealizedPnL);
+    const cost = Number(prior.costBasis) || 0;
+    if (!Number.isFinite(upnl)) {
+      const mv = Number(prior.marketValue) || 0;
+      if (cost <= 0 && mv <= 0) {
+        return { pnl: null, pct: null };
+      }
+      const pnl = (mv - cost) * fraction;
+      const soldCost = cost * fraction;
+      return { pnl, pct: this.pnlPct(pnl, soldCost) };
+    }
+    const pnl = upnl * fraction;
+    const soldCost = cost * fraction;
+    return { pnl, pct: this.pnlPct(pnl, soldCost) };
+  }
+
+  isIdentityMergeClose(
+    contract: RobinhoodOwnershipContractDto,
+    closedDate: string,
+    allSeries: RobinhoodOwnershipContractSeriesDto[],
+  ): boolean {
+    const identity = this.optionIdentityKey(contract);
+    if (!identity || identity.startsWith('|')) {
+      return false;
+    }
+    for (const s of allSeries) {
+      if (s.contract.contractKey === contract.contractKey) {
+        continue;
+      }
+      if (this.optionIdentityKey(s.contract) !== identity) {
+        continue;
+      }
+      if (s.contract.currentlyOpen) {
+        return true;
+      }
+      const otherFirst = s.contract.firstDate?.slice(0, 10) || '';
+      const otherLast = s.contract.lastDate?.slice(0, 10) || '';
+      if (otherFirst && otherFirst <= closedDate && (!otherLast || otherLast >= closedDate)) {
+        return true;
+      }
+      if (otherFirst && closedDate) {
+        const gap = this.dayDiff(closedDate, otherFirst);
+        if (gap >= 0 && gap <= 5) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  dayDiff(fromIso: string, toIso: string): number {
+    const a = new Date(fromIso + 'T12:00:00').getTime();
+    const b = new Date(toIso + 'T12:00:00').getTime();
+    if (!Number.isFinite(a) || !Number.isFinite(b)) {
+      return 999;
+    }
+    return Math.round((b - a) / 86400000);
+  }
+
+  groupDayRows(rows: OptionDayHeldRow[]): Array<{
+    key: string;
+    chainSymbol: string;
+    expirationDate: string | null;
+    rows: OptionDayHeldRow[];
+    quantity: number;
+    unrealizedPnl: number;
+  }> {
+    const map = new Map<string, OptionDayHeldRow[]>();
+    for (const r of rows) {
+      const list = map.get(r.groupKey) ?? [];
+      list.push(r);
+      map.set(r.groupKey, list);
+    }
+    return [...map.entries()].map(([key, groupRows]) => ({
+      key,
+      chainSymbol: groupRows[0]?.chainSymbol || '—',
+      expirationDate: groupRows[0]?.expirationDate ?? null,
+      rows: groupRows,
+      quantity: groupRows.reduce((s, r) => s + r.quantity, 0),
+      unrealizedPnl: groupRows.reduce((s, r) => s + r.unrealizedPnl, 0),
+    }));
+  }
+
+  groupDaySoldRows(rows: OptionDaySoldRow[]): Array<{
+    key: string;
+    chainSymbol: string;
+    expirationDate: string | null;
+    rows: OptionDaySoldRow[];
+    soldQty: number;
+    realizedPnl: number;
+  }> {
+    const map = new Map<string, OptionDaySoldRow[]>();
+    for (const r of rows) {
+      const list = map.get(r.groupKey) ?? [];
+      list.push(r);
+      map.set(r.groupKey, list);
+    }
+    return [...map.entries()].map(([key, groupRows]) => ({
+      key,
+      chainSymbol: groupRows[0]?.chainSymbol || '—',
+      expirationDate: groupRows[0]?.expirationDate ?? null,
+      rows: groupRows,
+      soldQty: groupRows.reduce((s, r) => s + r.soldQty, 0),
+      realizedPnl: groupRows.reduce((s, r) => s + r.realizedPnl, 0),
+    }));
+  }
+
+  expiryLabel(iso: string | null | undefined): string {
+    if (!iso) {
+      return 'No expiry';
+    }
+    const d = iso.slice(0, 10);
+    const dt = new Date(d + 'T12:00:00');
+    if (Number.isNaN(dt.getTime())) {
+      return d;
+    }
+    return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
   pnlPct(pnl: number, cost: number | null | undefined): number | null {
@@ -824,17 +1119,18 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
       return '';
     }
     const parts = [this.formatDay(cell.date)];
-    if (cell.buyCount) {
-      parts.push(`${cell.buyCount} buy`);
+    if (cell.heldCount) {
+      parts.push(`${cell.heldCount} held`);
     }
-    if (cell.sellCount) {
-      parts.push(`${cell.sellCount} sell`);
+    if (cell.soldCount) {
+      parts.push(`${cell.soldCount} sold`);
     }
-    if (cell.closeCount) {
-      parts.push(`${cell.closeCount} close`);
-    }
-    if (cell.pnl != null && cell.activityCount) {
-      parts.push(`P&L ${cell.pnl.toLocaleString(undefined, { maximumFractionDigits: 0 })}`);
+    if (cell.realizedPnl != null && cell.soldCount) {
+      const pct =
+        cell.realizedPnlPct != null ? ` (${cell.realizedPnlPct.toFixed(1)}%)` : '';
+      parts.push(
+        `realized ${cell.realizedPnl.toLocaleString(undefined, { maximumFractionDigits: 0 })}${pct}`,
+      );
     }
     return parts.join(' · ');
   }
