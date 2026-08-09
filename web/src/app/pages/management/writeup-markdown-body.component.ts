@@ -148,7 +148,12 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
       this.html = this.sanitizer.bypassSecurityTrustHtml('');
       return;
     }
-    const raw = marked(src, { async: false, breaks: true, gfm: true }) as string;
+    // Attachment <img> tags must not be swallowed by unclosed ``` fences (CommonMark
+    // only closes a fence on its own line). Hoist embeds, close stray fences, then restore.
+    const { markdown, embeds } = this.extractAttachmentEmbeds(src);
+    const repaired = this.closeUnclosedCodeFences(markdown);
+    let raw = marked(repaired, { async: false, breaks: true, gfm: true }) as string;
+    raw = this.restoreAttachmentEmbeds(raw, embeds);
     const clean = DOMPurify.sanitize(raw, {
       USE_PROFILES: { html: true },
       ADD_ATTR: [
@@ -171,8 +176,6 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
     });
     this.html = this.sanitizer.bypassSecurityTrustHtml(clean);
     const seq = ++this.loadSeq;
-    // Wait until Angular has flushed [innerHTML] before querying <img> nodes.
-    // queueMicrotask alone can race the view update and leave auth-less /api srcs (blank imgs).
     afterNextRender(
       () => {
         if (seq !== this.loadSeq) {
@@ -193,6 +196,85 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
       },
       { injector: this.injector },
     );
+  }
+
+  private static readonly ATT_PATH =
+    '\\/api\\/(?:management\\/writeups|life\\/notes|markets\\/tracker\\/notes)\\/attachments\\/\\d+\\/file';
+
+  /**
+   * Pull attachment images out of the markdown source so an unclosed ``` fence
+   * cannot turn them into escaped text inside &lt;pre&gt;&lt;code&gt;.
+   */
+  private extractAttachmentEmbeds(src: string): { markdown: string; embeds: string[] } {
+    const embeds: string[] = [];
+    const pathRe = WriteupMarkdownBodyComponent.ATT_PATH;
+    // Markdown image → HTML img (keeps alt; sizing attrs added only for existing HTML imgs).
+    let markdown = src.replace(
+      new RegExp(`!\\[([^\\]]*)\\]\\((${pathRe}[^)]*)\\)`, 'gi'),
+      (_m, alt: string, url: string) => {
+        const i = embeds.length;
+        const safeAlt = String(alt || '').replace(/"/g, '');
+        embeds.push(`<img src="${url}" alt="${safeAlt}" />`);
+        return `\n\n@@ATT_EMBED_${i}@@\n\n`;
+      },
+    );
+    markdown = markdown.replace(new RegExp(`<img\\b[^>]*${pathRe}[^>]*>`, 'gi'), (tag) => {
+      const i = embeds.length;
+      embeds.push(tag);
+      return `\n\n@@ATT_EMBED_${i}@@\n\n`;
+    });
+    return { markdown, embeds };
+  }
+
+  private restoreAttachmentEmbeds(html: string, embeds: string[]): string {
+    if (!embeds.length) {
+      return html;
+    }
+    let out = html;
+    for (let i = 0; i < embeds.length; i++) {
+      const token = `@@ATT_EMBED_${i}@@`;
+      const embed = embeds[i]!;
+      if (!out.includes(token)) {
+        // Placeholder lost (should not happen) — append so the image still shows.
+        out += `\n${embed}\n`;
+        continue;
+      }
+      // Prefer replacing a wrapping paragraph produced by marked.
+      out = out.replace(new RegExp(`<p>\\s*${token}\\s*<\\/p>`, 'g'), embed);
+      out = out.replaceAll(token, embed);
+    }
+    return out;
+  }
+
+  /** If a ``` / ~~~ fence was never closed on its own line, append a closing fence. */
+  private closeUnclosedCodeFences(src: string): string {
+    const lines = src.split('\n');
+    let openMarker: '`' | '~' | null = null;
+    let openLen = 0;
+    for (const line of lines) {
+      const m = /^( {0,3})(`{3,}|~{3,})(.*)$/.exec(line);
+      if (!m) {
+        continue;
+      }
+      const ticks = m[2]!;
+      const marker = ticks[0] as '`' | '~';
+      const len = ticks.length;
+      const info = (m[3] || '').trim();
+      if (openMarker == null) {
+        openMarker = marker;
+        openLen = len;
+        continue;
+      }
+      // Closing fence: same marker, length >= open, no info string.
+      if (marker === openMarker && len >= openLen && !info) {
+        openMarker = null;
+        openLen = 0;
+      }
+    }
+    if (openMarker == null) {
+      return src;
+    }
+    return `${src}\n${openMarker.repeat(Math.max(3, openLen))}\n`;
   }
 
   private hydrateAttachments(seq: number): void {
