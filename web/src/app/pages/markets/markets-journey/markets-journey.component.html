@@ -4,8 +4,7 @@
       <h1 class="journey__title">Roadmap</h1>
       <p class="muted journey__lead">
         Road to my first million — and then on. Plot targeted balances by quarter (or any period), track actuals
-        beside them, and keep notes on both lines. Actual segments turn purple when ahead of target, charcoal when
-        they lag.
+        beside them, and keep notes on both lines. Segments turn green when actuals beat target, red when they lag.
       </p>
     </div>
     <div class="journey__head-actions">
@@ -170,9 +169,10 @@
                       @if (p.actualY != null) {
                         <circle
                           class="journey__dot journey__dot--actual"
+                          [ngClass]="directionClass(p.entry.direction)"
                           [attr.cx]="p.x"
                           [attr.cy]="p.actualY"
-                          r="1.85"
+                          r="1.7"
                         >
                           <title>
                             Actual {{ p.label }}: {{ p.entry.actualAmount }}

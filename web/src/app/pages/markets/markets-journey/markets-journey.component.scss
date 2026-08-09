@@ -270,35 +270,39 @@
   background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
   border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
   border-radius: 10px;
+  shape-rendering: geometricPrecision;
 }
 
 .journey__milestone {
-  stroke: #cbd5e1;
-  stroke-width: 0.4;
-  stroke-dasharray: 1.4 1.2;
+  stroke: #94a3b8;
+  stroke-width: 1.25;
+  stroke-dasharray: 4 3;
+  vector-effect: non-scaling-stroke;
 }
 
 .journey__target-line {
-  stroke: #94a3b8;
-  stroke-width: 0.55;
-  stroke-dasharray: 1.6 1.2;
+  stroke: #475569;
+  stroke-width: 1.75;
+  stroke-dasharray: 5 3.5;
   stroke-linecap: round;
   stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
 }
 
 .journey-seg {
-  stroke-width: 2.1;
+  stroke-width: 2.75;
   stroke-linecap: round;
   stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
 }
 
 .journey-seg--above,
 .journey-seg--on {
-  stroke: #7c3aed;
+  stroke: #15803d;
 }
 
 .journey-seg--below {
-  stroke: #334155;
+  stroke: #b91c1c;
 }
 
 .journey-seg--unknown {
@@ -306,27 +310,35 @@
 }
 
 .journey__dot {
-  fill: #7c3aed;
+  fill: #15803d;
+  vector-effect: non-scaling-stroke;
 }
 
 .journey__dot--target {
-  fill: #94a3b8;
-  opacity: 0.55;
+  fill: #475569;
+  opacity: 1;
+}
+
+.journey__dot--actual {
+  fill: currentColor;
+  stroke: #fff;
+  stroke-width: 1.25;
+  vector-effect: non-scaling-stroke;
 }
 
 .journey-dir--above {
-  color: #7c3aed;
-  fill: #7c3aed;
+  color: #15803d;
+  fill: #15803d;
 }
 
 .journey-dir--below {
-  color: #334155;
-  fill: #334155;
+  color: #b91c1c;
+  fill: #b91c1c;
 }
 
 .journey-dir--on {
-  color: #7c3aed;
-  fill: #7c3aed;
+  color: #0f766e;
+  fill: #0f766e;
 }
 
 .journey-dir--unknown {
@@ -366,25 +378,19 @@
 }
 
 .journey__swatch--target {
-  background: repeating-linear-gradient(90deg, #94a3b8 0 3px, transparent 3px 5px);
+  background: #475569;
 }
 
 .journey__swatch--above {
-  background: #7c3aed;
+  background: #15803d;
 }
 
 .journey__swatch--below {
-  background: #334155;
+  background: #b91c1c;
 }
 
 .journey__swatch--milestone {
-  background: repeating-linear-gradient(90deg, #cbd5e1 0 3px, transparent 3px 6px);
-}
-
-.journey__dot--actual {
-  fill: #7c3aed;
-  stroke: #fff;
-  stroke-width: 0.35;
+  background: repeating-linear-gradient(90deg, #94a3b8 0 3px, transparent 3px 6px);
 }
 
 .journey__section-title {
@@ -435,11 +441,11 @@
   }
 
   tr.journey-dir--above {
-    background: rgba(124, 58, 237, 0.06);
+    background: rgba(21, 128, 61, 0.05);
   }
 
   tr.journey-dir--below {
-    background: rgba(51, 65, 85, 0.06);
+    background: rgba(185, 28, 28, 0.05);
   }
 }
 
