@@ -97,22 +97,31 @@
           @if (!chartPoints().length) {
             <p class="muted rms__spark-empty">Add periods on the Roadmap page to chart progress.</p>
           } @else {
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="rms__spark-svg">
-              @if (milestoneY() != null) {
-                <line class="rms__mile" x1="0" [attr.y1]="milestoneY()" x2="100" [attr.y2]="milestoneY()" />
-              }
-              @if (targetPath()) {
-                <path class="rms__target" [attr.d]="targetPath()" fill="none" />
-              }
-              @for (seg of actualSegments(); track $index) {
-                <path [class]="segmentClass(seg.direction)" [attr.d]="seg.d" fill="none" />
-              }
-              @for (p of chartPoints(); track p.entry.id) {
-                @if (p.actualY != null) {
-                  <circle class="rms__dot" [attr.cx]="p.x" [attr.cy]="p.actualY" r="2.2" />
+            <div class="rms__spark-frame">
+              <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="rms__spark-svg">
+                @if (milestoneY() != null) {
+                  <line class="rms__mile" x1="0" [attr.y1]="milestoneY()" x2="100" [attr.y2]="milestoneY()" />
                 }
-              }
-            </svg>
+                @if (targetPath()) {
+                  <path class="rms__target" [attr.d]="targetPath()" fill="none" />
+                }
+                @for (seg of actualSegments(); track $index) {
+                  <path [class]="segmentClass(seg.direction)" [attr.d]="seg.d" fill="none" />
+                }
+              </svg>
+              <div class="rms__spark-dots">
+                @for (p of chartPoints(); track p.entry.id) {
+                  @if (p.actualY != null) {
+                    <span
+                      class="rms__plot-dot"
+                      [class.rms__plot-dot--below]="p.entry.direction === 'BELOW'"
+                      [style.left.%]="p.x"
+                      [style.top.%]="p.actualY"
+                    ></span>
+                  }
+                }
+              </div>
+            </div>
           }
         </div>
       </div>

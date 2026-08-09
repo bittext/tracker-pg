@@ -136,52 +136,58 @@
                 @if (!chartPoints().length) {
                   <p class="muted journey__chart-empty">Add a period below to start the graph.</p>
                 } @else {
-                  <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="journey__chart">
-                    @if (milestoneY() != null) {
-                      <line
-                        class="journey__milestone"
-                        x1="0"
-                        [attr.y1]="milestoneY()"
-                        x2="100"
-                        [attr.y2]="milestoneY()"
-                      />
-                    }
-                    @if (targetPath()) {
-                      <path class="journey__target-line" [attr.d]="targetPath()" fill="none" />
-                    }
-                    @for (seg of actualSegments(); track $index) {
-                      <path [class]="segmentClass(seg.direction)" [attr.d]="seg.d" fill="none" />
-                    }
-                    @for (p of chartPoints(); track p.entry.id) {
-                      @if (p.targetY != null) {
-                        <circle
-                          class="journey__dot journey__dot--target"
-                          [attr.cx]="p.x"
-                          [attr.cy]="p.targetY"
-                          r="1.4"
-                        >
-                          <title>
-                            Target {{ p.label }}: {{ p.entry.targetAmount }}
-                            {{ p.entry.targetNote ? ' — ' + p.entry.targetNote : '' }}
-                          </title>
-                        </circle>
+                  <div class="journey__chart-frame">
+                    <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="journey__chart">
+                      @if (milestoneY() != null) {
+                        <line
+                          class="journey__milestone"
+                          x1="0"
+                          [attr.y1]="milestoneY()"
+                          x2="100"
+                          [attr.y2]="milestoneY()"
+                        />
                       }
-                      @if (p.actualY != null) {
-                        <circle
-                          class="journey__dot journey__dot--actual"
-                          [ngClass]="directionClass(p.entry.direction)"
-                          [attr.cx]="p.x"
-                          [attr.cy]="p.actualY"
-                          r="1.7"
-                        >
-                          <title>
-                            Actual {{ p.label }}: {{ p.entry.actualAmount }}
-                            {{ p.entry.actualNote ? ' — ' + p.entry.actualNote : '' }}
-                          </title>
-                        </circle>
+                      @if (targetPath()) {
+                        <path class="journey__target-line" [attr.d]="targetPath()" fill="none" />
                       }
-                    }
-                  </svg>
+                      @for (seg of actualSegments(); track $index) {
+                        <path [class]="segmentClass(seg.direction)" [attr.d]="seg.d" fill="none" />
+                      }
+                    </svg>
+                    <div class="journey__chart-dots">
+                      @for (p of chartPoints(); track p.entry.id) {
+                        @if (p.targetY != null) {
+                          <span
+                            class="journey__plot-dot journey__plot-dot--target"
+                            [style.left.%]="p.x"
+                            [style.top.%]="p.targetY"
+                            [attr.title]="
+                              'Target ' +
+                              p.label +
+                              ': ' +
+                              p.entry.targetAmount +
+                              (p.entry.targetNote ? ' — ' + p.entry.targetNote : '')
+                            "
+                          ></span>
+                        }
+                        @if (p.actualY != null) {
+                          <span
+                            class="journey__plot-dot journey__plot-dot--actual"
+                            [ngClass]="directionClass(p.entry.direction)"
+                            [style.left.%]="p.x"
+                            [style.top.%]="p.actualY"
+                            [attr.title]="
+                              'Actual ' +
+                              p.label +
+                              ': ' +
+                              p.entry.actualAmount +
+                              (p.entry.actualNote ? ' — ' + p.entry.actualNote : '')
+                            "
+                          ></span>
+                        }
+                      }
+                    </div>
+                  </div>
                   <div class="journey__xlabels">
                     @for (p of chartPoints(); track p.entry.id) {
                       <span [style.left.%]="p.x">{{ p.label }}</span>
