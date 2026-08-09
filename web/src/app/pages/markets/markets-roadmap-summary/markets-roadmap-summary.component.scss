@@ -94,32 +94,42 @@
 }
 
 .rms__mile {
-  stroke: var(--app-muted, #94a3b8);
-  stroke-width: 0.6;
-  stroke-dasharray: 2 2;
+  stroke: #cbd5e1;
+  stroke-width: 0.55;
+  stroke-dasharray: 1.8 1.4;
 }
 
 .rms__target {
-  stroke: var(--app-text, #334155);
-  stroke-width: 1.2;
-  stroke-dasharray: 2.5 2;
+  stroke: #94a3b8;
+  stroke-width: 1.1;
+  stroke-dasharray: 2.2 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .rms-seg {
-  stroke-width: 2;
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .rms-seg--above,
 .rms-seg--on {
-  stroke: #15803d;
+  stroke: #7c3aed;
 }
 
 .rms-seg--below {
-  stroke: #b91c1c;
+  stroke: #334155;
 }
 
 .rms-seg--unknown {
-  stroke: var(--app-muted, #64748b);
+  stroke: #64748b;
+}
+
+.rms__dot {
+  fill: #7c3aed;
+  stroke: #fff;
+  stroke-width: 0.6;
 }
 
 .rms--strip {

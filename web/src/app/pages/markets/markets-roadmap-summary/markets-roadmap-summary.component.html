@@ -107,6 +107,11 @@
               @for (seg of actualSegments(); track $index) {
                 <path [class]="segmentClass(seg.direction)" [attr.d]="seg.d" fill="none" />
               }
+              @for (p of chartPoints(); track p.entry.id) {
+                @if (p.actualY != null) {
+                  <circle class="rms__dot" [attr.cx]="p.x" [attr.cy]="p.actualY" r="2.2" />
+                }
+              }
             </svg>
           }
         </div>

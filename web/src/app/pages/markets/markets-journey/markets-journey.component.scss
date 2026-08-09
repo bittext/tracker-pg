@@ -273,32 +273,32 @@
 }
 
 .journey__milestone {
-  stroke: #94a3b8;
-  stroke-width: 0.35;
-  stroke-dasharray: 1.2 1.2;
+  stroke: #cbd5e1;
+  stroke-width: 0.4;
+  stroke-dasharray: 1.4 1.2;
 }
 
 .journey__target-line {
-  stroke: #475569;
+  stroke: #94a3b8;
   stroke-width: 0.55;
-  stroke-dasharray: 1.8 1.1;
+  stroke-dasharray: 1.6 1.2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
 .journey-seg {
-  stroke-width: 0.75;
+  stroke-width: 2.1;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
 .journey-seg--above,
 .journey-seg--on {
-  stroke: #15803d;
+  stroke: #7c3aed;
 }
 
 .journey-seg--below {
-  stroke: #b91c1c;
+  stroke: #334155;
 }
 
 .journey-seg--unknown {
@@ -306,26 +306,27 @@
 }
 
 .journey__dot {
-  fill: #15803d;
+  fill: #7c3aed;
 }
 
 .journey__dot--target {
-  fill: #475569;
+  fill: #94a3b8;
+  opacity: 0.55;
 }
 
 .journey-dir--above {
-  color: #15803d;
-  fill: #15803d;
+  color: #7c3aed;
+  fill: #7c3aed;
 }
 
 .journey-dir--below {
-  color: #b91c1c;
-  fill: #b91c1c;
+  color: #334155;
+  fill: #334155;
 }
 
 .journey-dir--on {
-  color: #0f766e;
-  fill: #0f766e;
+  color: #7c3aed;
+  fill: #7c3aed;
 }
 
 .journey-dir--unknown {
@@ -365,19 +366,25 @@
 }
 
 .journey__swatch--target {
-  background: #475569;
+  background: repeating-linear-gradient(90deg, #94a3b8 0 3px, transparent 3px 5px);
 }
 
 .journey__swatch--above {
-  background: #15803d;
+  background: #7c3aed;
 }
 
 .journey__swatch--below {
-  background: #b91c1c;
+  background: #334155;
 }
 
 .journey__swatch--milestone {
-  background: repeating-linear-gradient(90deg, #94a3b8 0 3px, transparent 3px 6px);
+  background: repeating-linear-gradient(90deg, #cbd5e1 0 3px, transparent 3px 6px);
+}
+
+.journey__dot--actual {
+  fill: #7c3aed;
+  stroke: #fff;
+  stroke-width: 0.35;
 }
 
 .journey__section-title {
@@ -428,11 +435,11 @@
   }
 
   tr.journey-dir--above {
-    background: rgba(21, 128, 61, 0.05);
+    background: rgba(124, 58, 237, 0.06);
   }
 
   tr.journey-dir--below {
-    background: rgba(185, 28, 28, 0.05);
+    background: rgba(51, 65, 85, 0.06);
   }
 }
 
