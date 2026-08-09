@@ -145,13 +145,13 @@ export const MARKETS_PRIMARY_NAV: NavEntry[] = [
     exact: true,
   },
   {
-    id: 'journey',
-    label: 'Journey',
-    path: '/markets/journey',
+    id: 'roadmap',
+    label: 'Roadmap',
+    path: '/markets/roadmap',
     icon: 'route',
     shell: 'markets-primary',
     exact: true,
-    ariaLabel: 'Journey — road to my first million',
+    ariaLabel: 'Roadmap — road to my first million',
   },
   {
     id: 'history',

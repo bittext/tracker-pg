@@ -99,7 +99,8 @@ export const routes: Routes = [
         data: { workspace: 'trading', tradingSection: 'research' },
       },
       { path: 'tracker', component: TrackerNotesComponent },
-      { path: 'journey', component: MarketsJourneyComponent },
+      { path: 'roadmap', component: MarketsJourneyComponent },
+      { path: 'journey', redirectTo: 'roadmap', pathMatch: 'full' },
       {
         path: 'history',
         component: FinanceComponent,

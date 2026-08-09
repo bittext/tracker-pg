@@ -51,11 +51,11 @@ import { RhAccountsTrackPanelComponent } from '../../finance/rh-accounts-track-p
       </mat-card>
       <mat-card appearance="outlined" class="kpi-card">
         <mat-card-header>
-          <mat-card-title>Journey</mat-card-title>
+          <mat-card-title>Roadmap</mat-card-title>
           <mat-card-subtitle>Road to my first million — targets vs actuals</mat-card-subtitle>
         </mat-card-header>
         <mat-card-actions>
-          <a mat-stroked-button routerLink="/markets/journey">Open journey</a>
+          <a mat-stroked-button routerLink="/markets/roadmap">Open roadmap</a>
         </mat-card-actions>
       </mat-card>
     </div>

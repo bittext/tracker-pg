@@ -66,7 +66,7 @@ export class MarketsJourneyComponent implements OnInit {
   entryDraft: MarketsJourneyEntryWriteRequest = this.emptyEntryDraft();
   editingEntryId: number | null = null;
 
-  /** Journey meta edit. */
+  /** Roadmap meta edit. */
   metaTitle = '';
   metaMilestone: number | null = 1_000_000;
 
@@ -170,7 +170,7 @@ export class MarketsJourneyComponent implements OnInit {
       },
       error: (e) => {
         this.loading.set(false);
-        this.snackBar.open(`Could not load journeys — ${formatHttpErrorDetail(e)}`, undefined, {
+        this.snackBar.open(`Could not load roadmaps — ${formatHttpErrorDetail(e)}`, undefined, {
           duration: 6000,
         });
       },
@@ -190,7 +190,7 @@ export class MarketsJourneyComponent implements OnInit {
       },
       error: (e) => {
         this.loading.set(false);
-        this.snackBar.open(`Could not load journey — ${formatHttpErrorDetail(e)}`, undefined, {
+        this.snackBar.open(`Could not load roadmap — ${formatHttpErrorDetail(e)}`, undefined, {
           duration: 6000,
         });
       },
@@ -210,7 +210,7 @@ export class MarketsJourneyComponent implements OnInit {
           this.journey.set(j);
           this.saving.set(false);
           this.refreshList();
-          this.snackBar.open('Journey updated', undefined, { duration: 2200 });
+          this.snackBar.open('Roadmap updated', undefined, { duration: 2200 });
         },
         error: (e) => {
           this.saving.set(false);
