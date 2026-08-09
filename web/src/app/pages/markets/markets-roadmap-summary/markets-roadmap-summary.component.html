@@ -1,0 +1,116 @@
+@if (loading()) {
+  <div class="rms rms--loading" [attr.data-mode]="mode()">
+    <mat-spinner diameter="28" />
+  </div>
+} @else if (failed() || !journey()) {
+  @if (mode() === 'hero') {
+    <div class="rms rms--hero rms--empty">
+      <div>
+        <h2 class="rms__title">Roadmap</h2>
+        <p class="muted rms__lead">Track targets vs actuals on the road to your first million.</p>
+      </div>
+      <a mat-stroked-button routerLink="/markets/roadmap">Open roadmap</a>
+    </div>
+  }
+} @else {
+  @let j = journey()!;
+  @let pct = progressPct();
+
+  @if (mode() === 'strip') {
+    <a class="rms rms--strip" routerLink="/markets/roadmap" [attr.aria-label]="'Roadmap — ' + j.title">
+      <span class="rms__strip-title">{{ j.title }}</span>
+      <span class="rms__strip-meta muted">
+        @if (pct != null) {
+          {{ pct | number: '1.0-0' }}%
+        } @else {
+          —
+        }
+        @if (j.latestActual != null) {
+          · {{ j.latestActual | currency: 'USD':'symbol':'1.0-0' }}
+        }
+        / {{ j.milestoneAmount | currency: 'USD':'symbol':'1.0-0' }}
+      </span>
+      <span class="rms__bar" aria-hidden="true">
+        <span class="rms__bar-fill" [style.width.%]="pct ?? 0"></span>
+      </span>
+      <mat-icon class="rms__chevron" aria-hidden="true">chevron_right</mat-icon>
+    </a>
+  }
+
+  @if (mode() === 'teaser') {
+    <a class="rms rms--teaser" routerLink="/markets/roadmap">
+      <div class="rms__teaser-copy">
+        <strong>Wealth roadmap</strong>
+        <span class="muted">
+          @if (pct != null) {
+            {{ pct | number: '1.0-0' }}% to {{ j.milestoneAmount | currency: 'USD':'symbol':'1.0-0' }}
+          } @else {
+            {{ j.title }}
+          }
+          — Markets
+        </span>
+      </div>
+      <span class="rms__teaser-cta">View</span>
+    </a>
+  }
+
+  @if (mode() === 'hero') {
+    <section class="rms rms--hero" aria-labelledby="rms-hero-title">
+      <div class="rms__hero-head">
+        <div>
+          <h2 id="rms-hero-title" class="rms__title">{{ j.title }}</h2>
+          <p class="muted rms__lead">
+            @if (j.latestActual != null) {
+              {{ j.latestActual | currency: 'USD':'symbol':'1.0-0' }} actual
+            } @else {
+              No actuals yet
+            }
+            @if (pct != null) {
+              · {{ pct | number: '1.0-1' }}%
+            }
+            · milestone {{ j.milestoneAmount | currency: 'USD':'symbol':'1.0-0' }}
+          </p>
+        </div>
+        <a mat-flat-button color="primary" routerLink="/markets/roadmap">Open roadmap</a>
+      </div>
+
+      <div class="rms__hero-body">
+        <div class="rms__dial" aria-hidden="true">
+          <svg viewBox="0 0 110 110" width="96" height="96">
+            <circle class="rms__dial-track" cx="55" cy="55" r="42" />
+            <circle
+              class="rms__dial-value"
+              cx="55"
+              cy="55"
+              r="42"
+              [attr.stroke-dasharray]="dialDash() + ' ' + dialCircumference"
+              transform="rotate(-90 55 55)"
+            />
+            <text class="rms__dial-pct" x="55" y="52" text-anchor="middle">
+              {{ pct != null ? (pct | number: '1.0-0') + '%' : '—' }}
+            </text>
+            <text class="rms__dial-sub" x="55" y="68" text-anchor="middle">to goal</text>
+          </svg>
+        </div>
+
+        <div class="rms__spark" aria-label="Target vs actual sparkline">
+          @if (!chartPoints().length) {
+            <p class="muted rms__spark-empty">Add periods on the Roadmap page to chart progress.</p>
+          } @else {
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="rms__spark-svg">
+              @if (milestoneY() != null) {
+                <line class="rms__mile" x1="0" [attr.y1]="milestoneY()" x2="100" [attr.y2]="milestoneY()" />
+              }
+              @if (targetPath()) {
+                <path class="rms__target" [attr.d]="targetPath()" fill="none" />
+              }
+              @for (seg of actualSegments(); track $index) {
+                <path [class]="segmentClass(seg.direction)" [attr.d]="seg.d" fill="none" />
+              }
+            </svg>
+          }
+        </div>
+      </div>
+    </section>
+  }
+}

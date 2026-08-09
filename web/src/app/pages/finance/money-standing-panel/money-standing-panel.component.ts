@@ -29,6 +29,7 @@ import { FinanceLoansApiService } from '../../../services/finance-loans-api.serv
 import { computeBankingFlowTotals } from '../../../util/banking-ledger-flow.util';
 import { formatHttpErrorDetail } from '../../../util/http-error';
 import { FinanceEntryDocumentsComponent } from '../finance-entry-documents/finance-entry-documents.component';
+import { MarketsRoadmapSummaryComponent } from '../../markets/markets-roadmap-summary/markets-roadmap-summary.component';
 
 type PeriodMode = 'WEEK' | 'BIWEEK';
 
@@ -50,6 +51,7 @@ type PeriodMode = 'WEEK' | 'BIWEEK';
     CurrencyPipe,
     DecimalPipe,
     FinanceEntryDocumentsComponent,
+    MarketsRoadmapSummaryComponent,
   ],
   templateUrl: './money-standing-panel.component.html',
   styleUrl: './money-standing-panel.component.scss',

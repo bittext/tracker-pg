@@ -52,6 +52,9 @@
           <span class="app-release-hint">v{{ webReleaseVersion }}</span>
           <app-theme-settings />
         </header>
+        @if (showRoadmapStrip) {
+          <app-markets-roadmap-summary mode="strip" />
+        }
         <main class="app-platform-main markets-main">
           <router-outlet />
         </main>
@@ -88,6 +91,9 @@
           >
         }
       </nav>
+      @if (showRoadmapStrip) {
+        <app-markets-roadmap-summary mode="strip" />
+      }
       <main class="markets-classic-shell__main">
         <router-outlet />
       </main>

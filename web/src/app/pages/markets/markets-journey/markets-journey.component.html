@@ -62,28 +62,75 @@
                 </button>
               </div>
 
-              <div class="journey__kpis">
-                <div class="journey__kpi">
-                  <span class="journey__kpi-label">Milestone</span>
-                  <span class="journey__kpi-value">{{ j.milestoneAmount | currency: 'USD':'symbol':'1.0-0' }}</span>
+              <div class="journey__hero">
+                <div class="journey__dial" aria-hidden="true">
+                  <svg viewBox="0 0 110 110" width="112" height="112">
+                    <circle class="journey__dial-track" cx="55" cy="55" r="42" />
+                    <circle
+                      class="journey__dial-value"
+                      cx="55"
+                      cy="55"
+                      r="42"
+                      [attr.stroke-dasharray]="dialDash() + ' ' + dialCircumference"
+                      transform="rotate(-90 55 55)"
+                    />
+                    <text class="journey__dial-pct" x="55" y="52" text-anchor="middle">
+                      {{
+                        progressPct() != null ? (progressPct()! | number: '1.0-0') + '%' : '—'
+                      }}
+                    </text>
+                    <text class="journey__dial-sub" x="55" y="68" text-anchor="middle">to goal</text>
+                  </svg>
                 </div>
-                <div class="journey__kpi">
-                  <span class="journey__kpi-label">Latest actual</span>
-                  <span class="journey__kpi-value">{{
-                    j.latestActual != null ? (j.latestActual | currency: 'USD':'symbol':'1.0-0') : '—'
-                  }}</span>
-                </div>
-                <div class="journey__kpi">
-                  <span class="journey__kpi-label">Progress</span>
-                  <span class="journey__kpi-value">{{
-                    j.progressPct != null ? (j.progressPct | number: '1.0-1') + '%' : '—'
-                  }}</span>
-                </div>
-                <div class="journey__kpi">
-                  <span class="journey__kpi-label">Periods</span>
-                  <span class="journey__kpi-value">{{ j.entryCount }}</span>
+                <div class="journey__kpis">
+                  <div class="journey__kpi">
+                    <span class="journey__kpi-label">Milestone</span>
+                    <span class="journey__kpi-value">{{ j.milestoneAmount | currency: 'USD':'symbol':'1.0-0' }}</span>
+                  </div>
+                  <div class="journey__kpi">
+                    <span class="journey__kpi-label">Latest actual</span>
+                    <span class="journey__kpi-value">{{
+                      j.latestActual != null ? (j.latestActual | currency: 'USD':'symbol':'1.0-0') : '—'
+                    }}</span>
+                  </div>
+                  <div class="journey__kpi">
+                    <span class="journey__kpi-label">Progress</span>
+                    <span class="journey__kpi-value">{{
+                      j.progressPct != null ? (j.progressPct | number: '1.0-1') + '%' : '—'
+                    }}</span>
+                  </div>
+                  <div class="journey__kpi">
+                    <span class="journey__kpi-label">Periods</span>
+                    <span class="journey__kpi-value">{{ j.entryCount }}</span>
+                  </div>
                 </div>
               </div>
+
+              @if (j.entries.length) {
+                <div class="journey__runway" aria-label="Period runway">
+                  <div class="journey__runway-line" aria-hidden="true"></div>
+                  @for (e of j.entries; track e.id) {
+                    <button
+                      type="button"
+                      class="journey__runway-station"
+                      [class.journey__runway-station--ahead]="runwayAhead(e)"
+                      [class.journey__runway-station--focus]="focusedEntryId === e.id"
+                      (click)="focusPeriod(e.id)"
+                      [matTooltip]="(e.periodLabel || e.periodDate) + (e.actualAmount != null ? ' · ' + e.actualAmount : '')"
+                    >
+                      <span class="journey__runway-dot"></span>
+                      <span class="journey__runway-label">{{ e.periodLabel || e.periodDate }}</span>
+                      <span class="muted journey__runway-amt">
+                        {{
+                          e.actualAmount != null
+                            ? (e.actualAmount | currency: 'USD':'symbol':'1.0-0')
+                            : '—'
+                        }}
+                      </span>
+                    </button>
+                  }
+                </div>
+              }
 
               <div class="journey__chart-wrap" aria-label="Target vs actual chart">
                 @if (!chartPoints().length) {
@@ -214,7 +261,11 @@
                     </thead>
                     <tbody>
                       @for (e of j.entries; track e.id) {
-                        <tr [ngClass]="directionClass(e.direction)">
+                        <tr
+                          [id]="'journey-period-' + e.id"
+                          [ngClass]="directionClass(e.direction)"
+                          [class.journey__row--focus]="focusedEntryId === e.id"
+                        >
                           <td>
                             <strong>{{ e.periodLabel || e.periodDate }}</strong>
                             <div class="muted">{{ e.periodDate }}</div>

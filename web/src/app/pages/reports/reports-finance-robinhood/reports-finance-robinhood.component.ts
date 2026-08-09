@@ -17,6 +17,7 @@ import { ReportsFinanceRobinhoodDailyTrackerComponent } from '../reports-finance
 import { ReportsFinanceRobinhoodCryptoTrackerComponent } from '../reports-finance-robinhood-crypto-tracker/reports-finance-robinhood-crypto-tracker.component';
 import { ReportsFinanceRobinhoodOwnershipHistoryComponent } from '../reports-finance-robinhood-ownership-history/reports-finance-robinhood-ownership-history.component';
 import { TradingJournalPanelComponent } from '../trading-journal-panel/trading-journal-panel.component';
+import { MarketsJourneyComponent } from '../../markets/markets-journey/markets-journey.component';
 import { TradingJournalNavService } from '../../../services/trading-journal-nav.service';
 import {
   RobinhoodClosedTradeDto,
@@ -77,6 +78,7 @@ interface TradeTimelineBar {
     ReportsFinanceRobinhoodCryptoTrackerComponent,
     ReportsFinanceRobinhoodOwnershipHistoryComponent,
     TradingJournalPanelComponent,
+    MarketsJourneyComponent,
   ],
   templateUrl: './reports-finance-robinhood.component.html',
   styleUrl: './reports-finance-robinhood.component.scss',

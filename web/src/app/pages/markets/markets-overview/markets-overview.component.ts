@@ -4,6 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { PageHeaderComponent } from '../../../components/page-header/page-header.component';
 import { RhAccountsTrackPanelComponent } from '../../finance/rh-accounts-track-panel/rh-accounts-track-panel.component';
+import { MarketsRoadmapSummaryComponent } from '../markets-roadmap-summary/markets-roadmap-summary.component';
 
 @Component({
   selector: 'app-markets-overview',
@@ -14,12 +15,15 @@ import { RhAccountsTrackPanelComponent } from '../../finance/rh-accounts-track-p
     MatCardModule,
     PageHeaderComponent,
     RhAccountsTrackPanelComponent,
+    MarketsRoadmapSummaryComponent,
   ],
   template: `
     <app-page-header
       title="Markets overview"
       subtitle="Account snapshot and quick links. RH Accounts Track lives here only."
     />
+
+    <app-markets-roadmap-summary mode="hero" />
 
     <div class="markets-overview-kpis">
       <mat-card appearance="outlined" class="kpi-card">
@@ -43,19 +47,10 @@ import { RhAccountsTrackPanelComponent } from '../../finance/rh-accounts-track-p
       <mat-card appearance="outlined" class="kpi-card">
         <mat-card-header>
           <mat-card-title>Analytics</mat-card-title>
-          <mat-card-subtitle>Performance, daily tracker, crypto</mat-card-subtitle>
+          <mat-card-subtitle>Performance, daily tracker, crypto, roadmap</mat-card-subtitle>
         </mat-card-header>
         <mat-card-actions>
           <a mat-stroked-button routerLink="/markets/analytics">View analytics</a>
-        </mat-card-actions>
-      </mat-card>
-      <mat-card appearance="outlined" class="kpi-card">
-        <mat-card-header>
-          <mat-card-title>Roadmap</mat-card-title>
-          <mat-card-subtitle>Road to my first million — targets vs actuals</mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-actions>
-          <a mat-stroked-button routerLink="/markets/roadmap">Open roadmap</a>
         </mat-card-actions>
       </mat-card>
     </div>

@@ -17,19 +17,12 @@ import {
 } from '../../../models/markets-journey.models';
 import { MarketsJourneyApiService } from '../../../services/markets-journey-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
-
-interface ChartPoint {
-  entry: MarketsJourneyEntryDto;
-  x: number;
-  targetY: number | null;
-  actualY: number | null;
-  label: string;
-}
-
-interface ActualSegment {
-  d: string;
-  direction: 'ABOVE' | 'ON' | 'BELOW' | 'UNKNOWN';
-}
+import {
+  buildRoadmapChartPoints,
+  roadmapActualSegments,
+  roadmapMilestoneY,
+  roadmapTargetPath,
+} from '../../../util/markets-roadmap-chart.util';
 
 @Component({
   selector: 'app-markets-journey',
@@ -69,84 +62,23 @@ export class MarketsJourneyComponent implements OnInit {
   /** Roadmap meta edit. */
   metaTitle = '';
   metaMilestone: number | null = 1_000_000;
+  /** Runway station highlight (period entry id). */
+  focusedEntryId: number | null = null;
 
-  readonly chartPoints = computed<ChartPoint[]>(() => {
-    const j = this.journey();
-    if (!j?.entries?.length) {
-      return [];
-    }
-    const entries = j.entries;
-    const values: number[] = [0, Number(j.milestoneAmount) || 0];
-    for (const e of entries) {
-      if (e.targetAmount != null) {
-        values.push(Number(e.targetAmount));
-      }
-      if (e.actualAmount != null) {
-        values.push(Number(e.actualAmount));
-      }
-    }
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const span = max - min || 1;
-    const pad = 6;
-    const n = entries.length;
-    return entries.map((e, i) => {
-      const x = n === 1 ? 50 : pad + (i * (100 - pad * 2)) / (n - 1);
-      const toY = (v: number | null) =>
-        v == null ? null : 100 - pad - ((Number(v) - min) / span) * (100 - pad * 2);
-      return {
-        entry: e,
-        x,
-        targetY: toY(e.targetAmount),
-        actualY: toY(e.actualAmount),
-        label: e.periodLabel || e.periodDate,
-      };
-    });
+  readonly chartPoints = computed(() => buildRoadmapChartPoints(this.journey()));
+  readonly targetPath = computed(() => roadmapTargetPath(this.chartPoints()));
+  readonly actualSegments = computed(() => roadmapActualSegments(this.chartPoints()));
+  readonly milestoneY = computed(() => roadmapMilestoneY(this.journey(), this.chartPoints()));
+
+  readonly progressPct = computed(() => {
+    const p = this.journey()?.progressPct;
+    return p == null ? null : Math.max(0, Math.min(100, Number(p)));
   });
 
-  readonly targetPath = computed(() => {
-    const pts = this.chartPoints().filter((p) => p.targetY != null);
-    if (pts.length < 2) {
-      return '';
-    }
-    return pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${(p.targetY as number).toFixed(2)}`).join(' ');
-  });
-
-  readonly actualSegments = computed<ActualSegment[]>(() => {
-    const pts = this.chartPoints().filter((p) => p.actualY != null);
-    const segs: ActualSegment[] = [];
-    for (let i = 1; i < pts.length; i++) {
-      const a = pts[i - 1]!;
-      const b = pts[i]!;
-      segs.push({
-        d: `M ${a.x.toFixed(2)} ${(a.actualY as number).toFixed(2)} L ${b.x.toFixed(2)} ${(b.actualY as number).toFixed(2)}`,
-        direction: b.entry.direction,
-      });
-    }
-    return segs;
-  });
-
-  readonly milestoneY = computed(() => {
-    const j = this.journey();
-    const pts = this.chartPoints();
-    if (!j || !pts.length) {
-      return null;
-    }
-    const values: number[] = [0, Number(j.milestoneAmount) || 0];
-    for (const e of j.entries) {
-      if (e.targetAmount != null) {
-        values.push(Number(e.targetAmount));
-      }
-      if (e.actualAmount != null) {
-        values.push(Number(e.actualAmount));
-      }
-    }
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    const span = max - min || 1;
-    const pad = 6;
-    const m = Number(j.milestoneAmount) || 0;
-    return 100 - pad - ((m - min) / span) * (100 - pad * 2);
+  readonly dialCircumference = 2 * Math.PI * 42;
+  readonly dialDash = computed(() => {
+    const pct = (this.progressPct() ?? 0) / 100;
+    return this.dialCircumference * pct;
   });
 
   ngOnInit(): void {
@@ -313,6 +245,20 @@ export class MarketsJourneyComponent implements OnInit {
 
   segmentClass(dir: string): string {
     return `journey-seg journey-seg--${(dir || 'UNKNOWN').toLowerCase()}`;
+  }
+
+  focusPeriod(entryId: number): void {
+    this.focusedEntryId = entryId;
+    queueMicrotask(() => {
+      document.getElementById(`journey-period-${entryId}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    });
+  }
+
+  runwayAhead(e: MarketsJourneyEntryDto): boolean {
+    return e.direction === 'ABOVE' || e.direction === 'ON';
   }
 
   private emptyEntryDraft(): MarketsJourneyEntryWriteRequest {

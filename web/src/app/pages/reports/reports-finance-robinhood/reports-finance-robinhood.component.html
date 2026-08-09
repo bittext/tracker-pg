@@ -601,4 +601,11 @@
       <app-reports-finance-robinhood-crypto-tracker />
     </div>
   </mat-tab>
+  <mat-tab label="Roadmap">
+    <div class="rh-report-tab-panel">
+      @if (journalNav.analyticsTabIndex() === 5) {
+        <app-markets-journey />
+      }
+    </div>
+  </mat-tab>
 </mat-tab-group>

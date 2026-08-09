@@ -113,11 +113,49 @@
   width: 10rem;
 }
 
+.journey__hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 640px) {
+  .journey__hero {
+    grid-template-columns: 1fr;
+  }
+}
+
+.journey__dial-track {
+  fill: none;
+  stroke: var(--app-border, rgba(15, 23, 42, 0.12));
+  stroke-width: 10;
+}
+
+.journey__dial-value {
+  fill: none;
+  stroke: var(--mat-sys-primary, #1565c0);
+  stroke-width: 10;
+  stroke-linecap: round;
+}
+
+.journey__dial-pct {
+  font-size: 16px;
+  font-weight: 700;
+  fill: var(--app-text, #0f172a);
+}
+
+.journey__dial-sub {
+  font-size: 9px;
+  fill: var(--app-text-muted, #64748b);
+}
+
 .journey__kpis {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
   gap: 0.65rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0;
 }
 
 .journey__kpi {
@@ -139,6 +177,79 @@
 .journey__kpi-value {
   font-size: 1.05rem;
   font-weight: 700;
+}
+
+.journey__runway {
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(4.5rem, 1fr);
+  gap: 0.35rem;
+  overflow-x: auto;
+  padding: 0.35rem 0 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.journey__runway-line {
+  position: absolute;
+  left: 1.25rem;
+  right: 1.25rem;
+  top: 0.95rem;
+  height: 2px;
+  background: var(--app-border, rgba(15, 23, 42, 0.14));
+  pointer-events: none;
+}
+
+.journey__runway-station {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.2rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.journey__runway-dot {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 999px;
+  border: 2px solid var(--app-border, rgba(15, 23, 42, 0.25));
+  background: var(--app-surface, #fff);
+}
+
+.journey__runway-station--ahead .journey__runway-dot {
+  background: #15803d;
+  border-color: #15803d;
+}
+
+.journey__runway-station--focus .journey__runway-dot {
+  outline: 2px solid var(--mat-sys-primary, #1565c0);
+  outline-offset: 2px;
+}
+
+.journey__runway-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-align: center;
+  max-width: 5.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.journey__runway-amt {
+  font-size: 0.7rem;
+}
+
+.journey__row--focus {
+  outline: 2px solid var(--mat-sys-primary, #1565c0);
+  outline-offset: -2px;
 }
 
 .journey__chart-wrap {

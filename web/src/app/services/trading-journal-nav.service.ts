@@ -5,7 +5,7 @@ import { Injectable, signal } from '@angular/core';
 export class TradingJournalNavService {
   /**
    * Robinhood analytics mat-tab index:
-   * 0 Performance, 1 Daily Tracker, 2 Ownership history, 3 Journal, 4 Crypto.
+   * 0 Performance, 1 Daily Tracker, 2 Ownership history, 3 Journal, 4 Crypto, 5 Roadmap.
    */
   readonly analyticsTabIndex = signal(0);
   readonly requestedDate = signal<string | null>(null);
