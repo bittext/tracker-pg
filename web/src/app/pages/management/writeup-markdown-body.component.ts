@@ -2,10 +2,12 @@ import { CommonModule } from '@angular/common';
 import {
   Component,
   ElementRef,
+  Injector,
   Input,
   OnChanges,
   OnDestroy,
   SimpleChanges,
+  afterNextRender,
   inject,
 } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
@@ -37,6 +39,25 @@ type AttachmentKind = 'writeup' | 'life' | 'tracker';
     [innerHTML]="html"
     (click)="onBodyClick($event)"
   ></div>`,
+  styles: [
+    `
+      :host {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+      }
+      :host .markdown-body img.life-embed-img--loading {
+        min-height: 4.5rem;
+        background: linear-gradient(90deg, #f1f5f9 0%, #e2e8f0 50%, #f1f5f9 100%);
+        background-size: 200% 100%;
+      }
+      :host .markdown-body img.life-embed-img--error {
+        min-height: 3rem;
+        outline: 1px dashed #94a3b8;
+        background: #f8fafc;
+      }
+    `,
+  ],
 })
 export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
   private readonly managementApi = inject(ManagementApiService);
@@ -45,6 +66,7 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
   private readonly sanitizer = inject(DomSanitizer);
   private readonly host = inject(ElementRef<HTMLElement>);
   private readonly dialog = inject(MatDialog);
+  private readonly injector = inject(Injector);
 
   @Input() body: string | null | undefined = '';
 
@@ -143,17 +165,34 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
         'data-open-url',
         'width',
         'height',
+        'style',
       ],
       ADD_TAGS: ['button'],
     });
     this.html = this.sanitizer.bypassSecurityTrustHtml(clean);
     const seq = ++this.loadSeq;
-    queueMicrotask(() => {
-      if (seq !== this.loadSeq) {
-        return;
-      }
-      this.hydrateAttachments(seq);
-    });
+    // Wait until Angular has flushed [innerHTML] before querying <img> nodes.
+    // queueMicrotask alone can race the view update and leave auth-less /api srcs (blank imgs).
+    afterNextRender(
+      () => {
+        if (seq !== this.loadSeq) {
+          return;
+        }
+        this.hydrateAttachments(seq);
+        setTimeout(() => {
+          if (seq !== this.loadSeq) {
+            return;
+          }
+          const pending = this.host.nativeElement.querySelectorAll(
+            'img[src*="/attachments/"][src*="/file"]',
+          );
+          if (pending.length) {
+            this.hydrateAttachments(seq);
+          }
+        }, 0);
+      },
+      { injector: this.injector },
+    );
   }
 
   private hydrateAttachments(seq: number): void {
@@ -164,6 +203,11 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
       if (ref == null) {
         return;
       }
+      // Already hydrated (or in-flight) for this attachment.
+      if (img.dataset['attHydrated'] === String(ref.id)) {
+        return;
+      }
+      img.dataset['attHydrated'] = String(ref.id);
       const name = img.alt || `attachment ${ref.id}`;
       img.alt = name;
       img.setAttribute('data-att-kind', ref.kind);
@@ -177,6 +221,8 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
           ? 'Click to open PDF'
           : 'Click to open';
       img.style.cursor = 'pointer';
+      img.classList.add('life-embed-img--loading');
+      img.classList.remove('life-embed-img--error');
       if (openPdfId) {
         img.classList.add('note-embed-pdf-cover');
       }
@@ -197,6 +243,7 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
             }
             const url = URL.createObjectURL(blob);
             this.blobUrls.push(url);
+            img.classList.remove('life-embed-img--loading', 'life-embed-img--error');
             img.src = url;
             this.applyEmbeddedImageSize(img);
           });
@@ -205,6 +252,9 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
           if (seq !== this.loadSeq) {
             return;
           }
+          img.dataset['attHydrated'] = '';
+          img.classList.remove('life-embed-img--loading');
+          img.classList.add('life-embed-img--error');
           img.alt = `${img.alt || 'Image'} (failed to load)`;
         },
       });
@@ -308,7 +358,7 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
       return 'image';
     }
     try {
-      const head = new Uint8Array(await blob.slice(0, 5).arrayBuffer());
+      const head = new Uint8Array(await blob.slice(0, 16).arrayBuffer());
       if (
         head.length >= 4 &&
         head[0] === 0x25 &&
@@ -317,6 +367,41 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
         head[3] === 0x46
       ) {
         return 'pdf';
+      }
+      // PNG / JPEG / GIF / WEBP magic — keep as image even when Content-Type is octet-stream.
+      if (
+        head.length >= 8 &&
+        head[0] === 0x89 &&
+        head[1] === 0x50 &&
+        head[2] === 0x4e &&
+        head[3] === 0x47
+      ) {
+        return 'image';
+      }
+      if (head.length >= 3 && head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff) {
+        return 'image';
+      }
+      if (
+        head.length >= 6 &&
+        head[0] === 0x47 &&
+        head[1] === 0x49 &&
+        head[2] === 0x46 &&
+        head[3] === 0x38
+      ) {
+        return 'image';
+      }
+      if (
+        head.length >= 12 &&
+        head[0] === 0x52 &&
+        head[1] === 0x49 &&
+        head[2] === 0x46 &&
+        head[3] === 0x46 &&
+        head[8] === 0x57 &&
+        head[9] === 0x45 &&
+        head[10] === 0x42 &&
+        head[11] === 0x50
+      ) {
+        return 'image';
       }
     } catch {
       /* ignore */
