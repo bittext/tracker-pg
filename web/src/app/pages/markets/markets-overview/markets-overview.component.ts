@@ -49,6 +49,15 @@ import { RhAccountsTrackPanelComponent } from '../../finance/rh-accounts-track-p
           <a mat-stroked-button routerLink="/markets/analytics">View analytics</a>
         </mat-card-actions>
       </mat-card>
+      <mat-card appearance="outlined" class="kpi-card">
+        <mat-card-header>
+          <mat-card-title>Journey</mat-card-title>
+          <mat-card-subtitle>Road to my first million — targets vs actuals</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-actions>
+          <a mat-stroked-button routerLink="/markets/journey">Open journey</a>
+        </mat-card-actions>
+      </mat-card>
     </div>
 
     <section class="markets-overview-panel" aria-labelledby="rh-track-heading">

@@ -1,0 +1,255 @@
+<div class="journey">
+  <header class="journey__head">
+    <div>
+      <h1 class="journey__title">Journey</h1>
+      <p class="muted journey__lead">
+        Road to my first million — and then on. Plot targeted balances by quarter (or any period), track actuals
+        beside them, and keep notes on both lines. Segments turn green when actuals beat target, red when they lag.
+      </p>
+    </div>
+    <div class="journey__head-actions">
+      <button mat-stroked-button type="button" (click)="createNextMillion()" [disabled]="saving()">
+        <mat-icon>add_road</mat-icon>
+        Next million
+      </button>
+      <button mat-stroked-button type="button" (click)="refreshList()" [disabled]="loading()">
+        <mat-icon>refresh</mat-icon>
+        Refresh
+      </button>
+    </div>
+  </header>
+
+  @if (loading() && !journey()) {
+    <div class="journey__loading">
+      <mat-spinner diameter="36" />
+    </div>
+  } @else {
+    <div class="journey__layout">
+      <aside class="journey__rail" aria-label="Journeys">
+        @for (j of journeys(); track j.id) {
+          <button
+            type="button"
+            class="journey__rail-item"
+            [class.journey__rail-item--active]="j.id === selectedId()"
+            (click)="selectJourney(j.id)"
+          >
+            <strong>{{ j.title }}</strong>
+            <span class="muted">
+              {{ j.milestoneAmount | currency: 'USD':'symbol':'1.0-0' }}
+              @if (j.progressPct != null) {
+                · {{ j.progressPct | number: '1.0-1' }}%
+              }
+            </span>
+          </button>
+        }
+      </aside>
+
+      <section class="journey__main">
+        @if (journey(); as j) {
+          <mat-card class="journey__card">
+            <mat-card-content>
+              <div class="journey__meta">
+                <mat-form-field appearance="outline" class="journey__meta-title">
+                  <mat-label>Title</mat-label>
+                  <input matInput [(ngModel)]="metaTitle" name="metaTitle" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="journey__meta-ms">
+                  <mat-label>Milestone $</mat-label>
+                  <input matInput type="number" [(ngModel)]="metaMilestone" name="metaMilestone" min="1" />
+                </mat-form-field>
+                <button mat-flat-button color="primary" type="button" (click)="saveMeta()" [disabled]="saving()">
+                  Save
+                </button>
+              </div>
+
+              <div class="journey__kpis">
+                <div class="journey__kpi">
+                  <span class="journey__kpi-label">Milestone</span>
+                  <span class="journey__kpi-value">{{ j.milestoneAmount | currency: 'USD':'symbol':'1.0-0' }}</span>
+                </div>
+                <div class="journey__kpi">
+                  <span class="journey__kpi-label">Latest actual</span>
+                  <span class="journey__kpi-value">{{
+                    j.latestActual != null ? (j.latestActual | currency: 'USD':'symbol':'1.0-0') : '—'
+                  }}</span>
+                </div>
+                <div class="journey__kpi">
+                  <span class="journey__kpi-label">Progress</span>
+                  <span class="journey__kpi-value">{{
+                    j.progressPct != null ? (j.progressPct | number: '1.0-1') + '%' : '—'
+                  }}</span>
+                </div>
+                <div class="journey__kpi">
+                  <span class="journey__kpi-label">Periods</span>
+                  <span class="journey__kpi-value">{{ j.entryCount }}</span>
+                </div>
+              </div>
+
+              <div class="journey__chart-wrap" aria-label="Target vs actual chart">
+                @if (!chartPoints().length) {
+                  <p class="muted journey__chart-empty">Add a period below to start the graph.</p>
+                } @else {
+                  <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="journey__chart">
+                    @if (milestoneY() != null) {
+                      <line
+                        class="journey__milestone"
+                        x1="0"
+                        [attr.y1]="milestoneY()"
+                        x2="100"
+                        [attr.y2]="milestoneY()"
+                      />
+                    }
+                    @if (targetPath()) {
+                      <path class="journey__target-line" [attr.d]="targetPath()" fill="none" />
+                    }
+                    @for (seg of actualSegments(); track $index) {
+                      <path [class]="segmentClass(seg.direction)" [attr.d]="seg.d" fill="none" />
+                    }
+                    @for (p of chartPoints(); track p.entry.id) {
+                      @if (p.targetY != null) {
+                        <circle
+                          class="journey__dot journey__dot--target"
+                          [attr.cx]="p.x"
+                          [attr.cy]="p.targetY"
+                          r="1.4"
+                        >
+                          <title>
+                            Target {{ p.label }}: {{ p.entry.targetAmount }}
+                            {{ p.entry.targetNote ? ' — ' + p.entry.targetNote : '' }}
+                          </title>
+                        </circle>
+                      }
+                      @if (p.actualY != null) {
+                        <circle
+                          class="journey__dot"
+                          [ngClass]="directionClass(p.entry.direction)"
+                          [attr.cx]="p.x"
+                          [attr.cy]="p.actualY"
+                          r="1.6"
+                        >
+                          <title>
+                            Actual {{ p.label }}: {{ p.entry.actualAmount }}
+                            {{ p.entry.actualNote ? ' — ' + p.entry.actualNote : '' }}
+                          </title>
+                        </circle>
+                      }
+                    }
+                  </svg>
+                  <div class="journey__xlabels">
+                    @for (p of chartPoints(); track p.entry.id) {
+                      <span [style.left.%]="p.x">{{ p.label }}</span>
+                    }
+                  </div>
+                  <div class="journey__legend">
+                    <span><i class="journey__swatch journey__swatch--target"></i> Target</span>
+                    <span><i class="journey__swatch journey__swatch--above"></i> Actual above</span>
+                    <span><i class="journey__swatch journey__swatch--below"></i> Actual below</span>
+                    <span><i class="journey__swatch journey__swatch--milestone"></i> Milestone</span>
+                  </div>
+                }
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+          <mat-card class="journey__card">
+            <mat-card-content>
+              <h2 class="journey__section-title">
+                {{ editingEntryId ? 'Edit period' : 'Add period' }}
+              </h2>
+              <div class="journey__form">
+                <mat-form-field appearance="outline">
+                  <mat-label>Period date</mat-label>
+                  <input matInput type="date" [(ngModel)]="entryDraft.periodDate" name="periodDate" />
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Label</mat-label>
+                  <input matInput [(ngModel)]="entryDraft.periodLabel" name="periodLabel" placeholder="Q1 2026" />
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Target amount</mat-label>
+                  <input matInput type="number" [(ngModel)]="entryDraft.targetAmount" name="targetAmount" />
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Actual amount</mat-label>
+                  <input matInput type="number" [(ngModel)]="entryDraft.actualAmount" name="actualAmount" />
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="journey__notes">
+                  <mat-label>Target note</mat-label>
+                  <textarea matInput rows="2" [(ngModel)]="entryDraft.targetNote" name="targetNote"></textarea>
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="journey__notes">
+                  <mat-label>Actual note</mat-label>
+                  <textarea matInput rows="2" [(ngModel)]="entryDraft.actualNote" name="actualNote"></textarea>
+                </mat-form-field>
+              </div>
+              <div class="journey__form-actions">
+                <button mat-flat-button color="primary" type="button" (click)="saveEntry()" [disabled]="saving()">
+                  {{ editingEntryId ? 'Update period' : 'Save period' }}
+                </button>
+                @if (editingEntryId) {
+                  <button mat-button type="button" (click)="resetEntryDraft()">Cancel edit</button>
+                }
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+          <mat-card class="journey__card">
+            <mat-card-content>
+              <h2 class="journey__section-title">Periods &amp; notes</h2>
+              @if (!j.entries.length) {
+                <p class="muted">No periods yet. Enter quarterly (or any) target and actual balances above.</p>
+              } @else {
+                <div class="journey__table-wrap">
+                  <table class="journey__table">
+                    <thead>
+                      <tr>
+                        <th>Period</th>
+                        <th>Target</th>
+                        <th>Actual</th>
+                        <th>Variance</th>
+                        <th>Target note</th>
+                        <th>Actual note</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      @for (e of j.entries; track e.id) {
+                        <tr [ngClass]="directionClass(e.direction)">
+                          <td>
+                            <strong>{{ e.periodLabel || e.periodDate }}</strong>
+                            <div class="muted">{{ e.periodDate }}</div>
+                          </td>
+                          <td>{{ e.targetAmount != null ? (e.targetAmount | currency: 'USD':'symbol':'1.0-0') : '—' }}</td>
+                          <td>{{ e.actualAmount != null ? (e.actualAmount | currency: 'USD':'symbol':'1.0-0') : '—' }}</td>
+                          <td>
+                            @if (e.variance != null) {
+                              <span [class]="directionClass(e.direction)">
+                                {{ e.variance | currency: 'USD':'symbol':'1.0-0' }}
+                              </span>
+                            } @else {
+                              —
+                            }
+                          </td>
+                          <td class="journey__note-cell">{{ e.targetNote || '—' }}</td>
+                          <td class="journey__note-cell">{{ e.actualNote || '—' }}</td>
+                          <td class="journey__row-actions">
+                            <button mat-icon-button type="button" (click)="editEntry(e)" aria-label="Edit">
+                              <mat-icon>edit</mat-icon>
+                            </button>
+                            <button mat-icon-button type="button" color="warn" (click)="deleteEntry(e.id)" aria-label="Delete">
+                              <mat-icon>delete</mat-icon>
+                            </button>
+                          </td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+            </mat-card-content>
+          </mat-card>
+        }
+      </section>
+    </div>
+  }
+</div>

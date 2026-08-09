@@ -145,6 +145,15 @@ export const MARKETS_PRIMARY_NAV: NavEntry[] = [
     exact: true,
   },
   {
+    id: 'journey',
+    label: 'Journey',
+    path: '/markets/journey',
+    icon: 'route',
+    shell: 'markets-primary',
+    exact: true,
+    ariaLabel: 'Journey — road to my first million',
+  },
+  {
     id: 'history',
     label: 'History',
     path: '/markets/history',

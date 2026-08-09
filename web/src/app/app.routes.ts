@@ -17,6 +17,7 @@ import { JournalComponent } from './pages/journal/journal.component';
 import { LifePhotosComponent } from './pages/life-photos/life-photos.component';
 import { ManagementComponent } from './pages/management/management.component';
 import { MarketsOverviewComponent } from './pages/markets/markets-overview/markets-overview.component';
+import { MarketsJourneyComponent } from './pages/markets/markets-journey/markets-journey.component';
 import { TrackerNotesComponent } from './pages/tracker-notes/tracker-notes.component';
 import { ReportsComponent } from './pages/reports/reports.component';
 import { SettingsComponent } from './pages/settings/settings.component';
@@ -98,6 +99,7 @@ export const routes: Routes = [
         data: { workspace: 'trading', tradingSection: 'research' },
       },
       { path: 'tracker', component: TrackerNotesComponent },
+      { path: 'journey', component: MarketsJourneyComponent },
       {
         path: 'history',
         component: FinanceComponent,

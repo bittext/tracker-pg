@@ -1,0 +1,251 @@
+package com.svp.tracker.finance.service;
+
+import com.svp.tracker.auth.security.CurrentUserService;
+import com.svp.tracker.finance.domain.MarketsJourney;
+import com.svp.tracker.finance.domain.MarketsJourneyEntry;
+import com.svp.tracker.finance.dto.MarketsJourneyDto;
+import com.svp.tracker.finance.dto.MarketsJourneyEntryDto;
+import com.svp.tracker.finance.dto.MarketsJourneyEntryWriteRequest;
+import com.svp.tracker.finance.dto.MarketsJourneyWriteRequest;
+import com.svp.tracker.finance.repository.MarketsJourneyEntryRepository;
+import com.svp.tracker.finance.repository.MarketsJourneyRepository;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
+@Service
+@RequiredArgsConstructor
+public class MarketsJourneyService {
+
+    public static final String DEFAULT_TITLE = "Road to my first million";
+    public static final BigDecimal DEFAULT_MILESTONE = new BigDecimal("1000000");
+
+    private final CurrentUserService currentUser;
+    private final MarketsJourneyRepository journeyRepository;
+    private final MarketsJourneyEntryRepository entryRepository;
+
+    @Transactional
+    public List<MarketsJourneyDto> listForCurrentUser() {
+        long uid = currentUser.requireUserId();
+        ensureDefaultJourney(uid);
+        List<MarketsJourney> rows = journeyRepository.findByOwnerUserIdOrderBySortOrderAscIdAsc(uid);
+        List<MarketsJourneyDto> out = new ArrayList<>(rows.size());
+        for (MarketsJourney j : rows) {
+            out.add(toDto(j, entryRepository.findByJourneyIdAndOwnerUserIdOrderByPeriodDateAsc(j.getId(), uid), true));
+        }
+        return out;
+    }
+
+    @Transactional
+    public MarketsJourneyDto get(long id) {
+        long uid = currentUser.requireUserId();
+        MarketsJourney j = requireOwned(uid, id);
+        return toDto(j, entryRepository.findByJourneyIdAndOwnerUserIdOrderByPeriodDateAsc(j.getId(), uid), false);
+    }
+
+    @Transactional
+    public MarketsJourneyDto create(MarketsJourneyWriteRequest body) {
+        long uid = currentUser.requireUserId();
+        String title = normalizeTitle(body == null ? null : body.title());
+        if (journeyRepository.existsByOwnerUserIdAndTitleIgnoreCase(uid, title)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "A journey with that title already exists");
+        }
+        MarketsJourney j = new MarketsJourney();
+        j.setOwnerUserId(uid);
+        j.setTitle(title);
+        j.setMilestoneAmount(normalizeMilestone(body == null ? null : body.milestoneAmount()));
+        j.setSortOrder(body != null && body.sortOrder() != null ? body.sortOrder() : nextSort(uid));
+        j = journeyRepository.save(j);
+        return toDto(j, List.of(), false);
+    }
+
+    @Transactional
+    public MarketsJourneyDto update(long id, MarketsJourneyWriteRequest body) {
+        long uid = currentUser.requireUserId();
+        MarketsJourney j = requireOwned(uid, id);
+        if (body != null) {
+            if (body.title() != null && !body.title().isBlank()) {
+                String title = normalizeTitle(body.title());
+                if (!title.equalsIgnoreCase(j.getTitle())
+                        && journeyRepository.existsByOwnerUserIdAndTitleIgnoreCase(uid, title)) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "A journey with that title already exists");
+                }
+                j.setTitle(title);
+            }
+            if (body.milestoneAmount() != null) {
+                j.setMilestoneAmount(normalizeMilestone(body.milestoneAmount()));
+            }
+            if (body.sortOrder() != null) {
+                j.setSortOrder(body.sortOrder());
+            }
+        }
+        j = journeyRepository.save(j);
+        return toDto(j, entryRepository.findByJourneyIdAndOwnerUserIdOrderByPeriodDateAsc(j.getId(), uid), false);
+    }
+
+    @Transactional
+    public void delete(long id) {
+        long uid = currentUser.requireUserId();
+        MarketsJourney j = requireOwned(uid, id);
+        entryRepository.deleteByJourneyIdAndOwnerUserId(j.getId(), uid);
+        journeyRepository.delete(j);
+    }
+
+    @Transactional
+    public MarketsJourneyEntryDto upsertEntry(long journeyId, MarketsJourneyEntryWriteRequest body) {
+        long uid = currentUser.requireUserId();
+        MarketsJourney j = requireOwned(uid, journeyId);
+        if (body == null || body.periodDate() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "periodDate is required");
+        }
+        MarketsJourneyEntry row = entryRepository
+                .findByJourneyIdAndOwnerUserIdAndPeriodDate(j.getId(), uid, body.periodDate())
+                .orElseGet(() -> {
+                    MarketsJourneyEntry created = new MarketsJourneyEntry();
+                    created.setJourney(j);
+                    created.setOwnerUserId(uid);
+                    created.setPeriodDate(body.periodDate());
+                    return created;
+                });
+        row.setPeriodLabel(body.periodLabel() == null ? "" : body.periodLabel().trim());
+        row.setTargetAmount(body.targetAmount());
+        row.setActualAmount(body.actualAmount());
+        row.setTargetNote(trimToNull(body.targetNote()));
+        row.setActualNote(trimToNull(body.actualNote()));
+        j.setUpdatedAt(java.time.Instant.now());
+        journeyRepository.save(j);
+        return toEntryDto(entryRepository.save(row));
+    }
+
+    @Transactional
+    public void deleteEntry(long journeyId, long entryId) {
+        long uid = currentUser.requireUserId();
+        requireOwned(uid, journeyId);
+        MarketsJourneyEntry row = entryRepository
+                .findByIdAndOwnerUserId(entryId, uid)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Entry not found"));
+        if (row.getJourney() == null || !row.getJourney().getId().equals(journeyId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Entry not found");
+        }
+        entryRepository.delete(row);
+    }
+
+    private void ensureDefaultJourney(long uid) {
+        List<MarketsJourney> existing = journeyRepository.findByOwnerUserIdOrderBySortOrderAscIdAsc(uid);
+        if (!existing.isEmpty()) {
+            return;
+        }
+        MarketsJourney j = new MarketsJourney();
+        j.setOwnerUserId(uid);
+        j.setTitle(DEFAULT_TITLE);
+        j.setMilestoneAmount(DEFAULT_MILESTONE);
+        j.setSortOrder(0);
+        journeyRepository.save(j);
+    }
+
+    private MarketsJourney requireOwned(long uid, long id) {
+        return journeyRepository
+                .findByIdAndOwnerUserId(id, uid)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Journey not found"));
+    }
+
+    private int nextSort(long uid) {
+        return journeyRepository.findByOwnerUserIdOrderBySortOrderAscIdAsc(uid).stream()
+                .mapToInt(MarketsJourney::getSortOrder)
+                .max()
+                .orElse(-1)
+                + 1;
+    }
+
+    private MarketsJourneyDto toDto(MarketsJourney j, List<MarketsJourneyEntry> entries, boolean summaryOnly) {
+        List<MarketsJourneyEntryDto> entryDtos =
+                summaryOnly ? List.of() : entries.stream().map(this::toEntryDto).toList();
+        BigDecimal latestActual = null;
+        for (int i = entries.size() - 1; i >= 0; i--) {
+            BigDecimal a = entries.get(i).getActualAmount();
+            if (a != null) {
+                latestActual = a;
+                break;
+            }
+        }
+        BigDecimal progressPct = null;
+        if (latestActual != null && j.getMilestoneAmount() != null && j.getMilestoneAmount().signum() > 0) {
+            progressPct = latestActual
+                    .multiply(BigDecimal.valueOf(100))
+                    .divide(j.getMilestoneAmount(), 1, RoundingMode.HALF_UP);
+        }
+        return new MarketsJourneyDto(
+                j.getId(),
+                j.getTitle(),
+                j.getMilestoneAmount(),
+                j.getSortOrder(),
+                entries.size(),
+                latestActual,
+                progressPct,
+                entryDtos,
+                j.getCreatedAt(),
+                j.getUpdatedAt());
+    }
+
+    private MarketsJourneyEntryDto toEntryDto(MarketsJourneyEntry row) {
+        BigDecimal target = row.getTargetAmount();
+        BigDecimal actual = row.getActualAmount();
+        BigDecimal variance = null;
+        String direction = "UNKNOWN";
+        if (target != null && actual != null) {
+            variance = actual.subtract(target);
+            int cmp = variance.compareTo(BigDecimal.ZERO);
+            if (cmp > 0) {
+                direction = "ABOVE";
+            } else if (cmp < 0) {
+                direction = "BELOW";
+            } else {
+                direction = "ON";
+            }
+        }
+        return new MarketsJourneyEntryDto(
+                row.getId(),
+                row.getPeriodDate(),
+                row.getPeriodLabel() == null ? "" : row.getPeriodLabel(),
+                target,
+                actual,
+                row.getTargetNote() == null ? "" : row.getTargetNote(),
+                row.getActualNote() == null ? "" : row.getActualNote(),
+                variance,
+                direction,
+                row.getCreatedAt(),
+                row.getUpdatedAt());
+    }
+
+    private static String normalizeTitle(String title) {
+        if (title == null || title.isBlank()) {
+            return DEFAULT_TITLE;
+        }
+        String t = title.trim();
+        if (t.length() > 200) {
+            t = t.substring(0, 200);
+        }
+        return t;
+    }
+
+    private static BigDecimal normalizeMilestone(BigDecimal amount) {
+        if (amount == null || amount.signum() <= 0) {
+            return DEFAULT_MILESTONE;
+        }
+        return amount.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private static String trimToNull(String s) {
+        if (s == null) {
+            return null;
+        }
+        String t = s.trim();
+        return t.isEmpty() ? null : t;
+    }
+}
