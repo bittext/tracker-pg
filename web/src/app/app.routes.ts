@@ -18,6 +18,7 @@ import { LifePhotosComponent } from './pages/life-photos/life-photos.component';
 import { ManagementComponent } from './pages/management/management.component';
 import { MarketsOverviewComponent } from './pages/markets/markets-overview/markets-overview.component';
 import { MarketsJourneyComponent } from './pages/markets/markets-journey/markets-journey.component';
+import { MarketsTradeInterestComponent } from './pages/markets/markets-trade-interest/markets-trade-interest.component';
 import { TrackerNotesComponent } from './pages/tracker-notes/tracker-notes.component';
 import { ReportsComponent } from './pages/reports/reports.component';
 import { SettingsComponent } from './pages/settings/settings.component';
@@ -93,6 +94,7 @@ export const routes: Routes = [
         component: FinanceComponent,
         data: { workspace: 'trading', tradingSection: 'trade' },
       },
+      { path: 'interest', component: MarketsTradeInterestComponent },
       {
         path: 'research',
         component: FinanceComponent,

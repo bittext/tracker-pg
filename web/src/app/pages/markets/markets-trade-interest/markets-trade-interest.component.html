@@ -1,0 +1,182 @@
+<div class="ti">
+  <header class="ti__head">
+    <div>
+      <h1 class="ti__title">Interest</h1>
+      <p class="muted ti__lead">
+        Stocks and options you plan to pursue — capture when you intended to enter, the underlying price at that
+        moment, and for contracts the target premium plus expiry.
+      </p>
+    </div>
+  </header>
+
+  <section class="ti__form" aria-label="Add or edit interest">
+    <h2 class="ti__form-title">{{ editingId != null ? 'Edit interest' : 'Add interest' }}</h2>
+    <div class="ti__form-row">
+      <mat-form-field appearance="outline">
+        <mat-label>Type</mat-label>
+        <mat-select [(ngModel)]="form.instrumentKind" name="tiKind" (selectionChange)="onKindChange()">
+          <mat-option value="STOCK">Stock</mat-option>
+          <mat-option value="OPTION">Option</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="ti__symbol">
+        <mat-label>Symbol</mat-label>
+        <input matInput [(ngModel)]="form.symbol" name="tiSymbol" placeholder="e.g. NBIS" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="ti__planned">
+        <mat-label>Planned date &amp; time</mat-label>
+        <input matInput type="datetime-local" [(ngModel)]="plannedAtLocal" name="tiPlanned" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Underlying stock cost</mat-label>
+        <input
+          matInput
+          type="number"
+          min="0.0001"
+          step="0.01"
+          [(ngModel)]="form.underlyingPrice"
+          name="tiUnderlying"
+        />
+      </mat-form-field>
+
+      @if (isOption) {
+        <mat-form-field appearance="outline">
+          <mat-label>Contract target cost</mat-label>
+          <input
+            matInput
+            type="number"
+            min="0.0001"
+            step="0.01"
+            [(ngModel)]="form.contractTargetPrice"
+            name="tiContract"
+          />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Expiry date</mat-label>
+          <input matInput type="date" [(ngModel)]="form.expiryDate" name="tiExpiry" />
+        </mat-form-field>
+      }
+
+      <mat-form-field appearance="outline">
+        <mat-label>Status</mat-label>
+        <mat-select [(ngModel)]="form.status" name="tiStatus">
+          <mat-option value="OPEN">Open</mat-option>
+          <mat-option value="TAKEN">Taken</mat-option>
+          <mat-option value="PASSED">Passed</mat-option>
+          <mat-option value="EXPIRED">Expired</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="ti__note">
+        <mat-label>Note</mat-label>
+        <input matInput [(ngModel)]="form.note" name="tiNote" placeholder="Optional context" />
+      </mat-form-field>
+    </div>
+    <div class="ti__form-actions">
+      <button mat-flat-button color="primary" type="button" (click)="save()" [disabled]="saving">
+        {{ editingId != null ? 'Update' : 'Add' }}
+      </button>
+      @if (editingId != null) {
+        <button mat-stroked-button type="button" (click)="cancelEdit()" [disabled]="saving">Cancel</button>
+      }
+    </div>
+  </section>
+
+  <div class="ti__toolbar">
+    <mat-form-field appearance="outline" class="ti__filter">
+      <mat-label>Show</mat-label>
+      <mat-select [(ngModel)]="statusFilter" name="tiFilter" (selectionChange)="refresh()">
+        <mat-option value="OPEN">Open</mat-option>
+        <mat-option value="TAKEN">Taken</mat-option>
+        <mat-option value="PASSED">Passed</mat-option>
+        <mat-option value="EXPIRED">Expired</mat-option>
+        <mat-option value="ALL">All</mat-option>
+      </mat-select>
+    </mat-form-field>
+    <button mat-stroked-button type="button" (click)="refresh()" [disabled]="loading">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+  </div>
+
+  <div class="ti__list">
+    @if (loading) {
+      <p class="muted">Loading…</p>
+    } @else if (!rows.length) {
+      <p class="muted">No interests in this filter. Add a stock or option plan above.</p>
+    } @else {
+      <table mat-table [dataSource]="rows" class="ti__table">
+        <ng-container matColumnDef="plannedAt">
+          <th mat-header-cell *matHeaderCellDef>Planned</th>
+          <td mat-cell *matCellDef="let row">{{ row.plannedAt | date: 'medium' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="kind">
+          <th mat-header-cell *matHeaderCellDef>Type</th>
+          <td mat-cell *matCellDef="let row">
+            <span class="ti__pill" [class.ti__pill--opt]="row.instrumentKind === 'OPTION'">
+              {{ row.instrumentKind === 'OPTION' ? 'Option' : 'Stock' }}
+            </span>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="symbol">
+          <th mat-header-cell *matHeaderCellDef>Symbol</th>
+          <td mat-cell *matCellDef="let row"><strong>{{ row.symbol }}</strong></td>
+        </ng-container>
+        <ng-container matColumnDef="underlying">
+          <th mat-header-cell *matHeaderCellDef>Underlying</th>
+          <td mat-cell *matCellDef="let row">{{ row.underlyingPrice | currency }}</td>
+        </ng-container>
+        <ng-container matColumnDef="contract">
+          <th mat-header-cell *matHeaderCellDef>Contract</th>
+          <td mat-cell *matCellDef="let row">
+            {{ row.contractTargetPrice != null ? (row.contractTargetPrice | currency) : '—' }}
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="expiry">
+          <th mat-header-cell *matHeaderCellDef>Expiry</th>
+          <td mat-cell *matCellDef="let row">
+            {{ row.expiryDate ? (row.expiryDate | date: 'mediumDate') : '—' }}
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef>Status</th>
+          <td mat-cell *matCellDef="let row">
+            <span
+              class="ti__status"
+              [class.ti__status--open]="row.status === 'OPEN'"
+              [class.ti__status--taken]="row.status === 'TAKEN'"
+              [class.ti__status--passed]="row.status === 'PASSED' || row.status === 'EXPIRED'"
+            >
+              {{ row.status }}
+            </span>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="note">
+          <th mat-header-cell *matHeaderCellDef>Note</th>
+          <td mat-cell *matCellDef="let row">{{ row.note || '—' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef></th>
+          <td mat-cell *matCellDef="let row" class="ti__actions">
+            @if (row.status === 'OPEN') {
+              <button mat-button type="button" (click)="markStatus(row, 'TAKEN')" matTooltip="Mark taken">Taken</button>
+              <button mat-button type="button" (click)="markStatus(row, 'PASSED')" matTooltip="Mark passed">Passed</button>
+            }
+            <button mat-icon-button type="button" (click)="startEdit(row)" matTooltip="Edit" aria-label="Edit">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button mat-icon-button type="button" color="warn" (click)="remove(row)" matTooltip="Delete" aria-label="Delete">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+      </table>
+    }
+  </div>
+</div>

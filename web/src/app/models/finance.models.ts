@@ -2288,3 +2288,152 @@ export interface FinvizEliteWatchResultDto {
   addedOrUpdated: number;
   symbols: string[];
 }
+
+/** GET /api/finance/robinhood/cash-io */
+export interface RobinhoodCashIoAccountDto {
+  suffix: string;
+  label: string;
+  role: string;
+}
+
+export interface RobinhoodCashIoEntryDto {
+  id: number;
+  accountSuffix: string;
+  accountLabel: string;
+  activityDate: string;
+  direction: 'IN' | 'OUT' | string;
+  amount: number;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RobinhoodCashIoRequestDto {
+  accountSuffix: string;
+  activityDate: string;
+  direction: 'IN' | 'OUT';
+  amount: number;
+  note?: string | null;
+}
+
+export interface RobinhoodCashIoLedgerDto {
+  year: number;
+  month: number | null;
+  accountSuffix: string | null;
+  fromDate: string;
+  toDate: string;
+  totalIn: number;
+  totalOut: number;
+  net: number;
+  entries: RobinhoodCashIoEntryDto[];
+}
+
+export interface RobinhoodCashIoCalendarDayDto {
+  date: string;
+  totalIn: number;
+  totalOut: number;
+  net: number;
+  entryCount: number;
+}
+
+export interface RobinhoodCashIoCalendarDto {
+  year: number;
+  month: number | null;
+  accountSuffix: string | null;
+  totalIn: number;
+  totalOut: number;
+  net: number;
+  days: RobinhoodCashIoCalendarDayDto[];
+}
+
+/** GET /api/finance/robinhood/selective-trades */
+export interface RobinhoodSelectiveTradeEntryDto {
+  id: number;
+  activityDate: string;
+  symbol: string | null;
+  outcome: 'WORKED' | 'DIDNT' | 'MIXED' | string;
+  note: string | null;
+  accountSuffix: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RobinhoodSelectiveTradeRequestDto {
+  activityDate: string;
+  symbol?: string | null;
+  outcome: 'WORKED' | 'DIDNT' | 'MIXED';
+  note?: string | null;
+  accountSuffix?: string | null;
+}
+
+export interface RobinhoodSelectiveTradeStatsDto {
+  total: number;
+  worked: number;
+  didnt: number;
+  mixed: number;
+  successRate: number | null;
+  distinctDays: number;
+  avgPerActiveDay: number;
+  avgPerMonthInPeriod: number;
+}
+
+export interface RobinhoodSelectiveTradeLedgerDto {
+  year: number;
+  month: number | null;
+  fromDate: string;
+  toDate: string;
+  stats: RobinhoodSelectiveTradeStatsDto;
+  entries: RobinhoodSelectiveTradeEntryDto[];
+}
+
+export interface RobinhoodSelectiveTradeCalendarDayDto {
+  date: string;
+  entryCount: number;
+  worked: number;
+  didnt: number;
+  mixed: number;
+}
+
+export interface RobinhoodSelectiveTradeCalendarDto {
+  year: number;
+  month: number | null;
+  stats: RobinhoodSelectiveTradeStatsDto;
+  days: RobinhoodSelectiveTradeCalendarDayDto[];
+}
+
+export interface RobinhoodSelectiveTradeAiInsightDto {
+  periodLabel: string;
+  model: string;
+  summary: string;
+  trends: string[];
+  frequencyNotes: string[];
+  improvements: string[];
+  nextActions: string[];
+  stats: RobinhoodSelectiveTradeStatsDto;
+}
+
+/** GET /api/finance/robinhood/trade-interests */
+export interface RobinhoodTradeInterestDto {
+  id: number;
+  instrumentKind: 'STOCK' | 'OPTION' | string;
+  symbol: string;
+  plannedAt: string;
+  underlyingPrice: number;
+  contractTargetPrice: number | null;
+  expiryDate: string | null;
+  note: string | null;
+  status: 'OPEN' | 'TAKEN' | 'PASSED' | 'EXPIRED' | string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RobinhoodTradeInterestRequestDto {
+  instrumentKind: 'STOCK' | 'OPTION';
+  symbol: string;
+  plannedAt: string;
+  underlyingPrice: number;
+  contractTargetPrice?: number | null;
+  expiryDate?: string | null;
+  note?: string | null;
+  status?: 'OPEN' | 'TAKEN' | 'PASSED' | 'EXPIRED' | string | null;
+}

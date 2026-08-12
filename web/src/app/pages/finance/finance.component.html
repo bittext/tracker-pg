@@ -119,6 +119,25 @@
       </mat-tab>
       }
 
+      @if (showTradingTab('cash-io')) {
+      <mat-tab label="Inputs / Outputs">
+        <div class="finance-panel">
+          @if (tradingSubTabActive('cash-io')) {
+            <app-robinhood-cash-io-panel />
+          }
+        </div>
+      </mat-tab>
+      }
+
+      @if (showTradingTab('selective-trades')) {
+      <mat-tab label="Selective trades">
+        <div class="finance-panel">
+          @if (tradingSubTabActive('selective-trades')) {
+            <app-robinhood-selective-trade-panel />
+          }
+        </div>
+      </mat-tab>
+      }
 
       @if (showTradingTab('watch')) {
       <mat-tab label="Watch">

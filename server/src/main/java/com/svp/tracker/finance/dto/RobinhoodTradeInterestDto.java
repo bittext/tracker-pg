@@ -1,0 +1,18 @@
+package com.svp.tracker.finance.dto;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+
+public record RobinhoodTradeInterestDto(
+        long id,
+        String instrumentKind,
+        String symbol,
+        Instant plannedAt,
+        BigDecimal underlyingPrice,
+        BigDecimal contractTargetPrice,
+        LocalDate expiryDate,
+        String note,
+        String status,
+        Instant createdAt,
+        Instant updatedAt) {}

@@ -1,0 +1,257 @@
+<div class="cio">
+  <p class="muted cio__intro">
+    Manually log cash inputs (deposits / transfers in) and outputs (withdrawals / transfers out) for your Robinhood
+    accounts. Review by month or year in a list or calendar.
+  </p>
+
+  <div class="cio__toolbar">
+    <mat-button-toggle-group
+      [value]="periodMode"
+      (change)="onPeriodModeChange($event.value)"
+      name="cioPeriod"
+      aria-label="Period"
+    >
+      <mat-button-toggle value="month">Month</mat-button-toggle>
+      <mat-button-toggle value="year">Year</mat-button-toggle>
+    </mat-button-toggle-group>
+
+    <mat-button-toggle-group [(ngModel)]="viewMode" name="cioView" aria-label="View">
+      <mat-button-toggle value="list">List</mat-button-toggle>
+      <mat-button-toggle value="calendar">Calendar</mat-button-toggle>
+    </mat-button-toggle-group>
+
+    <mat-form-field appearance="outline" class="cio__year">
+      <mat-label>Year</mat-label>
+      <mat-select [(ngModel)]="year" name="cioYear" (selectionChange)="onFiltersChange()">
+        @for (y of yearOptions; track y) {
+          <mat-option [value]="y">{{ y }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    @if (periodMode === 'month') {
+      <mat-form-field appearance="outline" class="cio__month">
+        <mat-label>Month</mat-label>
+        <mat-select [(ngModel)]="month" name="cioMonth" (selectionChange)="onFiltersChange()">
+          @for (m of monthOptions; track m.value) {
+            <mat-option [value]="m.value">{{ m.label }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+    }
+
+    <mat-form-field appearance="outline" class="cio__account">
+      <mat-label>Account</mat-label>
+      <mat-select [(ngModel)]="accountSuffix" name="cioAccountFilter" (selectionChange)="onFiltersChange()">
+        <mat-option value="">All accounts</mat-option>
+        @for (a of accounts; track a.suffix) {
+          <mat-option [value]="a.suffix">{{ a.label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <button mat-stroked-button type="button" (click)="refresh()" [disabled]="loading">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+  </div>
+
+  <div class="cio__totals" aria-live="polite">
+    <div class="cio__total cio__total--in">
+      <span class="cio__total-label">Inputs</span>
+      <strong>{{ totalIn | currency }}</strong>
+    </div>
+    <div class="cio__total cio__total--out">
+      <span class="cio__total-label">Outputs</span>
+      <strong>{{ totalOut | currency }}</strong>
+    </div>
+    <div class="cio__total" [class.cio__total--net-pos]="net >= 0" [class.cio__total--net-neg]="net < 0">
+      <span class="cio__total-label">Net</span>
+      <strong>{{ net | currency }}</strong>
+    </div>
+  </div>
+
+  <section class="cio__form" aria-label="Add or edit entry">
+    <h3 class="cio__form-title">{{ editingId != null ? 'Edit entry' : 'Add entry' }}</h3>
+    <div class="cio__form-row">
+      <mat-form-field appearance="outline">
+        <mat-label>Account</mat-label>
+        <mat-select [(ngModel)]="form.accountSuffix" name="cioFormAccount" [disabled]="!!customSuffix">
+          @for (a of accounts; track a.suffix) {
+            <mat-option [value]="a.suffix">{{ a.label }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="cio__custom-suffix">
+        <mat-label>Or last 4 digits</mat-label>
+        <input matInput [(ngModel)]="customSuffix" name="cioCustomSuffix" maxlength="8" inputmode="numeric" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Date</mat-label>
+        <input matInput type="date" [(ngModel)]="form.activityDate" name="cioFormDate" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Type</mat-label>
+        <mat-select [(ngModel)]="form.direction" name="cioFormDir">
+          <mat-option value="IN">Input (in)</mat-option>
+          <mat-option value="OUT">Output (out)</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Amount</mat-label>
+        <input matInput type="number" min="0.01" step="0.01" [(ngModel)]="form.amount" name="cioFormAmount" />
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="cio__note">
+        <mat-label>Note</mat-label>
+        <input matInput [(ngModel)]="form.note" name="cioFormNote" />
+      </mat-form-field>
+    </div>
+    <div class="cio__form-actions">
+      <button mat-flat-button color="primary" type="button" (click)="save()" [disabled]="saving">
+        {{ editingId != null ? 'Update' : 'Add' }}
+      </button>
+      @if (editingId != null) {
+        <button mat-stroked-button type="button" (click)="cancelEdit()" [disabled]="saving">Cancel</button>
+      }
+    </div>
+  </section>
+
+  @if (selectedDate) {
+    <p class="cio__day-filter">
+      Showing {{ selectedDate | date: 'mediumDate' }}
+      <button mat-button type="button" (click)="clearDayFilter()">Clear day filter</button>
+    </p>
+  }
+
+  @if (viewMode === 'calendar') {
+    @if (periodMode === 'month') {
+      <div class="cio__cal" aria-label="Month calendar">
+        <div class="cio__cal-title">{{ calendarTitle }}</div>
+        <div class="cio__cal-weekdays">
+          @for (wd of weekDays; track wd) {
+            <span class="cio__cal-weekday">{{ wd }}</span>
+          }
+        </div>
+        @for (row of monthCalendarRows; track $index) {
+          <div class="cio__cal-week">
+            @for (cell of row; track cell.trackKey) {
+              @if (cell.type === 'pad') {
+                <div class="cio__cal-day cio__cal-day--pad" aria-hidden="true"></div>
+              } @else {
+                <button
+                  type="button"
+                  class="cio__cal-day"
+                  [class.cio__cal-day--in]="cell.tone === 'in'"
+                  [class.cio__cal-day--out]="cell.tone === 'out'"
+                  [class.cio__cal-day--mixed]="cell.tone === 'mixed'"
+                  [class.cio__cal-day--selected]="cell.isSelected"
+                  [class.cio__cal-day--today]="cell.isToday"
+                  [style.--cio-heat]="cell.heat + '%'"
+                  [matTooltip]="cell.tooltip"
+                  (click)="selectDay(cell.date!)"
+                >
+                  <span class="cio__cal-num">{{ cell.label }}</span>
+                  @if (cell.dayMeta && cell.dayMeta.entryCount > 0) {
+                    <span class="cio__cal-amt">{{ cell.dayMeta.net | currency: 'USD': 'symbol': '1.0-0' }}</span>
+                  }
+                </button>
+              }
+            }
+          </div>
+        }
+      </div>
+    } @else {
+      <div class="cio__year-grid" aria-label="Year calendars">
+        @for (m of yearMonths(); track m) {
+          <div class="cio__cal cio__cal--mini">
+            <div class="cio__cal-title">{{ monthLabel(m) }}</div>
+            <div class="cio__cal-weekdays">
+              @for (wd of weekDays; track wd) {
+                <span class="cio__cal-weekday">{{ wd.charAt(0) }}</span>
+              }
+            </div>
+            @for (row of calendarRowsFor(m); track $index) {
+              <div class="cio__cal-week">
+                @for (cell of row; track cell.trackKey) {
+                  @if (cell.type === 'pad') {
+                    <div class="cio__cal-day cio__cal-day--pad" aria-hidden="true"></div>
+                  } @else {
+                    <button
+                      type="button"
+                      class="cio__cal-day"
+                      [class.cio__cal-day--in]="cell.tone === 'in'"
+                      [class.cio__cal-day--out]="cell.tone === 'out'"
+                      [class.cio__cal-day--mixed]="cell.tone === 'mixed'"
+                      [class.cio__cal-day--selected]="cell.isSelected"
+                      [class.cio__cal-day--today]="cell.isToday"
+                      [style.--cio-heat]="cell.heat + '%'"
+                      [matTooltip]="cell.tooltip"
+                      (click)="selectDay(cell.date!)"
+                    >
+                      <span class="cio__cal-num">{{ cell.label }}</span>
+                    </button>
+                  }
+                }
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
+  }
+
+  <div class="cio__list">
+    @if (loading) {
+      <p class="muted">Loading…</p>
+    } @else if (!filteredEntries().length) {
+      <p class="muted">No inputs or outputs in this period.</p>
+    } @else {
+      <table mat-table [dataSource]="filteredEntries()" class="cio__table">
+        <ng-container matColumnDef="date">
+          <th mat-header-cell *matHeaderCellDef>Date</th>
+          <td mat-cell *matCellDef="let row">{{ row.activityDate | date: 'mediumDate' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="account">
+          <th mat-header-cell *matHeaderCellDef>Account</th>
+          <td mat-cell *matCellDef="let row">{{ row.accountLabel }}</td>
+        </ng-container>
+        <ng-container matColumnDef="direction">
+          <th mat-header-cell *matHeaderCellDef>Type</th>
+          <td mat-cell *matCellDef="let row">
+            <span class="cio__pill" [class.cio__pill--in]="row.direction === 'IN'" [class.cio__pill--out]="row.direction === 'OUT'">
+              {{ row.direction === 'OUT' ? 'Output' : 'Input' }}
+            </span>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="amount">
+          <th mat-header-cell *matHeaderCellDef>Amount</th>
+          <td mat-cell *matCellDef="let row" [class.cio__amt--in]="row.direction === 'IN'" [class.cio__amt--out]="row.direction === 'OUT'">
+            {{ row.amount | currency }}
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="note">
+          <th mat-header-cell *matHeaderCellDef>Note</th>
+          <td mat-cell *matCellDef="let row">{{ row.note || '—' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef></th>
+          <td mat-cell *matCellDef="let row">
+            <button mat-icon-button type="button" (click)="startEdit(row)" matTooltip="Edit" aria-label="Edit">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button mat-icon-button type="button" color="warn" (click)="remove(row)" matTooltip="Delete" aria-label="Delete">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+      </table>
+    }
+  </div>
+</div>

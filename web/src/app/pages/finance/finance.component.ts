@@ -35,6 +35,8 @@ import { FinanceTax1040PanelComponent } from './finance-tax-1040-panel/finance-t
 import { MarketOverviewPanelComponent } from './market-overview-panel/market-overview-panel.component';
 import { PredictsPanelComponent } from './predicts-panel/predicts-panel.component';
 import { RobinhoodTradingPanelComponent } from './robinhood-trading-panel/robinhood-trading-panel.component';
+import { RobinhoodCashIoPanelComponent } from './robinhood-cash-io-panel/robinhood-cash-io-panel.component';
+import { RobinhoodSelectiveTradePanelComponent } from './robinhood-selective-trade-panel/robinhood-selective-trade-panel.component';
 import { TradingScreenersPanelComponent } from './trading-screeners-panel/trading-screeners-panel.component';
 import { OptionsBacktestPanelComponent } from './options-backtest-panel/options-backtest-panel.component';
 import { InvestmentThenNowPanelComponent } from './investment-then-now-panel/investment-then-now-panel.component';
@@ -52,6 +54,8 @@ type FinanceWorkspace = 'all' | 'money' | 'trading';
 type TradingSection = 'trade' | 'research' | 'history' | 'alerts' | 'all';
 type TradingTabId =
   | 'robinhood'
+  | 'cash-io'
+  | 'selective-trades'
   | 'watch'
   | 'news'
   | 'crawler'
@@ -97,6 +101,8 @@ type FinanceCategory =
     MarketOverviewPanelComponent,
     PredictsPanelComponent,
     RobinhoodTradingPanelComponent,
+    RobinhoodCashIoPanelComponent,
+    RobinhoodSelectiveTradePanelComponent,
     TradingScreenersPanelComponent,
     OptionsBacktestPanelComponent,
     InvestmentThenNowPanelComponent,
@@ -306,7 +312,7 @@ export class FinanceComponent implements OnInit {
   get visibleTradingTabs(): TradingTabId[] {
     switch (this.tradingSection) {
       case 'trade':
-        return ['robinhood'];
+        return ['robinhood', 'cash-io', 'selective-trades'];
       case 'research':
         return ['watch', 'news', 'crawler', 'screeners', 'finviz', 'ai-factory', 'predicts', 'backtest', 'then-now'];
       case 'history':
@@ -316,6 +322,8 @@ export class FinanceComponent implements OnInit {
       default:
         return [
           'robinhood',
+          'cash-io',
+          'selective-trades',
           'watch',
           'news',
           'crawler',
@@ -362,7 +370,7 @@ export class FinanceComponent implements OnInit {
     if (this.isTradingWorkspace) {
       switch (this.tradingSection) {
         case 'trade':
-          return 'Robinhood execution — sync, positions, orders, and auto-trade.';
+          return 'Robinhood execution, cash inputs/outputs, and selective trade notes with AI review.';
         case 'research':
           return 'Watch companies into earnings, plus news, crawler, screeners, predicts, options backtest, and then & now.';
         case 'history':
