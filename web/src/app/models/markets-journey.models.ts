@@ -41,3 +41,38 @@ export interface MarketsJourneyEntryWriteRequest {
   targetNote?: string | null;
   actualNote?: string | null;
 }
+
+/** GET /api/markets/roadmap/slap-points */
+export interface MarketsRoadmapSlapSeriesPointDto {
+  date: string;
+  totalAccountValue: number;
+}
+
+export interface MarketsRoadmapSlapCrossingDto {
+  threshold: number;
+  crossedOn: string;
+  totalOnDay: number;
+  priorTotal: number | null;
+}
+
+export interface MarketsRoadmapSlapCashNoteDto {
+  id: number;
+  activityDate: string;
+  direction: 'IN' | 'OUT' | string;
+  amount: number;
+  note: string | null;
+}
+
+export interface MarketsRoadmapSlapPointsDto {
+  accountSuffix: string;
+  accountLabel: string;
+  stepAmount: number;
+  latestTotal: number | null;
+  latestDate: string | null;
+  fromDate: string | null;
+  toDate: string | null;
+  series: MarketsRoadmapSlapSeriesPointDto[];
+  guideLevels: number[];
+  crossings: MarketsRoadmapSlapCrossingDto[];
+  cashNotes: MarketsRoadmapSlapCashNoteDto[];
+}

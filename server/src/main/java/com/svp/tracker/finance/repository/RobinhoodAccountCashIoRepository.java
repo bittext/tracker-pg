@@ -16,4 +16,7 @@ public interface RobinhoodAccountCashIoRepository extends JpaRepository<Robinhoo
     List<RobinhoodAccountCashIo>
             findByOwnerUserIdAndAccountSuffixAndActivityDateBetweenOrderByActivityDateDescIdDesc(
                     long ownerUserId, String accountSuffix, LocalDate fromInclusive, LocalDate toInclusive);
+
+    List<RobinhoodAccountCashIo> findByOwnerUserIdAndAccountSuffixOrderByActivityDateAscIdAsc(
+            long ownerUserId, String accountSuffix);
 }

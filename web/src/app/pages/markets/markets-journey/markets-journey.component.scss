@@ -113,6 +113,22 @@
   width: 10rem;
 }
 
+.journey__tabs {
+  margin-top: 0.35rem;
+}
+
+.journey__tab-body {
+  padding-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.journey__plan-block {
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+}
+
 .journey__hero {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);

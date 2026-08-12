@@ -1,16 +1,18 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import {
   MarketsJourneyDto,
   MarketsJourneyEntryDto,
   MarketsJourneyEntryWriteRequest,
   MarketsJourneyWriteRequest,
+  MarketsRoadmapSlapPointsDto,
 } from '../models/markets-journey.models';
 
 @Injectable({ providedIn: 'root' })
 export class MarketsJourneyApiService {
   private readonly http = inject(HttpClient);
   private readonly root = '/api/markets/journeys';
+  private readonly roadmapRoot = '/api/markets/roadmap';
 
   list() {
     return this.http.get<MarketsJourneyDto[]>(this.root);
@@ -38,5 +40,12 @@ export class MarketsJourneyApiService {
 
   deleteEntry(journeyId: number, entryId: number) {
     return this.http.delete<void>(`${this.root}/${journeyId}/entries/${entryId}`);
+  }
+
+  slapPoints(accountSuffix = '3370', stepAmount = 50000) {
+    const params = new HttpParams()
+      .set('accountSuffix', accountSuffix)
+      .set('stepAmount', stepAmount);
+    return this.http.get<MarketsRoadmapSlapPointsDto>(`${this.roadmapRoot}/slap-points`, { params });
   }
 }

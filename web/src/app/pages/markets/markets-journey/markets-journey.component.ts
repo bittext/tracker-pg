@@ -9,6 +9,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTabsModule } from '@angular/material/tabs';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import {
   MarketsJourneyDto,
@@ -23,6 +24,7 @@ import {
   roadmapMilestoneY,
   roadmapTargetPath,
 } from '../../../util/markets-roadmap-chart.util';
+import { MarketsRoadmapSlapPanelComponent } from '../markets-roadmap-slap-panel/markets-roadmap-slap-panel.component';
 
 @Component({
   selector: 'app-markets-journey',
@@ -38,9 +40,11 @@ import {
     MatProgressSpinnerModule,
     MatSelectModule,
     MatSnackBarModule,
+    MatTabsModule,
     MatTooltipModule,
     CurrencyPipe,
     DecimalPipe,
+    MarketsRoadmapSlapPanelComponent,
   ],
   templateUrl: './markets-journey.component.html',
   styleUrl: './markets-journey.component.scss',

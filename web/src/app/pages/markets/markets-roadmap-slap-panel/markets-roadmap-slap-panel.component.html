@@ -1,0 +1,173 @@
+<div class="slap">
+  <p class="muted slap__intro">
+    Equity climb for {{ data()?.accountLabel || 'Individual ••••3370' }} from Daily Tracker closes. Diamonds mark
+    first crossings of each {{ data()?.stepAmount | currency: 'USD':'symbol':'1.0-0' }} step. Cash ticks are deposits
+    and withdrawals you log here (synced with Trade → Inputs / Outputs).
+  </p>
+
+  <div class="slap__toolbar">
+    <button mat-stroked-button type="button" (click)="refresh()" [disabled]="loading()">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+    @if (data(); as d) {
+      <span class="slap__kpi muted">
+        Latest
+        <strong>
+          {{ d.latestTotal != null ? (d.latestTotal | currency: 'USD':'symbol':'1.0-0') : '—' }}
+        </strong>
+        @if (d.latestDate) {
+          · {{ d.latestDate | date: 'mediumDate' }}
+        }
+        · {{ d.crossings.length }} slap{{ d.crossings.length === 1 ? '' : 's' }}
+      </span>
+    }
+  </div>
+
+  @if (loading() && !data()) {
+    <div class="slap__loading"><mat-spinner diameter="32" /></div>
+  } @else if (!data()?.series?.length) {
+    <p class="muted">No scheduled Daily Tracker snapshots for this account yet.</p>
+  } @else {
+    <div class="slap__chart-frame" aria-label="Slap points equity chart">
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="slap__svg">
+        @for (g of guideLines(); track g.value) {
+          <line class="slap__guide" x1="0" [attr.y1]="g.y" x2="100" [attr.y2]="g.y" />
+        }
+        @if (equityPath()) {
+          <path class="slap__equity" [attr.d]="equityPath()" fill="none" />
+        }
+      </svg>
+      <div class="slap__guides-labels" aria-hidden="true">
+        @for (g of guideLines(); track g.value) {
+          @if (g.y >= 2 && g.y <= 98) {
+            <span class="slap__guide-label" [style.top.%]="g.y">{{ g.label }}</span>
+          }
+        }
+      </div>
+      <div class="slap__overlays">
+        @for (m of slapMarkers(); track m.threshold) {
+          <span
+            class="slap__diamond"
+            [style.left.%]="m.x"
+            [style.top.%]="m.y"
+            [matTooltip]="m.label"
+            [attr.title]="m.label"
+          ></span>
+        }
+        @for (c of cashMarkers(); track c.id) {
+          <span
+            class="slap__cash"
+            [class.slap__cash--in]="c.direction === 'IN'"
+            [class.slap__cash--out]="c.direction === 'OUT'"
+            [style.left.%]="c.x"
+            [style.top.%]="c.y"
+            [matTooltip]="c.title"
+            [attr.title]="c.title"
+          ></span>
+        }
+      </div>
+    </div>
+
+    <div class="slap__columns">
+      <section>
+        <h3 class="slap__h">Slap crossings</h3>
+        @if (!data()!.crossings.length) {
+          <p class="muted">No $50k crossings detected yet.</p>
+        } @else {
+          <table mat-table [dataSource]="data()!.crossings" class="slap__table">
+            <ng-container matColumnDef="threshold">
+              <th mat-header-cell *matHeaderCellDef>Level</th>
+              <td mat-cell *matCellDef="let row">{{ row.threshold | currency: 'USD':'symbol':'1.0-0' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="crossedOn">
+              <th mat-header-cell *matHeaderCellDef>First crossed</th>
+              <td mat-cell *matCellDef="let row">{{ row.crossedOn | date: 'mediumDate' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="totalOnDay">
+              <th mat-header-cell *matHeaderCellDef>Equity that day</th>
+              <td mat-cell *matCellDef="let row">{{ row.totalOnDay | currency: 'USD':'symbol':'1.0-0' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="prior">
+              <th mat-header-cell *matHeaderCellDef>Prior close</th>
+              <td mat-cell *matCellDef="let row">
+                {{ row.priorTotal != null ? (row.priorTotal | currency: 'USD':'symbol':'1.0-0') : '—' }}
+              </td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="crossingCols"></tr>
+            <tr mat-row *matRowDef="let row; columns: crossingCols"></tr>
+          </table>
+        }
+      </section>
+
+      <section>
+        <h3 class="slap__h">Cash notes (••••{{ data()!.accountSuffix }})</h3>
+        <div class="slap__cash-form">
+          <mat-form-field appearance="outline">
+            <mat-label>Date</mat-label>
+            <input matInput type="date" [(ngModel)]="cashForm.activityDate" name="slapCashDate" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Type</mat-label>
+            <mat-select [(ngModel)]="cashForm.direction" name="slapCashDir">
+              <mat-option value="IN">Brought in</mat-option>
+              <mat-option value="OUT">Withdrawal</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Amount</mat-label>
+            <input matInput type="number" min="0.01" step="0.01" [(ngModel)]="cashForm.amount" name="slapCashAmt" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="slap__note">
+            <mat-label>Note</mat-label>
+            <input matInput [(ngModel)]="cashForm.note" name="slapCashNote" />
+          </mat-form-field>
+          <button mat-flat-button color="primary" type="button" (click)="saveCashNote()" [disabled]="saving()">
+            Add on diagram
+          </button>
+        </div>
+
+        @if (!data()!.cashNotes.length) {
+          <p class="muted">No cash notes yet — add deposits or withdrawals above.</p>
+        } @else {
+          <table mat-table [dataSource]="data()!.cashNotes" class="slap__table">
+            <ng-container matColumnDef="date">
+              <th mat-header-cell *matHeaderCellDef>Date</th>
+              <td mat-cell *matCellDef="let row">{{ row.activityDate | date: 'mediumDate' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="direction">
+              <th mat-header-cell *matHeaderCellDef>Type</th>
+              <td mat-cell *matCellDef="let row">
+                <span
+                  class="slap__pill"
+                  [class.slap__pill--in]="row.direction === 'IN'"
+                  [class.slap__pill--out]="row.direction === 'OUT'"
+                >
+                  {{ row.direction === 'OUT' ? 'Out' : 'In' }}
+                </span>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="amount">
+              <th mat-header-cell *matHeaderCellDef>Amount</th>
+              <td mat-cell *matCellDef="let row">{{ row.amount | currency }}</td>
+            </ng-container>
+            <ng-container matColumnDef="note">
+              <th mat-header-cell *matHeaderCellDef>Note</th>
+              <td mat-cell *matCellDef="let row">{{ row.note || '—' }}</td>
+            </ng-container>
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef></th>
+              <td mat-cell *matCellDef="let row">
+                <button mat-icon-button type="button" color="warn" (click)="deleteCashNote(row)" aria-label="Delete">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="cashCols"></tr>
+            <tr mat-row *matRowDef="let row; columns: cashCols"></tr>
+          </table>
+        }
+      </section>
+    </div>
+  }
+</div>
