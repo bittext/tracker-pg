@@ -1,12 +1,13 @@
 <div class="page-head">
   <h1 class="page-title">Exercise</h1>
   <p class="muted">
-    Green days on the month calendar had a workout. Click a day to log weight and exercise notes; history below shows
-    <strong>all logs</strong> for that day and the <strong>last {{ historyDayCount }} days</strong>.
+    Log workouts on the calendar, or mark 50 consecutive days for a short daily session and two hours of self-work.
   </p>
 </div>
 
-<div class="page-layout">
+<mat-tab-group class="ex-tabs" animationDuration="180ms" mat-stretch-tabs>
+  <mat-tab label="Log">
+    <div class="page-layout">
   <section class="hero-band" aria-label="Month calendar and selected day">
     <div class="hero-cal">
       <header class="hero-cal-head">
@@ -347,4 +348,9 @@
       </div>
     </section>
   </div>
-</div>
+    </div>
+  </mat-tab>
+  <mat-tab label="50-day streaks">
+    <app-exercise-habit-streak />
+  </mat-tab>
+</mat-tab-group>

@@ -9,9 +9,11 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
+import { MatTabsModule } from '@angular/material/tabs';
 import { BodyWeightLog, Exercise, ExerciseDayLog, MonthActivityCalendarDto } from '../../models/fitness.models';
 import { FitnessApiService } from '../../services/fitness-api.service';
 import { formatHttpErrorDetail } from '../../util/http-error';
+import { ExerciseHabitStreakComponent } from './exercise-habit-streak.component';
 
 interface ExCalCell {
   type: 'pad' | 'day';
@@ -35,6 +37,8 @@ interface ExCalCell {
     MatSelectModule,
     MatIconModule,
     MatSnackBarModule,
+    MatTabsModule,
+    ExerciseHabitStreakComponent,
   ],
   templateUrl: './exercise.component.html',
   styleUrl: './exercise.component.scss',

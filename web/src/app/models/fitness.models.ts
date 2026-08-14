@@ -82,3 +82,28 @@ export interface MonthActivityCalendarDto {
   /** yyyy-MM-dd -> body weight in kg for that day. */
   bodyWeightKgByDay?: Record<string, number>;
 }
+
+/** GET /api/fitness/habit-streaks */
+export interface FitnessHabitStreakDayDto {
+  dayIndex: number;
+  date: string;
+  completed: boolean;
+  today: boolean;
+  future: boolean;
+}
+
+export interface FitnessHabitStreakHabitDto {
+  kind: string;
+  title: string;
+  subtitle: string;
+  completedCount: number;
+  days: FitnessHabitStreakDayDto[];
+}
+
+export interface FitnessHabitStreakBoardDto {
+  startDate: string;
+  endDate: string;
+  dayCount: number;
+  today: string;
+  habits: FitnessHabitStreakHabitDto[];
+}

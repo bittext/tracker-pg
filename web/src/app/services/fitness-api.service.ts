@@ -6,6 +6,7 @@ import {
   DailyExerciseReportDto,
   Exercise,
   ExerciseDayLog,
+  FitnessHabitStreakBoardDto,
   MonthActivityCalendarDto,
   MonthlyExerciseReportDto,
 } from '../models/fitness.models';
@@ -83,5 +84,13 @@ export class FitnessApiService {
     return this.http.get<MonthActivityCalendarDto>(`${this.root}/reports/month-calendar`, {
       params: { year: String(year), month: String(month) },
     });
+  }
+
+  habitStreaks() {
+    return this.http.get<FitnessHabitStreakBoardDto>(`${this.root}/habit-streaks`);
+  }
+
+  toggleHabitStreak(habitKind: string, date: string) {
+    return this.http.put<FitnessHabitStreakBoardDto>(`${this.root}/habit-streaks/${habitKind}/${date}`, {});
   }
 }

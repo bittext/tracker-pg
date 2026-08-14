@@ -1,0 +1,125 @@
+.streak {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 0.35rem 0 1rem;
+}
+
+.streak__intro {
+  margin: 0;
+  max-width: 46rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.streak__loading {
+  display: flex;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.streak__pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+@media (max-width: 800px) {
+  .streak__pair {
+    grid-template-columns: 1fr;
+  }
+}
+
+.streak__card {
+  padding: 0.85rem 0.9rem 1rem;
+  border: 1px solid rgba(74, 124, 89, 0.18);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #f7faf7 0%, #fff 70%);
+}
+
+.streak__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.streak__title {
+  margin: 0 0 0.2rem;
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+
+.streak__sub {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.streak__count {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+
+  strong {
+    font-size: 1.2rem;
+  }
+}
+
+.streak__grid {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 0.35rem;
+}
+
+.streak__cell {
+  aspect-ratio: 1;
+  border: 1px solid rgba(74, 124, 89, 0.22);
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  position: relative;
+  font: inherit;
+  color: inherit;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &--today {
+    outline: 2px solid #4a7c59;
+    outline-offset: 1px;
+  }
+
+  &--done {
+    background: color-mix(in srgb, #4a7c59 16%, #fff);
+    border-color: #4a7c59;
+  }
+
+  &--future {
+    opacity: 0.42;
+    cursor: default;
+    background: #f8faf8;
+  }
+
+  &:disabled {
+    cursor: default;
+  }
+}
+
+.streak__n {
+  font-size: 0.62rem;
+  font-weight: 650;
+  color: #64748b;
+  position: absolute;
+  top: 0.12rem;
+  left: 0.18rem;
+}
+
+.streak__x {
+  font-size: 1.15rem;
+  width: 1.15rem;
+  height: 1.15rem;
+  color: #1c2b22;
+}

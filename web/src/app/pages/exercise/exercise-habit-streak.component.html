@@ -1,0 +1,52 @@
+<div class="streak">
+  <p class="muted streak__intro">
+    Two 50-day runs, side by side. Tap a day to mark it with a cross. Day 1 started yesterday
+    @if (board) {
+      ({{ board.startDate | date: 'mediumDate' }} → {{ board.endDate | date: 'mediumDate' }}).
+    }
+    Future days stay locked until they arrive.
+  </p>
+
+  @if (loading && !board) {
+    <div class="streak__loading"><mat-spinner diameter="32" /></div>
+  } @else if (board) {
+    <div class="streak__pair">
+      @for (habit of board.habits; track habit.kind) {
+        <section class="streak__card">
+          <header class="streak__head">
+            <div>
+              <h2 class="streak__title">{{ habit.title }}</h2>
+              <p class="muted streak__sub">{{ habit.subtitle }}</p>
+            </div>
+            <p class="streak__count">
+              <strong>{{ habit.completedCount }}</strong>
+              <span class="muted">/ {{ board.dayCount }}</span>
+            </p>
+          </header>
+          <div class="streak__grid" role="list">
+            @for (day of habit.days; track day.date) {
+              <button
+                type="button"
+                class="streak__cell"
+                role="listitem"
+                [class.streak__cell--done]="day.completed"
+                [class.streak__cell--today]="day.today"
+                [class.streak__cell--future]="day.future"
+                [disabled]="day.future || toggling === habit.kind + ':' + day.date"
+                [matTooltip]="dayTip(day)"
+                [attr.aria-pressed]="day.completed"
+                [attr.aria-label]="habit.title + ' day ' + day.dayIndex"
+                (click)="toggle(habit, day)"
+              >
+                <span class="streak__n">{{ day.dayIndex }}</span>
+                @if (day.completed) {
+                  <mat-icon class="streak__x">close</mat-icon>
+                }
+              </button>
+            }
+          </div>
+        </section>
+      }
+    </div>
+  }
+</div>

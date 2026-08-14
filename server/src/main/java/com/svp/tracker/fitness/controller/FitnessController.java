@@ -6,8 +6,10 @@ import com.svp.tracker.fitness.domain.ExerciseDayLog;
 import com.svp.tracker.fitness.service.FitnessService;
 import com.svp.tracker.fitness.dto.BodyWeightCreateRequest;
 import com.svp.tracker.fitness.dto.DailyExerciseReportDto;
+import com.svp.tracker.fitness.dto.FitnessHabitStreakBoardDto;
 import com.svp.tracker.fitness.dto.MonthActivityCalendarDto;
 import com.svp.tracker.fitness.dto.MonthlyExerciseReportDto;
+import com.svp.tracker.fitness.service.FitnessHabitStreakService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
@@ -32,6 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class FitnessController {
 
     private final FitnessService fitnessService;
+    private final FitnessHabitStreakService habitStreakService;
 
     @GetMapping("/exercises")
     public List<Exercise> listExercises() {
@@ -127,5 +130,17 @@ public class FitnessController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteBodyWeight(@PathVariable Long id) {
         fitnessService.deleteBodyWeight(id);
+    }
+
+    @GetMapping("/habit-streaks")
+    public FitnessHabitStreakBoardDto habitStreaks() {
+        return habitStreakService.board();
+    }
+
+    @PutMapping("/habit-streaks/{habitKind}/{date}")
+    public FitnessHabitStreakBoardDto toggleHabitStreak(
+            @PathVariable String habitKind,
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return habitStreakService.toggle(habitKind, date);
     }
 }
