@@ -42,9 +42,6 @@ export class ExerciseHabitStreakComponent implements OnInit {
   }
 
   toggle(habit: FitnessHabitStreakHabitDto, day: FitnessHabitStreakDayDto): void {
-    if (day.future) {
-      return;
-    }
     const key = `${habit.kind}:${day.date}`;
     this.toggling = key;
     this.api.toggleHabitStreak(habit.kind, day.date).subscribe({
@@ -60,7 +57,7 @@ export class ExerciseHabitStreakComponent implements OnInit {
   }
 
   dayTip(day: FitnessHabitStreakDayDto): string {
-    const status = day.completed ? 'done' : day.future ? 'upcoming' : 'not marked';
+    const status = day.completed ? 'done' : 'not marked';
     return `Day ${day.dayIndex} · ${day.date} · ${status}`;
   }
 }

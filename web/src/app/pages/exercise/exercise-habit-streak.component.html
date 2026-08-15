@@ -1,10 +1,9 @@
 <div class="streak">
   <p class="muted streak__intro">
-    Two 50-day runs, side by side. Tap a day to mark it with a cross. Day 1 started yesterday
+    Two 50-day runs, side by side. Tap any day to mark it with a cross. Day 1 started yesterday
     @if (board) {
       ({{ board.startDate | date: 'mediumDate' }} → {{ board.endDate | date: 'mediumDate' }}).
     }
-    Future days stay locked until they arrive.
   </p>
 
   @if (loading && !board) {
@@ -31,8 +30,7 @@
                 role="listitem"
                 [class.streak__cell--done]="day.completed"
                 [class.streak__cell--today]="day.today"
-                [class.streak__cell--future]="day.future"
-                [disabled]="day.future || toggling === habit.kind + ':' + day.date"
+                [disabled]="toggling === habit.kind + ':' + day.date"
                 [matTooltip]="dayTip(day)"
                 [attr.aria-pressed]="day.completed"
                 [attr.aria-label]="habit.title + ' day ' + day.dayIndex"

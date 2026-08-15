@@ -49,12 +49,8 @@ public class FitnessHabitStreakService {
         FitnessHabitStreakWindow window = ensureWindow(uid);
         LocalDate start = window.getStartDate();
         LocalDate end = start.plusDays(window.getDayCount() - 1L);
-        LocalDate today = LocalDate.now(ZONE);
         if (activityDate == null || activityDate.isBefore(start) || activityDate.isAfter(end)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Date is outside the 50-day window");
-        }
-        if (activityDate.isAfter(today)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot mark a future day");
         }
         markRepository
                 .findByOwnerUserIdAndHabitKindAndActivityDate(uid, kind, activityDate)
