@@ -21,7 +21,30 @@ import { RobinhoodCashIoApiService } from '../../../services/robinhood-cash-io-a
 import { formatHttpErrorDetail } from '../../../util/http-error';
 
 type PeriodMode = 'month' | 'year';
-type ViewMode = 'list' | 'calendar';
+type ViewMode = 'list' | 'calendar' | 'picture';
+
+interface AccountBreakdown {
+  suffix: string;
+  label: string;
+  totalIn: number;
+  totalOut: number;
+  net: number;
+  count: number;
+}
+
+interface MonthBucket {
+  month: number;
+  label: string;
+  totalIn: number;
+  totalOut: number;
+  net: number;
+  count: number;
+}
+
+interface TimelineItem {
+  entry: RobinhoodCashIoEntryDto;
+  runningNet: number;
+}
 
 interface CalCell {
   trackKey: string;
@@ -243,11 +266,100 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
     }
   }
 
+  selectMonth(month: number): void {
+    this.periodMode = 'month';
+    this.month = month;
+    this.selectedDate = null;
+    this.refresh();
+  }
+
   filteredEntries(): RobinhoodCashIoEntryDto[] {
     if (!this.selectedDate) {
       return this.entries;
     }
     return this.entries.filter((e) => e.activityDate === this.selectedDate);
+  }
+
+  /** Share of cash movement that is input (0–100). */
+  get inSharePct(): number {
+    const t = this.totalIn + this.totalOut;
+    return t <= 0 ? 50 : (this.totalIn / t) * 100;
+  }
+
+  get outSharePct(): number {
+    return 100 - this.inSharePct;
+  }
+
+  accountBreakdown(): AccountBreakdown[] {
+    const map = new Map<string, AccountBreakdown>();
+    for (const e of this.filteredEntries()) {
+      const cur = map.get(e.accountSuffix) ?? {
+        suffix: e.accountSuffix,
+        label: e.accountLabel || e.accountSuffix,
+        totalIn: 0,
+        totalOut: 0,
+        net: 0,
+        count: 0,
+      };
+      if (e.direction === 'OUT') {
+        cur.totalOut += e.amount;
+      } else {
+        cur.totalIn += e.amount;
+      }
+      cur.net = cur.totalIn - cur.totalOut;
+      cur.count += 1;
+      map.set(e.accountSuffix, cur);
+    }
+    return [...map.values()].sort((a, b) => Math.abs(b.net) - Math.abs(a.net) || b.count - a.count);
+  }
+
+  monthBuckets(): MonthBucket[] {
+    const buckets = this.monthOptions.map((m) => ({
+      month: m.value,
+      label: m.label.slice(0, 3),
+      totalIn: 0,
+      totalOut: 0,
+      net: 0,
+      count: 0,
+    }));
+    for (const e of this.filteredEntries()) {
+      const mo = Number(e.activityDate.slice(5, 7));
+      if (mo < 1 || mo > 12) {
+        continue;
+      }
+      const b = buckets[mo - 1];
+      if (e.direction === 'OUT') {
+        b.totalOut += e.amount;
+      } else {
+        b.totalIn += e.amount;
+      }
+      b.net = b.totalIn - b.totalOut;
+      b.count += 1;
+    }
+    return buckets;
+  }
+
+  monthBarMax(): number {
+    return Math.max(1, ...this.monthBuckets().map((b) => b.totalIn + b.totalOut));
+  }
+
+  accountBarMax(): number {
+    return Math.max(1, ...this.accountBreakdown().map((a) => Math.max(a.totalIn, a.totalOut)));
+  }
+
+  timelineItems(): TimelineItem[] {
+    const sorted = [...this.filteredEntries()].sort((a, b) => {
+      const d = a.activityDate.localeCompare(b.activityDate);
+      if (d !== 0) {
+        return d;
+      }
+      return a.id - b.id;
+    });
+    let running = 0;
+    return sorted.map((entry) => {
+      running += entry.direction === 'OUT' ? -entry.amount : entry.amount;
+      return { entry, runningNet: running };
+    });
   }
 
   clearDayFilter(): void {

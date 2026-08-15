@@ -1,7 +1,7 @@
 <div class="cio">
   <p class="muted cio__intro">
     Manually log cash inputs (deposits / transfers in) and outputs (withdrawals / transfers out) for your Robinhood
-    accounts. Review by month or year in a list or calendar.
+    accounts. Review by month or year as a list, calendar, or picture.
   </p>
 
   <div class="cio__toolbar">
@@ -18,6 +18,7 @@
     <mat-button-toggle-group [(ngModel)]="viewMode" name="cioView" aria-label="View">
       <mat-button-toggle value="list">List</mat-button-toggle>
       <mat-button-toggle value="calendar">Calendar</mat-button-toggle>
+      <mat-button-toggle value="picture">Picture</mat-button-toggle>
     </mat-button-toggle-group>
 
     <mat-form-field appearance="outline" class="cio__year">
@@ -70,6 +71,19 @@
       <strong>{{ net | currency }}</strong>
     </div>
   </div>
+
+  @if (totalIn + totalOut > 0) {
+    <div class="cio__share" aria-label="Inputs versus outputs">
+      <div class="cio__share-track">
+        <span class="cio__share-in" [style.width.%]="inSharePct"></span>
+        <span class="cio__share-out" [style.width.%]="outSharePct"></span>
+      </div>
+      <div class="cio__share-legend">
+        <span class="cio__share-legend-in">In {{ inSharePct | number: '1.0-0' }}%</span>
+        <span class="cio__share-legend-out">Out {{ outSharePct | number: '1.0-0' }}%</span>
+      </div>
+    </div>
+  }
 
   <section class="cio__form" aria-label="Add or edit entry">
     <h3 class="cio__form-title">{{ editingId != null ? 'Edit entry' : 'Add entry' }}</h3>
@@ -126,6 +140,147 @@
       Showing {{ selectedDate | date: 'mediumDate' }}
       <button mat-button type="button" (click)="clearDayFilter()">Clear day filter</button>
     </p>
+  }
+
+  @if (viewMode === 'picture') {
+    <section class="cio__picture" aria-label="Picture of inputs and outputs">
+      @if (periodMode === 'year') {
+        <div class="cio__months" aria-label="By month">
+          <h3 class="cio__picture-title">By month</h3>
+          <div class="cio__months-bars">
+            @for (b of monthBuckets(); track b.month) {
+              <button
+                type="button"
+                class="cio__month-col"
+                [disabled]="b.count === 0"
+                [matTooltip]="b.label + ': in ' + (b.totalIn | currency) + ' · out ' + (b.totalOut | currency)"
+                (click)="selectMonth(b.month)"
+              >
+                <div class="cio__month-stack">
+                  <span
+                    class="cio__month-in"
+                    [style.height.%]="monthBarMax() ? (b.totalIn / monthBarMax()) * 100 : 0"
+                  ></span>
+                  <span
+                    class="cio__month-out"
+                    [style.height.%]="monthBarMax() ? (b.totalOut / monthBarMax()) * 100 : 0"
+                  ></span>
+                </div>
+                <span class="cio__month-label">{{ b.label }}</span>
+              </button>
+            }
+          </div>
+        </div>
+      }
+
+      @if (accountBreakdown().length) {
+        <div class="cio__accounts" aria-label="By account">
+          <h3 class="cio__picture-title">By account</h3>
+          @for (a of accountBreakdown(); track a.suffix) {
+            <div class="cio__acct">
+              <div class="cio__acct-head">
+                <strong>{{ a.label }}</strong>
+                <span [class.cio__amt--in]="a.net >= 0" [class.cio__amt--out]="a.net < 0">
+                  {{ a.net | currency }}
+                </span>
+              </div>
+              <div class="cio__acct-bars">
+                <div class="cio__acct-row">
+                  <span class="cio__acct-tag cio__acct-tag--in">In</span>
+                  <span class="cio__acct-track">
+                    <span
+                      class="cio__acct-fill cio__acct-fill--in"
+                      [style.width.%]="(a.totalIn / accountBarMax()) * 100"
+                    ></span>
+                  </span>
+                  <span class="cio__amt--in">{{ a.totalIn | currency }}</span>
+                </div>
+                <div class="cio__acct-row">
+                  <span class="cio__acct-tag cio__acct-tag--out">Out</span>
+                  <span class="cio__acct-track">
+                    <span
+                      class="cio__acct-fill cio__acct-fill--out"
+                      [style.width.%]="(a.totalOut / accountBarMax()) * 100"
+                    ></span>
+                  </span>
+                  <span class="cio__amt--out">{{ a.totalOut | currency }}</span>
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      }
+
+      <div class="cio__flow" aria-label="Money flow">
+        <h3 class="cio__picture-title">Money flow</h3>
+        <div class="cio__flow-heads">
+          <span>Inputs</span>
+          <span class="cio__flow-heads-gap" aria-hidden="true"></span>
+          <span>Outputs</span>
+          <span>Running net</span>
+        </div>
+        @if (loading) {
+          <p class="muted">Loading…</p>
+        } @else if (!timelineItems().length) {
+          <p class="muted">No inputs or outputs in this period.</p>
+        } @else {
+          @for (item of timelineItems(); track item.entry.id) {
+            <div class="cio__flow-row" [class.cio__flow-row--in]="item.entry.direction !== 'OUT'" [class.cio__flow-row--out]="item.entry.direction === 'OUT'">
+              <div class="cio__flow-side cio__flow-side--in">
+                @if (item.entry.direction !== 'OUT') {
+                  <article class="cio__ticket cio__ticket--in">
+                    <div class="cio__ticket-amt">+{{ item.entry.amount | currency }}</div>
+                    <div class="cio__ticket-meta">
+                      {{ item.entry.activityDate | date: 'mediumDate' }}
+                      · {{ item.entry.accountLabel }}
+                    </div>
+                    @if (item.entry.note) {
+                      <div class="cio__ticket-note">{{ item.entry.note }}</div>
+                    }
+                    <div class="cio__ticket-actions">
+                      <button mat-icon-button type="button" (click)="startEdit(item.entry)" matTooltip="Edit" aria-label="Edit">
+                        <mat-icon>edit</mat-icon>
+                      </button>
+                      <button mat-icon-button type="button" color="warn" (click)="remove(item.entry)" matTooltip="Delete" aria-label="Delete">
+                        <mat-icon>delete</mat-icon>
+                      </button>
+                    </div>
+                  </article>
+                }
+              </div>
+              <div class="cio__flow-spine" aria-hidden="true">
+                <span class="cio__flow-dot" [class.cio__flow-dot--in]="item.entry.direction !== 'OUT'" [class.cio__flow-dot--out]="item.entry.direction === 'OUT'"></span>
+              </div>
+              <div class="cio__flow-side cio__flow-side--out">
+                @if (item.entry.direction === 'OUT') {
+                  <article class="cio__ticket cio__ticket--out">
+                    <div class="cio__ticket-amt">−{{ item.entry.amount | currency }}</div>
+                    <div class="cio__ticket-meta">
+                      {{ item.entry.activityDate | date: 'mediumDate' }}
+                      · {{ item.entry.accountLabel }}
+                    </div>
+                    @if (item.entry.note) {
+                      <div class="cio__ticket-note">{{ item.entry.note }}</div>
+                    }
+                    <div class="cio__ticket-actions">
+                      <button mat-icon-button type="button" (click)="startEdit(item.entry)" matTooltip="Edit" aria-label="Edit">
+                        <mat-icon>edit</mat-icon>
+                      </button>
+                      <button mat-icon-button type="button" color="warn" (click)="remove(item.entry)" matTooltip="Delete" aria-label="Delete">
+                        <mat-icon>delete</mat-icon>
+                      </button>
+                    </div>
+                  </article>
+                }
+              </div>
+              <div class="cio__flow-run" [class.cio__amt--in]="item.runningNet >= 0" [class.cio__amt--out]="item.runningNet < 0">
+                {{ item.runningNet | currency }}
+              </div>
+            </div>
+          }
+        }
+      </div>
+    </section>
   }
 
   @if (viewMode === 'calendar') {
@@ -205,6 +360,7 @@
     }
   }
 
+  @if (viewMode !== 'picture') {
   <div class="cio__list">
     @if (loading) {
       <p class="muted">Loading…</p>
@@ -254,4 +410,6 @@
       </table>
     }
   </div>
+  }
+
 </div>
