@@ -661,6 +661,55 @@
   font-weight: 650;
 }
 
+.cio__today {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  padding: 0.7rem 0.75rem 0.8rem;
+  border: 1px solid color-mix(in srgb, #1d4ed8 22%, var(--app-border, rgba(15, 23, 42, 0.1)));
+  border-radius: 10px;
+  background: color-mix(in srgb, #1d4ed8 5%, #fff);
+}
+
+.cio__today-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.cio__today-date,
+.cio__today-asof,
+.cio__today-empty {
+  margin: 0.15rem 0 0;
+  font-size: 0.78rem;
+  color: var(--app-text-muted, #64748b);
+}
+
+.cio__today-asof {
+  flex: 0 0 auto;
+  font-weight: 650;
+}
+
+.cio__today-open {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.cio__today-formula {
+  background: color-mix(in srgb, #fff 70%, transparent);
+}
+
+.cio__today-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.cio__today-moves .cio__ytd-move {
+  grid-template-columns: 5.2rem 6.5rem minmax(0, 1fr) 6.5rem;
+}
+
 .cio__ytd-start {
   margin: 0;
   font-size: 0.88rem;
@@ -1051,6 +1100,14 @@
   white-space: nowrap;
 }
 
+.cio__ytd-move-run {
+  font-size: 0.78rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: #1d4ed8;
+}
+
 @media (max-width: 720px) {
   .cio__ytd-move {
     grid-template-columns: 3.6rem 4.4rem auto;
@@ -1058,5 +1115,14 @@
 
   .cio__ytd-move-note {
     grid-column: 1 / -1;
+  }
+
+  .cio__today-moves .cio__ytd-move {
+    grid-template-columns: 4.4rem auto;
+  }
+
+  .cio__today-moves .cio__ytd-move-run {
+    grid-column: 1 / -1;
+    text-align: left;
   }
 }

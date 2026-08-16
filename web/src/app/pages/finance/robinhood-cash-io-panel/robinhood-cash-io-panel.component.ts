@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -10,7 +11,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { forkJoin } from 'rxjs';
+import { filter, forkJoin, fromEvent, interval, merge } from 'rxjs';
 import {
   RobinhoodCashIoAccountDto,
   RobinhoodCashIoCalendarDayDto,
@@ -78,6 +79,18 @@ interface PlotTick {
   label: string;
 }
 
+interface DayTab {
+  date: string;
+  dateLabel: string;
+  opening: number;
+  inputs: number;
+  outputs: number;
+  credits: number;
+  debits: number;
+  now: number;
+  events: RobinhoodCashIoYtdEventDto[];
+}
+
 interface CalCell {
   trackKey: string;
   type: 'pad' | 'day';
@@ -113,6 +126,8 @@ interface CalCell {
 export class RobinhoodCashIoPanelComponent implements OnInit {
   private readonly api = inject(RobinhoodCashIoApiService);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly destroyRef = inject(DestroyRef);
+  private refreshInFlight = false;
 
   readonly weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   readonly monthOptions = [
@@ -137,6 +152,7 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
   calendarDays = new Map<string, RobinhoodCashIoCalendarDayDto>();
   ytd: RobinhoodCashIoYtdDto | null = null;
   ytdFocus: RobinhoodCashIoYtdEventDto | null = null;
+  ytdAsOf: Date | null = null;
 
   periodMode: PeriodMode = 'month';
   viewMode: ViewMode = 'list';
@@ -167,6 +183,15 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
       error: (err) => this.toastError(err),
     });
     this.refresh();
+    merge(
+      interval(45_000),
+      fromEvent(document, 'visibilitychange').pipe(filter(() => document.visibilityState === 'visible')),
+    )
+      .pipe(
+        takeUntilDestroyed(this.destroyRef),
+        filter(() => !this.loading && !this.saving && !this.refreshInFlight),
+      )
+      .subscribe(() => this.refresh({ silent: true }));
   }
 
   get yearOptions(): number[] {
@@ -197,14 +222,23 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
     this.refresh();
   }
 
-  refresh(): void {
-    this.loading = true;
+  refresh(opts?: { silent?: boolean }): void {
+    const silent = !!opts?.silent;
+    if (this.refreshInFlight && silent) {
+      return;
+    }
+    this.refreshInFlight = true;
+    if (!silent) {
+      this.loading = true;
+    }
     const month = this.periodMode === 'month' ? this.month : null;
     const suffix = this.accountSuffix || null;
+    const ytdYear = new Date().getFullYear();
+    const prevFocus = this.ytdFocus;
     forkJoin({
       ledger: this.api.ledger(this.year, month, suffix),
       calendar: this.api.calendar(this.year, month, suffix),
-      ytd: this.api.ytd(this.year, this.ytdSuffix),
+      ytd: this.api.ytd(ytdYear, this.ytdSuffix),
     }).subscribe({
       next: ({ ledger, calendar, ytd }) => {
         this.entries = ledger.entries;
@@ -213,12 +247,25 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
         this.net = ledger.net;
         this.calendarDays = new Map(calendar.days.map((d) => [d.date, d]));
         this.ytd = ytd;
-        this.ytdFocus = null;
+        this.ytdAsOf = new Date();
+        if (silent && prevFocus) {
+          this.ytdFocus =
+            ytd.events.find(
+              (e) =>
+                e.date === prevFocus.date && e.kind === prevFocus.kind && e.amount === prevFocus.amount,
+            ) ?? null;
+        } else if (!silent) {
+          this.ytdFocus = null;
+        }
         this.loading = false;
+        this.refreshInFlight = false;
       },
       error: (err) => {
         this.loading = false;
-        this.toastError(err);
+        this.refreshInFlight = false;
+        if (!silent) {
+          this.toastError(err);
+        }
       },
     });
   }
@@ -563,6 +610,53 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
       .slice(0, 8);
   }
 
+  todayTab(): DayTab | null {
+    const ytd = this.ytd;
+    if (!ytd) {
+      return null;
+    }
+    const date = this.isoToday();
+    const dateLabel = new Date(`${date}T00:00:00`).toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    });
+    const todayEvents = ytd.events.filter((e) => e.date === date && e.kind !== 'START');
+    const prior = [...ytd.events].reverse().find((e) => e.date < date);
+    const opening = prior ? prior.runningAdjusted : ytd.startingCash;
+    let inputs = 0;
+    let outputs = 0;
+    let credits = 0;
+    let debits = 0;
+    for (const e of todayEvents) {
+      if (e.kind === 'INPUT') {
+        inputs += e.amount;
+      } else if (e.kind === 'OUTPUT') {
+        outputs += e.amount;
+      } else if (e.kind === 'CREDIT') {
+        credits += e.amount;
+      } else if (e.kind === 'DEBIT') {
+        debits += e.amount;
+      }
+    }
+    const now = todayEvents.length ? todayEvents[todayEvents.length - 1].runningAdjusted : opening;
+    return { date, dateLabel, opening, inputs, outputs, credits, debits, now, events: todayEvents };
+  }
+
+  prepareTodayEntry(direction: 'IN' | 'OUT'): void {
+    this.cancelEdit();
+    this.form.activityDate = this.isoToday();
+    this.form.direction = direction;
+    this.form.accountSuffix = this.ytdSuffix;
+    this.customSuffix = '';
+    const n = new Date();
+    this.year = n.getFullYear();
+    this.month = n.getMonth() + 1;
+    this.periodMode = 'month';
+    this.refresh({ silent: true });
+  }
+
   focusYtdEvent(event: RobinhoodCashIoYtdEventDto): void {
     this.ytdFocus = event;
   }
@@ -730,7 +824,7 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
       next: () => {
         this.saving = false;
         this.cancelEdit();
-        this.refresh();
+        this.refresh({ silent: true });
         this.snackBar.open(wasEdit ? 'Updated.' : 'Saved.', 'Dismiss', { duration: 2500 });
       },
       error: (err) => {
@@ -749,7 +843,7 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
         if (this.editingId === entry.id) {
           this.cancelEdit();
         }
-        this.refresh();
+        this.refresh({ silent: true });
       },
       error: (err) => this.toastError(err),
     });

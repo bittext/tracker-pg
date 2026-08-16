@@ -1,8 +1,9 @@
 <div class="cio">
   <p class="muted cio__intro">
     Manually log cash inputs (deposits / transfers in) and outputs (withdrawals / transfers out) for your Robinhood
-    accounts. Individual ••••3370 YTD uses a Jan 1 12:00 AM cash start, then inputs, outputs, interest credits, and
-    margin debits. Review by month or year as a list, calendar, or picture.
+    accounts. Today's running tab on Individual ••••3370 stays current as you add entries. YTD uses a Jan 1 12:00 AM
+    cash start, then inputs, outputs, interest credits, and margin debits. Review by month or year as a list,
+    calendar, or picture.
   </p>
 
   <div class="cio__toolbar">
@@ -88,6 +89,81 @@
 
   @if (ytd) {
     <section class="cio__ytd" aria-label="Individual 3370 year to date">
+      @if (todayTab(); as day) {
+        <div class="cio__today">
+          <div class="cio__today-head">
+            <div>
+              <h3 class="cio__ytd-title">Today's running tab</h3>
+              <p class="cio__today-date">{{ day.dateLabel }} · {{ ytd.accountLabel }}</p>
+            </div>
+            @if (ytdAsOf) {
+              <span class="cio__today-asof">Updated {{ ytdAsOf | date: 'shortTime' }}</span>
+            }
+          </div>
+          <p class="cio__today-open">
+            Opened the day at <strong>{{ day.opening | currency }}</strong>
+          </p>
+          <p class="cio__ytd-formula cio__today-formula">
+            {{ day.opening | currency }} open
+            + {{ day.inputs | currency }} in
+            − {{ day.outputs | currency }} out
+            + {{ day.credits | currency }} interest
+            − {{ day.debits | currency }} margin
+            =
+            <strong>{{ day.now | currency }}</strong>
+          </p>
+          <div class="cio__ytd-kpis">
+            <div class="cio__total cio__total--in">
+              <span class="cio__total-label">Today in</span>
+              <strong>{{ day.inputs | currency }}</strong>
+            </div>
+            <div class="cio__total cio__total--out">
+              <span class="cio__total-label">Today out</span>
+              <strong>{{ day.outputs | currency }}</strong>
+            </div>
+            <div class="cio__total cio__total--in">
+              <span class="cio__total-label">Today interest</span>
+              <strong>{{ day.credits | currency }}</strong>
+            </div>
+            <div class="cio__total cio__total--out">
+              <span class="cio__total-label">Today margin</span>
+              <strong>{{ day.debits | currency }}</strong>
+            </div>
+            <div class="cio__total" [class.cio__total--net-pos]="day.now >= 0" [class.cio__total--net-neg]="day.now < 0">
+              <span class="cio__total-label">Now</span>
+              <strong>{{ day.now | currency }}</strong>
+            </div>
+          </div>
+          <div class="cio__today-actions">
+            <button mat-stroked-button type="button" (click)="prepareTodayEntry('IN')">Add today's input</button>
+            <button mat-stroked-button type="button" (click)="prepareTodayEntry('OUT')">Add today's output</button>
+          </div>
+          @if (day.events.length) {
+            <ul class="cio__ytd-move-list cio__today-moves">
+              @for (e of day.events; track e.date + e.kind + e.amount + e.note) {
+                <li>
+                  <button
+                    type="button"
+                    class="cio__ytd-move"
+                    [class.cio__ytd-move--in]="e.kind === 'INPUT' || e.kind === 'CREDIT'"
+                    [class.cio__ytd-move--out]="e.kind === 'OUTPUT' || e.kind === 'DEBIT'"
+                    [class.cio__ytd-move--on]="isYtdFocused(e.date, e.kind, e.amount)"
+                    (click)="focusYtdEvent(e)"
+                  >
+                    <span class="cio__ytd-move-kind">{{ ytdKindShort(e.kind) }}</span>
+                    <span class="cio__ytd-move-amt">{{ e.amount | currency }}</span>
+                    <span class="cio__ytd-move-note">{{ e.note || '—' }}</span>
+                    <span class="cio__ytd-move-run">{{ e.runningAdjusted | currency }}</span>
+                  </button>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="muted cio__today-empty">Nothing logged today yet. Opening capital is still the running total.</p>
+          }
+        </div>
+      }
+
       <h3 class="cio__ytd-title">{{ ytd.accountLabel }} · YTD</h3>
       <p class="cio__ytd-start">
         Initial start as of <strong>{{ ytd.startAtLabel }}</strong>:
