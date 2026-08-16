@@ -93,6 +93,19 @@
         Initial start as of <strong>{{ ytd.startAtLabel }}</strong>:
         <strong class="cio__ytd-start-amt">{{ ytd.startingCash | currency }}</strong>
       </p>
+      <p class="cio__ytd-story">
+        This is cash capital only — money you put in, took out, plus interest, minus margin interest.
+        It is not the live account value, which also includes holdings.
+      </p>
+      <p class="cio__ytd-formula">
+        {{ ytd.startingCash | currency }} start
+        + {{ ytd.totalInputs | currency }} in
+        − {{ ytd.totalOutputs | currency }} out
+        + {{ ytd.totalCredits | currency }} interest
+        − {{ ytd.totalDebits | currency }} margin
+        =
+        <strong>{{ ytd.adjustedValue | currency }}</strong>
+      </p>
       <div class="cio__ytd-kpis">
         <div class="cio__total cio__total--in">
           <span class="cio__total-label">Inputs</span>
@@ -127,43 +140,179 @@
 
       <div class="cio__ytd-plots">
         <div class="cio__plot">
-          <h4 class="cio__plot-title">Credits &amp; debits</h4>
-          <p class="muted cio__plot-hint">Green = inputs / interest credits. Red = outputs / margin debits.</p>
-          <div class="cio__plot-frame" aria-label="Credits and debits plot">
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="cio__plot-svg">
-              <line class="cio__plot-zero" x1="0" y1="50" x2="100" y2="50" />
-              @for (b of ytdFlowBars(); track $index) {
-                <rect
-                  class="cio__plot-bar"
-                  [class.cio__plot-bar--in]="b.kind === 'INPUT' || b.kind === 'CREDIT'"
-                  [class.cio__plot-bar--out]="b.kind === 'OUTPUT' || b.kind === 'DEBIT'"
-                  [attr.x]="b.x - b.w / 2"
-                  [attr.y]="b.y"
-                  [attr.width]="b.w"
-                  [attr.height]="b.h"
-                >
-                  <title>{{ b.title }}</title>
-                </rect>
+          <h4 class="cio__plot-title">Each cash event</h4>
+          <p class="muted cio__plot-hint">
+            Bars sit on the calendar (Jan → now). Up = money in. Down = money out. Hover or click a bar.
+          </p>
+          <div class="cio__plot-legend" aria-label="Event colors">
+            <span class="cio__plot-leg cio__plot-leg--input">Deposit</span>
+            <span class="cio__plot-leg cio__plot-leg--credit">Interest</span>
+            <span class="cio__plot-leg cio__plot-leg--output">Withdrawal</span>
+            <span class="cio__plot-leg cio__plot-leg--debit">Margin</span>
+          </div>
+          <div class="cio__plot-frame cio__plot-frame--labeled" aria-label="Credits and debits by date">
+            <div class="cio__plot-y" aria-hidden="true">
+              @for (t of ytdFlowYTicks(); track t.label) {
+                <span class="cio__plot-ytick" [style.top.%]="t.pos">{{ t.label }}</span>
               }
-            </svg>
+            </div>
+            <div class="cio__plot-canvas">
+              <div class="cio__plot-draw">
+              <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="cio__plot-svg">
+                @for (m of ytdMonthTicks(); track m.label) {
+                  <line class="cio__plot-grid" [attr.x1]="m.pos" y1="4" [attr.x2]="m.pos" y2="92" />
+                }
+                <line class="cio__plot-zero" x1="0" y1="48" x2="100" y2="48" />
+                @for (b of ytdFlowBars(); track $index) {
+                  <rect
+                    class="cio__plot-bar"
+                    [class.cio__plot-bar--input]="b.kind === 'INPUT'"
+                    [class.cio__plot-bar--credit]="b.kind === 'CREDIT'"
+                    [class.cio__plot-bar--output]="b.kind === 'OUTPUT'"
+                    [class.cio__plot-bar--debit]="b.kind === 'DEBIT'"
+                    [class.cio__plot-bar--focus]="isYtdFocused(b.date, b.kind, b.amount)"
+                    [attr.x]="b.x - b.w / 2"
+                    [attr.y]="b.y"
+                    [attr.width]="b.w"
+                    [attr.height]="b.h"
+                  ></rect>
+                }
+              </svg>
+              @for (b of ytdFlowBars(); track $index) {
+                <button
+                  type="button"
+                  class="cio__plot-hit"
+                  [style.left.%]="b.x"
+                  [style.top.%]="b.y"
+                  [style.height.%]="b.h"
+                  [style.width.%]="b.w < 2.4 ? 2.4 : b.w"
+                  [matTooltip]="b.title"
+                  [attr.aria-label]="b.title"
+                  (click)="focusYtdBar(b)"
+                ></button>
+                @if (b.callout) {
+                  <span
+                    class="cio__plot-callout"
+                    [class.cio__plot-callout--down]="b.kind === 'OUTPUT' || b.kind === 'DEBIT'"
+                    [style.left.%]="b.x"
+                    [style.top.%]="b.kind === 'OUTPUT' || b.kind === 'DEBIT' ? b.y + b.h : b.y"
+                  >{{ b.callout }}</span>
+                }
+              }
+              </div>
+              <div class="cio__plot-xrow" aria-hidden="true">
+                @for (m of ytdMonthTicks(); track m.label) {
+                  <span class="cio__plot-xtick" [style.left.%]="m.pos">{{ m.label }}</span>
+                }
+              </div>
+            </div>
           </div>
         </div>
         <div class="cio__plot">
-          <h4 class="cio__plot-title">Adjusted value YTD</h4>
+          <h4 class="cio__plot-title">Running capital</h4>
           <p class="muted cio__plot-hint">
-            Running capital: start + inputs − outputs + credits − debits.
+            Same dates as the left chart. Each bar moves this line: green up, red down.
           </p>
-          <div class="cio__plot-frame" aria-label="Adjusted value year to date">
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="cio__plot-svg">
-              @if (ytdAdjPath()) {
-                <path class="cio__plot-line" [attr.d]="ytdAdjPath()" fill="none" />
+          <div class="cio__plot-frame cio__plot-frame--labeled" aria-label="Adjusted value year to date">
+            <div class="cio__plot-y" aria-hidden="true">
+              @for (t of ytdAdjYTicks(); track t.label) {
+                <span class="cio__plot-ytick" [style.top.%]="t.pos">{{ t.label }}</span>
               }
-            </svg>
-            @if (ytdAdjPoints().length) {
-              <span class="cio__plot-end">{{ ytd.adjustedValue | currency }}</span>
-            }
+            </div>
+            <div class="cio__plot-canvas">
+              <div class="cio__plot-draw">
+              <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="cio__plot-svg">
+                @for (m of ytdMonthTicks(); track m.label) {
+                  <line class="cio__plot-grid" [attr.x1]="m.pos" y1="8" [attr.x2]="m.pos" y2="90" />
+                }
+                @if (ytdAdjPath()) {
+                  <path class="cio__plot-line" [attr.d]="ytdAdjPath()" fill="none" />
+                }
+                @for (p of ytdAdjPoints(); track $index) {
+                  @if (p.marker || isYtdFocused(p.date, p.kind, p.amount)) {
+                    <circle
+                      class="cio__plot-dot"
+                      [class.cio__plot-dot--in]="p.kind === 'INPUT' || p.kind === 'CREDIT' || p.kind === 'START'"
+                      [class.cio__plot-dot--out]="p.kind === 'OUTPUT' || p.kind === 'DEBIT'"
+                      [attr.cx]="p.x"
+                      [attr.cy]="p.y"
+                      r="1.35"
+                    ></circle>
+                  }
+                }
+              </svg>
+              @for (p of ytdAdjPoints(); track $index) {
+                @if (p.marker) {
+                  <button
+                    type="button"
+                    class="cio__plot-hit cio__plot-hit--dot"
+                    [style.left.%]="p.x"
+                    [style.top.%]="p.y"
+                    [matTooltip]="p.title"
+                    [attr.aria-label]="p.title"
+                    (click)="focusYtdPoint(p)"
+                  ></button>
+                }
+              }
+              @if (ytdAdjStart()) {
+                <span class="cio__plot-end-tag">
+                  Start {{ ytd.startingCash | currency }}
+                </span>
+              }
+              @if (ytdAdjEnd()) {
+                <span class="cio__plot-end-tag cio__plot-end-tag--now">
+                  Now {{ ytd.adjustedValue | currency }}
+                </span>
+              }
+              </div>
+              <div class="cio__plot-xrow" aria-hidden="true">
+                @for (m of ytdMonthTicks(); track m.label) {
+                  <span class="cio__plot-xtick" [style.left.%]="m.pos">{{ m.label }}</span>
+                }
+              </div>
+            </div>
           </div>
         </div>
+      </div>
+
+      @if (ytdFocus) {
+        <div class="cio__ytd-focus" [class.cio__ytd-focus--in]="ytdFocus.kind === 'INPUT' || ytdFocus.kind === 'CREDIT' || ytdFocus.kind === 'START'" [class.cio__ytd-focus--out]="ytdFocus.kind === 'OUTPUT' || ytdFocus.kind === 'DEBIT'">
+          <div class="cio__ytd-focus-k">{{ ytdKindLabel(ytdFocus) }}</div>
+          <div class="cio__ytd-focus-amt">{{ ytdFocus.amount | currency }}</div>
+          <div class="cio__ytd-focus-meta">
+            {{ ytdFocus.date | date: 'fullDate' }}
+            @if (ytdFocus.note) {
+              · {{ ytdFocus.note }}
+            }
+          </div>
+          <div class="cio__ytd-focus-run">Running capital after this: <strong>{{ ytdFocus.runningAdjusted | currency }}</strong></div>
+        </div>
+      } @else {
+        <p class="muted cio__ytd-focus-hint">Click a bar, a point, or a move below to see the date, type, and running total.</p>
+      }
+
+      <div class="cio__ytd-moves">
+        <h4 class="cio__plot-title">Largest moves</h4>
+        <p class="muted cio__plot-hint">Biggest deposits and withdrawals this year — these are the spikes on the charts.</p>
+        <ul class="cio__ytd-move-list">
+          @for (e of ytdNotable(); track e.date + e.kind + e.amount) {
+            <li>
+              <button
+                type="button"
+                class="cio__ytd-move"
+                [class.cio__ytd-move--in]="e.kind === 'INPUT' || e.kind === 'CREDIT'"
+                [class.cio__ytd-move--out]="e.kind === 'OUTPUT' || e.kind === 'DEBIT'"
+                [class.cio__ytd-move--on]="isYtdFocused(e.date, e.kind, e.amount)"
+                (click)="focusYtdEvent(e)"
+              >
+                <span class="cio__ytd-move-date">{{ shortDate(e.date) }}</span>
+                <span class="cio__ytd-move-kind">{{ ytdKindShort(e.kind) }}</span>
+                <span class="cio__ytd-move-amt">{{ e.amount | currency }}</span>
+                <span class="cio__ytd-move-note">{{ e.note || '—' }}</span>
+              </button>
+            </li>
+          }
+        </ul>
       </div>
     </section>
   }

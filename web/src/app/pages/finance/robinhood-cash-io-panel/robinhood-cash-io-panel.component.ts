@@ -54,7 +54,12 @@ interface FlowBar {
   h: number;
   w: number;
   kind: string;
+  date: string;
+  amount: number;
+  note: string;
+  running: number;
   title: string;
+  callout: string | null;
 }
 
 interface AdjPt {
@@ -62,6 +67,15 @@ interface AdjPt {
   y: number;
   date: string;
   value: number;
+  kind: string;
+  amount: number;
+  marker: boolean;
+  title: string;
+}
+
+interface PlotTick {
+  pos: number;
+  label: string;
 }
 
 interface CalCell {
@@ -122,6 +136,7 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
   entries: RobinhoodCashIoEntryDto[] = [];
   calendarDays = new Map<string, RobinhoodCashIoCalendarDayDto>();
   ytd: RobinhoodCashIoYtdDto | null = null;
+  ytdFocus: RobinhoodCashIoYtdEventDto | null = null;
 
   periodMode: PeriodMode = 'month';
   viewMode: ViewMode = 'list';
@@ -198,6 +213,7 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
         this.net = ledger.net;
         this.calendarDays = new Map(calendar.days.map((d) => [d.date, d]));
         this.ytd = ytd;
+        this.ytdFocus = null;
         this.loading = false;
       },
       error: (err) => {
@@ -413,43 +429,74 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
   }
 
   ytdFlowBars(): FlowBar[] {
-    const events = (this.ytd?.events ?? []).filter((e) => e.kind !== 'START');
-    if (!events.length) {
+    const ytd = this.ytd;
+    const events = (ytd?.events ?? []).filter((e) => e.kind !== 'START');
+    if (!ytd || !events.length) {
       return [];
     }
     const max = Math.max(1, ...events.map((e) => Math.abs(e.amount)));
-    const n = events.length;
-    const w = Math.max(0.45, Math.min(1.6, 88 / n));
-    return events.map((e, i) => {
-      const h = Math.max(3, (Math.abs(e.amount) / max) * 42);
+    const range = this.ytdPlotRange();
+    const byDate = new Map<string, number>();
+    const notable = new Set(
+      [...events]
+        .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
+        .slice(0, 6)
+        .map((e) => `${e.date}|${e.kind}|${e.amount}`),
+    );
+    return events.map((e) => {
+      const slot = byDate.get(e.date) ?? 0;
+      byDate.set(e.date, slot + 1);
       const credit = e.kind === 'INPUT' || e.kind === 'CREDIT';
+      const h = Math.max(4, (Math.abs(e.amount) / max) * 40);
+      const x = this.xForTime(this.timeForDate(e.date), range) + slot * 1.15;
+      const key = `${e.date}|${e.kind}|${e.amount}`;
       return {
-        x: n === 1 ? 50 : (i / (n - 1)) * 96 + 2,
-        y: credit ? 50 - h : 50,
+        x,
+        y: credit ? 48 - h : 48,
         h,
-        w,
+        w: 1.7,
         kind: e.kind,
-        title: `${e.date} · ${this.ytdKindLabel(e)} ${this.fmtUsd(e.amount)}`,
+        date: e.date,
+        amount: e.amount,
+        note: e.note ?? '',
+        running: e.runningAdjusted,
+        title: this.ytdEventTitle(e),
+        callout: notable.has(key) ? `${this.shortDate(e.date)} ${this.fmtCompact(e.amount)}` : null,
       };
     });
   }
 
   ytdAdjPoints(): AdjPt[] {
-    const series = this.ytd?.adjustedSeries ?? [];
-    if (!series.length) {
+    const ytd = this.ytd;
+    const events = ytd?.events ?? [];
+    if (!ytd || !events.length) {
       return [];
     }
-    const vals = series.map((p) => p.adjustedValue);
-    const min = Math.min(...vals);
+    const vals = events.map((e) => e.runningAdjusted);
+    const min = Math.min(0, ...vals);
     const max = Math.max(...vals);
     const span = Math.max(1, max - min);
-    const n = series.length;
-    return series.map((p, i) => ({
-      x: n === 1 ? 50 : (i / (n - 1)) * 96 + 2,
-      y: 92 - ((p.adjustedValue - min) / span) * 80,
-      date: p.date,
-      value: p.adjustedValue,
+    const range = this.ytdPlotRange();
+    return events.map((e) => ({
+      x: this.xForTime(this.timeForDate(e.date), range),
+      y: 86 - ((e.runningAdjusted - min) / span) * 72,
+      date: e.date,
+      value: e.runningAdjusted,
+      kind: e.kind,
+      amount: e.amount,
+      marker: e.kind === 'START' || e.kind === 'INPUT' || e.kind === 'OUTPUT',
+      title: `${this.ytdEventTitle(e)} · running ${this.fmtUsd(e.runningAdjusted)}`,
     }));
+  }
+
+  ytdAdjEnd(): AdjPt | null {
+    const pts = this.ytdAdjPoints();
+    return pts.length ? pts[pts.length - 1] : null;
+  }
+
+  ytdAdjStart(): AdjPt | null {
+    const pts = this.ytdAdjPoints();
+    return pts.length ? pts[0] : null;
   }
 
   ytdAdjPath(): string {
@@ -460,8 +507,104 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
     return pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ');
   }
 
-  ytdKindLabel(e: RobinhoodCashIoYtdEventDto): string {
+  ytdMonthTicks(): PlotTick[] {
+    const ytd = this.ytd;
+    if (!ytd) {
+      return [];
+    }
+    const range = this.ytdPlotRange();
+    const start = new Date(`${ytd.startDate}T00:00:00`);
+    const end = new Date(range.to);
+    const ticks: PlotTick[] = [];
+    const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+    while (cursor.getTime() <= end.getTime()) {
+      const t = cursor.getTime();
+      if (t >= range.from) {
+        ticks.push({
+          pos: this.xForTime(t, range),
+          label: cursor.toLocaleDateString('en-US', { month: 'short' }),
+        });
+      }
+      cursor.setMonth(cursor.getMonth() + 1);
+    }
+    return ticks;
+  }
+
+  ytdFlowYTicks(): PlotTick[] {
+    const events = (this.ytd?.events ?? []).filter((e) => e.kind !== 'START');
+    const max = Math.max(1000, ...events.map((e) => Math.abs(e.amount)));
+    const top = this.niceCeil(max);
+    return [
+      { pos: 48 - 40, label: '+' + this.fmtCompact(top) },
+      { pos: 48, label: '$0' },
+      { pos: 48 + 40, label: '−' + this.fmtCompact(top) },
+    ];
+  }
+
+  ytdAdjYTicks(): PlotTick[] {
+    const vals = (this.ytd?.events ?? []).map((e) => e.runningAdjusted);
+    if (!vals.length) {
+      return [];
+    }
+    const min = Math.min(0, ...vals);
+    const max = Math.max(...vals);
+    const span = Math.max(1, max - min);
+    const ticks = [min, min + span / 2, max];
+    return ticks.map((v) => ({
+      pos: 86 - ((v - min) / span) * 72,
+      label: this.fmtCompact(v),
+    }));
+  }
+
+  ytdNotable(): RobinhoodCashIoYtdEventDto[] {
+    return [...(this.ytd?.events ?? [])]
+      .filter((e) => e.kind === 'INPUT' || e.kind === 'OUTPUT')
+      .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount))
+      .slice(0, 8);
+  }
+
+  focusYtdEvent(event: RobinhoodCashIoYtdEventDto): void {
+    this.ytdFocus = event;
+  }
+
+  focusYtdBar(bar: FlowBar): void {
+    const match = (this.ytd?.events ?? []).find(
+      (e) => e.date === bar.date && e.kind === bar.kind && e.amount === bar.amount,
+    );
+    this.ytdFocus = match ?? null;
+  }
+
+  focusYtdPoint(pt: AdjPt): void {
+    const match = (this.ytd?.events ?? []).find(
+      (e) => e.date === pt.date && e.kind === pt.kind && e.runningAdjusted === pt.value,
+    );
+    this.ytdFocus = match ?? null;
+  }
+
+  isYtdFocused(date: string, kind: string, amount: number): boolean {
+    const f = this.ytdFocus;
+    return !!f && f.date === date && f.kind === kind && f.amount === amount;
+  }
+
+  ytdKindLabel(e: { kind: string }): string {
     switch (e.kind) {
+      case 'START':
+        return 'Start';
+      case 'INPUT':
+        return 'Input (deposit / transfer in)';
+      case 'OUTPUT':
+        return 'Output (withdrawal / transfer out)';
+      case 'CREDIT':
+        return 'Interest credit';
+      case 'DEBIT':
+        return 'Margin interest debit';
+      default:
+        return e.kind;
+    }
+  }
+
+  ytdKindShort(kind: string): string {
+    switch (kind) {
       case 'START':
         return 'Start';
       case 'INPUT':
@@ -469,16 +612,68 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
       case 'OUTPUT':
         return 'Output';
       case 'CREDIT':
-        return 'Credit';
+        return 'Interest';
       case 'DEBIT':
-        return 'Debit';
+        return 'Margin';
       default:
-        return e.kind;
+        return kind;
     }
+  }
+
+  private ytdEventTitle(e: RobinhoodCashIoYtdEventDto): string {
+    const note = e.note ? ` · ${e.note}` : '';
+    return `${this.mediumDate(e.date)} · ${this.ytdKindShort(e.kind)} ${this.fmtUsd(e.amount)}${note}`;
+  }
+
+  private ytdPlotRange(): { from: number; to: number } {
+    const ytd = this.ytd;
+    if (!ytd) {
+      return { from: 0, to: 1 };
+    }
+    const times = [this.timeForDate(ytd.startDate), ...ytd.events.map((e) => this.timeForDate(e.date))];
+    const from = Math.min(...times);
+    const to = Math.max(...times);
+    return { from, to: to > from ? to : from + 1 };
+  }
+
+  private timeForDate(iso: string): number {
+    return new Date(`${iso}T00:00:00`).getTime();
+  }
+
+  private xForTime(t: number, range: { from: number; to: number }): number {
+    return 5 + ((t - range.from) / (range.to - range.from)) * 90;
+  }
+
+  shortDate(iso: string): string {
+    const d = new Date(`${iso}T00:00:00`);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  private mediumDate(iso: string): string {
+    const d = new Date(`${iso}T00:00:00`);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  private niceCeil(n: number): number {
+    if (n <= 1000) {
+      return 1000;
+    }
+    const exp = 10 ** Math.floor(Math.log10(n));
+    return Math.ceil(n / exp) * exp;
   }
 
   private fmtUsd(n: number): string {
     return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+  }
+
+  private fmtCompact(n: number): string {
+    const abs = Math.abs(n);
+    const sign = n < 0 ? '−' : '';
+    if (abs >= 1000) {
+      const k = abs / 1000;
+      return `${sign}$${k >= 10 ? k.toFixed(0) : k.toFixed(1)}k`;
+    }
+    return `${sign}$${abs.toFixed(0)}`;
   }
 
   clearDayFilter(): void {

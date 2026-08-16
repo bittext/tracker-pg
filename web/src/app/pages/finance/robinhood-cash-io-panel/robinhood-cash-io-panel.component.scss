@@ -698,6 +698,27 @@
   }
 }
 
+.cio__ytd-story {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--app-text-muted, #64748b);
+}
+
+.cio__ytd-formula {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--app-border, #e2e8f0) 35%, transparent);
+
+  strong {
+    color: #1d4ed8;
+  }
+}
+
 .cio__plot-title {
   margin: 0 0 0.15rem;
   font-size: 0.82rem;
@@ -709,13 +730,91 @@
   font-size: 0.72rem;
 }
 
+.cio__plot-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  margin: 0 0 0.45rem;
+  font-size: 0.7rem;
+  font-weight: 650;
+}
+
+.cio__plot-leg {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+
+  &::before {
+    content: '';
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 2px;
+  }
+
+  &--input::before {
+    background: #15803d;
+  }
+
+  &--credit::before {
+    background: #4ade80;
+  }
+
+  &--output::before {
+    background: #b91c1c;
+  }
+
+  &--debit::before {
+    background: #d97706;
+  }
+}
+
 .cio__plot-frame {
   position: relative;
-  height: 10.5rem;
+  height: 14.5rem;
   border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
   border-radius: 8px;
   background: color-mix(in srgb, var(--app-surface, #fff) 88%, transparent);
   overflow: hidden;
+}
+
+.cio__plot-frame--labeled {
+  display: grid;
+  grid-template-columns: 2.85rem minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) 1.15rem;
+  height: 16.5rem;
+  padding: 0.35rem 0.4rem 0.15rem 0.1rem;
+}
+
+.cio__plot-y {
+  position: relative;
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.cio__plot-ytick {
+  position: absolute;
+  right: 0.2rem;
+  transform: translateY(-50%);
+  font-size: 0.62rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  color: var(--app-text-muted, #64748b);
+  white-space: nowrap;
+}
+
+.cio__plot-canvas {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.cio__plot-draw {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .cio__plot-svg {
@@ -724,18 +823,38 @@
   display: block;
 }
 
-.cio__plot-zero {
-  stroke: #cbd5e1;
-  stroke-width: 1;
+.cio__plot-grid {
+  stroke: color-mix(in srgb, #cbd5e1 70%, transparent);
+  stroke-width: 0.6;
+  stroke-dasharray: 1.2 1.6;
   vector-effect: non-scaling-stroke;
 }
 
-.cio__plot-bar--in {
+.cio__plot-zero {
+  stroke: #94a3b8;
+  stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
+}
+
+.cio__plot-bar--input {
   fill: #15803d;
 }
 
-.cio__plot-bar--out {
+.cio__plot-bar--credit {
+  fill: #4ade80;
+}
+
+.cio__plot-bar--output {
   fill: #b91c1c;
+}
+
+.cio__plot-bar--debit {
+  fill: #d97706;
+}
+
+.cio__plot-bar--focus {
+  stroke: #0f172a;
+  stroke-width: 0.35;
 }
 
 .cio__plot-line {
@@ -746,12 +865,198 @@
   vector-effect: non-scaling-stroke;
 }
 
-.cio__plot-end {
+.cio__plot-dot {
+  stroke: #fff;
+  stroke-width: 0.35;
+
+  &--in {
+    fill: #15803d;
+  }
+
+  &--out {
+    fill: #b91c1c;
+  }
+}
+
+.cio__plot-hit {
   position: absolute;
-  right: 0.45rem;
-  top: 0.35rem;
-  font-size: 0.72rem;
+  z-index: 2;
+  transform: translateX(-50%);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  min-width: 0.7rem;
+}
+
+.cio__plot-hit--dot {
+  width: 1.1rem;
+  height: 1.1rem;
+  transform: translate(-50%, -50%);
+}
+
+.cio__plot-callout {
+  position: absolute;
+  z-index: 3;
+  transform: translate(-50%, calc(-100% - 0.15rem));
+  font-size: 0.58rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: #14532d;
+  pointer-events: none;
+  text-shadow: 0 0 4px #fff, 0 0 4px #fff;
+
+  &--down {
+    transform: translate(-50%, 0.2rem);
+    color: #7f1d1d;
+  }
+}
+
+.cio__plot-xrow {
+  position: relative;
+  flex: 0 0 1.15rem;
+  height: 1.15rem;
+}
+
+.cio__plot-xtick {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 0.62rem;
+  font-weight: 650;
+  color: var(--app-text-muted, #64748b);
+}
+
+.cio__plot-end-tag {
+  position: absolute;
+  top: 0.3rem;
+  left: 0.35rem;
+  transform: none;
+  font-size: 0.62rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #334155;
+  background: color-mix(in srgb, #fff 82%, transparent);
+  padding: 0.08rem 0.28rem;
+  border-radius: 4px;
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 3;
+}
+
+.cio__plot-end-tag--now {
+  left: auto;
+  right: 0.35rem;
   color: #1d4ed8;
+}
+
+.cio__ytd-focus {
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+
+  &--in {
+    background: color-mix(in srgb, #15803d 8%, #fff);
+  }
+
+  &--out {
+    background: color-mix(in srgb, #b91c1c 8%, #fff);
+  }
+}
+
+.cio__ytd-focus-k {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--app-text-muted, #64748b);
+}
+
+.cio__ytd-focus-amt {
+  font-size: 1.15rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.cio__ytd-focus--in .cio__ytd-focus-amt {
+  color: #15803d;
+}
+
+.cio__ytd-focus--out .cio__ytd-focus-amt {
+  color: #b91c1c;
+}
+
+.cio__ytd-focus-meta,
+.cio__ytd-focus-run,
+.cio__ytd-focus-hint {
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.cio__ytd-move-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.cio__ytd-move {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 4.2rem 5.2rem 6.5rem minmax(0, 1fr);
+  gap: 0.45rem;
+  align-items: center;
+  text-align: left;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--app-surface, #fff) 92%, transparent);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+
+  &--in .cio__ytd-move-amt {
+    color: #15803d;
+  }
+
+  &--out .cio__ytd-move-amt {
+    color: #b91c1c;
+  }
+
+  &--on {
+    box-shadow: inset 0 0 0 2px var(--mat-sys-primary, #1565c0);
+  }
+}
+
+.cio__ytd-move-date,
+.cio__ytd-move-kind {
+  font-size: 0.75rem;
+  font-weight: 650;
+}
+
+.cio__ytd-move-amt {
+  font-size: 0.82rem;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+.cio__ytd-move-note {
+  font-size: 0.75rem;
+  color: var(--app-text-muted, #64748b);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .cio__ytd-move {
+    grid-template-columns: 3.6rem 4.4rem auto;
+  }
+
+  .cio__ytd-move-note {
+    grid-column: 1 / -1;
+  }
 }
