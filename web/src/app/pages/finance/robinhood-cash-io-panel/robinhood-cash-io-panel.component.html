@@ -1,7 +1,8 @@
 <div class="cio">
   <p class="muted cio__intro">
     Manually log cash inputs (deposits / transfers in) and outputs (withdrawals / transfers out) for your Robinhood
-    accounts. Review by month or year as a list, calendar, or picture.
+    accounts. Individual ••••3370 YTD uses a Jan 1 12:00 AM cash start, then inputs, outputs, interest credits, and
+    margin debits. Review by month or year as a list, calendar, or picture.
   </p>
 
   <div class="cio__toolbar">
@@ -83,6 +84,88 @@
         <span class="cio__share-legend-out">Out {{ outSharePct | number: '1.0-0' }}%</span>
       </div>
     </div>
+  }
+
+  @if (ytd) {
+    <section class="cio__ytd" aria-label="Individual 3370 year to date">
+      <h3 class="cio__ytd-title">{{ ytd.accountLabel }} · YTD</h3>
+      <p class="cio__ytd-start">
+        Initial start as of <strong>{{ ytd.startAtLabel }}</strong>:
+        <strong class="cio__ytd-start-amt">{{ ytd.startingCash | currency }}</strong>
+      </p>
+      <div class="cio__ytd-kpis">
+        <div class="cio__total cio__total--in">
+          <span class="cio__total-label">Inputs</span>
+          <strong>{{ ytd.totalInputs | currency }}</strong>
+        </div>
+        <div class="cio__total cio__total--out">
+          <span class="cio__total-label">Outputs</span>
+          <strong>{{ ytd.totalOutputs | currency }}</strong>
+        </div>
+        <div class="cio__total cio__total--in">
+          <span class="cio__total-label">Credits</span>
+          <strong>{{ ytd.totalCredits | currency }}</strong>
+        </div>
+        <div class="cio__total cio__total--out">
+          <span class="cio__total-label">Debits</span>
+          <strong>{{ ytd.totalDebits | currency }}</strong>
+        </div>
+        <div class="cio__total" [class.cio__total--net-pos]="ytd.adjustedValue >= 0" [class.cio__total--net-neg]="ytd.adjustedValue < 0">
+          <span class="cio__total-label">Adjusted now</span>
+          <strong>{{ ytd.adjustedValue | currency }}</strong>
+        </div>
+        @if (ytd.liveValue != null) {
+          <div class="cio__total cio__total--live">
+            <span class="cio__total-label">Live account</span>
+            <strong>{{ ytd.liveValue | currency }}</strong>
+            @if (ytd.liveDate) {
+              <span class="cio__total-sub">{{ ytd.liveDate | date: 'mediumDate' }}</span>
+            }
+          </div>
+        }
+      </div>
+
+      <div class="cio__ytd-plots">
+        <div class="cio__plot">
+          <h4 class="cio__plot-title">Credits &amp; debits</h4>
+          <p class="muted cio__plot-hint">Green = inputs / interest credits. Red = outputs / margin debits.</p>
+          <div class="cio__plot-frame" aria-label="Credits and debits plot">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="cio__plot-svg">
+              <line class="cio__plot-zero" x1="0" y1="50" x2="100" y2="50" />
+              @for (b of ytdFlowBars(); track $index) {
+                <rect
+                  class="cio__plot-bar"
+                  [class.cio__plot-bar--in]="b.kind === 'INPUT' || b.kind === 'CREDIT'"
+                  [class.cio__plot-bar--out]="b.kind === 'OUTPUT' || b.kind === 'DEBIT'"
+                  [attr.x]="b.x - b.w / 2"
+                  [attr.y]="b.y"
+                  [attr.width]="b.w"
+                  [attr.height]="b.h"
+                >
+                  <title>{{ b.title }}</title>
+                </rect>
+              }
+            </svg>
+          </div>
+        </div>
+        <div class="cio__plot">
+          <h4 class="cio__plot-title">Adjusted value YTD</h4>
+          <p class="muted cio__plot-hint">
+            Running capital: start + inputs − outputs + credits − debits.
+          </p>
+          <div class="cio__plot-frame" aria-label="Adjusted value year to date">
+            <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="cio__plot-svg">
+              @if (ytdAdjPath()) {
+                <path class="cio__plot-line" [attr.d]="ytdAdjPath()" fill="none" />
+              }
+            </svg>
+            @if (ytdAdjPoints().length) {
+              <span class="cio__plot-end">{{ ytd.adjustedValue | currency }}</span>
+            }
+          </div>
+        </div>
+      </div>
+    </section>
   }
 
   <section class="cio__form" aria-label="Add or edit entry">
@@ -285,43 +368,79 @@
 
   @if (viewMode === 'calendar') {
     @if (periodMode === 'month') {
-      <div class="cio__cal" aria-label="Month calendar">
-        <div class="cio__cal-title">{{ calendarTitle }}</div>
-        <div class="cio__cal-weekdays">
-          @for (wd of weekDays; track wd) {
-            <span class="cio__cal-weekday">{{ wd }}</span>
-          }
-        </div>
-        @for (row of monthCalendarRows; track $index) {
-          <div class="cio__cal-week">
-            @for (cell of row; track cell.trackKey) {
-              @if (cell.type === 'pad') {
-                <div class="cio__cal-day cio__cal-day--pad" aria-hidden="true"></div>
-              } @else {
-                <button
-                  type="button"
-                  class="cio__cal-day"
-                  [class.cio__cal-day--in]="cell.tone === 'in'"
-                  [class.cio__cal-day--out]="cell.tone === 'out'"
-                  [class.cio__cal-day--mixed]="cell.tone === 'mixed'"
-                  [class.cio__cal-day--selected]="cell.isSelected"
-                  [class.cio__cal-day--today]="cell.isToday"
-                  [style.--cio-heat]="cell.heat + '%'"
-                  [matTooltip]="cell.tooltip"
-                  (click)="selectDay(cell.date!)"
-                >
-                  <span class="cio__cal-num">{{ cell.label }}</span>
-                  @if (cell.dayMeta && cell.dayMeta.entryCount > 0) {
-                    <span class="cio__cal-amt">{{ cell.dayMeta.net | currency: 'USD': 'symbol': '1.0-0' }}</span>
-                  }
-                </button>
-              }
+      <div class="cio__cal-wrap">
+        <button
+          mat-icon-button
+          type="button"
+          class="cio__cal-nav"
+          (click)="shiftCalendar(-1)"
+          [disabled]="!canShiftCalendar(-1)"
+          aria-label="Previous month"
+          matTooltip="Previous month"
+        >
+          <mat-icon>chevron_left</mat-icon>
+        </button>
+        <div class="cio__cal" aria-label="Month calendar">
+          <div class="cio__cal-title">{{ calendarTitle }}</div>
+          <div class="cio__cal-weekdays">
+            @for (wd of weekDays; track wd) {
+              <span class="cio__cal-weekday">{{ wd }}</span>
             }
           </div>
-        }
+          @for (row of monthCalendarRows; track $index) {
+            <div class="cio__cal-week">
+              @for (cell of row; track cell.trackKey) {
+                @if (cell.type === 'pad') {
+                  <div class="cio__cal-day cio__cal-day--pad" aria-hidden="true"></div>
+                } @else {
+                  <button
+                    type="button"
+                    class="cio__cal-day"
+                    [class.cio__cal-day--in]="cell.tone === 'in'"
+                    [class.cio__cal-day--out]="cell.tone === 'out'"
+                    [class.cio__cal-day--mixed]="cell.tone === 'mixed'"
+                    [class.cio__cal-day--selected]="cell.isSelected"
+                    [class.cio__cal-day--today]="cell.isToday"
+                    [style.--cio-heat]="cell.heat + '%'"
+                    [matTooltip]="cell.tooltip"
+                    (click)="selectDay(cell.date!)"
+                  >
+                    <span class="cio__cal-num">{{ cell.label }}</span>
+                    @if (cell.dayMeta && cell.dayMeta.entryCount > 0) {
+                      <span class="cio__cal-amt">{{ cell.dayMeta.net | currency: 'USD': 'symbol': '1.0-0' }}</span>
+                    }
+                  </button>
+                }
+              }
+            </div>
+          }
+        </div>
+        <button
+          mat-icon-button
+          type="button"
+          class="cio__cal-nav"
+          (click)="shiftCalendar(1)"
+          [disabled]="!canShiftCalendar(1)"
+          aria-label="Next month"
+          matTooltip="Next month"
+        >
+          <mat-icon>chevron_right</mat-icon>
+        </button>
       </div>
     } @else {
-      <div class="cio__year-grid" aria-label="Year calendars">
+      <div class="cio__year-wrap">
+        <button
+          mat-icon-button
+          type="button"
+          class="cio__cal-nav"
+          (click)="shiftCalendar(-1)"
+          [disabled]="!canShiftCalendar(-1)"
+          aria-label="Previous year"
+          matTooltip="Previous year"
+        >
+          <mat-icon>chevron_left</mat-icon>
+        </button>
+        <div class="cio__year-grid" aria-label="Year calendars">
         @for (m of yearMonths(); track m) {
           <div class="cio__cal cio__cal--mini">
             <div class="cio__cal-title">{{ monthLabel(m) }}</div>
@@ -356,6 +475,18 @@
             }
           </div>
         }
+      </div>
+        <button
+          mat-icon-button
+          type="button"
+          class="cio__cal-nav"
+          (click)="shiftCalendar(1)"
+          [disabled]="!canShiftCalendar(1)"
+          aria-label="Next year"
+          matTooltip="Next year"
+        >
+          <mat-icon>chevron_right</mat-icon>
+        </button>
       </div>
     }
   }

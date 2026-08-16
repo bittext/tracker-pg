@@ -5,7 +5,9 @@ import com.svp.tracker.finance.dto.RobinhoodCashIoCalendarDto;
 import com.svp.tracker.finance.dto.RobinhoodCashIoEntryDto;
 import com.svp.tracker.finance.dto.RobinhoodCashIoLedgerDto;
 import com.svp.tracker.finance.dto.RobinhoodCashIoRequestDto;
+import com.svp.tracker.finance.dto.RobinhoodCashIoYtdDto;
 import com.svp.tracker.finance.service.RobinhoodCashIoService;
+import com.svp.tracker.finance.service.RobinhoodCashIoYtdService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class RobinhoodCashIoController {
 
     private final RobinhoodCashIoService cashIoService;
+    private final RobinhoodCashIoYtdService cashIoYtdService;
 
     @GetMapping("/accounts")
     public List<RobinhoodCashIoAccountDto> accounts() {
@@ -48,6 +51,13 @@ public class RobinhoodCashIoController {
             @RequestParam(required = false) Integer month,
             @RequestParam(required = false) String accountSuffix) {
         return cashIoService.calendar(year, month, accountSuffix);
+    }
+
+    @GetMapping("/ytd")
+    public RobinhoodCashIoYtdDto ytd(
+            @RequestParam(defaultValue = "2026") int year,
+            @RequestParam(defaultValue = "3370") String accountSuffix) {
+        return cashIoYtdService.ytd(year, accountSuffix);
     }
 
     @PostMapping

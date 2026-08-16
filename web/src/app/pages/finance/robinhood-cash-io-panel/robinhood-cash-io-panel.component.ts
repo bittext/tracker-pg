@@ -16,6 +16,8 @@ import {
   RobinhoodCashIoCalendarDayDto,
   RobinhoodCashIoEntryDto,
   RobinhoodCashIoRequestDto,
+  RobinhoodCashIoYtdDto,
+  RobinhoodCashIoYtdEventDto,
 } from '../../../models/finance.models';
 import { RobinhoodCashIoApiService } from '../../../services/robinhood-cash-io-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
@@ -44,6 +46,22 @@ interface MonthBucket {
 interface TimelineItem {
   entry: RobinhoodCashIoEntryDto;
   runningNet: number;
+}
+
+interface FlowBar {
+  x: number;
+  y: number;
+  h: number;
+  w: number;
+  kind: string;
+  title: string;
+}
+
+interface AdjPt {
+  x: number;
+  y: number;
+  date: string;
+  value: number;
 }
 
 interface CalCell {
@@ -98,10 +116,12 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
     { value: 12, label: 'December' },
   ];
   readonly displayedColumns = ['date', 'account', 'direction', 'amount', 'note', 'actions'] as const;
+  readonly ytdSuffix = '3370';
 
   accounts: RobinhoodCashIoAccountDto[] = [];
   entries: RobinhoodCashIoEntryDto[] = [];
   calendarDays = new Map<string, RobinhoodCashIoCalendarDayDto>();
+  ytd: RobinhoodCashIoYtdDto | null = null;
 
   periodMode: PeriodMode = 'month';
   viewMode: ViewMode = 'list';
@@ -169,13 +189,15 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
     forkJoin({
       ledger: this.api.ledger(this.year, month, suffix),
       calendar: this.api.calendar(this.year, month, suffix),
+      ytd: this.api.ytd(this.year, this.ytdSuffix),
     }).subscribe({
-      next: ({ ledger, calendar }) => {
+      next: ({ ledger, calendar, ytd }) => {
         this.entries = ledger.entries;
         this.totalIn = ledger.totalIn;
         this.totalOut = ledger.totalOut;
         this.net = ledger.net;
         this.calendarDays = new Map(calendar.days.map((d) => [d.date, d]));
+        this.ytd = ytd;
         this.loading = false;
       },
       error: (err) => {
@@ -273,6 +295,34 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
     this.refresh();
   }
 
+  shiftCalendar(delta: number): void {
+    if (!this.canShiftCalendar(delta)) {
+      return;
+    }
+    if (this.periodMode === 'year') {
+      this.year += delta;
+    } else {
+      const next = new Date(this.year, this.month - 1 + delta, 1);
+      this.year = next.getFullYear();
+      this.month = next.getMonth() + 1;
+    }
+    this.selectedDate = null;
+    this.refresh();
+  }
+
+  canShiftCalendar(delta: number): boolean {
+    const years = this.yearOptions;
+    const minY = years[years.length - 1];
+    const maxY = years[0];
+    if (this.periodMode === 'year') {
+      const y = this.year + delta;
+      return y >= minY && y <= maxY;
+    }
+    const next = new Date(this.year, this.month - 1 + delta, 1);
+    const y = next.getFullYear();
+    return y >= minY && y <= maxY;
+  }
+
   filteredEntries(): RobinhoodCashIoEntryDto[] {
     if (!this.selectedDate) {
       return this.entries;
@@ -360,6 +410,75 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
       running += entry.direction === 'OUT' ? -entry.amount : entry.amount;
       return { entry, runningNet: running };
     });
+  }
+
+  ytdFlowBars(): FlowBar[] {
+    const events = (this.ytd?.events ?? []).filter((e) => e.kind !== 'START');
+    if (!events.length) {
+      return [];
+    }
+    const max = Math.max(1, ...events.map((e) => Math.abs(e.amount)));
+    const n = events.length;
+    const w = Math.max(0.45, Math.min(1.6, 88 / n));
+    return events.map((e, i) => {
+      const h = Math.max(3, (Math.abs(e.amount) / max) * 42);
+      const credit = e.kind === 'INPUT' || e.kind === 'CREDIT';
+      return {
+        x: n === 1 ? 50 : (i / (n - 1)) * 96 + 2,
+        y: credit ? 50 - h : 50,
+        h,
+        w,
+        kind: e.kind,
+        title: `${e.date} · ${this.ytdKindLabel(e)} ${this.fmtUsd(e.amount)}`,
+      };
+    });
+  }
+
+  ytdAdjPoints(): AdjPt[] {
+    const series = this.ytd?.adjustedSeries ?? [];
+    if (!series.length) {
+      return [];
+    }
+    const vals = series.map((p) => p.adjustedValue);
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const span = Math.max(1, max - min);
+    const n = series.length;
+    return series.map((p, i) => ({
+      x: n === 1 ? 50 : (i / (n - 1)) * 96 + 2,
+      y: 92 - ((p.adjustedValue - min) / span) * 80,
+      date: p.date,
+      value: p.adjustedValue,
+    }));
+  }
+
+  ytdAdjPath(): string {
+    const pts = this.ytdAdjPoints();
+    if (!pts.length) {
+      return '';
+    }
+    return pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ');
+  }
+
+  ytdKindLabel(e: RobinhoodCashIoYtdEventDto): string {
+    switch (e.kind) {
+      case 'START':
+        return 'Start';
+      case 'INPUT':
+        return 'Input';
+      case 'OUTPUT':
+        return 'Output';
+      case 'CREDIT':
+        return 'Credit';
+      case 'DEBIT':
+        return 'Debit';
+      default:
+        return e.kind;
+    }
+  }
+
+  private fmtUsd(n: number): string {
+    return n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
   }
 
   clearDayFilter(): void {

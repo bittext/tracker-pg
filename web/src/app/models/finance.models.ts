@@ -2346,6 +2346,38 @@ export interface RobinhoodCashIoCalendarDto {
   days: RobinhoodCashIoCalendarDayDto[];
 }
 
+/** GET /api/finance/robinhood/cash-io/ytd */
+export interface RobinhoodCashIoYtdEventDto {
+  date: string;
+  kind: 'START' | 'INPUT' | 'OUTPUT' | 'CREDIT' | 'DEBIT' | string;
+  amount: number;
+  note: string | null;
+  runningAdjusted: number;
+}
+
+export interface RobinhoodCashIoYtdPointDto {
+  date: string;
+  adjustedValue: number;
+}
+
+export interface RobinhoodCashIoYtdDto {
+  accountSuffix: string;
+  accountLabel: string;
+  startDate: string;
+  startAtLabel: string;
+  startingCash: number;
+  totalInputs: number;
+  totalOutputs: number;
+  netIo: number;
+  totalCredits: number;
+  totalDebits: number;
+  adjustedValue: number;
+  liveValue: number | null;
+  liveDate: string | null;
+  events: RobinhoodCashIoYtdEventDto[];
+  adjustedSeries: RobinhoodCashIoYtdPointDto[];
+}
+
 /** GET /api/finance/robinhood/selective-trades */
 export interface RobinhoodSelectiveTradeEntryDto {
   id: number;

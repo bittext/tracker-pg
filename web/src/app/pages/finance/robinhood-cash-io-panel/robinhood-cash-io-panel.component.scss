@@ -471,6 +471,27 @@
   }
 }
 
+.cio__cal-wrap,
+.cio__year-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.cio__year-wrap {
+  align-items: stretch;
+}
+
+.cio__cal-nav {
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+.cio__year-wrap .cio__year-grid {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .cio__cal {
   display: flex;
   flex-direction: column;
@@ -622,4 +643,115 @@
 .cio__amt--out {
   color: #b91c1c;
   font-variant-numeric: tabular-nums;
+}
+
+.cio__ytd {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: 0.8rem 0.9rem 0.95rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+  border-radius: 10px;
+  background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+}
+
+.cio__ytd-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.cio__ytd-start {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.cio__ytd-start-amt {
+  font-variant-numeric: tabular-nums;
+}
+
+.cio__ytd-kpis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.cio__total--live strong {
+  color: #1d4ed8;
+}
+
+.cio__total-sub {
+  font-size: 0.68rem;
+  color: var(--app-text-muted, #64748b);
+}
+
+.cio__ytd-plots {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+@media (max-width: 860px) {
+  .cio__ytd-plots {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cio__plot-title {
+  margin: 0 0 0.15rem;
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.cio__plot-hint {
+  margin: 0 0 0.4rem;
+  font-size: 0.72rem;
+}
+
+.cio__plot-frame {
+  position: relative;
+  height: 10.5rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--app-surface, #fff) 88%, transparent);
+  overflow: hidden;
+}
+
+.cio__plot-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.cio__plot-zero {
+  stroke: #cbd5e1;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.cio__plot-bar--in {
+  fill: #15803d;
+}
+
+.cio__plot-bar--out {
+  fill: #b91c1c;
+}
+
+.cio__plot-line {
+  stroke: #1d4ed8;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.cio__plot-end {
+  position: absolute;
+  right: 0.45rem;
+  top: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #1d4ed8;
 }

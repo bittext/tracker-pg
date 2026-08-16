@@ -6,6 +6,7 @@ import {
   RobinhoodCashIoEntryDto,
   RobinhoodCashIoLedgerDto,
   RobinhoodCashIoRequestDto,
+  RobinhoodCashIoYtdDto,
 } from '../models/finance.models';
 
 @Injectable({ providedIn: 'root' })
@@ -37,6 +38,11 @@ export class RobinhoodCashIoApiService {
       params = params.set('accountSuffix', accountSuffix);
     }
     return this.http.get<RobinhoodCashIoCalendarDto>(`${this.root}/calendar`, { params });
+  }
+
+  ytd(year: number, accountSuffix = '3370') {
+    const params = new HttpParams().set('year', year).set('accountSuffix', accountSuffix);
+    return this.http.get<RobinhoodCashIoYtdDto>(`${this.root}/ytd`, { params });
   }
 
   create(body: RobinhoodCashIoRequestDto) {
