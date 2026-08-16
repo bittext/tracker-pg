@@ -1,4 +1,5 @@
 import { ResolvedThemeMode, ThemePreset } from '../models/theme.models';
+import { THEME_CATALOG_REGISTRY } from './theme-catalog.tokens';
 
 /**
  * Semantic design tokens for the tracker-pg UI.
@@ -507,6 +508,7 @@ export const THEME_TOKEN_REGISTRY: Record<
     light: AURA_LIGHT,
     dark: AURA_DARK,
   },
+  ...THEME_CATALOG_REGISTRY,
 };
 
 /** Boot-time defaults (matches {@link DEFAULT_THEME_CONFIG} + system fallback to light). */

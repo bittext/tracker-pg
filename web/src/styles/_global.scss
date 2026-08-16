@@ -39,6 +39,11 @@ body {
   font-weight: 500;
 }
 
+[data-theme-preset='archive'] .page-title {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
 .muted {
   margin: 0;
   color: var(--app-text-muted);

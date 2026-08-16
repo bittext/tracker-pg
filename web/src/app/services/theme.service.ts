@@ -41,11 +41,8 @@ export class ThemeService {
     getThemeTokens(this.configSignal().preset, this.resolvedMode()),
   );
 
-  /** OpenAI, Phoenix, and Aura presets use a platform-style sidebar shell. */
-  readonly usesSidebarShell = computed(() => {
-    const p = this.configSignal().preset;
-    return p === 'openai' || p === 'phoenix' || p === 'aura';
-  });
+  /** Every preset except Classic uses the platform-style sidebar shell. */
+  readonly usesSidebarShell = computed(() => this.configSignal().preset !== 'classic');
 
   /** Call once at startup (AppComponent ngOnInit). */
   init(): void {

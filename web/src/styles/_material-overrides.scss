@@ -177,6 +177,9 @@ table.mat-mdc-table .mat-mdc-row:nth-child(even) .mat-mdc-cell {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  max-height: min(52vh, 28rem);
+  overflow-y: auto;
+  padding-right: 0.15rem;
 }
 
 .theme-settings-menu__preset {
@@ -231,6 +234,46 @@ table.mat-mdc-table .mat-mdc-row:nth-child(even) .mat-mdc-cell {
 
   &[data-preset='aura'] {
     background: linear-gradient(135deg, #ffd6c4 0%, #c9b8f5 55%, #8b9cf7 100%);
+  }
+
+  &[data-preset='aether'] {
+    background: linear-gradient(135deg, #e6eef6 0%, #4f7394 100%);
+  }
+
+  &[data-preset='lumen'] {
+    background: linear-gradient(135deg, #fdfaf3 0%, #b0892e 100%);
+  }
+
+  &[data-preset='obsidian'] {
+    background: linear-gradient(135deg, #111112 0%, #e8e8ec 100%);
+  }
+
+  &[data-preset='velvet'] {
+    background: linear-gradient(135deg, #7a3d6a 0%, #d4a0c4 100%);
+  }
+
+  &[data-preset='atelier'] {
+    background: linear-gradient(135deg, #eee8de 0%, #3d3a36 100%);
+  }
+
+  &[data-preset='solace'] {
+    background: linear-gradient(135deg, #ebe6dc 0%, #6a7f62 100%);
+  }
+
+  &[data-preset='eclipse'] {
+    background: linear-gradient(135deg, #0b0c10 0%, #e8e4d8 100%);
+  }
+
+  &[data-preset='opal'] {
+    background: linear-gradient(135deg, #7ec8c4 0%, #c47890 55%, #8fb4d4 100%);
+  }
+
+  &[data-preset='archive'] {
+    background: linear-gradient(135deg, #f4ead8 0%, #8b5e3c 100%);
+  }
+
+  &[data-preset='ember'] {
+    background: linear-gradient(135deg, #14110f 0%, #c45c26 100%);
   }
 }
 

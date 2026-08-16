@@ -1,7 +1,5 @@
-/* Platform sidebar shell — OpenAI / Phoenix / Aura */
-[data-theme-preset='openai'],
-[data-theme-preset='phoenix'],
-[data-theme-preset='aura'] {
+/* Platform sidebar shell — every preset except Classic */
+[data-theme-preset]:not([data-theme-preset='classic']) {
   .app-platform-layout {
     display: flex;
     min-height: 100vh;
@@ -178,9 +176,7 @@
 }
 
 @media (max-width: 768px) {
-  [data-theme-preset='openai'],
-  [data-theme-preset='phoenix'],
-  [data-theme-preset='aura'] {
+  [data-theme-preset]:not([data-theme-preset='classic']) {
     .app-platform-layout {
       flex-direction: column;
     }

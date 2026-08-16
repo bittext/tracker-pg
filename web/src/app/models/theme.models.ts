@@ -1,5 +1,19 @@
 /** Visual preset — maps to token bundles in theme-tokens.config. */
-export type ThemePreset = 'phoenix' | 'openai' | 'classic' | 'aura';
+export type ThemePreset =
+  | 'phoenix'
+  | 'openai'
+  | 'classic'
+  | 'aura'
+  | 'aether'
+  | 'lumen'
+  | 'obsidian'
+  | 'velvet'
+  | 'atelier'
+  | 'solace'
+  | 'eclipse'
+  | 'opal'
+  | 'archive'
+  | 'ember';
 
 /** Color scheme; `system` follows OS preference. */
 export type ThemeMode = 'light' | 'dark' | 'system';
@@ -51,6 +65,56 @@ export const THEME_PRESETS: ThemePresetMeta[] = [
     label: 'Aura',
     description: 'Warm peach bloom into cool lavender mist',
   },
+  {
+    id: 'aether',
+    label: 'Aether',
+    description: 'Airy sky canvas with cool steel-blue accents',
+  },
+  {
+    id: 'lumen',
+    label: 'Lumen',
+    description: 'High-key cream light with warm gold highlights',
+  },
+  {
+    id: 'obsidian',
+    label: 'Obsidian',
+    description: 'Sharp ink contrast on a volcanic glass field',
+  },
+  {
+    id: 'velvet',
+    label: 'Velvet',
+    description: 'Deep plum and wine with a tactile hush',
+  },
+  {
+    id: 'atelier',
+    label: 'Atelier',
+    description: 'Studio paper, warm gray, and charcoal ink',
+  },
+  {
+    id: 'solace',
+    label: 'Solace',
+    description: 'Quiet stone and olive for an unhurried read',
+  },
+  {
+    id: 'eclipse',
+    label: 'Eclipse',
+    description: 'Near-void field with a thin cream corona',
+  },
+  {
+    id: 'opal',
+    label: 'Opal',
+    description: 'Iridescent mint, rose, and sky pastels',
+  },
+  {
+    id: 'archive',
+    label: 'Archive',
+    description: 'Library parchment with sepia and serif titles',
+  },
+  {
+    id: 'ember',
+    label: 'Ember',
+    description: 'Charcoal coals with a warm orange glow',
+  },
 ];
 
 export const THEME_MODES: ThemeModeMeta[] = [
@@ -59,7 +123,7 @@ export const THEME_MODES: ThemeModeMeta[] = [
   { id: 'dark', label: 'Dark' },
 ];
 
-const PRESET_IDS = new Set<ThemePreset>(['phoenix', 'openai', 'classic', 'aura']);
+const PRESET_IDS = new Set<ThemePreset>(THEME_PRESETS.map((p) => p.id));
 
 export function parseThemeConfig(raw: unknown): ThemeConfig {
   if (!raw || typeof raw !== 'object') {
