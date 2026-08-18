@@ -54,10 +54,14 @@ public class RobinhoodCashIoYtdService {
 
     @Transactional(readOnly = true)
     public RobinhoodCashIoYtdDto ytd(int year, String accountSuffix) {
+        return ytdFor(currentUser.requireUserId(), year, accountSuffix);
+    }
+
+    @Transactional(readOnly = true)
+    public RobinhoodCashIoYtdDto ytdFor(long uid, int year, String accountSuffix) {
         if (year < 2000 || year > 2100) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "year is out of range");
         }
-        long uid = currentUser.requireUserId();
         String suffix = normalizeSuffix(accountSuffix);
         LocalDate from = LocalDate.of(year, 1, 1);
         LocalDate to = LocalDate.of(year, 12, 31);

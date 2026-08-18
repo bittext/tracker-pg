@@ -15,6 +15,8 @@ import { filter, forkJoin, fromEvent, interval, merge } from 'rxjs';
 import {
   RobinhoodCashIoAccountDto,
   RobinhoodCashIoCalendarDayDto,
+  RobinhoodCashIoDailyDto,
+  RobinhoodCashIoDailyHistoryDto,
   RobinhoodCashIoEntryDto,
   RobinhoodCashIoRequestDto,
   RobinhoodCashIoYtdDto,
@@ -24,7 +26,7 @@ import { RobinhoodCashIoApiService } from '../../../services/robinhood-cash-io-a
 import { formatHttpErrorDetail } from '../../../util/http-error';
 
 type PeriodMode = 'month' | 'year';
-type ViewMode = 'list' | 'calendar' | 'picture';
+type ViewMode = 'list' | 'calendar' | 'picture' | 'track';
 
 interface AccountBreakdown {
   suffix: string;
@@ -153,6 +155,8 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
   ytd: RobinhoodCashIoYtdDto | null = null;
   ytdFocus: RobinhoodCashIoYtdEventDto | null = null;
   ytdAsOf: Date | null = null;
+  daily: RobinhoodCashIoDailyHistoryDto | null = null;
+  selectedTrackDate: string | null = null;
 
   periodMode: PeriodMode = 'month';
   viewMode: ViewMode = 'list';
@@ -235,18 +239,22 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
     const suffix = this.accountSuffix || null;
     const ytdYear = new Date().getFullYear();
     const prevFocus = this.ytdFocus;
+    const prevTrack = this.selectedTrackDate;
+    const trackSuffix = this.accountSuffix || this.ytdSuffix;
     forkJoin({
       ledger: this.api.ledger(this.year, month, suffix),
       calendar: this.api.calendar(this.year, month, suffix),
       ytd: this.api.ytd(ytdYear, this.ytdSuffix),
+      daily: this.api.daily(this.year, trackSuffix),
     }).subscribe({
-      next: ({ ledger, calendar, ytd }) => {
+      next: ({ ledger, calendar, ytd, daily }) => {
         this.entries = ledger.entries;
         this.totalIn = ledger.totalIn;
         this.totalOut = ledger.totalOut;
         this.net = ledger.net;
         this.calendarDays = new Map(calendar.days.map((d) => [d.date, d]));
         this.ytd = ytd;
+        this.daily = daily;
         this.ytdAsOf = new Date();
         if (silent && prevFocus) {
           this.ytdFocus =
@@ -256,6 +264,11 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
             ) ?? null;
         } else if (!silent) {
           this.ytdFocus = null;
+        }
+        if (silent && prevTrack && daily.days.some((d) => d.asOfDate === prevTrack)) {
+          this.selectedTrackDate = prevTrack;
+        } else if (!silent && this.selectedTrackDate && !daily.days.some((d) => d.asOfDate === this.selectedTrackDate)) {
+          this.selectedTrackDate = null;
         }
         this.loading = false;
         this.refreshInFlight = false;
@@ -642,6 +655,48 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
     }
     const now = todayEvents.length ? todayEvents[todayEvents.length - 1].runningAdjusted : opening;
     return { date, dateLabel, opening, inputs, outputs, credits, debits, now, events: todayEvents };
+  }
+
+  trackDays(): RobinhoodCashIoDailyDto[] {
+    const days = this.daily?.days ?? [];
+    if (this.periodMode !== 'month') {
+      return days;
+    }
+    const prefix = `${this.year}-${String(this.month).padStart(2, '0')}-`;
+    return days.filter((d) => d.asOfDate.startsWith(prefix));
+  }
+
+  selectedTrackDay(): RobinhoodCashIoDailyDto | null {
+    const date = this.selectedTrackDate;
+    if (!date) {
+      return null;
+    }
+    return (this.daily?.days ?? []).find((d) => d.asOfDate === date) ?? null;
+  }
+
+  selectTrackDay(row: RobinhoodCashIoDailyDto): void {
+    this.selectedTrackDate = this.selectedTrackDate === row.asOfDate ? null : row.asOfDate;
+  }
+
+  trackHasMove(row: RobinhoodCashIoDailyDto): boolean {
+    return row.dayInputs + row.dayOutputs + row.dayCredits + row.dayDebits > 0;
+  }
+
+  trackRowIsToday(row: RobinhoodCashIoDailyDto): boolean {
+    return row.asOfDate === this.isoToday();
+  }
+
+  liveAccountShort(label: string): string {
+    if (label.startsWith('Individual')) {
+      return 'Ind';
+    }
+    if (label.startsWith('Agentic')) {
+      return 'Agt';
+    }
+    if (label.startsWith('Managed')) {
+      return 'Mgd';
+    }
+    return label.replace(/^Account\s+/, '');
   }
 
   prepareTodayEntry(direction: 'IN' | 'OUT'): void {

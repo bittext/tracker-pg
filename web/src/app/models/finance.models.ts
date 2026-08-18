@@ -2378,6 +2378,36 @@ export interface RobinhoodCashIoYtdDto {
   adjustedSeries: RobinhoodCashIoYtdPointDto[];
 }
 
+/** GET /api/finance/robinhood/cash-io/daily */
+export interface RobinhoodCashIoLiveAccountDto {
+  suffix: string;
+  label: string;
+  value: number;
+}
+
+export interface RobinhoodCashIoDailyDto {
+  asOfDate: string;
+  dayInputs: number;
+  dayOutputs: number;
+  dayCredits: number;
+  dayDebits: number;
+  ytdInputs: number;
+  ytdOutputs: number;
+  ytdCredits: number;
+  ytdDebits: number;
+  adjustedNow: number;
+  liveValue: number | null;
+  liveAccounts: RobinhoodCashIoLiveAccountDto[];
+  capturedAt: string;
+}
+
+export interface RobinhoodCashIoDailyHistoryDto {
+  accountSuffix: string;
+  accountLabel: string;
+  year: number;
+  days: RobinhoodCashIoDailyDto[];
+}
+
 /** GET /api/finance/robinhood/selective-trades */
 export interface RobinhoodSelectiveTradeEntryDto {
   id: number;

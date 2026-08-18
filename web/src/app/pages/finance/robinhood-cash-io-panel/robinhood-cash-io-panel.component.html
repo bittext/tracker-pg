@@ -2,8 +2,9 @@
   <p class="muted cio__intro">
     Manually log cash inputs (deposits / transfers in) and outputs (withdrawals / transfers out) for your Robinhood
     accounts. Today's running tab on Individual ••••3370 stays current as you add entries. YTD uses a Jan 1 12:00 AM
-    cash start, then inputs, outputs, interest credits, and margin debits. Review by month or year as a list,
-    calendar, or picture.
+    cash start, then inputs, outputs, interest credits, and margin debits. Track keeps a day-by-day record of those
+    figures plus live account values so you can look them up later. Review by month or year as a list, calendar,
+    picture, or track.
   </p>
 
   <div class="cio__toolbar">
@@ -21,6 +22,7 @@
       <mat-button-toggle value="list">List</mat-button-toggle>
       <mat-button-toggle value="calendar">Calendar</mat-button-toggle>
       <mat-button-toggle value="picture">Picture</mat-button-toggle>
+      <mat-button-toggle value="track">Track</mat-button-toggle>
     </mat-button-toggle-group>
 
     <mat-form-field appearance="outline" class="cio__year">
@@ -716,7 +718,135 @@
     }
   }
 
-  @if (viewMode !== 'picture') {
+  @if (viewMode === 'track') {
+    <section class="cio__track" aria-label="Daily track">
+      <div class="cio__track-head">
+        <div>
+          <h3 class="cio__ytd-title">{{ daily?.accountLabel || 'Account' }} · daily track</h3>
+          <p class="muted cio__track-hint">
+            One row per day: that day's in, out, interest, and margin, then adjusted cash and live account values.
+            Live figures come from Daily Tracker closes; weekends keep the last close. Click a row to pin it.
+          </p>
+        </div>
+        @if (ytdAsOf) {
+          <span class="cio__today-asof">Updated {{ ytdAsOf | date: 'shortTime' }}</span>
+        }
+      </div>
+
+      @if (selectedTrackDay(); as pin) {
+        <div class="cio__track-pin">
+          <p class="cio__today-open">
+            {{ pin.asOfDate | date: 'fullDate' }} closed at
+            <strong>{{ pin.adjustedNow | currency }}</strong>
+          </p>
+          <p class="cio__ytd-formula cio__today-formula">
+            {{ pin.dayInputs | currency }} in
+            − {{ pin.dayOutputs | currency }} out
+            + {{ pin.dayCredits | currency }} interest
+            − {{ pin.dayDebits | currency }} margin
+            → YTD adjusted
+            <strong>{{ pin.adjustedNow | currency }}</strong>
+          </p>
+          <div class="cio__ytd-kpis">
+            <div class="cio__total cio__total--in">
+              <span class="cio__total-label">Day in</span>
+              <strong>{{ pin.dayInputs | currency }}</strong>
+            </div>
+            <div class="cio__total cio__total--out">
+              <span class="cio__total-label">Day out</span>
+              <strong>{{ pin.dayOutputs | currency }}</strong>
+            </div>
+            <div class="cio__total cio__total--in">
+              <span class="cio__total-label">Day interest</span>
+              <strong>{{ pin.dayCredits | currency }}</strong>
+            </div>
+            <div class="cio__total cio__total--out">
+              <span class="cio__total-label">Day margin</span>
+              <strong>{{ pin.dayDebits | currency }}</strong>
+            </div>
+            <div class="cio__total" [class.cio__total--net-pos]="pin.adjustedNow >= 0">
+              <span class="cio__total-label">Adjusted now</span>
+              <strong>{{ pin.adjustedNow | currency }}</strong>
+            </div>
+            @for (a of pin.liveAccounts; track a.suffix) {
+              <div class="cio__total cio__total--live">
+                <span class="cio__total-label">{{ a.label }}</span>
+                <strong>{{ a.value | currency }}</strong>
+              </div>
+            }
+          </div>
+          <p class="muted cio__track-ytd">
+            YTD to this day: {{ pin.ytdInputs | currency }} in · {{ pin.ytdOutputs | currency }} out ·
+            {{ pin.ytdCredits | currency }} interest · {{ pin.ytdDebits | currency }} margin
+          </p>
+        </div>
+      }
+
+      @if (loading && !daily) {
+        <p class="muted">Loading daily track…</p>
+      } @else if (!trackDays().length) {
+        <p class="muted">No daily track rows for this period yet. Refresh after the first capture.</p>
+      } @else {
+        <div class="cio__track-scroll">
+          <table class="cio__track-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th class="cio__track-num">In</th>
+                <th class="cio__track-num">Out</th>
+                <th class="cio__track-num">Interest</th>
+                <th class="cio__track-num">Margin</th>
+                <th class="cio__track-num">Adjusted now</th>
+                <th>Live accounts</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of trackDays(); track row.asOfDate) {
+                <tr
+                  [class.cio__track-row--move]="trackHasMove(row)"
+                  [class.cio__track-row--today]="trackRowIsToday(row)"
+                  [class.cio__track-row--on]="selectedTrackDate === row.asOfDate"
+                  (click)="selectTrackDay(row)"
+                >
+                  <td>
+                    <time [attr.datetime]="row.asOfDate">{{ row.asOfDate | date: 'EEE, MMM d' }}</time>
+                  </td>
+                  <td class="cio__track-num" [class.cio__amt--in]="row.dayInputs > 0">
+                    {{ row.dayInputs ? (row.dayInputs | currency) : '—' }}
+                  </td>
+                  <td class="cio__track-num" [class.cio__amt--out]="row.dayOutputs > 0">
+                    {{ row.dayOutputs ? (row.dayOutputs | currency) : '—' }}
+                  </td>
+                  <td class="cio__track-num" [class.cio__amt--in]="row.dayCredits > 0">
+                    {{ row.dayCredits ? (row.dayCredits | currency) : '—' }}
+                  </td>
+                  <td class="cio__track-num" [class.cio__amt--out]="row.dayDebits > 0">
+                    {{ row.dayDebits ? (row.dayDebits | currency) : '—' }}
+                  </td>
+                  <td class="cio__track-num cio__track-adj">{{ row.adjustedNow | currency }}</td>
+                  <td>
+                    @if (row.liveAccounts.length) {
+                      <span class="cio__track-lives">
+                        @for (a of row.liveAccounts; track a.suffix) {
+                          <span class="cio__track-live" [title]="a.label">
+                            {{ liveAccountShort(a.label) }} {{ a.value | currency }}
+                          </span>
+                        }
+                      </span>
+                    } @else {
+                      —
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+  }
+
+  @if (viewMode === 'list' || viewMode === 'calendar') {
   <div class="cio__list">
     @if (loading) {
       <p class="muted">Loading…</p>

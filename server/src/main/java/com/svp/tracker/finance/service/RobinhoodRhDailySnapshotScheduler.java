@@ -29,6 +29,7 @@ public class RobinhoodRhDailySnapshotScheduler {
     private final RobinhoodAgenticConnectionRepository connectionRepository;
     private final RobinhoodAgenticService agenticService;
     private final RobinhoodRhDailyTrackerService dailyTrackerService;
+    private final RobinhoodCashIoDailyService cashIoDailyService;
 
     @EventListener(ApplicationReadyEvent.class)
     public void logSchedulerRegistration() {
@@ -68,6 +69,7 @@ public class RobinhoodRhDailySnapshotScheduler {
                 }
                 if (closingHour) {
                     dailyTrackerService.captureScheduledSnapshotsForOwner(conn.getOwnerUserId(), snapshotAt);
+                    cashIoDailyService.captureForOwner(conn.getOwnerUserId());
                 } else {
                     dailyTrackerService.captureIntradaySnapshotsForOwner(conn.getOwnerUserId(), snapshotAt);
                 }

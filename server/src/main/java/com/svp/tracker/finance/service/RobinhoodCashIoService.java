@@ -39,6 +39,7 @@ public class RobinhoodCashIoService {
     private final CurrentUserService currentUser;
     private final RobinhoodAccountCashIoRepository repository;
     private final RobinhoodAccountTrackerConfigService accountTrackerConfigService;
+    private final RobinhoodCashIoDailyService cashIoDailyService;
 
     @Transactional(readOnly = true)
     public List<RobinhoodCashIoAccountDto> listAccounts() {
@@ -115,7 +116,9 @@ public class RobinhoodCashIoService {
         row.setNote(req.note());
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
-        return toEntryDto(repository.save(row), accountLabelMap(uid));
+        RobinhoodCashIoEntryDto saved = toEntryDto(repository.save(row), accountLabelMap(uid));
+        cashIoDailyService.rebuildAfterLedgerChange(uid, req.suffix(), req.date());
+        return saved;
     }
 
     @Transactional
@@ -123,20 +126,30 @@ public class RobinhoodCashIoService {
         long uid = currentUser.requireUserId();
         RobinhoodAccountCashIo row = requireOwned(id, uid);
         ValidatedRequest req = validateRequest(body);
+        String previousSuffix = row.getAccountSuffix();
+        LocalDate previousDate = row.getActivityDate();
         row.setAccountSuffix(req.suffix());
         row.setActivityDate(req.date());
         row.setDirection(req.direction());
         row.setAmount(req.amount());
         row.setNote(req.note());
         row.setUpdatedAt(Instant.now());
-        return toEntryDto(repository.save(row), accountLabelMap(uid));
+        RobinhoodCashIoEntryDto saved = toEntryDto(repository.save(row), accountLabelMap(uid));
+        cashIoDailyService.rebuildAfterLedgerChange(uid, req.suffix(), req.date());
+        if (!Objects.equals(previousSuffix, req.suffix()) || previousDate.getYear() != req.date().getYear()) {
+            cashIoDailyService.rebuildAfterLedgerChange(uid, previousSuffix, previousDate);
+        }
+        return saved;
     }
 
     @Transactional
     public void delete(long id) {
         long uid = currentUser.requireUserId();
         RobinhoodAccountCashIo row = requireOwned(id, uid);
+        String suffix = row.getAccountSuffix();
+        LocalDate date = row.getActivityDate();
         repository.delete(row);
+        cashIoDailyService.rebuildAfterLedgerChange(uid, suffix, date);
     }
 
     private RobinhoodAccountCashIo requireOwned(long id, long uid) {

@@ -2,10 +2,12 @@ package com.svp.tracker.finance.controller;
 
 import com.svp.tracker.finance.dto.RobinhoodCashIoAccountDto;
 import com.svp.tracker.finance.dto.RobinhoodCashIoCalendarDto;
+import com.svp.tracker.finance.dto.RobinhoodCashIoDailyHistoryDto;
 import com.svp.tracker.finance.dto.RobinhoodCashIoEntryDto;
 import com.svp.tracker.finance.dto.RobinhoodCashIoLedgerDto;
 import com.svp.tracker.finance.dto.RobinhoodCashIoRequestDto;
 import com.svp.tracker.finance.dto.RobinhoodCashIoYtdDto;
+import com.svp.tracker.finance.service.RobinhoodCashIoDailyService;
 import com.svp.tracker.finance.service.RobinhoodCashIoService;
 import com.svp.tracker.finance.service.RobinhoodCashIoYtdService;
 import java.util.List;
@@ -31,6 +33,7 @@ public class RobinhoodCashIoController {
 
     private final RobinhoodCashIoService cashIoService;
     private final RobinhoodCashIoYtdService cashIoYtdService;
+    private final RobinhoodCashIoDailyService cashIoDailyService;
 
     @GetMapping("/accounts")
     public List<RobinhoodCashIoAccountDto> accounts() {
@@ -58,6 +61,13 @@ public class RobinhoodCashIoController {
             @RequestParam(defaultValue = "2026") int year,
             @RequestParam(defaultValue = "3370") String accountSuffix) {
         return cashIoYtdService.ytd(year, accountSuffix);
+    }
+
+    @GetMapping("/daily")
+    public RobinhoodCashIoDailyHistoryDto daily(
+            @RequestParam(defaultValue = "2026") int year,
+            @RequestParam(defaultValue = "3370") String accountSuffix) {
+        return cashIoDailyService.history(year, accountSuffix);
     }
 
     @PostMapping

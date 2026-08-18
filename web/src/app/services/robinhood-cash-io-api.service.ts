@@ -3,6 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import {
   RobinhoodCashIoAccountDto,
   RobinhoodCashIoCalendarDto,
+  RobinhoodCashIoDailyHistoryDto,
   RobinhoodCashIoEntryDto,
   RobinhoodCashIoLedgerDto,
   RobinhoodCashIoRequestDto,
@@ -43,6 +44,11 @@ export class RobinhoodCashIoApiService {
   ytd(year: number, accountSuffix = '3370') {
     const params = new HttpParams().set('year', year).set('accountSuffix', accountSuffix);
     return this.http.get<RobinhoodCashIoYtdDto>(`${this.root}/ytd`, { params });
+  }
+
+  daily(year: number, accountSuffix = '3370') {
+    const params = new HttpParams().set('year', year).set('accountSuffix', accountSuffix);
+    return this.http.get<RobinhoodCashIoDailyHistoryDto>(`${this.root}/daily`, { params });
   }
 
   create(body: RobinhoodCashIoRequestDto) {
