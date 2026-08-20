@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Run on the Lightsail host from the repository root after `git pull` (see GitHub Actions deploy workflow).
-# Rebuilds and restarts api + web (+ robinhood-notebook when enabled); does not recreate postgres (--no-deps).
+# Rebuilds and restarts only services whose sources changed since TRACKER_DEPLOY_BEFORE_SHA
+# (set by GitHub Actions to origin/<branch> before fetch). Unset or TRACKER_DEPLOY_FORCE=1
+# rebuilds api + web (+ optional sidecars). Does not recreate postgres (--no-deps).
 # First-time stack (Postgres + volumes): run once from repo root:
 #   docker compose -f docker-compose.stack.yml --env-file .env.stack up -d --build
 #
@@ -24,6 +26,8 @@
 #   - TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_ENABLED=true in .env.stack (auto-detect).
 # Disable auto-detect while keeping the flag in .env.stack: TRACKER_ROBINHOOD_NOTEBOOK_DISABLE=1
 set -euo pipefail
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 env_file="${TRACKER_ENV_FILE:-.env.stack}"
@@ -117,21 +121,82 @@ elif grep -qE '^[[:space:]]*TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_ENABLED=(
   echo "Including robinhood-notebook service (TRACKER_FINANCE_ROBINHOOD_NOTEBOOK_SERVICE_ENABLED in ${env_file})."
 fi
 
-build_services=( api web )
-if [[ "$use_robinhood_agent" -eq 1 ]]; then
-  build_services+=( robinhood-agent )
+changed_files=""
+if [[ "${TRACKER_DEPLOY_FORCE:-0}" == "1" ]]; then
+  echo "Full rebuild (TRACKER_DEPLOY_FORCE=1)."
+elif [[ -n "${TRACKER_DEPLOY_BEFORE_SHA:-}" ]] && git cat-file -e "${TRACKER_DEPLOY_BEFORE_SHA}^{commit}" 2>/dev/null; then
+  changed_files="$(git diff --name-only "$TRACKER_DEPLOY_BEFORE_SHA" HEAD || true)"
+  echo "Changes since ${TRACKER_DEPLOY_BEFORE_SHA:0:8}:"
+  if [[ -z "$changed_files" ]]; then
+    echo "  (none — skipping image rebuild)"
+  else
+    echo "$changed_files" | sed 's/^/  /'
+  fi
+else
+  echo "No prior SHA — building all images."
 fi
-if [[ "$use_robinhood_notebook" -eq 1 ]]; then
-  build_services+=( robinhood-notebook )
+
+path_changed() {
+  local pattern
+  if [[ "${TRACKER_DEPLOY_FORCE:-0}" == "1" ]]; then
+    return 0
+  fi
+  if [[ -z "${TRACKER_DEPLOY_BEFORE_SHA:-}" ]]; then
+    return 0
+  fi
+  if [[ -z "$changed_files" ]]; then
+    return 1
+  fi
+  for pattern in "$@"; do
+    if grep -qE "$pattern" <<<"$changed_files"; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+rebuild_all=0
+if path_changed '^Dockerfile$' '^docker-compose' '^scripts/lightsail-deploy\.sh$'; then
+  rebuild_all=1
+fi
+
+build_services=()
+rebuild_api=0
+rebuild_web=0
+rebuild_agent=0
+rebuild_notebook=0
+if [[ "$rebuild_all" -eq 1 ]] || path_changed '^server/' '^Dockerfile$'; then
+  rebuild_api=1
+  build_services+=(api)
+fi
+if [[ "$rebuild_all" -eq 1 ]] || path_changed '^web/'; then
+  rebuild_web=1
+  build_services+=(web)
+fi
+if [[ "$use_robinhood_agent" -eq 1 ]] && { [[ "$rebuild_all" -eq 1 ]] || path_changed '^robinhood-agent-svc/'; }; then
+  rebuild_agent=1
+  build_services+=(robinhood-agent)
+fi
+if [[ "$use_robinhood_notebook" -eq 1 ]] && { [[ "$rebuild_all" -eq 1 ]] || path_changed '^robinhood-notebook-svc/' '^notebooks/robinhood/'; }; then
+  rebuild_notebook=1
+  build_services+=(robinhood-notebook)
+fi
+
+if ((${#build_services[@]})); then
+  echo "Rebuilding: ${build_services[*]}"
+else
+  echo "No service sources changed — leaving running images in place."
 fi
 
 # --remove-orphans: dropping Caddy or Robinhood overlays no longer leaves old containers (e.g. tracker-pg-caddy-1).
-# --force-recreate: avoids "container name already in use" when a prior run left a stale api/web container.
+# Recreate only services whose images were rebuilt so a web-only push does not bounce Spring.
 for svc in api web; do
   remove_stale_compose_containers "$svc"
 done
-docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" build "${build_services[@]}"
-if [[ "$use_robinhood_agent" -eq 1 ]]; then
+if ((${#build_services[@]})); then
+  docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" build "${build_services[@]}"
+fi
+if [[ "$rebuild_agent" -eq 1 ]]; then
   remove_stale_compose_containers robinhood-agent
   docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" up -d --no-deps --force-recreate robinhood-agent
   if ! docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" ps --status running --services 2>/dev/null | grep -qx robinhood-agent; then
@@ -139,8 +204,17 @@ if [[ "$use_robinhood_agent" -eq 1 ]]; then
     exit 1
   fi
   echo "robinhood-agent is running."
+elif [[ "$use_robinhood_agent" -eq 1 ]]; then
+  echo "robinhood-agent unchanged — not recreated."
 fi
-docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" up -d --no-deps --force-recreate --remove-orphans api web
+# Start api/web separately with --no-deps so nginx does not wait ~40s for Spring health.
+if [[ "$rebuild_api" -eq 1 ]]; then
+  docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" up -d --no-deps --force-recreate api
+fi
+if [[ "$rebuild_web" -eq 1 ]]; then
+  docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" up -d --no-deps --force-recreate web
+fi
+docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" up -d --no-deps --remove-orphans api web
 
 wait_for_api_healthy() {
   local max_attempts="${1:-60}"
@@ -159,14 +233,20 @@ wait_for_api_healthy() {
   echo "      Check: docker compose -f docker-compose.stack.yml --env-file ${env_file} logs api --tail 60" >&2
   return 1
 }
-wait_for_api_healthy 60 || true
+if [[ "$rebuild_api" -eq 1 ]]; then
+  wait_for_api_healthy 60 || true
+else
+  echo "api image unchanged — skipping health wait."
+fi
 
 # Ensure Caddy (re)starts and stays in the project; picks up Caddyfile bind-mount changes.
 if [[ "$use_caddy" -eq 1 ]] && [[ -f "${repo_root}/docker-compose.https-lightsail.yml" ]]; then
   remove_stale_compose_containers caddy
   docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" up -d caddy
 fi
-if [[ "$use_robinhood_notebook" -eq 1 ]]; then
+if [[ "$rebuild_notebook" -eq 1 ]]; then
   remove_stale_compose_containers robinhood-notebook
   docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" up -d --no-deps --force-recreate robinhood-notebook
+elif [[ "$use_robinhood_notebook" -eq 1 ]]; then
+  echo "robinhood-notebook unchanged — not recreated."
 fi

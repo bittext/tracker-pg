@@ -57,12 +57,9 @@ jobs:
         working-directory: web
         run: npm run test:nav
 
-      - name: Build web
-        working-directory: web
-        run: npm run build
-
+  # Start SSH as soon as the push lands. Lightsail already compiles the Angular app
+  # inside docker compose, so a second GitHub `ng build` only delayed publish.
   deploy:
-    needs: web-check
     runs-on: ubuntu-latest
     steps:
       - name: SSH deploy
@@ -79,6 +76,7 @@ jobs:
             REPO_DIR="${{ vars.LIGHTSAIL_REPO_DIR }}"
             REPO_DIR="${REPO_DIR:-/home/ubuntu/apps/tracker-pg}"
             cd "$REPO_DIR"
+            BEFORE_SHA="$(git rev-parse "origin/${BRANCH}" 2>/dev/null || true)"
             git fetch origin "$BRANCH"
             if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
               git checkout "$BRANCH"
@@ -97,5 +95,11 @@ jobs:
             export TRACKER_ROBINHOOD_NOTEBOOK="${{ vars.LIGHTSAIL_USE_ROBINHOOD_NOTEBOOK }}"
             if [[ "${TRACKER_ROBINHOOD_NOTEBOOK:-}" != "1" ]]; then
               unset TRACKER_ROBINHOOD_NOTEBOOK
+            fi
+            if [[ -n "${BEFORE_SHA}" ]]; then
+              export TRACKER_DEPLOY_BEFORE_SHA="${BEFORE_SHA}"
+            fi
+            if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+              export TRACKER_DEPLOY_FORCE=1
             fi
             bash scripts/lightsail-deploy.sh
