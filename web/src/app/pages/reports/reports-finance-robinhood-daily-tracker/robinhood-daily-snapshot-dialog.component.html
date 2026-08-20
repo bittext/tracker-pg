@@ -14,12 +14,30 @@
       @if (d.periodStartDate) {
         <span> · Period since {{ d.periodStartDate | date: 'mediumDate' }}</span>
       }
+      @if (d.priorSnapshotAt) {
+        <span> · vs prior {{ d.priorSnapshotAt | date: 'shortTime' }} Central</span>
+      }
     </p>
 
     <ul class="rh-snap-dialog__stats">
-      <li>Total value: <strong>{{ d.totalAccountValue | currency }}</strong></li>
-      <li>Cash: <strong>{{ d.cashBalance | currency }}</strong></li>
-      <li>Equity MV: <strong>{{ d.equityMarketValue | currency }}</strong></li>
+      <li>
+        Total value: <strong>{{ d.totalAccountValue | currency }}</strong>
+        @if (showDelta(d.totalAccountValueChange)) {
+          <span class="rh-snap-dialog__delta" [ngClass]="deltaClass(d.totalAccountValueChange)">{{ signedMoney(d.totalAccountValueChange) }}</span>
+        }
+      </li>
+      <li>
+        Cash: <strong>{{ d.cashBalance | currency }}</strong>
+        @if (showDelta(d.cashBalanceChange)) {
+          <span class="rh-snap-dialog__delta" [ngClass]="deltaClass(d.cashBalanceChange)">{{ signedMoney(d.cashBalanceChange) }}</span>
+        }
+      </li>
+      <li>
+        Equity MV: <strong>{{ d.equityMarketValue | currency }}</strong>
+        @if (showDelta(d.equityMarketValueChange)) {
+          <span class="rh-snap-dialog__delta" [ngClass]="deltaClass(d.equityMarketValueChange)">{{ signedMoney(d.equityMarketValueChange) }}</span>
+        }
+      </li>
       @if (d.periodAdded) {
         <li class="rh-snap-dialog__in">Added in period: <strong>{{ d.periodAdded | currency }}</strong></li>
       }
@@ -48,23 +66,41 @@
             </tr>
           </thead>
           <tbody>
-            @for (h of d.holdings; track h.symbol + h.positionType) {
-              <tr>
-                <td>{{ h.symbol }}</td>
-                <td>{{ h.positionType }}</td>
-                <td class="rh-snap-dialog__num">{{ h.quantity | number: '1.0-4' }}</td>
-                <td class="rh-snap-dialog__num">{{ averageCost(h) | currency }}</td>
+            @for (row of d.holdings; track holdingTrack(row)) {
+              <tr [class.rh-snap-dialog__row--exited]="row.exited">
+                <td>
+                  {{ row.holding.symbol }}
+                  @if (row.exited) {
+                    <span class="muted rh-snap-dialog__exited">exited</span>
+                  }
+                </td>
+                <td>{{ row.holding.positionType }}</td>
                 <td class="rh-snap-dialog__num">
-                  @if (currentCost(h); as price) {
+                  {{ row.holding.quantity | number: '1.0-4' }}
+                  @if (showDelta(row.quantityChange)) {
+                    <span class="rh-snap-dialog__delta" [ngClass]="deltaClass(row.quantityChange)">{{ signedQty(row.quantityChange) }}</span>
+                  }
+                </td>
+                <td class="rh-snap-dialog__num">{{ averageCost(row.holding) | currency }}</td>
+                <td class="rh-snap-dialog__num">
+                  @if (currentCost(row.holding); as price) {
                     {{ price | currency }}
                   } @else {
                     —
                   }
+                  @if (showDelta(row.currentUnitPriceChange)) {
+                    <span class="rh-snap-dialog__delta" [ngClass]="deltaClass(row.currentUnitPriceChange)">{{ signedMoney(row.currentUnitPriceChange) }}</span>
+                  }
                 </td>
-                <td class="rh-snap-dialog__num">{{ h.costBasis | currency }}</td>
-                <td class="rh-snap-dialog__num">{{ h.marketValue | currency }}</td>
-                <td class="rh-snap-dialog__num rh-snap-dialog__pnl" [ngClass]="pnlClass(h.unrealizedPnL >= 0)">
-                  {{ h.unrealizedPnL | currency }}@if (pnlPercent(h) !== null) {<span class="rh-snap-dialog__pnl-pct">&nbsp;({{ pnlPercent(h)! | number: '1.2-2' }}%)</span>}
+                <td class="rh-snap-dialog__num">{{ row.holding.costBasis | currency }}</td>
+                <td class="rh-snap-dialog__num">
+                  {{ row.holding.marketValue | currency }}
+                  @if (showDelta(row.marketValueChange)) {
+                    <span class="rh-snap-dialog__delta" [ngClass]="deltaClass(row.marketValueChange)">{{ signedMoney(row.marketValueChange) }}</span>
+                  }
+                </td>
+                <td class="rh-snap-dialog__num rh-snap-dialog__pnl" [ngClass]="pnlClass(row.holding.unrealizedPnL >= 0)">
+                  {{ row.holding.unrealizedPnL | currency }}@if (pnlPercent(row.holding) !== null) {<span class="rh-snap-dialog__pnl-pct">&nbsp;({{ pnlPercent(row.holding)! | number: '1.2-2' }}%)</span>}
                 </td>
               </tr>
             }

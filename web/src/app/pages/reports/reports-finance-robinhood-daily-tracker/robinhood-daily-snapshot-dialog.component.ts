@@ -5,7 +5,11 @@ import { MAT_DIALOG_DATA, MatDialogConfig, MatDialogModule, MatDialogRef } from 
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { rhHoldingAverageBuyPrice, rhHoldingCurrentUnitPrice, rhHoldingPnlPercent } from '../../finance/rh-holding-display.util';
-import { RobinhoodRhDailySnapshotDetailDto, RobinhoodRhHoldingDto } from '../../../models/finance.models';
+import {
+  RobinhoodRhDailySnapshotDetailDto,
+  RobinhoodRhDailySnapshotHoldingDto,
+  RobinhoodRhHoldingDto,
+} from '../../../models/finance.models';
 
 export interface RobinhoodDailySnapshotDialogData {
   snapshotId: number;
@@ -105,5 +109,49 @@ export class RobinhoodDailySnapshotDialogComponent implements OnInit {
 
   pnlPercent(h: RobinhoodRhHoldingDto): number | null {
     return rhHoldingPnlPercent(h);
+  }
+
+  holdingTrack(row: RobinhoodRhDailySnapshotHoldingDto): string {
+    const h = row.holding;
+    return `${h.symbol}|${h.positionType}|${h.positionKey ?? ''}|${row.exited ? 'out' : 'in'}`;
+  }
+
+  showDelta(value: number | null | undefined): boolean {
+    return value != null && value !== 0;
+  }
+
+  deltaClass(value: number | null | undefined): string {
+    if (value == null || value === 0) {
+      return '';
+    }
+    return this.pnlClass(value > 0);
+  }
+
+  signedMoney(value: number | null | undefined): string {
+    if (value == null) {
+      return '';
+    }
+    const abs = Math.abs(value).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+    if (value > 0) {
+      return `+${abs}`;
+    }
+    if (value < 0) {
+      return `-${abs}`;
+    }
+    return abs;
+  }
+
+  signedQty(value: number | null | undefined): string {
+    if (value == null) {
+      return '';
+    }
+    const abs = Math.abs(value).toLocaleString('en-US', { maximumFractionDigits: 4 });
+    if (value > 0) {
+      return `+${abs}`;
+    }
+    if (value < 0) {
+      return `-${abs}`;
+    }
+    return abs;
   }
 }

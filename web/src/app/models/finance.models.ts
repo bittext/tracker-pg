@@ -496,6 +496,14 @@ export interface RobinhoodRhDailyTrackerAccountCellDto {
   spikeAlert: RhDailyTrackerSnapshotAlertDto;
 }
 
+export interface RobinhoodRhDailySnapshotHoldingDto {
+  holding: RobinhoodRhHoldingDto;
+  quantityChange: number | null;
+  currentUnitPriceChange: number | null;
+  marketValueChange: number | null;
+  exited: boolean;
+}
+
 export interface RobinhoodRhDailySnapshotDetailDto {
   id: number;
   snapshotDate: string;
@@ -508,10 +516,14 @@ export interface RobinhoodRhDailySnapshotDetailDto {
   totalAccountValue: number;
   cashBalance: number;
   equityMarketValue: number;
+  totalAccountValueChange: number | null;
+  cashBalanceChange: number | null;
+  equityMarketValueChange: number | null;
+  priorSnapshotAt: string | null;
   periodAdded: number;
   periodRemoved: number;
   periodValueChange: number;
-  holdings: RobinhoodRhHoldingDto[];
+  holdings: RobinhoodRhDailySnapshotHoldingDto[];
   periodFlows: RobinhoodRhCashFlowEventDto[];
   trades: RobinhoodRhDailyTradeDto[];
 }

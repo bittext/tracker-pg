@@ -100,3 +100,22 @@
   font-size: 0.92em;
   opacity: 0.92;
 }
+
+.rh-snap-dialog__delta {
+  display: inline-block;
+  margin-left: 0.4rem;
+  font-size: 0.86em;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.rh-snap-dialog__exited {
+  margin-left: 0.35rem;
+  font-size: 0.78em;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.rh-snap-dialog__row--exited td {
+  opacity: 0.72;
+}

@@ -20,6 +20,7 @@ import com.svp.tracker.finance.dto.RobinhoodRhDailyCaptureResultDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyDayNoteResultDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyManualCaptureDeleteResultDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailySnapshotDetailDto;
+import com.svp.tracker.finance.dto.RobinhoodRhDailySnapshotHoldingDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerAccountCellDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerAccountColumnDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerDayDto;
@@ -417,7 +418,10 @@ public class RobinhoodRhDailyTrackerService {
         if (isHiddenAccount(ownerUserId, row.getAccountSuffix())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Snapshot not found");
         }
-        return toDetailDto(row);
+        RobinhoodRhDailySnapshot prior = RobinhoodRhDailySnapshotCompare.findPriorSnapshot(
+                        snapshotRepository, ownerUserId, row.getAccountSuffix(), row.getSnapshotAt())
+                .orElse(null);
+        return toDetailDto(row, prior);
     }
 
     /**
@@ -925,7 +929,8 @@ public class RobinhoodRhDailyTrackerService {
         return out;
     }
 
-    private RobinhoodRhDailySnapshotDetailDto toDetailDto(RobinhoodRhDailySnapshot row) {
+    private RobinhoodRhDailySnapshotDetailDto toDetailDto(
+            RobinhoodRhDailySnapshot row, RobinhoodRhDailySnapshot prior) {
         // A snapshot is a point-in-time record: show the prices captured at snapshot time.
         // Re-pricing with live quotes here would corrupt historical rows and diverge from the
         // stored equity/total values, so the holdings JSON is deserialized as-is then legacy
@@ -933,10 +938,17 @@ public class RobinhoodRhDailyTrackerService {
         List<RobinhoodRhHoldingDto> holdings =
                 RobinhoodRhHoldingValues.normalizeStoredSnapshotHoldings(
                         readJson(row.getHoldingsJson(), new TypeReference<>() {}));
+        List<RobinhoodRhHoldingDto> priorHoldings = prior == null
+                ? null
+                : RobinhoodRhHoldingValues.normalizeStoredSnapshotHoldings(
+                        readJson(prior.getHoldingsJson(), new TypeReference<>() {}));
+        List<RobinhoodRhDailySnapshotHoldingDto> holdingsWithDeltas =
+                RobinhoodRhDailySnapshotCompare.holdingsWithPriorDeltas(holdings, priorHoldings);
         List<RobinhoodRhCashFlowEventDto> flows = readJson(row.getFlowsJson(), new TypeReference<>() {});
         List<RobinhoodAgenticSyncedOrder> ownerOrders =
                 syncedOrderRepository.findByOwnerUserIdOrderByUpdatedAtRhDescCreatedAtRhDesc(row.getOwnerUserId());
         List<RobinhoodRhDailyTradeDto> trades = resolveTradesForSnapshot(row, ownerOrders);
+        boolean hasPrior = prior != null;
         return new RobinhoodRhDailySnapshotDetailDto(
                 row.getId(),
                 row.getSnapshotDate(),
@@ -949,10 +961,23 @@ public class RobinhoodRhDailyTrackerService {
                 scaleMoney(row.getTotalAccountValue()),
                 scaleMoney(row.getCashBalance()),
                 scaleMoney(row.getEquityMarketValue()),
+                hasPrior
+                        ? RobinhoodRhDailySnapshotCompare.signedMoneyDelta(
+                                row.getTotalAccountValue(), prior.getTotalAccountValue())
+                        : null,
+                hasPrior
+                        ? RobinhoodRhDailySnapshotCompare.signedMoneyDelta(
+                                row.getCashBalance(), prior.getCashBalance())
+                        : null,
+                hasPrior
+                        ? RobinhoodRhDailySnapshotCompare.signedMoneyDelta(
+                                row.getEquityMarketValue(), prior.getEquityMarketValue())
+                        : null,
+                hasPrior ? prior.getSnapshotAt() : null,
                 scaleMoney(row.getPeriodAdded()),
                 scaleMoney(row.getPeriodRemoved()),
                 scaleMoney(row.getPeriodValueChange()),
-                holdings,
+                holdingsWithDeltas,
                 flows,
                 trades);
     }
