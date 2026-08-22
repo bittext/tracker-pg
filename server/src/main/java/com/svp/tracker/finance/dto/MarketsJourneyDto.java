@@ -13,5 +13,6 @@ public record MarketsJourneyDto(
         BigDecimal latestActual,
         BigDecimal progressPct,
         List<MarketsJourneyEntryDto> entries,
+        MarketsJourneyLiveNetDto liveNet,
         Instant createdAt,
         Instant updatedAt) {}

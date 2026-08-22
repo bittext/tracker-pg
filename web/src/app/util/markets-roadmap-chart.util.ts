@@ -59,6 +59,14 @@ export function roadmapTargetPath(pts: RoadmapChartPoint[]): string {
 export function roadmapActualSegments(pts: RoadmapChartPoint[]): RoadmapActualSegment[] {
   const withActual = pts.filter((p) => p.actualY != null);
   const segs: RoadmapActualSegment[] = [];
+  if (withActual.length === 1) {
+    const b = withActual[0]!;
+    segs.push({
+      d: `M 6 ${(b.actualY as number).toFixed(2)} L ${b.x.toFixed(2)} ${(b.actualY as number).toFixed(2)}`,
+      direction: b.entry.direction,
+    });
+    return segs;
+  }
   for (let i = 1; i < withActual.length; i++) {
     const a = withActual[i - 1]!;
     const b = withActual[i]!;

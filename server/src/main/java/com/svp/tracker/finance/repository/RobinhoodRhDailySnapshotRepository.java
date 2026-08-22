@@ -66,4 +66,16 @@ public interface RobinhoodRhDailySnapshotRepository extends JpaRepository<Robinh
             """)
     List<RhScheduledTotalRow> findScheduledTotalsForSuffixAsc(
             @Param("ownerUserId") long ownerUserId, @Param("accountSuffix") String accountSuffix);
+
+    /** Scheduled close totals for every account, ascending by date (first-million live net). */
+    @Query(
+            """
+            SELECT new com.svp.tracker.finance.dto.RhScheduledTotalRow(
+                s.snapshotDate, s.accountSuffix, s.totalAccountValue)
+            FROM RobinhoodRhDailySnapshot s
+            WHERE s.ownerUserId = :ownerUserId
+              AND s.captureKind = 'SCHEDULED'
+            ORDER BY s.snapshotDate ASC, s.accountSuffix ASC
+            """)
+    List<RhScheduledTotalRow> findScheduledTotalsAsc(@Param("ownerUserId") long ownerUserId);
 }

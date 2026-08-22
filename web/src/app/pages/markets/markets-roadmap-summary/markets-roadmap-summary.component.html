@@ -60,10 +60,10 @@
         <div>
           <h2 id="rms-hero-title" class="rms__title">{{ j.title }}</h2>
           <p class="muted rms__lead">
-            @if (j.latestActual != null) {
-              {{ j.latestActual | currency: 'USD':'symbol':'1.0-0' }} actual
+            @if (j.latestActual != null || j.liveNet?.total != null) {
+              {{ (j.latestActual ?? j.liveNet!.total) | currency: 'USD':'symbol':'1.0-0' }} actual
             } @else {
-              No actuals yet
+              No Robinhood closes yet
             }
             @if (pct != null) {
               · {{ pct | number: '1.0-1' }}%
@@ -95,7 +95,7 @@
 
         <div class="rms__spark" aria-label="Target vs actual sparkline">
           @if (!chartPoints().length) {
-            <p class="muted rms__spark-empty">Add periods on the Roadmap page to chart progress.</p>
+            <p class="muted rms__spark-empty">Robinhood closes will plot here after Daily Tracker snapshots land.</p>
           } @else {
             <div class="rms__spark-frame">
               <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="rms__spark-svg">

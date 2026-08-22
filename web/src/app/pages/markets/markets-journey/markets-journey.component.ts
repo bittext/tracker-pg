@@ -75,8 +75,29 @@ export class MarketsJourneyComponent implements OnInit {
   readonly milestoneY = computed(() => roadmapMilestoneY(this.journey(), this.chartPoints()));
 
   readonly progressPct = computed(() => {
-    const p = this.journey()?.progressPct;
+    const j = this.journey();
+    const p = j?.progressPct ?? j?.liveNet?.progressPct;
     return p == null ? null : Math.max(0, Math.min(100, Number(p)));
+  });
+
+  readonly displayActual = computed(() => {
+    const j = this.journey();
+    if (j?.latestActual != null) {
+      return Number(j.latestActual);
+    }
+    return j?.liveNet?.total != null ? Number(j.liveNet.total) : null;
+  });
+
+  readonly remaining = computed(() => {
+    const j = this.journey();
+    if (!j) {
+      return null;
+    }
+    if (j.liveNet?.remaining != null) {
+      return Number(j.liveNet.remaining);
+    }
+    const actual = this.displayActual();
+    return actual == null ? null : Number(j.milestoneAmount) - actual;
   });
 
   readonly dialCircumference = 2 * Math.PI * 42;

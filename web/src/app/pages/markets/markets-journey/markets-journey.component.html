@@ -3,9 +3,9 @@
     <div>
       <h1 class="journey__title">Roadmap</h1>
       <p class="muted journey__lead">
-        Road to my first million — and then on. Plot targeted balances by quarter (or any period), track actuals
-        beside them, and keep notes on both lines. Segments turn green when actuals beat target, red when they lag.
-        Use Slap points for Individual ••••3370 $50k crossings and cash notes on the equity diagram.
+        Road to my first million — and then on. The graph uses Robinhood scheduled closes as of the latest Daily
+        Tracker day (Ammu’s a/c excluded). Add your own period targets beside those actuals. Slap points mark
+        Individual ••••3370 $50k crossings.
       </p>
     </div>
     <div class="journey__head-actions">
@@ -94,13 +94,19 @@
                         <div class="journey__kpi">
                           <span class="journey__kpi-label">Latest actual</span>
                           <span class="journey__kpi-value">{{
-                            j.latestActual != null ? (j.latestActual | currency: 'USD':'symbol':'1.0-0') : '—'
+                            displayActual() != null ? (displayActual()! | currency: 'USD':'symbol':'1.0-0') : '—'
+                          }}</span>
+                        </div>
+                        <div class="journey__kpi">
+                          <span class="journey__kpi-label">Still to go</span>
+                          <span class="journey__kpi-value">{{
+                            remaining() != null ? (remaining()! | currency: 'USD':'symbol':'1.0-0') : '—'
                           }}</span>
                         </div>
                         <div class="journey__kpi">
                           <span class="journey__kpi-label">Progress</span>
                           <span class="journey__kpi-value">{{
-                            j.progressPct != null ? (j.progressPct | number: '1.0-1') + '%' : '—'
+                            progressPct() != null ? (progressPct()! | number: '1.0-1') + '%' : '—'
                           }}</span>
                         </div>
                         <div class="journey__kpi">
@@ -109,6 +115,26 @@
                         </div>
                       </div>
                     </div>
+
+                    @if (j.liveNet; as live) {
+                      <div class="journey__live" aria-label="Robinhood net as of">
+                        <div class="journey__live-head">
+                          <h2 class="journey__section-title">Robinhood net as of {{ live.asOfDate }}</h2>
+                          <p class="muted">{{ live.note }}</p>
+                        </div>
+                        <div class="journey__live-bar" aria-hidden="true">
+                          <span class="journey__live-bar-fill" [style.width.%]="progressPct() ?? 0"></span>
+                        </div>
+                        <div class="journey__live-accounts">
+                          @for (a of live.accounts; track a.accountSuffix) {
+                            <div class="journey__live-acct">
+                              <span>{{ a.label }}</span>
+                              <strong>{{ a.totalAccountValue | currency: 'USD':'symbol':'1.0-0' }}</strong>
+                            </div>
+                          }
+                        </div>
+                      </div>
+                    }
 
                     @if (j.entries.length) {
                       <div class="journey__runway" aria-label="Period runway">
@@ -138,7 +164,10 @@
 
                     <div class="journey__chart-wrap" aria-label="Target vs actual chart">
                       @if (!chartPoints().length) {
-                        <p class="muted journey__chart-empty">Add a period below to start the graph.</p>
+                        <p class="muted journey__chart-empty">
+                          Waiting on Robinhood Daily Tracker closes to plot as-of actuals. You can also add a period
+                          below.
+                        </p>
                       } @else {
                         <div class="journey__chart-frame">
                           <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="journey__chart">
@@ -249,7 +278,10 @@
                     <div class="journey__plan-block">
                       <h2 class="journey__section-title">Periods &amp; notes</h2>
                       @if (!j.entries.length) {
-                        <p class="muted">No periods yet. Enter quarterly (or any) target and actual balances above.</p>
+                        <p class="muted">
+                          No periods yet. Robinhood closes will fill actuals automatically; add a target when you want a
+                          plan line.
+                        </p>
                       } @else {
                         <div class="journey__table-wrap">
                           <table class="journey__table">

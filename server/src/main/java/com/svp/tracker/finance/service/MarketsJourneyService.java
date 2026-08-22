@@ -6,9 +6,13 @@ import com.svp.tracker.finance.domain.MarketsJourneyEntry;
 import com.svp.tracker.finance.dto.MarketsJourneyDto;
 import com.svp.tracker.finance.dto.MarketsJourneyEntryDto;
 import com.svp.tracker.finance.dto.MarketsJourneyEntryWriteRequest;
+import com.svp.tracker.finance.dto.MarketsJourneyLiveAccountDto;
+import com.svp.tracker.finance.dto.MarketsJourneyLiveNetDto;
 import com.svp.tracker.finance.dto.MarketsJourneyWriteRequest;
+import com.svp.tracker.finance.dto.RhScheduledTotalRow;
 import com.svp.tracker.finance.repository.MarketsJourneyEntryRepository;
 import com.svp.tracker.finance.repository.MarketsJourneyRepository;
+import com.svp.tracker.finance.repository.RobinhoodRhDailySnapshotRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -29,6 +33,7 @@ public class MarketsJourneyService {
     private final CurrentUserService currentUser;
     private final MarketsJourneyRepository journeyRepository;
     private final MarketsJourneyEntryRepository entryRepository;
+    private final RobinhoodRhDailySnapshotRepository snapshotRepository;
 
     @Transactional
     public List<MarketsJourneyDto> listForCurrentUser() {
@@ -37,7 +42,8 @@ public class MarketsJourneyService {
         List<MarketsJourney> rows = journeyRepository.findByOwnerUserIdOrderBySortOrderAscIdAsc(uid);
         List<MarketsJourneyDto> out = new ArrayList<>(rows.size());
         for (MarketsJourney j : rows) {
-            out.add(toDto(j, entryRepository.findByJourneyIdAndOwnerUserIdOrderByPeriodDateAsc(j.getId(), uid), true));
+            syncPrimaryLiveActuals(uid, j);
+            out.add(toDto(j, entryRepository.findByJourneyIdAndOwnerUserIdOrderByPeriodDateAsc(j.getId(), uid), false));
         }
         return out;
     }
@@ -46,6 +52,7 @@ public class MarketsJourneyService {
     public MarketsJourneyDto get(long id) {
         long uid = currentUser.requireUserId();
         MarketsJourney j = requireOwned(uid, id);
+        syncPrimaryLiveActuals(uid, j);
         return toDto(j, entryRepository.findByJourneyIdAndOwnerUserIdOrderByPeriodDateAsc(j.getId(), uid), false);
     }
 
@@ -163,6 +170,100 @@ public class MarketsJourneyService {
                 + 1;
     }
 
+    private void syncPrimaryLiveActuals(long uid, MarketsJourney j) {
+        if (!isPrimaryMillion(j)) {
+            return;
+        }
+        List<RhScheduledTotalRow> rows = snapshotRepository.findScheduledTotalsAsc(uid);
+        List<MarketsJourneyLiveNet.DayTotal> sampled =
+                MarketsJourneyLiveNet.sampleForChart(MarketsJourneyLiveNet.dailyTotals(rows));
+        if (sampled.isEmpty()) {
+            return;
+        }
+        MarketsJourneyLiveNet.DayTotal latest = sampled.get(sampled.size() - 1);
+        boolean changed = false;
+        for (MarketsJourneyLiveNet.DayTotal day : sampled) {
+            changed |= upsertAutoEntry(uid, j, day, day.date().equals(latest.date()));
+        }
+        if (changed) {
+            j.setUpdatedAt(java.time.Instant.now());
+            journeyRepository.save(j);
+        }
+    }
+
+    private boolean upsertAutoEntry(
+            long uid, MarketsJourney j, MarketsJourneyLiveNet.DayTotal day, boolean latest) {
+        MarketsJourneyEntry row = entryRepository
+                .findByJourneyIdAndOwnerUserIdAndPeriodDate(j.getId(), uid, day.date())
+                .orElse(null);
+        if (row != null && !MarketsJourneyLiveNet.isAutoManaged(row)) {
+            return false;
+        }
+        String label = MarketsJourneyLiveNet.periodLabel(day, latest);
+        String note = MarketsJourneyLiveNet.actualNote(day.date());
+        if (row == null) {
+            row = new MarketsJourneyEntry();
+            row.setJourney(j);
+            row.setOwnerUserId(uid);
+            row.setPeriodDate(day.date());
+            row.setTargetAmount(null);
+            row.setTargetNote(null);
+        } else if (sameAutoActual(row, day.total(), label, note)) {
+            return false;
+        }
+        row.setPeriodLabel(label);
+        row.setActualAmount(day.total());
+        row.setActualNote(note);
+        entryRepository.save(row);
+        return true;
+    }
+
+    private static boolean sameAutoActual(MarketsJourneyEntry row, BigDecimal total, String label, String note) {
+        return row.getActualAmount() != null
+                && row.getActualAmount().compareTo(total) == 0
+                && label.equals(row.getPeriodLabel() == null ? "" : row.getPeriodLabel())
+                && note.equals(row.getActualNote() == null ? "" : row.getActualNote());
+    }
+
+    private boolean isPrimaryMillion(MarketsJourney j) {
+        if (j == null) {
+            return false;
+        }
+        if (DEFAULT_TITLE.equalsIgnoreCase(j.getTitle())) {
+            return true;
+        }
+        return j.getSortOrder() == 0
+                && j.getMilestoneAmount() != null
+                && j.getMilestoneAmount().compareTo(DEFAULT_MILESTONE) == 0;
+    }
+
+    private MarketsJourneyLiveNetDto liveNetFor(long uid, MarketsJourney j) {
+        if (!isPrimaryMillion(j)) {
+            return null;
+        }
+        List<MarketsJourneyLiveNet.DayTotal> daily =
+                MarketsJourneyLiveNet.dailyTotals(snapshotRepository.findScheduledTotalsAsc(uid));
+        if (daily.isEmpty()) {
+            return null;
+        }
+        MarketsJourneyLiveNet.DayTotal latest = daily.get(daily.size() - 1);
+        BigDecimal milestone = j.getMilestoneAmount() == null ? DEFAULT_MILESTONE : j.getMilestoneAmount();
+        BigDecimal remaining = milestone.subtract(latest.total());
+        BigDecimal progressPct = milestone.signum() <= 0
+                ? null
+                : latest.total().multiply(BigDecimal.valueOf(100)).divide(milestone, 1, RoundingMode.HALF_UP);
+        List<MarketsJourneyLiveAccountDto> accounts = latest.accounts().stream()
+                .map(a -> new MarketsJourneyLiveAccountDto(a.suffix(), a.label(), a.value()))
+                .toList();
+        return new MarketsJourneyLiveNetDto(
+                latest.date(),
+                latest.total(),
+                remaining,
+                progressPct,
+                accounts,
+                MarketsJourneyLiveNet.actualNote(latest.date()));
+    }
+
     private MarketsJourneyDto toDto(MarketsJourney j, List<MarketsJourneyEntry> entries, boolean summaryOnly) {
         List<MarketsJourneyEntryDto> entryDtos =
                 summaryOnly ? List.of() : entries.stream().map(this::toEntryDto).toList();
@@ -180,6 +281,11 @@ public class MarketsJourneyService {
                     .multiply(BigDecimal.valueOf(100))
                     .divide(j.getMilestoneAmount(), 1, RoundingMode.HALF_UP);
         }
+        MarketsJourneyLiveNetDto liveNet = liveNetFor(j.getOwnerUserId(), j);
+        if (latestActual == null && liveNet != null) {
+            latestActual = liveNet.total();
+            progressPct = liveNet.progressPct();
+        }
         return new MarketsJourneyDto(
                 j.getId(),
                 j.getTitle(),
@@ -189,6 +295,7 @@ public class MarketsJourneyService {
                 latestActual,
                 progressPct,
                 entryDtos,
+                liveNet,
                 j.getCreatedAt(),
                 j.getUpdatedAt());
     }

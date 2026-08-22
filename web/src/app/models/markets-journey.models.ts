@@ -14,6 +14,21 @@ export interface MarketsJourneyEntryDto {
   updatedAt: string;
 }
 
+export interface MarketsJourneyLiveAccountDto {
+  accountSuffix: string;
+  label: string;
+  totalAccountValue: number;
+}
+
+export interface MarketsJourneyLiveNetDto {
+  asOfDate: string;
+  total: number;
+  remaining: number;
+  progressPct: number;
+  accounts: MarketsJourneyLiveAccountDto[];
+  note: string;
+}
+
 export interface MarketsJourneyDto {
   id: number;
   title: string;
@@ -23,6 +38,7 @@ export interface MarketsJourneyDto {
   latestActual: number | null;
   progressPct: number | null;
   entries: MarketsJourneyEntryDto[];
+  liveNet?: MarketsJourneyLiveNetDto | null;
   createdAt: string;
   updatedAt: string;
 }
