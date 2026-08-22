@@ -13,20 +13,20 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Combines scheduled Robinhood daily closes into a personal net for the first-million roadmap.
- * Ammu's account is excluded.
+ * Every Daily Tracker account is included, including Ammu's. Missing accounts on a day keep
+ * their last known close.
  */
 final class MarketsJourneyLiveNet {
 
-    static final String AMMU_SUFFIX = "8696";
     static final String AUTO_NOTE_PREFIX = "Robinhood net as of";
-    static final int MAX_DAILY_POINTS = 18;
+    static final int RECENT_DAILY_DAYS = 90;
 
-    private static final DateTimeFormatter MONTH_LABEL = DateTimeFormatter.ofPattern("MMM yyyy", Locale.US);
     private static final DateTimeFormatter AS_OF_LABEL = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US);
-    private static final List<String> ACCOUNT_ORDER = List.of("3370", "3550", "4123", "2835", "0440");
+    private static final List<String> ACCOUNT_ORDER = List.of("3370", "3550", "4123", "8696", "2835", "0440");
 
     record AccountSlice(String suffix, String label, BigDecimal value) {}
 
@@ -34,66 +34,70 @@ final class MarketsJourneyLiveNet {
 
     private MarketsJourneyLiveNet() {}
 
-    static boolean isExcludedSuffix(String suffix) {
-        return suffix != null && AMMU_SUFFIX.equals(suffix.trim());
-    }
-
     static List<DayTotal> dailyTotals(List<RhScheduledTotalRow> rows) {
-        Map<LocalDate, Map<String, BigDecimal>> byDate = new LinkedHashMap<>();
+        Map<LocalDate, Map<String, BigDecimal>> observed = new LinkedHashMap<>();
         if (rows != null) {
             for (RhScheduledTotalRow row : rows) {
                 if (row == null || row.snapshotDate() == null || row.totalAccountValue() == null) {
                     continue;
                 }
                 String suffix = row.accountSuffix() == null ? "" : row.accountSuffix().trim();
-                if (suffix.isEmpty() || isExcludedSuffix(suffix)) {
+                if (suffix.isEmpty()) {
                     continue;
                 }
-                byDate.computeIfAbsent(row.snapshotDate(), d -> new LinkedHashMap<>())
+                observed
+                        .computeIfAbsent(row.snapshotDate(), d -> new LinkedHashMap<>())
                         .put(suffix, scale(row.totalAccountValue()));
             }
         }
-        List<DayTotal> out = new ArrayList<>(byDate.size());
-        for (Map.Entry<LocalDate, Map<String, BigDecimal>> e : byDate.entrySet()) {
-            List<AccountSlice> accounts = slices(e.getValue());
+        List<LocalDate> dates = new ArrayList<>(new TreeSet<>(observed.keySet()));
+        Map<String, BigDecimal> lastKnown = new LinkedHashMap<>();
+        List<DayTotal> out = new ArrayList<>(dates.size());
+        for (LocalDate date : dates) {
+            lastKnown.putAll(observed.get(date));
+            List<AccountSlice> accounts = slices(lastKnown);
             BigDecimal total = BigDecimal.ZERO;
             for (AccountSlice slice : accounts) {
                 total = total.add(slice.value());
             }
-            out.add(new DayTotal(e.getKey(), scale(total), accounts));
+            out.add(new DayTotal(date, scale(total), accounts));
         }
+        return out;
+    }
+
+    /** Month-ends until the last {@value #RECENT_DAILY_DAYS} days, then every close — for the graph. */
+    static List<DayTotal> seriesForChart(List<DayTotal> daily) {
+        if (daily == null || daily.isEmpty()) {
+            return List.of();
+        }
+        if (daily.size() <= RECENT_DAILY_DAYS) {
+            return List.copyOf(daily);
+        }
+        LocalDate cutoff = daily.get(daily.size() - 1).date().minusDays(RECENT_DAILY_DAYS);
+        Map<String, DayTotal> monthEnd = new LinkedHashMap<>();
+        List<DayTotal> recent = new ArrayList<>();
+        for (DayTotal day : daily) {
+            if (!day.date().isBefore(cutoff)) {
+                recent.add(day);
+            } else {
+                monthEnd.put(day.date().getYear() + "-" + day.date().getMonthValue(), day);
+            }
+        }
+        List<DayTotal> out = new ArrayList<>(monthEnd.values());
+        out.addAll(recent);
         out.sort(Comparator.comparing(DayTotal::date));
         return out;
     }
 
-    static List<DayTotal> sampleForChart(List<DayTotal> daily) {
-        if (daily == null || daily.isEmpty()) {
-            return List.of();
-        }
-        if (daily.size() <= MAX_DAILY_POINTS) {
-            return List.copyOf(daily);
-        }
-        Map<String, DayTotal> monthEnd = new LinkedHashMap<>();
-        for (DayTotal day : daily) {
-            monthEnd.put(day.date().getYear() + "-" + day.date().getMonthValue(), day);
-        }
-        List<DayTotal> sampled = new ArrayList<>(monthEnd.values());
-        DayTotal latest = daily.get(daily.size() - 1);
-        if (sampled.isEmpty() || !sampled.get(sampled.size() - 1).date().equals(latest.date())) {
-            sampled.add(latest);
-        }
-        return sampled;
-    }
-
-    static String periodLabel(DayTotal day, boolean latest) {
-        if (latest && !isMonthEnd(day.date())) {
-            return "As of " + day.date().format(AS_OF_LABEL);
-        }
-        return day.date().format(MONTH_LABEL);
+    static String periodLabel(DayTotal day) {
+        return "As of " + day.date().format(AS_OF_LABEL);
     }
 
     static String actualNote(LocalDate date) {
-        return AUTO_NOTE_PREFIX + " " + date + ". Excludes Ammu's a/c (\u2022\u2022\u2022\u20228696).";
+        return AUTO_NOTE_PREFIX
+                + " "
+                + date
+                + ". All Robinhood Daily Tracker accounts, including Ammu's a/c.";
     }
 
     static boolean isAutoManaged(MarketsJourneyEntry row) {
@@ -113,6 +117,35 @@ final class MarketsJourneyLiveNet {
             return "Roth IRA (...2835)";
         }
         return RobinhoodRhDailyTrackerAccountPolicy.displayLabel(suffix);
+    }
+
+    static BigDecimal dayChange(DayTotal prior, DayTotal current) {
+        if (prior == null || current == null) {
+            return null;
+        }
+        return scale(current.total().subtract(prior.total()));
+    }
+
+    static BigDecimal dayChangePct(DayTotal prior, DayTotal current) {
+        if (prior == null || current == null || prior.total().signum() == 0) {
+            return null;
+        }
+        return current.total()
+                .subtract(prior.total())
+                .multiply(BigDecimal.valueOf(100))
+                .divide(prior.total(), 2, RoundingMode.HALF_UP);
+    }
+
+    static BigDecimal accountDayChange(DayTotal prior, String suffix, BigDecimal currentValue) {
+        if (prior == null || suffix == null || currentValue == null) {
+            return null;
+        }
+        for (AccountSlice slice : prior.accounts()) {
+            if (suffix.equals(slice.suffix())) {
+                return scale(currentValue.subtract(slice.value()));
+            }
+        }
+        return null;
     }
 
     private static List<AccountSlice> slices(Map<String, BigDecimal> bySuffix) {
@@ -138,11 +171,7 @@ final class MarketsJourneyLiveNet {
         return out;
     }
 
-    private static boolean isMonthEnd(LocalDate date) {
-        return date.getDayOfMonth() == date.lengthOfMonth();
-    }
-
-    private static BigDecimal scale(BigDecimal v) {
+    static BigDecimal scale(BigDecimal v) {
         return v.setScale(2, RoundingMode.HALF_UP);
     }
 }

@@ -9,5 +9,9 @@ public record MarketsJourneyLiveNetDto(
         BigDecimal total,
         BigDecimal remaining,
         BigDecimal progressPct,
+        BigDecimal priorTotal,
+        BigDecimal dayChange,
+        BigDecimal dayChangePct,
         List<MarketsJourneyLiveAccountDto> accounts,
+        List<MarketsJourneyLiveSeriesPointDto> series,
         String note) {}

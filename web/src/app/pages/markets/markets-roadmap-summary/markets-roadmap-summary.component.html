@@ -60,8 +60,8 @@
         <div>
           <h2 id="rms-hero-title" class="rms__title">{{ j.title }}</h2>
           <p class="muted rms__lead">
-            @if (j.latestActual != null || j.liveNet?.total != null) {
-              {{ (j.latestActual ?? j.liveNet!.total) | currency: 'USD':'symbol':'1.0-0' }} actual
+            @if (j.liveNet?.total != null || j.latestActual != null) {
+              {{ (j.liveNet?.total ?? j.latestActual) | currency: 'USD':'symbol':'1.0-0' }} actual
             } @else {
               No Robinhood closes yet
             }

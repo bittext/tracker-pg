@@ -18,6 +18,14 @@ export interface MarketsJourneyLiveAccountDto {
   accountSuffix: string;
   label: string;
   totalAccountValue: number;
+  dayChange?: number | null;
+}
+
+export interface MarketsJourneyLiveSeriesPointDto {
+  date: string;
+  total: number;
+  dayChange: number | null;
+  dayChangePct: number | null;
 }
 
 export interface MarketsJourneyLiveNetDto {
@@ -25,7 +33,11 @@ export interface MarketsJourneyLiveNetDto {
   total: number;
   remaining: number;
   progressPct: number;
+  priorTotal?: number | null;
+  dayChange?: number | null;
+  dayChangePct?: number | null;
   accounts: MarketsJourneyLiveAccountDto[];
+  series?: MarketsJourneyLiveSeriesPointDto[];
   note: string;
 }
 

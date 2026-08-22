@@ -76,17 +76,42 @@ export class MarketsJourneyComponent implements OnInit {
 
   readonly progressPct = computed(() => {
     const j = this.journey();
-    const p = j?.progressPct ?? j?.liveNet?.progressPct;
+    const p = j?.liveNet?.progressPct ?? j?.progressPct;
     return p == null ? null : Math.max(0, Math.min(100, Number(p)));
   });
 
   readonly displayActual = computed(() => {
     const j = this.journey();
-    if (j?.latestActual != null) {
-      return Number(j.latestActual);
+    if (j?.liveNet?.total != null) {
+      return Number(j.liveNet.total);
     }
-    return j?.liveNet?.total != null ? Number(j.liveNet.total) : null;
+    return j?.latestActual != null ? Number(j.latestActual) : null;
   });
+
+  readonly dayChange = computed(() => {
+    const change = this.journey()?.liveNet?.dayChange;
+    return change == null ? null : Number(change);
+  });
+
+  readonly dayChangePct = computed(() => {
+    const change = this.journey()?.liveNet?.dayChangePct;
+    return change == null ? null : Number(change);
+  });
+
+  accountSharePct(value: number | null | undefined): number {
+    const milestone = Number(this.journey()?.milestoneAmount || 0);
+    if (!milestone || value == null) {
+      return 0;
+    }
+    return Math.max(0, (Number(value) / milestone) * 100);
+  }
+
+  changeClass(value: number | null | undefined): string {
+    if (value == null || value === 0) {
+      return 'journey-dir--on';
+    }
+    return value > 0 ? 'journey-dir--above' : 'journey-dir--below';
+  }
 
   readonly remaining = computed(() => {
     const j = this.journey();

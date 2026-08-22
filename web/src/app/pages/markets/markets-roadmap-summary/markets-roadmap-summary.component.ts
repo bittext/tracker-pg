@@ -47,7 +47,8 @@ export class MarketsRoadmapSummaryComponent implements OnInit {
   readonly milestoneY = computed(() => roadmapMilestoneY(this.journey(), this.chartPoints()));
 
   readonly progressPct = computed(() => {
-    const p = this.journey()?.progressPct;
+    const j = this.journey();
+    const p = j?.liveNet?.progressPct ?? j?.progressPct;
     return p == null ? null : Math.max(0, Math.min(100, Number(p)));
   });
 

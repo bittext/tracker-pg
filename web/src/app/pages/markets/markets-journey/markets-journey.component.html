@@ -3,8 +3,8 @@
     <div>
       <h1 class="journey__title">Roadmap</h1>
       <p class="muted journey__lead">
-        Road to my first million — and then on. The graph uses Robinhood scheduled closes as of the latest Daily
-        Tracker day (Ammu’s a/c excluded). Add your own period targets beside those actuals. Slap points mark
+        Road to my first million — and then on. Totals and the graph use every Robinhood Daily Tracker account,
+        including Ammu’s a/c, from scheduled closes. Add period targets beside those actuals. Slap points mark
         Individual ••••3370 $50k crossings.
       </p>
     </div>
@@ -119,17 +119,48 @@
                     @if (j.liveNet; as live) {
                       <div class="journey__live" aria-label="Robinhood net as of">
                         <div class="journey__live-head">
-                          <h2 class="journey__section-title">Robinhood net as of {{ live.asOfDate }}</h2>
-                          <p class="muted">{{ live.note }}</p>
+                          <h2 class="journey__section-title">All accounts as of {{ live.asOfDate }}</h2>
+                          <p class="muted">
+                            {{ live.total | currency: 'USD':'symbol':'1.0-0' }}
+                            · {{ live.progressPct | number: '1.0-1' }}% of
+                            {{ j.milestoneAmount | currency: 'USD':'symbol':'1.0-0' }}
+                            @if (dayChange() != null) {
+                              ·
+                              <span [class]="changeClass(dayChange())">
+                                {{ dayChange()! | currency: 'USD':'symbol':'1.0-0' }}
+                                @if (dayChangePct() != null) {
+                                  ({{ dayChangePct()! | number: '1.0-2' }}%)
+                                }
+                                vs prior close
+                              </span>
+                            }
+                          </p>
                         </div>
                         <div class="journey__live-bar" aria-hidden="true">
-                          <span class="journey__live-bar-fill" [style.width.%]="progressPct() ?? 0"></span>
+                          @for (a of live.accounts; track a.accountSuffix) {
+                            <span
+                              class="journey__live-seg"
+                              [attr.data-suffix]="a.accountSuffix"
+                              [style.width.%]="accountSharePct(a.totalAccountValue)"
+                              [title]="a.label + ' ' + a.totalAccountValue"
+                            ></span>
+                          }
                         </div>
                         <div class="journey__live-accounts">
                           @for (a of live.accounts; track a.accountSuffix) {
                             <div class="journey__live-acct">
-                              <span>{{ a.label }}</span>
-                              <strong>{{ a.totalAccountValue | currency: 'USD':'symbol':'1.0-0' }}</strong>
+                              <span>
+                                <i class="journey__live-dot" [attr.data-suffix]="a.accountSuffix"></i>
+                                {{ a.label }}
+                              </span>
+                              <strong>
+                                {{ a.totalAccountValue | currency: 'USD':'symbol':'1.0-0' }}
+                                @if (a.dayChange != null) {
+                                  <small [class]="changeClass(a.dayChange)">
+                                    {{ a.dayChange | currency: 'USD':'symbol':'1.0-0' }}
+                                  </small>
+                                }
+                              </strong>
                             </div>
                           }
                         </div>
@@ -165,8 +196,8 @@
                     <div class="journey__chart-wrap" aria-label="Target vs actual chart">
                       @if (!chartPoints().length) {
                         <p class="muted journey__chart-empty">
-                          Waiting on Robinhood Daily Tracker closes to plot as-of actuals. You can also add a period
-                          below.
+                          Waiting on Robinhood Daily Tracker closes to plot all-account actuals. You can also add a
+                          period below.
                         </p>
                       } @else {
                         <div class="journey__chart-frame">
@@ -188,7 +219,7 @@
                             }
                           </svg>
                           <div class="journey__chart-dots">
-                            @for (p of chartPoints(); track p.entry.id) {
+                            @for (p of chartPoints(); track p.entry.periodDate + '-' + p.entry.id) {
                               @if (p.targetY != null) {
                                 <span
                                   class="journey__plot-dot journey__plot-dot--target"
@@ -222,8 +253,10 @@
                           </div>
                         </div>
                         <div class="journey__xlabels">
-                          @for (p of chartPoints(); track p.entry.id) {
-                            <span [style.left.%]="p.x">{{ p.label }}</span>
+                          @for (p of chartPoints(); track p.entry.periodDate + '-' + p.entry.id) {
+                            @if (p.showLabel) {
+                              <span [style.left.%]="p.x">{{ p.label }}</span>
+                            }
                           }
                         </div>
                         <div class="journey__legend">
