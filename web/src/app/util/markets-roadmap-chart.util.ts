@@ -153,6 +153,9 @@ function mergeChartRows(
       if (entry.targetAmount != null) {
         existing.target = Number(entry.targetAmount);
       }
+      if (entry.periodLabel) {
+        existing.label = entry.periodLabel;
+      }
       existing.entry = {
         ...existing.entry,
         ...entry,
@@ -161,13 +164,13 @@ function mergeChartRows(
       };
       continue;
     }
-    if (entry.targetAmount == null && (series.length || entry.actualAmount == null)) {
+    if (entry.actualAmount == null && entry.targetAmount == null) {
       continue;
     }
     byDate.set(entry.periodDate, {
       date: entry.periodDate,
       label: entry.periodLabel || entry.periodDate,
-      actual: series.length ? null : entry.actualAmount,
+      actual: entry.actualAmount,
       target: entry.targetAmount,
       dayChange: null,
       entry,

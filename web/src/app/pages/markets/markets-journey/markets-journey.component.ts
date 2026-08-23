@@ -106,6 +106,20 @@ export class MarketsJourneyComponent implements OnInit {
     return Math.max(0, (Number(value) / milestone) * 100);
   }
 
+  sitBarPct(value: number | null | undefined): number {
+    const accounts = this.journey()?.liveNet?.accounts ?? [];
+    const max = Math.max(0, ...accounts.map((a) => Number(a.totalAccountValue) || 0));
+    if (!max || value == null) {
+      return 0;
+    }
+    return Math.max(0, Math.min(100, (Number(value) / max) * 100));
+  }
+
+  readonly leveredAccount = computed(() => {
+    const accounts = this.journey()?.liveNet?.accounts ?? [];
+    return accounts.find((a) => a.accountSuffix === '3370' && Number(a.cashBalance) < 0) ?? null;
+  });
+
   changeClass(value: number | null | undefined): string {
     if (value == null || value === 0) {
       return 'journey-dir--on';

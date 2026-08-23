@@ -17,6 +17,9 @@ export interface MarketsJourneyEntryDto {
 export interface MarketsJourneyLiveAccountDto {
   accountSuffix: string;
   label: string;
+  accountType?: string | null;
+  equityMarketValue?: number | null;
+  cashBalance?: number | null;
   totalAccountValue: number;
   dayChange?: number | null;
 }

@@ -48,16 +48,21 @@ class MarketsJourneyLiveNetTest {
     }
 
     @Test
-    void seriesKeepsRecentDailyCloses() {
+    void monthStationsKeepAprilJuneJulyAndLatest() {
         List<RhScheduledTotalRow> rows = new ArrayList<>();
-        LocalDate start = LocalDate.of(2025, 1, 2);
-        for (int i = 0; i < 40; i++) {
-            rows.add(row(start.plusDays(i * 7), "3370", String.valueOf(300_000 + i)));
-        }
-        List<MarketsJourneyLiveNet.DayTotal> series =
-                MarketsJourneyLiveNet.seriesForChart(MarketsJourneyLiveNet.dailyTotals(rows));
-        assertEquals(rows.get(rows.size() - 1).snapshotDate(), series.get(series.size() - 1).date());
-        assertTrue(series.size() >= 2);
+        rows.add(row(LocalDate.of(2026, 4, 30), "3370", "280000"));
+        rows.add(row(LocalDate.of(2026, 6, 30), "3370", "310000"));
+        rows.add(row(LocalDate.of(2026, 7, 31), "3370", "330000"));
+        rows.add(row(LocalDate.of(2026, 8, 21), "3370", "367000"));
+        List<MarketsJourneyLiveNet.DayTotal> stations =
+                MarketsJourneyLiveNet.monthStations(MarketsJourneyLiveNet.dailyTotals(rows));
+        assertEquals(4, stations.size());
+        assertEquals(LocalDate.of(2026, 4, 30), stations.get(0).date());
+        assertEquals(LocalDate.of(2026, 6, 30), stations.get(1).date());
+        assertEquals(LocalDate.of(2026, 7, 31), stations.get(2).date());
+        assertEquals(LocalDate.of(2026, 8, 21), stations.get(3).date());
+        assertEquals("Apr 2026", MarketsJourneyLiveNet.periodLabel(stations.get(0), false));
+        assertEquals("As of Aug 21, 2026", MarketsJourneyLiveNet.periodLabel(stations.get(3), true));
     }
 
     @Test

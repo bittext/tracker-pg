@@ -3,6 +3,8 @@ package com.svp.tracker.finance.service;
 import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.finance.domain.MarketsJourney;
 import com.svp.tracker.finance.domain.MarketsJourneyEntry;
+import com.svp.tracker.finance.domain.RobinhoodRhDailyCaptureKind;
+import com.svp.tracker.finance.domain.RobinhoodRhDailySnapshot;
 import com.svp.tracker.finance.dto.MarketsJourneyDto;
 import com.svp.tracker.finance.dto.MarketsJourneyEntryDto;
 import com.svp.tracker.finance.dto.MarketsJourneyEntryWriteRequest;
@@ -15,8 +17,13 @@ import com.svp.tracker.finance.repository.MarketsJourneyRepository;
 import com.svp.tracker.finance.repository.RobinhoodRhDailySnapshotRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -186,30 +193,36 @@ public class MarketsJourneyService {
         if (!isPrimaryMillion(j) || daily == null || daily.isEmpty()) {
             return;
         }
-        MarketsJourneyLiveNet.DayTotal latest = daily.get(daily.size() - 1);
+        List<MarketsJourneyLiveNet.DayTotal> stations = MarketsJourneyLiveNet.monthStations(daily);
+        MarketsJourneyLiveNet.DayTotal latest = stations.get(stations.size() - 1);
+        Set<LocalDate> keep =
+                stations.stream().map(MarketsJourneyLiveNet.DayTotal::date).collect(Collectors.toSet());
         boolean changed = false;
         for (MarketsJourneyEntry row :
                 entryRepository.findByJourneyIdAndOwnerUserIdOrderByPeriodDateAsc(j.getId(), uid)) {
-            if (MarketsJourneyLiveNet.isAutoManaged(row) && !latest.date().equals(row.getPeriodDate())) {
+            if (MarketsJourneyLiveNet.isAutoManaged(row) && !keep.contains(row.getPeriodDate())) {
                 entryRepository.delete(row);
                 changed = true;
             }
         }
-        changed |= upsertAutoEntry(uid, j, latest);
+        for (MarketsJourneyLiveNet.DayTotal day : stations) {
+            changed |= upsertAutoEntry(uid, j, day, day.date().equals(latest.date()));
+        }
         if (changed) {
             j.setUpdatedAt(java.time.Instant.now());
             journeyRepository.save(j);
         }
     }
 
-    private boolean upsertAutoEntry(long uid, MarketsJourney j, MarketsJourneyLiveNet.DayTotal day) {
+    private boolean upsertAutoEntry(
+            long uid, MarketsJourney j, MarketsJourneyLiveNet.DayTotal day, boolean latest) {
         MarketsJourneyEntry row = entryRepository
                 .findByJourneyIdAndOwnerUserIdAndPeriodDate(j.getId(), uid, day.date())
                 .orElse(null);
         if (row != null && !MarketsJourneyLiveNet.isAutoManaged(row)) {
             return false;
         }
-        String label = MarketsJourneyLiveNet.periodLabel(day);
+        String label = MarketsJourneyLiveNet.periodLabel(day, latest);
         String note = MarketsJourneyLiveNet.actualNote(day.date());
         if (row == null) {
             row = new MarketsJourneyEntry();
@@ -258,12 +271,32 @@ public class MarketsJourneyService {
         BigDecimal progressPct = milestone.signum() <= 0
                 ? null
                 : latest.total().multiply(BigDecimal.valueOf(100)).divide(milestone, 1, RoundingMode.HALF_UP);
+        Map<String, RobinhoodRhDailySnapshot> bySuffix = new LinkedHashMap<>();
+        for (RobinhoodRhDailySnapshot snap :
+                snapshotRepository.findByOwnerUserIdAndSnapshotDateAndCaptureKind(
+                        j.getOwnerUserId(), latest.date(), RobinhoodRhDailyCaptureKind.SCHEDULED)) {
+            if (snap.getAccountSuffix() != null) {
+                bySuffix.put(snap.getAccountSuffix().trim(), snap);
+            }
+        }
         List<MarketsJourneyLiveAccountDto> accounts = latest.accounts().stream()
-                .map(a -> new MarketsJourneyLiveAccountDto(
-                        a.suffix(),
-                        a.label(),
-                        a.value(),
-                        MarketsJourneyLiveNet.accountDayChange(prior, a.suffix(), a.value())))
+                .map(a -> {
+                    RobinhoodRhDailySnapshot snap = bySuffix.get(a.suffix());
+                    if (snap == null) {
+                        snap = snapshotRepository
+                                .findTopByOwnerUserIdAndAccountSuffixAndCaptureKindOrderBySnapshotDateDesc(
+                                        j.getOwnerUserId(), a.suffix(), RobinhoodRhDailyCaptureKind.SCHEDULED)
+                                .orElse(null);
+                    }
+                    return new MarketsJourneyLiveAccountDto(
+                            a.suffix(),
+                            a.label(),
+                            MarketsJourneyLiveNet.accountType(a.suffix(), snap == null ? null : snap.getAccountKind()),
+                            snap == null ? null : snap.getEquityMarketValue(),
+                            snap == null ? null : snap.getCashBalance(),
+                            a.value(),
+                            MarketsJourneyLiveNet.accountDayChange(prior, a.suffix(), a.value()));
+                })
                 .toList();
         List<MarketsJourneyLiveNet.DayTotal> seriesDays = MarketsJourneyLiveNet.seriesForChart(daily);
         List<MarketsJourneyLiveSeriesPointDto> series = new ArrayList<>(seriesDays.size());

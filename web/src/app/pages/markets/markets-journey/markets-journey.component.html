@@ -63,9 +63,7 @@
                 </button>
               </div>
 
-              <mat-tab-group class="journey__tabs" animationDuration="180ms" mat-stretch-tabs>
-                <mat-tab label="Plan">
-                  <div class="journey__tab-body">
+              <div class="journey__tab-body journey__tab-body--page">
                     <div class="journey__hero">
                       <div class="journey__dial" aria-hidden="true">
                         <svg viewBox="0 0 110 110" width="112" height="112">
@@ -146,22 +144,75 @@
                             ></span>
                           }
                         </div>
-                        <div class="journey__live-accounts">
-                          @for (a of live.accounts; track a.accountSuffix) {
-                            <div class="journey__live-acct">
-                              <span>
-                                <i class="journey__live-dot" [attr.data-suffix]="a.accountSuffix"></i>
-                                {{ a.label }}
-                              </span>
-                              <strong>
-                                {{ a.totalAccountValue | currency: 'USD':'symbol':'1.0-0' }}
-                                @if (a.dayChange != null) {
-                                  <small [class]="changeClass(a.dayChange)">
-                                    {{ a.dayChange | currency: 'USD':'symbol':'1.0-0' }}
-                                  </small>
+                        <div class="journey__sit" aria-label="Where the net sits">
+                          <h2 class="journey__section-title">Where the net sits</h2>
+                          <p class="muted">
+                            Account value by Robinhood account (USD) · as of {{ live.asOfDate }} after regular close
+                          </p>
+                          <div class="journey__sit-chart">
+                            @for (a of live.accounts; track a.accountSuffix) {
+                              <div class="journey__sit-row">
+                                <span class="journey__sit-name">{{ a.label }}</span>
+                                <div class="journey__sit-track" aria-hidden="true">
+                                  <span
+                                    class="journey__sit-bar"
+                                    [attr.data-suffix]="a.accountSuffix"
+                                    [style.width.%]="sitBarPct(a.totalAccountValue)"
+                                  ></span>
+                                </div>
+                                <strong class="journey__sit-val">{{
+                                  a.totalAccountValue | currency: 'USD':'symbol':'1.0-0'
+                                }}</strong>
+                              </div>
+                            }
+                          </div>
+                          <div class="journey__table-wrap">
+                            <table class="journey__table journey__sit-table">
+                              <thead>
+                                <tr>
+                                  <th>Account</th>
+                                  <th>Type</th>
+                                  <th>Equity</th>
+                                  <th>Cash</th>
+                                  <th>Account value</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                @for (a of live.accounts; track a.accountSuffix) {
+                                  <tr>
+                                    <td>{{ a.label }}</td>
+                                    <td>{{ a.accountType || '—' }}</td>
+                                    <td>
+                                      {{
+                                        a.equityMarketValue != null
+                                          ? (a.equityMarketValue | currency: 'USD':'symbol':'1.2-2')
+                                          : '—'
+                                      }}
+                                    </td>
+                                    <td [class]="changeClass(a.cashBalance)">
+                                      {{
+                                        a.cashBalance != null
+                                          ? (a.cashBalance | currency: 'USD':'symbol':'1.2-2')
+                                          : '—'
+                                      }}
+                                    </td>
+                                    <td>
+                                      <strong>{{ a.totalAccountValue | currency: 'USD':'symbol':'1.2-2' }}</strong>
+                                    </td>
+                                  </tr>
                                 }
-                              </strong>
-                            </div>
+                              </tbody>
+                            </table>
+                          </div>
+                          @if (leveredAccount(); as lev) {
+                            <p class="journey__sit-note">
+                              {{ lev.label }} is levered: equity
+                              {{ lev.equityMarketValue | currency: 'USD':'symbol':'1.0-0' }}
+                              against cash of
+                              {{ lev.cashBalance | currency: 'USD':'symbol':'1.0-0' }}. The
+                              {{ lev.totalAccountValue | currency: 'USD':'symbol':'1.0-0' }}
+                              net is what counts toward the million.
+                            </p>
                           }
                         </div>
                       </div>
@@ -267,7 +318,11 @@
                         </div>
                       }
                     </div>
+              </div>
 
+              <mat-tab-group class="journey__tabs" animationDuration="180ms" mat-stretch-tabs>
+                <mat-tab label="Plan">
+                  <div class="journey__tab-body">
                     <div class="journey__plan-block">
                       <h2 class="journey__section-title">
                         {{ editingEntryId ? 'Edit period' : 'Add period' }}

@@ -78,4 +78,7 @@ public interface RobinhoodRhDailySnapshotRepository extends JpaRepository<Robinh
             ORDER BY s.snapshotDate ASC, s.accountSuffix ASC
             """)
     List<RhScheduledTotalRow> findScheduledTotalsAsc(@Param("ownerUserId") long ownerUserId);
+
+    List<RobinhoodRhDailySnapshot> findByOwnerUserIdAndSnapshotDateAndCaptureKind(
+            long ownerUserId, LocalDate snapshotDate, String captureKind);
 }

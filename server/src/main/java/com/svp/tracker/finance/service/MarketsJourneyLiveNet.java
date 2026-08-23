@@ -7,7 +7,6 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -23,8 +22,8 @@ import java.util.TreeSet;
 final class MarketsJourneyLiveNet {
 
     static final String AUTO_NOTE_PREFIX = "Robinhood net as of";
-    static final int RECENT_DAILY_DAYS = 90;
 
+    private static final DateTimeFormatter MONTH_LABEL = DateTimeFormatter.ofPattern("MMM yyyy", Locale.US);
     private static final DateTimeFormatter AS_OF_LABEL = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US);
     private static final List<String> ACCOUNT_ORDER = List.of("3370", "3550", "4123", "8696", "2835", "0440");
 
@@ -65,32 +64,32 @@ final class MarketsJourneyLiveNet {
         return out;
     }
 
-    /** Month-ends until the last {@value #RECENT_DAILY_DAYS} days, then every close — for the graph. */
-    static List<DayTotal> seriesForChart(List<DayTotal> daily) {
+    /** Last close of each month, plus the latest day when it is not already a month-end. */
+    static List<DayTotal> monthStations(List<DayTotal> daily) {
         if (daily == null || daily.isEmpty()) {
             return List.of();
         }
-        if (daily.size() <= RECENT_DAILY_DAYS) {
-            return List.copyOf(daily);
-        }
-        LocalDate cutoff = daily.get(daily.size() - 1).date().minusDays(RECENT_DAILY_DAYS);
         Map<String, DayTotal> monthEnd = new LinkedHashMap<>();
-        List<DayTotal> recent = new ArrayList<>();
         for (DayTotal day : daily) {
-            if (!day.date().isBefore(cutoff)) {
-                recent.add(day);
-            } else {
-                monthEnd.put(day.date().getYear() + "-" + day.date().getMonthValue(), day);
-            }
+            monthEnd.put(day.date().getYear() + "-" + day.date().getMonthValue(), day);
         }
         List<DayTotal> out = new ArrayList<>(monthEnd.values());
-        out.addAll(recent);
-        out.sort(Comparator.comparing(DayTotal::date));
+        DayTotal latest = daily.get(daily.size() - 1);
+        if (out.isEmpty() || !out.get(out.size() - 1).date().equals(latest.date())) {
+            out.add(latest);
+        }
         return out;
     }
 
-    static String periodLabel(DayTotal day) {
-        return "As of " + day.date().format(AS_OF_LABEL);
+    static List<DayTotal> seriesForChart(List<DayTotal> daily) {
+        return monthStations(daily);
+    }
+
+    static String periodLabel(DayTotal day, boolean latest) {
+        if (latest && !isMonthEnd(day.date())) {
+            return "As of " + day.date().format(AS_OF_LABEL);
+        }
+        return day.date().format(MONTH_LABEL);
     }
 
     static String actualNote(LocalDate date) {
@@ -117,6 +116,17 @@ final class MarketsJourneyLiveNet {
             return "Roth IRA (...2835)";
         }
         return RobinhoodRhDailyTrackerAccountPolicy.displayLabel(suffix);
+    }
+
+    static String accountType(String suffix, String accountKind) {
+        return switch (suffix == null ? "" : suffix.trim()) {
+            case "3370" -> "Margin";
+            case "3550" -> "Limited margin";
+            case "4123" -> "Managed";
+            case "2835" -> "IRA";
+            case "8696" -> "Brokerage";
+            default -> accountKind == null || accountKind.isBlank() ? "Brokerage" : accountKind;
+        };
     }
 
     static BigDecimal dayChange(DayTotal prior, DayTotal current) {
@@ -169,6 +179,10 @@ final class MarketsJourneyLiveNet {
             out.add(new AccountSlice(suffix, accountLabel(suffix), bySuffix.get(suffix)));
         }
         return out;
+    }
+
+    private static boolean isMonthEnd(LocalDate date) {
+        return date.getDayOfMonth() == date.lengthOfMonth();
     }
 
     static BigDecimal scale(BigDecimal v) {
