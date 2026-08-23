@@ -90,10 +90,23 @@
                           <span class="journey__kpi-value">{{ j.milestoneAmount | currency: 'USD':'symbol':'1.0-0' }}</span>
                         </div>
                         <div class="journey__kpi">
-                          <span class="journey__kpi-label">Latest actual</span>
+                          <span class="journey__kpi-label">{{ viewingLatest() ? 'Latest actual' : 'Actual that day' }}</span>
                           <span class="journey__kpi-value">{{
                             displayActual() != null ? (displayActual()! | currency: 'USD':'symbol':'1.0-0') : '—'
                           }}</span>
+                        </div>
+                        <div class="journey__kpi">
+                          <span class="journey__kpi-label">Vs prior close</span>
+                          <span class="journey__kpi-value" [class]="changeClass(dayChange())">
+                            @if (dayChange() != null) {
+                              {{ dayChange()! | currency: 'USD':'symbol':'1.0-0' }}
+                              @if (dayChangePct() != null) {
+                                <small>{{ dayChangePct()! | number: '1.0-2' }}%</small>
+                              }
+                            } @else {
+                              —
+                            }
+                          </span>
                         </div>
                         <div class="journey__kpi">
                           <span class="journey__kpi-label">Still to go</span>
@@ -116,6 +129,41 @@
 
                     @if (j.liveNet; as live) {
                       <div class="journey__live" aria-label="Robinhood net as of">
+                        <div class="journey__day-nav">
+                          <button
+                            mat-icon-button
+                            type="button"
+                            aria-label="Previous close"
+                            (click)="goPrevDay()"
+                            [disabled]="!canPrevDay() || loading()"
+                          >
+                            <mat-icon>chevron_left</mat-icon>
+                          </button>
+                          <div class="journey__day-nav-copy">
+                            <strong>{{ live.asOfDate | date: 'fullDate' }}</strong>
+                            <span class="muted">
+                              @if (viewingLatest()) {
+                                Latest Daily Tracker close
+                              } @else {
+                                Historical close
+                              }
+                            </span>
+                          </div>
+                          <button
+                            mat-icon-button
+                            type="button"
+                            aria-label="Next close"
+                            (click)="goNextDay()"
+                            [disabled]="!canNextDay() || loading()"
+                          >
+                            <mat-icon>chevron_right</mat-icon>
+                          </button>
+                          @if (!viewingLatest()) {
+                            <button mat-stroked-button type="button" (click)="goLatestDay()" [disabled]="loading()">
+                              Latest
+                            </button>
+                          }
+                        </div>
                         <div class="journey__live-head">
                           <h2 class="journey__section-title">All accounts as of {{ live.asOfDate }}</h2>
                           <p class="muted">
@@ -129,7 +177,8 @@
                                 @if (dayChangePct() != null) {
                                   ({{ dayChangePct()! | number: '1.0-2' }}%)
                                 }
-                                vs prior close
+                                vs
+                                {{ live.priorAsOfDate ? (live.priorAsOfDate | date: 'mediumDate') : 'prior close' }}
                               </span>
                             }
                           </p>
@@ -175,6 +224,7 @@
                                   <th>Equity</th>
                                   <th>Cash</th>
                                   <th>Account value</th>
+                                  <th>Vs prior</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -198,6 +248,13 @@
                                     </td>
                                     <td>
                                       <strong>{{ a.totalAccountValue | currency: 'USD':'symbol':'1.2-2' }}</strong>
+                                    </td>
+                                    <td [class]="changeClass(a.dayChange)">
+                                      {{
+                                        a.dayChange != null
+                                          ? (a.dayChange | currency: 'USD':'symbol':'1.2-2')
+                                          : '—'
+                                      }}
                                     </td>
                                   </tr>
                                 }
@@ -288,6 +345,7 @@
                               @if (p.actualY != null) {
                                 <span
                                   class="journey__plot-dot journey__plot-dot--actual"
+                                  [class.journey__plot-dot--selected]="p.selected"
                                   [ngClass]="directionClass(p.entry.direction)"
                                   [style.left.%]="p.x"
                                   [style.top.%]="p.actualY"

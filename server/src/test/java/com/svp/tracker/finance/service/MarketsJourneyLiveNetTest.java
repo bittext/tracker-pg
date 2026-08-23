@@ -66,6 +66,18 @@ class MarketsJourneyLiveNetTest {
     }
 
     @Test
+    void indexOnOrBeforePicksRequestedClose() {
+        List<MarketsJourneyLiveNet.DayTotal> daily = MarketsJourneyLiveNet.dailyTotals(List.of(
+                row(LocalDate.of(2026, 8, 19), "3370", "360000"),
+                row(LocalDate.of(2026, 8, 20), "3370", "365000"),
+                row(LocalDate.of(2026, 8, 21), "3370", "367000")));
+        assertEquals(2, MarketsJourneyLiveNet.indexOnOrBefore(daily, null));
+        assertEquals(1, MarketsJourneyLiveNet.indexOnOrBefore(daily, LocalDate.of(2026, 8, 20)));
+        assertEquals(0, MarketsJourneyLiveNet.indexOnOrBefore(daily, LocalDate.of(2026, 8, 19)));
+        assertEquals(1, MarketsJourneyLiveNet.indexOnOrBefore(daily, LocalDate.of(2026, 8, 20)));
+    }
+
+    @Test
     void autoManagedRecognizesSeededNotesOnly() {
         MarketsJourneyEntry auto = new MarketsJourneyEntry();
         auto.setActualNote(MarketsJourneyLiveNet.actualNote(LocalDate.of(2026, 8, 21)));

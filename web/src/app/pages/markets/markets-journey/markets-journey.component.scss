@@ -198,6 +198,35 @@
 .journey__kpi-value {
   font-size: 1.05rem;
   font-weight: 700;
+
+  small {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+}
+
+.journey__day-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.55rem;
+}
+
+.journey__day-nav-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 10rem;
+  flex: 1 1 12rem;
+
+  strong {
+    font-size: 0.95rem;
+  }
+
+  span {
+    font-size: 0.78rem;
+  }
 }
 
 .journey__runway {
@@ -328,6 +357,14 @@
 
 .journey__plot-dot--actual {
   background: currentColor;
+}
+
+.journey__plot-dot--selected {
+  width: 14px;
+  height: 14px;
+  outline: 2px solid var(--mat-sys-primary, #1565c0);
+  outline-offset: 2px;
+  z-index: 2;
 }
 
 .journey__plot-dot.journey-dir--above,

@@ -41,6 +41,9 @@ export interface MarketsJourneyLiveNetDto {
   dayChangePct?: number | null;
   accounts: MarketsJourneyLiveAccountDto[];
   series?: MarketsJourneyLiveSeriesPointDto[];
+  history?: MarketsJourneyLiveSeriesPointDto[];
+  priorAsOfDate?: string | null;
+  nextAsOfDate?: string | null;
   note: string;
 }
 

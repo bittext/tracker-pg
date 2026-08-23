@@ -85,6 +85,21 @@ final class MarketsJourneyLiveNet {
         return monthStations(daily);
     }
 
+    static int indexOnOrBefore(List<DayTotal> daily, LocalDate asOf) {
+        if (daily == null || daily.isEmpty()) {
+            return -1;
+        }
+        if (asOf == null) {
+            return daily.size() - 1;
+        }
+        for (int i = daily.size() - 1; i >= 0; i--) {
+            if (!daily.get(i).date().isAfter(asOf)) {
+                return i;
+            }
+        }
+        return 0;
+    }
+
     static String periodLabel(DayTotal day, boolean latest) {
         if (latest && !isMonthEnd(day.date())) {
             return "As of " + day.date().format(AS_OF_LABEL);

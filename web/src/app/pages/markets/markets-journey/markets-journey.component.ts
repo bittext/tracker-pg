@@ -68,6 +68,8 @@ export class MarketsJourneyComponent implements OnInit {
   metaMilestone: number | null = 1_000_000;
   /** Runway station highlight (period entry id). */
   focusedEntryId: number | null = null;
+  /** Daily Tracker close being viewed. */
+  readonly viewedAsOf = signal<string | null>(null);
 
   readonly chartPoints = computed(() => buildRoadmapChartPoints(this.journey()));
   readonly targetPath = computed(() => roadmapTargetPath(this.chartPoints()));
@@ -118,6 +120,18 @@ export class MarketsJourneyComponent implements OnInit {
   readonly leveredAccount = computed(() => {
     const accounts = this.journey()?.liveNet?.accounts ?? [];
     return accounts.find((a) => a.accountSuffix === '3370' && Number(a.cashBalance) < 0) ?? null;
+  });
+
+  readonly canPrevDay = computed(() => !!this.journey()?.liveNet?.priorAsOfDate);
+  readonly canNextDay = computed(() => !!this.journey()?.liveNet?.nextAsOfDate);
+  readonly viewingLatest = computed(() => {
+    const live = this.journey()?.liveNet;
+    if (!live) {
+      return true;
+    }
+    const history = live.history ?? [];
+    const last = history.length ? history[history.length - 1]?.date : null;
+    return !last || live.asOfDate === last;
   });
 
   changeClass(value: number | null | undefined): string {
@@ -173,14 +187,22 @@ export class MarketsJourneyComponent implements OnInit {
     });
   }
 
-  selectJourney(id: number): void {
+  selectJourney(id: number, asOf?: string | null): void {
+    const switching = this.selectedId() !== id;
     this.selectedId.set(id);
+    if (switching) {
+      this.viewedAsOf.set(null);
+    }
+    if (asOf !== undefined) {
+      this.viewedAsOf.set(asOf);
+    }
     this.loading.set(true);
-    this.api.get(id).subscribe({
+    this.api.get(id, this.viewedAsOf()).subscribe({
       next: (j) => {
         this.journey.set(j);
         this.metaTitle = j.title;
         this.metaMilestone = j.milestoneAmount;
+        this.viewedAsOf.set(j.liveNet?.asOfDate ?? this.viewedAsOf());
         this.loading.set(false);
         this.resetEntryDraft();
       },
@@ -309,6 +331,32 @@ export class MarketsJourneyComponent implements OnInit {
 
   segmentClass(dir: string): string {
     return `journey-seg journey-seg--${(dir || 'UNKNOWN').toLowerCase()}`;
+  }
+
+  goPrevDay(): void {
+    const prior = this.journey()?.liveNet?.priorAsOfDate;
+    const id = this.selectedId();
+    if (id == null || !prior) {
+      return;
+    }
+    this.selectJourney(id, prior);
+  }
+
+  goNextDay(): void {
+    const next = this.journey()?.liveNet?.nextAsOfDate;
+    const id = this.selectedId();
+    if (id == null || !next) {
+      return;
+    }
+    this.selectJourney(id, next);
+  }
+
+  goLatestDay(): void {
+    const id = this.selectedId();
+    if (id == null) {
+      return;
+    }
+    this.selectJourney(id, null);
   }
 
   focusPeriod(entryId: number): void {

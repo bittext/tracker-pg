@@ -14,4 +14,7 @@ public record MarketsJourneyLiveNetDto(
         BigDecimal dayChangePct,
         List<MarketsJourneyLiveAccountDto> accounts,
         List<MarketsJourneyLiveSeriesPointDto> series,
+        List<MarketsJourneyLiveSeriesPointDto> history,
+        LocalDate priorAsOfDate,
+        LocalDate nextAsOfDate,
         String note) {}

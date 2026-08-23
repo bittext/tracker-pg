@@ -18,8 +18,12 @@ export class MarketsJourneyApiService {
     return this.http.get<MarketsJourneyDto[]>(this.root);
   }
 
-  get(id: number) {
-    return this.http.get<MarketsJourneyDto>(`${this.root}/${id}`);
+  get(id: number, asOf?: string | null) {
+    let params = new HttpParams();
+    if (asOf) {
+      params = params.set('asOf', asOf);
+    }
+    return this.http.get<MarketsJourneyDto>(`${this.root}/${id}`, { params });
   }
 
   create(body?: MarketsJourneyWriteRequest) {

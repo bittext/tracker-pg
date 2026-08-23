@@ -12,6 +12,7 @@ export interface RoadmapChartPoint {
   actualY: number | null;
   label: string;
   showLabel: boolean;
+  selected: boolean;
 }
 
 export interface RoadmapActualSegment {
@@ -32,7 +33,7 @@ export function buildRoadmapChartPoints(j: MarketsJourneyDto | null | undefined)
   if (!j) {
     return [];
   }
-  const series = j.liveNet?.series ?? [];
+  const series = j.liveNet?.history?.length ? j.liveNet.history : (j.liveNet?.series ?? []);
   const rows = mergeChartRows(series, j.entries ?? []);
   if (!rows.length) {
     return [];
@@ -63,6 +64,7 @@ export function buildRoadmapChartPoints(j: MarketsJourneyDto | null | undefined)
       actualY: toY(row.actual),
       label: row.label,
       showLabel: i === 0 || i === n - 1 || i % labelEvery === 0,
+      selected: j.liveNet?.asOfDate != null && row.date === j.liveNet.asOfDate,
     };
   });
 }
@@ -104,7 +106,8 @@ export function roadmapMilestoneY(j: MarketsJourneyDto | null | undefined, pts: 
     return null;
   }
   const values: number[] = [0, Number(j.milestoneAmount) || 0];
-  const series = j.liveNet?.series ?? [];
+  const series =
+    j.liveNet?.history?.length ? j.liveNet.history : (j.liveNet?.series ?? []);
   for (const s of series) {
     values.push(Number(s.total));
   }
