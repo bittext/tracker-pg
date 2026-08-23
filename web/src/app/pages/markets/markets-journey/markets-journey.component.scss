@@ -46,6 +46,10 @@
   gap: 1rem;
 }
 
+.journey__layout--solo {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 @media (max-width: 840px) {
   .journey__layout {
     grid-template-columns: 1fr;
