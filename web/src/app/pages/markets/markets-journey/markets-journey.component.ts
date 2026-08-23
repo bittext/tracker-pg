@@ -20,8 +20,6 @@ import { MarketsJourneyApiService } from '../../../services/markets-journey-api.
 import { formatHttpErrorDetail } from '../../../util/http-error';
 import {
   buildRoadmapChartPoints,
-  firstMillionJourneys,
-  pickPrimaryJourney,
   roadmapActualSegments,
   roadmapMilestoneY,
   roadmapTargetPath,
@@ -162,26 +160,22 @@ export class MarketsJourneyComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    this.refreshList();
+    this.refreshList(true);
   }
 
-  refreshList(): void {
+  refreshList(selectFirst = false): void {
     this.loading.set(true);
     this.api.list().subscribe({
       next: (rows) => {
-        const visible = firstMillionJourneys(rows);
-        this.journeys.set(visible);
+        this.journeys.set(rows);
         this.loading.set(false);
-        const current = this.selectedId();
-        if (current != null && visible.some((r) => r.id === current)) {
-          this.selectJourney(current);
+        const prefer = this.selectedId() ?? (selectFirst ? rows[0]?.id ?? null : null);
+        if (prefer != null && rows.some((r) => r.id === prefer)) {
+          this.selectJourney(prefer);
+        } else if (rows[0]) {
+          this.selectJourney(rows[0].id);
         } else {
-          const primary = pickPrimaryJourney(visible);
-          if (primary) {
-            this.selectJourney(primary.id);
-          } else {
-            this.journey.set(null);
-          }
+          this.journey.set(null);
         }
       },
       error: (e) => {
@@ -241,6 +235,31 @@ export class MarketsJourneyComponent implements OnInit {
           this.snackBar.open(`Save failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 6000 });
         },
       });
+  }
+
+  createNextMillion(): void {
+    const list = this.journeys();
+    const n = list.length + 1;
+    const title =
+      n === 1
+        ? 'Road to my first million'
+        : n === 2
+          ? 'Road to my second million'
+          : `Road to my ${this.ordinal(n)} million`;
+    const milestone = n * 1_000_000;
+    this.saving.set(true);
+    this.api.create({ title, milestoneAmount: milestone }).subscribe({
+      next: (j) => {
+        this.saving.set(false);
+        this.snackBar.open(`Started “${j.title}”`, undefined, { duration: 2800 });
+        this.selectedId.set(j.id);
+        this.refreshList();
+      },
+      error: (e) => {
+        this.saving.set(false);
+        this.snackBar.open(`Create failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 6000 });
+      },
+    });
   }
 
   editEntry(e: MarketsJourneyEntryDto): void {
@@ -370,4 +389,9 @@ export class MarketsJourneyComponent implements OnInit {
     };
   }
 
+  private ordinal(n: number): string {
+    const s = ['th', 'st', 'nd', 'rd'];
+    const v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]!);
+  }
 }

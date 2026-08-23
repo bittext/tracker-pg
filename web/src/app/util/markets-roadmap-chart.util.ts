@@ -103,28 +103,10 @@ export function roadmapMilestoneY(j: MarketsJourneyDto | null | undefined, pts: 
   return 100 - pad - ((m - min) / span) * (100 - pad * 2);
 }
 
-export function isSecondMillionJourney(row: MarketsJourneyDto | null | undefined): boolean {
-  return (row?.title ?? '').toLowerCase().includes('second million');
-}
-
-export function firstMillionJourneys(rows: MarketsJourneyDto[]): MarketsJourneyDto[] {
-  return rows.filter((row) => !isSecondMillionJourney(row));
-}
-
-/** Prefer the first-million road. Never surface a second-million journey on the dashboard. */
+/** Prefer lowest sortOrder, then first in list. */
 export function pickPrimaryJourney(rows: MarketsJourneyDto[]): MarketsJourneyDto | null {
-  const eligible = firstMillionJourneys(rows);
-  const pool = eligible.length ? eligible : rows;
-  if (!pool.length) {
+  if (!rows.length) {
     return null;
   }
-  const named = pool.find((row) => (row.title ?? '').toLowerCase().includes('first million'));
-  if (named) {
-    return named;
-  }
-  const million = pool.find((row) => Number(row.milestoneAmount) === 1_000_000);
-  if (million) {
-    return million;
-  }
-  return [...pool].sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id)[0] ?? null;
+  return [...rows].sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id)[0] ?? null;
 }

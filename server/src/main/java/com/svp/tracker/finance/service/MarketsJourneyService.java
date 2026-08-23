@@ -21,7 +21,6 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -47,7 +46,6 @@ public class MarketsJourneyService {
     public List<MarketsJourneyDto> listForCurrentUser() {
         long uid = currentUser.requireUserId();
         ensureDefaultJourney(uid);
-        removeSecondMillionJourneys(uid);
         List<MarketsJourney> rows = journeyRepository.findByOwnerUserIdOrderBySortOrderAscIdAsc(uid);
         List<MarketsJourneyLiveNet.DayTotal> daily =
                 MarketsJourneyLiveNet.dailyTotals(snapshotRepository.findScheduledTotalsAsc(uid));
@@ -83,9 +81,6 @@ public class MarketsJourneyService {
     public MarketsJourneyDto create(MarketsJourneyWriteRequest body) {
         long uid = currentUser.requireUserId();
         String title = normalizeTitle(body == null ? null : body.title());
-        if (isSecondMillionTitle(title)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Second-million roadmaps are not used");
-        }
         if (journeyRepository.existsByOwnerUserIdAndTitleIgnoreCase(uid, title)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "A journey with that title already exists");
         }
@@ -105,9 +100,6 @@ public class MarketsJourneyService {
         if (body != null) {
             if (body.title() != null && !body.title().isBlank()) {
                 String title = normalizeTitle(body.title());
-                if (isSecondMillionTitle(title)) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Second-million roadmaps are not used");
-                }
                 if (!title.equalsIgnoreCase(j.getTitle())
                         && journeyRepository.existsByOwnerUserIdAndTitleIgnoreCase(uid, title)) {
                     throw new ResponseStatusException(HttpStatus.CONFLICT, "A journey with that title already exists");
@@ -177,24 +169,6 @@ public class MarketsJourneyService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Entry not found");
         }
         entryRepository.delete(row);
-    }
-
-    private void removeSecondMillionJourneys(long uid) {
-        for (MarketsJourney j : journeyRepository.findByOwnerUserIdOrderBySortOrderAscIdAsc(uid)) {
-            if (!isSecondMillion(j)) {
-                continue;
-            }
-            entryRepository.deleteByJourneyIdAndOwnerUserId(j.getId(), uid);
-            journeyRepository.delete(j);
-        }
-    }
-
-    private static boolean isSecondMillion(MarketsJourney j) {
-        return j != null && isSecondMillionTitle(j.getTitle());
-    }
-
-    private static boolean isSecondMillionTitle(String title) {
-        return title != null && title.toLowerCase(Locale.ROOT).contains("second million");
     }
 
     private void ensureDefaultJourney(long uid) {

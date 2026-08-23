@@ -3,12 +3,16 @@
     <div>
       <h1 class="journey__title">Roadmap</h1>
       <p class="muted journey__lead">
-        Road to my first million. Totals and the graph use every Robinhood Daily Tracker account,
+        Road to my first million — and then on. Totals and the graph use every Robinhood Daily Tracker account,
         including Ammu’s a/c, from scheduled closes. Add period targets beside those actuals. Slap points mark
         Individual ••••3370 $50k crossings.
       </p>
     </div>
     <div class="journey__head-actions">
+      <button mat-stroked-button type="button" (click)="createNextMillion()" [disabled]="saving()">
+        <mat-icon>add_road</mat-icon>
+        Next million
+      </button>
       <button mat-stroked-button type="button" (click)="refreshList()" [disabled]="loading()">
         <mat-icon>refresh</mat-icon>
         Refresh
@@ -21,27 +25,25 @@
       <mat-spinner diameter="36" />
     </div>
   } @else {
-    <div class="journey__layout" [class.journey__layout--solo]="journeys().length < 2">
-      @if (journeys().length > 1) {
-        <aside class="journey__rail" aria-label="Roadmaps">
-          @for (j of journeys(); track j.id) {
-            <button
-              type="button"
-              class="journey__rail-item"
-              [class.journey__rail-item--active]="j.id === selectedId()"
-              (click)="selectJourney(j.id)"
-            >
-              <strong>{{ j.title }}</strong>
-              <span class="muted">
-                {{ j.milestoneAmount | currency: 'USD':'symbol':'1.0-0' }}
-                @if (j.progressPct != null) {
-                  · {{ j.progressPct | number: '1.0-1' }}%
-                }
-              </span>
-            </button>
-          }
-        </aside>
-      }
+    <div class="journey__layout">
+      <aside class="journey__rail" aria-label="Roadmaps">
+        @for (j of journeys(); track j.id) {
+          <button
+            type="button"
+            class="journey__rail-item"
+            [class.journey__rail-item--active]="j.id === selectedId()"
+            (click)="selectJourney(j.id)"
+          >
+            <strong>{{ j.title }}</strong>
+            <span class="muted">
+              {{ j.milestoneAmount | currency: 'USD':'symbol':'1.0-0' }}
+              @if (j.progressPct != null) {
+                · {{ j.progressPct | number: '1.0-1' }}%
+              }
+            </span>
+          </button>
+        }
+      </aside>
 
       <section class="journey__main">
         @if (journey(); as j) {
