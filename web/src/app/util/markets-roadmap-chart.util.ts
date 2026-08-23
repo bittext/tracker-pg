@@ -1,9 +1,4 @@
-import {
-  JourneyDirection,
-  MarketsJourneyDto,
-  MarketsJourneyEntryDto,
-  MarketsJourneyLiveSeriesPointDto,
-} from '../models/markets-journey.models';
+import { MarketsJourneyDto, MarketsJourneyEntryDto } from '../models/markets-journey.models';
 
 export interface RoadmapChartPoint {
   entry: MarketsJourneyEntryDto;
@@ -20,51 +15,37 @@ export interface RoadmapActualSegment {
   direction: 'ABOVE' | 'ON' | 'BELOW' | 'UNKNOWN';
 }
 
-interface ChartRow {
-  date: string;
-  label: string;
-  actual: number | null;
-  target: number | null;
-  dayChange: number | null;
-  entry: MarketsJourneyEntryDto;
-}
-
 export function buildRoadmapChartPoints(j: MarketsJourneyDto | null | undefined): RoadmapChartPoint[] {
-  if (!j) {
+  if (!j?.entries?.length) {
     return [];
   }
-  const series = j.liveNet?.history?.length ? j.liveNet.history : (j.liveNet?.series ?? []);
-  const rows = mergeChartRows(series, j.entries ?? []);
-  if (!rows.length) {
-    return [];
-  }
+  const entries = j.entries;
   const values: number[] = [0, Number(j.milestoneAmount) || 0];
-  for (const row of rows) {
-    if (row.target != null) {
-      values.push(row.target);
+  for (const e of entries) {
+    if (e.targetAmount != null) {
+      values.push(Number(e.targetAmount));
     }
-    if (row.actual != null) {
-      values.push(row.actual);
+    if (e.actualAmount != null) {
+      values.push(Number(e.actualAmount));
     }
   }
   const min = Math.min(...values);
   const max = Math.max(...values);
   const span = max - min || 1;
   const pad = 6;
-  const n = rows.length;
-  const labelEvery = n <= 8 ? 1 : Math.ceil(n / 6);
-  return rows.map((row, i) => {
+  const n = entries.length;
+  return entries.map((e, i) => {
     const x = n === 1 ? 50 : pad + (i * (100 - pad * 2)) / (n - 1);
     const toY = (v: number | null) =>
       v == null ? null : 100 - pad - ((Number(v) - min) / span) * (100 - pad * 2);
     return {
-      entry: withDirection(row),
+      entry: e,
       x,
-      targetY: toY(row.target),
-      actualY: toY(row.actual),
-      label: row.label,
-      showLabel: i === 0 || i === n - 1 || i % labelEvery === 0,
-      selected: j.liveNet?.asOfDate != null && row.date === j.liveNet.asOfDate,
+      targetY: toY(e.targetAmount),
+      actualY: toY(e.actualAmount),
+      label: e.periodLabel || e.periodDate,
+      showLabel: true,
+      selected: j.liveNet?.asOfDate != null && e.periodDate === j.liveNet.asOfDate,
     };
   });
 }
@@ -106,16 +87,11 @@ export function roadmapMilestoneY(j: MarketsJourneyDto | null | undefined, pts: 
     return null;
   }
   const values: number[] = [0, Number(j.milestoneAmount) || 0];
-  const series =
-    j.liveNet?.history?.length ? j.liveNet.history : (j.liveNet?.series ?? []);
-  for (const s of series) {
-    values.push(Number(s.total));
-  }
   for (const e of j.entries ?? []) {
     if (e.targetAmount != null) {
       values.push(Number(e.targetAmount));
     }
-    if (e.actualAmount != null && !series.length) {
+    if (e.actualAmount != null) {
       values.push(Number(e.actualAmount));
     }
   }
@@ -133,87 +109,4 @@ export function pickPrimaryJourney(rows: MarketsJourneyDto[]): MarketsJourneyDto
     return null;
   }
   return [...rows].sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id)[0] ?? null;
-}
-
-function mergeChartRows(
-  series: MarketsJourneyLiveSeriesPointDto[],
-  entries: MarketsJourneyEntryDto[],
-): ChartRow[] {
-  const byDate = new Map<string, ChartRow>();
-  for (const point of series) {
-    byDate.set(point.date, {
-      date: point.date,
-      label: point.date,
-      actual: Number(point.total),
-      target: null,
-      dayChange: point.dayChange,
-      entry: seriesEntry(point),
-    });
-  }
-  for (const entry of entries) {
-    const existing = byDate.get(entry.periodDate);
-    if (existing) {
-      if (entry.targetAmount != null) {
-        existing.target = Number(entry.targetAmount);
-      }
-      if (entry.periodLabel) {
-        existing.label = entry.periodLabel;
-      }
-      existing.entry = {
-        ...existing.entry,
-        ...entry,
-        actualAmount: existing.actual,
-        direction: existing.entry.direction,
-      };
-      continue;
-    }
-    if (entry.actualAmount == null && entry.targetAmount == null) {
-      continue;
-    }
-    byDate.set(entry.periodDate, {
-      date: entry.periodDate,
-      label: entry.periodLabel || entry.periodDate,
-      actual: entry.actualAmount,
-      target: entry.targetAmount,
-      dayChange: null,
-      entry,
-    });
-  }
-  return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
-}
-
-function seriesEntry(point: MarketsJourneyLiveSeriesPointDto): MarketsJourneyEntryDto {
-  return {
-    id: Number(point.date.replaceAll('-', '')),
-    periodDate: point.date,
-    periodLabel: point.date,
-    targetAmount: null,
-    actualAmount: point.total,
-    targetNote: '',
-    actualNote: '',
-    variance: point.dayChange,
-    direction: directionFromChange(point.dayChange),
-    createdAt: '',
-    updatedAt: '',
-  };
-}
-
-function withDirection(row: ChartRow): MarketsJourneyEntryDto {
-  if (row.dayChange == null) {
-    return row.entry;
-  }
-  return { ...row.entry, direction: directionFromChange(row.dayChange), variance: row.dayChange };
-}
-
-function directionFromChange(change: number | null | undefined): JourneyDirection {
-  if (change == null) {
-    return 'UNKNOWN';
-  }
-  if (change > 0) {
-    return 'ABOVE';
-  }
-  if (change < 0) {
-    return 'BELOW';
-  }
-  return 'ON';
 }

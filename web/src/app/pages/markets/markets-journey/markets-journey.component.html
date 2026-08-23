@@ -301,11 +301,10 @@
                       </div>
                     }
 
-                    <div class="journey__chart-wrap" aria-label="Target vs actual chart">
+                    <div class="journey__chart-wrap" aria-label="Period target vs actual chart">
                       @if (!chartPoints().length) {
                         <p class="muted journey__chart-empty">
-                          Waiting on Robinhood Daily Tracker closes to plot all-account actuals. You can also add a
-                          period below.
+                          Add a period below, or wait for Daily Tracker month closes, to plot the plan.
                         </p>
                       } @else {
                         <div class="journey__chart-frame">
