@@ -84,8 +84,8 @@ public class RobinhoodEarningsService {
                         n.path("year").asInt(0),
                         n.path("quarter").asInt(0),
                         reportDate,
-                        parseNum(eps.path("actual").asText(null)),
-                        parseNum(eps.path("estimate").asText(null))));
+                        parseNum(eps.path("actual").asText("")),
+                        parseNum(eps.path("estimate").asText(""))));
             }
             return out;
         } catch (Exception e) {

@@ -5,6 +5,7 @@ import com.svp.tracker.finance.dto.CompanyFinancialsTrendDto;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import org.springframework.stereotype.Service;
 
 /**
@@ -23,6 +24,10 @@ public class CompanyFinancialsTrendService {
     /** @param quarters oldest -> newest */
     public CompanyFinancialsTrendDto assess(List<CompanyFinancialsQuarterDto> quarters) {
         List<String> warnings = new ArrayList<>();
+        if (quarters == null) {
+            quarters = List.of();
+        }
+        quarters = quarters.stream().filter(Objects::nonNull).toList();
         int incomeQuarters = (int)
                 quarters.stream().filter(q -> q.revenue() != null && q.netIncome() != null).count();
         int epsQuarters = (int)

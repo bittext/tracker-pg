@@ -64,7 +64,13 @@ public class AlphaVantageFinancialsService {
         if (cached != null && now - cached.atMs < CACHE_TTL.toMillis()) {
             return cached.result;
         }
-        Result result = fetch(symbol, key);
+        Result result;
+        try {
+            result = fetch(symbol, key);
+        } catch (Exception e) {
+            log.warn("Alpha Vantage financials fetch failed for {}: {}", symbol, e.toString());
+            return null;
+        }
         if (result != null) {
             cache.put(symbol, new CacheEntry(now, result));
         }
