@@ -51,24 +51,21 @@ public class CompanyFinancialsService {
 
         recordSearch(symbol, null);
 
-        AlphaVantageFinancialsService.Result result = alphaVantageFinancialsService.quarterlyFinancials(symbol);
         List<EarningsRow> rhEarnings = robinhoodEarningsService.earnings(symbol);
-        List<CompanyFinancialsQuarterDto> quarters =
+        AlphaVantageFinancialsService.Result result = alphaVantageFinancialsService.quarterlyFinancials(symbol);
+        List<CompanyFinancialsQuarterDto> avQuarters =
                 result != null ? result.quarters() : new ArrayList<>();
-        MergeEps merge = applyRobinhoodEarnings(quarters, rhEarnings);
-        quarters = merge.quarters();
+        MergeEps merge = applyRobinhoodPrimary(avQuarters, rhEarnings);
+        List<CompanyFinancialsQuarterDto> quarters = merge.quarters();
         if (quarters.isEmpty()) {
             throw new ResponseStatusException(
                     HttpStatus.SERVICE_UNAVAILABLE,
-                    "Financials temporarily unavailable (rate limited or no API key configured) — try again later.");
+                    "Financials temporarily unavailable (Robinhood earnings and Alpha Vantage both empty).");
         }
 
         CompanyFinancialsTrendDto trend = trendService.assess(quarters);
-        if (result != null) {
+        if (result != null && !merge.usedRobinhood()) {
             for (String w : result.warnings()) {
-                if (merge.filledAny() && w.toLowerCase(Locale.ROOT).contains("eps")) {
-                    continue;
-                }
                 trend = withWarning(trend, w);
             }
         }
@@ -97,15 +94,16 @@ public class CompanyFinancialsService {
         }
 
         return new CompanyFinancialsResponseDto(
-                symbol, companyName, quarters, trend, merge.sourceLabel(result != null), Instant.now().toString());
+                symbol, companyName, quarters, trend, merge.sourceLabel(), Instant.now().toString());
     }
 
-    private record MergeEps(List<CompanyFinancialsQuarterDto> quarters, boolean filledAny) {
-        String sourceLabel(boolean hadAlpha) {
-            if (filledAny && hadAlpha) {
-                return "alpha-vantage + robinhood-earnings";
+    private record MergeEps(
+            List<CompanyFinancialsQuarterDto> quarters, boolean usedRobinhood, boolean usedAlpha) {
+        String sourceLabel() {
+            if (usedRobinhood && usedAlpha) {
+                return "robinhood-earnings + alpha-vantage";
             }
-            if (filledAny) {
+            if (usedRobinhood) {
                 return "robinhood-earnings";
             }
             return "alpha-vantage";
@@ -113,84 +111,79 @@ public class CompanyFinancialsService {
     }
 
     /**
-     * Overlay Robinhood EPS actual/estimate onto Alpha Vantage quarters (match report date to the
-     * fiscal end that precedes it). If Alpha Vantage returned no rows, build EPS-only quarters from
-     * Robinhood.
+     * Robinhood earnings is the primary quarter list (EPS actual/estimate). Alpha Vantage fills
+     * revenue/net income and any older quarters Robinhood does not cover.
      */
-    static MergeEps applyRobinhoodEarnings(
-            List<CompanyFinancialsQuarterDto> quarters, List<EarningsRow> rhEarnings) {
-        if (rhEarnings == null || rhEarnings.isEmpty()) {
-            return new MergeEps(quarters, false);
+    static MergeEps applyRobinhoodPrimary(
+            List<CompanyFinancialsQuarterDto> avQuarters, List<EarningsRow> rhEarnings) {
+        List<CompanyFinancialsQuarterDto> av = avQuarters == null ? List.of() : avQuarters;
+        List<EarningsRow> rh = rhEarnings == null ? List.of() : rhEarnings;
+        if (rh.isEmpty()) {
+            return new MergeEps(av, false, !av.isEmpty());
         }
-        if (quarters == null || quarters.isEmpty()) {
-            List<CompanyFinancialsQuarterDto> fromRh = new ArrayList<>();
-            for (EarningsRow row : rhEarnings) {
-                if (row.reportDate() == null || (row.epsActual() == null && row.epsEstimate() == null)) {
-                    continue;
-                }
-                fromRh.add(quarterFromRobinhood(row));
-            }
-            fromRh.sort((a, b) -> a.fiscalDateEnding().compareTo(b.fiscalDateEnding()));
-            return new MergeEps(fromRh, !fromRh.isEmpty());
-        }
-        boolean filled = false;
-        List<CompanyFinancialsQuarterDto> out = new ArrayList<>(quarters.size());
-        for (CompanyFinancialsQuarterDto q : quarters) {
-            EarningsRow match = matchRobinhoodRow(q.fiscalDateEnding(), rhEarnings);
-            if (match == null) {
-                out.add(q);
+
+        boolean usedAlpha = false;
+        boolean[] avUsed = new boolean[av.size()];
+        List<CompanyFinancialsQuarterDto> out = new ArrayList<>();
+        for (EarningsRow row : rh) {
+            if (row.reportDate() == null && row.epsActual() == null && row.epsEstimate() == null) {
                 continue;
             }
-            Double actual = match.epsActual() != null ? match.epsActual() : q.epsActual();
-            Double estimate = match.epsEstimate() != null ? match.epsEstimate() : q.epsEstimate();
+            int avIdx = indexOfMatchingAvQuarter(row, av);
+            CompanyFinancialsQuarterDto avq = avIdx >= 0 ? av.get(avIdx) : null;
+            if (avIdx >= 0) {
+                avUsed[avIdx] = true;
+            }
+            Double actual = row.epsActual() != null ? row.epsActual() : (avq != null ? avq.epsActual() : null);
+            Double estimate = row.epsEstimate() != null ? row.epsEstimate() : (avq != null ? avq.epsEstimate() : null);
+            if (avq != null
+                    && ((row.epsActual() == null && avq.epsActual() != null)
+                            || (row.epsEstimate() == null && avq.epsEstimate() != null)
+                            || avq.revenue() != null
+                            || avq.netIncome() != null)) {
+                usedAlpha = true;
+            }
             Double surprise = (actual != null && estimate != null && estimate != 0)
                     ? ((actual - estimate) / Math.abs(estimate)) * 100
-                    : q.epsSurprisePct();
-            boolean changed = !eq(actual, q.epsActual()) || !eq(estimate, q.epsEstimate());
-            filled = filled || changed;
+                    : (avq != null ? avq.epsSurprisePct() : null);
+            String fiscal = avq != null
+                    ? avq.fiscalDateEnding()
+                    : (row.reportDate() != null ? row.reportDate().minusDays(35).toString() : null);
+            if (fiscal == null) {
+                continue;
+            }
             out.add(new CompanyFinancialsQuarterDto(
-                    q.fiscalDateEnding(),
-                    q.revenue(),
-                    q.netIncome(),
-                    q.grossProfit(),
-                    q.operatingIncome(),
-                    q.netMarginPct(),
+                    fiscal,
+                    avq != null ? avq.revenue() : null,
+                    avq != null ? avq.netIncome() : null,
+                    avq != null ? avq.grossProfit() : null,
+                    avq != null ? avq.operatingIncome() : null,
+                    avq != null ? avq.netMarginPct() : null,
                     actual,
                     estimate,
                     surprise));
         }
-        return new MergeEps(out, filled);
-    }
-
-    private static CompanyFinancialsQuarterDto quarterFromRobinhood(EarningsRow row) {
-        Double surprise = (row.epsActual() != null && row.epsEstimate() != null && row.epsEstimate() != 0)
-                ? ((row.epsActual() - row.epsEstimate()) / Math.abs(row.epsEstimate())) * 100
-                : null;
-        // Report date is after quarter end; back up ~5 weeks so the column stays a fiscal-ish date.
-        LocalDate fiscal = row.reportDate().minusDays(35);
-        return new CompanyFinancialsQuarterDto(
-                fiscal.toString(),
-                null,
-                null,
-                null,
-                null,
-                null,
-                row.epsActual(),
-                row.epsEstimate(),
-                surprise);
-    }
-
-    private static EarningsRow matchRobinhoodRow(String fiscalDateEnding, List<EarningsRow> rows) {
-        LocalDate fiscal;
-        try {
-            fiscal = LocalDate.parse(fiscalDateEnding);
-        } catch (Exception e) {
-            return null;
+        for (int i = 0; i < av.size(); i++) {
+            if (!avUsed[i]) {
+                out.add(av.get(i));
+                usedAlpha = true;
+            }
         }
-        EarningsRow best = null;
+        out.sort((a, b) -> a.fiscalDateEnding().compareTo(b.fiscalDateEnding()));
+        return new MergeEps(out, true, usedAlpha);
+    }
+
+    private static int indexOfMatchingAvQuarter(EarningsRow row, List<CompanyFinancialsQuarterDto> av) {
+        if (row.reportDate() == null) {
+            return -1;
+        }
+        int best = -1;
         long bestDays = Long.MAX_VALUE;
-        for (EarningsRow row : rows) {
-            if (row.reportDate() == null) {
+        for (int i = 0; i < av.size(); i++) {
+            LocalDate fiscal;
+            try {
+                fiscal = LocalDate.parse(av.get(i).fiscalDateEnding());
+            } catch (Exception e) {
                 continue;
             }
             if (row.reportDate().isBefore(fiscal)) {
@@ -199,20 +192,10 @@ public class CompanyFinancialsService {
             long days = ChronoUnit.DAYS.between(fiscal, row.reportDate());
             if (days >= 0 && days <= EPS_REPORT_AFTER_FISCAL_MAX_DAYS && days < bestDays) {
                 bestDays = days;
-                best = row;
+                best = i;
             }
         }
         return best;
-    }
-
-    private static boolean eq(Double a, Double b) {
-        if (a == null && b == null) {
-            return true;
-        }
-        if (a == null || b == null) {
-            return false;
-        }
-        return Double.compare(a, b) == 0;
     }
 
     private static boolean isFinancialSector(String sector) {
