@@ -9,6 +9,7 @@ Endpoints
 - POST /v1/review-order   → {access_token, symbol, side, type, ...}
 - POST /v1/place-order    → {access_token, symbol, side, type, ...}
 - POST /v1/quotes         → {access_token, symbols?, option_instrument_ids?}
+- POST /v1/financials     → {access_token, symbol, limit?}
 - POST /v1/banking/sync   → {access_token, transaction_limit?}
 - POST /v1/banking/refresh-token → {refresh_token, client_id?}
 - POST /v1/crypto/sync     → {api_key, private_key_base64}
@@ -27,6 +28,7 @@ from oauth_service import refresh_access_token
 from banking_oauth_service import refresh_banking_access_token
 from banking_sync_service import run_banking_sync
 from order_service import run_place, run_review
+from financials_service import run_financials
 from quote_service import run_quotes
 from sync_service import run_sync
 from crypto_trading_service import run_crypto_sync
@@ -65,6 +67,12 @@ class QuotesRequest(BaseModel):
     access_token: str = Field(min_length=10)
     symbols: list[str] = Field(default_factory=list)
     option_instrument_ids: list[str] = Field(default_factory=list)
+
+
+class FinancialsRequest(BaseModel):
+    access_token: str = Field(min_length=10)
+    symbol: str = Field(min_length=1)
+    limit: int = Field(default=12, ge=1, le=40)
 
 
 class BankingSyncRequest(BaseModel):
@@ -189,6 +197,19 @@ def banking_refresh_token(body: BankingRefreshTokenRequest) -> dict[str, Any]:
     except Exception as exc:  # noqa: BLE001
         LOGGER.exception("banking refresh failed")
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@app.post("/v1/financials")
+def financials(body: FinancialsRequest) -> dict[str, Any]:
+    try:
+        return run_financials(body.access_token, body.symbol, limit=body.limit)
+    except PermissionError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.exception("financials failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @app.post("/v1/quotes")

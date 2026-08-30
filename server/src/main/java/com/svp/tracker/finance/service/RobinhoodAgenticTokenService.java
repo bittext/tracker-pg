@@ -86,4 +86,10 @@ public class RobinhoodAgenticTokenService {
         return withFreshToken(
                 conn, token -> sidecarClient.fetchQuotes(token, symbols, optionInstrumentIds));
     }
+
+    /** Sidecar get_financials HTTP only — same isolation as {@link #syncAllAccounts}. */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public JsonNode fetchFinancials(RobinhoodAgenticConnection conn, String symbol, int limit) {
+        return withFreshToken(conn, token -> sidecarClient.fetchFinancials(token, symbol, limit));
+    }
 }

@@ -88,6 +88,15 @@ public class RobinhoodAgenticSidecarClient {
         return post("/v1/place-order", orderBody(accessToken, order, accountNumber));
     }
 
+    public JsonNode fetchFinancials(String accessToken, String symbol, int limit) {
+        requireConfigured();
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("access_token", accessToken);
+        body.put("symbol", symbol == null ? "" : symbol.trim().toUpperCase());
+        body.put("limit", Math.max(1, Math.min(limit, 40)));
+        return post("/v1/financials", body);
+    }
+
     public JsonNode fetchQuotes(String accessToken, List<String> symbols, List<String> optionInstrumentIds) {
         requireConfigured();
         ObjectNode body = objectMapper.createObjectNode();

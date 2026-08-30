@@ -10,6 +10,7 @@ import com.svp.tracker.finance.dto.CompanyFinancialsQuarterDto;
 import com.svp.tracker.finance.dto.CompanyFinancialsResponseDto;
 import com.svp.tracker.finance.dto.CompanyFinancialsTrendDto;
 import com.svp.tracker.finance.service.RobinhoodEarningsService.EarningsRow;
+import com.svp.tracker.finance.service.RobinhoodFinancialsService.FinancialsRow;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -73,5 +74,24 @@ class CompanyFinancialsServiceTest {
                         "AAPL", "Apple", merge.quarters(), trend, merge.sourceLabel(), "2026-08-30T19:00:00Z"));
         assertFalse(json.contains("NaN"));
         assertFalse(json.contains("Infinity"));
+    }
+
+    @Test
+    void hoodQ2PrefersRobinhoodFinancialsRevenueOverAlphaVantage() {
+        CompanyFinancialsQuarterDto avq = new CompanyFinancialsQuarterDto(
+                "2026-06-30", 535_000_000d, 561_000_000d, null, null, 104.9, 0.50, 0.40, 25d);
+        FinancialsRow fin = new FinancialsRow(
+                2026, 2, "2026-06-30", 1_308_000_000d, null, 561_000_000d, 42.89);
+        EarningsRow eps = new EarningsRow(2026, 2, LocalDate.of(2026, 7, 29), 0.62, 0.41);
+        var merge = CompanyFinancialsService.applyRobinhoodPrimary(List.of(avq), List.of(eps), List.of(fin));
+        assertTrue(merge.usedFinancials());
+        assertEquals(1, merge.quarters().size());
+        CompanyFinancialsQuarterDto q = merge.quarters().get(0);
+        assertEquals(1_308_000_000d, q.revenue());
+        assertEquals(561_000_000d, q.netIncome());
+        assertEquals(42.89, q.netMarginPct());
+        assertEquals(0.62, q.epsActual());
+        assertEquals(0.41, q.epsEstimate());
+        assertTrue(merge.sourceLabel().contains("robinhood-financials"));
     }
 }
