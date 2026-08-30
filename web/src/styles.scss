@@ -673,7 +673,7 @@ app-management .rep-cal-table-wrap table.mat-mdc-table {
 
 /* Management → Write-up tab */
 app-management .mgmt-writeup-panel {
-  max-width: min(100%, 96rem);
+  max-width: 100%;
 }
 
 app-management .wu-year-chip {
@@ -705,7 +705,13 @@ app-management .wu-workspace {
 
 @media (min-width: 960px) {
   app-management .wu-workspace {
-    grid-template-columns: minmax(12rem, 16rem) minmax(0, 1fr);
+    grid-template-columns: minmax(16rem, 24rem) minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 1400px) {
+  app-management .wu-workspace {
+    grid-template-columns: minmax(20rem, 32rem) minmax(0, 1fr);
   }
 }
 
@@ -1216,7 +1222,7 @@ app-management .wu-pick-list {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  max-height: min(70vh, 36rem);
+  max-height: min(85vh, 60rem);
   overflow: auto;
   padding-right: 0.15rem;
 }
