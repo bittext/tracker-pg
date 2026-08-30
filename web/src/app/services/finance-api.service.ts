@@ -87,6 +87,7 @@ import {
   CompanyResearchUpdateRequestDto,
   CompanyResearchUpsertRequestDto,
   CompanyFinancialsResponseDto,
+  CompanyFinancialsSearchHistoryItemDto,
   SymbolSearchResponseDto,
   TradingJournalAiDraftDto,
   TradingJournalAttachmentDto,
@@ -899,6 +900,14 @@ export class FinanceApiService {
     return this.http.get<SymbolSearchResponseDto>(`${this.companyFinancialsRoot}/symbol-search`, {
       params: { keywords: keywords.trim() },
     });
+  }
+
+  companyFinancialsRecentSearches() {
+    return this.http.get<CompanyFinancialsSearchHistoryItemDto[]>(`${this.companyFinancialsRoot}/recent`);
+  }
+
+  companyFinancialsDeleteRecentSearch(id: number) {
+    return this.http.delete<void>(`${this.companyFinancialsRoot}/recent/${id}`);
   }
 
   private readonly tradingJournalRoot = `${environment.apiBaseUrl}/api/markets/trading-journal`;

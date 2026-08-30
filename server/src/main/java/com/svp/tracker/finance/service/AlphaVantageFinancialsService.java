@@ -11,6 +11,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -31,6 +33,7 @@ public class AlphaVantageFinancialsService {
 
     private static final Duration CACHE_TTL = Duration.ofMinutes(60);
     private static final int MAX_QUARTERS = 12;
+    private static final int EPS_DATE_JOIN_TOLERANCE_DAYS = 10;
 
     private final FinanceProperties props;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -124,7 +127,10 @@ public class AlphaVantageFinancialsService {
         List<CompanyFinancialsQuarterDto> quarters = new ArrayList<>();
         for (String fiscalDateEnding : quarterKeys) {
             double[] inc = incomeByQuarter.get(fiscalDateEnding);
-            double[] eps = epsByQuarter.get(fiscalDateEnding);
+            // INCOME_STATEMENT and EARNINGS occasionally report the same quarter with fiscalDateEnding
+            // off by a few days (52/53-week fiscal calendars, restatements) -- match within tolerance
+            // rather than requiring an exact string match, or EPS columns silently go blank.
+            double[] eps = nearestWithinTolerance(epsByQuarter, fiscalDateEnding);
             Double revenue = inc != null ? nullIfNan(inc[0]) : null;
             Double netIncome = inc != null ? nullIfNan(inc[1]) : null;
             Double grossProfit = inc != null ? nullIfNan(inc[2]) : null;
@@ -154,10 +160,44 @@ public class AlphaVantageFinancialsService {
         if (quarters.size() < MAX_QUARTERS) {
             warnings.add("Only " + quarters.size() + " quarter(s) of history available.");
         }
-        if (epsByQuarter.isEmpty()) {
+        boolean anyEpsMatched = quarters.stream().anyMatch(q -> q.epsActual() != null);
+        if (earnings == null) {
+            warnings.add(
+                    "EPS actual/estimate unavailable (Alpha Vantage EARNINGS request failed or was rate limited).");
+        } else if (epsByQuarter.isEmpty()) {
             warnings.add("EPS estimate/actual data not available for this symbol.");
+        } else if (!anyEpsMatched) {
+            warnings.add("EPS data was returned but its reporting dates didn't line up with the selected quarters.");
         }
         return new Result(quarters, warnings);
+    }
+
+    /** Exact match first, else the closest key within {@link #EPS_DATE_JOIN_TOLERANCE_DAYS}. */
+    private static double[] nearestWithinTolerance(Map<String, double[]> byDate, String fiscalDateEnding) {
+        double[] exact = byDate.get(fiscalDateEnding);
+        if (exact != null) {
+            return exact;
+        }
+        LocalDate target;
+        try {
+            target = LocalDate.parse(fiscalDateEnding);
+        } catch (Exception e) {
+            return null;
+        }
+        String bestKey = null;
+        long bestDiff = Long.MAX_VALUE;
+        for (String key : byDate.keySet()) {
+            try {
+                long diff = Math.abs(ChronoUnit.DAYS.between(target, LocalDate.parse(key)));
+                if (diff <= EPS_DATE_JOIN_TOLERANCE_DAYS && diff < bestDiff) {
+                    bestDiff = diff;
+                    bestKey = key;
+                }
+            } catch (Exception ignored) {
+                // Malformed date from the API; skip this candidate.
+            }
+        }
+        return bestKey != null ? byDate.get(bestKey) : null;
     }
 
     private JsonNode callAlphaVantage(String function, String symbol, String apiKey) {

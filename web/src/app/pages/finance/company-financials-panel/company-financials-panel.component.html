@@ -27,6 +27,25 @@
   }
 </div>
 
+@if (recentSearches.length) {
+  <div class="cf__recent" role="group" aria-label="Recent searches">
+    <span class="muted cf__recent-label">Recent:</span>
+    @for (r of recentSearches; track r.id) {
+      <button
+        type="button"
+        class="cf__recent-chip"
+        (click)="loadFromHistory(r)"
+        [matTooltip]="r.companyName || r.symbol"
+      >
+        <span>{{ r.symbol }}</span>
+        <span class="cf__recent-remove" (click)="removeRecentSearch(r, $event)" aria-label="Remove from recent">
+          <mat-icon>close</mat-icon>
+        </span>
+      </button>
+    }
+  </div>
+}
+
 @if (searching) {
   <p class="muted">Searching for "{{ query }}"…</p>
 }
@@ -74,6 +93,50 @@
         }
       </mat-card-content>
     </mat-card>
+
+    @if (marginChart.hasData) {
+      <div class="cf__chart-block">
+        <h4 class="cf__block-title">Net margin by quarter</h4>
+        <svg
+          class="cf__chart"
+          [attr.viewBox]="'0 0 ' + chartW + ' ' + chartH"
+          [attr.width]="chartW"
+          [attr.height]="chartH"
+          role="img"
+          aria-label="Net margin percentage by quarter, oldest to newest"
+        >
+          <line
+            class="cf__chart-baseline"
+            x1="0"
+            [attr.y1]="marginChart.baselineY"
+            [attr.x2]="chartW"
+            [attr.y2]="marginChart.baselineY"
+          />
+          @for (bar of marginChart.bars; track $index) {
+            <path
+              class="cf__bar"
+              [class.cf__bar--pos]="bar.positive"
+              [class.cf__bar--neg]="!bar.positive"
+              [attr.d]="bar.path"
+            />
+            @if (bar.valueLabel) {
+              <text class="cf__bar-label" [attr.x]="bar.labelX" [attr.y]="bar.labelY" text-anchor="middle">{{
+                bar.valueLabel
+              }}</text>
+            }
+            <rect
+              class="cf__bar-hit"
+              [attr.x]="bar.hitX"
+              y="0"
+              [attr.width]="bar.hitWidth"
+              [attr.height]="chartH"
+              [matTooltip]="bar.tooltip"
+            />
+          }
+        </svg>
+        <p class="muted cf__chart-hint">Green = profitable quarter, red = net loss. Hover a bar for the exact value.</p>
+      </div>
+    }
 
     @if (result.quarters.length) {
       <div class="cf__table-wrap">

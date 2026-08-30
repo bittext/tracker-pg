@@ -2151,6 +2151,13 @@ export interface SymbolSearchResponseDto {
   autoSelected: boolean;
 }
 
+export interface CompanyFinancialsSearchHistoryItemDto {
+  id: number;
+  symbol: string;
+  companyName: string | null;
+  searchedAt: string;
+}
+
 /** Markets Analytics → Trading Journal */
 export interface TradingJournalEntrySummaryDto {
   id: number;
