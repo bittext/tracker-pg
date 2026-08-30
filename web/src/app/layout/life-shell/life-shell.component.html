@@ -58,9 +58,12 @@
 
     <div class="app-content-column">
       <header class="app-content-header">
-        <span class="app-release-hint" [attr.title]="releaseHintTooltip" tabindex="-1" aria-hidden="true"
-          >v{{ webReleaseVersion }}</span
-        >
+        <span class="app-release-hint" [attr.title]="releaseHintTooltip" tabindex="-1">
+          <span class="app-release-hint__ver">v{{ webReleaseVersion }}</span>
+          @if (releaseUpdatedLabel) {
+            <span class="app-release-hint__updated">Updated {{ releaseUpdatedLabel }}</span>
+          }
+        </span>
         <app-theme-settings />
       </header>
       <main class="app-platform-main">
@@ -76,7 +79,12 @@
         <span>{{ brandTitle }} · Life</span>
       </a>
       <span class="spacer"></span>
-      <span class="app-release-hint" [attr.title]="releaseHintTooltip">v{{ webReleaseVersion }}</span>
+      <span class="app-release-hint" [attr.title]="releaseHintTooltip">
+        <span class="app-release-hint__ver">v{{ webReleaseVersion }}</span>
+        @if (releaseUpdatedLabel) {
+          <span class="app-release-hint__updated">Updated {{ releaseUpdatedLabel }}</span>
+        }
+      </span>
       <app-theme-settings />
       <span class="life-classic-shell__user">{{ username }}</span>
       <button mat-button type="button" (click)="logout()">Log out</button>

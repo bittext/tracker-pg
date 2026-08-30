@@ -11,7 +11,7 @@ import { APP_DISPLAY_NAME, APP_SHORT_NAME } from '../../app-branding';
 import { MARKETS_FOOTER_NAV, MARKETS_PRIMARY_NAV, NavEntry } from '../../config/app-nav.config';
 import { ThemeSettingsComponent } from '../../components/theme-settings/theme-settings.component';
 import { MarketsRoadmapSummaryComponent } from '../../pages/markets/markets-roadmap-summary/markets-roadmap-summary.component';
-import { WEB_RELEASE_VERSION } from '../../release-version';
+import { WEB_RELEASE_VERSION, formatReleaseUpdatedAt } from '../../release-version';
 import { AuthService } from '../../services/auth.service';
 import { ThemeService } from '../../services/theme.service';
 
@@ -64,6 +64,20 @@ export class MarketsShellComponent implements OnInit {
       .subscribe((v) => {
         this.apiRelease = v;
       });
+  }
+
+  get releaseUpdatedLabel(): string | null {
+    return formatReleaseUpdatedAt(this.apiRelease?.buildTime);
+  }
+
+  get releaseHintTooltip(): string {
+    const web = `Web ${this.webReleaseVersion}`;
+    if (this.apiRelease?.version) {
+      const api = `API ${this.apiRelease.version}`;
+      const time = this.releaseUpdatedLabel ? ` · updated ${this.releaseUpdatedLabel}` : '';
+      return `${web} · ${api}${time}`;
+    }
+    return `${web} (API not loaded)`;
   }
 
   get username(): string {

@@ -49,7 +49,12 @@
 
       <div class="app-content-column">
         <header class="app-content-header">
-          <span class="app-release-hint">v{{ webReleaseVersion }}</span>
+          <span class="app-release-hint" [attr.title]="releaseHintTooltip">
+            <span class="app-release-hint__ver">v{{ webReleaseVersion }}</span>
+            @if (releaseUpdatedLabel) {
+              <span class="app-release-hint__updated">Updated {{ releaseUpdatedLabel }}</span>
+            }
+          </span>
           <app-theme-settings />
         </header>
         @if (showRoadmapStrip) {
@@ -69,6 +74,12 @@
         </a>
         <span class="markets-secured-chip">Trading mode — secured</span>
         <span class="spacer"></span>
+        <span class="app-release-hint" [attr.title]="releaseHintTooltip">
+          <span class="app-release-hint__ver">v{{ webReleaseVersion }}</span>
+          @if (releaseUpdatedLabel) {
+            <span class="app-release-hint__updated">Updated {{ releaseUpdatedLabel }}</span>
+          }
+        </span>
         <app-theme-settings />
         <span class="markets-classic-shell__user">{{ username }}</span>
         <button mat-button type="button" (click)="logout()">Log out</button>
