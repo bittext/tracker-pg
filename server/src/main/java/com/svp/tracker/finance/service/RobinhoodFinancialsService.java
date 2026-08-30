@@ -29,6 +29,7 @@ public class RobinhoodFinancialsService {
     private final RobinhoodAgenticProperties agenticProps;
     private final RobinhoodAgenticConnectionRepository connectionRepository;
     private final RobinhoodAgenticTokenService tokenService;
+    private final RobinhoodMcpFinancialsClient mcpFinancialsClient;
     private final CurrentUserService currentUser;
     private final ConcurrentHashMap<String, CacheEntry> cache = new ConcurrentHashMap<>();
 
@@ -43,7 +44,7 @@ public class RobinhoodFinancialsService {
 
     public List<FinancialsRow> quarterlyFinancials(String symbolRaw) {
         String symbol = symbolRaw == null ? "" : symbolRaw.trim().toUpperCase(Locale.ROOT);
-        if (symbol.isBlank() || !agenticProps.serviceConfigured()) {
+        if (symbol.isBlank()) {
             return List.of();
         }
         CacheEntry cached = cache.get(symbol);
@@ -63,11 +64,28 @@ public class RobinhoodFinancialsService {
             long owner = currentUser.requireUserId();
             RobinhoodAgenticConnection conn = connectionRepository.findByOwnerUserId(owner).orElse(null);
             if (conn == null) {
+                log.warn("Robinhood get_financials skipped for {}: no Agentic connection", symbol);
                 return List.of();
             }
+            if (agenticProps.serviceConfigured()) {
+                List<FinancialsRow> fromSidecar = fromSidecar(conn, symbol);
+                if (!fromSidecar.isEmpty()) {
+                    return fromSidecar;
+                }
+            }
+            return tokenService.withFreshToken(
+                    conn, token -> mcpFinancialsClient.quarterlyFinancials(token, symbol, DEFAULT_LIMIT));
+        } catch (Exception e) {
+            log.warn("Robinhood get_financials failed for {}: {}", symbol, e.toString());
+            return List.of();
+        }
+    }
+
+    private List<FinancialsRow> fromSidecar(RobinhoodAgenticConnection conn, String symbol) {
+        try {
             JsonNode root = tokenService.fetchFinancials(conn, symbol, DEFAULT_LIMIT);
             JsonNode list = root.path("financials");
-            if (!list.isArray()) {
+            if (!list.isArray() || list.isEmpty()) {
                 return List.of();
             }
             List<FinancialsRow> out = new ArrayList<>();
@@ -87,7 +105,7 @@ public class RobinhoodFinancialsService {
             }
             return out;
         } catch (Exception e) {
-            log.warn("Robinhood get_financials failed for {}: {}", symbol, e.toString());
+            log.warn("Sidecar get_financials empty for {}: {}", symbol, e.toString());
             return List.of();
         }
     }
