@@ -75,7 +75,9 @@ export class LifeShellComponent implements OnInit {
     const web = `Web ${this.webReleaseVersion}`;
     if (this.apiRelease?.version) {
       const api = `API ${this.apiRelease.version}`;
-      const time = this.releaseUpdatedLabel ? ` · updated ${this.releaseUpdatedLabel}` : '';
+      const time = this.releaseUpdatedLabel
+        ? ` · updated ${this.releaseUpdatedLabel} · last published ${this.releaseUpdatedLabel}`
+        : '';
       return `${web} · ${api}${time}`;
     }
     return `${web} (API not loaded)`;
