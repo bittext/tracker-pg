@@ -169,6 +169,22 @@ public class AlphaVantageFinancialsService {
         } else if (!anyEpsMatched) {
             warnings.add("EPS data was returned but its reporting dates didn't line up with the selected quarters.");
         }
+
+        // Alpha Vantage's generic INCOME_STATEMENT template is derived from a standard XBRL mapping that
+        // does not always fit banks/brokers/insurers (e.g. "net revenue" vs "total revenue" tags), which can
+        // surface a much-too-small totalRevenue for an otherwise-normal quarter. An implied margin over 100%
+        // is not possible for a real operating quarter, so flag it instead of presenting a silently wrong number.
+        List<String> anomalousQuarters = quarters.stream()
+                .filter(q -> q.netMarginPct() != null && Math.abs(q.netMarginPct()) > 100)
+                .map(CompanyFinancialsQuarterDto::fiscalDateEnding)
+                .toList();
+        if (!anomalousQuarters.isEmpty()) {
+            warnings.add("Revenue looks inconsistent with net income for "
+                    + String.join(", ", anomalousQuarters)
+                    + " (implied margin over 100%). Alpha Vantage's income-statement coverage is sometimes "
+                    + "incomplete for banks/brokers/insurers -- verify revenue against the company's own "
+                    + "investor-relations release before relying on it.");
+        }
         return new Result(quarters, warnings);
     }
 
