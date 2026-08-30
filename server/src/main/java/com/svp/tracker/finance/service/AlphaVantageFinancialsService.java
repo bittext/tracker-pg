@@ -24,7 +24,8 @@ import org.springframework.stereotype.Service;
 
 /**
  * Alpha Vantage INCOME_STATEMENT + EARNINGS for the Markets → Research → Financials tab. Merges
- * both by fiscalDateEnding into up to 12 trailing quarters (~3 years). Cached briefly to stay
+ * both by fiscalDateEnding into up to 12 trailing quarters (~3 years). EPS actual/estimate is
+ * overlaid from Robinhood earnings in {@link CompanyFinancialsService}. Cached briefly to stay
  * within free-tier rate limits, same pattern as {@link AlphaVantageOverviewService}.
  */
 @Service

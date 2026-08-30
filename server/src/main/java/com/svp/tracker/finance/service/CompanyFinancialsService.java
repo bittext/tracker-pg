@@ -2,6 +2,7 @@ package com.svp.tracker.finance.service;
 
 import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.finance.domain.FinanceCompanyFinancialsSearch;
+import com.svp.tracker.finance.dto.CompanyFinancialsQuarterDto;
 import com.svp.tracker.finance.dto.CompanyFinancialsResponseDto;
 import com.svp.tracker.finance.dto.CompanyFinancialsSearchHistoryItemDto;
 import com.svp.tracker.finance.dto.CompanyFinancialsTrendDto;
@@ -9,7 +10,10 @@ import com.svp.tracker.finance.dto.CompanyResearchFundamentalsDto;
 import com.svp.tracker.finance.dto.SymbolSearchMatchDto;
 import com.svp.tracker.finance.dto.SymbolSearchResponseDto;
 import com.svp.tracker.finance.repository.FinanceCompanyFinancialsSearchRepository;
+import com.svp.tracker.finance.service.RobinhoodEarningsService.EarningsRow;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -28,9 +32,12 @@ import org.springframework.web.server.ResponseStatusException;
 public class CompanyFinancialsService {
 
     private static final int RECENT_SEARCH_LIMIT = 20;
+    /** Report date is typically a few weeks after fiscal quarter end. */
+    private static final int EPS_REPORT_AFTER_FISCAL_MAX_DAYS = 100;
 
     private final AlphaVantageFinancialsService alphaVantageFinancialsService;
     private final AlphaVantageOverviewService alphaVantageOverviewService;
+    private final RobinhoodEarningsService robinhoodEarningsService;
     private final SymbolSearchService symbolSearchService;
     private final CompanyFinancialsTrendService trendService;
     private final FinanceCompanyFinancialsSearchRepository searchHistoryRepository;
@@ -45,13 +52,26 @@ public class CompanyFinancialsService {
         recordSearch(symbol, null);
 
         AlphaVantageFinancialsService.Result result = alphaVantageFinancialsService.quarterlyFinancials(symbol);
-        if (result == null) {
+        List<EarningsRow> rhEarnings = robinhoodEarningsService.earnings(symbol);
+        List<CompanyFinancialsQuarterDto> quarters =
+                result != null ? result.quarters() : new ArrayList<>();
+        MergeEps merge = applyRobinhoodEarnings(quarters, rhEarnings);
+        quarters = merge.quarters();
+        if (quarters.isEmpty()) {
             throw new ResponseStatusException(
                     HttpStatus.SERVICE_UNAVAILABLE,
                     "Financials temporarily unavailable (rate limited or no API key configured) — try again later.");
         }
 
-        CompanyFinancialsTrendDto trend = trendService.assess(result.quarters());
+        CompanyFinancialsTrendDto trend = trendService.assess(quarters);
+        if (result != null) {
+            for (String w : result.warnings()) {
+                if (merge.filledAny() && w.toLowerCase(Locale.ROOT).contains("eps")) {
+                    continue;
+                }
+                trend = withWarning(trend, w);
+            }
+        }
 
         String companyName = null;
         String sector = null;
@@ -77,7 +97,122 @@ public class CompanyFinancialsService {
         }
 
         return new CompanyFinancialsResponseDto(
-                symbol, companyName, result.quarters(), trend, "alpha-vantage", Instant.now().toString());
+                symbol, companyName, quarters, trend, merge.sourceLabel(result != null), Instant.now().toString());
+    }
+
+    private record MergeEps(List<CompanyFinancialsQuarterDto> quarters, boolean filledAny) {
+        String sourceLabel(boolean hadAlpha) {
+            if (filledAny && hadAlpha) {
+                return "alpha-vantage + robinhood-earnings";
+            }
+            if (filledAny) {
+                return "robinhood-earnings";
+            }
+            return "alpha-vantage";
+        }
+    }
+
+    /**
+     * Overlay Robinhood EPS actual/estimate onto Alpha Vantage quarters (match report date to the
+     * fiscal end that precedes it). If Alpha Vantage returned no rows, build EPS-only quarters from
+     * Robinhood.
+     */
+    static MergeEps applyRobinhoodEarnings(
+            List<CompanyFinancialsQuarterDto> quarters, List<EarningsRow> rhEarnings) {
+        if (rhEarnings == null || rhEarnings.isEmpty()) {
+            return new MergeEps(quarters, false);
+        }
+        if (quarters == null || quarters.isEmpty()) {
+            List<CompanyFinancialsQuarterDto> fromRh = new ArrayList<>();
+            for (EarningsRow row : rhEarnings) {
+                if (row.reportDate() == null || (row.epsActual() == null && row.epsEstimate() == null)) {
+                    continue;
+                }
+                fromRh.add(quarterFromRobinhood(row));
+            }
+            fromRh.sort((a, b) -> a.fiscalDateEnding().compareTo(b.fiscalDateEnding()));
+            return new MergeEps(fromRh, !fromRh.isEmpty());
+        }
+        boolean filled = false;
+        List<CompanyFinancialsQuarterDto> out = new ArrayList<>(quarters.size());
+        for (CompanyFinancialsQuarterDto q : quarters) {
+            EarningsRow match = matchRobinhoodRow(q.fiscalDateEnding(), rhEarnings);
+            if (match == null) {
+                out.add(q);
+                continue;
+            }
+            Double actual = match.epsActual() != null ? match.epsActual() : q.epsActual();
+            Double estimate = match.epsEstimate() != null ? match.epsEstimate() : q.epsEstimate();
+            Double surprise = (actual != null && estimate != null && estimate != 0)
+                    ? ((actual - estimate) / Math.abs(estimate)) * 100
+                    : q.epsSurprisePct();
+            boolean changed = !eq(actual, q.epsActual()) || !eq(estimate, q.epsEstimate());
+            filled = filled || changed;
+            out.add(new CompanyFinancialsQuarterDto(
+                    q.fiscalDateEnding(),
+                    q.revenue(),
+                    q.netIncome(),
+                    q.grossProfit(),
+                    q.operatingIncome(),
+                    q.netMarginPct(),
+                    actual,
+                    estimate,
+                    surprise));
+        }
+        return new MergeEps(out, filled);
+    }
+
+    private static CompanyFinancialsQuarterDto quarterFromRobinhood(EarningsRow row) {
+        Double surprise = (row.epsActual() != null && row.epsEstimate() != null && row.epsEstimate() != 0)
+                ? ((row.epsActual() - row.epsEstimate()) / Math.abs(row.epsEstimate())) * 100
+                : null;
+        // Report date is after quarter end; back up ~5 weeks so the column stays a fiscal-ish date.
+        LocalDate fiscal = row.reportDate().minusDays(35);
+        return new CompanyFinancialsQuarterDto(
+                fiscal.toString(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                row.epsActual(),
+                row.epsEstimate(),
+                surprise);
+    }
+
+    private static EarningsRow matchRobinhoodRow(String fiscalDateEnding, List<EarningsRow> rows) {
+        LocalDate fiscal;
+        try {
+            fiscal = LocalDate.parse(fiscalDateEnding);
+        } catch (Exception e) {
+            return null;
+        }
+        EarningsRow best = null;
+        long bestDays = Long.MAX_VALUE;
+        for (EarningsRow row : rows) {
+            if (row.reportDate() == null) {
+                continue;
+            }
+            if (row.reportDate().isBefore(fiscal)) {
+                continue;
+            }
+            long days = ChronoUnit.DAYS.between(fiscal, row.reportDate());
+            if (days >= 0 && days <= EPS_REPORT_AFTER_FISCAL_MAX_DAYS && days < bestDays) {
+                bestDays = days;
+                best = row;
+            }
+        }
+        return best;
+    }
+
+    private static boolean eq(Double a, Double b) {
+        if (a == null && b == null) {
+            return true;
+        }
+        if (a == null || b == null) {
+            return false;
+        }
+        return Double.compare(a, b) == 0;
     }
 
     private static boolean isFinancialSector(String sector) {
