@@ -1218,6 +1218,33 @@ app-management .wu-highlight-banner-inner--empty {
   color: var(--app-text-muted, #94a3b8);
 }
 
+app-management .wu-collapse-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  align-self: flex-end;
+  margin-bottom: 0.15rem;
+  padding: 0.15rem 0.4rem;
+  border: 0;
+  background: transparent;
+  color: var(--app-text-muted, #64748b);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+app-management .wu-collapse-all:hover {
+  background: color-mix(in srgb, var(--app-accent, #2563eb) 10%, transparent);
+  color: var(--app-accent, #2563eb);
+}
+
+app-management .wu-collapse-all mat-icon {
+  font-size: 1rem;
+  width: 1rem;
+  height: 1rem;
+}
+
 app-management .wu-pick-list {
   display: flex;
   flex-direction: column;

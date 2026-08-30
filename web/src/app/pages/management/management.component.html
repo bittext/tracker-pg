@@ -1197,6 +1197,12 @@
                   }
                 </p>
               } @else {
+                <button type="button" class="wu-collapse-all" (click)="toggleAllWriteupTopicGroups()">
+                  <mat-icon aria-hidden="true">{{
+                    writeupAllGroupsCollapsed ? 'unfold_more' : 'unfold_less'
+                  }}</mat-icon>
+                  {{ writeupAllGroupsCollapsed ? 'Expand all' : 'Collapse all' }}
+                </button>
                 <div
                   class="wu-pick-list"
                   [class.wu-pick-list--placing]="writeupPlacementSaving"

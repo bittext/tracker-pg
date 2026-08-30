@@ -1488,6 +1488,21 @@ export class ManagementComponent implements OnInit, OnDestroy {
     }
   }
 
+  get writeupAllGroupsCollapsed(): boolean {
+    const groups = this.writeupSidebarGroups;
+    return groups.length > 0 && groups.every((g) => this.writeupCollapsedGroups.has(g.key));
+  }
+
+  toggleAllWriteupTopicGroups(): void {
+    if (this.writeupAllGroupsCollapsed) {
+      this.writeupCollapsedGroups.clear();
+    } else {
+      for (const g of this.writeupSidebarGroups) {
+        this.writeupCollapsedGroups.add(g.key);
+      }
+    }
+  }
+
   beginWriteupGroupRename(g: WriteupTopicGroup<ManagementWriteupDto>, ev: Event): void {
     ev.stopPropagation();
     ev.preventDefault();
