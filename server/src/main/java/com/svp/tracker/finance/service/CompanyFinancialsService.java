@@ -10,6 +10,7 @@ import com.svp.tracker.finance.dto.SymbolSearchMatchDto;
 import com.svp.tracker.finance.dto.SymbolSearchResponseDto;
 import com.svp.tracker.finance.repository.FinanceCompanyFinancialsSearchRepository;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
@@ -53,20 +54,47 @@ public class CompanyFinancialsService {
         CompanyFinancialsTrendDto trend = trendService.assess(result.quarters());
 
         String companyName = null;
+        String sector = null;
         try {
             CompanyResearchFundamentalsDto overview = alphaVantageOverviewService.overview(symbol);
             if (overview != null) {
                 companyName = overview.name();
+                sector = overview.sector();
             }
         } catch (Exception ignored) {
-            // Company name is a nicety; quarterly data/trend still stands without it.
+            // Company name/sector are a nicety; quarterly data/trend still stand without them.
         }
         if (companyName != null && !companyName.isBlank()) {
             recordSearch(symbol, companyName);
         }
+        if (isFinancialSector(sector)) {
+            trend = withWarning(
+                    trend,
+                    "This company is in a financial-services sector (banks/brokers/insurers). Alpha "
+                            + "Vantage's income-statement mapping is known to misreport revenue for this "
+                            + "sector (e.g. \"net revenue\" vs \"total revenue\" tags) — cross-check revenue "
+                            + "figures against the company's own investor-relations release.");
+        }
 
         return new CompanyFinancialsResponseDto(
                 symbol, companyName, result.quarters(), trend, "alpha-vantage", Instant.now().toString());
+    }
+
+    private static boolean isFinancialSector(String sector) {
+        return sector != null && sector.toLowerCase(Locale.ROOT).contains("financ");
+    }
+
+    private static CompanyFinancialsTrendDto withWarning(CompanyFinancialsTrendDto trend, String warning) {
+        List<String> warnings = new ArrayList<>(trend.warnings());
+        warnings.add(warning);
+        return new CompanyFinancialsTrendDto(
+                trend.verdict(),
+                trend.score(),
+                trend.revenueTrend(),
+                trend.marginTrend(),
+                trend.epsTrend(),
+                trend.narrative(),
+                warnings);
     }
 
     public SymbolSearchResponseDto searchSymbol(String keywordsRaw) {
