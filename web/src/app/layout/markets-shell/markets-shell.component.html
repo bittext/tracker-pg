@@ -53,7 +53,9 @@
             <span class="app-release-hint__ver">v{{ webReleaseVersion }}</span>
             @if (releaseUpdatedLabel) {
               <span class="app-release-hint__updated">Updated {{ releaseUpdatedLabel }}</span>
-              <span class="app-release-hint__updated">Last published {{ releaseUpdatedLabel }}</span>
+            }
+            @if (releasePublishedLabel) {
+              <span class="app-release-hint__updated">Last published {{ releasePublishedLabel }}</span>
             }
           </span>
           <app-theme-settings />
@@ -79,6 +81,8 @@
           <span class="app-release-hint__ver">v{{ webReleaseVersion }}</span>
           @if (releaseUpdatedLabel) {
             <span class="app-release-hint__updated">Updated {{ releaseUpdatedLabel }}</span>
+          }
+          @if (releasePublishedLabel) {
             <span class="app-release-hint__updated">Last published {{ releaseUpdatedLabel }}</span>
           }
         </span>

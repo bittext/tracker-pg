@@ -7,6 +7,8 @@ public record ManagementWriteupDto(
         long ownerUserId,
         int year,
         String topic,
+        String topicGroup,
+        int topicGroupSort,
         String highlight,
         String body,
         List<ManagementWriteupAttachmentDto> attachments,

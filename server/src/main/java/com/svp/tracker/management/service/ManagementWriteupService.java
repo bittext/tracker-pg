@@ -8,6 +8,7 @@ import com.svp.tracker.management.domain.ManagementWriteup;
 import com.svp.tracker.management.domain.ManagementWriteupAttachment;
 import com.svp.tracker.management.dto.ManagementWriteupAttachmentDto;
 import com.svp.tracker.management.dto.ManagementWriteupDto;
+import com.svp.tracker.management.dto.ManagementWriteupPlacementItem;
 import com.svp.tracker.management.dto.ManagementWriteupWriteRequest;
 import com.svp.tracker.management.repository.ManagementWriteupAttachmentRepository;
 import com.svp.tracker.management.repository.ManagementWriteupRepository;
@@ -62,6 +63,8 @@ public class ManagementWriteupService {
         w.setOwnerUserId(owner);
         w.setYear(req.year());
         w.setTopic(req.topic().trim());
+        w.setTopicGroup(normalizeNullable(req.topicGroup()));
+        w.setTopicGroupSort(req.topicGroupSort() == null ? 0 : req.topicGroupSort());
         w.setHighlight(normalizeNullable(req.highlight()));
         w.setBody(req.body() == null ? "" : req.body());
         w.setCreatedAt(now);
@@ -79,11 +82,42 @@ public class ManagementWriteupService {
         validateYear(req.year());
         w.setYear(req.year());
         w.setTopic(req.topic().trim());
+        w.setTopicGroup(normalizeNullable(req.topicGroup()));
+        if (req.topicGroupSort() != null) {
+            w.setTopicGroupSort(req.topicGroupSort());
+        }
         w.setHighlight(normalizeNullable(req.highlight()));
         w.setBody(req.body() == null ? "" : req.body());
         w.setUpdatedAt(Instant.now());
         w = repository.save(w);
         return toDto(repository.findByIdWithAttachments(w.getId()).orElse(w));
+    }
+
+    @Transactional
+    public List<ManagementWriteupDto> applyPlacement(List<ManagementWriteupPlacementItem> items) {
+        if (items == null || items.isEmpty()) {
+            return List.of();
+        }
+        long owner = currentUser.requireUserId();
+        Instant now = Instant.now();
+        List<ManagementWriteupDto> out = new ArrayList<>();
+        for (ManagementWriteupPlacementItem item : items) {
+            if (item.id() == null || item.topicGroupSort() == null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "id and topicGroupSort required");
+            }
+            ManagementWriteup w = repository
+                    .findByIdWithAttachments(item.id())
+                    .orElseThrow(() -> new NotFoundException("Write-up not found: " + item.id()));
+            assertOwner(w.getOwnerUserId());
+            if (w.getOwnerUserId() != owner) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not allowed");
+            }
+            w.setTopicGroup(normalizeNullable(item.topicGroup()));
+            w.setTopicGroupSort(item.topicGroupSort());
+            w.setUpdatedAt(now);
+            out.add(toDto(repository.save(w)));
+        }
+        return out;
     }
 
     @Transactional
@@ -212,6 +246,8 @@ public class ManagementWriteupService {
                 w.getOwnerUserId(),
                 w.getYear(),
                 w.getTopic(),
+                w.getTopicGroup() == null ? "" : w.getTopicGroup(),
+                w.getTopicGroupSort(),
                 w.getHighlight() == null ? "" : w.getHighlight(),
                 w.getBody() == null ? "" : w.getBody(),
                 attDtos,

@@ -9,5 +9,7 @@ import jakarta.validation.constraints.Size;
 public record ManagementWriteupWriteRequest(
         @NotNull @Min(1970) @Max(9999) Integer year,
         @NotBlank @Size(max = 2000) String topic,
+        @Size(max = 2000) String topicGroup,
+        Integer topicGroupSort,
         @Size(max = 2000) String highlight,
         @Size(max = 500_000) String body) {}

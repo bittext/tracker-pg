@@ -38,6 +38,12 @@ public class ManagementWriteup {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String topic = "";
 
+    @Column(name = "topic_group", columnDefinition = "TEXT")
+    private String topicGroup;
+
+    @Column(name = "topic_group_sort", nullable = false)
+    private int topicGroupSort = 0;
+
     @Column(columnDefinition = "TEXT")
     private String highlight;
 

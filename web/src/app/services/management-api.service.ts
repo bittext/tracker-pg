@@ -28,6 +28,7 @@ import {
   ManagementRecordingReprocessDto,
   ManagementWriteupAttachmentDto,
   ManagementWriteupDto,
+  ManagementWriteupPlacementItem,
   ManagementWriteupWriteBody,
   ManagementWorkLogAttachmentDto,
   ManagementWorkLogCalendarDto,
@@ -189,6 +190,10 @@ export class ManagementApiService {
 
   updateWriteup(id: number, body: ManagementWriteupWriteBody) {
     return this.http.put<ManagementWriteupDto>(`${this.root}/writeups/${id}`, body);
+  }
+
+  placeWriteups(items: ManagementWriteupPlacementItem[]) {
+    return this.http.put<ManagementWriteupDto[]>(`${this.root}/writeups/placement`, items);
   }
 
   deleteWriteup(id: number) {

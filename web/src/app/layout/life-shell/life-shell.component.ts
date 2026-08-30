@@ -16,6 +16,7 @@ import {
 } from '../../config/app-nav.config';
 import { ThemeSettingsComponent } from '../../components/theme-settings/theme-settings.component';
 import { WEB_RELEASE_VERSION, formatReleaseUpdatedAt } from '../../release-version';
+import { WEB_PUBLISHED_AT } from '../../web-published-at';
 import { AuthService } from '../../services/auth.service';
 import { ThemeService } from '../../services/theme.service';
 
@@ -71,14 +72,17 @@ export class LifeShellComponent implements OnInit {
     return formatReleaseUpdatedAt(this.apiRelease?.buildTime);
   }
 
+  get releasePublishedLabel(): string | null {
+    return formatReleaseUpdatedAt(WEB_PUBLISHED_AT) ?? this.releaseUpdatedLabel;
+  }
+
   get releaseHintTooltip(): string {
     const web = `Web ${this.webReleaseVersion}`;
     if (this.apiRelease?.version) {
       const api = `API ${this.apiRelease.version}`;
-      const time = this.releaseUpdatedLabel
-        ? ` · updated ${this.releaseUpdatedLabel} · last published ${this.releaseUpdatedLabel}`
-        : '';
-      return `${web} · ${api}${time}`;
+      const updated = this.releaseUpdatedLabel ? ` · updated ${this.releaseUpdatedLabel}` : '';
+      const published = this.releasePublishedLabel ? ` · last published ${this.releasePublishedLabel}` : '';
+      return `${web} · ${api}${updated}${published}`;
     }
     return `${web} (API not loaded)`;
   }

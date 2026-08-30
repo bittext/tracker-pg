@@ -1151,8 +1151,8 @@
         <section aria-labelledby="mgmt-wu-heading">
           <h2 id="mgmt-wu-heading" class="subsection-title">Write-ups</h2>
           <p class="muted wu-intro">
-            Year-scoped reports and reviews, grouped by related topic. Edits autosave while you write — pick an
-            entry or compose a new one.
+            Year-scoped reports and reviews, grouped by a topic you assign. Drag an entry between groups. Child
+            titles omit the group name. Edits autosave while you write.
           </p>
 
           <div class="notes-year-bar">
@@ -1182,6 +1182,7 @@
                   matInput
                   name="wuSearch"
                   [(ngModel)]="writeupSearch"
+                  (ngModelChange)="rebuildWriteupSidebar()"
                   placeholder="Topic, highlight, body, filenames…"
                   autocomplete="off"
                 />
@@ -1196,10 +1197,10 @@
                   }
                 </p>
               } @else {
-                <div class="wu-pick-list">
+                <div class="wu-pick-list" [class.wu-pick-list--placing]="writeupPlacementSaving">
                   @for (g of writeupTopicGroups; track g.key) {
-                    @if (g.entries.length > 1) {
-                      <section class="wu-topic-group">
+                    <section class="wu-topic-group" [class.wu-topic-group--ungrouped]="g.ungrouped">
+                      <div class="wu-topic-group-head-row">
                         <button
                           type="button"
                           class="wu-topic-group-head"
@@ -1209,18 +1210,60 @@
                           <mat-icon aria-hidden="true">{{
                             writeupTopicGroupCollapsed(g.key) ? 'chevron_right' : 'expand_more'
                           }}</mat-icon>
-                          <span class="wu-topic-group-label">{{ g.label }}</span>
+                          @if (writeupRenamingKey === g.key) {
+                            <input
+                              class="wu-topic-group-rename-input"
+                              name="wuGroupRename"
+                              [(ngModel)]="writeupRenameDraft"
+                              (click)="$event.stopPropagation()"
+                              (keydown.enter)="commitWriteupGroupRename(g); $event.preventDefault()"
+                              (keydown.escape)="cancelWriteupGroupRename()"
+                              (blur)="commitWriteupGroupRename(g)"
+                            />
+                          } @else {
+                            <span class="wu-topic-group-label">{{ g.label }}</span>
+                          }
                           <span class="muted wu-topic-group-count">{{ g.entries.length }}</span>
                         </button>
-                        @if (!writeupTopicGroupCollapsed(g.key)) {
-                          @for (w of g.entries; track w.id) {
-                            <button
-                              type="button"
-                              class="wu-pick wu-pick--grouped"
-                              [class.wu-pick--active]="writeupSelectedId === w.id && writeupViewMode === 'read'"
-                              (click)="selectWriteup(w)"
-                            >
-                              <span class="wu-pick-topic">{{ w.topic }}</span>
+                        @if (!g.ungrouped && writeupRenamingKey !== g.key) {
+                          <button
+                            type="button"
+                            class="wu-topic-group-edit"
+                            (click)="beginWriteupGroupRename(g, $event)"
+                            [attr.aria-label]="'Rename ' + g.label"
+                          >
+                            <mat-icon>edit</mat-icon>
+                          </button>
+                        }
+                      </div>
+                      <div
+                        class="wu-topic-group-list"
+                        [class.wu-topic-group-list--collapsed]="writeupTopicGroupCollapsed(g.key)"
+                        cdkDropList
+                        [id]="writeupDropListId(g.key)"
+                        [cdkDropListData]="g.entries"
+                        [cdkDropListConnectedTo]="writeupDropListIds"
+                        [cdkDropListDisabled]="writeupPlacementSaving"
+                        (cdkDropListDropped)="onWriteupListDrop($event, g)"
+                      >
+                        @for (w of g.entries; track w.id) {
+                          <button
+                            type="button"
+                            class="wu-pick wu-pick--grouped"
+                            [class.wu-pick--active]="writeupSelectedId === w.id && writeupViewMode === 'read'"
+                            [attr.data-writeup-id]="w.id"
+                            cdkDrag
+                            [cdkDragData]="w"
+                            [cdkDragDisabled]="writeupPlacementSaving"
+                            (click)="selectWriteup(w)"
+                          >
+                            <span class="wu-pick-drag" cdkDragHandle aria-hidden="true">
+                              <mat-icon>drag_indicator</mat-icon>
+                            </span>
+                            <span class="wu-pick-copy">
+                              <span class="wu-pick-topic">{{
+                                g.ungrouped ? w.topic : writeupChildLabel(w.topic, g.label)
+                              }}</span>
                               @if (writeupSnippet(w.highlight)) {
                                 <span class="wu-pick-hi">{{ writeupSnippet(w.highlight) }}</span>
                               }
@@ -1230,31 +1273,14 @@
                                   <span class="wu-pick-files"> · {{ writeupAttachmentCountLabel(w) }}</span>
                                 }
                               </span>
-                            </button>
-                          }
+                            </span>
+                          </button>
                         }
-                      </section>
-                    } @else {
-                      @for (w of g.entries; track w.id) {
-                        <button
-                          type="button"
-                          class="wu-pick"
-                          [class.wu-pick--active]="writeupSelectedId === w.id && writeupViewMode === 'read'"
-                          (click)="selectWriteup(w)"
-                        >
-                          <span class="wu-pick-topic">{{ w.topic }}</span>
-                          @if (writeupSnippet(w.highlight)) {
-                            <span class="wu-pick-hi">{{ writeupSnippet(w.highlight) }}</span>
-                          }
-                          <span class="wu-pick-meta">
-                            {{ w.updatedAt | slice: 0:16 }}
-                            @if (writeupAttachmentCountLabel(w)) {
-                              <span class="wu-pick-files"> · {{ writeupAttachmentCountLabel(w) }}</span>
-                            }
-                          </span>
-                        </button>
-                      }
-                    }
+                        @if (!g.entries.length) {
+                          <p class="muted wu-topic-group-empty">Drop write-ups here</p>
+                        }
+                      </div>
+                    </section>
                   }
                 </div>
               }
@@ -1305,6 +1331,24 @@
                       placeholder="Clear title for this report or review"
                     />
                   </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="full-width-field wu-group-field">
+                    <mat-label>Topic group</mat-label>
+                    <input
+                      matInput
+                      name="wuTopicGroup"
+                      [(ngModel)]="writeupDraft.topicGroup"
+                      (ngModelChange)="onWriteupDraftChanged()"
+                      (blur)="onWriteupDraftBlur()"
+                      list="wu-topic-group-suggestions"
+                      placeholder="Optional — e.g. NBIS"
+                    />
+                  </mat-form-field>
+                  <datalist id="wu-topic-group-suggestions">
+                    @for (name of writeupGroupSuggestions; track name) {
+                      <option [value]="name"></option>
+                    }
+                  </datalist>
 
                   <mat-form-field appearance="outline" class="full-width-field wu-highlight-field">
                     <mat-label>Topic highlight</mat-label>

@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, HostListener, OnDestroy, OnInit, inject, viewChild } from '@angular/core';
+import { CdkDragDrop, DragDropModule, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -26,6 +27,7 @@ import {
   ManagementCalendarType,
   ManagementWriteupAttachmentDto,
   ManagementWriteupDto,
+  ManagementWriteupPlacementItem,
   ManagementTaskCategory,
   ManagementTaskDto,
   ManagementTaskType,
@@ -50,9 +52,13 @@ import {
   noteDraftFingerprint,
 } from '../../util/note-autosave';
 import {
+  WRITEUP_UNGROUPED_KEY,
   WriteupTopicGroup,
   groupWriteupsByRelatedTopic,
+  normalizeWriteupTopic,
+  writeupChildLabel,
   writeupDraftFingerprint,
+  writeupDropListId,
 } from '../../util/writeup-topic-groups';
 import {
   MgmtTaskDueVisual,
@@ -132,6 +138,7 @@ interface AccountEntry {
     ManagementRecordingsPanelComponent,
     ManagementNowPanelComponent,
     WriteupMarkdownBodyComponent,
+    DragDropModule,
   ],
   templateUrl: './management.component.html',
   styleUrl: './management.component.scss',
@@ -279,9 +286,17 @@ export class ManagementComponent implements OnInit, OnDestroy {
   writeupComposerPane: 'split' | 'write' | 'preview' = 'split';
   writeupDraft = {
     topic: '',
+    topicGroup: '',
     highlight: '',
     body: '',
   };
+  writeupSidebarGroups: WriteupTopicGroup<ManagementWriteupDto>[] = [];
+  writeupDropListIds: string[] = [];
+  writeupRenamingKey: string | null = null;
+  writeupRenameDraft = '';
+  writeupPlacementSaving = false;
+  readonly writeupChildLabel = writeupChildLabel;
+  readonly writeupDropListId = writeupDropListId;
   writeupSaving = false;
   writeupSaveStatus: NoteSaveStatus = 'idle';
   private writeupLastSavedFp = '';
@@ -1437,7 +1452,28 @@ export class ManagementComponent implements OnInit, OnDestroy {
   }
 
   get writeupTopicGroups(): WriteupTopicGroup<ManagementWriteupDto>[] {
-    return groupWriteupsByRelatedTopic(this.writeupFilteredEntries);
+    return this.writeupSidebarGroups;
+  }
+
+  get writeupGroupSuggestions(): string[] {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const w of this.writeupsRaw) {
+      const label = (w.topicGroup || '').trim();
+      const key = normalizeWriteupTopic(label);
+      if (!label || !key || seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      out.push(label);
+    }
+    out.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    return out;
+  }
+
+  rebuildWriteupSidebar(): void {
+    this.writeupSidebarGroups = groupWriteupsByRelatedTopic(this.writeupFilteredEntries);
+    this.writeupDropListIds = this.writeupSidebarGroups.map((g) => writeupDropListId(g.key));
   }
 
   writeupTopicGroupCollapsed(key: string): boolean {
@@ -1450,6 +1486,187 @@ export class ManagementComponent implements OnInit, OnDestroy {
     } else {
       this.writeupCollapsedGroups.add(key);
     }
+  }
+
+  beginWriteupGroupRename(g: WriteupTopicGroup<ManagementWriteupDto>, ev: Event): void {
+    ev.stopPropagation();
+    ev.preventDefault();
+    if (g.ungrouped) {
+      return;
+    }
+    this.writeupRenamingKey = g.key;
+    this.writeupRenameDraft = g.label;
+  }
+
+  cancelWriteupGroupRename(): void {
+    this.writeupRenamingKey = null;
+    this.writeupRenameDraft = '';
+  }
+
+  commitWriteupGroupRename(g: WriteupTopicGroup<ManagementWriteupDto>): void {
+    if (this.writeupRenamingKey !== g.key) {
+      return;
+    }
+    const label = this.writeupRenameDraft.trim();
+    this.writeupRenamingKey = null;
+    if (!label || g.ungrouped || normalizeWriteupTopic(label) === g.key) {
+      return;
+    }
+    const items = g.entries.map((w, i) => ({
+      id: w.id,
+      topicGroup: label,
+      topicGroupSort: i,
+    }));
+    this.commitWriteupPlacement(items);
+  }
+
+  onWriteupListDrop(
+    event: CdkDragDrop<ManagementWriteupDto[]>,
+    dest: WriteupTopicGroup<ManagementWriteupDto>,
+  ): void {
+    const prev = event.previousContainer.data;
+    const curr = event.container.data;
+    const dragged = (event.item.data as ManagementWriteupDto | undefined) ?? prev[event.previousIndex];
+    if (!dragged) {
+      return;
+    }
+
+    if (event.previousContainer === event.container) {
+      if (dest.ungrouped || dest.key === WRITEUP_UNGROUPED_KEY) {
+        const over = this.writeupAtDropPoint(event.dropPoint, dragged);
+        if (over && over.id !== dragged.id && !(over.topicGroup || '').trim()) {
+          const defaultName = this.shorterWriteupTopic(dragged, over);
+          const name =
+            typeof window !== 'undefined' ? window.prompt('Group name', defaultName) : defaultName;
+          if (name?.trim()) {
+            this.assignWriteupsToGroup([dragged, over], name.trim());
+            return;
+          }
+        }
+      }
+      moveItemInArray(curr, event.previousIndex, event.currentIndex);
+    } else {
+      transferArrayItem(prev, curr, event.previousIndex, event.currentIndex);
+    }
+    this.persistWriteupPlacementFromSidebar();
+  }
+
+  private writeupAtDropPoint(
+    point: { x: number; y: number } | undefined,
+    dragged: ManagementWriteupDto,
+  ): ManagementWriteupDto | null {
+    if (!point || typeof document === 'undefined') {
+      return null;
+    }
+    const el = document.elementFromPoint(point.x, point.y);
+    const host = el?.closest('[data-writeup-id]') as HTMLElement | null;
+    const id = host ? Number(host.dataset['writeupId']) : NaN;
+    if (!Number.isFinite(id) || id === dragged.id) {
+      return null;
+    }
+    return this.writeupsRaw.find((w) => w.id === id) ?? null;
+  }
+
+  private shorterWriteupTopic(a: ManagementWriteupDto, b: ManagementWriteupDto): string {
+    const at = (a.topic || '').trim();
+    const bt = (b.topic || '').trim();
+    if (!at) {
+      return bt;
+    }
+    if (!bt) {
+      return at;
+    }
+    return at.length <= bt.length ? at : bt;
+  }
+
+  private assignWriteupsToGroup(rows: ManagementWriteupDto[], label: string): void {
+    const group = label.trim();
+    if (!group || !rows.length) {
+      return;
+    }
+    const groupKey = normalizeWriteupTopic(group);
+    const extras = this.writeupsRaw.filter(
+      (w) =>
+        normalizeWriteupTopic(w.topicGroup || '') === groupKey && !rows.some((r) => r.id === w.id),
+    );
+    const ordered = [...rows, ...extras];
+    this.commitWriteupPlacement(
+      ordered.map((w, i) => ({
+        id: w.id,
+        topicGroup: group,
+        topicGroupSort: i,
+      })),
+    );
+  }
+
+  private persistWriteupPlacementFromSidebar(): void {
+    const items: ManagementWriteupPlacementItem[] = [];
+    for (const g of this.writeupSidebarGroups) {
+      const group = g.ungrouped ? null : g.label;
+      g.entries.forEach((w, i) => {
+        items.push({ id: w.id, topicGroup: group, topicGroupSort: i });
+      });
+    }
+    this.commitWriteupPlacement(items);
+  }
+
+  private commitWriteupPlacement(items: ManagementWriteupPlacementItem[]): void {
+    if (!items.length) {
+      return;
+    }
+    this.writeupPlacementSaving = true;
+    this.api.placeWriteups(items).subscribe({
+      next: (rows) => {
+        this.writeupPlacementSaving = false;
+        this.mergeWriteupPlacement(rows, items);
+        this.rebuildWriteupSidebar();
+      },
+      error: (e) => {
+        this.writeupPlacementSaving = false;
+        this.err('Could not move write-up', e);
+        this.loadWriteups();
+      },
+    });
+  }
+
+  private mergeWriteupPlacement(
+    rows: ManagementWriteupDto[],
+    items: ManagementWriteupPlacementItem[],
+  ): void {
+    const savedById = new Map(rows.map((r) => [r.id, r]));
+    const placedById = new Map(items.map((i) => [i.id, i]));
+    this.writeupsRaw = this.writeupsRaw.map((w) => {
+      const saved = savedById.get(w.id);
+      if (saved) {
+        return { ...w, ...saved, attachments: saved.attachments ?? w.attachments };
+      }
+      const placed = placedById.get(w.id);
+      if (!placed) {
+        return w;
+      }
+      return {
+        ...w,
+        topicGroup: placed.topicGroup ?? '',
+        topicGroupSort: placed.topicGroupSort,
+      };
+    });
+    if (this.writeupViewMode === 'compose' && this.writeupEditingId != null) {
+      const editing = this.writeupsRaw.find((w) => w.id === this.writeupEditingId);
+      if (editing) {
+        this.writeupDraft = { ...this.writeupDraft, topicGroup: editing.topicGroup ?? '' };
+      }
+    }
+  }
+
+  private nextWriteupGroupSort(topicGroup: string): number {
+    const key = normalizeWriteupTopic(topicGroup);
+    const inGroup = this.writeupsRaw.filter((w) =>
+      key ? normalizeWriteupTopic(w.topicGroup || '') === key : !(w.topicGroup || '').trim(),
+    );
+    if (!inGroup.length) {
+      return 0;
+    }
+    return Math.max(...inGroup.map((w) => w.topicGroupSort ?? 0)) + 1;
   }
 
   get writeupSaveStatusLabel(): string {
@@ -1513,6 +1730,7 @@ export class ManagementComponent implements OnInit, OnDestroy {
     this.api.listWriteups(this.writeupYear).subscribe({
       next: (rows) => {
         this.writeupsRaw = rows;
+        this.rebuildWriteupSidebar();
         if (this.writeupViewMode === 'compose' && this.writeupEditingId != null) {
           const found = rows.find((r) => r.id === this.writeupEditingId);
           if (!found) {
@@ -1584,6 +1802,7 @@ export class ManagementComponent implements OnInit, OnDestroy {
       this.writeupSelectedAttachments = [];
       this.writeupDraft = {
         topic: '',
+        topicGroup: '',
         highlight: '',
         body: '',
       };
@@ -1622,12 +1841,14 @@ export class ManagementComponent implements OnInit, OnDestroy {
     this.writeupSelectedAttachments = [...(w.attachments ?? [])];
     this.writeupDraft = {
       topic: w.topic ?? '',
+      topicGroup: w.topicGroup ?? '',
       highlight: w.highlight ?? '',
       body: w.body ?? '',
     };
     this.writeupLastSavedFp = writeupDraftFingerprint({
       year: this.writeupYear,
       topic: this.writeupDraft.topic,
+      topicGroup: this.writeupDraft.topicGroup,
       highlight: this.writeupDraft.highlight,
       body: this.writeupDraft.body,
     });
@@ -1667,12 +1888,14 @@ export class ManagementComponent implements OnInit, OnDestroy {
     this.writeupAutosave.cancel();
     this.writeupDraft = {
       topic: '',
+      topicGroup: '',
       highlight: '',
       body: '',
     };
     this.writeupLastSavedFp = writeupDraftFingerprint({
       year: this.writeupYear,
       topic: 'Untitled',
+      topicGroup: '',
       highlight: '',
       body: '',
     });
@@ -1695,6 +1918,7 @@ export class ManagementComponent implements OnInit, OnDestroy {
     this.writeupSaveStatus = 'idle';
     this.writeupDraft = {
       topic: '',
+      topicGroup: '',
       highlight: '',
       body: '',
     };
@@ -2306,15 +2530,22 @@ export class ManagementComponent implements OnInit, OnDestroy {
 
     const topic = (this.writeupDraft.topic || '').trim() || 'Untitled';
     const highlight = (this.writeupDraft.highlight || '').trim();
+    const topicGroup = (this.writeupDraft.topicGroup || '').trim();
+    const editing = this.writeupEditingId != null
+      ? this.writeupsRaw.find((w) => w.id === this.writeupEditingId)
+      : undefined;
     const body = {
       year: this.writeupYear,
       topic,
+      topicGroup: topicGroup || null,
+      topicGroupSort: editing?.topicGroupSort ?? this.nextWriteupGroupSort(topicGroup),
       highlight: highlight.length ? highlight : null,
       body: this.writeupDraft.body ?? '',
     };
     const fp = writeupDraftFingerprint({
       year: body.year,
       topic: body.topic,
+      topicGroup,
       highlight: highlight,
       body: body.body,
     });
@@ -2339,12 +2570,16 @@ export class ManagementComponent implements OnInit, OnDestroy {
         this.writeupLastSavedFp = writeupDraftFingerprint({
           year: saved.year,
           topic: saved.topic,
+          topicGroup: saved.topicGroup ?? '',
           highlight: saved.highlight ?? '',
           body: saved.body ?? '',
         });
         this.writeupSelectedId = saved.id;
         if (!(this.writeupDraft.topic || '').trim()) {
           this.writeupDraft = { ...this.writeupDraft, topic: saved.topic || 'Untitled' };
+        }
+        if (saved.topicGroup != null) {
+          this.writeupDraft = { ...this.writeupDraft, topicGroup: saved.topicGroup };
         }
         if (opts.exitCompose) {
           const wasUpdate = this.writeupEditingId != null;

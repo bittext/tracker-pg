@@ -2,6 +2,7 @@ package com.svp.tracker.management.controller;
 
 import com.svp.tracker.management.dto.ManagementWriteupAttachmentDto;
 import com.svp.tracker.management.dto.ManagementWriteupDto;
+import com.svp.tracker.management.dto.ManagementWriteupPlacementItem;
 import com.svp.tracker.management.dto.ManagementWriteupWriteRequest;
 import com.svp.tracker.management.service.ManagementWriteupService;
 import com.svp.tracker.management.service.ManagementWriteupService.AttachmentFile;
@@ -47,6 +48,11 @@ public class ManagementWriteupController {
     @ResponseStatus(HttpStatus.CREATED)
     public ManagementWriteupDto create(@Valid @RequestBody ManagementWriteupWriteRequest body) {
         return service.create(body);
+    }
+
+    @PutMapping("/placement")
+    public List<ManagementWriteupDto> placement(@Valid @RequestBody List<ManagementWriteupPlacementItem> body) {
+        return service.applyPlacement(body);
     }
 
     @PutMapping("/{id}")

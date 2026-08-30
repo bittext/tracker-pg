@@ -1,9 +1,12 @@
-/** Sidebar grouping for Management write-ups that share a topic family. */
+/** Sidebar grouping for Management write-ups that share an explicit topic group. */
+
+export const WRITEUP_UNGROUPED_KEY = '__ungrouped__';
 
 export interface WriteupTopicGroup<T extends { topic: string; updatedAt?: string }> {
   key: string;
   label: string;
   entries: T[];
+  ungrouped: boolean;
 }
 
 export function normalizeWriteupTopic(topic: string): string {
@@ -17,51 +20,102 @@ export function normalizeWriteupTopic(topic: string): string {
 export function writeupDraftFingerprint(draft: {
   year: number;
   topic: string;
+  topicGroup?: string | null;
   highlight: string;
   body: string;
 }): string {
   const topic = (draft.topic || '').trim() || 'Untitled';
-  return `${draft.year}|${topic}|${draft.highlight || ''}|${draft.body || ''}`;
+  const group = (draft.topicGroup || '').trim();
+  return `${draft.year}|${topic}|${group}|${draft.highlight || ''}|${draft.body || ''}`;
 }
 
-function topicStem(normalized: string, candidates: string[]): string {
-  const matches = candidates.filter(
-    (stem) => stem.length >= 2 && (normalized === stem || normalized.startsWith(`${stem} `)),
-  );
-  if (!matches.length) {
-    return normalized || 'untitled';
+export function writeupDropListId(key: string): string {
+  return `wu-drop-${key || WRITEUP_UNGROUPED_KEY}`;
+}
+
+/** Child title with the group name stripped so it is not repeated under the header. */
+export function writeupChildLabel(topic: string, groupLabel: string): string {
+  const t = (topic || '').trim();
+  const g = (groupLabel || '').trim();
+  if (!t) {
+    return 'Overview';
   }
-  return matches.reduce((shortest, next) => (next.length < shortest.length ? next : shortest));
+  if (!g) {
+    return t;
+  }
+  if (normalizeWriteupTopic(t) === normalizeWriteupTopic(g)) {
+    return 'Overview';
+  }
+  const escaped = g.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const rest = t.replace(new RegExp(`^${escaped}\\s+`, 'i'), '').trim();
+  return rest || 'Overview';
 }
 
-export function groupWriteupsByRelatedTopic<T extends { topic: string; updatedAt?: string }>(
-  rows: T[],
-): WriteupTopicGroup<T>[] {
-  const normalized = rows.map((row) => normalizeWriteupTopic(row.topic));
-  const stems = [...new Set(normalized.filter(Boolean))].sort(
-    (a, b) => a.length - b.length || a.localeCompare(b),
-  );
+function sortWriteupEntries<
+  T extends { topicGroupSort?: number | null; updatedAt?: string; id?: number },
+>(a: T, b: T): number {
+  const as = a.topicGroupSort ?? 0;
+  const bs = b.topicGroupSort ?? 0;
+  if (as !== bs) {
+    return as - bs;
+  }
+  const au = a.updatedAt || '';
+  const bu = b.updatedAt || '';
+  if (au !== bu) {
+    return bu.localeCompare(au);
+  }
+  return (b.id ?? 0) - (a.id ?? 0);
+}
 
-  const buckets = new Map<string, T[]>();
-  rows.forEach((row, i) => {
-    const key = topicStem(normalized[i] || '', stems);
-    const list = buckets.get(key) ?? [];
-    list.push(row);
-    buckets.set(key, list);
-  });
+export function groupWriteupsByRelatedTopic<
+  T extends {
+    topic: string;
+    topicGroup?: string | null;
+    topicGroupSort?: number | null;
+    updatedAt?: string;
+    id?: number;
+  },
+>(rows: T[]): WriteupTopicGroup<T>[] {
+  const buckets = new Map<string, { label: string; entries: T[] }>();
+  const ungrouped: T[] = [];
+
+  for (const row of rows) {
+    const raw = (row.topicGroup || '').trim();
+    if (!raw) {
+      ungrouped.push(row);
+      continue;
+    }
+    const key = normalizeWriteupTopic(raw) || WRITEUP_UNGROUPED_KEY;
+    if (key === WRITEUP_UNGROUPED_KEY) {
+      ungrouped.push(row);
+      continue;
+    }
+    const existing = buckets.get(key);
+    if (existing) {
+      existing.entries.push(row);
+    } else {
+      buckets.set(key, { label: raw, entries: [row] });
+    }
+  }
 
   const groups: WriteupTopicGroup<T>[] = [];
-  for (const [key, entries] of buckets) {
-    entries.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
-    const shortest = [...entries].sort(
-      (a, b) => (a.topic || '').trim().length - (b.topic || '').trim().length,
-    )[0];
+  for (const [key, bucket] of buckets) {
+    bucket.entries.sort(sortWriteupEntries);
     groups.push({
       key,
-      label: (shortest?.topic || '').trim() || 'Untitled',
-      entries,
+      label: bucket.label,
+      entries: bucket.entries,
+      ungrouped: false,
     });
   }
   groups.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
+
+  ungrouped.sort(sortWriteupEntries);
+  groups.push({
+    key: WRITEUP_UNGROUPED_KEY,
+    label: 'Ungrouped',
+    entries: ungrouped,
+    ungrouped: true,
+  });
   return groups;
 }
