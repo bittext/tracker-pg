@@ -1,0 +1,167 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.cf__intro {
+  margin: 0;
+  max-width: 52rem;
+}
+
+.cf__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+
+.cf__field {
+  min-width: 16rem;
+  flex: 1 1 16rem;
+}
+
+.cf__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.cf__matches {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.cf__match {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem;
+  justify-content: flex-start;
+  text-align: left;
+  width: 100%;
+}
+
+.cf__result {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.cf__symbol {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.cf__company-name {
+  margin: 0;
+}
+
+.cf__trend {
+  border-left: 4px solid var(--app-border, rgba(15, 23, 42, 0.15));
+}
+
+.cf__trend.cf__verdict--up {
+  border-left-color: #16a34a;
+}
+
+.cf__trend.cf__verdict--down {
+  border-left-color: #dc2626;
+}
+
+.cf__trend.cf__verdict--mixed {
+  border-left-color: #d97706;
+}
+
+.cf__verdict-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.4rem;
+}
+
+.cf__verdict-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.cf__verdict-badge.cf__verdict--up {
+  background: rgba(22, 163, 74, 0.15);
+  color: #15803d;
+}
+
+.cf__verdict-badge.cf__verdict--down {
+  background: rgba(220, 38, 38, 0.15);
+  color: #b91c1c;
+}
+
+.cf__verdict-badge.cf__verdict--mixed {
+  background: rgba(217, 119, 6, 0.15);
+  color: #b45309;
+}
+
+.cf__verdict-badge.cf__verdict--unknown {
+  background: rgba(100, 116, 139, 0.15);
+  color: #475569;
+}
+
+.cf__trend-label {
+  font-size: 0.78rem;
+}
+
+.cf__narrative {
+  margin: 0 0 0.4rem;
+  line-height: 1.5;
+}
+
+.cf__warnings {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.82rem;
+}
+
+.cf__table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+  border-radius: 8px;
+}
+
+.cf__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+
+  th,
+  td {
+    padding: 0.45rem 0.65rem;
+    border-bottom: 1px solid var(--app-border, rgba(15, 23, 42, 0.06));
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  th {
+    font-weight: 600;
+    background: rgba(15, 23, 42, 0.03);
+  }
+}
+
+.cf__num {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.cf__source {
+  margin: 0;
+  font-size: 0.78rem;
+}
+
+.cf__empty {
+  margin: 0;
+}

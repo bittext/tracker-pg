@@ -1,0 +1,117 @@
+<p class="muted cf__intro">
+  Enter a company name or ticker to see up to 3 years (12 quarters) of reported revenue, net income, margins, and
+  EPS actual vs. estimate, plus a rule-based read of the trend — not an analyst consensus forecast.
+</p>
+
+<div class="cf__toolbar">
+  <mat-form-field appearance="outline" class="cf__field">
+    <mat-label>Company name or symbol</mat-label>
+    <input
+      matInput
+      [(ngModel)]="query"
+      name="cfQuery"
+      autocomplete="off"
+      placeholder="e.g. AAPL or Apple"
+      (keydown.enter)="load()"
+    />
+  </mat-form-field>
+  <button mat-flat-button color="primary" type="button" (click)="load()" [disabled]="loading || searching">
+    <mat-icon>search</mat-icon>
+    Load
+  </button>
+</div>
+
+<div class="cf__presets" role="group" aria-label="Symbol presets">
+  @for (p of presets; track p) {
+    <button mat-stroked-button type="button" (click)="applyPreset(p)">{{ p }}</button>
+  }
+</div>
+
+@if (searching) {
+  <p class="muted">Searching for "{{ query }}"…</p>
+}
+
+@if (searchMatches.length) {
+  <div class="cf__matches">
+    <p class="muted">Multiple matches for "{{ searchedQuery }}" — pick one:</p>
+    @for (m of searchMatches; track m.symbol) {
+      <button mat-stroked-button type="button" class="cf__match" (click)="selectMatch(m)">
+        <strong>{{ m.symbol }}</strong> — {{ m.name }}
+        <span class="muted">{{ m.region }} · {{ m.type }}</span>
+      </button>
+    }
+  </div>
+}
+
+@if (loading) {
+  <p class="muted">Loading financials…</p>
+}
+
+@if (result) {
+  <div class="cf__result">
+    <h3 class="cf__symbol">{{ result.symbol }}</h3>
+    @if (result.companyName) {
+      <p class="muted cf__company-name">{{ result.companyName }}</p>
+    }
+
+    <mat-card class="cf__trend" [class]="verdictClass(result.trend.verdict)">
+      <mat-card-content>
+        <div class="cf__verdict-row">
+          <span class="cf__verdict-badge" [class]="verdictClass(result.trend.verdict)">{{
+            result.trend.verdict
+          }}</span>
+          <span class="muted cf__trend-label">Trend-based read (not an analyst forecast)</span>
+        </div>
+        @if (result.trend.narrative) {
+          <p class="cf__narrative">{{ result.trend.narrative }}</p>
+        }
+        @if (result.trend.warnings.length) {
+          <ul class="cf__warnings">
+            @for (w of result.trend.warnings; track w) {
+              <li class="muted">{{ w }}</li>
+            }
+          </ul>
+        }
+      </mat-card-content>
+    </mat-card>
+
+    @if (result.quarters.length) {
+      <div class="cf__table-wrap">
+        <table class="cf__table">
+          <thead>
+            <tr>
+              <th>Quarter end</th>
+              <th class="cf__num">Revenue</th>
+              <th class="cf__num">Net income</th>
+              <th class="cf__num">Net margin</th>
+              <th class="cf__num">EPS actual</th>
+              <th class="cf__num">EPS est.</th>
+              <th class="cf__num">Surprise</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (q of quartersDesc; track q.fiscalDateEnding) {
+              <tr>
+                <td>{{ q.fiscalDateEnding }}</td>
+                <td class="cf__num">{{ q.revenue != null ? (q.revenue | number: '1.0-0') : '—' }}</td>
+                <td class="cf__num">{{ q.netIncome != null ? (q.netIncome | number: '1.0-0') : '—' }}</td>
+                <td class="cf__num">{{ q.netMarginPct != null ? (q.netMarginPct | number: '1.1-1') + '%' : '—' }}</td>
+                <td class="cf__num">{{ q.epsActual != null ? (q.epsActual | number: '1.2-2') : '—' }}</td>
+                <td class="cf__num">{{ q.epsEstimate != null ? (q.epsEstimate | number: '1.2-2') : '—' }}</td>
+                <td class="cf__num">
+                  {{ q.epsSurprisePct != null ? (q.epsSurprisePct | number: '1.1-1') + '%' : '—' }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <p class="muted">No quarterly figures available for {{ result.symbol }}.</p>
+    }
+
+    <p class="muted cf__source">Source: {{ result.source }} · cached {{ result.cachedAt | date: 'medium' }}</p>
+  </div>
+} @else if (!loading && !searching && !searchMatches.length) {
+  <p class="muted cf__empty">Load a company to see its quarterly trend.</p>
+}

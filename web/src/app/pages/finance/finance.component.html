@@ -149,6 +149,16 @@
       </mat-tab>
       }
 
+      @if (showTradingTab('financials')) {
+      <mat-tab label="Financials">
+        <div class="finance-panel">
+          @if (tradingSubTabActive('financials')) {
+            <app-company-financials-panel />
+          }
+        </div>
+      </mat-tab>
+      }
+
 
       @if (showTradingTab('news')) {
       <mat-tab label="News">

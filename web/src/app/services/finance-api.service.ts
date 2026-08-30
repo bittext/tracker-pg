@@ -86,6 +86,8 @@ import {
   CompanyResearchNoteRequestDto,
   CompanyResearchUpdateRequestDto,
   CompanyResearchUpsertRequestDto,
+  CompanyFinancialsResponseDto,
+  SymbolSearchResponseDto,
   TradingJournalAiDraftDto,
   TradingJournalAttachmentDto,
   TradingJournalDayDetailDto,
@@ -882,6 +884,21 @@ export class FinanceApiService {
 
   companyResearchDeleteNote(noteId: number) {
     return this.http.delete<void>(`${this.companyResearchRoot}/notes/${noteId}`);
+  }
+
+  private readonly companyFinancialsRoot = `${environment.apiBaseUrl}/api/markets/company-financials`;
+
+  /** Markets → Research → Financials: ad-hoc quarterly financials + trend read for any symbol. */
+  companyFinancialsQuarters(symbol: string) {
+    return this.http.get<CompanyFinancialsResponseDto>(`${this.companyFinancialsRoot}/quarters`, {
+      params: { symbol: symbol.trim() },
+    });
+  }
+
+  companyFinancialsSymbolSearch(keywords: string) {
+    return this.http.get<SymbolSearchResponseDto>(`${this.companyFinancialsRoot}/symbol-search`, {
+      params: { keywords: keywords.trim() },
+    });
   }
 
   private readonly tradingJournalRoot = `${environment.apiBaseUrl}/api/markets/trading-journal`;

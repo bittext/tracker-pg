@@ -41,6 +41,7 @@ import { TradingScreenersPanelComponent } from './trading-screeners-panel/tradin
 import { OptionsBacktestPanelComponent } from './options-backtest-panel/options-backtest-panel.component';
 import { InvestmentThenNowPanelComponent } from './investment-then-now-panel/investment-then-now-panel.component';
 import { CompanyResearchPanelComponent } from './company-research-panel/company-research-panel.component';
+import { CompanyFinancialsPanelComponent } from './company-financials-panel/company-financials-panel.component';
 import { FinvizElitePanelComponent } from './finviz-elite-panel/finviz-elite-panel.component';
 import { AiTokenFactoryPanelComponent } from './ai-token-factory-panel/ai-token-factory-panel.component';
 import { LoansPanelComponent } from './loans-panel/loans-panel.component';
@@ -57,6 +58,7 @@ type TradingTabId =
   | 'cash-io'
   | 'selective-trades'
   | 'watch'
+  | 'financials'
   | 'news'
   | 'crawler'
   | 'screeners'
@@ -107,6 +109,7 @@ type FinanceCategory =
     OptionsBacktestPanelComponent,
     InvestmentThenNowPanelComponent,
     CompanyResearchPanelComponent,
+    CompanyFinancialsPanelComponent,
     FinvizElitePanelComponent,
     AiTokenFactoryPanelComponent,
     LoansPanelComponent,
@@ -314,7 +317,18 @@ export class FinanceComponent implements OnInit {
       case 'trade':
         return ['robinhood', 'cash-io', 'selective-trades'];
       case 'research':
-        return ['watch', 'news', 'crawler', 'screeners', 'finviz', 'ai-factory', 'predicts', 'backtest', 'then-now'];
+        return [
+          'watch',
+          'financials',
+          'news',
+          'crawler',
+          'screeners',
+          'finviz',
+          'ai-factory',
+          'predicts',
+          'backtest',
+          'then-now',
+        ];
       case 'history':
         return ['transactions', 'by-symbol', 'summary'];
       case 'alerts':
@@ -325,6 +339,7 @@ export class FinanceComponent implements OnInit {
           'cash-io',
           'selective-trades',
           'watch',
+          'financials',
           'news',
           'crawler',
           'screeners',

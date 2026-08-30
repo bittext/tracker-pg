@@ -2104,6 +2104,53 @@ export interface CompanyResearchDetailDto {
   fundamentals?: CompanyResearchFundamentalsDto | null;
 }
 
+/** Markets Research → Financials: one reported quarter. */
+export interface CompanyFinancialsQuarterDto {
+  fiscalDateEnding: string;
+  revenue: number | null;
+  netIncome: number | null;
+  grossProfit: number | null;
+  operatingIncome: number | null;
+  netMarginPct: number | null;
+  epsActual: number | null;
+  epsEstimate: number | null;
+  epsSurprisePct: number | null;
+}
+
+/** Rule-based read of the trailing trend — not an analyst consensus forecast. */
+export interface CompanyFinancialsTrendDto {
+  verdict: string;
+  score: number | null;
+  revenueTrend: string | null;
+  marginTrend: string | null;
+  epsTrend: string | null;
+  narrative: string | null;
+  warnings: string[];
+}
+
+export interface CompanyFinancialsResponseDto {
+  symbol: string;
+  companyName: string | null;
+  /** Oldest -> newest, up to 12 quarters (~3 years). */
+  quarters: CompanyFinancialsQuarterDto[];
+  trend: CompanyFinancialsTrendDto;
+  source: string;
+  cachedAt: string;
+}
+
+export interface SymbolSearchMatchDto {
+  symbol: string;
+  name: string;
+  region: string;
+  type: string;
+}
+
+export interface SymbolSearchResponseDto {
+  query: string;
+  matches: SymbolSearchMatchDto[];
+  autoSelected: boolean;
+}
+
 /** Markets Analytics → Trading Journal */
 export interface TradingJournalEntrySummaryDto {
   id: number;
