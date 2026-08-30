@@ -941,6 +941,15 @@
                 </button>
                 @if (noteViewMode === 'compose') {
                   <button mat-button type="button" (click)="resetMonthNoteForm()">Cancel</button>
+                  <button mat-flat-button color="primary" type="button" (click)="saveMonthNote()">
+                    {{ noteEditingId != null ? 'Save changes' : 'Save note' }}
+                  </button>
+                  <button mat-button type="button" (click)="clearMonthNoteDraft()">Clear</button>
+                  @if (noteSaveStatusLabel) {
+                    <span class="muted mn-autosave-status" [attr.data-status]="noteSaveStatus">{{
+                      noteSaveStatusLabel
+                    }}</span>
+                  }
                 }
                 <span class="muted mn-toolbar-meta">{{ notePeriodLabel }} · {{ monthNotes.length }} note(s)</span>
               </div>
@@ -1066,6 +1075,7 @@
                   <button mat-flat-button color="primary" type="button" (click)="saveMonthNote()">
                     {{ noteEditingId != null ? 'Save changes' : 'Save note' }}
                   </button>
+                  <button mat-button type="button" (click)="clearMonthNoteDraft()">Clear</button>
                   <button mat-button type="button" (click)="resetMonthNoteForm()">Discard</button>
                   @if (noteSaveStatusLabel) {
                     <span class="muted mn-autosave-status" [attr.data-status]="noteSaveStatus">{{ noteSaveStatusLabel }}</span>
@@ -1259,6 +1269,23 @@
                   </button>
                   @if (writeupViewMode === 'compose') {
                     <button mat-button type="button" (click)="cancelWriteupCompose()">Cancel</button>
+                    <button
+                      mat-flat-button
+                      color="primary"
+                      type="button"
+                      (click)="saveWriteup()"
+                      [disabled]="writeupSaving"
+                    >
+                      {{ writeupEditingId != null ? 'Save changes' : 'Save write-up' }}
+                    </button>
+                    <button mat-button type="button" (click)="clearWriteupDraft()" [disabled]="writeupSaving">
+                      Clear
+                    </button>
+                    @if (writeupSaveStatusLabel) {
+                      <span class="muted mn-autosave-status" [attr.data-status]="writeupSaveStatus">{{
+                        writeupSaveStatusLabel
+                      }}</span>
+                    }
                   }
                   <span class="muted wu-toolbar-meta">{{ writeupPeriodLabel }} · {{ writeupsRaw.length }} entries</span>
                 </div>
@@ -1396,6 +1423,9 @@
                   <div class="wu-compose-actions">
                     <button mat-flat-button color="primary" type="button" (click)="saveWriteup()" [disabled]="writeupSaving">
                       {{ writeupEditingId != null ? 'Save changes' : 'Save write-up' }}
+                    </button>
+                    <button mat-button type="button" (click)="clearWriteupDraft()" [disabled]="writeupSaving">
+                      Clear
                     </button>
                     @if (writeupEditingId != null) {
                       <button mat-button color="warn" type="button" (click)="deleteWriteup()" [disabled]="writeupSaving">

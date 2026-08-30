@@ -745,6 +745,10 @@ app-management .wu-toolbar-primary {
   gap: 0.5rem 0.75rem;
 }
 
+app-management .wu-toolbar-primary .mn-autosave-status {
+  margin-left: 0;
+}
+
 app-management .wu-toolbar-meta {
   font-size: 0.88rem;
 }
@@ -902,6 +906,7 @@ app-management .wu-preview-empty {
 app-management .wu-compose-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.5rem;
   margin-top: 0.85rem;
   padding-top: 0.75rem;

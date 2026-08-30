@@ -1662,6 +1662,23 @@ export class ManagementComponent implements OnInit, OnDestroy {
     });
   }
 
+  /** Empty the compose fields without leaving the editor or autosaving the wipe. */
+  clearWriteupDraft(): void {
+    this.writeupAutosave.cancel();
+    this.writeupDraft = {
+      topic: '',
+      highlight: '',
+      body: '',
+    };
+    this.writeupLastSavedFp = writeupDraftFingerprint({
+      year: this.writeupYear,
+      topic: 'Untitled',
+      highlight: '',
+      body: '',
+    });
+    this.writeupSaveStatus = 'idle';
+  }
+
   setWriteupComposerPane(pane: 'split' | 'write' | 'preview'): void {
     this.writeupComposerPane = pane;
   }
@@ -2615,6 +2632,23 @@ export class ManagementComponent implements OnInit, OnDestroy {
     this.noteViewMode = 'read';
     this.noteSaveStatus = 'idle';
     this.syncNoteSelectionAfterLoad();
+  }
+
+  /** Empty subject and body without leaving the editor or autosaving the wipe. */
+  clearMonthNoteDraft(): void {
+    this.noteAutosave.cancel();
+    this.noteDraft = {
+      ...this.noteDraft,
+      subject: '',
+      body: '',
+    };
+    this.noteLastSavedFp = noteDraftFingerprint({
+      year: this.noteDraft.year,
+      month: this.noteDraft.month,
+      subject: 'Untitled',
+      body: '',
+    });
+    this.noteSaveStatus = 'idle';
   }
 
   startEditMonthNote(n: ManagementMonthNoteDto): void {
