@@ -63,9 +63,6 @@
           @if (releaseUpdatedLabel) {
             <span class="app-release-hint__updated">Updated {{ releaseUpdatedLabel }}</span>
           }
-          @if (releasePublishedLabel) {
-            <span class="app-release-hint__updated">Last published {{ releasePublishedLabel }}</span>
-          }
         </span>
         <app-theme-settings />
       </header>
@@ -86,9 +83,6 @@
         <span class="app-release-hint__ver">v{{ webReleaseVersion }}</span>
         @if (releaseUpdatedLabel) {
           <span class="app-release-hint__updated">Updated {{ releaseUpdatedLabel }}</span>
-        }
-        @if (releasePublishedLabel) {
-          <span class="app-release-hint__updated">Last published {{ releasePublishedLabel }}</span>
         }
       </span>
       <app-theme-settings />
