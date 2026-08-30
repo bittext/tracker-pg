@@ -128,6 +128,7 @@ export interface ManagementWriteupDto {
   topic: string;
   topicGroup: string;
   topicGroupSort: number;
+  topicGroupRank: number;
   highlight: string;
   body: string;
   attachments: ManagementWriteupAttachmentDto[];
@@ -148,6 +149,11 @@ export interface ManagementWriteupPlacementItem {
   id: number;
   topicGroup: string | null;
   topicGroupSort: number;
+}
+
+export interface ManagementWriteupGroupOrderRequest {
+  year: number;
+  groupLabels: string[];
 }
 
 /** Management → Work tab: file attached to a work log entry (same storage as month notes). */

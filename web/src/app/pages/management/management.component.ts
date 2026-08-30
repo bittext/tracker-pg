@@ -1520,6 +1520,42 @@ export class ManagementComponent implements OnInit, OnDestroy {
     this.commitWriteupPlacement(items);
   }
 
+  onWriteupGroupDrop(event: CdkDragDrop<WriteupTopicGroup<ManagementWriteupDto>[]>): void {
+    if (event.previousIndex === event.currentIndex) {
+      return;
+    }
+    const groups = [...this.writeupSidebarGroups];
+    // The synthetic "Ungrouped" bucket is always last and cannot be dragged (see cdkDragDisabled),
+    // so clamp the drop target to stay above it.
+    const to = Math.min(event.currentIndex, groups.length - 2);
+    moveItemInArray(groups, event.previousIndex, to);
+    this.writeupSidebarGroups = groups;
+    this.persistWriteupGroupOrder(groups);
+  }
+
+  private persistWriteupGroupOrder(groups: WriteupTopicGroup<ManagementWriteupDto>[]): void {
+    const groupLabels = groups.filter((g) => !g.ungrouped).map((g) => g.label);
+    if (!groupLabels.length) {
+      return;
+    }
+    this.writeupPlacementSaving = true;
+    this.api.orderWriteupGroups({ year: this.writeupYear, groupLabels }).subscribe({
+      next: (rows) => {
+        this.writeupPlacementSaving = false;
+        const rankById = new Map(rows.map((r) => [r.id, r.topicGroupRank]));
+        this.writeupsRaw = this.writeupsRaw.map((w) =>
+          rankById.has(w.id) ? { ...w, topicGroupRank: rankById.get(w.id)! } : w,
+        );
+        this.rebuildWriteupSidebar();
+      },
+      error: (e) => {
+        this.writeupPlacementSaving = false;
+        this.err('Could not reorder topic groups', e);
+        this.loadWriteups();
+      },
+    });
+  }
+
   onWriteupListDrop(
     event: CdkDragDrop<ManagementWriteupDto[]>,
     dest: WriteupTopicGroup<ManagementWriteupDto>,

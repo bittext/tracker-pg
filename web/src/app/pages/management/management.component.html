@@ -1197,10 +1197,29 @@
                   }
                 </p>
               } @else {
-                <div class="wu-pick-list" [class.wu-pick-list--placing]="writeupPlacementSaving">
+                <div
+                  class="wu-pick-list"
+                  [class.wu-pick-list--placing]="writeupPlacementSaving"
+                  cdkDropList
+                  [cdkDropListData]="writeupTopicGroups"
+                  [cdkDropListDisabled]="writeupPlacementSaving"
+                  (cdkDropListDropped)="onWriteupGroupDrop($event)"
+                >
                   @for (g of writeupTopicGroups; track g.key) {
-                    <section class="wu-topic-group" [class.wu-topic-group--ungrouped]="g.ungrouped">
+                    <section
+                      class="wu-topic-group"
+                      [class.wu-topic-group--ungrouped]="g.ungrouped"
+                      cdkDrag
+                      [cdkDragData]="g"
+                      [cdkDragDisabled]="g.ungrouped || writeupPlacementSaving"
+                      cdkDragLockAxis="y"
+                    >
                       <div class="wu-topic-group-head-row">
+                        @if (!g.ungrouped) {
+                          <span class="wu-topic-group-drag" cdkDragHandle aria-hidden="true">
+                            <mat-icon>drag_indicator</mat-icon>
+                          </span>
+                        }
                         <button
                           type="button"
                           class="wu-topic-group-head"

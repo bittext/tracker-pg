@@ -7,6 +7,8 @@ export interface WriteupTopicGroup<T extends { topic: string; updatedAt?: string
   label: string;
   entries: T[];
   ungrouped: boolean;
+  /** Manual group order (topicGroupRank of its entries). 0 for the synthetic "Ungrouped" bucket. */
+  rank: number;
 }
 
 export function normalizeWriteupTopic(topic: string): string {
@@ -72,11 +74,12 @@ export function groupWriteupsByRelatedTopic<
     topic: string;
     topicGroup?: string | null;
     topicGroupSort?: number | null;
+    topicGroupRank?: number | null;
     updatedAt?: string;
     id?: number;
   },
 >(rows: T[]): WriteupTopicGroup<T>[] {
-  const buckets = new Map<string, { label: string; entries: T[] }>();
+  const buckets = new Map<string, { label: string; rank: number; entries: T[] }>();
   const ungrouped: T[] = [];
 
   for (const row of rows) {
@@ -90,11 +93,12 @@ export function groupWriteupsByRelatedTopic<
       ungrouped.push(row);
       continue;
     }
+    const rank = row.topicGroupRank ?? 0;
     const existing = buckets.get(key);
     if (existing) {
       existing.entries.push(row);
     } else {
-      buckets.set(key, { label: raw, entries: [row] });
+      buckets.set(key, { label: raw, rank, entries: [row] });
     }
   }
 
@@ -106,9 +110,15 @@ export function groupWriteupsByRelatedTopic<
       label: bucket.label,
       entries: bucket.entries,
       ungrouped: false,
+      rank: bucket.rank,
     });
   }
-  groups.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
+  groups.sort((a, b) => {
+    if (a.rank !== b.rank) {
+      return a.rank - b.rank;
+    }
+    return a.label.localeCompare(b.label, undefined, { sensitivity: 'base' });
+  });
 
   ungrouped.sort(sortWriteupEntries);
   groups.push({
@@ -116,6 +126,7 @@ export function groupWriteupsByRelatedTopic<
     label: 'Ungrouped',
     entries: ungrouped,
     ungrouped: true,
+    rank: Number.MAX_SAFE_INTEGER,
   });
   return groups;
 }

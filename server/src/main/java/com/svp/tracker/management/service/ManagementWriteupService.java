@@ -8,6 +8,7 @@ import com.svp.tracker.management.domain.ManagementWriteup;
 import com.svp.tracker.management.domain.ManagementWriteupAttachment;
 import com.svp.tracker.management.dto.ManagementWriteupAttachmentDto;
 import com.svp.tracker.management.dto.ManagementWriteupDto;
+import com.svp.tracker.management.dto.ManagementWriteupGroupOrderRequest;
 import com.svp.tracker.management.dto.ManagementWriteupPlacementItem;
 import com.svp.tracker.management.dto.ManagementWriteupWriteRequest;
 import com.svp.tracker.management.repository.ManagementWriteupAttachmentRepository;
@@ -63,8 +64,10 @@ public class ManagementWriteupService {
         w.setOwnerUserId(owner);
         w.setYear(req.year());
         w.setTopic(req.topic().trim());
-        w.setTopicGroup(normalizeNullable(req.topicGroup()));
+        String topicGroup = normalizeNullable(req.topicGroup());
+        w.setTopicGroup(topicGroup);
         w.setTopicGroupSort(req.topicGroupSort() == null ? 0 : req.topicGroupSort());
+        w.setTopicGroupRank(resolveGroupRank(owner, req.year(), topicGroup));
         w.setHighlight(normalizeNullable(req.highlight()));
         w.setBody(req.body() == null ? "" : req.body());
         w.setCreatedAt(now);
@@ -82,7 +85,11 @@ public class ManagementWriteupService {
         validateYear(req.year());
         w.setYear(req.year());
         w.setTopic(req.topic().trim());
-        w.setTopicGroup(normalizeNullable(req.topicGroup()));
+        String topicGroup = normalizeNullable(req.topicGroup());
+        if (!Objects.equals(topicGroup, w.getTopicGroup())) {
+            w.setTopicGroupRank(resolveGroupRank(w.getOwnerUserId(), req.year(), topicGroup));
+        }
+        w.setTopicGroup(topicGroup);
         if (req.topicGroupSort() != null) {
             w.setTopicGroupSort(req.topicGroupSort());
         }
@@ -118,6 +125,50 @@ public class ManagementWriteupService {
             out.add(toDto(repository.save(w)));
         }
         return out;
+    }
+
+    @Transactional
+    public List<ManagementWriteupDto> applyGroupOrder(ManagementWriteupGroupOrderRequest req) {
+        validateYear(req.year());
+        long owner = currentUser.requireUserId();
+        Instant now = Instant.now();
+        List<ManagementWriteup> rows = repository.findByOwnerAndYearWithAttachments(owner, req.year());
+
+        List<String> ranks = req.groupLabels().stream().map(ManagementWriteupService::normalizeGroupKey).toList();
+        for (ManagementWriteup w : rows) {
+            String key = normalizeGroupKey(w.getTopicGroup());
+            int rank = ranks.indexOf(key);
+            if (rank < 0 || w.getTopicGroupRank() == rank) {
+                continue;
+            }
+            w.setTopicGroupRank(rank);
+            w.setUpdatedAt(now);
+        }
+        return rows.stream().map(this::toDto).toList();
+    }
+
+    /** Rank of an existing group (so a new row joins it in place), or one past the max (new group sorts last). */
+    private int resolveGroupRank(long owner, int year, String topicGroup) {
+        String key = normalizeGroupKey(topicGroup);
+        if (key.isEmpty()) {
+            return 0;
+        }
+        List<ManagementWriteup> rows = repository.findByOwnerAndYearWithAttachments(owner, year);
+        int maxRank = -1;
+        for (ManagementWriteup w : rows) {
+            if (normalizeGroupKey(w.getTopicGroup()).equals(key)) {
+                return w.getTopicGroupRank();
+            }
+            maxRank = Math.max(maxRank, w.getTopicGroupRank());
+        }
+        return maxRank + 1;
+    }
+
+    private static String normalizeGroupKey(String s) {
+        if (s == null) {
+            return "";
+        }
+        return s.trim().toLowerCase().replaceAll("\\s+", " ");
     }
 
     @Transactional
@@ -248,6 +299,7 @@ public class ManagementWriteupService {
                 w.getTopic(),
                 w.getTopicGroup() == null ? "" : w.getTopicGroup(),
                 w.getTopicGroupSort(),
+                w.getTopicGroupRank(),
                 w.getHighlight() == null ? "" : w.getHighlight(),
                 w.getBody() == null ? "" : w.getBody(),
                 attDtos,

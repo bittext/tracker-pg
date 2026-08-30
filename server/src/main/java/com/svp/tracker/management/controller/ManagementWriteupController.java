@@ -2,6 +2,7 @@ package com.svp.tracker.management.controller;
 
 import com.svp.tracker.management.dto.ManagementWriteupAttachmentDto;
 import com.svp.tracker.management.dto.ManagementWriteupDto;
+import com.svp.tracker.management.dto.ManagementWriteupGroupOrderRequest;
 import com.svp.tracker.management.dto.ManagementWriteupPlacementItem;
 import com.svp.tracker.management.dto.ManagementWriteupWriteRequest;
 import com.svp.tracker.management.service.ManagementWriteupService;
@@ -53,6 +54,11 @@ public class ManagementWriteupController {
     @PutMapping("/placement")
     public List<ManagementWriteupDto> placement(@Valid @RequestBody List<ManagementWriteupPlacementItem> body) {
         return service.applyPlacement(body);
+    }
+
+    @PutMapping("/group-order")
+    public List<ManagementWriteupDto> groupOrder(@Valid @RequestBody ManagementWriteupGroupOrderRequest body) {
+        return service.applyGroupOrder(body);
     }
 
     @PutMapping("/{id}")

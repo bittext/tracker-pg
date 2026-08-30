@@ -9,6 +9,7 @@ public record ManagementWriteupDto(
         String topic,
         String topicGroup,
         int topicGroupSort,
+        int topicGroupRank,
         String highlight,
         String body,
         List<ManagementWriteupAttachmentDto> attachments,

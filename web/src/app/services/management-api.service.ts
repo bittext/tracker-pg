@@ -28,6 +28,7 @@ import {
   ManagementRecordingReprocessDto,
   ManagementWriteupAttachmentDto,
   ManagementWriteupDto,
+  ManagementWriteupGroupOrderRequest,
   ManagementWriteupPlacementItem,
   ManagementWriteupWriteBody,
   ManagementWorkLogAttachmentDto,
@@ -194,6 +195,10 @@ export class ManagementApiService {
 
   placeWriteups(items: ManagementWriteupPlacementItem[]) {
     return this.http.put<ManagementWriteupDto[]>(`${this.root}/writeups/placement`, items);
+  }
+
+  orderWriteupGroups(body: ManagementWriteupGroupOrderRequest) {
+    return this.http.put<ManagementWriteupDto[]>(`${this.root}/writeups/group-order`, body);
   }
 
   deleteWriteup(id: number) {

@@ -44,6 +44,9 @@ public class ManagementWriteup {
     @Column(name = "topic_group_sort", nullable = false)
     private int topicGroupSort = 0;
 
+    @Column(name = "topic_group_rank", nullable = false)
+    private int topicGroupRank = 0;
+
     @Column(columnDefinition = "TEXT")
     private String highlight;
 
