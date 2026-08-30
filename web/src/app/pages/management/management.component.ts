@@ -50,6 +50,11 @@ import {
   noteDraftFingerprint,
 } from '../../util/note-autosave';
 import {
+  WriteupTopicGroup,
+  groupWriteupsByRelatedTopic,
+  writeupDraftFingerprint,
+} from '../../util/writeup-topic-groups';
+import {
   MgmtTaskDueVisual,
   mgmtCalendarDayDueVisual,
   mgmtTaskDueRowClass,
@@ -278,6 +283,13 @@ export class ManagementComponent implements OnInit, OnDestroy {
     body: '',
   };
   writeupSaving = false;
+  writeupSaveStatus: NoteSaveStatus = 'idle';
+  private writeupLastSavedFp = '';
+  private readonly writeupCollapsedGroups = new Set<string>();
+  private readonly writeupAutosave = new NoteAutosave({
+    persist: () => this.persistWriteup$({ exitCompose: false, quiet: true }),
+    onStatus: (s) => (this.writeupSaveStatus = s),
+  });
   writeupUploading = false;
   /** Attachments for the write-up currently being edited (synced from API after load). */
   writeupSelectedAttachments: ManagementWriteupAttachmentDto[] = [];
@@ -319,11 +331,15 @@ export class ManagementComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.noteAutosave.destroy();
+    this.writeupAutosave.destroy();
   }
 
   @HostListener('window:beforeunload', ['$event'])
   onBeforeUnload(event: BeforeUnloadEvent): void {
-    if (this.noteViewMode === 'compose' && this.noteAutosave.isDirty) {
+    if (
+      (this.noteViewMode === 'compose' && this.noteAutosave.isDirty) ||
+      (this.writeupViewMode === 'compose' && this.writeupAutosave.isDirty)
+    ) {
       event.preventDefault();
       event.returnValue = '';
     }
@@ -1380,6 +1396,9 @@ export class ManagementComponent implements OnInit, OnDestroy {
   }
 
   onManagementTabIndexChange(index: number): void {
+    if (this.writeupViewMode === 'compose') {
+      this.writeupAutosave.flush();
+    }
     if (index === this.MGMT_TAB_WORK) {
       this.workPanel()?.refreshAll();
     }
@@ -1415,6 +1434,56 @@ export class ManagementComponent implements OnInit, OnDestroy {
     }
     const tokens = q.split(/\s+/).filter(Boolean);
     return this.writeupsRaw.filter((w) => this.writeupMatchesSearchTokens(w, tokens));
+  }
+
+  get writeupTopicGroups(): WriteupTopicGroup<ManagementWriteupDto>[] {
+    return groupWriteupsByRelatedTopic(this.writeupFilteredEntries);
+  }
+
+  writeupTopicGroupCollapsed(key: string): boolean {
+    return this.writeupCollapsedGroups.has(key);
+  }
+
+  toggleWriteupTopicGroup(key: string): void {
+    if (this.writeupCollapsedGroups.has(key)) {
+      this.writeupCollapsedGroups.delete(key);
+    } else {
+      this.writeupCollapsedGroups.add(key);
+    }
+  }
+
+  get writeupSaveStatusLabel(): string {
+    switch (this.writeupSaveStatus) {
+      case 'dirty':
+        return 'Unsaved changes…';
+      case 'saving':
+        return 'Saving…';
+      case 'saved':
+        return 'Saved';
+      case 'error':
+        return 'Save failed';
+      default:
+        return '';
+    }
+  }
+
+  onWriteupDraftChanged(): void {
+    if (this.writeupViewMode !== 'compose') {
+      return;
+    }
+    this.writeupAutosave.markDirtyAndSchedule();
+  }
+
+  onWriteupDraftBlur(): void {
+    if (this.writeupViewMode !== 'compose') {
+      return;
+    }
+    this.writeupAutosave.flush();
+  }
+
+  private setWriteupComposeBody(body: string): void {
+    this.writeupDraft = { ...this.writeupDraft, body };
+    this.onWriteupDraftChanged();
   }
 
   get selectedWriteup(): ManagementWriteupDto | null {
@@ -1479,39 +1548,59 @@ export class ManagementComponent implements OnInit, OnDestroy {
   }
 
   prevWriteupYear(): void {
-    this.writeupYear -= 1;
-    this.writeupViewMode = 'read';
-    this.writeupEditingId = null;
-    this.writeupSelectedId = null;
-    this.loadWriteups();
+    this.writeupAutosave.flush(() => {
+      this.writeupAutosave.cancel();
+      this.writeupLastSavedFp = '';
+      this.writeupYear -= 1;
+      this.writeupViewMode = 'read';
+      this.writeupEditingId = null;
+      this.writeupSelectedId = null;
+      this.writeupSaveStatus = 'idle';
+      this.loadWriteups();
+    });
   }
 
   nextWriteupYear(): void {
-    this.writeupYear += 1;
-    this.writeupViewMode = 'read';
-    this.writeupEditingId = null;
-    this.writeupSelectedId = null;
-    this.loadWriteups();
+    this.writeupAutosave.flush(() => {
+      this.writeupAutosave.cancel();
+      this.writeupLastSavedFp = '';
+      this.writeupYear += 1;
+      this.writeupViewMode = 'read';
+      this.writeupEditingId = null;
+      this.writeupSelectedId = null;
+      this.writeupSaveStatus = 'idle';
+      this.loadWriteups();
+    });
   }
 
   startNewWriteup(): void {
-    this.writeupEditingId = null;
-    this.writeupSelectedId = null;
-    this.writeupViewMode = 'compose';
-    this.writeupComposerPane = 'split';
-    this.writeupSelectedAttachments = [];
-    this.writeupDraft = {
-      topic: '',
-      highlight: '',
-      body: '',
-    };
+    this.writeupAutosave.flush(() => {
+      this.writeupAutosave.cancel();
+      this.writeupLastSavedFp = '';
+      this.writeupEditingId = null;
+      this.writeupSelectedId = null;
+      this.writeupViewMode = 'compose';
+      this.writeupComposerPane = 'split';
+      this.writeupSelectedAttachments = [];
+      this.writeupDraft = {
+        topic: '',
+        highlight: '',
+        body: '',
+      };
+      this.writeupSaveStatus = 'idle';
+    });
   }
 
   selectWriteup(w: ManagementWriteupDto): void {
-    this.writeupSelectedId = w.id;
-    this.writeupViewMode = 'read';
-    this.writeupEditingId = null;
-    this.writeupSelectedAttachments = [...(w.attachments ?? [])];
+    this.writeupAutosave.flush(() => {
+      this.writeupAutosave.cancel();
+      this.writeupLastSavedFp = '';
+      this.writeupSelectedId = w.id;
+      this.writeupViewMode = 'read';
+      this.writeupEditingId = null;
+      this.writeupSelectedAttachments = [...(w.attachments ?? [])];
+      this.writeupSaveStatus = 'idle';
+    });
   }
 
   startEditWriteup(): void {
@@ -1519,7 +1608,15 @@ export class ManagementComponent implements OnInit, OnDestroy {
     if (!w) {
       return;
     }
+    this.writeupAutosave.flush(() => {
+      this.writeupAutosave.cancel();
+      this.enterEditWriteup(w);
+    });
+  }
+
+  private enterEditWriteup(w: ManagementWriteupDto): void {
     this.writeupEditingId = w.id;
+    this.writeupSelectedId = w.id;
     this.writeupViewMode = 'compose';
     this.writeupComposerPane = 'split';
     this.writeupSelectedAttachments = [...(w.attachments ?? [])];
@@ -1528,18 +1625,41 @@ export class ManagementComponent implements OnInit, OnDestroy {
       highlight: w.highlight ?? '',
       body: w.body ?? '',
     };
+    this.writeupLastSavedFp = writeupDraftFingerprint({
+      year: this.writeupYear,
+      topic: this.writeupDraft.topic,
+      highlight: this.writeupDraft.highlight,
+      body: this.writeupDraft.body,
+    });
+    this.writeupSaveStatus = 'idle';
+  }
+
+  private ensureWriteupCompose(): void {
+    if (this.writeupViewMode === 'compose') {
+      return;
+    }
+    const w = this.selectedWriteup;
+    if (w) {
+      this.writeupAutosave.cancel();
+      this.enterEditWriteup(w);
+    }
   }
 
   cancelWriteupCompose(): void {
-    if (this.writeupEditingId != null && this.writeupsRaw.some((w) => w.id === this.writeupEditingId)) {
-      this.writeupSelectedId = this.writeupEditingId;
-      this.writeupViewMode = 'read';
-      this.writeupEditingId = null;
-      const found = this.writeupsRaw.find((w) => w.id === this.writeupSelectedId);
-      this.writeupSelectedAttachments = [...(found?.attachments ?? [])];
-      return;
-    }
-    this.resetWriteupForm();
+    this.writeupAutosave.flush(() => {
+      this.writeupAutosave.cancel();
+      this.writeupLastSavedFp = '';
+      this.writeupSaveStatus = 'idle';
+      if (this.writeupEditingId != null && this.writeupsRaw.some((w) => w.id === this.writeupEditingId)) {
+        this.writeupSelectedId = this.writeupEditingId;
+        this.writeupViewMode = 'read';
+        this.writeupEditingId = null;
+        const found = this.writeupsRaw.find((w) => w.id === this.writeupSelectedId);
+        this.writeupSelectedAttachments = [...(found?.attachments ?? [])];
+        return;
+      }
+      this.resetWriteupForm();
+    });
   }
 
   setWriteupComposerPane(pane: 'split' | 'write' | 'preview'): void {
@@ -1547,12 +1667,15 @@ export class ManagementComponent implements OnInit, OnDestroy {
   }
 
   resetWriteupForm(): void {
+    this.writeupAutosave.cancel();
+    this.writeupLastSavedFp = '';
     this.writeupEditingId = null;
     this.writeupSelectedId = null;
     this.writeupViewMode = 'read';
     this.writeupComposerPane = 'split';
     this.writeupSelectedAttachments = [];
     this.writeupUploading = false;
+    this.writeupSaveStatus = 'idle';
     this.writeupDraft = {
       topic: '',
       highlight: '',
@@ -1795,14 +1918,14 @@ export class ManagementComponent implements OnInit, OnDestroy {
         .replace(/\sdata-open-pdf-name=(["'])[^"']*\1/gi, '')
         .trim(),
     );
-    this.writeupDraft = { ...this.writeupDraft, body: this.repairBrokenWriteupPdfCoverImgTags(body) };
+    this.setWriteupComposeBody(this.repairBrokenWriteupPdfCoverImgTags(body));
   }
 
   private unlinkWriteupImageUrl(imageId: number): void {
     const { body } = this.rewriteWriteupImageTags(this.writeupDraft.body ?? '', imageId, (attrs) =>
       attrs.replace(/\sdata-open-url=(["'])[^"']*\1/gi, '').trim(),
     );
-    this.writeupDraft = { ...this.writeupDraft, body: this.repairBrokenWriteupPdfCoverImgTags(body) };
+    this.setWriteupComposeBody(this.repairBrokenWriteupPdfCoverImgTags(body));
     delete this.writeupImageUrlDraftById[imageId];
   }
 
@@ -1826,7 +1949,7 @@ export class ManagementComponent implements OnInit, OnDestroy {
       this.insertWriteupImageIntoBody(image);
       return;
     }
-    this.writeupDraft = { ...this.writeupDraft, body: rewritten.body };
+    this.setWriteupComposeBody(rewritten.body);
     this.snackBar.open('Image linked to PDF — click cover opens the document.', undefined, {
       duration: 3200,
     });
@@ -1855,9 +1978,9 @@ export class ManagementComponent implements OnInit, OnDestroy {
           .trim();
         return `${base} data-open-url="${safe}"`;
       });
-      this.writeupDraft = { ...this.writeupDraft, body: again.body };
+      this.setWriteupComposeBody(again.body);
     } else {
-      this.writeupDraft = { ...this.writeupDraft, body: rewritten.body };
+      this.setWriteupComposeBody(rewritten.body);
     }
     this.snackBar.open('Image linked to URL — click opens the link.', undefined, { duration: 3200 });
   }
@@ -1872,7 +1995,7 @@ export class ManagementComponent implements OnInit, OnDestroy {
       return;
     }
     if (this.writeupViewMode !== 'compose') {
-      this.startEditWriteup();
+      this.ensureWriteupCompose();
     }
     const pct = Math.min(100, Math.max(10, this.writeupImageWidthPct));
     const floatSide = this.writeupImageFloat;
@@ -1918,10 +2041,7 @@ export class ManagementComponent implements OnInit, OnDestroy {
         ? atIndex
         : Math.max(0, Math.min(body.length, this.writeupBodyCaret ?? body.length));
     const insertAt = Math.max(0, Math.min(body.length, idx));
-    this.writeupDraft = {
-      ...this.writeupDraft,
-      body: this.insertTextAt(body, insertAt, tag),
-    };
+    this.setWriteupComposeBody(this.insertTextAt(body, insertAt, tag));
     this.writeupBodyCaret = insertAt + tag.length + 1;
     this.snackBar.open(
       pdfAttrs
@@ -1947,7 +2067,7 @@ export class ManagementComponent implements OnInit, OnDestroy {
       return;
     }
     if (this.writeupViewMode !== 'compose') {
-      this.startEditWriteup();
+      this.ensureWriteupCompose();
     }
     const name = (a.originalFilename || (this.isWriteupPdfAttachment(a) ? 'document.pdf' : 'file')).replace(
       /"/g,
@@ -1983,17 +2103,14 @@ export class ManagementComponent implements OnInit, OnDestroy {
         ? atIndex
         : Math.max(0, Math.min(body.length, this.writeupBodyCaret ?? body.length));
     const insertAt = Math.max(0, Math.min(body.length, idx));
-    this.writeupDraft = {
-      ...this.writeupDraft,
-      body: this.insertTextAt(body, insertAt, tag),
-    };
+    this.setWriteupComposeBody(this.insertTextAt(body, insertAt, tag));
     this.writeupBodyCaret = insertAt + tag.length + 1;
     this.snackBar.open(
       hadExisting
-        ? 'File link moved — Save when ready'
+        ? 'File link moved'
         : this.isWriteupPdfAttachment(a)
-          ? 'PDF link placed — Save when ready'
-          : 'File link placed — Save when ready',
+          ? 'PDF link placed'
+          : 'File link placed',
       undefined,
       { duration: 2500 },
     );
@@ -2010,7 +2127,7 @@ export class ManagementComponent implements OnInit, OnDestroy {
     const after = body.slice(idx);
     const needsLead = before.length > 0 && !before.endsWith('\n');
     const insert = `${needsLead ? '\n' : ''}\n`;
-    this.writeupDraft = { ...this.writeupDraft, body: `${before}${insert}${after}` };
+    this.setWriteupComposeBody(`${before}${insert}${after}`);
     this.writeupBodyCaret = idx + insert.length;
   }
 
@@ -2156,11 +2273,21 @@ export class ManagementComponent implements OnInit, OnDestroy {
   }
 
   saveWriteup(): void {
-    const topic = (this.writeupDraft.topic || '').trim();
-    if (!topic) {
-      this.snackBar.open('Topic is required', undefined, { duration: 2500 });
-      return;
+    this.writeupAutosave.cancel();
+    this.persistWriteup$({ exitCompose: true, quiet: false }).subscribe({
+      error: () => undefined,
+    });
+  }
+
+  private persistWriteup$(opts: {
+    exitCompose: boolean;
+    quiet: boolean;
+  }): Observable<ManagementWriteupDto> {
+    if (this.writeupViewMode !== 'compose' && opts.quiet) {
+      return of(null as unknown as ManagementWriteupDto);
     }
+
+    const topic = (this.writeupDraft.topic || '').trim() || 'Untitled';
     const highlight = (this.writeupDraft.highlight || '').trim();
     const body = {
       year: this.writeupYear,
@@ -2168,38 +2295,63 @@ export class ManagementComponent implements OnInit, OnDestroy {
       highlight: highlight.length ? highlight : null,
       body: this.writeupDraft.body ?? '',
     };
-    this.writeupSaving = true;
-    if (this.writeupEditingId != null) {
-      this.api.updateWriteup(this.writeupEditingId, body).subscribe({
-        next: (row) => {
-          this.writeupSaving = false;
-          this.snackBar.open('Write-up saved', undefined, { duration: 2000 });
-          this.writeupSelectedId = row.id;
-          this.writeupEditingId = null;
-          this.writeupViewMode = 'read';
-          this.loadWriteups();
-        },
-        error: (e) => {
-          this.writeupSaving = false;
-          this.err('Could not save write-up', e);
-        },
-      });
-    } else {
-      this.api.createWriteup(body).subscribe({
-        next: (row) => {
-          this.writeupSaving = false;
-          this.snackBar.open('Write-up created', undefined, { duration: 2000 });
-          this.writeupSelectedId = row.id;
-          this.writeupEditingId = null;
-          this.writeupViewMode = 'read';
-          this.loadWriteups();
-        },
-        error: (e) => {
-          this.writeupSaving = false;
-          this.err('Could not create write-up', e);
-        },
-      });
+    const fp = writeupDraftFingerprint({
+      year: body.year,
+      topic: body.topic,
+      highlight: highlight,
+      body: body.body,
+    });
+    if (opts.quiet && fp === this.writeupLastSavedFp && this.writeupEditingId != null) {
+      return of(null as unknown as ManagementWriteupDto);
     }
+
+    if (!opts.quiet && !(this.writeupDraft.topic || '').trim() && this.writeupEditingId == null) {
+      this.snackBar.open('Topic is required', undefined, { duration: 2500 });
+      return throwError(() => new Error('Topic is required'));
+    }
+
+    this.writeupSaving = true;
+    const req$ =
+      this.writeupEditingId != null
+        ? this.api.updateWriteup(this.writeupEditingId, body)
+        : this.api.createWriteup(body);
+
+    return req$.pipe(
+      tap((saved) => {
+        this.writeupSaving = false;
+        this.writeupLastSavedFp = writeupDraftFingerprint({
+          year: saved.year,
+          topic: saved.topic,
+          highlight: saved.highlight ?? '',
+          body: saved.body ?? '',
+        });
+        this.writeupSelectedId = saved.id;
+        if (!(this.writeupDraft.topic || '').trim()) {
+          this.writeupDraft = { ...this.writeupDraft, topic: saved.topic || 'Untitled' };
+        }
+        if (opts.exitCompose) {
+          const wasUpdate = this.writeupEditingId != null;
+          this.writeupViewMode = 'read';
+          this.writeupEditingId = null;
+          this.writeupYear = saved.year;
+          if (!opts.quiet) {
+            this.snackBar.open(wasUpdate ? 'Write-up saved' : 'Write-up created', undefined, {
+              duration: 2000,
+            });
+          }
+        } else {
+          this.writeupEditingId = saved.id;
+        }
+        this.loadWriteups();
+      }),
+      catchError((e) => {
+        this.writeupSaving = false;
+        if (!opts.quiet) {
+          this.err(this.writeupEditingId != null ? 'Could not save write-up' : 'Could not create write-up', e);
+        }
+        return throwError(() => e);
+      }),
+    );
   }
 
   deleteWriteup(): void {
@@ -2207,6 +2359,7 @@ export class ManagementComponent implements OnInit, OnDestroy {
     if (id == null) {
       return;
     }
+    this.writeupAutosave.cancel();
     if (typeof window !== 'undefined' && !window.confirm('Delete this write-up permanently?')) {
       return;
     }

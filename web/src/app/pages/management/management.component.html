@@ -1141,8 +1141,8 @@
         <section aria-labelledby="mgmt-wu-heading">
           <h2 id="mgmt-wu-heading" class="subsection-title">Write-ups</h2>
           <p class="muted wu-intro">
-            Year-scoped reports and reviews. Pick an entry from the list or compose a new one — topic, highlight callout,
-            and Markdown body with optional attachments.
+            Year-scoped reports and reviews, grouped by related topic. Edits autosave while you write — pick an
+            entry or compose a new one.
           </p>
 
           <div class="notes-year-bar">
@@ -1187,24 +1187,64 @@
                 </p>
               } @else {
                 <div class="wu-pick-list">
-                  @for (w of writeupFilteredEntries; track w.id) {
-                    <button
-                      type="button"
-                      class="wu-pick"
-                      [class.wu-pick--active]="writeupSelectedId === w.id && writeupViewMode === 'read'"
-                      (click)="selectWriteup(w)"
-                    >
-                      <span class="wu-pick-topic">{{ w.topic }}</span>
-                      @if (writeupSnippet(w.highlight)) {
-                        <span class="wu-pick-hi">{{ writeupSnippet(w.highlight) }}</span>
-                      }
-                      <span class="wu-pick-meta">
-                        {{ w.updatedAt | slice: 0:16 }}
-                        @if (writeupAttachmentCountLabel(w)) {
-                          <span class="wu-pick-files"> · {{ writeupAttachmentCountLabel(w) }}</span>
+                  @for (g of writeupTopicGroups; track g.key) {
+                    @if (g.entries.length > 1) {
+                      <section class="wu-topic-group">
+                        <button
+                          type="button"
+                          class="wu-topic-group-head"
+                          [attr.aria-expanded]="!writeupTopicGroupCollapsed(g.key)"
+                          (click)="toggleWriteupTopicGroup(g.key)"
+                        >
+                          <mat-icon aria-hidden="true">{{
+                            writeupTopicGroupCollapsed(g.key) ? 'chevron_right' : 'expand_more'
+                          }}</mat-icon>
+                          <span class="wu-topic-group-label">{{ g.label }}</span>
+                          <span class="muted wu-topic-group-count">{{ g.entries.length }}</span>
+                        </button>
+                        @if (!writeupTopicGroupCollapsed(g.key)) {
+                          @for (w of g.entries; track w.id) {
+                            <button
+                              type="button"
+                              class="wu-pick wu-pick--grouped"
+                              [class.wu-pick--active]="writeupSelectedId === w.id && writeupViewMode === 'read'"
+                              (click)="selectWriteup(w)"
+                            >
+                              <span class="wu-pick-topic">{{ w.topic }}</span>
+                              @if (writeupSnippet(w.highlight)) {
+                                <span class="wu-pick-hi">{{ writeupSnippet(w.highlight) }}</span>
+                              }
+                              <span class="wu-pick-meta">
+                                {{ w.updatedAt | slice: 0:16 }}
+                                @if (writeupAttachmentCountLabel(w)) {
+                                  <span class="wu-pick-files"> · {{ writeupAttachmentCountLabel(w) }}</span>
+                                }
+                              </span>
+                            </button>
+                          }
                         }
-                      </span>
-                    </button>
+                      </section>
+                    } @else {
+                      @for (w of g.entries; track w.id) {
+                        <button
+                          type="button"
+                          class="wu-pick"
+                          [class.wu-pick--active]="writeupSelectedId === w.id && writeupViewMode === 'read'"
+                          (click)="selectWriteup(w)"
+                        >
+                          <span class="wu-pick-topic">{{ w.topic }}</span>
+                          @if (writeupSnippet(w.highlight)) {
+                            <span class="wu-pick-hi">{{ writeupSnippet(w.highlight) }}</span>
+                          }
+                          <span class="wu-pick-meta">
+                            {{ w.updatedAt | slice: 0:16 }}
+                            @if (writeupAttachmentCountLabel(w)) {
+                              <span class="wu-pick-files"> · {{ writeupAttachmentCountLabel(w) }}</span>
+                            }
+                          </span>
+                        </button>
+                      }
+                    }
                   }
                 </div>
               }
@@ -1232,6 +1272,8 @@
                       matInput
                       name="wuTopic"
                       [(ngModel)]="writeupDraft.topic"
+                      (ngModelChange)="onWriteupDraftChanged()"
+                      (blur)="onWriteupDraftBlur()"
                       required
                       placeholder="Clear title for this report or review"
                     />
@@ -1244,6 +1286,8 @@
                       name="wuHi"
                       rows="2"
                       [(ngModel)]="writeupDraft.highlight"
+                      (ngModelChange)="onWriteupDraftChanged()"
+                      (blur)="onWriteupDraftBlur()"
                       placeholder="Short emphasis (one or two lines)"
                     ></textarea>
                   </mat-form-field>
@@ -1312,9 +1356,11 @@
                         name="wuBody"
                         rows="20"
                         [(ngModel)]="writeupDraft.body"
+                        (ngModelChange)="onWriteupDraftChanged()"
                         (click)="onWriteupBodyCaret($event)"
                         (keyup)="onWriteupBodyCaret($event)"
                         (select)="onWriteupBodyCaret($event)"
+                        (blur)="onWriteupDraftBlur()"
                         (dragover)="onWriteupEditorDragOver($event)"
                         (dragleave)="onWriteupEditorDragLeave($event)"
                         (drop)="onWriteupEditorDrop($event)"
@@ -1355,6 +1401,11 @@
                       <button mat-button color="warn" type="button" (click)="deleteWriteup()" [disabled]="writeupSaving">
                         Delete
                       </button>
+                    }
+                    @if (writeupSaveStatusLabel) {
+                      <span class="muted mn-autosave-status" [attr.data-status]="writeupSaveStatus">{{
+                        writeupSaveStatusLabel
+                      }}</span>
                     }
                   </div>
 

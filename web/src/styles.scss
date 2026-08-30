@@ -1216,6 +1216,50 @@ app-management .wu-pick-list {
   padding-right: 0.15rem;
 }
 
+app-management .wu-topic-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+app-management .wu-topic-group-head {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  width: 100%;
+  padding: 0.2rem 0.15rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+app-management .wu-topic-group-head mat-icon {
+  font-size: 1.15rem;
+  width: 1.15rem;
+  height: 1.15rem;
+  color: var(--app-text-muted, #64748b);
+}
+
+app-management .wu-topic-group-label {
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--app-text-muted, #64748b);
+}
+
+app-management .wu-topic-group-count {
+  margin-left: auto;
+  font-size: 0.72rem;
+}
+
+app-management .wu-pick--grouped {
+  margin-left: 0.35rem;
+}
+
 app-management .wu-pick {
   display: flex;
   flex-direction: column;
