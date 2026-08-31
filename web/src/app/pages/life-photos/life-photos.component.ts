@@ -2,14 +2,13 @@ import { CommonModule } from '@angular/common';
 import { Component, HostListener, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Observable, of, throwError } from 'rxjs';
-import { catchError, tap } from 'rxjs/operators';
+import { catchError, switchMap, tap } from 'rxjs/operators';
 import {
   LifeMonthNoteAttachmentDto,
   LifeMonthNoteCalendarDto,
@@ -24,10 +23,11 @@ import {
   noteDraftFingerprint,
 } from '../../util/note-autosave';
 import {
-  WriteupAttachmentPreviewDialogComponent,
-  WriteupAttachmentPreviewData,
-} from '../management/writeup-attachment-preview-dialog.component';
-import { WriteupMarkdownBodyComponent } from '../management/writeup-markdown-body.component';
+  WriteupImageRemoveEvent,
+  WriteupMarkdownBodyComponent,
+} from '../management/writeup-markdown-body.component';
+
+const MAX_ATTACHMENT_BYTES = 8 * 1024 * 1024;
 
 const MONTH_NAMES = [
   'January',
@@ -51,7 +51,6 @@ const MONTH_NAMES = [
     CommonModule,
     FormsModule,
     MatButtonModule,
-    MatDialogModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
@@ -65,7 +64,6 @@ const MONTH_NAMES = [
 export class LifePhotosComponent implements OnInit, OnDestroy {
   private readonly api = inject(LifeApiService);
   private readonly snackBar = inject(MatSnackBar);
-  private readonly dialog = inject(MatDialog);
 
   noteYear = new Date().getFullYear();
   noteFilterMonth: number | null = new Date().getMonth() + 1;
@@ -97,7 +95,6 @@ export class LifePhotosComponent implements OnInit, OnDestroy {
   /** Last caret in the Life note body editor — Insert and drag-drop use this. */
   noteBodyCaret = 0;
   noteEditorDragOver = false;
-  private noteDragAttachmentId: number | null = null;
   /** Ignores out-of-order list responses when months are clicked quickly. */
   private noteListLoadSeq = 0;
   noteDraft: LifeMonthNoteWriteBody = {
@@ -107,6 +104,7 @@ export class LifePhotosComponent implements OnInit, OnDestroy {
     body: '',
   };
   noteSaveStatus: NoteSaveStatus = 'idle';
+  unusedThumbUrls: Record<number, string> = {};
   private noteLastSavedFp = '';
   private readonly noteAutosave = new NoteAutosave({
     persist: () => this.persistMonthNote$({ exitCompose: false, quiet: true }),
@@ -119,6 +117,7 @@ export class LifePhotosComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.noteAutosave.destroy();
+    this.revokeUnusedThumbs();
   }
 
   @HostListener('window:beforeunload', ['$event'])
@@ -134,6 +133,7 @@ export class LifePhotosComponent implements OnInit, OnDestroy {
       return;
     }
     this.noteAutosave.markDirtyAndSchedule();
+    this.syncUnusedThumbUrls();
   }
 
   onNoteDraftBlur(): void {
@@ -167,6 +167,17 @@ export class LifePhotosComponent implements OnInit, OnDestroy {
       return null;
     }
     return this.monthNotes.find((n) => n.id === this.noteSelectedId) ?? null;
+  }
+
+  get unusedLifeAttachments(): LifeMonthNoteAttachmentDto[] {
+    const body = this.noteDraft.body ?? '';
+    return this.noteSelectedAttachments.filter(
+      (a) => this.isImageAttachment(a) && !this.bodyReferencesAttachment(body, a.id),
+    );
+  }
+
+  unusedThumbUrl(id: number): string | null {
+    return this.unusedThumbUrls[id] ?? null;
   }
 
   get notePeriodLabel(): string {
@@ -208,6 +219,7 @@ export class LifePhotosComponent implements OnInit, OnDestroy {
             this.resetMonthNoteForm();
           } else {
             this.noteSelectedAttachments = [...(found.attachments ?? [])];
+            this.syncUnusedThumbUrls();
           }
         } else {
           this.syncNoteSelectionAfterLoad();
@@ -215,6 +227,7 @@ export class LifePhotosComponent implements OnInit, OnDestroy {
             const found = rows.find((r) => r.id === this.noteSelectedId);
             this.noteSelectedAttachments = [...(found?.attachments ?? [])];
           }
+          this.syncUnusedThumbUrls();
         }
       },
       error: (e) => {
@@ -360,6 +373,7 @@ export class LifePhotosComponent implements OnInit, OnDestroy {
       };
       this.noteLastSavedFp = noteDraftFingerprint(this.noteDraft);
       this.noteSaveStatus = 'idle';
+      this.syncUnusedThumbUrls();
     });
   }
 
@@ -446,53 +460,18 @@ export class LifePhotosComponent implements OnInit, OnDestroy {
     });
   }
 
-  onMonthNoteFilesSelected(event: Event, noteId: number): void {
+  onLifePhotosSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
-    const files = input.files;
-    if (!files?.length) {
+    const files = input.files ? Array.from(input.files) : [];
+    input.value = '';
+    if (!files.length) {
       return;
     }
-    this.noteUploading = true;
-    const list = Array.from(files);
-    let i = 0;
-    const step = (): void => {
-      if (i >= list.length) {
-        this.noteUploading = false;
-        input.value = '';
-        this.reloadMonthNotesData();
-        this.snackBar.open('Attachment(s) uploaded', undefined, { duration: 2000 });
-        return;
-      }
-      this.api.uploadMonthNoteAttachment(noteId, list[i]).subscribe({
-        next: () => {
-          i += 1;
-          step();
-        },
-        error: (e) => {
-          this.noteUploading = false;
-          input.value = '';
-          this.err('Upload failed', e);
-        },
-      });
-    };
-    step();
-  }
-
-  openMonthNoteAttachment(attachment: LifeMonthNoteAttachmentDto): void {
-    this.dialog.open<WriteupAttachmentPreviewDialogComponent, WriteupAttachmentPreviewData>(
-      WriteupAttachmentPreviewDialogComponent,
-      {
-        width: 'min(96vw, 56rem)',
-        maxWidth: '96vw',
-        maxHeight: '92vh',
-        data: {
-          attachmentId: attachment.id,
-          filename: attachment.originalFilename || 'attachment',
-          contentType: attachment.contentType,
-          source: 'life',
-        },
-      },
-    );
+    if (this.noteViewMode === 'compose') {
+      this.addPhotosInCompose(files, this.noteBodyCaret);
+      return;
+    }
+    this.addPhotosInRead(files);
   }
 
   isImageAttachment(a: LifeMonthNoteAttachmentDto): boolean {
@@ -507,7 +486,12 @@ export class LifePhotosComponent implements OnInit, OnDestroy {
    * Insert (or move/resize) a stable HTML image at the editor caret / drop index.
    * Width is a % of the note column so embeds stay inset while writing.
    */
-  insertImageIntoBody(a: LifeMonthNoteAttachmentDto, widthPct?: number, atIndex?: number): void {
+  insertImageIntoBody(
+    a: LifeMonthNoteAttachmentDto,
+    widthPct?: number,
+    atIndex?: number,
+    quiet = false,
+  ): void {
     if (!this.isImageAttachment(a)) {
       this.snackBar.open('Only image attachments can be inserted into the body', undefined, {
         duration: 3000,
@@ -515,36 +499,11 @@ export class LifePhotosComponent implements OnInit, OnDestroy {
       return;
     }
     if (this.noteViewMode !== 'compose') {
-      const n = this.selectedMonthNote;
-      if (n) {
-        this.startEditMonthNote(n);
-      }
+      return;
     }
     const pct = Math.min(100, Math.max(10, widthPct ?? this.insertImageWidthPct));
-    const floatSide = this.insertImageFloat;
-    const name = (a.originalFilename || 'image').replace(/"/g, '');
-    const src = `/api/life/notes/attachments/${a.id}/file`;
-    const margin =
-      floatSide === 'right'
-        ? '0.1rem 0 0.85rem 1rem'
-        : floatSide === 'none'
-          ? '0.75rem 0'
-          : '0.1rem 1rem 0.85rem 0';
-    const floatCss = floatSide === 'none' ? 'none' : floatSide;
-    const tag =
-      `<img src="${src}" alt="${name}" data-life-width="${pct}" data-life-float="${floatSide}" ` +
-      `style="float:${floatCss};max-width:${pct}%;width:${pct}%;height:auto;margin:${margin};" />`;
-    let body = this.noteDraft.body ?? '';
-    const imgRe = new RegExp(
-      `<img\\b[^>]*\\bsrc=["'][^"']*\\/api\\/life\\/notes\\/attachments\\/${a.id}\\/file[^"']*["'][^>]*>`,
-      'gi',
-    );
-    const mdRe = new RegExp(`!\\[[^\\]]*\\]\\([^)]*\\/api\\/life\\/notes\\/attachments\\/${a.id}\\/file[^)]*\\)`, 'gi');
-    const hadExisting = imgRe.test(body) || mdRe.test(body);
-    imgRe.lastIndex = 0;
-    mdRe.lastIndex = 0;
-    body = body.replace(imgRe, '').replace(mdRe, '');
-    body = body.replace(/\n{3,}/g, '\n\n');
+    const tag = this.buildLifeImageTag(a, pct);
+    let body = this.stripLifeImageEmbeds(this.noteDraft.body ?? '', a.id);
     const idx =
       atIndex != null
         ? atIndex
@@ -553,11 +512,9 @@ export class LifePhotosComponent implements OnInit, OnDestroy {
     this.noteDraft = { ...this.noteDraft, body: this.insertTextAt(body, insertAt, tag) };
     this.noteBodyCaret = insertAt + tag.length + 1;
     this.onNoteDraftChanged();
-    this.snackBar.open(
-      hadExisting ? `Image moved / sized to ${pct}%` : `Image placed at ${pct}%`,
-      undefined,
-      { duration: 2500 },
-    );
+    if (!quiet) {
+      this.snackBar.open(`Photo placed at ${pct}%`, undefined, { duration: 2000 });
+    }
   }
 
   onNoteBodyCaret(ev: Event): void {
@@ -565,36 +522,15 @@ export class LifePhotosComponent implements OnInit, OnDestroy {
     this.noteBodyCaret = t.selectionStart ?? (this.noteDraft.body ?? '').length;
   }
 
-  onNoteAttachDragStart(ev: DragEvent, a: LifeMonthNoteAttachmentDto): void {
-    if (!this.isImageAttachment(a)) {
-      ev.preventDefault();
-      return;
-    }
-    this.noteDragAttachmentId = a.id;
-    ev.dataTransfer?.setData('application/x-tracker-life-att', String(a.id));
-    ev.dataTransfer?.setData('text/plain', a.originalFilename || 'image');
-    if (ev.dataTransfer) {
-      ev.dataTransfer.effectAllowed = 'copyMove';
-    }
-  }
-
-  onNoteAttachDragEnd(): void {
-    this.noteDragAttachmentId = null;
-  }
-
   onNoteEditorDragOver(ev: DragEvent): void {
     const types = ev.dataTransfer?.types ? Array.from(ev.dataTransfer.types) : [];
-    const ok =
-      types.includes('application/x-tracker-life-att') ||
-      types.includes('Files') ||
-      this.noteDragAttachmentId != null;
-    if (!ok) {
+    if (!types.includes('Files')) {
       return;
     }
     ev.preventDefault();
     this.noteEditorDragOver = true;
     if (ev.dataTransfer) {
-      ev.dataTransfer.dropEffect = types.includes('Files') ? 'copy' : 'move';
+      ev.dataTransfer.dropEffect = 'copy';
     }
     const ta = ev.currentTarget as HTMLTextAreaElement;
     if (document.activeElement !== ta) {
@@ -618,25 +554,9 @@ export class LifePhotosComponent implements OnInit, OnDestroy {
     const dropAt = ta.selectionStart ?? this.noteBodyCaret;
 
     const files = ev.dataTransfer?.files;
-    if (files && files.length && this.noteEditingId != null) {
-      this.uploadLifeFilesAndPlace(Array.from(files), this.noteEditingId, dropAt);
-      return;
-    }
-
-    const idRaw =
-      ev.dataTransfer?.getData('application/x-tracker-life-att') ||
-      (this.noteDragAttachmentId != null ? String(this.noteDragAttachmentId) : '');
-    const id = Number(idRaw);
-    this.noteDragAttachmentId = null;
-    if (!Number.isFinite(id)) {
-      return;
-    }
-    const a =
-      this.noteSelectedAttachments.find((x) => x.id === id) ??
-      this.selectedMonthNote?.attachments?.find((x) => x.id === id);
-    if (a) {
+    if (files && files.length) {
       this.noteBodyCaret = dropAt;
-      this.insertImageIntoBody(a, this.insertImageWidthPct, dropAt);
+      this.addPhotosInCompose(Array.from(files), dropAt);
       queueMicrotask(() => {
         ta.focus();
         const caret = this.noteBodyCaret;
@@ -645,30 +565,99 @@ export class LifePhotosComponent implements OnInit, OnDestroy {
     }
   }
 
-  private uploadLifeFilesAndPlace(files: File[], noteId: number, atIndex: number): void {
-    const images = files.filter(
-      (f) => f.type.startsWith('image/') || /\.(jpe?g|png|gif|webp|bmp|svg|heic|heif)$/i.test(f.name),
-    );
+  private addPhotosInCompose(files: File[], atIndex?: number): void {
+    const images = this.filterImageFiles(files);
     if (!images.length) {
-      this.snackBar.open('Drop image files to upload and place them', undefined, { duration: 3000 });
+      this.snackBar.open('Choose image files to add', undefined, { duration: 3000 });
+      return;
+    }
+    this.ensureComposeNoteId$().subscribe({
+      next: (noteId) => this.uploadLifeFilesAndPlace(images, noteId, atIndex ?? this.noteBodyCaret),
+      error: (e) => this.err('Could not save note', e),
+    });
+  }
+
+  private addPhotosInRead(files: File[]): void {
+    const n = this.selectedMonthNote;
+    if (!n) {
+      return;
+    }
+    const images = this.filterImageFiles(files);
+    if (!images.length) {
+      this.snackBar.open('Choose image files to add', undefined, { duration: 3000 });
       return;
     }
     this.noteUploading = true;
     let i = 0;
-    let caret = atIndex;
+    let body = n.body ?? '';
     const step = (): void => {
       if (i >= images.length) {
         this.noteUploading = false;
-        this.reloadMonthNotesData();
-        this.snackBar.open('Image(s) uploaded and placed — Save when ready', undefined, {
-          duration: 3000,
-        });
+        this.api
+          .updateMonthNote(n.id, {
+            year: n.year,
+            month: n.month,
+            subject: n.subject,
+            body,
+          })
+          .subscribe({
+            next: () => {
+              this.reloadMonthNotesData();
+              this.snackBar.open('Photo(s) added', undefined, { duration: 2000 });
+            },
+            error: (e) => this.err('Could not save photos', e),
+          });
         return;
       }
-      this.api.uploadMonthNoteAttachment(noteId, images[i]).subscribe({
+      this.api.uploadMonthNoteAttachment(n.id, images[i]).subscribe({
         next: (att) => {
           if (this.isImageAttachment(att)) {
-            this.insertImageIntoBody(att, this.insertImageWidthPct, caret);
+            const tag = this.buildLifeImageTag(att);
+            body = this.stripLifeImageEmbeds(body, att.id);
+            body = this.insertTextAt(body, body.length, tag);
+          }
+          i += 1;
+          step();
+        },
+        error: (e) => {
+          this.noteUploading = false;
+          this.err('Upload failed', e);
+        },
+      });
+    };
+    step();
+  }
+
+  private ensureComposeNoteId$(): Observable<number> {
+    if (this.noteEditingId != null) {
+      return of(this.noteEditingId);
+    }
+    return this.persistMonthNote$({ exitCompose: false, quiet: true }).pipe(
+      switchMap((saved) => {
+        const id = saved?.id ?? this.noteEditingId;
+        if (id == null) {
+          return throwError(() => new Error('Could not create note'));
+        }
+        return of(id);
+      }),
+    );
+  }
+
+  private uploadLifeFilesAndPlace(files: File[], noteId: number, atIndex: number): void {
+    this.noteUploading = true;
+    let i = 0;
+    let caret = atIndex;
+    const step = (): void => {
+      if (i >= files.length) {
+        this.noteUploading = false;
+        this.reloadMonthNotesData();
+        this.snackBar.open('Photo(s) added', undefined, { duration: 2000 });
+        return;
+      }
+      this.api.uploadMonthNoteAttachment(noteId, files[i]).subscribe({
+        next: (att) => {
+          if (this.isImageAttachment(att)) {
+            this.insertImageIntoBody(att, this.insertImageWidthPct, caret, true);
             caret = this.noteBodyCaret;
           }
           i += 1;
@@ -683,6 +672,61 @@ export class LifePhotosComponent implements OnInit, OnDestroy {
     step();
   }
 
+  private filterImageFiles(files: File[]): File[] {
+    const images = files.filter(
+      (f) => f.type.startsWith('image/') || /\.(jpe?g|png|gif|webp|bmp|svg|heic|heif)$/i.test(f.name),
+    );
+    const ok: File[] = [];
+    let oversized = 0;
+    for (const f of images) {
+      if (f.size > MAX_ATTACHMENT_BYTES) {
+        oversized += 1;
+      } else {
+        ok.push(f);
+      }
+    }
+    if (oversized) {
+      this.snackBar.open(`${oversized} photo(s) exceed 8 MB and were skipped`, undefined, {
+        duration: 4000,
+      });
+    }
+    return ok;
+  }
+
+  private buildLifeImageTag(a: LifeMonthNoteAttachmentDto, widthPct?: number): string {
+    const pct = Math.min(100, Math.max(10, widthPct ?? this.insertImageWidthPct));
+    const floatSide = this.insertImageFloat;
+    const name = (a.originalFilename || 'image').replace(/"/g, '');
+    const src = `/api/life/notes/attachments/${a.id}/file`;
+    const margin =
+      floatSide === 'right'
+        ? '0.1rem 0 0.85rem 1rem'
+        : floatSide === 'none'
+          ? '0.75rem 0'
+          : '0.1rem 1rem 0.85rem 0';
+    const floatCss = floatSide === 'none' ? 'none' : floatSide;
+    return (
+      `<img src="${src}" alt="${name}" data-life-width="${pct}" data-life-float="${floatSide}" ` +
+      `style="float:${floatCss};max-width:${pct}%;width:${pct}%;height:auto;margin:${margin};" />`
+    );
+  }
+
+  private stripLifeImageEmbeds(body: string, attachmentId: number): string {
+    const imgRe = new RegExp(
+      `<img\\b[^>]*\\bsrc=["'][^"']*\\/api\\/life\\/notes\\/attachments\\/${attachmentId}\\/file[^"']*["'][^>]*>`,
+      'gi',
+    );
+    const mdRe = new RegExp(
+      `!\\[[^\\]]*\\]\\([^)]*\\/api\\/life\\/notes\\/attachments\\/${attachmentId}\\/file[^)]*\\)`,
+      'gi',
+    );
+    return body.replace(imgRe, '').replace(mdRe, '').replace(/\n{3,}/g, '\n\n');
+  }
+
+  private bodyReferencesAttachment(body: string, attachmentId: number): boolean {
+    return body.includes(`/api/life/notes/attachments/${attachmentId}/file`);
+  }
+
   private insertTextAt(body: string, index: number, text: string): string {
     const i = Math.max(0, Math.min(body.length, index));
     const before = body.slice(0, i);
@@ -692,15 +736,70 @@ export class LifePhotosComponent implements OnInit, OnDestroy {
     return `${before}${leftPad}${text}${rightPad}${after}`;
   }
 
+  onLifeImageRemove(ev: WriteupImageRemoveEvent): void {
+    if (ev.kind !== 'life') {
+      return;
+    }
+    this.removeLifePhoto(ev.id);
+  }
+
   removeMonthNoteAttachment(attachmentId: number, ev?: Event): void {
     ev?.stopPropagation();
+    this.removeLifePhoto(attachmentId);
+  }
+
+  private removeLifePhoto(attachmentId: number): void {
+    if (!confirm('Remove this photo?')) {
+      return;
+    }
+    if (this.noteViewMode === 'compose') {
+      this.noteDraft = {
+        ...this.noteDraft,
+        body: this.stripLifeImageEmbeds(this.noteDraft.body ?? '', attachmentId),
+      };
+      this.onNoteDraftChanged();
+    }
     this.api.deleteMonthNoteAttachment(attachmentId).subscribe({
       next: () => {
-        this.snackBar.open('Attachment removed', undefined, { duration: 2000 });
+        this.noteSelectedAttachments = this.noteSelectedAttachments.filter((a) => a.id !== attachmentId);
+        this.syncUnusedThumbUrls();
+        this.snackBar.open('Photo removed', undefined, { duration: 2000 });
         this.reloadMonthNotesData();
       },
-      error: (e) => this.err('Could not remove attachment', e),
+      error: (e) => this.err('Could not remove photo', e),
     });
+  }
+
+  private syncUnusedThumbUrls(): void {
+    const keep = new Set(this.unusedLifeAttachments.map((a) => a.id));
+    const next: Record<number, string> = { ...this.unusedThumbUrls };
+    for (const id of Object.keys(next).map(Number)) {
+      if (!keep.has(id)) {
+        URL.revokeObjectURL(next[id]);
+        delete next[id];
+      }
+    }
+    this.unusedThumbUrls = next;
+    for (const a of this.unusedLifeAttachments) {
+      if (this.unusedThumbUrls[a.id]) {
+        continue;
+      }
+      this.api.getMonthNoteAttachmentBlob(a.id, 'inline').subscribe({
+        next: (blob) => {
+          if (!this.unusedLifeAttachments.some((x) => x.id === a.id)) {
+            return;
+          }
+          this.unusedThumbUrls = { ...this.unusedThumbUrls, [a.id]: URL.createObjectURL(blob) };
+        },
+      });
+    }
+  }
+
+  private revokeUnusedThumbs(): void {
+    for (const url of Object.values(this.unusedThumbUrls)) {
+      URL.revokeObjectURL(url);
+    }
+    this.unusedThumbUrls = {};
   }
 
   private err(msg: string, e?: unknown): void {

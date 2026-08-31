@@ -2,10 +2,12 @@ import { CommonModule } from '@angular/common';
 import {
   Component,
   ElementRef,
+  EventEmitter,
   Injector,
   Input,
   OnChanges,
   OnDestroy,
+  Output,
   SimpleChanges,
   afterNextRender,
   inject,
@@ -24,6 +26,11 @@ import {
 } from './writeup-attachment-preview-dialog.component';
 
 type AttachmentKind = 'writeup' | 'life' | 'tracker';
+
+export interface WriteupImageRemoveEvent {
+  id: number;
+  kind: AttachmentKind;
+}
 
 /**
  * Renders markdown and rewrites authenticated attachment URLs to blob: URLs
@@ -56,6 +63,44 @@ type AttachmentKind = 'writeup' | 'life' | 'tracker';
         outline: 1px dashed #94a3b8;
         background: #f8fafc;
       }
+      :host ::ng-deep .life-embed-wrap {
+        position: relative;
+        display: block;
+      }
+      :host ::ng-deep .life-embed-wrap img {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        height: auto;
+        margin: 0;
+        float: none;
+      }
+      :host ::ng-deep .life-embed-remove {
+        position: absolute;
+        top: 0.35rem;
+        right: 0.35rem;
+        z-index: 2;
+        width: 1.7rem;
+        height: 1.7rem;
+        padding: 0;
+        border: 0;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.72);
+        color: #fff;
+        font-size: 1.15rem;
+        line-height: 1;
+        cursor: pointer;
+        opacity: 0;
+      }
+      :host ::ng-deep .life-embed-wrap:hover .life-embed-remove,
+      :host ::ng-deep .life-embed-remove:focus {
+        opacity: 1;
+      }
+      @media (hover: none) {
+        :host ::ng-deep .life-embed-remove {
+          opacity: 1;
+        }
+      }
     `,
   ],
 })
@@ -69,6 +114,9 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
   private readonly injector = inject(Injector);
 
   @Input() body: string | null | undefined = '';
+  /** Life notes only: show an X on embedded photos to remove file + embed. */
+  @Input() allowImageRemove = false;
+  @Output() readonly imageRemove = new EventEmitter<WriteupImageRemoveEvent>();
 
   html: SafeHtml = this.sanitizer.bypassSecurityTrustHtml('');
 
@@ -78,6 +126,8 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['body']) {
       this.render();
+    } else if (changes['allowImageRemove'] && this.allowImageRemove) {
+      this.wrapRemovableLifeImages();
     }
   }
 
@@ -88,6 +138,9 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
   onBodyClick(ev: MouseEvent): void {
     const t = ev.target as HTMLElement | null;
     if (!t) {
+      return;
+    }
+    if (t.closest('.life-embed-remove')) {
       return;
     }
     const clickable = t.closest(
@@ -287,6 +340,7 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
       }
       // Already hydrated (or in-flight) for this attachment.
       if (img.dataset['attHydrated'] === String(ref.id)) {
+        this.wrapRemovableLifeImage(img, ref);
         return;
       }
       img.dataset['attHydrated'] = String(ref.id);
@@ -295,6 +349,7 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
       img.setAttribute('data-att-kind', ref.kind);
       img.setAttribute('data-att-id', String(ref.id));
       img.setAttribute('data-att-name', name);
+      this.wrapRemovableLifeImage(img, ref);
       const openPdfId = img.getAttribute('data-open-pdf-id');
       const openUrl = img.getAttribute('data-open-url');
       img.title = openUrl
@@ -328,6 +383,7 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
             img.classList.remove('life-embed-img--loading', 'life-embed-img--error');
             img.src = url;
             this.applyEmbeddedImageSize(img);
+            this.wrapRemovableLifeImage(img, ref);
           });
         },
         error: () => {
@@ -338,6 +394,7 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
           img.classList.remove('life-embed-img--loading');
           img.classList.add('life-embed-img--error');
           img.alt = `${img.alt || 'Image'} (failed to load)`;
+          this.wrapRemovableLifeImage(img, ref);
         },
       });
     });
@@ -506,28 +563,84 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
       'left'
     ).toLowerCase();
     const floatSide = floatRaw === 'right' || floatRaw === 'none' ? floatRaw : 'left';
+    const wrap = img.parentElement?.classList.contains('life-embed-wrap') ? img.parentElement : null;
+    const box: HTMLElement = wrap ?? img;
 
-    img.style.height = 'auto';
-    img.style.maxWidth = `${pct}%`;
-    img.style.width = pct >= 100 || floatSide === 'none' ? (pct >= 100 ? '100%' : 'auto') : `${pct}%`;
     img.classList.add('life-embed-img');
-
-    if (floatSide === 'right') {
-      img.style.float = 'right';
-      img.style.display = 'block';
-      img.style.margin = '0.1rem 0 0.85rem 1rem';
-      img.style.shapeOutside = 'margin-box';
-    } else if (floatSide === 'none') {
+    img.style.height = 'auto';
+    if (wrap) {
+      img.style.maxWidth = '100%';
+      img.style.width = '100%';
       img.style.float = 'none';
+      img.style.margin = '0';
       img.style.display = 'block';
-      img.style.margin = '0.75rem 0';
       img.style.shapeOutside = '';
     } else {
-      img.style.float = 'left';
-      img.style.display = 'block';
-      img.style.margin = '0.1rem 1rem 0.85rem 0';
-      img.style.shapeOutside = 'margin-box';
+      img.style.maxWidth = `${pct}%`;
+      img.style.width = pct >= 100 || floatSide === 'none' ? (pct >= 100 ? '100%' : 'auto') : `${pct}%`;
     }
+
+    if (floatSide === 'right') {
+      box.style.float = 'right';
+      box.style.display = 'block';
+      box.style.margin = '0.1rem 0 0.85rem 1rem';
+      box.style.shapeOutside = 'margin-box';
+    } else if (floatSide === 'none') {
+      box.style.float = 'none';
+      box.style.display = 'block';
+      box.style.margin = '0.75rem 0';
+      box.style.shapeOutside = '';
+    } else {
+      box.style.float = 'left';
+      box.style.display = 'block';
+      box.style.margin = '0.1rem 1rem 0.85rem 0';
+      box.style.shapeOutside = 'margin-box';
+    }
+    if (wrap) {
+      wrap.style.maxWidth = `${pct}%`;
+      wrap.style.width = pct >= 100 || floatSide === 'none' ? (pct >= 100 ? '100%' : `${pct}%`) : `${pct}%`;
+    }
+  }
+
+  private wrapRemovableLifeImages(): void {
+    const root = this.host.nativeElement;
+    root.querySelectorAll('img[data-att-kind="life"][data-att-id]').forEach((el: Element) => {
+      const img = el as HTMLImageElement;
+      const id = Number(img.getAttribute('data-att-id'));
+      if (Number.isFinite(id)) {
+        this.wrapRemovableLifeImage(img, { kind: 'life', id });
+      }
+    });
+  }
+
+  private wrapRemovableLifeImage(
+    img: HTMLImageElement,
+    ref: { kind: AttachmentKind; id: number },
+  ): void {
+    if (!this.allowImageRemove || ref.kind !== 'life') {
+      return;
+    }
+    if (img.closest('.life-embed-wrap')) {
+      this.applyEmbeddedImageSize(img);
+      return;
+    }
+    const wrap = document.createElement('span');
+    wrap.className = 'life-embed-wrap';
+    wrap.setAttribute('data-att-kind', ref.kind);
+    wrap.setAttribute('data-att-id', String(ref.id));
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'life-embed-remove';
+    btn.setAttribute('aria-label', 'Remove photo');
+    btn.textContent = '×';
+    btn.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      this.imageRemove.emit({ id: ref.id, kind: ref.kind });
+    });
+    img.replaceWith(wrap);
+    wrap.append(img, btn);
+    this.applyEmbeddedImageSize(img);
   }
 
   private fetchBlob(ref: { kind: AttachmentKind; id: number }): Observable<Blob> {

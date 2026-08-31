@@ -1,8 +1,7 @@
 <div class="page-head">
   <h1 class="page-title">Life</h1>
   <p class="muted">
-    Month-scoped notes—same attachment flow as Management write-ups and notes. Upload photos, insert them into the
-    Markdown body, and view them inline on the page.
+    Month-scoped notes with photos in the body. Add photos to place them; hover a photo and click X to remove it.
   </p>
 </div>
 
@@ -12,8 +11,7 @@
     Notes are stored at <strong>month</strong> resolution (no day). Pick a year, then a month or the whole year to
     filter. The note body supports
     <a href="https://www.markdownguide.org/basic-syntax/" target="_blank" rel="noopener noreferrer">basic Markdown</a>.
-    Add a subject, body, then upload images, choose a size, and click <strong>Insert</strong> to place them inset in
-    the body.
+    Add photos to insert them at the caret (or at the end of a saved note). Choose size and wrap before adding.
   </p>
 
   <div class="notes-year-bar">
@@ -149,7 +147,7 @@
           <div class="mn-editor-pane">
             <div class="mn-pane-head">
               <span class="mn-pane-title">Markdown</span>
-              <span class="muted mn-pane-hint">Drop / drag images here · size chips below · Insert at caret</span>
+              <span class="muted mn-pane-hint">Drop photos here to add them at the caret</span>
             </div>
             <textarea
               class="mn-editor-input"
@@ -165,18 +163,22 @@
               (dragover)="onNoteEditorDragOver($event)"
               (dragleave)="onNoteEditorDragLeave($event)"
               (drop)="onNoteEditorDrop($event)"
-              placeholder="# Heading&#10;&#10;Write in **Markdown** — drag a photo from attachments onto this editor."
+              placeholder="# Heading&#10;&#10;Write in **Markdown** — drop photos here or use Add photos."
               aria-label="Note body in Markdown"
             ></textarea>
           </div>
           <div class="mn-preview-pane" aria-label="Live Markdown preview">
             <div class="mn-pane-head">
               <span class="mn-pane-title">Live preview</span>
-              <span class="muted mn-pane-hint">Same formatting as saved notes</span>
+              <span class="muted mn-pane-hint">Hover a photo and click X to remove it</span>
             </div>
             <div class="mn-preview-body">
               @if ((noteDraft.body || '').trim()) {
-                <app-writeup-markdown-body [body]="noteDraft.body" />
+                <app-writeup-markdown-body
+                  [body]="noteDraft.body"
+                  [allowImageRemove]="true"
+                  (imageRemove)="onLifeImageRemove($event)"
+                />
               } @else {
                 <p class="muted mn-preview-empty">Start typing Markdown to see the preview here before you save.</p>
               }
@@ -194,111 +196,10 @@
           }
         </div>
 
-        @if (noteEditingId != null) {
-          <div class="wu-read-attach life-attach">
-            <p class="muted wu-attach-hint">
-              Upload images, pick size + wrap (text flows around the photo), then <strong>drag</strong> onto the editor
-              (or Insert at the caret). Click the filename to preview.
-            </p>
-            <div class="life-size-bar" role="group" aria-label="Insert image size">
-              <span class="muted life-size-label">Size</span>
-              @for (opt of imageWidthOptions; track opt.pct) {
-                <button
-                  type="button"
-                  class="life-size-chip"
-                  [class.life-size-chip--active]="insertImageWidthPct === opt.pct"
-                  (click)="insertImageWidthPct = opt.pct"
-                >
-                  {{ opt.label }}
-                  <span class="life-size-pct">{{ opt.pct }}%</span>
-                </button>
-              }
-            </div>
-            <div class="life-size-bar" role="group" aria-label="Text wrap around image">
-              <span class="muted life-size-label">Wrap</span>
-              @for (opt of imageFloatOptions; track opt.id) {
-                <button
-                  type="button"
-                  class="life-size-chip"
-                  [class.life-size-chip--active]="insertImageFloat === opt.id"
-                  (click)="insertImageFloat = opt.id"
-                >
-                  {{ opt.label }}
-                </button>
-              }
-            </div>
-            <label class="wu-file-label">
-              <input
-                type="file"
-                accept="image/*,.heic,.heif,image/heic,image/heif"
-                multiple
-                (change)="onMonthNoteFilesSelected($event, noteEditingId)"
-                [disabled]="noteUploading"
-              />
-              <span class="wu-file-label-text">Add attachment(s)</span>
-            </label>
-            @if (noteSelectedAttachments.length) {
-              <ul class="wu-attachment-list">
-                @for (a of noteSelectedAttachments; track a.id) {
-                  <li>
-                    <button type="button" class="wu-att-link" (click)="openMonthNoteAttachment(a)">
-                      {{ a.originalFilename }}
-                    </button>
-                    <span class="muted">({{ (a.sizeBytes / 1024) | number: '1.0-0' }} KB)</span>
-                    @if (isImageAttachment(a)) {
-                      <span
-                        class="wu-att-drag"
-                        draggable="true"
-                        title="Drag onto the Markdown editor to place"
-                        (dragstart)="onNoteAttachDragStart($event, a)"
-                        (dragend)="onNoteAttachDragEnd()"
-                      >
-                        <mat-icon>drag_indicator</mat-icon>
-                        Drag
-                      </span>
-                      <button mat-stroked-button type="button" class="wu-att-insert" (click)="insertImageIntoBody(a)">
-                        <mat-icon>image</mat-icon>
-                        Insert {{ insertImageWidthPct }}%
-                      </button>
-                    }
-                    <button
-                      mat-icon-button
-                      type="button"
-                      (click)="removeMonthNoteAttachment(a.id, $event)"
-                      aria-label="Remove attachment"
-                    >
-                      <mat-icon>close</mat-icon>
-                    </button>
-                  </li>
-                }
-              </ul>
-            }
-          </div>
-        }
-      </section>
-    } @else if (selectedMonthNote; as n) {
-      <article class="mn-read" aria-label="Life note">
-        <header class="mn-read-head">
-          <div>
-            <h3 class="mn-read-subject">{{ n.subject }}</h3>
-            <p class="mn-read-meta muted">
-              {{ monthName(n.month) }} {{ n.year }} · updated {{ n.updatedAt | date: 'medium' }}
-            </p>
-          </div>
-          <div class="mn-read-actions">
-            <button mat-stroked-button type="button" color="primary" (click)="startEditMonthNote(n)">
-              <mat-icon>edit</mat-icon>
-              Edit
-            </button>
-            <button mat-button type="button" color="warn" (click)="deleteMonthNote(n)">Delete</button>
-          </div>
-        </header>
-        @if (!(n.body || '').trim()) {
-          <div class="notes-entry-body notes-entry-body--empty muted mn-read-body">—</div>
-        } @else {
-          <app-writeup-markdown-body [body]="n.body" />
-        }
         <div class="wu-read-attach life-attach">
+          <p class="muted wu-attach-hint">
+            Size and wrap apply to the next photo you add. Unused uploads stay here until you place or remove them.
+          </p>
           <div class="life-size-bar" role="group" aria-label="Insert image size">
             <span class="muted life-size-label">Size</span>
             @for (opt of imageWidthOptions; track opt.pct) {
@@ -329,32 +230,82 @@
           <label class="wu-file-label">
             <input
               type="file"
-                accept="image/*,.heic,.heif,image/heic,image/heif"
+              accept="image/*,.heic,.heif,image/heic,image/heif"
               multiple
-              (change)="onMonthNoteFilesSelected($event, n.id)"
+              (change)="onLifePhotosSelected($event)"
               [disabled]="noteUploading"
             />
-            <span class="wu-file-label-text">Add attachment(s)</span>
+            <span class="wu-file-label-text">{{ noteUploading ? 'Adding…' : 'Add photos' }}</span>
           </label>
-          @if (n.attachments.length) {
-            <ul class="wu-attachment-list wu-attachment-list--read">
-              @for (a of n.attachments; track a.id) {
-                <li>
-                  <button type="button" class="wu-att-link" (click)="openMonthNoteAttachment(a)">
-                    {{ a.originalFilename }}
+          @if (unusedLifeAttachments.length) {
+            <p class="muted wu-attach-hint life-unused-hint">Not in the note yet — click to place, or remove.</p>
+            <ul class="life-unused-thumbs">
+              @for (a of unusedLifeAttachments; track a.id) {
+                <li class="life-unused-thumb">
+                  <button
+                    type="button"
+                    class="life-unused-thumb-btn"
+                    (click)="insertImageIntoBody(a)"
+                    [attr.aria-label]="'Place ' + (a.originalFilename || 'photo')"
+                  >
+                    @if (unusedThumbUrl(a.id); as url) {
+                      <img [src]="url" alt="" />
+                    } @else {
+                      <span class="muted">{{ a.originalFilename }}</span>
+                    }
                   </button>
-                  @if (isImageAttachment(a)) {
-                    <button mat-stroked-button type="button" class="wu-att-insert" (click)="insertImageIntoBody(a)">
-                      <mat-icon>image</mat-icon>
-                      Insert {{ insertImageWidthPct }}%
-                    </button>
-                  } @else {
-                    <span class="muted"> · preview</span>
-                  }
+                  <button
+                    mat-icon-button
+                    type="button"
+                    class="life-unused-thumb-x"
+                    (click)="removeMonthNoteAttachment(a.id, $event)"
+                    aria-label="Remove unused photo"
+                  >
+                    <mat-icon>close</mat-icon>
+                  </button>
                 </li>
               }
             </ul>
           }
+        </div>
+      </section>
+    } @else if (selectedMonthNote; as n) {
+      <article class="mn-read" aria-label="Life note">
+        <header class="mn-read-head">
+          <div>
+            <h3 class="mn-read-subject">{{ n.subject }}</h3>
+            <p class="mn-read-meta muted">
+              {{ monthName(n.month) }} {{ n.year }} · updated {{ n.updatedAt | date: 'medium' }}
+            </p>
+          </div>
+          <div class="mn-read-actions">
+            <button mat-stroked-button type="button" color="primary" (click)="startEditMonthNote(n)">
+              <mat-icon>edit</mat-icon>
+              Edit
+            </button>
+            <button mat-button type="button" color="warn" (click)="deleteMonthNote(n)">Delete</button>
+          </div>
+        </header>
+        @if (!(n.body || '').trim()) {
+          <div class="notes-entry-body notes-entry-body--empty muted mn-read-body">—</div>
+        } @else {
+          <app-writeup-markdown-body
+            [body]="n.body"
+            [allowImageRemove]="true"
+            (imageRemove)="onLifeImageRemove($event)"
+          />
+        }
+        <div class="wu-read-attach life-attach">
+          <label class="wu-file-label">
+            <input
+              type="file"
+              accept="image/*,.heic,.heif,image/heic,image/heif"
+              multiple
+              (change)="onLifePhotosSelected($event)"
+              [disabled]="noteUploading"
+            />
+            <span class="wu-file-label-text">{{ noteUploading ? 'Adding…' : 'Add photos' }}</span>
+          </label>
         </div>
       </article>
     } @else {

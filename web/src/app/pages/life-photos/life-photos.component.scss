@@ -44,68 +44,50 @@
   font-size: 0.875rem;
 }
 
-.wu-attachment-list {
-  list-style: none;
-  margin: 0.75rem 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
+.life-unused-hint {
+  margin-top: 0.85rem;
 }
 
-.wu-attachment-list li {
+.life-unused-thumbs {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem 0.5rem;
+  gap: 0.65rem;
 }
 
-.wu-att-link {
-  border: 0;
-  background: none;
+.life-unused-thumb {
+  position: relative;
+  width: 5.5rem;
+  height: 5.5rem;
+}
+
+.life-unused-thumb-btn {
+  display: block;
+  width: 100%;
+  height: 100%;
   padding: 0;
-  font: inherit;
-  color: var(--app-accent, #2563eb);
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.14));
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--app-surface-muted, rgba(15, 23, 42, 0.04));
   cursor: pointer;
 }
 
-.wu-att-insert {
-  margin-left: 0.25rem;
+.life-unused-thumb-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
-.wu-att-insert mat-icon {
-  font-size: 1.05rem;
-  width: 1.05rem;
-  height: 1.05rem;
-  margin-right: 0.15rem;
-  vertical-align: middle;
-}
-
-.wu-att-drag {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.15rem;
-  padding: 0.2rem 0.5rem;
-  border-radius: 999px;
-  border: 1px dashed color-mix(in srgb, var(--app-accent, #2563eb) 45%, transparent);
-  background: color-mix(in srgb, var(--app-accent, #2563eb) 8%, transparent);
-  color: var(--app-accent, #2563eb);
-  font-size: 0.78rem;
-  font-weight: 600;
-  cursor: grab;
-  user-select: none;
-}
-
-.wu-att-drag:active {
-  cursor: grabbing;
-}
-
-.wu-att-drag mat-icon {
-  font-size: 1rem;
-  width: 1rem;
-  height: 1rem;
+.life-unused-thumb-x {
+  position: absolute;
+  top: -0.35rem;
+  right: -0.35rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  background: var(--app-surface, #fff);
 }
 
 .mn-editor-input.mn-editor-input--drag {
@@ -156,6 +138,10 @@
   border-radius: 8px;
   max-width: 100%;
   height: auto;
+}
+
+:host ::ng-deep app-writeup-markdown-body .life-embed-wrap {
+  border-radius: 8px;
 }
 
 :host ::ng-deep app-writeup-markdown-body .markdown-body {

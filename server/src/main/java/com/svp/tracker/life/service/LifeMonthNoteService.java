@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -184,9 +185,22 @@ public class LifeMonthNoteService {
         }
         LifeMonthNote n = a.getNote();
         n.getAttachments().remove(a);
+        n.setBody(stripAttachmentEmbedsFromBody(n.getBody(), attachmentId));
         n.setUpdatedAt(Instant.now());
         attachmentRepository.deleteById(attachmentId);
         noteRepository.save(n);
+    }
+
+    /** Remove HTML and markdown embeds that point at this attachment so delete cannot leave broken images. */
+    static String stripAttachmentEmbedsFromBody(String body, long attachmentId) {
+        if (body == null || body.isEmpty()) {
+            return body == null ? "" : body;
+        }
+        String quoted = Pattern.quote("/api/life/notes/attachments/" + attachmentId + "/file");
+        String html = "(?i)<img\\b[^>]*\\bsrc=[\"'][^\"']*" + quoted + "[^\"']*[\"'][^>]*>";
+        String markdown = "(?i)!\\[[^\\]]*\\]\\([^)]*" + quoted + "[^)]*\\)";
+        String out = body.replaceAll(html, "").replaceAll(markdown, "");
+        return out.replaceAll("\\n{3,}", "\n\n");
     }
 
     public record AttachmentFile(String contentType, String filename, byte[] body) {}

@@ -983,6 +983,18 @@ app-management app-writeup-markdown-body .markdown-body::after {
   display: block;
 }
 
+app-life-photos app-writeup-markdown-body .life-embed-wrap {
+  position: relative;
+  display: block;
+}
+
+app-life-photos app-writeup-markdown-body .life-embed-wrap img.life-embed-img {
+  float: none;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+}
+
 :is(app-management, app-life-photos, app-tracker-notes) app-writeup-markdown-body .markdown-body img:not(.life-embed-img) {
   float: left;
   max-width: min(30%, 100%);
