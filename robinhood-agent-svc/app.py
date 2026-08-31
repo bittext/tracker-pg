@@ -19,7 +19,7 @@ Endpoints
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Callable
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
@@ -28,14 +28,22 @@ from oauth_service import refresh_access_token
 from banking_oauth_service import refresh_banking_access_token
 from banking_sync_service import run_banking_sync
 from order_service import run_place, run_review
-from financials_service import run_financials
 from quote_service import run_quotes
 from sync_service import run_sync
 from crypto_trading_service import run_crypto_sync
 from crypto_order_service import run_crypto_place_order
 
+try:
+    from financials_service import run_financials as _run_financials
+except ImportError:
+    _run_financials = None
+
+run_financials: Callable[..., dict[str, Any]] | None = _run_financials
+
 LOGGER = logging.getLogger("robinhood-agent-svc")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s :: %(message)s")
+if run_financials is None:
+    LOGGER.error("financials_service missing; /v1/financials disabled, other endpoints stay up")
 
 app = FastAPI(title="robinhood-agent-svc", version="2.0.0")
 
@@ -201,6 +209,8 @@ def banking_refresh_token(body: BankingRefreshTokenRequest) -> dict[str, Any]:
 
 @app.post("/v1/financials")
 def financials(body: FinancialsRequest) -> dict[str, Any]:
+    if run_financials is None:
+        raise HTTPException(status_code=503, detail="financials_service is not installed in this image")
     try:
         return run_financials(body.access_token, body.symbol, limit=body.limit)
     except PermissionError as exc:
