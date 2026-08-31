@@ -121,6 +121,7 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
   html: SafeHtml = this.sanitizer.bypassSecurityTrustHtml('');
 
   private blobUrls: string[] = [];
+  private readonly blobByKey = new Map<string, string>();
   private loadSeq = 0;
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -195,8 +196,8 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
   }
 
   private render(): void {
-    this.revokeAll();
     const src = this.repairBrokenPdfCoverImgTags((this.body ?? '').trim());
+    this.revokeUnusedBlobs(this.collectAttKeys(src));
     if (!src) {
       this.html = this.sanitizer.bypassSecurityTrustHtml('');
       return;
@@ -367,6 +368,15 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
         img.classList.add('note-embed-url-cover');
       }
 
+      const cached = this.blobByKey.get(this.attBlobKey(ref.kind, ref.id));
+      if (cached) {
+        img.classList.remove('life-embed-img--loading', 'life-embed-img--error');
+        img.src = cached;
+        this.applyEmbeddedImageSize(img);
+        this.wrapRemovableLifeImage(img, ref);
+        return;
+      }
+
       this.fetchBlob(ref).subscribe({
         next: (blob) => {
           void this.classifyBlob(blob, name).then((kind) => {
@@ -379,7 +389,8 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
               return;
             }
             const url = URL.createObjectURL(blob);
-            this.blobUrls.push(url);
+            this.blobByKey.set(this.attBlobKey(ref.kind, ref.id), url);
+            this.blobUrls = [...this.blobByKey.values()];
             img.classList.remove('life-embed-img--loading', 'life-embed-img--error');
             img.src = url;
             this.applyEmbeddedImageSize(img);
@@ -696,10 +707,49 @@ export class WriteupMarkdownBodyComponent implements OnChanges, OnDestroy {
     );
   }
 
+  private attBlobKey(kind: AttachmentKind, id: number): string {
+    return `${kind}:${id}`;
+  }
+
+  private collectAttKeys(src: string): Set<string> {
+    const keys = new Set<string>();
+    if (!src) {
+      return keys;
+    }
+    const re =
+      /\/api\/(management\/writeups|life\/notes|markets\/tracker\/notes)\/attachments\/(\d+)\/file/gi;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(src))) {
+      const path = m[1] ?? '';
+      const id = Number(m[2]);
+      if (!Number.isFinite(id)) {
+        continue;
+      }
+      const kind: AttachmentKind = path.startsWith('life')
+        ? 'life'
+        : path.startsWith('markets')
+          ? 'tracker'
+          : 'writeup';
+      keys.add(this.attBlobKey(kind, id));
+    }
+    return keys;
+  }
+
+  private revokeUnusedBlobs(keep: Set<string>): void {
+    for (const [key, url] of [...this.blobByKey.entries()]) {
+      if (!keep.has(key)) {
+        URL.revokeObjectURL(url);
+        this.blobByKey.delete(key);
+      }
+    }
+    this.blobUrls = [...this.blobByKey.values()];
+  }
+
   private revokeAll(): void {
-    for (const u of this.blobUrls) {
+    for (const u of this.blobByKey.values()) {
       URL.revokeObjectURL(u);
     }
+    this.blobByKey.clear();
     this.blobUrls = [];
   }
 }

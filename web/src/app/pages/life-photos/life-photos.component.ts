@@ -414,6 +414,7 @@ export class LifePhotosComponent implements OnInit, OnDestroy {
           subject: saved.subject,
           body: saved.body ?? '',
         });
+        const wasCreate = this.noteEditingId == null;
         this.noteSelectedId = saved.id;
         if (!(this.noteDraft.subject || '').trim()) {
           this.noteDraft = { ...this.noteDraft, subject: saved.subject || 'Untitled' };
@@ -427,10 +428,15 @@ export class LifePhotosComponent implements OnInit, OnDestroy {
           if (!opts.quiet) {
             this.snackBar.open(wasUpdate ? 'Note updated' : 'Note saved', undefined, { duration: 2000 });
           }
+          this.reloadMonthNotesData();
         } else {
           this.noteEditingId = saved.id;
+          if (wasCreate) {
+            this.reloadMonthNotesData();
+          } else {
+            this.patchNoteInList(saved);
+          }
         }
-        this.reloadMonthNotesData();
       }),
       catchError((e) => {
         if (!opts.quiet) {
@@ -753,21 +759,52 @@ export class LifePhotosComponent implements OnInit, OnDestroy {
       return;
     }
     if (this.noteViewMode === 'compose') {
+      this.noteAutosave.cancel();
       this.noteDraft = {
         ...this.noteDraft,
         body: this.stripLifeImageEmbeds(this.noteDraft.body ?? '', attachmentId),
       };
-      this.onNoteDraftChanged();
+      this.noteSelectedAttachments = this.noteSelectedAttachments.filter((a) => a.id !== attachmentId);
+      this.syncUnusedThumbUrls();
+    } else {
+      const n = this.selectedMonthNote;
+      if (n) {
+        this.patchNoteInList({
+          ...n,
+          body: this.stripLifeImageEmbeds(n.body ?? '', attachmentId),
+          attachments: (n.attachments ?? []).filter((a) => a.id !== attachmentId),
+        });
+      }
     }
     this.api.deleteMonthNoteAttachment(attachmentId).subscribe({
       next: () => {
-        this.noteSelectedAttachments = this.noteSelectedAttachments.filter((a) => a.id !== attachmentId);
-        this.syncUnusedThumbUrls();
+        if (this.noteViewMode === 'compose' && this.noteEditingId != null) {
+          this.persistMonthNote$({ exitCompose: false, quiet: true }).subscribe({
+            error: () => undefined,
+          });
+        }
         this.snackBar.open('Photo removed', undefined, { duration: 2000 });
+      },
+      error: (e) => {
+        this.err('Could not remove photo', e);
         this.reloadMonthNotesData();
       },
-      error: (e) => this.err('Could not remove photo', e),
     });
+  }
+
+  private patchNoteInList(saved: LifeMonthNoteDto): void {
+    const i = this.monthNotes.findIndex((n) => n.id === saved.id);
+    if (i >= 0) {
+      const next = this.monthNotes.slice();
+      next[i] = saved;
+      this.monthNotes = next;
+    } else {
+      this.monthNotes = [saved, ...this.monthNotes];
+    }
+    if (this.noteEditingId === saved.id || this.noteSelectedId === saved.id) {
+      this.noteSelectedAttachments = [...(saved.attachments ?? [])];
+      this.syncUnusedThumbUrls();
+    }
   }
 
   private syncUnusedThumbUrls(): void {
