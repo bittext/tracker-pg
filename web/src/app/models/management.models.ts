@@ -351,6 +351,11 @@ export interface ManagementRecordingItemDto {
   processingError: string | null;
 }
 
+export interface ManagementRecordingUploadResultDto {
+  recordings: ManagementRecordingItemDto[];
+  imageCount: number;
+}
+
 export interface ManagementRecordingListDto {
   enabled: boolean;
   storageMode: string;

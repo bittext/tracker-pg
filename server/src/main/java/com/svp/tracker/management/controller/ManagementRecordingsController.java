@@ -6,6 +6,7 @@ import com.svp.tracker.management.dto.ManagementRecordingItemDto;
 import com.svp.tracker.management.dto.ManagementRecordingListDto;
 import com.svp.tracker.management.dto.ManagementRecordingRenameRequestDto;
 import com.svp.tracker.management.dto.ManagementRecordingReprocessDto;
+import com.svp.tracker.management.dto.ManagementRecordingUploadResultDto;
 import com.svp.tracker.management.service.ManagementRecordingsService;
 import com.svp.tracker.management.service.ManagementRecordingsService.RecordingFile;
 import java.nio.charset.StandardCharsets;
@@ -68,12 +69,12 @@ public class ManagementRecordingsController {
     }
 
     /**
-     * Upload Just Press Record audio (typically chosen from the iCloud Drive folder on the user's Mac).
-     * Optional {@code relativePath} entries preserve date-folder structure (e.g. {@code 2026-07-25/08-27-11.m4a}).
+     * Upload a Just Press Record folder or loose files. {@code relativePath} entries keep the folder
+     * tree (e.g. {@code 2026-07-25/08-27-11.m4a}). Images in those folders attach to the matching clip.
      */
     @PostMapping(path = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
-    public List<ManagementRecordingItemDto> upload(
+    public ManagementRecordingUploadResultDto upload(
             @RequestParam("files") List<MultipartFile> files,
             @RequestParam(value = "relativePath", required = false) List<String> relativePaths) {
         return service.upload(files, relativePaths == null ? List.of() : relativePaths);

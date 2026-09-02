@@ -35,6 +35,18 @@
   gap: 0.65rem;
   align-items: center;
   margin-bottom: 0.85rem;
+  padding: 0.45rem 0.5rem;
+  border: 1px dashed transparent;
+  border-radius: 10px;
+}
+
+.rec-toolbar--drop {
+  border-color: color-mix(in srgb, var(--app-accent, #6366f1) 55%, transparent);
+  background: color-mix(in srgb, var(--app-accent, #6366f1) 10%, transparent);
+}
+
+.rec-drop-hint {
+  font-size: 0.82rem;
 }
 
 .rec-file-input {
@@ -138,6 +150,31 @@
   list-style: none;
   margin: 0;
   padding: 0;
+}
+
+.rec-folder {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0.55rem 0 0.2rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  opacity: 0.78;
+  word-break: break-all;
+}
+
+.rec-folder:first-child {
+  margin-top: 0;
+}
+
+.rec-folder__icon {
+  font-size: 1rem;
+  width: 1rem;
+  height: 1rem;
+}
+
+.rec-file--nested {
+  padding-left: 1.1rem;
 }
 
 .rec-file {

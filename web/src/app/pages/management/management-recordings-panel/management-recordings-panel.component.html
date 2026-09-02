@@ -2,10 +2,10 @@
   <header class="rec-head">
     <h2 id="rec-heading" class="rec-title">Recordings</h2>
     <p class="muted rec-lede">
-      Upload Just Press Record clips from your <strong>iCloud Drive</strong> folder (date folders →
-      <code>.m4a</code>). Files are stored in Tracker’s cloud library. New uploads auto-transcribe and summarize in
-      the background. Rename in Tracker, then <strong>Download</strong> and drop into iCloud if you want the Finder
-      name to match — the server cannot write back to iCloud directly.
+      Upload the Just Press Record folder itself (or drop it here). Date folders, clips, and photos stay nested the
+      same way. Files are stored in Tracker’s cloud library. New uploads auto-transcribe and summarize in the
+      background. Rename in Tracker, then <strong>Download</strong> and drop into iCloud if you want the Finder name
+      to match — the server cannot write back to iCloud directly.
     </p>
   </header>
 
@@ -21,13 +21,20 @@
     </p>
   }
 
-  <div class="rec-toolbar">
+  <div
+    class="rec-toolbar"
+    [class.rec-toolbar--drop]="droppingFolder"
+    (dragover)="onFolderDragOver($event)"
+    (dragleave)="onFolderDragLeave($event)"
+    (drop)="onFolderDrop($event)"
+  >
     <input
       #folderPick
       type="file"
       class="rec-file-input"
       multiple
       webkitdirectory
+      directory
       (change)="onUploadSelected($event)"
       [attr.aria-label]="'Upload Just Press Record folder'"
     />
@@ -36,7 +43,7 @@
       type="file"
       class="rec-file-input"
       multiple
-      accept="audio/mp4,audio/x-m4a,audio/mpeg,audio/wav,audio/webm,audio/ogg,.m4a,.mp3,.wav,.webm,.ogg"
+      accept="audio/mp4,audio/x-m4a,audio/mpeg,audio/wav,audio/webm,audio/ogg,image/*,.m4a,.mp3,.wav,.webm,.ogg,.jpg,.jpeg,.png,.gif,.webp,.heic,.heif"
       (change)="onUploadSelected($event)"
       [attr.aria-label]="'Upload recording files'"
     />
@@ -44,14 +51,15 @@
       @if (uploading) {
         <mat-spinner diameter="18" />
       } @else {
-        <mat-icon>cloud_upload</mat-icon>
+        <mat-icon>drive_folder_upload</mat-icon>
       }
-      Upload iCloud folder
+      Upload folder
     </button>
     <button mat-stroked-button type="button" (click)="filePick.click()" [disabled]="uploading">
       <mat-icon>upload_file</mat-icon>
       Upload files
     </button>
+    <span class="muted rec-drop-hint">or drop a folder to keep its files in place</span>
 
     <mat-form-field appearance="outline" class="rec-search" subscriptSizing="dynamic">
       <mat-label>Search name or transcript</mat-label>
@@ -130,40 +138,49 @@
             <p class="muted rec-empty">No recordings in this view.</p>
           } @else {
             <ul class="rec-file-list">
-              @for (r of recordings; track r.path) {
-                <li>
-                  <button
-                    type="button"
-                    class="rec-file"
-                    [class.rec-file--active]="selected?.path === r.path"
-                    (click)="selectRecording(r)"
-                  >
-                    <span class="rec-file-name">{{ r.displayName }}</span>
-                    <span class="rec-file-meta">
-                      {{ formatBytes(r.fileSizeBytes) }}
-                      @if (r.hasTranscript) {
-                        <mat-icon class="rec-flag" inline title="Has transcript">subtitles</mat-icon>
-                      }
-                      @if (r.hasSummary) {
-                        <mat-icon class="rec-flag" inline title="Has summary">summarize</mat-icon>
-                      }
-                      @if (r.processingStatus === 'PENDING' || r.processingStatus === 'PROCESSING') {
-                        <mat-icon class="rec-flag rec-flag--processing" inline title="Building transcript…">
-                          hourglass_top
-                        </mat-icon>
-                      }
-                      @if (r.processingStatus === 'FAILED') {
-                        <mat-icon
-                          class="rec-flag rec-flag--failed"
-                          inline
-                          [title]="r.processingError || 'Last reprocess failed'"
-                        >
-                          error
-                        </mat-icon>
-                      }
-                    </span>
-                  </button>
-                </li>
+              @for (group of recordingGroups; track group.folder) {
+                @if (group.folder) {
+                  <li class="rec-folder" [title]="group.folder">
+                    <mat-icon class="rec-folder__icon" inline>folder</mat-icon>
+                    <span>{{ group.folder }}</span>
+                  </li>
+                }
+                @for (r of group.items; track r.path) {
+                  <li>
+                    <button
+                      type="button"
+                      class="rec-file"
+                      [class.rec-file--nested]="!!group.folder"
+                      [class.rec-file--active]="selected?.path === r.path"
+                      (click)="selectRecording(r)"
+                    >
+                      <span class="rec-file-name">{{ r.displayName }}</span>
+                      <span class="rec-file-meta">
+                        {{ formatBytes(r.fileSizeBytes) }}
+                        @if (r.hasTranscript) {
+                          <mat-icon class="rec-flag" inline title="Has transcript">subtitles</mat-icon>
+                        }
+                        @if (r.hasSummary) {
+                          <mat-icon class="rec-flag" inline title="Has summary">summarize</mat-icon>
+                        }
+                        @if (r.processingStatus === 'PENDING' || r.processingStatus === 'PROCESSING') {
+                          <mat-icon class="rec-flag rec-flag--processing" inline title="Building transcript…">
+                            hourglass_top
+                          </mat-icon>
+                        }
+                        @if (r.processingStatus === 'FAILED') {
+                          <mat-icon
+                            class="rec-flag rec-flag--failed"
+                            inline
+                            [title]="r.processingError || 'Last reprocess failed'"
+                          >
+                            error
+                          </mat-icon>
+                        }
+                      </span>
+                    </button>
+                  </li>
+                }
               }
             </ul>
           }
@@ -176,8 +193,8 @@
         <mat-card appearance="outlined" class="rec-card rec-card--placeholder">
           <mat-card-content>
             <p class="muted">
-              Upload the Just Press Record <strong>Documents</strong> folder from iCloud Drive, then select a recording
-              to play it. Transcript and summary build automatically after upload.
+              Upload or drop the Just Press Record folder. Clips and photos stay in their date folders. Select a
+              recording to play it — transcript and summary build automatically after upload.
             </p>
           </mat-card-content>
         </mat-card>

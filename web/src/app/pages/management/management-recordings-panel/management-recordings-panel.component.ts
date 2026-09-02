@@ -71,6 +71,7 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
   uploading = false;
   uploadingImages = false;
   downloading = false;
+  droppingFolder = false;
 
   list: ManagementRecordingListDto | null = null;
   days: ManagementRecordingDayDto[] = [];
@@ -159,34 +160,76 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
     if (!fileList || fileList.length === 0) {
       return;
     }
-    const files: File[] = [];
-    const relativePaths: string[] = [];
-    for (let i = 0; i < fileList.length; i++) {
-      const f = fileList.item(i);
-      if (!f) {
-        continue;
-      }
-      const rel = (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name;
-      if (!/\.(m4a|mp3|wav|webm|ogg)$/i.test(rel)) {
-        continue;
-      }
-      files.push(f);
-      relativePaths.push(rel);
-    }
+    const collected = collectRecordingUploads(Array.from(fileList));
     input.value = '';
-    if (files.length === 0) {
-      this.snackBar.open('No audio files found in that selection', 'Dismiss', { duration: 4000 });
+    this.uploadCollected(collected);
+  }
+
+  onFolderDragOver(ev: DragEvent): void {
+    if (!ev.dataTransfer?.types?.includes('Files') || this.uploading) {
       return;
     }
+    ev.preventDefault();
+    ev.dataTransfer.dropEffect = 'copy';
+    this.droppingFolder = true;
+  }
+
+  onFolderDragLeave(ev: DragEvent): void {
+    const next = ev.relatedTarget as Node | null;
+    if (next && (ev.currentTarget as Node).contains(next)) {
+      return;
+    }
+    this.droppingFolder = false;
+  }
+
+  async onFolderDrop(ev: DragEvent): Promise<void> {
+    ev.preventDefault();
+    this.droppingFolder = false;
+    if (this.uploading || !ev.dataTransfer) {
+      return;
+    }
+    const collected = collectRecordingUploads(await filesFromDataTransfer(ev.dataTransfer));
+    this.uploadCollected(collected);
+  }
+
+  get recordingGroups(): { folder: string; items: ManagementRecordingItemDto[] }[] {
+    const map = new Map<string, ManagementRecordingItemDto[]>();
+    for (const r of this.recordings) {
+      const folder = parentFolder(r.path);
+      const list = map.get(folder) ?? [];
+      list.push(r);
+      map.set(folder, list);
+    }
+    return [...map.entries()].map(([folder, items]) => ({ folder, items }));
+  }
+
+  private uploadCollected(collected: { file: File; relativePath: string }[]): void {
+    if (collected.length === 0) {
+      this.snackBar.open('No audio or image files found in that folder', 'Dismiss', { duration: 4000 });
+      return;
+    }
+    const audioFirst = [...collected].sort((a, b) => {
+      const aAudio = isAudioPath(a.relativePath) ? 0 : 1;
+      const bAudio = isAudioPath(b.relativePath) ? 0 : 1;
+      return aAudio - bAudio;
+    });
+    const files = audioFirst.map((c) => c.file);
+    const relativePaths = audioFirst.map((c) => c.relativePath);
     this.uploading = true;
     this.api.uploadRecordings(files, relativePaths).subscribe({
-      next: (items) => {
+      next: (res) => {
         this.uploading = false;
-        this.snackBar.open(
-          `Uploaded ${items.length} recording(s). Transcript and summary will build in the background.`,
-          'Dismiss',
-          { duration: 4500 },
-        );
+        const n = res.recordings?.length ?? 0;
+        const photos = res.imageCount ?? 0;
+        let msg: string;
+        if (n && photos) {
+          msg = `Uploaded ${n} recording(s) and kept ${photos} photo(s) in their folders. Transcript and summary will build in the background.`;
+        } else if (n) {
+          msg = `Uploaded ${n} recording(s). Transcript and summary will build in the background.`;
+        } else {
+          msg = `Kept ${photos} photo(s) with the matching recording(s).`;
+        }
+        this.snackBar.open(msg, 'Dismiss', { duration: 5000 });
         this.refreshAll();
       },
       error: (err) => {
@@ -790,4 +833,106 @@ export class ManagementRecordingsPanelComponent implements OnInit, OnDestroy {
       year: 'numeric',
     });
   }
+}
+
+const AUDIO_RE = /\.(m4a|mp3|wav|webm|ogg)$/i;
+const IMAGE_RE = /\.(jpe?g|png|gif|webp|heic|heif)$/i;
+
+function parentFolder(path: string | null | undefined): string {
+  if (!path) {
+    return '';
+  }
+  const slash = path.lastIndexOf('/');
+  return slash > 0 ? path.slice(0, slash) : '';
+}
+
+function leafName(path: string): string {
+  const slash = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+  return slash >= 0 ? path.slice(slash + 1) : path;
+}
+
+function isAudioPath(path: string): boolean {
+  return AUDIO_RE.test(leafName(path));
+}
+
+function isImagePath(path: string): boolean {
+  return IMAGE_RE.test(leafName(path));
+}
+
+function isJunkPath(path: string): boolean {
+  const leaf = leafName(path);
+  if (!leaf || leaf.startsWith('.')) {
+    return true;
+  }
+  const lower = leaf.toLowerCase();
+  return lower === 'thumbs.db' || lower.endsWith('.icloud');
+}
+
+function collectRecordingUploads(files: File[]): { file: File; relativePath: string }[] {
+  const out: { file: File; relativePath: string }[] = [];
+  for (const file of files) {
+    const rel = (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name;
+    if (isJunkPath(rel) || (!isAudioPath(rel) && !isImagePath(rel))) {
+      continue;
+    }
+    out.push({ file, relativePath: rel });
+  }
+  return out;
+}
+
+async function filesFromDataTransfer(dt: DataTransfer): Promise<File[]> {
+  const items = dt.items;
+  const entries: FileSystemEntry[] = [];
+  if (items) {
+    for (let i = 0; i < items.length; i++) {
+      const entry = items[i].webkitGetAsEntry?.();
+      if (entry) {
+        entries.push(entry);
+      }
+    }
+  }
+  if (entries.length === 0) {
+    return Array.from(dt.files || []);
+  }
+  const collected: File[] = [];
+  for (const entry of entries) {
+    await walkFileTree(entry, entry.name, collected);
+  }
+  return collected;
+}
+
+function walkFileTree(entry: FileSystemEntry, path: string, out: File[]): Promise<void> {
+  if (entry.isFile) {
+    return new Promise((resolve, reject) => {
+      (entry as FileSystemFileEntry).file((file) => {
+        Object.defineProperty(file, 'webkitRelativePath', { value: path, configurable: true });
+        out.push(file);
+        resolve();
+      }, reject);
+    });
+  }
+  if (!entry.isDirectory) {
+    return Promise.resolve();
+  }
+  const reader = (entry as FileSystemDirectoryEntry).createReader();
+  return new Promise((resolve, reject) => {
+    const readBatch = (): void => {
+      reader.readEntries(async (batch) => {
+        if (!batch.length) {
+          resolve();
+          return;
+        }
+        try {
+          for (const child of batch) {
+            const childPath = path ? `${path}/${child.name}` : child.name;
+            await walkFileTree(child, childPath, out);
+          }
+          readBatch();
+        } catch (err) {
+          reject(err);
+        }
+      }, reject);
+    };
+    readBatch();
+  });
 }

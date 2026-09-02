@@ -26,6 +26,7 @@ import {
   ManagementRecordingItemDto,
   ManagementRecordingListDto,
   ManagementRecordingReprocessDto,
+  ManagementRecordingUploadResultDto,
   ManagementWriteupAttachmentDto,
   ManagementWriteupDto,
   ManagementWriteupGroupOrderRequest,
@@ -437,11 +438,17 @@ export class ManagementApiService {
   uploadRecordings(files: File[], relativePaths: string[]) {
     const batches = chunkRecordingUploads(files, relativePaths, 12, 40 * 1024 * 1024);
     if (batches.length === 0) {
-      return of([] as ManagementRecordingItemDto[]);
+      return of({ recordings: [], imageCount: 0 } as ManagementRecordingUploadResultDto);
     }
     return from(batches).pipe(
       concatMap((batch) => this.uploadRecordingsBatch(batch.files, batch.relativePaths)),
-      reduce((acc, items) => acc.concat(items), [] as ManagementRecordingItemDto[])
+      reduce(
+        (acc, res) => ({
+          recordings: acc.recordings.concat(res.recordings ?? []),
+          imageCount: acc.imageCount + (res.imageCount ?? 0),
+        }),
+        { recordings: [], imageCount: 0 } as ManagementRecordingUploadResultDto
+      )
     );
   }
 
@@ -453,7 +460,7 @@ export class ManagementApiService {
         fd.append('relativePath', relativePaths[i]);
       }
     }
-    return this.http.post<ManagementRecordingItemDto[]>(`${this.recordingsRoot}/upload`, fd);
+    return this.http.post<ManagementRecordingUploadResultDto>(`${this.recordingsRoot}/upload`, fd);
   }
 
   deleteRecording(path: string) {

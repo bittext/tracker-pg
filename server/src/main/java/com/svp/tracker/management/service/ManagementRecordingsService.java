@@ -16,6 +16,7 @@ import com.svp.tracker.management.dto.ManagementRecordingItemDto;
 import com.svp.tracker.management.dto.ManagementRecordingListDto;
 import com.svp.tracker.management.dto.ManagementRecordingReprocessDto;
 import com.svp.tracker.management.dto.ManagementRecordingTranscriptSegmentDto;
+import com.svp.tracker.management.dto.ManagementRecordingUploadResultDto;
 import com.svp.tracker.management.repository.ManagementRecordingCacheRepository;
 import com.svp.tracker.management.repository.ManagementRecordingImageRepository;
 import com.svp.tracker.util.HeicImageNormalizer;
@@ -118,13 +119,13 @@ public class ManagementRecordingsService {
                 .thenComparing(ManagementRecordingItemDto::displayName));
 
         String note = items.isEmpty()
-                ? "No recordings uploaded yet. Choose the Just Press Record Documents folder from iCloud Drive (date folders of .m4a files) and upload."
+                ? "No recordings uploaded yet. Upload or drop the Just Press Record folder — date folders, clips, and photos stay nested."
                 : null;
         return new ManagementRecordingListDto(true, "cloud", note, days, items);
     }
 
     @Transactional
-    public List<ManagementRecordingItemDto> upload(List<MultipartFile> files, List<String> relativePaths) {
+    public ManagementRecordingUploadResultDto upload(List<MultipartFile> files, List<String> relativePaths) {
         if (!properties.configured()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Recordings are disabled");
         }
@@ -134,6 +135,8 @@ public class ManagementRecordingsService {
         long max = journalProperties.getMaxAttachmentBytes();
         long owner = currentUser.requireUserId();
         List<ManagementRecordingItemDto> out = new ArrayList<>();
+        Map<String, ManagementRecordingCache> uploadedByPath = new HashMap<>();
+        List<PendingFolderImage> pendingImages = new ArrayList<>();
 
         for (int i = 0; i < files.size(); i++) {
             MultipartFile file = files.get(i);
@@ -142,8 +145,20 @@ public class ManagementRecordingsService {
             }
             String relHint = relativePaths != null && i < relativePaths.size() ? relativePaths.get(i) : null;
             String originalName = Objects.requireNonNullElse(file.getOriginalFilename(), "recording.m4a");
-            if (!isAudioFilename(originalName) && (relHint == null || !isAudioFilename(relHint))) {
-                // Skip non-audio (e.g. .DS_Store when uploading a folder).
+            String pathHint = relHint != null && !relHint.isBlank() ? relHint : originalName;
+            if (isJunkFilename(pathHint)) {
+                continue;
+            }
+            if (isImageFilename(pathHint) || isImageFilename(originalName)) {
+                if (file.getSize() > max) {
+                    throw new ResponseStatusException(
+                            HttpStatus.PAYLOAD_TOO_LARGE, originalName + " exceeds " + max + " bytes");
+                }
+                pendingImages.add(new PendingFolderImage(normalizeRelativePath(pathHint, originalName), file));
+                continue;
+            }
+            if (!isAudioFilename(originalName) && !isAudioFilename(pathHint)) {
+                // Skip non-audio/non-image (e.g. .DS_Store, sidecars) so the folder still uploads.
                 continue;
             }
             if (file.getSize() > max) {
@@ -152,7 +167,7 @@ public class ManagementRecordingsService {
                         originalName + " exceeds " + max + " bytes");
             }
 
-            String relativePath = normalizeRelativePath(relHint, originalName);
+            String relativePath = normalizeRelativePath(pathHint, originalName);
             String displayName = Path.of(relativePath).getFileName().toString();
             LocalDate day = parseDayFromRelativePath(relativePath);
 
@@ -200,14 +215,17 @@ public class ManagementRecordingsService {
             row.setProcessingStartedAt(null);
             row.setProcessingCompletedAt(null);
             row = cacheRepository.save(row);
+            uploadedByPath.put(relativePath, row);
             out.add(toItem(row));
         }
 
-        if (out.isEmpty()) {
+        int imageCount = attachFolderImages(owner, pendingImages, uploadedByPath);
+        if (out.isEmpty() && imageCount == 0) {
             throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST, "No audio files found in the upload (.m4a, .mp3, .wav, …)");
+                    HttpStatus.BAD_REQUEST,
+                    "No audio or image files found in the folder (.m4a, .mp3, .wav, .jpg, …)");
         }
-        return out;
+        return new ManagementRecordingUploadResultDto(out, imageCount);
     }
 
     @Transactional(readOnly = true)
@@ -262,8 +280,6 @@ public class ManagementRecordingsService {
         }
         long owner = currentUser.requireUserId();
         long maxBytes = journalProperties.getMaxAttachmentBytes();
-        Integer maxSort = imageRepository.findMaxSortOrder(row.getId());
-        int sort = maxSort == null ? 0 : maxSort + 1;
         List<ManagementRecordingImageDto> out = new ArrayList<>();
         for (MultipartFile file : files) {
             if (file == null || file.isEmpty()) {
@@ -278,34 +294,10 @@ public class ManagementRecordingsService {
                 throw new ResponseStatusException(
                         HttpStatus.PAYLOAD_TOO_LARGE, "Image exceeds max size of " + maxBytes + " bytes");
             }
-            byte[] bytes;
-            try {
-                bytes = file.getBytes();
-            } catch (IOException ex) {
-                throw new UncheckedIOException(ex);
+            ManagementRecordingImageDto saved = persistImage(row, owner, file, maxBytes);
+            if (saved != null) {
+                out.add(saved);
             }
-            var normalized = HeicImageNormalizer.normalize(
-                    Path.of(originalName).getFileName().toString(), file.getContentType(), bytes);
-            if (normalized.bytes().length > maxBytes) {
-                throw new ResponseStatusException(
-                        HttpStatus.PAYLOAD_TOO_LARGE, "Image exceeds max size of " + maxBytes + " bytes");
-            }
-            String key;
-            try (var in = new ByteArrayInputStream(normalized.bytes())) {
-                key = blobStore.put(owner, 0L, in, normalized.bytes().length);
-            } catch (IOException ex) {
-                throw new UncheckedIOException(ex);
-            }
-            ManagementRecordingImage img = new ManagementRecordingImage();
-            img.setRecording(row);
-            img.setOwnerUserId(owner);
-            img.setStorageKey(key);
-            img.setOriginalFilename(normalized.filename());
-            img.setContentType(guessImageContentType(normalized.filename(), normalized.contentType()));
-            img.setSizeBytes((long) normalized.bytes().length);
-            img.setSortOrder(sort++);
-            img = imageRepository.save(img);
-            out.add(toImageDto(img));
         }
         if (out.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No image files found in the upload");
@@ -713,15 +705,146 @@ public class ManagementRecordingsService {
         if (normalized.contains("..") || normalized.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid path");
         }
-        // Flat file upload without day folder → stash under today.
+        // Flat file upload without a folder → stash under today so the library stays dated.
         if (!normalized.contains("/")) {
-            if (!isAudioFilename(normalized)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Not an audio recording");
-            }
             return LocalDate.now() + "/" + normalized;
         }
         return normalized;
     }
+
+    private int attachFolderImages(
+            long owner,
+            List<PendingFolderImage> images,
+            Map<String, ManagementRecordingCache> uploadedByPath) {
+        if (images.isEmpty()) {
+            return 0;
+        }
+        long maxBytes = journalProperties.getMaxAttachmentBytes();
+        Map<String, ManagementRecordingCache> byPath = new HashMap<>(uploadedByPath);
+        for (ManagementRecordingCache row :
+                cacheRepository.findByOwnerUserIdOrderByRecordedDayDescUpdatedAtDesc(owner)) {
+            if (row.getStorageKey() == null || row.getStorageKey().isBlank()) {
+                continue;
+            }
+            byPath.putIfAbsent(row.getRelativePath(), row);
+        }
+        List<ManagementRecordingCache> library = new ArrayList<>(byPath.values());
+        int count = 0;
+        for (PendingFolderImage pending : images) {
+            ManagementRecordingCache target = resolveImageTarget(pending.relativePath(), library);
+            if (target == null) {
+                log.info("Skipping folder image with no recording in {}: {}", parentFolder(pending.relativePath()), pending.relativePath());
+                continue;
+            }
+            ManagementRecordingImageDto saved = persistImage(target, owner, pending.file(), maxBytes);
+            if (saved != null) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    static ManagementRecordingCache resolveImageTarget(
+            String imagePath, List<ManagementRecordingCache> recordings) {
+        String folder = parentFolder(imagePath);
+        String stem = fileStem(leafName(imagePath));
+        ManagementRecordingCache stemMatch = null;
+        ManagementRecordingCache firstInFolder = null;
+        int sameFolder = 0;
+        for (ManagementRecordingCache row : recordings) {
+            if (row == null || row.getRelativePath() == null) {
+                continue;
+            }
+            if (!parentFolder(row.getRelativePath()).equals(folder)) {
+                continue;
+            }
+            sameFolder++;
+            if (firstInFolder == null) {
+                firstInFolder = row;
+            }
+            if (fileStem(leafName(row.getRelativePath())).equalsIgnoreCase(stem)) {
+                stemMatch = row;
+            }
+        }
+        if (stemMatch != null) {
+            return stemMatch;
+        }
+        return sameFolder >= 1 ? firstInFolder : null;
+    }
+
+    private ManagementRecordingImageDto persistImage(
+            ManagementRecordingCache row, long owner, MultipartFile file, long maxBytes) {
+        String originalName = file.getOriginalFilename() == null ? "image.jpg" : file.getOriginalFilename();
+        String leaf = Path.of(originalName).getFileName().toString();
+        byte[] bytes;
+        try {
+            bytes = file.getBytes();
+        } catch (IOException ex) {
+            throw new UncheckedIOException(ex);
+        }
+        var normalized = HeicImageNormalizer.normalize(leaf, file.getContentType(), bytes);
+        boolean duplicate = imageRepository.findByRecordingIdOrderBySortOrderAscIdAsc(row.getId()).stream()
+                .anyMatch(img -> img.getOriginalFilename() != null
+                        && (img.getOriginalFilename().equalsIgnoreCase(leaf)
+                                || img.getOriginalFilename().equalsIgnoreCase(normalized.filename())));
+        if (duplicate) {
+            return null;
+        }
+        if (normalized.bytes().length > maxBytes) {
+            throw new ResponseStatusException(
+                    HttpStatus.PAYLOAD_TOO_LARGE, "Image exceeds max size of " + maxBytes + " bytes");
+        }
+        String key;
+        try (var in = new ByteArrayInputStream(normalized.bytes())) {
+            key = blobStore.put(owner, 0L, in, normalized.bytes().length);
+        } catch (IOException ex) {
+            throw new UncheckedIOException(ex);
+        }
+        Integer maxSort = imageRepository.findMaxSortOrder(row.getId());
+        int sort = maxSort == null ? 0 : maxSort + 1;
+        ManagementRecordingImage img = new ManagementRecordingImage();
+        img.setRecording(row);
+        img.setOwnerUserId(owner);
+        img.setStorageKey(key);
+        img.setOriginalFilename(normalized.filename());
+        img.setContentType(guessImageContentType(normalized.filename(), normalized.contentType()));
+        img.setSizeBytes((long) normalized.bytes().length);
+        img.setSortOrder(sort);
+        img = imageRepository.save(img);
+        return toImageDto(img);
+    }
+
+    private static boolean isJunkFilename(String name) {
+        String leaf = leafName(name);
+        if (leaf.isBlank() || leaf.startsWith(".")) {
+            return true;
+        }
+        String lower = leaf.toLowerCase(Locale.ROOT);
+        return lower.equals("thumbs.db") || lower.endsWith(".icloud");
+    }
+
+    private static String parentFolder(String path) {
+        if (path == null) {
+            return "";
+        }
+        int slash = path.lastIndexOf('/');
+        return slash < 0 ? "" : path.substring(0, slash);
+    }
+
+    private static String leafName(String path) {
+        if (path == null) {
+            return "";
+        }
+        int slash = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+        return slash >= 0 ? path.substring(slash + 1) : path;
+    }
+
+    private static String fileStem(String filename) {
+        int dot = filename.lastIndexOf('.');
+        return dot < 0 ? filename : filename.substring(0, dot);
+    }
+
+    private record PendingFolderImage(String relativePath, MultipartFile file) {}
 
     private static LocalDate parseDayFromRelativePath(String relativePath) {
         String[] parts = relativePath.split("/");
