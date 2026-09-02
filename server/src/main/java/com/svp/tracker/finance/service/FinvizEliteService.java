@@ -475,6 +475,17 @@ public class FinvizEliteService {
                 null,
                 "cap_midover,geo_usa,ta_highlow52w_a0to10h,sh_avgvol_o200",
                 "111"));
+        list.add(new FinvizElitePresetDto(
+                "ath-momentum-growth",
+                "ATH / momentum growth",
+                "filter",
+                "Near 52w high, price > SMA50 > SMA200, EPS/sales growth, ROE, low debt, mid-cap+, liquid",
+                null,
+                "cap_midover,geo_usa,ta_sma50_pa,ta_sma200_sb50,ta_highlow52w_b0to5h,"
+                        + "fa_epsyoy1_o15,fa_sales5years_o15,fa_roe_o15,fa_debteq_u0.5,sh_avgvol_o500,"
+                        + "fa_epsyoy_o20,fa_salesyoyttm_o15,ta_perf_26w15o,ta_perf2_52w25o,"
+                        + "fa_epsrev_bp,sh_instown_o40,sh_relvol_o1.2",
+                "111"));
         return List.copyOf(list);
     }
 
