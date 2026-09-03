@@ -76,7 +76,21 @@
           <strong>{{ tr.symbol }}</strong>
           <span class="muted">{{ tr.side || '—' }}</span>
           <span>{{ tr.quantity | number: '1.0-4' }}</span>
-          <span class="muted">{{ tr.accountLabel || ('••••' + (tr.accountSuffix || '')) }}</span>
+          <span class="rh-day-dialog__trade-price">
+            @if (tradeUnitPrice(tr); as px) {
+              @ {{ px | currency }}
+            } @else {
+              <span class="muted">—</span>
+            }
+          </span>
+          <span class="rh-day-dialog__trade-cost">
+            @if (tradeCost(tr); as cost) {
+              {{ cost | currency }}
+            }
+          </span>
+          <span class="muted rh-day-dialog__trade-account">{{
+            tr.accountLabel || ('••••' + (tr.accountSuffix || ''))
+          }}</span>
         </li>
       }
       @if (data.day.trades.length > 12) {

@@ -159,13 +159,29 @@
 
   li {
     display: grid;
-    grid-template-columns: 4.5rem 4rem auto 1fr;
+    grid-template-columns: 4.5rem 3.2rem auto auto auto minmax(0, 1fr);
     gap: 0.5rem;
     align-items: baseline;
     padding: 0.3rem 0.2rem;
     font-size: 0.85rem;
     border-bottom: 1px solid var(--app-border, rgba(15, 23, 42, 0.06));
   }
+}
+
+.rh-day-dialog__trade-price,
+.rh-day-dialog__trade-cost {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.rh-day-dialog__trade-cost {
+  font-weight: 600;
+}
+
+.rh-day-dialog__trade-account {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .rh-day-dialog__pnl--pos {
@@ -205,6 +221,10 @@
   }
 
   .rh-day-dialog__trades li {
-    grid-template-columns: 3.5rem 3.5rem 1fr;
+    grid-template-columns: 3.5rem 3rem auto auto;
+  }
+
+  .rh-day-dialog__trade-account {
+    display: none;
   }
 }

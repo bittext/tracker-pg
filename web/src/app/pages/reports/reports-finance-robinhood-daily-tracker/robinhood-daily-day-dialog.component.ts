@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import {
   RobinhoodRhDailyTrackerAccountCellDto,
   RobinhoodRhDailyTrackerDayDto,
+  RobinhoodRhDailyTradeDto,
 } from '../../../models/finance.models';
 import { robinhoodAccountDisplayLabel } from '../../../util/robinhood-account-display';
 import {
@@ -96,6 +97,25 @@ export class RobinhoodDailyDayDialogComponent {
 
   accountFallbackLabel(suffix: string): string {
     return robinhoodAccountDisplayLabel(suffix);
+  }
+
+  /** Fill price when the trade executed; limit is only a fallback. */
+  tradeUnitPrice(tr: RobinhoodRhDailyTradeDto): number | null {
+    if (tr.averagePrice != null && Number.isFinite(tr.averagePrice)) {
+      return tr.averagePrice;
+    }
+    if (tr.limitPrice != null && Number.isFinite(tr.limitPrice)) {
+      return tr.limitPrice;
+    }
+    return null;
+  }
+
+  tradeCost(tr: RobinhoodRhDailyTradeDto): number | null {
+    const px = this.tradeUnitPrice(tr);
+    if (px == null || tr.quantity == null || !Number.isFinite(tr.quantity)) {
+      return null;
+    }
+    return Math.abs(tr.quantity) * Math.abs(px);
   }
 
   deltaPercent(current: number | null, change: number | null): number | null {
