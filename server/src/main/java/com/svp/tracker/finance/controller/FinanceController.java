@@ -39,6 +39,7 @@ import com.svp.tracker.finance.dto.RobinhoodRhDailyManualCaptureDeleteResultDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailySnapshotDetailDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerReportDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerRefreshHintDto;
+import com.svp.tracker.finance.dto.RobinhoodRhPeriodBalancesDto;
 import com.svp.tracker.finance.dto.RhDailyTrackerAccountAlertSaveRequestDto;
 import com.svp.tracker.finance.dto.RhDailyTrackerAccountAlertsDto;
 import com.svp.tracker.finance.dto.RhDailyTrackerAlertEventDto;
@@ -51,6 +52,7 @@ import com.svp.tracker.finance.service.RobinhoodRhCryptoTrackerService;
 import com.svp.tracker.finance.service.RobinhoodRhDailyTrackerAlertService;
 import com.svp.tracker.finance.service.RhDailyTrackerAiInsightService;
 import com.svp.tracker.finance.service.RobinhoodRhDailyTrackerService;
+import com.svp.tracker.finance.service.RobinhoodRhPeriodBalancesService;
 import com.svp.tracker.finance.service.RobinhoodCsvImportService;
 import com.svp.tracker.finance.service.RobinhoodFinanceService;
 import com.svp.tracker.finance.service.StockNewsService;
@@ -90,6 +92,7 @@ public class FinanceController {
     private final RobinhoodAccountTrackerService accountTrackerService;
     private final RobinhoodRhAccountsTrackService rhAccountsTrackService;
     private final RobinhoodRhDailyTrackerService rhDailyTrackerService;
+    private final RobinhoodRhPeriodBalancesService rhPeriodBalancesService;
     private final RobinhoodRhCryptoTrackerService rhCryptoTrackerService;
     private final RobinhoodOwnershipHistoryService ownershipHistoryService;
     private final RobinhoodRhDailyTrackerAlertService rhDailyTrackerAlertService;
@@ -182,6 +185,14 @@ public class FinanceController {
         }
         log.info("GET /api/finance/robinhood/daily-tracker year={} months={}", year, resolvedMonths);
         return rhDailyTrackerService.buildReport(year, resolvedMonths);
+    }
+
+    /** Month-start / month-end and yearly balances per Daily Tracker account (9 PM CT closes). */
+    @GetMapping("/daily-tracker/period-balances")
+    public RobinhoodRhPeriodBalancesDto dailyTrackerPeriodBalances(@RequestParam(name = "year") int year) {
+        validateYear(year);
+        log.info("GET /api/finance/robinhood/daily-tracker/period-balances year={}", year);
+        return rhPeriodBalancesService.build(year);
     }
 
     /** Poll for new snapshots (scheduled cron or manual capture) without loading the full report. */

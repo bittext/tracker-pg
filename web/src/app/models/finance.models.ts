@@ -120,6 +120,41 @@ export interface RobinhoodRhDailyTrackerReportDto {
   notes: string[];
 }
 
+export interface RobinhoodRhPeriodAccountColumnDto {
+  accountSuffix: string;
+  label: string;
+}
+
+export interface RobinhoodRhPeriodAccountFigureDto {
+  accountSuffix: string;
+  start: number | null;
+  end: number | null;
+  change: number | null;
+  startDate: string | null;
+  endDate: string | null;
+}
+
+export interface RobinhoodRhPeriodBalanceRowDto {
+  key: string;
+  label: string;
+  periodStart: string;
+  periodEnd: string;
+  currentPeriod: boolean;
+  combinedStart: number | null;
+  combinedEnd: number | null;
+  combinedChange: number | null;
+  accounts: RobinhoodRhPeriodAccountFigureDto[];
+}
+
+/** GET /api/finance/robinhood/daily-tracker/period-balances */
+export interface RobinhoodRhPeriodBalancesDto {
+  year: number;
+  note: string | null;
+  accounts: RobinhoodRhPeriodAccountColumnDto[];
+  months: RobinhoodRhPeriodBalanceRowDto[];
+  yearBalance: RobinhoodRhPeriodBalanceRowDto;
+}
+
 export interface RobinhoodRhDailyBenchmarkPointDto {
   snapshotDate: string;
   /** Actual market session used (previous close on weekends/holidays). */

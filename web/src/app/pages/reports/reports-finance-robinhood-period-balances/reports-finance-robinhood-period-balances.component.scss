@@ -1,0 +1,120 @@
+.rh-bal {
+  padding: 0.15rem 0.1rem 1.25rem;
+}
+
+.rh-bal__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.rh-bal__lead,
+.rh-bal__note {
+  max-width: 48rem;
+}
+
+.rh-bal__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+  margin: 0.85rem 0 1rem;
+}
+
+.rh-bal__year {
+  width: 8.5rem;
+}
+
+.rh-bal__loading {
+  padding: 1.5rem 0;
+}
+
+.rh-bal__year-hero {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0 0 1.1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+  border-radius: 10px;
+}
+
+.rh-bal__year-hero span {
+  display: block;
+  font-size: 0.78rem;
+  margin-bottom: 0.2rem;
+}
+
+.rh-bal__year-hero strong {
+  font-size: 1.15rem;
+}
+
+.rh-bal__table-wrap {
+  overflow-x: auto;
+}
+
+.rh-bal__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.rh-bal__table th,
+.rh-bal__table td {
+  padding: 0.4rem 0.55rem;
+  border-bottom: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+  text-align: right;
+}
+
+.rh-bal__table thead th {
+  font-weight: 600;
+  background: color-mix(in srgb, var(--app-accent, #6366f1) 6%, transparent);
+}
+
+.rh-bal__subhead th {
+  font-weight: 500;
+  font-size: 0.74rem;
+  opacity: 0.75;
+}
+
+.rh-bal__period {
+  text-align: left !important;
+  position: sticky;
+  left: 0;
+  background: var(--app-surface, #fff);
+  z-index: 1;
+}
+
+.rh-bal__so-far {
+  display: block;
+  font-weight: 400;
+  font-size: 0.72rem;
+}
+
+.rh-bal__num {
+  font-variant-numeric: tabular-nums;
+}
+
+.rh-bal__year-row {
+  font-weight: 600;
+  background: color-mix(in srgb, var(--app-accent, #6366f1) 5%, transparent);
+}
+
+.rh-bal__year-row .rh-bal__period {
+  background: color-mix(in srgb, var(--app-accent, #6366f1) 5%, var(--app-surface, #fff));
+}
+
+.rh-bal__pnl--pos {
+  color: #15803d;
+}
+
+.rh-bal__pnl--neg {
+  color: #b91c1c;
+}
+
+@media (max-width: 720px) {
+  .rh-bal__year-hero {
+    grid-template-columns: 1fr;
+  }
+}

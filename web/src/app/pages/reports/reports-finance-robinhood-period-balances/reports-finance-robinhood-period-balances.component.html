@@ -1,0 +1,140 @@
+<section class="rh-bal" aria-labelledby="rh-bal-heading">
+  <h2 id="rh-bal-heading" class="rh-bal__title">Period balances</h2>
+  <p class="muted rh-bal__lead">
+    Starting balance at calendar midnight (last 9 PM CT close before the period) through midnight at period end
+    (last 9 PM CT close on or before that day), per Daily Tracker account.
+  </p>
+
+  <div class="rh-bal__toolbar">
+    <mat-form-field appearance="outline" class="rh-bal__year" subscriptSizing="dynamic">
+      <mat-label>Year</mat-label>
+      <mat-select [(ngModel)]="reportYear" name="rhBalYear" (selectionChange)="load()">
+        @for (y of yearChoices(); track y) {
+          <mat-option [value]="y">{{ y }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <button mat-stroked-button type="button" (click)="load()" [disabled]="loading">
+      @if (loading) {
+        <mat-spinner diameter="18" />
+      } @else {
+        <mat-icon>refresh</mat-icon>
+      }
+      Refresh
+    </button>
+  </div>
+
+  @if (loading && !data) {
+    <div class="rh-bal__loading">
+      <mat-spinner diameter="32" />
+    </div>
+  } @else if (data; as d) {
+    @if (d.note) {
+      <p class="muted rh-bal__note">{{ d.note }}</p>
+    }
+
+    @if (d.yearBalance; as yb) {
+      <div class="rh-bal__year-hero" role="group" aria-label="Year combined balances">
+        <div>
+          <span class="muted">Year start</span>
+          <strong>{{ yb.combinedStart != null ? (yb.combinedStart | currency) : '—' }}</strong>
+        </div>
+        <div>
+          <span class="muted">Year end{{ yb.currentPeriod ? ' (so far)' : '' }}</span>
+          <strong>{{ yb.combinedEnd != null ? (yb.combinedEnd | currency) : '—' }}</strong>
+        </div>
+        <div>
+          <span class="muted">Year change</span>
+          <strong [class]="pnlClass(yb.combinedChange)">
+            {{ yb.combinedChange != null ? (yb.combinedChange | currency) : '—' }}
+            @if (changePercent(yb.combinedStart, yb.combinedChange); as pct) {
+              <small>({{ pct | number: '1.1-1' }}%)</small>
+            }
+          </strong>
+        </div>
+      </div>
+    }
+
+    @if (!d.accounts.length) {
+      <p class="muted">No scheduled Daily Tracker closes for this year.</p>
+    } @else {
+      <div class="rh-bal__table-wrap">
+        <table class="rh-bal__table">
+          <thead>
+            <tr>
+              <th class="rh-bal__period">Period</th>
+              <th colspan="3">Combined</th>
+              @for (acct of d.accounts; track acct.accountSuffix) {
+                <th colspan="3">{{ acct.label }}</th>
+              }
+            </tr>
+            <tr class="rh-bal__subhead">
+              <th></th>
+              <th>Start</th>
+              <th>End</th>
+              <th>Δ</th>
+              @for (acct of d.accounts; track acct.accountSuffix) {
+                <th>Start</th>
+                <th>End</th>
+                <th>Δ</th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of d.months; track row.key) {
+              <tr>
+                <th class="rh-bal__period">
+                  {{ row.label }}
+                  @if (row.currentPeriod) {
+                    <span class="muted rh-bal__so-far">so far</span>
+                  }
+                </th>
+                <td class="rh-bal__num">{{ row.combinedStart != null ? (row.combinedStart | currency) : '—' }}</td>
+                <td class="rh-bal__num">{{ row.combinedEnd != null ? (row.combinedEnd | currency) : '—' }}</td>
+                <td class="rh-bal__num" [class]="pnlClass(row.combinedChange)">
+                  {{ row.combinedChange != null ? (row.combinedChange | currency) : '—' }}
+                </td>
+                @for (acct of d.accounts; track acct.accountSuffix) {
+                  @if (figureFor(row, acct.accountSuffix); as fig) {
+                    <td class="rh-bal__num">{{ fig.start != null ? (fig.start | currency) : '—' }}</td>
+                    <td class="rh-bal__num">{{ fig.end != null ? (fig.end | currency) : '—' }}</td>
+                    <td class="rh-bal__num" [class]="pnlClass(fig.change)">
+                      {{ fig.change != null ? (fig.change | currency) : '—' }}
+                    </td>
+                  } @else {
+                    <td class="rh-bal__num muted">—</td>
+                    <td class="rh-bal__num muted">—</td>
+                    <td class="rh-bal__num muted">—</td>
+                  }
+                }
+              </tr>
+            }
+            @if (d.yearBalance; as yb) {
+              <tr class="rh-bal__year-row">
+                <th class="rh-bal__period">{{ yb.label }}</th>
+                <td class="rh-bal__num">{{ yb.combinedStart != null ? (yb.combinedStart | currency) : '—' }}</td>
+                <td class="rh-bal__num">{{ yb.combinedEnd != null ? (yb.combinedEnd | currency) : '—' }}</td>
+                <td class="rh-bal__num" [class]="pnlClass(yb.combinedChange)">
+                  {{ yb.combinedChange != null ? (yb.combinedChange | currency) : '—' }}
+                </td>
+                @for (acct of d.accounts; track acct.accountSuffix) {
+                  @if (figureFor(yb, acct.accountSuffix); as fig) {
+                    <td class="rh-bal__num">{{ fig.start != null ? (fig.start | currency) : '—' }}</td>
+                    <td class="rh-bal__num">{{ fig.end != null ? (fig.end | currency) : '—' }}</td>
+                    <td class="rh-bal__num" [class]="pnlClass(fig.change)">
+                      {{ fig.change != null ? (fig.change | currency) : '—' }}
+                    </td>
+                  } @else {
+                    <td class="rh-bal__num muted">—</td>
+                    <td class="rh-bal__num muted">—</td>
+                    <td class="rh-bal__num muted">—</td>
+                  }
+                }
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  }
+</section>

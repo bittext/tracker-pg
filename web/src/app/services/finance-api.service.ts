@@ -30,6 +30,7 @@ import {
   RobinhoodRhDailySnapshotDetailDto,
   RobinhoodRhDailyTrackerReportDto,
   RobinhoodRhDailyTrackerRefreshHintDto,
+  RobinhoodRhPeriodBalancesDto,
   RobinhoodOwnershipHistoryDto,
   RhDailyTrackerAiInsightDto,
   RhDailyTrackerAiInsightRequestDto,
@@ -168,6 +169,12 @@ export class FinanceApiService {
       }
     }
     return this.http.get<RobinhoodRhDailyTrackerReportDto>(`${this.root}/daily-tracker`, { params });
+  }
+
+  robinhoodDailyTrackerPeriodBalances(year: number) {
+    return this.http.get<RobinhoodRhPeriodBalancesDto>(`${this.root}/daily-tracker/period-balances`, {
+      params: { year: String(year) },
+    });
   }
 
   robinhoodDailyTrackerRefreshHint() {
