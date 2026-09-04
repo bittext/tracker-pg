@@ -70,6 +70,12 @@ export class ReportsFinanceRobinhoodPeriodBalancesComponent implements OnInit {
     });
   }
 
+  visibleMonths(): RobinhoodRhPeriodBalanceRowDto[] {
+    return (this.data?.months ?? []).filter(
+      (row) => row.combinedStart != null || row.combinedEnd != null,
+    );
+  }
+
   figureFor(
     row: RobinhoodRhPeriodBalanceRowDto,
     suffix: string,
@@ -77,11 +83,37 @@ export class ReportsFinanceRobinhoodPeriodBalancesComponent implements OnInit {
     return row.accounts.find((a) => a.accountSuffix === suffix);
   }
 
-  pnlClass(value: number | null | undefined): string {
-    if (value == null || value === 0) {
-      return '';
+  /** Shown under Year start when opening is the first tracked close, not a prior-year midnight. */
+  yearStartCaption(row: RobinhoodRhPeriodBalanceRowDto): string | null {
+    const dates = row.accounts.map((a) => a.startDate).filter((d): d is string => !!d);
+    if (!dates.length || !row.periodStart) {
+      return null;
     }
-    return value > 0 ? 'rh-bal__pnl--pos' : 'rh-bal__pnl--neg';
+    const earliest = [...dates].sort()[0];
+    if (earliest <= row.periodStart) {
+      return null;
+    }
+    return this.formatIsoDate(earliest);
+  }
+
+  private formatIsoDate(iso: string): string {
+    const [year, month, day] = iso.split('-').map((p) => Number(p));
+    if (!year || !month || !day) {
+      return iso;
+    }
+    return new Date(year, month - 1, day).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  }
+
+  isGain(value: number | null | undefined): boolean {
+    return value != null && value > 0;
+  }
+
+  isLoss(value: number | null | undefined): boolean {
+    return value != null && value < 0;
   }
 
   changePercent(start: number | null | undefined, change: number | null | undefined): number | null {

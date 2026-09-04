@@ -29,8 +29,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Month and year opening/closing balances from Daily Tracker 9 PM CT scheduled closes.
- * Opening = last close before the calendar period (midnight start). Closing = last close on or
- * before period end (midnight end, or latest close if the period is still open).
+ * Opening = last close before the calendar period (midnight start). If none exists (tracker
+ * started mid-period), opening is the first close on or after period start. Closing = last
+ * close on or before period end (or latest close if the period is still open).
  */
 @Service
 @RequiredArgsConstructor
@@ -111,6 +112,7 @@ public class RobinhoodRhPeriodBalancesService {
         String note = suffixes.isEmpty()
                 ? "No Daily Tracker scheduled closes in " + year + " yet."
                 : "Opening is the last 9 PM CT close before the period (calendar midnight start). "
+                        + "If tracking started later, opening is the first close in that period. "
                         + "Closing is the last 9 PM CT close on or before the period end.";
         return new RobinhoodRhPeriodBalancesDto(year, note, accounts, months, yearBalance);
     }
@@ -131,7 +133,7 @@ public class RobinhoodRhPeriodBalancesService {
         for (String suffix : suffixes) {
             NavigableMap<LocalDate, BigDecimal> series =
                     seriesBySuffix.getOrDefault(suffix, new TreeMap<>());
-            ClosePoint start = lastBefore(series, periodStart);
+            ClosePoint start = openingForPeriod(series, periodStart, periodEnd);
             ClosePoint end = lastOnOrBefore(series, periodEnd);
             if (start != null) {
                 combinedStart = combinedStart.add(start.value());
@@ -167,6 +169,31 @@ public class RobinhoodRhPeriodBalancesService {
         }
         var entry = series.lowerEntry(exclusive);
         return entry == null ? null : new ClosePoint(entry.getKey(), entry.getValue());
+    }
+
+    static ClosePoint firstOnOrAfter(NavigableMap<LocalDate, BigDecimal> series, LocalDate inclusive) {
+        if (series == null || series.isEmpty() || inclusive == null) {
+            return null;
+        }
+        var entry = series.ceilingEntry(inclusive);
+        return entry == null ? null : new ClosePoint(entry.getKey(), entry.getValue());
+    }
+
+    /**
+     * Prefer the last close before midnight start. If the series begins inside the period
+     * (no prior close), use the first close on or after period start that is still in-range.
+     */
+    static ClosePoint openingForPeriod(
+            NavigableMap<LocalDate, BigDecimal> series, LocalDate periodStart, LocalDate periodEnd) {
+        ClosePoint prior = lastBefore(series, periodStart);
+        if (prior != null) {
+            return prior;
+        }
+        ClosePoint firstInPeriod = firstOnOrAfter(series, periodStart);
+        if (firstInPeriod != null && periodEnd != null && !firstInPeriod.date().isAfter(periodEnd)) {
+            return firstInPeriod;
+        }
+        return null;
     }
 
     static ClosePoint lastOnOrBefore(NavigableMap<LocalDate, BigDecimal> series, LocalDate inclusive) {

@@ -32,9 +32,39 @@ class RobinhoodRhPeriodBalancesServiceTest {
     }
 
     @Test
-    void missingPriorCloseLeavesOpeningEmpty() {
+    void missingPriorCloseLeavesLastBeforeEmpty() {
         TreeMap<LocalDate, BigDecimal> series = new TreeMap<>();
         series.put(LocalDate.of(2026, 9, 2), new BigDecimal("50"));
         assertNull(RobinhoodRhPeriodBalancesService.lastBefore(series, LocalDate.of(2026, 9, 1)));
+    }
+
+    @Test
+    void openingFallsBackToFirstCloseInPeriod() {
+        TreeMap<LocalDate, BigDecimal> series = new TreeMap<>();
+        series.put(LocalDate.of(2026, 6, 10), new BigDecimal("200000"));
+        series.put(LocalDate.of(2026, 9, 4), new BigDecimal("305104.25"));
+        var open = RobinhoodRhPeriodBalancesService.openingForPeriod(
+                series, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 9, 4));
+        assertEquals(LocalDate.of(2026, 6, 10), open.date());
+        assertEquals(0, new BigDecimal("200000").compareTo(open.value()));
+    }
+
+    @Test
+    void openingPrefersPriorCloseOverFirstInPeriod() {
+        TreeMap<LocalDate, BigDecimal> series = new TreeMap<>();
+        series.put(LocalDate.of(2025, 12, 31), new BigDecimal("180000"));
+        series.put(LocalDate.of(2026, 1, 2), new BigDecimal("181000"));
+        var open = RobinhoodRhPeriodBalancesService.openingForPeriod(
+                series, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31));
+        assertEquals(LocalDate.of(2025, 12, 31), open.date());
+        assertEquals(0, new BigDecimal("180000").compareTo(open.value()));
+    }
+
+    @Test
+    void openingIgnoresFirstCloseAfterPeriodEnd() {
+        TreeMap<LocalDate, BigDecimal> series = new TreeMap<>();
+        series.put(LocalDate.of(2026, 6, 2), new BigDecimal("50"));
+        assertNull(RobinhoodRhPeriodBalancesService.openingForPeriod(
+                series, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 5, 31)));
     }
 }

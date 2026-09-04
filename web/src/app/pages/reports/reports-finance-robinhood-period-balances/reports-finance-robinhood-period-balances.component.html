@@ -2,7 +2,8 @@
   <h2 id="rh-bal-heading" class="rh-bal__title">Period balances</h2>
   <p class="muted rh-bal__lead">
     Starting balance at calendar midnight (last 9 PM CT close before the period) through midnight at period end
-    (last 9 PM CT close on or before that day), per Daily Tracker account.
+    (last 9 PM CT close on or before that day), per Daily Tracker account. If tracking started mid-period, start
+    is the first close in that window.
   </p>
 
   <div class="rh-bal__toolbar">
@@ -35,17 +36,20 @@
 
     @if (d.yearBalance; as yb) {
       <div class="rh-bal__year-hero" role="group" aria-label="Year combined balances">
-        <div>
+        <div class="rh-bal__year-stat">
           <span class="muted">Year start</span>
           <strong>{{ yb.combinedStart != null ? (yb.combinedStart | currency) : '—' }}</strong>
+          @if (yearStartCaption(yb); as asOf) {
+            <small class="muted">First tracked close · {{ asOf }}</small>
+          }
         </div>
-        <div>
+        <div class="rh-bal__year-stat">
           <span class="muted">Year end{{ yb.currentPeriod ? ' (so far)' : '' }}</span>
           <strong>{{ yb.combinedEnd != null ? (yb.combinedEnd | currency) : '—' }}</strong>
         </div>
-        <div>
+        <div class="rh-bal__year-stat">
           <span class="muted">Year change</span>
-          <strong [class]="pnlClass(yb.combinedChange)">
+          <strong [class.rh-bal__pnl--pos]="isGain(yb.combinedChange)" [class.rh-bal__pnl--neg]="isLoss(yb.combinedChange)">
             {{ yb.combinedChange != null ? (yb.combinedChange | currency) : '—' }}
             @if (changePercent(yb.combinedStart, yb.combinedChange); as pct) {
               <small>({{ pct | number: '1.1-1' }}%)</small>
@@ -60,74 +64,126 @@
     } @else {
       <div class="rh-bal__table-wrap">
         <table class="rh-bal__table">
+          <colgroup>
+            <col class="rh-bal__col-period" />
+          </colgroup>
+          <colgroup class="rh-bal__cols rh-bal__cols--combined">
+            <col />
+            <col />
+            <col />
+          </colgroup>
+          @for (acct of d.accounts; track acct.accountSuffix; let i = $index) {
+            <colgroup class="rh-bal__cols" [class.rh-bal__cols--alt]="i % 2 === 1">
+              <col />
+              <col />
+              <col />
+            </colgroup>
+          }
           <thead>
             <tr>
-              <th class="rh-bal__period">Period</th>
-              <th colspan="3">Combined</th>
-              @for (acct of d.accounts; track acct.accountSuffix) {
-                <th colspan="3">{{ acct.label }}</th>
+              <th class="rh-bal__period" scope="col">Period</th>
+              <th class="rh-bal__group-head rh-bal__group-start" colspan="3" scope="colgroup">Combined</th>
+              @for (acct of d.accounts; track acct.accountSuffix; let i = $index) {
+                <th
+                  class="rh-bal__group-head rh-bal__group-start"
+                  [class.rh-bal__group--alt]="i % 2 === 1"
+                  colspan="3"
+                  scope="colgroup"
+                >
+                  {{ acct.label }}
+                </th>
               }
             </tr>
             <tr class="rh-bal__subhead">
-              <th></th>
-              <th>Start</th>
+              <th class="rh-bal__period"></th>
+              <th class="rh-bal__group-start">Start</th>
               <th>End</th>
-              <th>Δ</th>
-              @for (acct of d.accounts; track acct.accountSuffix) {
-                <th>Start</th>
-                <th>End</th>
-                <th>Δ</th>
+              <th>Change</th>
+              @for (acct of d.accounts; track acct.accountSuffix; let i = $index) {
+                <th class="rh-bal__group-start" [class.rh-bal__group--alt]="i % 2 === 1">Start</th>
+                <th [class.rh-bal__group--alt]="i % 2 === 1">End</th>
+                <th [class.rh-bal__group--alt]="i % 2 === 1">Change</th>
               }
             </tr>
           </thead>
           <tbody>
-            @for (row of d.months; track row.key) {
+            @for (row of visibleMonths(); track row.key) {
               <tr>
-                <th class="rh-bal__period">
+                <th class="rh-bal__period" scope="row">
                   {{ row.label }}
                   @if (row.currentPeriod) {
                     <span class="muted rh-bal__so-far">so far</span>
                   }
                 </th>
-                <td class="rh-bal__num">{{ row.combinedStart != null ? (row.combinedStart | currency) : '—' }}</td>
+                <td class="rh-bal__num rh-bal__group-start">
+                  {{ row.combinedStart != null ? (row.combinedStart | currency) : '—' }}
+                </td>
                 <td class="rh-bal__num">{{ row.combinedEnd != null ? (row.combinedEnd | currency) : '—' }}</td>
-                <td class="rh-bal__num" [class]="pnlClass(row.combinedChange)">
+                <td
+                  class="rh-bal__num"
+                  [class.rh-bal__pnl--pos]="isGain(row.combinedChange)"
+                  [class.rh-bal__pnl--neg]="isLoss(row.combinedChange)"
+                >
                   {{ row.combinedChange != null ? (row.combinedChange | currency) : '—' }}
                 </td>
-                @for (acct of d.accounts; track acct.accountSuffix) {
+                @for (acct of d.accounts; track acct.accountSuffix; let i = $index) {
                   @if (figureFor(row, acct.accountSuffix); as fig) {
-                    <td class="rh-bal__num">{{ fig.start != null ? (fig.start | currency) : '—' }}</td>
-                    <td class="rh-bal__num">{{ fig.end != null ? (fig.end | currency) : '—' }}</td>
-                    <td class="rh-bal__num" [class]="pnlClass(fig.change)">
+                    <td class="rh-bal__num rh-bal__group-start" [class.rh-bal__group--alt]="i % 2 === 1">
+                      {{ fig.start != null ? (fig.start | currency) : '—' }}
+                    </td>
+                    <td class="rh-bal__num" [class.rh-bal__group--alt]="i % 2 === 1">
+                      {{ fig.end != null ? (fig.end | currency) : '—' }}
+                    </td>
+                    <td
+                      class="rh-bal__num"
+                      [class.rh-bal__group--alt]="i % 2 === 1"
+                      [class.rh-bal__pnl--pos]="isGain(fig.change)"
+                      [class.rh-bal__pnl--neg]="isLoss(fig.change)"
+                    >
                       {{ fig.change != null ? (fig.change | currency) : '—' }}
                     </td>
                   } @else {
-                    <td class="rh-bal__num muted">—</td>
-                    <td class="rh-bal__num muted">—</td>
-                    <td class="rh-bal__num muted">—</td>
+                    <td class="rh-bal__num muted rh-bal__group-start" [class.rh-bal__group--alt]="i % 2 === 1">—</td>
+                    <td class="rh-bal__num muted" [class.rh-bal__group--alt]="i % 2 === 1">—</td>
+                    <td class="rh-bal__num muted" [class.rh-bal__group--alt]="i % 2 === 1">—</td>
                   }
                 }
               </tr>
             }
             @if (d.yearBalance; as yb) {
               <tr class="rh-bal__year-row">
-                <th class="rh-bal__period">{{ yb.label }}</th>
-                <td class="rh-bal__num">{{ yb.combinedStart != null ? (yb.combinedStart | currency) : '—' }}</td>
+                <th class="rh-bal__period" scope="row">{{ yb.label }}</th>
+                <td class="rh-bal__num rh-bal__group-start">
+                  {{ yb.combinedStart != null ? (yb.combinedStart | currency) : '—' }}
+                </td>
                 <td class="rh-bal__num">{{ yb.combinedEnd != null ? (yb.combinedEnd | currency) : '—' }}</td>
-                <td class="rh-bal__num" [class]="pnlClass(yb.combinedChange)">
+                <td
+                  class="rh-bal__num"
+                  [class.rh-bal__pnl--pos]="isGain(yb.combinedChange)"
+                  [class.rh-bal__pnl--neg]="isLoss(yb.combinedChange)"
+                >
                   {{ yb.combinedChange != null ? (yb.combinedChange | currency) : '—' }}
                 </td>
-                @for (acct of d.accounts; track acct.accountSuffix) {
+                @for (acct of d.accounts; track acct.accountSuffix; let i = $index) {
                   @if (figureFor(yb, acct.accountSuffix); as fig) {
-                    <td class="rh-bal__num">{{ fig.start != null ? (fig.start | currency) : '—' }}</td>
-                    <td class="rh-bal__num">{{ fig.end != null ? (fig.end | currency) : '—' }}</td>
-                    <td class="rh-bal__num" [class]="pnlClass(fig.change)">
+                    <td class="rh-bal__num rh-bal__group-start" [class.rh-bal__group--alt]="i % 2 === 1">
+                      {{ fig.start != null ? (fig.start | currency) : '—' }}
+                    </td>
+                    <td class="rh-bal__num" [class.rh-bal__group--alt]="i % 2 === 1">
+                      {{ fig.end != null ? (fig.end | currency) : '—' }}
+                    </td>
+                    <td
+                      class="rh-bal__num"
+                      [class.rh-bal__group--alt]="i % 2 === 1"
+                      [class.rh-bal__pnl--pos]="isGain(fig.change)"
+                      [class.rh-bal__pnl--neg]="isLoss(fig.change)"
+                    >
                       {{ fig.change != null ? (fig.change | currency) : '—' }}
                     </td>
                   } @else {
-                    <td class="rh-bal__num muted">—</td>
-                    <td class="rh-bal__num muted">—</td>
-                    <td class="rh-bal__num muted">—</td>
+                    <td class="rh-bal__num muted rh-bal__group-start" [class.rh-bal__group--alt]="i % 2 === 1">—</td>
+                    <td class="rh-bal__num muted" [class.rh-bal__group--alt]="i % 2 === 1">—</td>
+                    <td class="rh-bal__num muted" [class.rh-bal__group--alt]="i % 2 === 1">—</td>
                   }
                 }
               </tr>
