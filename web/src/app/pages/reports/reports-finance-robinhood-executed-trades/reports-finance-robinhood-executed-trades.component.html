@@ -1,0 +1,118 @@
+<section class="rh-ex" aria-labelledby="rh-ex-heading">
+  <h2 id="rh-ex-heading" class="rh-ex__title">Executed trades</h2>
+  <p class="muted rh-ex__lead">
+    Filled buys and sells from synced Robinhood orders, grouped like History — newest first.
+  </p>
+
+  <div class="rh-ex__toolbar">
+    <mat-form-field appearance="outline" class="rh-ex__year" subscriptSizing="dynamic">
+      <mat-label>Year</mat-label>
+      <mat-select [(ngModel)]="reportYear" name="rhExYear" (selectionChange)="load()">
+        @for (y of yearChoices(); track y) {
+          <mat-option [value]="y">{{ y }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="rh-ex__account" subscriptSizing="dynamic">
+      <mat-label>Account</mat-label>
+      <mat-select [(ngModel)]="accountFilter" name="rhExAccount">
+        <mat-option value="">All accounts</mat-option>
+        @for (acct of data?.accounts ?? []; track acct.accountSuffix) {
+          <mat-option [value]="acct.accountSuffix">{{ acct.label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-button-toggle-group [(ngModel)]="sideFilter" name="rhExSide" aria-label="Buy or sell">
+      <mat-button-toggle value="all">All</mat-button-toggle>
+      <mat-button-toggle value="buy">Buys</mat-button-toggle>
+      <mat-button-toggle value="sell">Sells</mat-button-toggle>
+    </mat-button-toggle-group>
+    <button mat-stroked-button type="button" (click)="load()" [disabled]="loading">
+      @if (loading) {
+        <mat-spinner diameter="18" />
+      } @else {
+        <mat-icon>refresh</mat-icon>
+      }
+      Refresh
+    </button>
+  </div>
+
+  @if (loading && !data) {
+    <div class="rh-ex__loading">
+      <mat-spinner diameter="32" />
+    </div>
+  } @else if (data; as d) {
+    @if (d.note) {
+      <p class="muted rh-ex__note">{{ d.note }}</p>
+    }
+
+    <div class="rh-ex__summary" role="group" aria-label="Trade counts">
+      <div class="rh-ex__stat">
+        <span class="muted">Trades</span>
+        <strong>{{ visibleTrades().length }}</strong>
+      </div>
+      <div class="rh-ex__stat">
+        <span class="muted">Buys</span>
+        <strong class="rh-ex__buy">{{ buyCount() }}</strong>
+      </div>
+      <div class="rh-ex__stat">
+        <span class="muted">Sells</span>
+        <strong class="rh-ex__sell">{{ sellCount() }}</strong>
+      </div>
+    </div>
+
+    @if (!visibleTrades().length) {
+      <p class="muted">No filled buys or sells match these filters.</p>
+    } @else {
+      @for (group of dayGroups(); track group.key) {
+        <section class="rh-ex__day" [attr.aria-label]="group.label">
+          <h3 class="rh-ex__day-title">{{ group.label }}</h3>
+          <ul class="rh-ex__list">
+            @for (tr of group.trades; track tr.executedAt + tr.symbol + tr.side + (tr.accountSuffix ?? '')) {
+              <li class="rh-ex__row">
+                <div class="rh-ex__row-main">
+                  <span
+                    class="rh-ex__side"
+                    [class.rh-ex__side--buy]="isBuy(tr.side)"
+                    [class.rh-ex__side--sell]="isSell(tr.side)"
+                  >
+                    {{ sideLabel(tr.side) }}
+                  </span>
+                  <div class="rh-ex__identity">
+                    <strong class="rh-ex__symbol">{{ tr.symbol || '—' }}</strong>
+                    <span class="muted rh-ex__meta">
+                      {{ qtyLabel(tr) }}
+                      @if (tr.averagePrice != null) {
+                        · {{ tr.averagePrice | currency }}
+                      }
+                      @if (tr.orderType) {
+                        · {{ tr.orderType }}
+                      }
+                      @if (tr.accountLabel) {
+                        · {{ tr.accountLabel }}
+                      }
+                      @if (timeLabel(tr.executedAt); as tm) {
+                        · {{ tm }}
+                      }
+                    </span>
+                  </div>
+                </div>
+                <div
+                  class="rh-ex__notional"
+                  [class.rh-ex__buy]="isBuy(tr.side)"
+                  [class.rh-ex__sell]="isSell(tr.side)"
+                >
+                  @if (tr.notional != null) {
+                    {{ isSell(tr.side) ? '+' : isBuy(tr.side) ? '−' : '' }}{{ tr.notional | currency }}
+                  } @else {
+                    —
+                  }
+                </div>
+              </li>
+            }
+          </ul>
+        </section>
+      }
+    }
+  }
+</section>

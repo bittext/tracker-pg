@@ -155,6 +155,27 @@ export interface RobinhoodRhPeriodBalancesDto {
   yearBalance: RobinhoodRhPeriodBalanceRowDto;
 }
 
+/** GET /api/finance/robinhood/executed-trades */
+export interface RobinhoodExecutedTradeDto {
+  symbol: string;
+  side: string | null;
+  orderType: string | null;
+  quantity: number | null;
+  averagePrice: number | null;
+  notional: number | null;
+  state: string | null;
+  executedAt: string | null;
+  accountSuffix: string | null;
+  accountLabel: string | null;
+}
+
+export interface RobinhoodExecutedTradesDto {
+  year: number;
+  note: string | null;
+  accounts: RobinhoodRhPeriodAccountColumnDto[];
+  trades: RobinhoodExecutedTradeDto[];
+}
+
 export interface RobinhoodRhDailyBenchmarkPointDto {
   snapshotDate: string;
   /** Actual market session used (previous close on weekends/holidays). */

@@ -5,14 +5,14 @@ import { Injectable, signal } from '@angular/core';
 export class TradingJournalNavService {
   /**
    * Robinhood analytics mat-tab index:
-   * 0 Performance, 1 Daily Tracker, 2 Balances, 3 Ownership history, 4 Journal, 5 Crypto, 6 Roadmap.
+   * 0 Performance, 1 Daily Tracker, 2 Trades, 3 Balances, 4 Ownership history, 5 Journal, 6 Crypto, 7 Roadmap.
    */
   readonly analyticsTabIndex = signal(0);
   readonly requestedDate = signal<string | null>(null);
 
   openJournal(dateIso: string): void {
     this.requestedDate.set(dateIso);
-    this.analyticsTabIndex.set(4);
+    this.analyticsTabIndex.set(5);
   }
 
   openDailyTracker(dateIso?: string | null): void {
@@ -23,7 +23,11 @@ export class TradingJournalNavService {
   }
 
   openOwnershipHistory(): void {
-    this.analyticsTabIndex.set(3);
+    this.analyticsTabIndex.set(4);
+  }
+
+  openExecutedTrades(): void {
+    this.analyticsTabIndex.set(2);
   }
 
   consumeRequestedDate(): string | null {

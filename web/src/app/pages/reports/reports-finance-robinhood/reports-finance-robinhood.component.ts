@@ -14,6 +14,7 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MatTableModule } from '@angular/material/table';
 import { MatTabsModule } from '@angular/material/tabs';
 import { ReportsFinanceRobinhoodDailyTrackerComponent } from '../reports-finance-robinhood-daily-tracker/reports-finance-robinhood-daily-tracker.component';
+import { ReportsFinanceRobinhoodExecutedTradesComponent } from '../reports-finance-robinhood-executed-trades/reports-finance-robinhood-executed-trades.component';
 import { ReportsFinanceRobinhoodPeriodBalancesComponent } from '../reports-finance-robinhood-period-balances/reports-finance-robinhood-period-balances.component';
 import { ReportsFinanceRobinhoodCryptoTrackerComponent } from '../reports-finance-robinhood-crypto-tracker/reports-finance-robinhood-crypto-tracker.component';
 import { ReportsFinanceRobinhoodOwnershipHistoryComponent } from '../reports-finance-robinhood-ownership-history/reports-finance-robinhood-ownership-history.component';
@@ -76,6 +77,7 @@ interface TradeTimelineBar {
     MatExpansionModule,
     MatTabsModule,
     ReportsFinanceRobinhoodDailyTrackerComponent,
+    ReportsFinanceRobinhoodExecutedTradesComponent,
     ReportsFinanceRobinhoodPeriodBalancesComponent,
     ReportsFinanceRobinhoodCryptoTrackerComponent,
     ReportsFinanceRobinhoodOwnershipHistoryComponent,

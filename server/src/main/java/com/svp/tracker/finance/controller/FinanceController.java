@@ -39,6 +39,7 @@ import com.svp.tracker.finance.dto.RobinhoodRhDailyManualCaptureDeleteResultDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailySnapshotDetailDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerReportDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerRefreshHintDto;
+import com.svp.tracker.finance.dto.RobinhoodExecutedTradesDto;
 import com.svp.tracker.finance.dto.RobinhoodRhPeriodBalancesDto;
 import com.svp.tracker.finance.dto.RhDailyTrackerAccountAlertSaveRequestDto;
 import com.svp.tracker.finance.dto.RhDailyTrackerAccountAlertsDto;
@@ -52,6 +53,7 @@ import com.svp.tracker.finance.service.RobinhoodRhCryptoTrackerService;
 import com.svp.tracker.finance.service.RobinhoodRhDailyTrackerAlertService;
 import com.svp.tracker.finance.service.RhDailyTrackerAiInsightService;
 import com.svp.tracker.finance.service.RobinhoodRhDailyTrackerService;
+import com.svp.tracker.finance.service.RobinhoodExecutedTradesService;
 import com.svp.tracker.finance.service.RobinhoodRhPeriodBalancesService;
 import com.svp.tracker.finance.service.RobinhoodCsvImportService;
 import com.svp.tracker.finance.service.RobinhoodFinanceService;
@@ -93,6 +95,7 @@ public class FinanceController {
     private final RobinhoodRhAccountsTrackService rhAccountsTrackService;
     private final RobinhoodRhDailyTrackerService rhDailyTrackerService;
     private final RobinhoodRhPeriodBalancesService rhPeriodBalancesService;
+    private final RobinhoodExecutedTradesService rhExecutedTradesService;
     private final RobinhoodRhCryptoTrackerService rhCryptoTrackerService;
     private final RobinhoodOwnershipHistoryService ownershipHistoryService;
     private final RobinhoodRhDailyTrackerAlertService rhDailyTrackerAlertService;
@@ -193,6 +196,14 @@ public class FinanceController {
         validateYear(year);
         log.info("GET /api/finance/robinhood/daily-tracker/period-balances year={}", year);
         return rhPeriodBalancesService.build(year);
+    }
+
+    /** Filled Robinhood buys and sells for the year, newest first (synced Agentic orders). */
+    @GetMapping("/executed-trades")
+    public RobinhoodExecutedTradesDto executedTrades(@RequestParam(name = "year") int year) {
+        validateYear(year);
+        log.info("GET /api/finance/robinhood/executed-trades year={}", year);
+        return rhExecutedTradesService.build(year);
     }
 
     /** Poll for new snapshots (scheduled cron or manual capture) without loading the full report. */
