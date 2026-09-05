@@ -56,4 +56,35 @@ class RobinhoodExecutedTradesServiceTest {
                         .compareTo(RobinhoodExecutedTradesService.notional(
                                 "MRVL", new BigDecimal("0.493575"), new BigDecimal("219.9101"))));
     }
+
+    @Test
+    void consumeSellComputesFifoGainAndPercent() {
+        var lots = new java.util.ArrayDeque<RobinhoodExecutedTradesService.Lot>();
+        RobinhoodExecutedTradesService.addLot(
+                lots, "HOOD", new BigDecimal("10"), new BigDecimal("10.00"));
+        var realized = RobinhoodExecutedTradesService.consumeSell(
+                lots, "HOOD", new BigDecimal("10"), new BigDecimal("12.00"));
+        assertEquals(0, new BigDecimal("20.00").compareTo(realized.pnl()));
+        assertEquals(0, new BigDecimal("20.0").compareTo(realized.percent()));
+    }
+
+    @Test
+    void consumeSellWithoutBuysLeavesPnlEmpty() {
+        var lots = new java.util.ArrayDeque<RobinhoodExecutedTradesService.Lot>();
+        var realized = RobinhoodExecutedTradesService.consumeSell(
+                lots, "HOOD", new BigDecimal("2"), new BigDecimal("12.00"));
+        assertEquals(null, realized.pnl());
+        assertEquals(null, realized.percent());
+    }
+
+    @Test
+    void consumeSellUsesOptionMultiplier() {
+        var lots = new java.util.ArrayDeque<RobinhoodExecutedTradesService.Lot>();
+        RobinhoodExecutedTradesService.addLot(
+                lots, "HOOD $155 CALL 2027-01-15", new BigDecimal("1"), new BigDecimal("11.05"));
+        var realized = RobinhoodExecutedTradesService.consumeSell(
+                lots, "HOOD $155 CALL 2027-01-15", new BigDecimal("1"), new BigDecimal("15.05"));
+        assertEquals(0, new BigDecimal("400.00").compareTo(realized.pnl()));
+        assertEquals(0, new BigDecimal("36.2").compareTo(realized.percent()));
+    }
 }

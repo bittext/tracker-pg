@@ -154,11 +154,30 @@
 }
 
 .rh-ex__notional {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
   flex-shrink: 0;
   font-size: 0.95rem;
   font-weight: 650;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  text-align: right;
+}
+
+.rh-ex__pnl {
+  display: block;
+  margin-top: 0.12rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+.rh-ex__pnl--pos {
+  color: #15803d;
+}
+
+.rh-ex__pnl--neg {
+  color: #b91c1c;
 }
 
 .rh-ex__buy {

@@ -167,6 +167,9 @@ export interface RobinhoodExecutedTradeDto {
   executedAt: string | null;
   accountSuffix: string | null;
   accountLabel: string | null;
+  /** FIFO vs prior synced buys on the same account and symbol; sells only. */
+  realizedPnl: number | null;
+  realizedPnlPercent: number | null;
 }
 
 export interface RobinhoodExecutedTradesDto {

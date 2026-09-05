@@ -14,4 +14,6 @@ public record RobinhoodExecutedTradeDto(
         String state,
         Instant executedAt,
         String accountSuffix,
-        String accountLabel) {}
+        String accountLabel,
+        BigDecimal realizedPnl,
+        BigDecimal realizedPnlPercent) {}

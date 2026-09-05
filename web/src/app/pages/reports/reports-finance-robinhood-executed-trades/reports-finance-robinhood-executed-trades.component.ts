@@ -1,4 +1,4 @@
-import { CommonModule, CurrencyPipe } from '@angular/common';
+import { CommonModule, CurrencyPipe, DecimalPipe } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -35,6 +35,7 @@ interface TradeDayGroup {
     MatProgressSpinnerModule,
     MatSnackBarModule,
     CurrencyPipe,
+    DecimalPipe,
   ],
   templateUrl: './reports-finance-robinhood-executed-trades.component.html',
   styleUrl: './reports-finance-robinhood-executed-trades.component.scss',

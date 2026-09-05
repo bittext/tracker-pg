@@ -140,6 +140,18 @@
                   } @else {
                     —
                   }
+                  @if (isSell(tr.side) && tr.realizedPnl != null) {
+                    <small
+                      class="rh-ex__pnl"
+                      [class.rh-ex__pnl--pos]="tr.realizedPnl > 0"
+                      [class.rh-ex__pnl--neg]="tr.realizedPnl < 0"
+                    >
+                      {{ tr.realizedPnl | currency }}
+                      @if (tr.realizedPnlPercent != null) {
+                        ({{ tr.realizedPnlPercent | number: '1.1-1' }}%)
+                      }
+                    </small>
+                  }
                 </div>
               </li>
             }
