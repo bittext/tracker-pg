@@ -71,9 +71,14 @@ export class ReportsFinanceRobinhoodPeriodBalancesComponent implements OnInit {
   }
 
   visibleMonths(): RobinhoodRhPeriodBalanceRowDto[] {
-    return (this.data?.months ?? []).filter(
-      (row) => row.combinedStart != null || row.combinedEnd != null,
-    );
+    return (this.data?.months ?? []).filter((row) => this.rowHasFigures(row));
+  }
+
+  private rowHasFigures(row: RobinhoodRhPeriodBalanceRowDto): boolean {
+    if (row.combinedStart != null || row.combinedEnd != null) {
+      return true;
+    }
+    return row.accounts.some((a) => a.start != null || a.end != null);
   }
 
   figureFor(
@@ -81,6 +86,10 @@ export class ReportsFinanceRobinhoodPeriodBalancesComponent implements OnInit {
     suffix: string,
   ): RobinhoodRhPeriodAccountFigureDto | undefined {
     return row.accounts.find((a) => a.accountSuffix === suffix);
+  }
+
+  isAltGroup(accountIndex: number): boolean {
+    return accountIndex % 2 === 1;
   }
 
   /** Shown under Year start when opening is the first tracked close, not a prior-year midnight. */

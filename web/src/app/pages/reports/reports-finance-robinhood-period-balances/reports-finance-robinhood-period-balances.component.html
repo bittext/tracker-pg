@@ -64,29 +64,15 @@
     } @else {
       <div class="rh-bal__table-wrap">
         <table class="rh-bal__table">
-          <colgroup>
-            <col class="rh-bal__col-period" />
-          </colgroup>
-          <colgroup class="rh-bal__cols rh-bal__cols--combined">
-            <col />
-            <col />
-            <col />
-          </colgroup>
-          @for (acct of d.accounts; track acct.accountSuffix; let i = $index) {
-            <colgroup class="rh-bal__cols" [class.rh-bal__cols--alt]="i % 2 === 1">
-              <col />
-              <col />
-              <col />
-            </colgroup>
-          }
           <thead>
             <tr>
               <th class="rh-bal__period" scope="col">Period</th>
-              <th class="rh-bal__group-head rh-bal__group-start" colspan="3" scope="colgroup">Combined</th>
+              <th class="rh-bal__group-head rh-bal__group--combined" colspan="3" scope="colgroup">Combined</th>
               @for (acct of d.accounts; track acct.accountSuffix; let i = $index) {
                 <th
                   class="rh-bal__group-head rh-bal__group-start"
-                  [class.rh-bal__group--alt]="i % 2 === 1"
+                  [class.rh-bal__group--alt]="isAltGroup(i)"
+                  [class.rh-bal__group--plain]="!isAltGroup(i)"
                   colspan="3"
                   scope="colgroup"
                 >
@@ -96,13 +82,19 @@
             </tr>
             <tr class="rh-bal__subhead">
               <th class="rh-bal__period"></th>
-              <th class="rh-bal__group-start">Start</th>
-              <th>End</th>
-              <th>Change</th>
+              <th class="rh-bal__group--combined">Start</th>
+              <th class="rh-bal__group--combined">End</th>
+              <th class="rh-bal__group--combined">Change</th>
               @for (acct of d.accounts; track acct.accountSuffix; let i = $index) {
-                <th class="rh-bal__group-start" [class.rh-bal__group--alt]="i % 2 === 1">Start</th>
-                <th [class.rh-bal__group--alt]="i % 2 === 1">End</th>
-                <th [class.rh-bal__group--alt]="i % 2 === 1">Change</th>
+                <th
+                  class="rh-bal__group-start"
+                  [class.rh-bal__group--alt]="isAltGroup(i)"
+                  [class.rh-bal__group--plain]="!isAltGroup(i)"
+                >
+                  Start
+                </th>
+                <th [class.rh-bal__group--alt]="isAltGroup(i)" [class.rh-bal__group--plain]="!isAltGroup(i)">End</th>
+                <th [class.rh-bal__group--alt]="isAltGroup(i)" [class.rh-bal__group--plain]="!isAltGroup(i)">Change</th>
               }
             </tr>
           </thead>
@@ -115,12 +107,14 @@
                     <span class="muted rh-bal__so-far">so far</span>
                   }
                 </th>
-                <td class="rh-bal__num rh-bal__group-start">
+                <td class="rh-bal__num rh-bal__group--combined">
                   {{ row.combinedStart != null ? (row.combinedStart | currency) : '—' }}
                 </td>
-                <td class="rh-bal__num">{{ row.combinedEnd != null ? (row.combinedEnd | currency) : '—' }}</td>
+                <td class="rh-bal__num rh-bal__group--combined">
+                  {{ row.combinedEnd != null ? (row.combinedEnd | currency) : '—' }}
+                </td>
                 <td
-                  class="rh-bal__num"
+                  class="rh-bal__num rh-bal__group--combined"
                   [class.rh-bal__pnl--pos]="isGain(row.combinedChange)"
                   [class.rh-bal__pnl--neg]="isLoss(row.combinedChange)"
                 >
@@ -128,24 +122,51 @@
                 </td>
                 @for (acct of d.accounts; track acct.accountSuffix; let i = $index) {
                   @if (figureFor(row, acct.accountSuffix); as fig) {
-                    <td class="rh-bal__num rh-bal__group-start" [class.rh-bal__group--alt]="i % 2 === 1">
+                    <td
+                      class="rh-bal__num rh-bal__group-start"
+                      [class.rh-bal__group--alt]="isAltGroup(i)"
+                      [class.rh-bal__group--plain]="!isAltGroup(i)"
+                    >
                       {{ fig.start != null ? (fig.start | currency) : '—' }}
                     </td>
-                    <td class="rh-bal__num" [class.rh-bal__group--alt]="i % 2 === 1">
+                    <td
+                      class="rh-bal__num"
+                      [class.rh-bal__group--alt]="isAltGroup(i)"
+                      [class.rh-bal__group--plain]="!isAltGroup(i)"
+                    >
                       {{ fig.end != null ? (fig.end | currency) : '—' }}
                     </td>
                     <td
                       class="rh-bal__num"
-                      [class.rh-bal__group--alt]="i % 2 === 1"
+                      [class.rh-bal__group--alt]="isAltGroup(i)"
+                      [class.rh-bal__group--plain]="!isAltGroup(i)"
                       [class.rh-bal__pnl--pos]="isGain(fig.change)"
                       [class.rh-bal__pnl--neg]="isLoss(fig.change)"
                     >
                       {{ fig.change != null ? (fig.change | currency) : '—' }}
                     </td>
                   } @else {
-                    <td class="rh-bal__num muted rh-bal__group-start" [class.rh-bal__group--alt]="i % 2 === 1">—</td>
-                    <td class="rh-bal__num muted" [class.rh-bal__group--alt]="i % 2 === 1">—</td>
-                    <td class="rh-bal__num muted" [class.rh-bal__group--alt]="i % 2 === 1">—</td>
+                    <td
+                      class="rh-bal__num muted rh-bal__group-start"
+                      [class.rh-bal__group--alt]="isAltGroup(i)"
+                      [class.rh-bal__group--plain]="!isAltGroup(i)"
+                    >
+                      —
+                    </td>
+                    <td
+                      class="rh-bal__num muted"
+                      [class.rh-bal__group--alt]="isAltGroup(i)"
+                      [class.rh-bal__group--plain]="!isAltGroup(i)"
+                    >
+                      —
+                    </td>
+                    <td
+                      class="rh-bal__num muted"
+                      [class.rh-bal__group--alt]="isAltGroup(i)"
+                      [class.rh-bal__group--plain]="!isAltGroup(i)"
+                    >
+                      —
+                    </td>
                   }
                 }
               </tr>
@@ -153,12 +174,14 @@
             @if (d.yearBalance; as yb) {
               <tr class="rh-bal__year-row">
                 <th class="rh-bal__period" scope="row">{{ yb.label }}</th>
-                <td class="rh-bal__num rh-bal__group-start">
+                <td class="rh-bal__num rh-bal__group--combined">
                   {{ yb.combinedStart != null ? (yb.combinedStart | currency) : '—' }}
                 </td>
-                <td class="rh-bal__num">{{ yb.combinedEnd != null ? (yb.combinedEnd | currency) : '—' }}</td>
+                <td class="rh-bal__num rh-bal__group--combined">
+                  {{ yb.combinedEnd != null ? (yb.combinedEnd | currency) : '—' }}
+                </td>
                 <td
-                  class="rh-bal__num"
+                  class="rh-bal__num rh-bal__group--combined"
                   [class.rh-bal__pnl--pos]="isGain(yb.combinedChange)"
                   [class.rh-bal__pnl--neg]="isLoss(yb.combinedChange)"
                 >
@@ -166,24 +189,51 @@
                 </td>
                 @for (acct of d.accounts; track acct.accountSuffix; let i = $index) {
                   @if (figureFor(yb, acct.accountSuffix); as fig) {
-                    <td class="rh-bal__num rh-bal__group-start" [class.rh-bal__group--alt]="i % 2 === 1">
+                    <td
+                      class="rh-bal__num rh-bal__group-start"
+                      [class.rh-bal__group--alt]="isAltGroup(i)"
+                      [class.rh-bal__group--plain]="!isAltGroup(i)"
+                    >
                       {{ fig.start != null ? (fig.start | currency) : '—' }}
                     </td>
-                    <td class="rh-bal__num" [class.rh-bal__group--alt]="i % 2 === 1">
+                    <td
+                      class="rh-bal__num"
+                      [class.rh-bal__group--alt]="isAltGroup(i)"
+                      [class.rh-bal__group--plain]="!isAltGroup(i)"
+                    >
                       {{ fig.end != null ? (fig.end | currency) : '—' }}
                     </td>
                     <td
                       class="rh-bal__num"
-                      [class.rh-bal__group--alt]="i % 2 === 1"
+                      [class.rh-bal__group--alt]="isAltGroup(i)"
+                      [class.rh-bal__group--plain]="!isAltGroup(i)"
                       [class.rh-bal__pnl--pos]="isGain(fig.change)"
                       [class.rh-bal__pnl--neg]="isLoss(fig.change)"
                     >
                       {{ fig.change != null ? (fig.change | currency) : '—' }}
                     </td>
                   } @else {
-                    <td class="rh-bal__num muted rh-bal__group-start" [class.rh-bal__group--alt]="i % 2 === 1">—</td>
-                    <td class="rh-bal__num muted" [class.rh-bal__group--alt]="i % 2 === 1">—</td>
-                    <td class="rh-bal__num muted" [class.rh-bal__group--alt]="i % 2 === 1">—</td>
+                    <td
+                      class="rh-bal__num muted rh-bal__group-start"
+                      [class.rh-bal__group--alt]="isAltGroup(i)"
+                      [class.rh-bal__group--plain]="!isAltGroup(i)"
+                    >
+                      —
+                    </td>
+                    <td
+                      class="rh-bal__num muted"
+                      [class.rh-bal__group--alt]="isAltGroup(i)"
+                      [class.rh-bal__group--plain]="!isAltGroup(i)"
+                    >
+                      —
+                    </td>
+                    <td
+                      class="rh-bal__num muted"
+                      [class.rh-bal__group--alt]="isAltGroup(i)"
+                      [class.rh-bal__group--plain]="!isAltGroup(i)"
+                    >
+                      —
+                    </td>
                   }
                 }
               </tr>
