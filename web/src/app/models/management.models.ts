@@ -156,7 +156,7 @@ export interface ManagementWriteupGroupOrderRequest {
   groupLabels: string[];
 }
 
-/** Management → Work tab: file attached to a work log entry (same storage as month notes). */
+/** Life → Work: file attached to a work log entry (same storage as month notes). */
 export interface ManagementWorkLogAttachmentDto {
   id: number;
   originalFilename: string;
@@ -165,7 +165,7 @@ export interface ManagementWorkLogAttachmentDto {
   downloadPath: string;
 }
 
-/** Management → Work tab: day-scoped work log (Markdown body). */
+/** Life → Work: day-scoped work log (Markdown body). */
 export interface ManagementWorkLogEntryDto {
   id: number;
   ownerUserId: number;

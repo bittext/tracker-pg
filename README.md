@@ -307,7 +307,8 @@ The top navigation includes dedicated sections for:
 - Welcome
 - Exercise
 - Finance
-- Management (tasks; Work tab with work-category tasks, daily work log with file attachments and inline audio playback; Travel tab with MapLibre map, trips/places, optional place photos, and address search via OpenStreetMap Nominatim; calendar; account vault; month notes; write-ups)
+- Work (work-category tasks and a daily work log with file attachments and inline audio playback)
+- Management (tasks; Travel tab with MapLibre map, trips/places, optional place photos, and address search via OpenStreetMap Nominatim; calendar; account vault; month notes; write-ups)
 - Journal (Markdown entries, calendar heatmap, tags, attachments)
 - Reports
 - Security (information security policy and procedures; route **`/security`**)

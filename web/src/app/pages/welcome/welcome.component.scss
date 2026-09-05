@@ -383,6 +383,13 @@
   border-color: rgba(8, 145, 178, 0.28) !important;
 }
 
+.welcome-card--slate .welcome-card__avatar {
+  background: linear-gradient(145deg, #334155, #64748b);
+}
+.welcome-card--slate {
+  border-color: rgba(51, 65, 85, 0.28) !important;
+}
+
 .welcome-steps {
   list-style: none;
   margin: 0;

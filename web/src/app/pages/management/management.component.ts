@@ -69,7 +69,6 @@ import {
   ReportCalendarEntryDialogComponent,
   ReportCalendarEntryDialogData,
 } from '../reports/report-calendar-entry-dialog.component';
-import { ManagementWorkPanelComponent } from './management-work-panel/management-work-panel.component';
 import { ManagementTravelPanelComponent } from './management-travel-panel/management-travel-panel.component';
 import { ManagementDocumentsPanelComponent } from './management-documents-panel/management-documents-panel.component';
 import { ManagementRecordingsPanelComponent } from './management-recordings-panel/management-recordings-panel.component';
@@ -132,7 +131,6 @@ interface AccountEntry {
     MatDatepickerModule,
     MatNativeDateModule,
     MatCheckboxModule,
-    ManagementWorkPanelComponent,
     ManagementTravelPanelComponent,
     ManagementDocumentsPanelComponent,
     ManagementRecordingsPanelComponent,
@@ -234,15 +232,13 @@ export class ManagementComponent implements OnInit, OnDestroy {
 
   readonly accountTableColumns: string[] = ['folder', 'itemName', 'username', 'actions'];
 
-  /** 0 Tasks, 1 Work, 2 Travel, 3 Documents, 4 Recordings, 5 Now, 6 Calendar, 7 Account, 8 Notes, 9 Write-up */
-  private readonly MGMT_TAB_WORK = 1;
-  private readonly MGMT_TAB_TRAVEL = 2;
-  private readonly MGMT_TAB_DOCUMENTS = 3;
-  private readonly MGMT_TAB_RECORDINGS = 4;
-  private readonly MGMT_TAB_NOTES = 8;
-  private readonly MGMT_TAB_WRITEUP = 9;
+  /** 0 Tasks, 1 Travel, 2 Documents, 3 Recordings, 4 Now, 5 Calendar, 6 Account, 7 Notes, 8 Write-up */
+  private readonly MGMT_TAB_TRAVEL = 1;
+  private readonly MGMT_TAB_DOCUMENTS = 2;
+  private readonly MGMT_TAB_RECORDINGS = 3;
+  private readonly MGMT_TAB_NOTES = 7;
+  private readonly MGMT_TAB_WRITEUP = 8;
 
-  private readonly workPanel = viewChild(ManagementWorkPanelComponent);
   private readonly travelPanel = viewChild(ManagementTravelPanelComponent);
   private readonly documentsPanel = viewChild(ManagementDocumentsPanelComponent);
   private readonly recordingsPanel = viewChild(ManagementRecordingsPanelComponent);
@@ -1413,9 +1409,6 @@ export class ManagementComponent implements OnInit, OnDestroy {
   onManagementTabIndexChange(index: number): void {
     if (this.writeupViewMode === 'compose') {
       this.writeupAutosave.flush();
-    }
-    if (index === this.MGMT_TAB_WORK) {
-      this.workPanel()?.refreshAll();
     }
     if (index === this.MGMT_TAB_TRAVEL) {
       this.travelPanel()?.refreshAll();

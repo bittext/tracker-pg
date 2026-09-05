@@ -43,6 +43,15 @@ export const LIFE_PRIMARY_NAV: NavEntry[] = [
     shell: 'life-primary',
     exact: true,
   },
+  {
+    id: 'work',
+    label: 'Work',
+    path: '/life/work',
+    icon: 'work',
+    shell: 'life-primary',
+    exact: true,
+    ariaLabel: 'Work — tasks and daily log',
+  },
   { id: 'journal', label: 'Journal', path: '/life/journal', icon: 'menu_book', shell: 'life-primary', exact: true },
   {
     id: 'life',

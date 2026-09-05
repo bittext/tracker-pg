@@ -15,6 +15,7 @@ import { ExerciseComponent } from './pages/exercise/exercise.component';
 import { FinanceComponent } from './pages/finance/finance.component';
 import { JournalComponent } from './pages/journal/journal.component';
 import { LifePhotosComponent } from './pages/life-photos/life-photos.component';
+import { LifeWorkComponent } from './pages/life-work/life-work.component';
 import { ManagementComponent } from './pages/management/management.component';
 import { MarketsOverviewComponent } from './pages/markets/markets-overview/markets-overview.component';
 import { MarketsJourneyComponent } from './pages/markets/markets-journey/markets-journey.component';
@@ -70,6 +71,7 @@ export const routes: Routes = [
       { path: 'welcome', component: WelcomeComponent },
       { path: 'exercise', component: ExerciseComponent },
       { path: 'management', component: ManagementComponent },
+      { path: 'work', component: LifeWorkComponent },
       { path: 'journal', component: JournalComponent },
       { path: 'life', component: LifePhotosComponent },
       { path: 'contact', component: ContactComponent },
@@ -137,6 +139,7 @@ export const routes: Routes = [
   { path: 'exercise', redirectTo: 'life/exercise', pathMatch: 'full' },
   { path: 'finance', redirectTo: 'life/money', pathMatch: 'full' },
   { path: 'management', redirectTo: 'life/management', pathMatch: 'full' },
+  { path: 'work', redirectTo: 'life/work', pathMatch: 'full' },
   { path: 'journal', redirectTo: 'life/journal', pathMatch: 'full' },
   { path: 'reports', redirectTo: 'life/insights', pathMatch: 'full' },
   { path: 'contact', redirectTo: 'life/contact', pathMatch: 'full' },

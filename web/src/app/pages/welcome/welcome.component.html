@@ -92,13 +92,27 @@
           <mat-card-header>
             <div mat-card-avatar class="welcome-card__avatar"><mat-icon>task_alt</mat-icon></div>
             <mat-card-title>Management</mat-card-title>
-            <mat-card-subtitle>Tasks, work, travel &amp; balance</mat-card-subtitle>
+            <mat-card-subtitle>Tasks, travel &amp; balance</mat-card-subtitle>
           </mat-card-header>
           <mat-card-content>
             <p>
               Balance categories, calendar, account vault, month notes, and long-form write-ups—plus
-              <strong>Work</strong> (tasks and daily log) and <strong>Travel</strong> (trips, map, places, and optional
-              geocode)—all scoped to you.
+              <strong>Travel</strong> (trips, map, places, and optional geocode)—all scoped to you.
+            </p>
+          </mat-card-content>
+        </mat-card>
+      </a>
+      <a routerLink="/life/work" class="welcome-feature-link">
+        <mat-card class="welcome-card welcome-card--slate" appearance="outlined">
+          <mat-card-header>
+            <div mat-card-avatar class="welcome-card__avatar"><mat-icon>work</mat-icon></div>
+            <mat-card-title>Work</mat-card-title>
+            <mat-card-subtitle>Work tasks &amp; daily log</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <p>
+              A dedicated hub for the <strong>Work</strong> balance category: due-date calendar, quick add, and a
+              day-by-day work log with attachments.
             </p>
           </mat-card-content>
         </mat-card>
@@ -196,9 +210,9 @@
         <div class="welcome-step__body">
           <h3 class="welcome-step__title">Shape your week</h3>
           <p>
-            In <a routerLink="/life/management">Management</a>, create tasks with balance categories and due dates, use the
-            calendar to see what needs attention, and try <strong>Travel</strong> for trip planning on the map when you
-            want it.
+            In <a routerLink="/life/management">Management</a>, create tasks with balance categories and due dates, and use
+            the calendar to see what needs attention. Open <a routerLink="/life/work">Work</a> for work tasks and the
+            daily log, and try <strong>Travel</strong> on Management for trip planning on the map when you want it.
           </p>
         </div>
       </li>
