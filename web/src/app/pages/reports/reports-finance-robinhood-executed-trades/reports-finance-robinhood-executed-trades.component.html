@@ -23,7 +23,7 @@
         }
       </mat-select>
     </mat-form-field>
-    <mat-form-field appearance="outline" class="rh-ex__day" subscriptSizing="dynamic">
+    <mat-form-field appearance="outline" class="rh-ex__day-field" subscriptSizing="dynamic">
       <mat-label>Day</mat-label>
       <mat-select [(ngModel)]="dayFilter" name="rhExDay" [disabled]="monthFilter === ''">
         <mat-option [value]="''">All days</mat-option>
@@ -32,7 +32,7 @@
         }
       </mat-select>
     </mat-form-field>
-    <mat-form-field appearance="outline" class="rh-ex__symbol" subscriptSizing="dynamic">
+    <mat-form-field appearance="outline" class="rh-ex__symbol-field" subscriptSizing="dynamic">
       <mat-label>Stock</mat-label>
       <mat-select [(ngModel)]="symbolFilter" name="rhExSymbol">
         <mat-option value="">All stocks</mat-option>

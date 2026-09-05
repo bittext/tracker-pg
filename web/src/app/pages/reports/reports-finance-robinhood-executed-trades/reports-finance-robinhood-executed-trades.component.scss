@@ -23,11 +23,11 @@
 
 .rh-ex__year,
 .rh-ex__month,
-.rh-ex__day {
+.rh-ex__day-field {
   width: 8.5rem;
 }
 
-.rh-ex__symbol {
+.rh-ex__symbol-field {
   min-width: 9.5rem;
 }
 
@@ -83,6 +83,7 @@
   list-style: none;
   margin: 0;
   padding: 0;
+  width: 100%;
   border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
   border-radius: 10px;
   background: var(--app-surface, #fff);
@@ -94,6 +95,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.85rem;
+  width: 100%;
+  box-sizing: border-box;
   padding: 0.7rem 0.9rem;
   border-bottom: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
 }
@@ -105,6 +108,7 @@
 .rh-ex__row-main {
   display: flex;
   align-items: flex-start;
+  flex: 1;
   gap: 0.7rem;
   min-width: 0;
 }
