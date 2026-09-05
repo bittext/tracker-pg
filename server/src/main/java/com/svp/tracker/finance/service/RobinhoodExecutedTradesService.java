@@ -29,8 +29,8 @@ public class RobinhoodExecutedTradesService {
     private static final ZoneId CENTRAL = ZoneId.of("America/Chicago");
     private static final List<String> PREFERRED_SUFFIX_ORDER =
             List.of("3370", "3550", "4123", "8696", "4190", "7581");
-    /** Individual, Agentic, Ammu — source of the “stocks traded earlier” picker. */
-    private static final Set<String> TRADED_SYMBOL_SUFFIXES = Set.of("3370", "3550", "8696");
+    /** Individual, Agentic, Ammu — only these accounts appear on Trades. */
+    private static final Set<String> TRADE_LIST_SUFFIXES = Set.of("3370", "3550", "8696");
 
     private final CurrentUserService currentUser;
     private final RobinhoodAgenticSyncedOrderRepository syncedOrderRepository;
@@ -45,7 +45,7 @@ public class RobinhoodExecutedTradesService {
         List<RobinhoodExecutedTradeDto> trades = new ArrayList<>();
         Set<String> suffixes = new LinkedHashSet<>();
         Set<String> tradedSymbols = new LinkedHashSet<>();
-        for (String pinned : TRADED_SYMBOL_SUFFIXES) {
+        for (String pinned : TRADE_LIST_SUFFIXES) {
             if (accountTrackerConfigService.isDailyTrackerSuffix(ownerUserId, pinned)) {
                 suffixes.add(pinned);
             }
@@ -56,24 +56,23 @@ public class RobinhoodExecutedTradesService {
                 continue;
             }
             String suffix = lastFour(order.getAccountNumber());
-            if (suffix == null || !accountTrackerConfigService.isDailyTrackerSuffix(ownerUserId, suffix)) {
+            if (suffix == null
+                    || !TRADE_LIST_SUFFIXES.contains(suffix)
+                    || !accountTrackerConfigService.isDailyTrackerSuffix(ownerUserId, suffix)) {
                 continue;
             }
             Instant executedAt = order.getUpdatedAtRh() != null ? order.getUpdatedAtRh() : order.getCreatedAtRh();
             if (executedAt == null) {
                 continue;
             }
-            if (TRADED_SYMBOL_SUFFIXES.contains(suffix)) {
-                String ticker = underlyingSymbol(order.getSymbol());
-                if (ticker != null) {
-                    tradedSymbols.add(ticker);
-                }
-            }
             LocalDate tradeDate = executedAt.atZone(CENTRAL).toLocalDate();
             if (tradeDate.isBefore(yearStart) || tradeDate.isAfter(yearEnd)) {
                 continue;
             }
-            suffixes.add(suffix);
+            String ticker = underlyingSymbol(order.getSymbol());
+            if (ticker != null) {
+                tradedSymbols.add(ticker);
+            }
             BigDecimal qty = order.getQuantity();
             BigDecimal price = order.getAveragePrice() != null ? order.getAveragePrice() : order.getLimitPrice();
             trades.add(new RobinhoodExecutedTradeDto(
@@ -100,7 +99,7 @@ public class RobinhoodExecutedTradesService {
         String note = trades.isEmpty()
                 ? "No filled buys or sells in " + year + " yet. Sync Robinhood orders from Finance if this looks short."
                 : "Filled and partially filled orders only, newest first. Times are America/Chicago. "
-                        + "Stock list is names traded on Individual, Agentic, or Ammu's accounts.";
+                        + "Individual, Agentic, and Ammu's accounts. Stock filter is names in the list below.";
         return new RobinhoodExecutedTradesDto(year, note, accounts, symbolChoices, trades);
     }
 

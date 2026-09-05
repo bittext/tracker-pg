@@ -1,8 +1,8 @@
 <section class="rh-ex" aria-labelledby="rh-ex-heading">
   <h2 id="rh-ex-heading" class="rh-ex__title">Executed trades</h2>
   <p class="muted rh-ex__lead">
-    Filled buys and sells from synced Robinhood orders, grouped like History — newest first. Filter by month or
-    day, or pick a stock previously traded on Individual, Agentic, or Ammu's accounts.
+    Filled buys and sells from Individual, Agentic, and Ammu's accounts, grouped like History — newest first.
+    The stock filter lists names that appear in the trades below.
   </p>
 
   <div class="rh-ex__toolbar">
@@ -25,7 +25,7 @@
     </mat-form-field>
     <mat-form-field appearance="outline" class="rh-ex__day-field" subscriptSizing="dynamic">
       <mat-label>Day</mat-label>
-      <mat-select [(ngModel)]="dayFilter" name="rhExDay" [disabled]="monthFilter === ''">
+      <mat-select [(ngModel)]="dayFilter" name="rhExDay" [disabled]="monthFilter === ''" (selectionChange)="onListFiltersChange()">
         <mat-option [value]="''">All days</mat-option>
         @for (d of dayChoices(); track d) {
           <mat-option [value]="d">{{ d }}</mat-option>
@@ -43,14 +43,19 @@
     </mat-form-field>
     <mat-form-field appearance="outline" class="rh-ex__account" subscriptSizing="dynamic">
       <mat-label>Account</mat-label>
-      <mat-select [(ngModel)]="accountFilter" name="rhExAccount">
+      <mat-select [(ngModel)]="accountFilter" name="rhExAccount" (selectionChange)="onListFiltersChange()">
         <mat-option value="">All accounts</mat-option>
         @for (acct of data?.accounts ?? []; track acct.accountSuffix) {
           <mat-option [value]="acct.accountSuffix">{{ acct.label }}</mat-option>
         }
       </mat-select>
     </mat-form-field>
-    <mat-button-toggle-group [(ngModel)]="sideFilter" name="rhExSide" aria-label="Buy or sell">
+    <mat-button-toggle-group
+      [(ngModel)]="sideFilter"
+      name="rhExSide"
+      aria-label="Buy or sell"
+      (ngModelChange)="onListFiltersChange()"
+    >
       <mat-button-toggle value="all">All</mat-button-toggle>
       <mat-button-toggle value="buy">Buys</mat-button-toggle>
       <mat-button-toggle value="sell">Sells</mat-button-toggle>

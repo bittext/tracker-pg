@@ -88,10 +88,8 @@ export class ReportsFinanceRobinhoodExecutedTradesComponent implements OnInit {
         if (this.accountFilter && !res.accounts.some((a) => a.accountSuffix === this.accountFilter)) {
           this.accountFilter = '';
         }
-        if (this.symbolFilter && !this.symbolChoices().includes(this.symbolFilter)) {
-          this.symbolFilter = '';
-        }
         this.syncDayFilter();
+        this.syncSymbolFilter();
         this.loading = false;
       },
       error: (err) => {
@@ -103,16 +101,16 @@ export class ReportsFinanceRobinhoodExecutedTradesComponent implements OnInit {
     });
   }
 
+  /** Tickers currently in the list below (other filters applied; stock filter ignored). */
   symbolChoices(): string[] {
-    const fromHistory = this.data?.tradedSymbols ?? [];
-    const fromYear = new Set<string>();
-    for (const trade of this.data?.trades ?? []) {
+    const symbols = new Set<string>();
+    for (const trade of this.tradesMatching({ ignoreSymbol: true })) {
       const ticker = this.underlying(trade.symbol);
       if (ticker) {
-        fromYear.add(ticker);
+        symbols.add(ticker);
       }
     }
-    return [...new Set([...fromHistory, ...fromYear])].sort((a, b) => a.localeCompare(b));
+    return [...symbols].sort((a, b) => a.localeCompare(b));
   }
 
   dayChoices(): number[] {
@@ -131,13 +129,18 @@ export class ReportsFinanceRobinhoodExecutedTradesComponent implements OnInit {
 
   onMonthChange(): void {
     this.syncDayFilter();
+    this.syncSymbolFilter();
+  }
+
+  onListFiltersChange(): void {
+    this.syncSymbolFilter();
   }
 
   visibleTrades(): RobinhoodExecutedTradeDto[] {
     return this.tradesMatching({});
   }
 
-  private tradesMatching(opts: { ignoreDay?: boolean }): RobinhoodExecutedTradeDto[] {
+  private tradesMatching(opts: { ignoreDay?: boolean; ignoreSymbol?: boolean }): RobinhoodExecutedTradeDto[] {
     const trades = this.data?.trades ?? [];
     return trades.filter((t) => {
       if (this.sideFilter !== 'all' && (t.side ?? '').toLowerCase() !== this.sideFilter) {
@@ -146,7 +149,7 @@ export class ReportsFinanceRobinhoodExecutedTradesComponent implements OnInit {
       if (this.accountFilter && t.accountSuffix !== this.accountFilter) {
         return false;
       }
-      if (this.symbolFilter && this.underlying(t.symbol) !== this.symbolFilter) {
+      if (!opts.ignoreSymbol && this.symbolFilter && this.underlying(t.symbol) !== this.symbolFilter) {
         return false;
       }
       const parts = this.localDateParts(t.executedAt);
@@ -167,6 +170,12 @@ export class ReportsFinanceRobinhoodExecutedTradesComponent implements OnInit {
     }
     if (this.dayFilter !== '' && !this.dayChoices().includes(this.dayFilter)) {
       this.dayFilter = '';
+    }
+  }
+
+  private syncSymbolFilter(): void {
+    if (this.symbolFilter && !this.symbolChoices().includes(this.symbolFilter)) {
+      this.symbolFilter = '';
     }
   }
 
