@@ -7,4 +7,5 @@ public record RobinhoodExecutedTradesDto(
         int year,
         String note,
         List<RobinhoodRhPeriodAccountColumnDto> accounts,
+        List<String> tradedSymbols,
         List<RobinhoodExecutedTradeDto> trades) {}

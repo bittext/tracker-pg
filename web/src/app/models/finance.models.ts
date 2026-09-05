@@ -173,6 +173,8 @@ export interface RobinhoodExecutedTradesDto {
   year: number;
   note: string | null;
   accounts: RobinhoodRhPeriodAccountColumnDto[];
+  /** Underlyings traded on Individual, Agentic, or Ammu's accounts (any year). */
+  tradedSymbols: string[];
   trades: RobinhoodExecutedTradeDto[];
 }
 

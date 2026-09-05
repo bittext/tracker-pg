@@ -10,7 +10,7 @@
 
 .rh-ex__lead,
 .rh-ex__note {
-  max-width: 42rem;
+  max-width: 48rem;
 }
 
 .rh-ex__toolbar {
@@ -21,8 +21,14 @@
   margin: 0.85rem 0 1rem;
 }
 
-.rh-ex__year {
+.rh-ex__year,
+.rh-ex__month,
+.rh-ex__day {
   width: 8.5rem;
+}
+
+.rh-ex__symbol {
+  min-width: 9.5rem;
 }
 
 .rh-ex__account {

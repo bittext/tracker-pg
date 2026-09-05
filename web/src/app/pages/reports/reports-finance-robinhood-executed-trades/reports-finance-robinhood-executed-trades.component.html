@@ -1,7 +1,8 @@
 <section class="rh-ex" aria-labelledby="rh-ex-heading">
   <h2 id="rh-ex-heading" class="rh-ex__title">Executed trades</h2>
   <p class="muted rh-ex__lead">
-    Filled buys and sells from synced Robinhood orders, grouped like History — newest first.
+    Filled buys and sells from synced Robinhood orders, grouped like History — newest first. Filter by month or
+    day, or pick a stock previously traded on Individual, Agentic, or Ammu's accounts.
   </p>
 
   <div class="rh-ex__toolbar">
@@ -10,6 +11,33 @@
       <mat-select [(ngModel)]="reportYear" name="rhExYear" (selectionChange)="load()">
         @for (y of yearChoices(); track y) {
           <mat-option [value]="y">{{ y }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="rh-ex__month" subscriptSizing="dynamic">
+      <mat-label>Month</mat-label>
+      <mat-select [(ngModel)]="monthFilter" name="rhExMonth" (selectionChange)="onMonthChange()">
+        <mat-option [value]="''">All months</mat-option>
+        @for (m of monthChoices; track m.value) {
+          <mat-option [value]="m.value">{{ m.label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="rh-ex__day" subscriptSizing="dynamic">
+      <mat-label>Day</mat-label>
+      <mat-select [(ngModel)]="dayFilter" name="rhExDay" [disabled]="monthFilter === ''">
+        <mat-option [value]="''">All days</mat-option>
+        @for (d of dayChoices(); track d) {
+          <mat-option [value]="d">{{ d }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="rh-ex__symbol" subscriptSizing="dynamic">
+      <mat-label>Stock</mat-label>
+      <mat-select [(ngModel)]="symbolFilter" name="rhExSymbol">
+        <mat-option value="">All stocks</mat-option>
+        @for (sym of symbolChoices(); track sym) {
+          <mat-option [value]="sym">{{ sym }}</mat-option>
         }
       </mat-select>
     </mat-form-field>

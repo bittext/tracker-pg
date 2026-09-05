@@ -32,6 +32,13 @@ class RobinhoodExecutedTradesServiceTest {
     }
 
     @Test
+    void underlyingSymbolUsesFirstToken() {
+        assertEquals("HOOD", RobinhoodExecutedTradesService.underlyingSymbol("HOOD $155 CALL 2027-01-15"));
+        assertEquals("MU", RobinhoodExecutedTradesService.underlyingSymbol("MU"));
+        assertEquals("MRVL", RobinhoodExecutedTradesService.underlyingSymbol(" mrvl "));
+    }
+
+    @Test
     void notionalIsQtyTimesPriceWithOptionMultiplier() {
         assertEquals(
                 0,

@@ -46,8 +46,26 @@ export class ReportsFinanceRobinhoodExecutedTradesComponent implements OnInit {
   reportYear = new Date().getFullYear();
   sideFilter: 'all' | 'buy' | 'sell' = 'all';
   accountFilter = '';
+  monthFilter: number | '' = '';
+  dayFilter: number | '' = '';
+  symbolFilter = '';
   loading = false;
   data: RobinhoodExecutedTradesDto | null = null;
+
+  readonly monthChoices: { value: number; label: string }[] = [
+    { value: 1, label: 'January' },
+    { value: 2, label: 'February' },
+    { value: 3, label: 'March' },
+    { value: 4, label: 'April' },
+    { value: 5, label: 'May' },
+    { value: 6, label: 'June' },
+    { value: 7, label: 'July' },
+    { value: 8, label: 'August' },
+    { value: 9, label: 'September' },
+    { value: 10, label: 'October' },
+    { value: 11, label: 'November' },
+    { value: 12, label: 'December' },
+  ];
 
   yearChoices(): number[] {
     const current = new Date().getFullYear();
@@ -70,6 +88,10 @@ export class ReportsFinanceRobinhoodExecutedTradesComponent implements OnInit {
         if (this.accountFilter && !res.accounts.some((a) => a.accountSuffix === this.accountFilter)) {
           this.accountFilter = '';
         }
+        if (this.symbolFilter && !this.symbolChoices().includes(this.symbolFilter)) {
+          this.symbolFilter = '';
+        }
+        this.syncDayFilter();
         this.loading = false;
       },
       error: (err) => {
@@ -81,7 +103,41 @@ export class ReportsFinanceRobinhoodExecutedTradesComponent implements OnInit {
     });
   }
 
+  symbolChoices(): string[] {
+    const fromHistory = this.data?.tradedSymbols ?? [];
+    const fromYear = new Set<string>();
+    for (const trade of this.data?.trades ?? []) {
+      const ticker = this.underlying(trade.symbol);
+      if (ticker) {
+        fromYear.add(ticker);
+      }
+    }
+    return [...new Set([...fromHistory, ...fromYear])].sort((a, b) => a.localeCompare(b));
+  }
+
+  dayChoices(): number[] {
+    if (this.monthFilter === '') {
+      return [];
+    }
+    const days = new Set<number>();
+    for (const trade of this.tradesMatching({ ignoreDay: true })) {
+      const parts = this.localDateParts(trade.executedAt);
+      if (parts && parts.month === this.monthFilter) {
+        days.add(parts.day);
+      }
+    }
+    return [...days].sort((a, b) => a - b);
+  }
+
+  onMonthChange(): void {
+    this.syncDayFilter();
+  }
+
   visibleTrades(): RobinhoodExecutedTradeDto[] {
+    return this.tradesMatching({});
+  }
+
+  private tradesMatching(opts: { ignoreDay?: boolean }): RobinhoodExecutedTradeDto[] {
     const trades = this.data?.trades ?? [];
     return trades.filter((t) => {
       if (this.sideFilter !== 'all' && (t.side ?? '').toLowerCase() !== this.sideFilter) {
@@ -90,8 +146,46 @@ export class ReportsFinanceRobinhoodExecutedTradesComponent implements OnInit {
       if (this.accountFilter && t.accountSuffix !== this.accountFilter) {
         return false;
       }
+      if (this.symbolFilter && this.underlying(t.symbol) !== this.symbolFilter) {
+        return false;
+      }
+      const parts = this.localDateParts(t.executedAt);
+      if (this.monthFilter !== '' && (!parts || parts.month !== this.monthFilter)) {
+        return false;
+      }
+      if (!opts.ignoreDay && this.dayFilter !== '' && (!parts || parts.day !== this.dayFilter)) {
+        return false;
+      }
       return true;
     });
+  }
+
+  private syncDayFilter(): void {
+    if (this.monthFilter === '') {
+      this.dayFilter = '';
+      return;
+    }
+    if (this.dayFilter !== '' && !this.dayChoices().includes(this.dayFilter)) {
+      this.dayFilter = '';
+    }
+  }
+
+  private underlying(symbol: string | null | undefined): string {
+    if (!symbol?.trim()) {
+      return '';
+    }
+    return symbol.trim().split(/\s+/)[0].toUpperCase();
+  }
+
+  private localDateParts(iso: string | null): { year: number; month: number; day: number } | null {
+    if (!iso) {
+      return null;
+    }
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) {
+      return null;
+    }
+    return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() };
   }
 
   dayGroups(): TradeDayGroup[] {
