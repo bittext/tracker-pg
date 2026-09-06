@@ -8,6 +8,8 @@ Endpoints
 - POST /v1/refresh-token  → {refresh_token, client_id?}
 - POST /v1/review-order   → {access_token, symbol, side, type, ...}
 - POST /v1/place-order    → {access_token, symbol, side, type, ...}
+- POST /v1/review-crypto-order → MCP preview_crypto_order (Agentic crypto account)
+- POST /v1/place-crypto-order  → MCP place_crypto_order (Agentic crypto account)
 - POST /v1/quotes         → {access_token, symbols?, option_instrument_ids?}
 - POST /v1/financials     → {access_token, symbol, limit?}
 - POST /v1/banking/sync   → {access_token, transaction_limit?}
@@ -32,6 +34,7 @@ from quote_service import run_quotes
 from sync_service import run_sync
 from crypto_trading_service import run_crypto_sync
 from crypto_order_service import run_crypto_place_order
+from crypto_mcp_order_service import run_crypto_mcp_place, run_crypto_mcp_review
 
 try:
     from financials_service import run_financials as _run_financials
@@ -67,8 +70,11 @@ class OrderRequest(BaseModel):
     type: str = Field(default="market")
     quantity: str | float | int | None = None
     amount: str | float | int | None = None
+    dollar_amount: str | float | int | None = None
     limit_price: str | float | int | None = None
     time_in_force: str | None = None
+    sell_all: bool = False
+    ref_id: str | None = None
 
 
 class QuotesRequest(BaseModel):
@@ -236,6 +242,36 @@ def quotes(body: QuotesRequest) -> dict[str, Any]:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         LOGGER.exception("quotes failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/v1/review-crypto-order")
+def review_crypto_order(body: OrderRequest) -> dict:
+    try:
+        return run_crypto_mcp_review(body.access_token, _order_body(body))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.exception("review-crypto-order failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/v1/place-crypto-order")
+def place_crypto_mcp_order(body: OrderRequest) -> dict:
+    try:
+        return run_crypto_mcp_place(body.access_token, _order_body(body))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.exception("place-crypto-order failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 

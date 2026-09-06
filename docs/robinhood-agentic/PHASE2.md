@@ -9,6 +9,8 @@ Status: **implemented** — order review/approval, token refresh, scheduled sync
 | Sidecar `POST /v1/refresh-token` | OAuth refresh (same as `phase0_oauth.py --refresh`) |
 | Sidecar `POST /v1/review-order` | MCP `review_equity_order` dry-run |
 | Sidecar `POST /v1/place-order` | MCP `place_equity_order` (Agentic account only) |
+| Sidecar `POST /v1/review-crypto-order` | MCP `preview_crypto_order` on the Agentic crypto account |
+| Sidecar `POST /v1/place-crypto-order` | MCP `place_crypto_order` (Agentic only; optional `sell_all`) |
 | Flyway `V47__robinhood_agentic_phase2.sql` | Per-user guardrails + order audit log |
 | Spring order API | Review → approve/reject → place |
 | Finance → Robinhood panel | Guardrails, propose order, pending approvals |
@@ -60,11 +62,24 @@ When **Require approval** is off and server execution is enabled, review auto-pl
   "symbol": "AAPL",
   "side": "buy",
   "type": "market",
-  "quantity": 1
+  "quantity": 1,
+  "assetClass": "equity"
 }
 ```
 
-Limit orders require `limitPrice`. Use `amount` instead of `quantity` for dollar-based market orders if MCP supports it.
+Crypto on the dedicated Agentic account:
+
+```json
+{
+  "symbol": "SOL",
+  "side": "sell",
+  "type": "market",
+  "assetClass": "crypto",
+  "sellAll": true
+}
+```
+
+Limit orders require `limitPrice`. Use `amount` instead of `quantity` for dollar-based market orders if MCP supports it. Crypto `sellAll` sells the full transferable quantity so dust is not left behind.
 
 ## Safety defaults
 

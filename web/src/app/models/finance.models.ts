@@ -824,6 +824,8 @@ export interface RobinhoodAgenticOrderDto {
   id: number;
   status: string;
   source: string;
+  assetClass: string;
+  sellAll: boolean;
   symbol: string;
   side: string;
   orderType: string;

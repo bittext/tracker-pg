@@ -9,4 +9,6 @@ public record RobinhoodAgenticOrderRequestDto(
         BigDecimal quantity,
         BigDecimal amount,
         BigDecimal limitPrice,
-        String timeInForce) {}
+        String timeInForce,
+        String assetClass,
+        Boolean sellAll) {}

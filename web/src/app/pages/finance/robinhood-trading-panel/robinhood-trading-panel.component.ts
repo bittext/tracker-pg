@@ -50,10 +50,12 @@ export class RobinhoodTradingPanelComponent implements OnInit {
   agenticReviewingOrder = false;
 
   orderSymbol = '';
+  orderAssetClass: 'equity' | 'crypto' = 'equity';
   orderSide: 'buy' | 'sell' = 'buy';
   orderType: 'market' | 'limit' = 'market';
   orderQuantity: number | null = null;
   orderLimitPrice: number | null = null;
+  orderSellAll = false;
   settingsRequireApproval = true;
   settingsMaxNotional: number | null = null;
   settingsAllowedSymbols = '';
@@ -269,7 +271,8 @@ export class RobinhoodTradingPanelComponent implements OnInit {
       this.snackBar.open('Enter a symbol', undefined, { duration: 4500 });
       return;
     }
-    if (this.orderQuantity == null || this.orderQuantity <= 0) {
+    const sellAll = this.orderAssetClass === 'crypto' && this.orderSide === 'sell' && this.orderSellAll;
+    if (!sellAll && (this.orderQuantity == null || this.orderQuantity <= 0)) {
       this.snackBar.open('Enter a positive quantity', undefined, { duration: 4500 });
       return;
     }
@@ -283,8 +286,10 @@ export class RobinhoodTradingPanelComponent implements OnInit {
         symbol,
         side: this.orderSide,
         type: this.orderType,
-        quantity: this.orderQuantity,
+        quantity: sellAll ? null : this.orderQuantity,
         limitPrice: this.orderType === 'limit' ? this.orderLimitPrice : null,
+        assetClass: this.orderAssetClass,
+        sellAll,
       })
       .subscribe({
         next: (o) => {

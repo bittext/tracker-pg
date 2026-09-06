@@ -80,12 +80,14 @@ public class RobinhoodAgenticSidecarClient {
 
     public JsonNode reviewOrder(String accessToken, RobinhoodAgenticOrderRequestDto order, String accountNumber) {
         requireConfigured();
-        return post("/v1/review-order", orderBody(accessToken, order, accountNumber));
+        String path = isCrypto(order) ? "/v1/review-crypto-order" : "/v1/review-order";
+        return post(path, orderBody(accessToken, order, accountNumber));
     }
 
     public JsonNode placeOrder(String accessToken, RobinhoodAgenticOrderRequestDto order, String accountNumber) {
         requireConfigured();
-        return post("/v1/place-order", orderBody(accessToken, order, accountNumber));
+        String path = isCrypto(order) ? "/v1/place-crypto-order" : "/v1/place-order";
+        return post(path, orderBody(accessToken, order, accountNumber));
     }
 
     public JsonNode fetchFinancials(String accessToken, String symbol, int limit) {
@@ -146,7 +148,14 @@ public class RobinhoodAgenticSidecarClient {
         if (order.timeInForce() != null && !order.timeInForce().isBlank()) {
             body.put("time_in_force", order.timeInForce().trim().toLowerCase());
         }
+        if (Boolean.TRUE.equals(order.sellAll())) {
+            body.put("sell_all", true);
+        }
         return body;
+    }
+
+    private static boolean isCrypto(RobinhoodAgenticOrderRequestDto order) {
+        return order.assetClass() != null && "crypto".equalsIgnoreCase(order.assetClass().trim());
     }
 
     private static void putDecimal(ObjectNode body, String field, BigDecimal value) {

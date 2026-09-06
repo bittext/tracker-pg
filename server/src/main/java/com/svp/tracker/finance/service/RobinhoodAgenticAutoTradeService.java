@@ -156,7 +156,15 @@ public class RobinhoodAgenticAutoTradeService {
 
                 String signalJson = writeSignalJson(sig);
                 RobinhoodAgenticOrderRequestDto request = new RobinhoodAgenticOrderRequestDto(
-                        symbol, sig.side(), "market", settings.getAutoTradeOrderQuantity(), null, null, null);
+                        symbol,
+                        sig.side(),
+                        "market",
+                        settings.getAutoTradeOrderQuantity(),
+                        null,
+                        null,
+                        null,
+                        "equity",
+                        false);
                 try {
                     RobinhoodAgenticOrder order = orderService.reviewOrderForUser(
                             ownerUserId, request, SOURCE_AUTO, signalJson, true);

@@ -247,6 +247,8 @@ public class RobinhoodAgenticOrderService {
         order.setOwnerUserId(ownerUserId);
         order.setSource(source == null ? SOURCE_MANUAL : source);
         order.setAutoSignalJson(autoSignalJson);
+        order.setAssetClass(normalizeAssetClass(request.assetClass()));
+        order.setSellAll(Boolean.TRUE.equals(request.sellAll()));
         order.setSymbol(request.symbol().trim().toUpperCase(Locale.ROOT));
         order.setSide(request.side().trim().toLowerCase(Locale.ROOT));
         order.setOrderType(request.type() == null || request.type().isBlank() ? "market" : request.type().trim().toLowerCase());
@@ -380,9 +382,27 @@ public class RobinhoodAgenticOrderService {
         if ("limit".equals(type) && request.limitPrice() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "limit_price is required for limit orders");
         }
-        if (request.quantity() == null && request.amount() == null) {
+        boolean sellAll = Boolean.TRUE.equals(request.sellAll());
+        if (sellAll && !"sell".equals(request.side().trim().toLowerCase())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "sell_all is only valid for sell orders");
+        }
+        if (!sellAll && request.quantity() == null && request.amount() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "quantity or amount is required");
         }
+        if (sellAll && !"crypto".equals(normalizeAssetClass(request.assetClass()))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "sell_all is only supported for crypto");
+        }
+    }
+
+    private static String normalizeAssetClass(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return "equity";
+        }
+        String value = raw.trim().toLowerCase(Locale.ROOT);
+        if (!Set.of("equity", "crypto").contains(value)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "assetClass must be equity or crypto");
+        }
+        return value;
     }
 
     /** Guardrail check shared with auto-trade (skip before order review). */
@@ -447,7 +467,9 @@ public class RobinhoodAgenticOrderService {
                 order.getQuantity(),
                 order.getAmount(),
                 order.getLimitPrice(),
-                order.getTimeInForce());
+                order.getTimeInForce(),
+                order.getAssetClass(),
+                order.isSellAll());
     }
 
     private RobinhoodAgenticSettingsDto toSettingsDto(RobinhoodAgenticSettings row) {
@@ -479,6 +501,8 @@ public class RobinhoodAgenticOrderService {
                 order.getId(),
                 order.getStatus(),
                 order.getSource() == null ? SOURCE_MANUAL : order.getSource(),
+                order.getAssetClass() == null ? "equity" : order.getAssetClass(),
+                order.isSellAll(),
                 order.getSymbol(),
                 order.getSide(),
                 order.getOrderType(),

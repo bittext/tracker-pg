@@ -372,6 +372,8 @@ export class FinanceApiService {
     amount?: number | null;
     limitPrice?: number | null;
     timeInForce?: string;
+    assetClass?: 'equity' | 'crypto';
+    sellAll?: boolean;
   }) {
     return this.http.post<RobinhoodAgenticOrderDto>(`${this.root}/agentic/orders/review`, body);
   }

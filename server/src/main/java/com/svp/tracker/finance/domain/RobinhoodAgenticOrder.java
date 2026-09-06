@@ -38,7 +38,13 @@ public class RobinhoodAgenticOrder {
     @Column(name = "order_type", nullable = false, length = 16)
     private String orderType;
 
-    @Column(name = "quantity", precision = 19, scale = 6)
+    @Column(name = "asset_class", nullable = false, length = 16)
+    private String assetClass = "equity";
+
+    @Column(name = "sell_all", nullable = false)
+    private boolean sellAll;
+
+    @Column(name = "quantity", precision = 28, scale = 12)
     private BigDecimal quantity;
 
     @Column(name = "amount", precision = 19, scale = 2)

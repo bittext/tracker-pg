@@ -7,6 +7,8 @@ public record RobinhoodAgenticOrderDto(
         long id,
         String status,
         String source,
+        String assetClass,
+        boolean sellAll,
         String symbol,
         String side,
         String orderType,

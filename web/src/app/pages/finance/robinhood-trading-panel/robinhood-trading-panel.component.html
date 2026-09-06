@@ -360,11 +360,19 @@
         </div>
       }
 
-      <h4 class="rh-trading__positions-title">Propose equity order</h4>
+      <h4 class="rh-trading__positions-title">Propose order</h4>
       <p class="muted rh-trading__hint">
-        Calls MCP <code>review_equity_order</code> first, then <code>place_equity_order</code> when guardrails allow.
+        Stocks use MCP equity review/place. Crypto uses MCP <code>preview_crypto_order</code> /
+        <code>place_crypto_order</code> on the dedicated <strong>Agentic</strong> account only — not Individual.
       </p>
       <div class="rh-trading__order-form">
+        <label class="rh-trading__field">
+          <span>Asset</span>
+          <select [(ngModel)]="orderAssetClass" name="rhOrderAsset" [disabled]="agenticReviewingOrder">
+            <option value="equity">Stock</option>
+            <option value="crypto">Crypto</option>
+          </select>
+        </label>
         <label class="rh-trading__field">
           <span>Symbol</span>
           <input type="text" [(ngModel)]="orderSymbol" name="rhOrderSymbol" [disabled]="agenticReviewingOrder" />
@@ -391,9 +399,20 @@
             step="any"
             [(ngModel)]="orderQuantity"
             name="rhOrderQty"
-            [disabled]="agenticReviewingOrder"
+            [disabled]="agenticReviewingOrder || (orderAssetClass === 'crypto' && orderSide === 'sell' && orderSellAll)"
           />
         </label>
+        @if (orderAssetClass === 'crypto' && orderSide === 'sell') {
+          <label class="rh-trading__field rh-trading__field--check">
+            <input
+              type="checkbox"
+              [(ngModel)]="orderSellAll"
+              name="rhOrderSellAll"
+              [disabled]="agenticReviewingOrder"
+            />
+            <span>Sell all transferable (no leftover dust)</span>
+          </label>
+        }
         @if (orderType === 'limit') {
           <label class="rh-trading__field">
             <span>Limit price</span>
