@@ -141,6 +141,27 @@ export class RobinhoodDailySnapshotDialogComponent implements OnInit {
     return abs;
   }
 
+  cryptoValue(d: RobinhoodRhDailySnapshotDetailDto): number {
+    return (d.totalAccountValue ?? 0) - (d.equityMarketValue ?? 0) - (d.cashBalance ?? 0);
+  }
+
+  cryptoChange(d: RobinhoodRhDailySnapshotDetailDto): number | null {
+    if (d.totalAccountValueChange == null) {
+      return null;
+    }
+    return (
+      (d.totalAccountValueChange ?? 0) -
+      (d.equityMarketValueChange ?? 0) -
+      (d.cashBalanceChange ?? 0)
+    );
+  }
+
+  movedHoldings(d: RobinhoodRhDailySnapshotDetailDto): RobinhoodRhDailySnapshotHoldingDto[] {
+    return [...(d.holdings ?? [])]
+      .filter((row) => this.showDelta(row.marketValueChange) || this.showDelta(row.quantityChange))
+      .sort((a, b) => Math.abs(b.marketValueChange ?? 0) - Math.abs(a.marketValueChange ?? 0));
+  }
+
   signedQty(value: number | null | undefined): string {
     if (value == null) {
       return '';

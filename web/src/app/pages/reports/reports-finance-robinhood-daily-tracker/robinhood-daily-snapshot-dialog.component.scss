@@ -30,6 +30,73 @@
   font-size: 0.95rem;
 }
 
+.rh-snap-dialog__moved {
+  margin: 0 0 1.1rem;
+  padding: 0.75rem 0.85rem 0.85rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--app-surface, #fff) 92%, #e8eef7);
+}
+
+.rh-snap-dialog__moved .rh-snap-dialog__section {
+  margin-top: 0;
+}
+
+.rh-snap-dialog__moved-lead {
+  margin: 0 0 0.65rem;
+  font-size: 0.8rem;
+}
+
+.rh-snap-dialog__mix {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  list-style: none;
+}
+
+.rh-snap-dialog__mix li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+  min-width: 0;
+  padding: 0.5rem 0.6rem;
+  border-radius: 8px;
+  background: var(--app-surface, #fff);
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+}
+
+.rh-snap-dialog__mix span {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--app-text-muted, #64748b);
+}
+
+.rh-snap-dialog__mix strong {
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.rh-snap-dialog__mix em {
+  font-style: normal;
+  font-size: 0.78rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.rh-snap-dialog__table--moved {
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .rh-snap-dialog__mix {
+    grid-template-columns: 1fr;
+  }
+}
+
 .rh-snap-dialog__table-wrap {
   overflow-x: auto;
 }

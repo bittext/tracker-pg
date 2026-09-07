@@ -7,7 +7,7 @@
       @if (d.captureKind === 'MANUAL') {
         Manual capture {{ d.snapshotAt | date: 'mediumDate' }} · {{ d.snapshotAt | date: 'shortTime' }} Central
       } @else if (data.scheduledCaptureEnabled) {
-        Snapshot {{ d.snapshotDate | date: 'mediumDate' }} · 9 PM Eastern
+        Snapshot {{ d.snapshotDate | date: 'mediumDate' }} · 9 PM CT
       } @else {
         Snapshot {{ d.snapshotDate | date: 'mediumDate' }}
       }
@@ -48,6 +48,82 @@
         <li>Value change (excl. flows): <strong>{{ d.periodValueChange | currency }}</strong></li>
       }
     </ul>
+
+    @if (showDelta(d.totalAccountValueChange)) {
+      <section class="rh-snap-dialog__moved" aria-label="What moved">
+        <h3 class="rh-snap-dialog__section">What moved</h3>
+        <p class="muted rh-snap-dialog__moved-lead">
+          Total change is stocks + crypto + cash vs the prior pull
+          @if (d.priorSnapshotAt) {
+            ({{ d.priorSnapshotAt | date: 'shortTime' }} CT)
+          }
+          .
+        </p>
+        <ul class="rh-snap-dialog__mix">
+          <li>
+            <span>Stocks</span>
+            <strong>{{ d.equityMarketValue | currency }}</strong>
+            @if (showDelta(d.equityMarketValueChange)) {
+              <em [ngClass]="deltaClass(d.equityMarketValueChange)">{{ signedMoney(d.equityMarketValueChange) }}</em>
+            } @else {
+              <em class="muted">unchanged</em>
+            }
+          </li>
+          <li>
+            <span>Crypto</span>
+            <strong>{{ cryptoValue(d) | currency }}</strong>
+            @if (showDelta(cryptoChange(d))) {
+              <em [ngClass]="deltaClass(cryptoChange(d))">{{ signedMoney(cryptoChange(d)) }}</em>
+            } @else {
+              <em class="muted">unchanged</em>
+            }
+          </li>
+          <li>
+            <span>Cash</span>
+            <strong>{{ d.cashBalance | currency }}</strong>
+            @if (showDelta(d.cashBalanceChange)) {
+              <em [ngClass]="deltaClass(d.cashBalanceChange)">{{ signedMoney(d.cashBalanceChange) }}</em>
+            } @else {
+              <em class="muted">unchanged</em>
+            }
+          </li>
+        </ul>
+        @if (movedHoldings(d).length) {
+          <table class="rh-snap-dialog__table rh-snap-dialog__table--moved">
+            <thead>
+              <tr>
+                <th>Position</th>
+                <th>Type</th>
+                <th class="rh-snap-dialog__num">Qty Δ</th>
+                <th class="rh-snap-dialog__num">Value Δ</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of movedHoldings(d); track holdingTrack(row)) {
+                <tr>
+                  <td>{{ row.holding.symbol }}</td>
+                  <td>{{ row.holding.positionType || '—' }}</td>
+                  <td class="rh-snap-dialog__num">
+                    @if (showDelta(row.quantityChange)) {
+                      <span [ngClass]="deltaClass(row.quantityChange)">{{ signedQty(row.quantityChange) }}</span>
+                    } @else {
+                      <span class="muted">—</span>
+                    }
+                  </td>
+                  <td class="rh-snap-dialog__num" [ngClass]="deltaClass(row.marketValueChange)">
+                    {{ signedMoney(row.marketValueChange) }}
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        } @else if (showDelta(cryptoChange(d)) && !showDelta(d.equityMarketValueChange) && !showDelta(d.cashBalanceChange)) {
+          <p class="muted">
+            Stocks and cash did not move. The {{ signedMoney(cryptoChange(d)) }} is the crypto mark on this account.
+          </p>
+        }
+      </section>
+    }
 
     @if (d.holdings.length) {
       <h3 class="rh-snap-dialog__section">Holdings at snapshot</h3>
