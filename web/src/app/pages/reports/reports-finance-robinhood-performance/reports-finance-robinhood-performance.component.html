@@ -152,7 +152,7 @@
       } @else {
         <div class="rh-perf__accounts">
           @for (acct of accountRows(); track acct.suffix) {
-            <article class="rh-perf__account">
+            <article class="rh-perf__account rh-perf__click" role="button" tabindex="0" (click)="openAccountDetail(acct)" (keydown.enter)="openAccountDetail(acct)">
               <header class="rh-perf__account-head">
                 <strong>{{ acct.shortLabel }}</strong>
                 <span class="muted">••••{{ acct.suffix }}</span>
@@ -191,13 +191,15 @@
       <section class="rh-perf__section" aria-labelledby="rh-perf-months-heading">
         <div class="rh-perf__section-head">
           <h3 id="rh-perf-months-heading" class="rh-perf__section-title">Official closes by month</h3>
+          <span class="muted rh-perf__hint">Click a month</span>
         </div>
         @if (!monthRows().length) {
           <p class="muted">No scheduled closes for this year yet.</p>
         } @else {
           <ol class="rh-perf__months">
             @for (row of monthRows(); track row.key) {
-              <li class="rh-perf__month">
+              <li>
+                <button type="button" class="rh-perf__month rh-perf__click" (click)="openMonthDetail(row)">
                 <div class="rh-perf__month-label">
                   <strong>{{ monthShort(row.label) }}</strong>
                   @if (row.currentPeriod) {
@@ -224,6 +226,7 @@
                   →
                   {{ row.combinedEnd != null ? (row.combinedEnd | currency:'USD':'symbol':'1.0-0') : '—' }}
                 </div>
+                </button>
               </li>
             }
           </ol>
@@ -233,6 +236,7 @@
       <section class="rh-perf__section" aria-labelledby="rh-perf-symbols-heading">
         <div class="rh-perf__section-head">
           <h3 id="rh-perf-symbols-heading" class="rh-perf__section-title">Realized by symbol</h3>
+          <span class="muted rh-perf__hint">Click a symbol</span>
           <button mat-button type="button" (click)="openTrades()">Trades</button>
         </div>
         @if (!symbolRows().length) {
@@ -249,7 +253,7 @@
             </thead>
             <tbody>
               @for (row of symbolRows(); track row.symbol) {
-                <tr>
+                <tr class="rh-perf__click" tabindex="0" (click)="openSymbolDetail(row.symbol)" (keydown.enter)="openSymbolDetail(row.symbol)">
                   <th scope="row">{{ row.symbol }}</th>
                   <td class="rh-perf__num">{{ row.sells }}</td>
                   <td class="rh-perf__num">{{ row.wins }} / {{ row.losses }}</td>
@@ -287,7 +291,7 @@
             </thead>
             <tbody>
               @for (tr of recentSells(); track tr.executedAt + tr.symbol + (tr.accountSuffix ?? '')) {
-                <tr>
+                <tr class="rh-perf__click" tabindex="0" (click)="openSymbolDetail(tr.symbol)" (keydown.enter)="openSymbolDetail(tr.symbol)">
                   <td>{{ formatTradeWhen(tr.executedAt) }}</td>
                   <th scope="row">{{ tr.symbol }}</th>
                   <td class="muted">••••{{ tr.accountSuffix || '—' }}</td>

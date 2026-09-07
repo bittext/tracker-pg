@@ -1,0 +1,90 @@
+<h2 mat-dialog-title>{{ data.title }}</h2>
+<mat-dialog-content class="rh-perf-detail">
+  <p class="muted rh-perf-detail__lead">{{ data.subtitle }}</p>
+
+  @if (data.accounts.length) {
+    <h3 class="rh-perf-detail__h">Account closes</h3>
+    <table class="rh-perf-detail__table">
+      <thead>
+        <tr>
+          <th scope="col">Account</th>
+          <th scope="col" class="rh-perf-detail__num">Start</th>
+          <th scope="col" class="rh-perf-detail__num">End</th>
+          <th scope="col" class="rh-perf-detail__num">Change</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (acct of data.accounts; track acct.suffix) {
+          <tr>
+            <th scope="row">
+              {{ acct.label }}
+              <span class="muted">••••{{ acct.suffix }}</span>
+            </th>
+            <td class="rh-perf-detail__num">{{ acct.start != null ? (acct.start | currency) : '—' }}</td>
+            <td class="rh-perf-detail__num">{{ acct.end != null ? (acct.end | currency) : '—' }}</td>
+            <td
+              class="rh-perf-detail__num"
+              [class.rh-perf-detail__pos]="isGain(acct.change)"
+              [class.rh-perf-detail__neg]="isLoss(acct.change)"
+            >
+              {{ acct.change != null ? (acct.change | currency) : '—' }}
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+
+  <h3 class="rh-perf-detail__h">
+    Sells
+    @if (data.trades.length) {
+      <span class="muted">
+        {{ data.trades.length }}
+        ·
+        <span [class.rh-perf-detail__pos]="isGain(realizedTotal())" [class.rh-perf-detail__neg]="isLoss(realizedTotal())">
+          {{ realizedTotal() | currency }}
+        </span>
+      </span>
+    }
+  </h3>
+  @if (!data.trades.length) {
+    <p class="muted">No realized sells in this slice.</p>
+  } @else {
+    <table class="rh-perf-detail__table">
+      <thead>
+        <tr>
+          <th scope="col">When</th>
+          <th scope="col">Symbol</th>
+          <th scope="col">Account</th>
+          <th scope="col" class="rh-perf-detail__num">Qty</th>
+          <th scope="col" class="rh-perf-detail__num">Price</th>
+          <th scope="col" class="rh-perf-detail__num">P&amp;L</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (tr of data.trades; track (tr.executedAt ?? '') + tr.symbol + (tr.accountSuffix ?? '') + (tr.quantity ?? 0)) {
+          <tr>
+            <td>{{ formatWhen(tr.executedAt) }}</td>
+            <th scope="row">{{ tr.symbol }}</th>
+            <td class="muted">••••{{ tr.accountSuffix || '—' }}</td>
+            <td class="rh-perf-detail__num">{{ tr.quantity != null ? (tr.quantity | number: '1.0-4') : '—' }}</td>
+            <td class="rh-perf-detail__num">{{ tr.averagePrice != null ? (tr.averagePrice | currency) : '—' }}</td>
+            <td
+              class="rh-perf-detail__num"
+              [class.rh-perf-detail__pos]="isGain(tr.realizedPnl)"
+              [class.rh-perf-detail__neg]="isLoss(tr.realizedPnl)"
+            >
+              {{ tr.realizedPnl != null ? (tr.realizedPnl | currency) : '—' }}
+              @if (tr.realizedPnlPercent != null) {
+                <span class="muted">({{ tr.realizedPnlPercent | number: '1.1-1' }}%)</span>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-button type="button" (click)="close()">Close</button>
+</mat-dialog-actions>

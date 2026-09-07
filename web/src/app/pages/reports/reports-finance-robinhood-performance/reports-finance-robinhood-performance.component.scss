@@ -153,6 +153,11 @@
   letter-spacing: -0.01em;
 }
 
+.rh-perf__hint {
+  margin-right: auto;
+  font-size: 0.72rem;
+}
+
 .rh-perf__accounts {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -165,6 +170,17 @@
   border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
   border-radius: 12px;
   background: var(--app-surface, #fff);
+}
+
+.rh-perf__click:hover,
+.rh-perf__click:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--mat-sys-primary, #1a5f4a) 45%, transparent);
+}
+
+.rh-perf__table tbody tr.rh-perf__click:hover,
+.rh-perf__table tbody tr.rh-perf__click:focus-visible {
+  background: color-mix(in srgb, var(--mat-sys-primary, #1a5f4a) 6%, transparent);
 }
 
 .rh-perf__account-head {
@@ -221,8 +237,21 @@
   gap: 0.45rem;
 }
 
+.rh-perf__click {
+  cursor: pointer;
+}
+
 .rh-perf__month {
   display: grid;
+  width: 100%;
+  margin: 0;
+  padding: 0.2rem 0.15rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   grid-template-columns: 6.2rem minmax(0, 1fr) 6.6rem;
   grid-template-areas:
     'label bar change'

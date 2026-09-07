@@ -3,6 +3,7 @@ import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -28,6 +29,10 @@ import {
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { TradingJournalNavService } from '../../../services/trading-journal-nav.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
+import {
+  RhPerfDetailDialogData,
+  RobinhoodPerformanceDetailDialogComponent,
+} from './robinhood-performance-detail-dialog.component';
 
 interface LiveAccountRow {
   suffix: string;
@@ -54,6 +59,7 @@ interface SymbolPnlRow {
     CommonModule,
     FormsModule,
     MatButtonModule,
+    MatDialogModule,
     MatFormFieldModule,
     MatSelectModule,
     MatIconModule,
@@ -67,6 +73,7 @@ interface SymbolPnlRow {
 })
 export class ReportsFinanceRobinhoodPerformanceComponent implements OnInit {
   private readonly financeApi = inject(FinanceApiService);
+  private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
   private readonly destroyRef = inject(DestroyRef);
   readonly journalNav = inject(TradingJournalNavService);
@@ -408,6 +415,75 @@ export class ReportsFinanceRobinhoodPerformanceComponent implements OnInit {
 
   openCrypto(): void {
     this.journalNav.analyticsTabIndex.set(6);
+  }
+
+  openMonthDetail(row: RobinhoodRhPeriodBalanceRowDto): void {
+    const accounts = (this.balances?.accounts ?? []).map((col) => {
+      const fig = this.figureFor(row, col.accountSuffix);
+      return {
+        suffix: col.accountSuffix,
+        label: col.label,
+        start: fig?.start ?? null,
+        end: fig?.end ?? null,
+        change: fig?.change ?? null,
+      };
+    });
+    this.openDetail({
+      title: row.label,
+      subtitle:
+        'Official 9:00 PM CT closes for this month. Sells below are realized FIFO in the same window — they are not the same as the account-value change.',
+      accounts,
+      trades: this.closedSells().filter((t) => this.tradeInRange(t, row.periodStart, row.periodEnd)),
+    });
+  }
+
+  openSymbolDetail(symbol: string): void {
+    this.openDetail({
+      title: symbol,
+      subtitle: `Realized FIFO sells for ${symbol} in ${this.reportYear}.`,
+      accounts: [],
+      trades: this.closedSells().filter((t) => (t.symbol || '').trim() === symbol),
+    });
+  }
+
+  openAccountDetail(acct: LiveAccountRow): void {
+    this.openDetail({
+      title: `${acct.shortLabel} ••••${acct.suffix}`,
+      subtitle: `Year ${this.reportYear} official close change and realized sells on this account.`,
+      accounts: [
+        {
+          suffix: acct.suffix,
+          label: acct.label,
+          start: acct.yearStart,
+          end: acct.now,
+          change: acct.yearChange,
+        },
+      ],
+      trades: this.closedSells().filter((t) => t.accountSuffix === acct.suffix),
+    });
+  }
+
+  private openDetail(data: RhPerfDetailDialogData): void {
+    this.dialog.open(RobinhoodPerformanceDetailDialogComponent, {
+      width: 'min(820px, 96vw)',
+      maxWidth: '96vw',
+      maxHeight: '88vh',
+      data,
+    });
+  }
+
+  private tradeInRange(trade: RobinhoodExecutedTradeDto, start: string | null, end: string | null): boolean {
+    if (!trade.executedAt) {
+      return false;
+    }
+    const day = this.centralDate(trade.executedAt);
+    if (start && day < start) {
+      return false;
+    }
+    if (end && day > end) {
+      return false;
+    }
+    return true;
   }
 
   private loadSnapshotDetails(): void {
