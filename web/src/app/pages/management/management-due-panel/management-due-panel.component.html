@@ -74,13 +74,14 @@
                         <span class="cal-day-num">{{ cell.label }}</span>
                         @if (cell.day && (cell.day.payableCount || cell.day.receivableCount)) {
                           <span class="cal-day-lines">
-                            @for (item of cell.day.items.slice(0, 2); track item.itemId) {
+                            @for (item of cell.day.items; track item.itemId) {
                               <span class="cal-chip" [class.cal-chip--out]="item.side === 'PAYABLE'" [class.cal-chip--in]="item.side === 'RECEIVABLE'">
-                                {{ item.counterparty }}
+                                <span class="cal-chip-name">{{ item.counterparty }}</span>
+                                <span class="cal-chip-amt">{{ calendarAmount(item) }}</span>
                               </span>
                             }
                           </span>
-                          <span class="cal-day-net">{{ dayNet(cell.day) }}</span>
+                          <span class="cal-day-net">Total {{ dayNet(cell.day) }}</span>
                         }
                       </button>
                     }

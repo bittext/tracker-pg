@@ -290,16 +290,36 @@ export class ManagementDuePanelComponent implements OnInit {
     return `${prefix}${this.money(n)}`;
   }
 
+  calendarAmount(row: ManagementDueOccurrenceDto): string {
+    const n = row.displayAmount;
+    if (n == null) {
+      return '—';
+    }
+    const prefix = row.side === 'PAYABLE' ? '−' : '+';
+    return `${prefix}${this.compactMoney(n)}`;
+  }
+
   dayNet(day: ManagementDueDayDto | undefined): string {
     if (!day || (day.payableCount === 0 && day.receivableCount === 0)) {
       return '';
     }
     const net = Number(day.receivableTotal || 0) - Number(day.payableTotal || 0);
     if (!net) {
-      return day.payableCount || day.receivableCount ? '·' : '';
+      return this.compactMoney(0);
     }
     const prefix = net > 0 ? '+' : '−';
-    return `${prefix}${this.money(Math.abs(net))}`;
+    return `${prefix}${this.compactMoney(Math.abs(net))}`;
+  }
+
+  private compactMoney(value: number): string {
+    const abs = Math.abs(Number(value));
+    const digits = Number.isInteger(abs) ? 0 : 2;
+    return abs.toLocaleString('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: digits,
+      maximumFractionDigits: 2,
+    });
   }
 
   isToday(iso: string | undefined): boolean {
