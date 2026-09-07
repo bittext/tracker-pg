@@ -348,7 +348,28 @@ def _order_symbol(row: dict[str, Any]) -> str:
     return raw
 
 
+def _order_quantity(row: dict[str, Any]) -> Optional[Decimal]:
+    for key in ("filled_asset_quantity", "cumulative_quantity", "quantity"):
+        qty = _to_decimal(row.get(key))
+        if qty is not None and qty > 0:
+            return qty
+    executions = row.get("executions")
+    if isinstance(executions, list):
+        total = Decimal("0")
+        for execution in executions:
+            if isinstance(execution, dict):
+                piece = _to_decimal(execution.get("quantity"))
+                if piece is not None:
+                    total += piece
+        if total > 0:
+            return total
+    return None
+
+
 def _order_fee_amount(row: dict[str, Any]) -> Decimal:
+    charged = _to_decimal(row.get("fee_charged"))
+    if charged is not None and charged > 0:
+        return charged
     fees = row.get("fees")
     if isinstance(fees, list):
         for fee in fees:
@@ -375,12 +396,21 @@ def _order_fee_rate(row: dict[str, Any]) -> Optional[Decimal]:
                 if ratio is not None and ratio > 0:
                     return ratio
     rate = _to_decimal(row.get("fee_rate"))
-    return rate if rate is not None and rate > 0 else None
+    if rate is not None and rate > 0:
+        return rate
+    fee = _order_fee_amount(row)
+    qty = _order_quantity(row)
+    avg = _to_decimal(row.get("average_price"))
+    if fee > 0 and qty and avg and qty * avg > 0:
+        return fee / (qty * avg)
+    return None
 
 
 def _filled_buy_cost(row: dict[str, Any], qty: Decimal) -> tuple[Decimal, Decimal]:
     """Return (cash outlay including fee, fee) for a filled buy."""
-    notional = _to_decimal(row.get("rounded_executed_notional"))
+    notional = _to_decimal(row.get("rounded_executed_notional")) or _to_decimal(
+        row.get("total_executed_notional")
+    )
     if notional is None:
         avg = _to_decimal(row.get("average_price"))
         notional = (avg * qty) if avg is not None else Decimal("0")
@@ -410,7 +440,7 @@ def lots_from_orders(orders: list[dict[str, Any]]) -> dict[str, dict[str, Decima
     for row in filled:
         symbol = _order_symbol(row)
         side = str(row.get("side") or "").strip().lower()
-        qty = _to_decimal(row.get("cumulative_quantity")) or _to_decimal(row.get("quantity"))
+        qty = _order_quantity(row)
         if qty is None or qty <= 0:
             continue
         rate = _order_fee_rate(row)
@@ -444,13 +474,17 @@ def lots_from_orders(orders: list[dict[str, Any]]) -> dict[str, dict[str, Decima
         buy_fees = sum((lot["fee"] for lot in lots), Decimal("0"))
         if qty <= 0:
             continue
+        cost = cost.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        buy_fees = buy_fees.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         out[symbol] = {
             "quantity": qty,
             "costBasis": cost,
             "buyFees": buy_fees,
             "averageBuyPrice": cost / qty,
             "sellFeeRate": last_fee_rate.get(symbol, DEFAULT_TAKER_FEE_RATE),
-            "lifetimeFees": lifetime_fees.get(symbol, Decimal("0")),
+            "lifetimeFees": lifetime_fees.get(symbol, Decimal("0")).quantize(
+                Decimal("0.01"), rounding=ROUND_HALF_UP
+            ),
         }
     return out
 

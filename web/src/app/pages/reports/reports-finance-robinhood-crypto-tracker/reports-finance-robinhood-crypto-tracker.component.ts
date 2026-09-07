@@ -400,6 +400,13 @@ export class ReportsFinanceRobinhoodCryptoTrackerComponent implements OnInit {
     return (row.marketValue ?? 0) - this.sellAllFee(row);
   }
 
+  gainAfterSell(row: RobinhoodRhCryptoHoldingDto): number | null {
+    if ((row.costBasis ?? 0) <= 0) {
+      return null;
+    }
+    return this.sellAllNet(row) - (row.costBasis ?? 0);
+  }
+
   breakevenPrice(row: RobinhoodRhCryptoHoldingDto): number | null {
     const qty = row.quantity ?? 0;
     const cost = row.costBasis ?? 0;

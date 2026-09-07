@@ -526,13 +526,19 @@
                 · sell-all fee
                 {{ sellAllFee(doge) | currency }}
                 ({{ sellFeeRate(doge) * 100 | number: '1.2-2' }}%)
+                @if (gainAfterSell(doge); as gain) {
+                  · after-fee
+                  <strong [class.rh-crypto__pnl--pos]="gain > 0" [class.rh-crypto__pnl--neg]="gain < 0">
+                    {{ gain | currency }}
+                  </strong>
+                }
               </p>
               @if (breakevenPrice(doge); as even) {
                 <p class="rh-crypto__doge-even">
-                  Need
+                  Gains after a full sell start at
                   <strong>${{ formatExactPrice(even) }}</strong>
-                  on the chart to finish flat after the sell fee. Below that, a full sell loses money after
-                  pay-offs.
+                  on the chart. That price covers cost plus the {{ sellFeeRate(doge) * 100 | number: '1.2-2' }}%
+                  sell fee. Below it, a full sell is a loss after pay-offs.
                 </p>
               }
             </div>

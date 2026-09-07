@@ -161,6 +161,35 @@ def test_lots_from_orders_keeps_open_doge_book_with_exact_average() -> None:
     assert doge["averageBuyPrice"] == Decimal("49941.74") / Decimal("548929.68")
 
 
+def test_lots_from_trading_api_order_shape() -> None:
+    orders = [
+        {
+            "state": "filled",
+            "side": "buy",
+            "symbol": "DOGE-USD",
+            "created_at": "2026-09-06T23:04:59Z",
+            "filled_asset_quantity": "219414.22",
+            "average_price": 0.090271888303806908,
+            "fee_charged": 188.17,
+        },
+        {
+            "state": "filled",
+            "side": "buy",
+            "symbol": "DOGE-USD",
+            "created_at": "2026-09-06T23:08:09Z",
+            "filled_asset_quantity": "329515.46",
+            "average_price": 0.090025561044753409,
+            "fee_charged": 281.82,
+        },
+    ]
+    lots = lots_from_orders(orders)
+    doge = lots["DOGE"]
+    assert doge["quantity"] == Decimal("548929.68")
+    assert doge["costBasis"] == Decimal("49941.74")
+    assert doge["buyFees"] == Decimal("469.99")
+    assert doge["averageBuyPrice"] == Decimal("49941.74") / Decimal("548929.68")
+
+
 def test_normalize_base64_adds_padding() -> None:
     key = SigningKey.generate()
     raw = base64.b64encode(key.encode()).decode("utf-8").rstrip("=")
