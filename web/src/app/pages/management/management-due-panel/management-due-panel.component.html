@@ -3,8 +3,9 @@
     <h2 id="due-heading" class="subsection-title">Due</h2>
     <p class="muted due-intro">
       Payables and receivables on the day of the month they land. Recurring rows carry into later months. One-time rows
-      stay on their date. Amounts you type win; otherwise the app estimates from bank history and skips transfers between
-      your own accounts. Totals count only what you mark paid or received, from this month forward.
+      stay on their date. Amounts you type win; otherwise the app estimates from Banking accounts and skips transfers
+      between your own accounts. Credit cards, loans, and investments stay out. Totals count only what you mark paid or
+      received, from this month forward.
     </p>
 
     <div class="due-totals" aria-label="Paid and received totals">
@@ -193,7 +194,7 @@
           <mat-card appearance="outlined" class="due-card due-suggest">
             <mat-card-header>
               <mat-card-title>Suggestions from history</mat-card-title>
-              <mat-card-subtitle>Repeated external bank payees. Accept to add a recurring row.</mat-card-subtitle>
+              <mat-card-subtitle>Repeated external payees on Banking accounts. Accept to add a recurring row.</mat-card-subtitle>
             </mat-card-header>
             <mat-card-content>
               <ul class="due-suggest-list">

@@ -377,6 +377,9 @@ public class ManagementDueService {
         List<ManagementDueTransferClassifier.TxnView> views = new ArrayList<>();
         List<HistoryRow> rows = new ArrayList<>();
         for (BankingTransaction txn : txns) {
+            if (!isBankingAccountTxn(txn)) {
+                continue;
+            }
             long instId = txn.getInstitution() == null || txn.getInstitution().getId() == null
                     ? 0L
                     : txn.getInstitution().getId();
@@ -385,6 +388,14 @@ public class ManagementDueService {
             rows.add(new HistoryRow(txn.getId(), txn.getTxnDate(), txn.getAmount(), txn.getDescription()));
         }
         return new History(rows, ManagementDueTransferClassifier.internalTransferIds(views));
+    }
+
+    private static boolean isBankingAccountTxn(BankingTransaction txn) {
+        if (txn.getInstitution() == null || txn.getInstitution().getInstitutionType() == null) {
+            return false;
+        }
+        return ManagementDueBankAccountSupport.isBankingAccountType(
+                txn.getInstitution().getInstitutionType().getName());
     }
 
     private Totals totalsFor(List<ManagementDueOccurrence> yearOcc, Integer monthOrNull) {

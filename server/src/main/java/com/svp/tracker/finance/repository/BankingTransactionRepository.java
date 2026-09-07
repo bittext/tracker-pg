@@ -41,7 +41,8 @@ public interface BankingTransactionRepository extends JpaRepository<BankingTrans
     @Query(
             """
             SELECT t FROM BankingTransaction t
-            JOIN FETCH t.institution
+            JOIN FETCH t.institution inst
+            LEFT JOIN FETCH inst.institutionType
             WHERE t.ownerUserId = :ownerId
             AND t.txnDate >= :fromInclusive
             ORDER BY t.txnDate DESC, t.id DESC
