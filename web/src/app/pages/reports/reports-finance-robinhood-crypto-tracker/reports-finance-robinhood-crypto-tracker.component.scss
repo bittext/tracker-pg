@@ -811,6 +811,12 @@
   font-weight: 600;
 }
 
+.rh-crypto__history-scroll {
+  max-height: 22rem;
+  overflow: auto;
+  margin-bottom: 1rem;
+}
+
 .rh-crypto__history-table {
   width: 100%;
   border-collapse: collapse;

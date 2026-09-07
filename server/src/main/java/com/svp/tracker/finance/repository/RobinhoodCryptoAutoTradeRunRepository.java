@@ -5,5 +5,5 @@ import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface RobinhoodCryptoAutoTradeRunRepository extends JpaRepository<RobinhoodCryptoAutoTradeRun, Long> {
-    List<RobinhoodCryptoAutoTradeRun> findTop20ByOwnerUserIdOrderByStartedAtDesc(long ownerUserId);
+    List<RobinhoodCryptoAutoTradeRun> findByOwnerUserIdOrderByStartedAtDesc(long ownerUserId);
 }

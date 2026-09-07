@@ -342,7 +342,8 @@
           @if (autoTradeRuns.length || cryptoOrders.length) {
             <div class="rh-crypto__autotrade-history">
               @if (autoTradeRuns.length) {
-                <h4 class="rh-crypto__history-title">Recent runs</h4>
+                <h4 class="rh-crypto__history-title">All runs ({{ autoTradeRuns.length }})</h4>
+                <div class="rh-crypto__history-scroll">
                 <table class="rh-crypto__history-table">
                   <thead>
                     <tr>
@@ -354,7 +355,7 @@
                     </tr>
                   </thead>
                   <tbody>
-                    @for (run of autoTradeRuns.slice(0, 5); track run.id) {
+                    @for (run of autoTradeRuns; track run.id) {
                       <tr>
                         <td>{{ run.startedAt | date: 'short' }}</td>
                         <td>{{ run.status }}</td>
@@ -365,6 +366,7 @@
                     }
                   </tbody>
                 </table>
+                </div>
               }
               @if (cryptoOrders.length) {
                 <h4 class="rh-crypto__history-title">Recent orders</h4>

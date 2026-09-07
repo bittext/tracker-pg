@@ -73,13 +73,13 @@ public class RobinhoodRhCryptoAutoTradeService {
                     return s;
                 });
         if (!settings.isAutoTradeEnabled()) {
-            return skipped("Auto-trade disabled for user");
+            return recordSkip(ownerUserId, "Auto-trade disabled for user");
         }
         if (settings.isAutoTradeKillSwitch()) {
-            return skipped("Kill switch active — auto-trade paused");
+            return recordSkip(ownerUserId, "Kill switch active — auto-trade paused");
         }
         if (!cryptoTradingService.isConnected(ownerUserId)) {
-            return skipped("Robinhood Crypto Trading API not connected");
+            return recordSkip(ownerUserId, "Robinhood Crypto Trading API not connected");
         }
 
         RobinhoodCryptoAutoTradeRun run = new RobinhoodCryptoAutoTradeRun();
@@ -215,7 +215,7 @@ public class RobinhoodRhCryptoAutoTradeService {
     @Transactional(readOnly = true)
     public List<RobinhoodRhCryptoAutoTradeRunDto> recentRuns() {
         long uid = currentUser.requireUserId();
-        return runRepository.findTop20ByOwnerUserIdOrderByStartedAtDesc(uid).stream()
+        return runRepository.findByOwnerUserIdOrderByStartedAtDesc(uid).stream()
                 .map(this::toRunDto)
                 .toList();
     }
@@ -374,6 +374,23 @@ public class RobinhoodRhCryptoAutoTradeService {
 
     private RobinhoodRhCryptoAutoTradeEvaluateDto skipped(String reason) {
         return new RobinhoodRhCryptoAutoTradeEvaluateDto(false, reason, 0, 0, 0, 0, List.of(), Instant.now());
+    }
+
+    private RobinhoodRhCryptoAutoTradeEvaluateDto recordSkip(long ownerUserId, String reason) {
+        RobinhoodCryptoAutoTradeRun run = new RobinhoodCryptoAutoTradeRun();
+        run.setOwnerUserId(ownerUserId);
+        run.setStartedAt(Instant.now());
+        run.setStatus("running");
+        runRepository.save(run);
+        RobinhoodCryptoTradingSettings settings = settingsRepository
+                .findByOwnerUserId(ownerUserId)
+                .orElseGet(() -> {
+                    RobinhoodCryptoTradingSettings s = orderService.defaultSettingsTemplate();
+                    s.setOwnerUserId(ownerUserId);
+                    return s;
+                });
+        finishRun(run, settings, ownerUserId, "skipped", 0, 0, 0, 0, reason);
+        return skipped(reason);
     }
 
     private void requireAutoTradeAllowed() {
