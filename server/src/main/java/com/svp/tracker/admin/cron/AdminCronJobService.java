@@ -17,6 +17,7 @@ import com.svp.tracker.finance.predicts.config.FinancePredictsProperties;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,9 +49,39 @@ public class AdminCronJobService {
         List<AdminCronJob> defaults = builtinCatalog.builtInDefaults(
                 alertProps, rhDailyTrackerProps, rhCryptoTrackerProps, rhCryptoAutoTradeProps, agenticProps, autoTradeProps, predictsProps);
         for (AdminCronJob def : defaults) {
-            if (!jobRepository.existsById(def.getJobKey())) {
+            AdminCronJob existing = jobRepository.findById(def.getJobKey()).orElse(null);
+            if (existing == null) {
                 jobRepository.save(def);
                 log.info("Seeded built-in cron job {}", def.getJobKey());
+                continue;
+            }
+            if (!existing.isBuiltIn()) {
+                continue;
+            }
+            boolean changed = false;
+            if (!Objects.equals(existing.getCronExpression(), def.getCronExpression())) {
+                existing.setCronExpression(def.getCronExpression());
+                changed = true;
+            }
+            if (!Objects.equals(existing.getZoneId(), def.getZoneId())) {
+                existing.setZoneId(def.getZoneId());
+                changed = true;
+            }
+            if (!Objects.equals(existing.getDescription(), def.getDescription())) {
+                existing.setDescription(def.getDescription());
+                changed = true;
+            }
+            if (!Objects.equals(existing.getDisplayName(), def.getDisplayName())) {
+                existing.setDisplayName(def.getDisplayName());
+                changed = true;
+            }
+            if ("finance.rh-crypto-tracker.snapshot".equals(def.getJobKey()) && !existing.isEnabled()) {
+                existing.setEnabled(true);
+                changed = true;
+            }
+            if (changed) {
+                jobRepository.save(existing);
+                log.info("Refreshed built-in cron job {}", def.getJobKey());
             }
         }
         refreshScheduler();
