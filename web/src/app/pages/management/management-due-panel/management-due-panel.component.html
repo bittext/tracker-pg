@@ -32,12 +32,12 @@
     </div>
 
     <div class="due-layout">
-      <section class="due-column" aria-label="Due calendar">
+      <section class="due-calendar" aria-label="Due calendar">
         <mat-card appearance="outlined" class="due-card">
           <mat-card-header>
             <mat-card-title>Month</mat-card-title>
             <mat-card-subtitle>
-              Red is what you owe. Green is what is owed to you. Click a day to add or mark it.
+              Each day lists every bill on one line. Unpaid stays bold; paid or received is crossed out. Today is yellow.
             </mat-card-subtitle>
           </mat-card-header>
           <mat-card-content>
@@ -50,6 +50,12 @@
                 <mat-icon>chevron_right</mat-icon>
               </button>
             </div>
+            <p class="due-legend" aria-label="Calendar legend">
+              <span class="due-legend-item due-legend-item--out">Unpaid</span>
+              <span class="due-legend-item due-legend-item--in">Still owed to you</span>
+              <span class="due-legend-item due-legend-item--paid">Paid / received</span>
+              <span class="due-legend-item due-legend-item--today">Today</span>
+            </p>
 
             <div class="calendar-shell">
               <div class="cal-weekdays" role="row">
@@ -71,11 +77,22 @@
                         [class.cal-day--has]="!!cell.day && (cell.day.payableCount > 0 || cell.day.receivableCount > 0)"
                         (click)="selectDay(cell.iso!)"
                       >
-                        <span class="cal-day-num">{{ cell.label }}</span>
+                        <span class="cal-day-head">
+                          <span class="cal-day-num">{{ cell.label }}</span>
+                          @if (isToday(cell.iso)) {
+                            <span class="cal-today-tag">Today</span>
+                          }
+                        </span>
                         @if (cell.day && (cell.day.payableCount || cell.day.receivableCount)) {
                           <span class="cal-day-lines">
                             @for (item of cell.day.items; track item.itemId) {
-                              <span class="cal-chip" [class.cal-chip--out]="item.side === 'PAYABLE'" [class.cal-chip--in]="item.side === 'RECEIVABLE'">
+                              <span
+                                class="cal-chip"
+                                [class.cal-chip--out]="item.side === 'PAYABLE'"
+                                [class.cal-chip--in]="item.side === 'RECEIVABLE'"
+                                [class.cal-chip--settled]="item.settled"
+                                [class.cal-chip--open]="!item.settled"
+                              >
                                 <span class="cal-chip-name">{{ item.counterparty }}</span>
                                 <span class="cal-chip-amt">{{ calendarAmount(item) }}</span>
                               </span>
@@ -108,13 +125,20 @@
             } @else {
               <ul class="due-list">
                 @for (row of selectedDay!.items; track row.itemId) {
-                  <li class="due-row" [class.due-row--out]="row.side === 'PAYABLE'" [class.due-row--in]="row.side === 'RECEIVABLE'">
+                  <li
+                    class="due-row"
+                    [class.due-row--out]="row.side === 'PAYABLE'"
+                    [class.due-row--in]="row.side === 'RECEIVABLE'"
+                    [class.due-row--settled]="row.settled"
+                  >
                     <div class="due-row-main">
                       <strong>{{ row.counterparty }}</strong>
                       <span class="due-row-meta">
                         {{ row.side === 'PAYABLE' ? 'Payable' : 'Receivable' }}
                         ·
                         {{ row.recurring ? 'Recurring' : 'This month only' }}
+                        ·
+                        {{ row.settled ? (row.side === 'PAYABLE' ? 'Paid' : 'Received') : 'Open' }}
                         @if (row.amountSource === 'history') {
                           · from history
                         }
