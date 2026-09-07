@@ -7,6 +7,7 @@ import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.RobinhoodAgenticProperties;
 import com.svp.tracker.finance.domain.RobinhoodCryptoTradingConnection;
 import com.svp.tracker.finance.dto.RobinhoodCryptoTradingCredentialsRequestDto;
+import com.svp.tracker.finance.dto.RobinhoodCryptoTradingPortfolioDto;
 import com.svp.tracker.finance.dto.RobinhoodCryptoTradingStatusDto;
 import com.svp.tracker.finance.dto.RobinhoodCryptoTradingSyncResultDto;
 import com.svp.tracker.finance.dto.RobinhoodRhCryptoHoldingDto;
@@ -44,13 +45,15 @@ public class RobinhoodCryptoTradingService {
             BigDecimal total = holdings.stream()
                     .map(h -> nullToZero(h.marketValue()))
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
+            String accountNumber = conn.getAccountNumber() == null ? "" : conn.getAccountNumber();
             return new RobinhoodCryptoTradingSyncResultDto(
                     !holdings.isEmpty(),
                     conn.getLastSyncMessage() == null ? "Cached holdings" : conn.getLastSyncMessage(),
-                    conn.getAccountNumber() == null ? "" : conn.getAccountNumber(),
+                    accountNumber,
                     scaleMoney(total),
                     holdings,
-                    List.of());
+                    List.of(),
+                    List.of(new RobinhoodCryptoTradingPortfolioDto(accountNumber, scaleMoney(total), holdings)));
         });
     }
 
@@ -201,13 +204,38 @@ public class RobinhoodCryptoTradingService {
                 }
             });
         }
+        List<RobinhoodCryptoTradingPortfolioDto> portfolios = parsePortfolios(payload.path("portfolios"));
+        if (portfolios.isEmpty() && (holdings != null && !holdings.isEmpty() || total.signum() != 0)) {
+            portfolios = List.of(new RobinhoodCryptoTradingPortfolioDto(
+                    conn.getAccountNumber() == null ? "" : conn.getAccountNumber(), total, holdings));
+        }
         return new RobinhoodCryptoTradingSyncResultDto(
                 ok,
                 message,
                 conn.getAccountNumber() == null ? "" : conn.getAccountNumber(),
                 total,
                 holdings,
-                List.copyOf(warnings));
+                List.copyOf(warnings),
+                List.copyOf(portfolios));
+    }
+
+    private List<RobinhoodCryptoTradingPortfolioDto> parsePortfolios(JsonNode portfoliosNode) {
+        if (portfoliosNode == null || portfoliosNode.isNull() || !portfoliosNode.isArray()) {
+            return List.of();
+        }
+        List<RobinhoodCryptoTradingPortfolioDto> out = new ArrayList<>();
+        for (JsonNode row : portfoliosNode) {
+            if (row == null || !row.isObject()) {
+                continue;
+            }
+            String accountNumber = textOrNull(row, "account_number");
+            if (accountNumber == null) {
+                accountNumber = "";
+            }
+            out.add(new RobinhoodCryptoTradingPortfolioDto(
+                    accountNumber, decimalOrZero(row.path("total_value")), parseHoldings(row.path("holdings"))));
+        }
+        return out;
     }
 
     List<RobinhoodRhCryptoHoldingDto> parseHoldings(JsonNode holdingsNode) {

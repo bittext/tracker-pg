@@ -36,6 +36,15 @@ public class RobinhoodRhCryptoSnapshot {
     @Column(name = "capture_kind", nullable = false, length = 16)
     private String captureKind = RobinhoodRhDailyCaptureKind.SCHEDULED;
 
+    @Column(name = "account_suffix", nullable = false, length = 8)
+    private String accountSuffix = "";
+
+    @Column(name = "account_number", columnDefinition = "TEXT")
+    private String accountNumber;
+
+    @Column(name = "label", columnDefinition = "TEXT")
+    private String label;
+
     @Column(name = "total_value", nullable = false, precision = 19, scale = 2)
     private BigDecimal totalValue;
 

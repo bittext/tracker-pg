@@ -3,9 +3,10 @@
     <div class="rh-crypto__header-text">
       <h2 id="rh-crypto-heading" class="rh-crypto__title">Robinhood Crypto Tracker</h2>
       <p class="muted rh-crypto__lead">
-        Holdings and value changes via Robinhood's
-        <a href="https://docs.robinhood.com/crypto/trading/" target="_blank" rel="noopener noreferrer">Crypto Trading API</a>
-        — separate from Daily Tracker brokerage snapshots.
+        Same books and cadence as Daily Tracker: hourly pulls and a frozen
+        <strong>9 PM CT close</strong> for Individual ••••3370, Agentic ••••3550, and Ammu ••••8696. Powered by Robinhood's
+        <a href="https://docs.robinhood.com/crypto/trading/" target="_blank" rel="noopener noreferrer">Crypto Trading API</a>.
+        Capture now does not replace that day's close.
       </p>
     </div>
     @if (tracker; as t) {
@@ -440,7 +441,10 @@
       <div class="rh-crypto__empty rh-crypto__empty--ready" role="status">
         <mat-icon class="rh-crypto__empty-icon" aria-hidden="true">photo_camera</mat-icon>
         <h3 class="rh-crypto__empty-title">No captures yet</h3>
-        <p class="muted">Pull your first snapshot with <strong>Capture now</strong>, or wait for the scheduled job (every 4 hours).</p>
+        <p class="muted">
+          Pull your first snapshot with <strong>Capture now</strong>, or wait for the hourly job. The official day row
+          writes at 9 PM CT.
+        </p>
         <button mat-flat-button color="accent" type="button" (click)="captureNow()" [disabled]="capturing">
           @if (capturing) {
             <mat-spinner diameter="20" aria-hidden="true" />
@@ -451,16 +455,29 @@
         </button>
       </div>
     } @else {
+      @if (t.autoCaptureScheduleLabel) {
+        <p class="muted rh-crypto__schedule">Auto-capture {{ t.autoCaptureScheduleLabel }}.</p>
+      }
+      @if (t.accountColumns?.length) {
+        <p class="muted rh-crypto__books">
+          Books
+          @for (col of t.accountColumns; track col.accountSuffix) {
+            <span class="rh-crypto__book">{{ col.label }}</span>
+          }
+        </p>
+      }
       <div class="rh-crypto__timeline" role="region" aria-label="Crypto capture history">
-        @for (day of t.days; track day.snapshotAt) {
+        @for (day of t.days; track day.snapshotDate) {
           <article class="rh-crypto__day" [class.rh-crypto__day--open]="isDayExpanded(day)">
             <button type="button" class="rh-crypto__day-header" (click)="toggleDay(day)">
               <mat-icon class="rh-crypto__day-chevron" aria-hidden="true">
                 {{ isDayExpanded(day) ? 'expand_less' : 'expand_more' }}
               </mat-icon>
               <span class="rh-crypto__day-when">
-                <span class="rh-crypto__day-date">{{ day.snapshotAt | date: 'mediumDate' }}</span>
-                <span class="rh-crypto__day-time muted">{{ day.snapshotAt | date: 'shortTime' }}</span>
+                <span class="rh-crypto__day-date">{{ day.snapshotDate }}</span>
+                @if (day.snapshotAt) {
+                  <span class="rh-crypto__day-time muted">{{ day.snapshotAt | date: 'shortTime' }}</span>
+                }
                 <span class="rh-crypto__day-kind">{{ captureKindLabel(day.captureKind) }}</span>
               </span>
               <span class="rh-crypto__day-values">
@@ -473,30 +490,82 @@
               </span>
             </button>
             @if (isDayExpanded(day)) {
-              <div class="rh-crypto__holdings-wrap">
-                <table class="rh-crypto__holdings">
-                  <thead>
-                    <tr>
-                      <th>Coin</th>
-                      <th class="rh-crypto__num">Qty</th>
-                      <th class="rh-crypto__num">Price</th>
-                      <th class="rh-crypto__num">Market value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (h of day.holdings; track h.symbol) {
+              @if (day.accounts?.length) {
+                <div class="rh-crypto__accounts">
+                  @for (acct of day.accounts; track acct.accountSuffix) {
+                    <section class="rh-crypto__account">
+                      <h3 class="rh-crypto__account-title">{{ acct.label }}</h3>
+                      <p class="rh-crypto__account-total">{{ acct.totalValue | currency }}</p>
+                      <table class="rh-crypto__holdings">
+                        <thead>
+                          <tr>
+                            <th>Coin</th>
+                            <th class="rh-crypto__num">Qty</th>
+                            <th class="rh-crypto__num">Price</th>
+                            <th class="rh-crypto__num">Market value</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          @for (h of acct.holdings; track h.symbol) {
+                            <tr>
+                              <td>
+                                <span class="rh-crypto__coin">{{ h.symbol }}</span>
+                              </td>
+                              <td class="rh-crypto__num">{{ h.quantity | number: '1.0-8' }}</td>
+                              <td class="rh-crypto__num">{{ h.currentUnitPrice | currency }}</td>
+                              <td class="rh-crypto__num rh-crypto__mv">{{ h.marketValue | currency }}</td>
+                            </tr>
+                          }
+                          @if (!acct.holdings.length) {
+                            <tr>
+                              <td colspan="4" class="muted">No coins</td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    </section>
+                  }
+                </div>
+              } @else {
+                <div class="rh-crypto__holdings-wrap">
+                  <table class="rh-crypto__holdings">
+                    <thead>
                       <tr>
-                        <td>
-                          <span class="rh-crypto__coin">{{ h.symbol }}</span>
-                        </td>
-                        <td class="rh-crypto__num">{{ h.quantity | number: '1.0-8' }}</td>
-                        <td class="rh-crypto__num">{{ h.currentUnitPrice | currency }}</td>
-                        <td class="rh-crypto__num rh-crypto__mv">{{ h.marketValue | currency }}</td>
+                        <th>Coin</th>
+                        <th class="rh-crypto__num">Qty</th>
+                        <th class="rh-crypto__num">Price</th>
+                        <th class="rh-crypto__num">Market value</th>
                       </tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      @for (h of day.holdings; track h.symbol) {
+                        <tr>
+                          <td>
+                            <span class="rh-crypto__coin">{{ h.symbol }}</span>
+                          </td>
+                          <td class="rh-crypto__num">{{ h.quantity | number: '1.0-8' }}</td>
+                          <td class="rh-crypto__num">{{ h.currentUnitPrice | currency }}</td>
+                          <td class="rh-crypto__num rh-crypto__mv">{{ h.marketValue | currency }}</td>
+                        </tr>
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              }
+              @if (day.intradayCaptures?.length || day.manualCaptures?.length) {
+                <div class="rh-crypto__pulls">
+                  @for (pull of day.intradayCaptures || []; track pull.snapshotAt) {
+                    <p class="muted rh-crypto__pull">
+                      Hourly {{ pull.snapshotAt | date: 'shortTime' }} · {{ pull.totalValue | currency }}
+                    </p>
+                  }
+                  @for (pull of day.manualCaptures || []; track pull.snapshotAt) {
+                    <p class="muted rh-crypto__pull">
+                      Manual {{ pull.snapshotAt | date: 'shortTime' }} · {{ pull.totalValue | currency }}
+                    </p>
+                  }
+                </div>
+              }
             }
           </article>
         }

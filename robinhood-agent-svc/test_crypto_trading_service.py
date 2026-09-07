@@ -62,6 +62,38 @@ def test_run_crypto_sync_normalizes_holdings(mock_client_cls: MagicMock) -> None
     assert result["total_value"] == "25000.00"
     assert len(result["holdings"]) == 1
     assert result["holdings"][0]["symbol"] == "BTC"
+    assert len(result["portfolios"]) == 1
+    assert result["portfolios"][0]["account_number"] == "999"
+    mock_client.close.assert_called_once()
+
+
+@patch("crypto_trading_service.RobinhoodCryptoTradingClient")
+def test_run_crypto_sync_lists_each_active_account(mock_client_cls: MagicMock) -> None:
+    mock_client = MagicMock()
+    mock_client_cls.return_value = mock_client
+    mock_client.list_accounts.return_value = [
+        {"account_number": "311209094705", "status": "active"},
+        {"account_number": "311263615767", "status": "active"},
+        {"account_number": "311263254385", "status": "deactivated"},
+    ]
+    mock_client.list_holdings.side_effect = lambda number: (
+        [{"asset_code": "BTC", "total_quantity": "0.1"}]
+        if number == "311209094705"
+        else [{"asset_code": "ETH", "total_quantity": "2"}]
+    )
+    mock_client.best_bid_ask.return_value = {
+        "BTC-USD": Decimal("50000"),
+        "ETH-USD": Decimal("3000"),
+    }
+
+    result = run_crypto_sync("key", base64.b64encode(SigningKey.generate().encode()).decode())
+
+    assert result["ok"] is True
+    assert len(result["portfolios"]) == 2
+    assert {p["account_number"] for p in result["portfolios"]} == {"311209094705", "311263615767"}
+    assert result["total_value"] == "5000.00"
+    mock_client.list_holdings.assert_any_call("311209094705")
+    mock_client.list_holdings.assert_any_call("311263615767")
     mock_client.close.assert_called_once()
 
 

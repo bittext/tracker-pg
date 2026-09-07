@@ -70,7 +70,7 @@ public class AdminCronJobRunnerRegistry {
         register(new AdminCronJobRunnerDefinition(
                 "finance.rh-crypto-tracker.snapshot",
                 "Robinhood Crypto Tracker capture",
-                "Periodic crypto portfolio snapshots via Crypto Trading API.",
+                "Hourly crypto snapshots via Crypto Trading API; official daily close at 9 PM Central.",
                 "Finance",
                 () -> rhCryptoSnapshotScheduler.getObject().captureCryptoSnapshots(),
                 () -> rhCryptoSnapshotScheduler.getIfAvailable() != null

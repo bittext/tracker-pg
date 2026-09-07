@@ -367,7 +367,7 @@ export class ReportsFinanceRobinhoodCryptoTrackerComponent implements OnInit {
   }
 
   dayKey(day: RobinhoodRhCryptoTrackerDayDto): string {
-    return day.snapshotAt;
+    return day.snapshotDate || day.snapshotAt;
   }
 
   isDayExpanded(day: RobinhoodRhCryptoTrackerDayDto): boolean {
@@ -387,10 +387,12 @@ export class ReportsFinanceRobinhoodCryptoTrackerComponent implements OnInit {
     switch (kind) {
       case 'MANUAL':
         return 'manual';
+      case 'INTRADAY':
+        return 'hourly';
       case 'SCHEDULED':
-        return 'scheduled';
+        return '9 PM close';
       default:
-        return kind.toLowerCase();
+        return (kind || '').toLowerCase();
     }
   }
 

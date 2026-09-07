@@ -268,7 +268,7 @@ export interface RobinhoodOwnershipHistoryPointDto {
   marginUsedPercent: number | null;
 }
 
-/** GET /api/finance/robinhood/crypto-tracker — crypto holdings timeline (separate from Daily Tracker). */
+/** GET /api/finance/robinhood/crypto-tracker — day-centric crypto timeline (hourly + 9 PM CT close). */
 export type RobinhoodRhCryptoTrackerStatus = 'READY' | 'NOT_CONNECTED';
 
 export interface RobinhoodRhCryptoTrackerReportDto {
@@ -279,8 +279,30 @@ export interface RobinhoodRhCryptoTrackerReportDto {
   cryptoConnected: boolean;
   cryptoSyncAvailable: boolean;
   snapshotCount: number;
+  autoCaptureScheduleLabel?: string;
+  accountColumns?: RobinhoodRhCryptoTrackerAccountColumnDto[];
   days: RobinhoodRhCryptoTrackerDayDto[];
   notes: string[];
+}
+
+export interface RobinhoodRhCryptoTrackerAccountColumnDto {
+  accountSuffix: string;
+  label: string;
+}
+
+export interface RobinhoodRhCryptoTrackerAccountCellDto {
+  accountSuffix: string;
+  label: string;
+  totalValue: number;
+  changeFromPrevious: number;
+  holdings: RobinhoodRhCryptoHoldingDto[];
+}
+
+export interface RobinhoodRhCryptoTrackerCaptureDto {
+  snapshotAt: string;
+  captureKind: string;
+  totalValue: number;
+  accounts: RobinhoodRhCryptoTrackerAccountCellDto[];
 }
 
 export interface RobinhoodCryptoTradingStatusDto {
@@ -313,6 +335,9 @@ export interface RobinhoodRhCryptoTrackerDayDto {
   totalValue: number;
   changeFromPrevious: number;
   holdings: RobinhoodRhCryptoHoldingDto[];
+  accounts?: RobinhoodRhCryptoTrackerAccountCellDto[];
+  intradayCaptures?: RobinhoodRhCryptoTrackerCaptureDto[];
+  manualCaptures?: RobinhoodRhCryptoTrackerCaptureDto[];
 }
 
 export interface RobinhoodRhCryptoHoldingDto {

@@ -54,11 +54,11 @@ public class AdminCronJobBuiltinCatalog {
             jobs.add(cron(
                     "finance.rh-crypto-tracker.snapshot",
                     "Robinhood Crypto Tracker capture",
-                    "Periodic crypto portfolio snapshots via Crypto Trading API.",
+                    "Hourly crypto snapshots via Crypto Trading API; official daily close at 9 PM Central.",
                     "Finance",
                     "finance.rh-crypto-tracker.snapshot",
                     rhCryptoTrackerProps.snapshotCron(),
-                    "UTC"));
+                    rhCryptoTrackerProps.snapshotZone()));
         }
         if (rhCryptoAutoTradeProps.schedulerActive()) {
             jobs.add(cron(

@@ -181,7 +181,10 @@ tracker:
         account-suffixes: ${TRACKER_FINANCE_RH_DAILY_TRACKER_AI_ACCOUNT_SUFFIXES:3370,3550,8696}
     rh-crypto-tracker:
       snapshot-scheduler-enabled-config: ${TRACKER_FINANCE_RH_CRYPTO_TRACKER_SNAPSHOT_ENABLED:true}
-      snapshot-cron: ${TRACKER_FINANCE_RH_CRYPTO_TRACKER_SNAPSHOT_CRON:0 0 */4 * * *}
+      # Same cadence as Daily Tracker: hourly at :00, official SCHEDULED close at 9 PM Central.
+      snapshot-cron: ${TRACKER_FINANCE_RH_CRYPTO_TRACKER_SNAPSHOT_CRON:0 0 * * * *}
+      snapshot-zone: ${TRACKER_FINANCE_RH_CRYPTO_TRACKER_SNAPSHOT_ZONE:America/Chicago}
+      snapshot-closing-hour: ${TRACKER_FINANCE_RH_CRYPTO_TRACKER_SNAPSHOT_CLOSING_HOUR:21}
     rh-crypto-auto-trade:
       enabled-config: ${TRACKER_FINANCE_RH_CRYPTO_AUTO_TRADE_ENABLED:false}
       poll-cron: ${TRACKER_FINANCE_RH_CRYPTO_AUTO_TRADE_POLL_CRON:0 */5 * * * *}

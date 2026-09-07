@@ -5,6 +5,8 @@ import com.svp.tracker.config.RobinhoodRhCryptoTrackerProperties;
 import com.svp.tracker.finance.domain.RobinhoodCryptoTradingConnection;
 import com.svp.tracker.finance.repository.RobinhoodCryptoTradingConnectionRepository;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,7 +15,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
-/** Scheduled crypto portfolio snapshots via Robinhood Crypto Trading API. */
+/** Hourly crypto snapshots; official daily close at the same hour as Daily Tracker (default 9 PM Central). */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -29,7 +31,11 @@ public class RobinhoodRhCryptoSnapshotScheduler {
 
     @EventListener(ApplicationReadyEvent.class)
     public void logSchedulerRegistration() {
-        log.info("RH Crypto Tracker auto-capture scheduled: cron='{}'", cryptoTrackerProps.snapshotCron());
+        log.info(
+                "RH Crypto Tracker auto-capture scheduled: cron='{}' zone='{}' closingHour={}",
+                cryptoTrackerProps.snapshotCron(),
+                cryptoTrackerProps.snapshotZone(),
+                cryptoTrackerProps.snapshotClosingHour());
     }
 
     /** Invoked by admin cron scheduler ({@code finance.rh-crypto-tracker.snapshot}). */
@@ -47,10 +53,21 @@ public class RobinhoodRhCryptoSnapshotScheduler {
             return;
         }
         Instant snapshotAt = Instant.now();
-        log.info("RH crypto snapshot job starting for {} connection(s) at {}", connections.size(), snapshotAt);
+        ZoneId zone = ZoneId.of(cryptoTrackerProps.snapshotZone());
+        int hour = ZonedDateTime.ofInstant(snapshotAt, zone).getHour();
+        boolean closingHour = hour == cryptoTrackerProps.snapshotClosingHour();
+        log.info(
+                "RH crypto snapshot job starting for {} connection(s) at {} ({}closing hour)",
+                connections.size(),
+                snapshotAt,
+                closingHour ? "" : "non-");
         for (RobinhoodCryptoTradingConnection conn : connections) {
             try {
-                cryptoTrackerService.captureScheduledForOwner(conn.getOwnerUserId(), snapshotAt);
+                if (closingHour) {
+                    cryptoTrackerService.captureScheduledForOwner(conn.getOwnerUserId(), snapshotAt);
+                } else {
+                    cryptoTrackerService.captureIntradayForOwner(conn.getOwnerUserId(), snapshotAt);
+                }
                 log.info("RH crypto snapshot ok for user {}", conn.getOwnerUserId());
             } catch (Exception e) {
                 log.warn("RH crypto snapshot failed for user {}: {}", conn.getOwnerUserId(), e.getMessage());

@@ -306,6 +306,41 @@ def _format_asset_quantity(qty: Decimal) -> str:
     return text if text else "0"
 
 
+def _holdings_from_rows(
+    raw_holdings: list[dict[str, Any]], quotes: dict[str, Decimal]
+) -> tuple[list[dict[str, Any]], Decimal, list[str]]:
+    holdings: list[dict[str, Any]] = []
+    total_value = Decimal("0")
+    warnings: list[str] = []
+    for row in raw_holdings:
+        asset = str(row.get("asset_code") or "").strip().upper()
+        qty = _to_decimal(row.get("total_quantity"))
+        if not asset or qty is None or qty <= 0:
+            continue
+        pair = f"{asset}-USD"
+        unit_price = quotes.get(pair)
+        market_value = Decimal("0")
+        if unit_price is not None:
+            market_value = (qty * unit_price).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        else:
+            warnings.append(f"No quote for {pair}; market value set to 0")
+        total_value += market_value
+        holdings.append(
+            {
+                "symbol": asset,
+                "quantity": str(qty.normalize()),
+                "currentUnitPrice": _money(unit_price) if unit_price is not None else "0",
+                "marketValue": _money(market_value),
+                "costBasis": "0",
+                "averageBuyPrice": "0",
+                "unrealizedPnL": "0",
+                "unrealizedPnLPercent": "0",
+            }
+        )
+    holdings.sort(key=lambda h: h.get("symbol", ""))
+    return holdings, total_value, warnings
+
+
 def _select_account_number(accounts: list[dict[str, Any]]) -> str:
     for row in accounts:
         status = str(row.get("status") or "").strip().lower()
@@ -333,52 +368,52 @@ def run_crypto_sync(api_key: str, private_key_base64: str) -> dict[str, Any]:
                 "warnings": warnings,
             }
 
-        raw_holdings = client.list_holdings(account_number)
-        symbols: list[str] = []
-        for row in raw_holdings:
-            asset = str(row.get("asset_code") or "").strip().upper()
-            qty = _to_decimal(row.get("total_quantity"))
-            if asset and qty is not None and qty > 0:
-                symbols.append(f"{asset}-USD")
-
-        quotes = client.best_bid_ask(symbols)
-
-        holdings: list[dict[str, Any]] = []
-        total_value = Decimal("0")
-        for row in raw_holdings:
-            asset = str(row.get("asset_code") or "").strip().upper()
-            qty = _to_decimal(row.get("total_quantity"))
-            if not asset or qty is None or qty <= 0:
+        portfolios: list[dict[str, Any]] = []
+        all_symbols: list[str] = []
+        holdings_by_account: dict[str, list[dict[str, Any]]] = {}
+        for acct in accounts:
+            number = str(acct.get("account_number") or "").strip()
+            status = str(acct.get("status") or "").strip().lower()
+            if not number or (status and status not in {"active", ""}):
                 continue
-            pair = f"{asset}-USD"
-            unit_price = quotes.get(pair)
-            market_value = Decimal("0")
-            if unit_price is not None:
-                market_value = (qty * unit_price).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-            else:
-                warnings.append(f"No quote for {pair}; market value set to 0")
-            total_value += market_value
-            holdings.append(
+            raw_holdings = client.list_holdings(number)
+            holdings_by_account[number] = raw_holdings
+            for row in raw_holdings:
+                asset = str(row.get("asset_code") or "").strip().upper()
+                qty = _to_decimal(row.get("total_quantity"))
+                if asset and qty is not None and qty > 0:
+                    all_symbols.append(f"{asset}-USD")
+
+        quotes = client.best_bid_ask(all_symbols)
+        primary_holdings: list[dict[str, Any]] = []
+        primary_total = Decimal("0")
+
+        for number, raw_holdings in holdings_by_account.items():
+            holdings, total_value, pair_warnings = _holdings_from_rows(raw_holdings, quotes)
+            warnings.extend(pair_warnings)
+            portfolios.append(
                 {
-                    "symbol": asset,
-                    "quantity": str(qty.normalize()),
-                    "currentUnitPrice": _money(unit_price) if unit_price is not None else "0",
-                    "marketValue": _money(market_value),
-                    "costBasis": "0",
-                    "averageBuyPrice": "0",
-                    "unrealizedPnL": "0",
-                    "unrealizedPnLPercent": "0",
+                    "account_number": number,
+                    "total_value": _money(total_value),
+                    "holdings": holdings,
                 }
             )
+            if number == account_number:
+                primary_holdings = holdings
+                primary_total = total_value
 
-        holdings.sort(key=lambda h: h.get("symbol", ""))
+        if not primary_holdings and portfolios:
+            primary_holdings = portfolios[0]["holdings"]
+            primary_total = Decimal(str(portfolios[0]["total_value"]))
 
+        coin_count = sum(len(p["holdings"]) for p in portfolios)
         return {
             "ok": True,
-            "message": f"Synced {len(holdings)} crypto holding(s).",
+            "message": f"Synced {coin_count} crypto holding(s) across {len(portfolios)} account(s).",
             "account_number": account_number,
-            "total_value": _money(total_value),
-            "holdings": holdings,
+            "total_value": _money(primary_total),
+            "holdings": primary_holdings,
+            "portfolios": portfolios,
             "accounts": accounts,
             "warnings": warnings,
         }

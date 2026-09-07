@@ -538,6 +538,76 @@
   font-variant-numeric: tabular-nums;
 }
 
+.rh-crypto__schedule {
+  margin: -0.35rem 0 0.45rem;
+  font-size: 0.85rem;
+}
+
+.rh-crypto__books {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.85rem;
+  font-size: 0.85rem;
+}
+
+.rh-crypto__book {
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.12);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.rh-crypto__accounts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 0.85rem;
+  padding: 0.85rem 1rem 1rem;
+}
+
+.rh-crypto__account {
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(15, 23, 42, 0.015);
+}
+
+.rh-crypto__account-title {
+  margin: 0;
+  padding: 0.65rem 0.85rem 0.15rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.rh-crypto__account-total {
+  margin: 0;
+  padding: 0 0.85rem 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.rh-crypto__account .rh-crypto__holdings {
+  th,
+  td {
+    padding: 0.4rem 0.85rem;
+  }
+}
+
+.rh-crypto__pulls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0 1rem 0.85rem;
+}
+
+.rh-crypto__pull {
+  margin: 0;
+  font-size: 0.8rem;
+}
+
 .rh-crypto__holdings-wrap {
   overflow-x: auto;
 }

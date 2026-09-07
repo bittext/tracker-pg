@@ -9,4 +9,5 @@ public record RobinhoodCryptoTradingSyncResultDto(
         String accountNumber,
         BigDecimal totalValue,
         List<RobinhoodRhCryptoHoldingDto> holdings,
-        List<String> warnings) {}
+        List<String> warnings,
+        List<RobinhoodCryptoTradingPortfolioDto> portfolios) {}

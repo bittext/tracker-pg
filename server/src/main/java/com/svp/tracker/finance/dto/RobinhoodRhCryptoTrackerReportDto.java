@@ -11,5 +11,7 @@ public record RobinhoodRhCryptoTrackerReportDto(
         boolean cryptoConnected,
         boolean cryptoSyncAvailable,
         int snapshotCount,
+        String autoCaptureScheduleLabel,
+        List<RobinhoodRhCryptoTrackerAccountColumnDto> accountColumns,
         List<RobinhoodRhCryptoTrackerDayDto> days,
         List<String> notes) {}
