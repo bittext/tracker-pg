@@ -41,11 +41,6 @@ import {
   RhDailyTrackerAlertEventDto,
   RhDailyTrackerAlertTestResultDto,
   RobinhoodCsvImportResultDto,
-  RobinhoodNotebookBundleDto,
-  RobinhoodNotebookConfigDto,
-  RobinhoodNotebookId,
-  RobinhoodNotebookRenderDto,
-  RobinhoodPerformanceReportDto,
   RobinhoodStocksSummaryDto,
   RobinhoodTransactionsDto,
   StockNewsDto,
@@ -384,41 +379,6 @@ export class FinanceApiService {
 
   robinhoodAgenticRejectOrder(orderId: number) {
     return this.http.post<RobinhoodAgenticOrderDto>(`${this.root}/agentic/orders/${orderId}/reject`, {});
-  }
-
-  /** FIFO realized P&amp;L report (daily P&amp;L, equity curve, win/loss) for a calendar year. */
-  robinhoodPerformanceReport(year: number, symbol?: string | null) {
-    let params = new HttpParams().set('year', String(year));
-    const sym = symbol?.trim();
-    if (sym) {
-      params = params.set('symbol', sym);
-    }
-    return this.http.get<RobinhoodPerformanceReportDto>(`${this.root}/performance-report`, { params });
-  }
-
-  /** JupyterLab + notebook sidecar hints for Reports → Robinhood. */
-  robinhoodNotebookConfig() {
-    return this.http.get<RobinhoodNotebookConfigDto>(`${this.root}/notebook-config`);
-  }
-
-  /** JSON export for Jupyter / pandas workflows. */
-  robinhoodNotebookBundle(year: number, symbol?: string | null) {
-    let params = new HttpParams().set('year', String(year));
-    const sym = symbol?.trim();
-    if (sym) {
-      params = params.set('symbol', sym);
-    }
-    return this.http.get<RobinhoodNotebookBundleDto>(`${this.root}/notebook-bundle`, { params });
-  }
-
-  /** Server-rendered notebook HTML (requires robinhood-notebook-svc). */
-  robinhoodNotebookRender(year: number, symbol?: string | null, notebook: RobinhoodNotebookId = 'performance') {
-    let params = new HttpParams().set('year', String(year)).set('notebook', notebook);
-    const sym = symbol?.trim();
-    if (sym) {
-      params = params.set('symbol', sym);
-    }
-    return this.http.get<RobinhoodNotebookRenderDto>(`${this.root}/notebook-render`, { params });
   }
 
   /** Upload Robinhood CSV directly (dry-run unless apply=true). */

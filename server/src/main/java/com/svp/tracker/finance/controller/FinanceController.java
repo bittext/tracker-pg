@@ -12,14 +12,8 @@ import com.svp.tracker.finance.dto.RobinhoodCsvSavedImportDto;
 import com.svp.tracker.finance.dto.RobinhoodCsvUploadStatusDto;
 import com.svp.tracker.finance.dto.RobinhoodAccountStatusDto;
 import com.svp.tracker.finance.dto.RobinhoodAccountTrackerDto;
-import com.svp.tracker.finance.dto.RobinhoodNotebookBundleDto;
-import com.svp.tracker.finance.dto.RobinhoodNotebookConfigDto;
-import com.svp.tracker.finance.dto.RobinhoodNotebookRenderDto;
-import com.svp.tracker.finance.dto.RobinhoodPerformanceReportDto;
 import com.svp.tracker.finance.dto.RobinhoodStocksSummaryDto;
 import com.svp.tracker.finance.dto.RobinhoodTransactionsDto;
-import com.svp.tracker.finance.service.RobinhoodNotebookService;
-import com.svp.tracker.finance.service.RobinhoodPerformanceReportService;
 import com.svp.tracker.finance.dto.StockNewsDto;
 import com.svp.tracker.finance.dto.Surge52WeekHighsDto;
 import com.svp.tracker.finance.service.BreakoutScanService;
@@ -83,8 +77,6 @@ import org.springframework.web.multipart.MultipartFile;
 public class FinanceController {
 
     private final RobinhoodFinanceService robinhoodFinanceService;
-    private final RobinhoodPerformanceReportService robinhoodPerformanceReportService;
-    private final RobinhoodNotebookService robinhoodNotebookService;
     private final RobinhoodCsvImportService robinhoodCsvImportService;
     private final StockNewsService stockNewsService;
     private final Surge52WeekHighsService surge52WeekHighsService;
@@ -350,65 +342,6 @@ public class FinanceController {
                 body == null ? null : body.month(),
                 body == null ? null : body.forceRefresh());
         return rhDailyTrackerAiInsightService.generate(body);
-    }
-
-    /**
-     * FIFO realized P&amp;L performance report for a calendar year (daily P&amp;L, equity curve, win/loss). Data from
-     * imported CSV rows only.
-     */
-    @GetMapping("/performance-report")
-    public RobinhoodPerformanceReportDto performanceReport(
-            @RequestParam(name = "year") int year,
-            @RequestParam(name = "symbol", required = false) String symbol) {
-        validateYear(year);
-        if (financeProperties.transactionDateColumn().isBlank()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Configure tracker.finance.transaction-date-column for performance reports");
-        }
-        log.info("GET /api/finance/robinhood/performance-report year={} symbol={}", year, symbol);
-        try {
-            return robinhoodPerformanceReportService.buildReport(year, symbol);
-        } catch (IllegalStateException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
-        } catch (IllegalArgumentException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
-        }
-    }
-
-    /** JupyterLab + notebook sidecar configuration for Reports → Robinhood. */
-    @GetMapping("/notebook-config")
-    public RobinhoodNotebookConfigDto notebookConfig() {
-        return robinhoodNotebookService.notebookConfig();
-    }
-
-    /** JSON bundle (transactions + performance report) for local or Jupyter workflows. */
-    @GetMapping("/notebook-bundle")
-    public RobinhoodNotebookBundleDto notebookBundle(
-            @RequestParam(name = "year") int year,
-            @RequestParam(name = "symbol", required = false) String symbol) {
-        validateYear(year);
-        log.info("GET /api/finance/robinhood/notebook-bundle year={} symbol={}", year, symbol);
-        try {
-            return robinhoodNotebookService.buildBundle(year, symbol);
-        } catch (IllegalStateException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
-        }
-    }
-
-    /** Optional HTML render via robinhood-notebook-svc (papermill + nbconvert). */
-    @GetMapping("/notebook-render")
-    public RobinhoodNotebookRenderDto notebookRender(
-            @RequestParam(name = "year") int year,
-            @RequestParam(name = "symbol", required = false) String symbol,
-            @RequestParam(name = "notebook", defaultValue = "performance") String notebook) {
-        validateYear(year);
-        log.info("GET /api/finance/robinhood/notebook-render year={} symbol={} notebook={}", year, symbol, notebook);
-        try {
-            return robinhoodNotebookService.renderNotebookHtml(year, symbol, notebook);
-        } catch (IllegalArgumentException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
-        }
     }
 
     @GetMapping("/stocks-summary")

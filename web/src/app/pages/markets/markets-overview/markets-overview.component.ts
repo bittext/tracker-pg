@@ -47,7 +47,7 @@ import { MarketsRoadmapSummaryComponent } from '../markets-roadmap-summary/marke
       <mat-card appearance="outlined" class="kpi-card">
         <mat-card-header>
           <mat-card-title>Analytics</mat-card-title>
-          <mat-card-subtitle>Performance, daily tracker, crypto, roadmap</mat-card-subtitle>
+          <mat-card-subtitle>Daily tracker, trades, crypto, roadmap</mat-card-subtitle>
         </mat-card-header>
         <mat-card-actions>
           <a mat-stroked-button routerLink="/markets/analytics">View analytics</a>
