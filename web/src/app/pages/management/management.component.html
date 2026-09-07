@@ -6,7 +6,8 @@
     login). Work tasks and the daily log are on the Life <strong>Work</strong> tab. Use this page for tasks,
     <strong>Travel</strong>
     (trips and map pins), <strong>Documents</strong> (your private uploads with labels), <strong>Now</strong> (a simple
-    three-column roadmap: planned, in progress, and completed—edit the data file to update), calendar, accounts, month notes,
+    three-column roadmap: planned, in progress, and completed—edit the data file to update), calendar,
+    <strong>Due</strong> (payables and receivables on the month grid), accounts, month notes,
     and year-scoped write-ups. Review sign-in activity under
     <strong>Admin</strong> →
     <strong>Sign-in log</strong>.
@@ -580,6 +581,10 @@
           </div>
         </section>
       </div>
+    </mat-tab>
+
+    <mat-tab label="Due">
+      <app-management-due-panel />
     </mat-tab>
 
     <mat-tab label="Account">

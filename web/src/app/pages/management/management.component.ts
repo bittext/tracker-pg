@@ -73,6 +73,7 @@ import { ManagementTravelPanelComponent } from './management-travel-panel/manage
 import { ManagementDocumentsPanelComponent } from './management-documents-panel/management-documents-panel.component';
 import { ManagementRecordingsPanelComponent } from './management-recordings-panel/management-recordings-panel.component';
 import { ManagementNowPanelComponent } from './management-now-panel/management-now-panel.component';
+import { ManagementDuePanelComponent } from './management-due-panel/management-due-panel.component';
 import {
   WriteupAttachmentPreviewDialogComponent,
   WriteupAttachmentPreviewData,
@@ -135,6 +136,7 @@ interface AccountEntry {
     ManagementDocumentsPanelComponent,
     ManagementRecordingsPanelComponent,
     ManagementNowPanelComponent,
+    ManagementDuePanelComponent,
     WriteupMarkdownBodyComponent,
     DragDropModule,
   ],
@@ -232,16 +234,18 @@ export class ManagementComponent implements OnInit, OnDestroy {
 
   readonly accountTableColumns: string[] = ['folder', 'itemName', 'username', 'actions'];
 
-  /** 0 Tasks, 1 Travel, 2 Documents, 3 Recordings, 4 Now, 5 Calendar, 6 Account, 7 Notes, 8 Write-up */
+  /** 0 Tasks, 1 Travel, 2 Documents, 3 Recordings, 4 Now, 5 Calendar, 6 Due, 7 Account, 8 Notes, 9 Write-up */
   private readonly MGMT_TAB_TRAVEL = 1;
   private readonly MGMT_TAB_DOCUMENTS = 2;
   private readonly MGMT_TAB_RECORDINGS = 3;
-  private readonly MGMT_TAB_NOTES = 7;
-  private readonly MGMT_TAB_WRITEUP = 8;
+  private readonly MGMT_TAB_DUE = 6;
+  private readonly MGMT_TAB_NOTES = 8;
+  private readonly MGMT_TAB_WRITEUP = 9;
 
   private readonly travelPanel = viewChild(ManagementTravelPanelComponent);
   private readonly documentsPanel = viewChild(ManagementDocumentsPanelComponent);
   private readonly recordingsPanel = viewChild(ManagementRecordingsPanelComponent);
+  private readonly duePanel = viewChild(ManagementDuePanelComponent);
 
   noteYear = new Date().getFullYear();
   /** When set, list is limited to that month; when null, all months in the year. Default: current month (1–12). */
@@ -1418,6 +1422,9 @@ export class ManagementComponent implements OnInit, OnDestroy {
     }
     if (index === this.MGMT_TAB_RECORDINGS) {
       this.recordingsPanel()?.refreshAll();
+    }
+    if (index === this.MGMT_TAB_DUE) {
+      this.duePanel()?.refreshAll();
     }
     if (index === this.MGMT_TAB_NOTES) {
       this.noteDraft.year = this.noteYear;

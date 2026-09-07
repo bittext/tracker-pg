@@ -36,6 +36,9 @@ import {
   ManagementWorkLogCalendarDto,
   ManagementWorkLogEntryDto,
   ManagementWorkLogEntryWriteBody,
+  ManagementDueItemWriteBody,
+  ManagementDueMonthDto,
+  ManagementDueSettleBody,
   TaskMonthCalendarDto,
   TravelGeocodeResultDto,
   TravelPlaceMapDto,
@@ -518,6 +521,30 @@ export class ManagementApiService {
       path,
       force,
     });
+  }
+
+  dueMonth(year: number, month: number) {
+    return this.http.get<ManagementDueMonthDto>(`${this.root}/due/month`, {
+      params: { year: String(year), month: String(month) },
+    });
+  }
+
+  createDueItem(body: ManagementDueItemWriteBody) {
+    return this.http.post<ManagementDueMonthDto>(`${this.root}/due/items`, body);
+  }
+
+  updateDueItem(id: number, body: ManagementDueItemWriteBody) {
+    return this.http.put<ManagementDueMonthDto>(`${this.root}/due/items/${id}`, body);
+  }
+
+  deleteDueItem(id: number, year: number, month: number) {
+    return this.http.delete<ManagementDueMonthDto>(`${this.root}/due/items/${id}`, {
+      params: { year: String(year), month: String(month) },
+    });
+  }
+
+  settleDueItem(id: number, body: ManagementDueSettleBody) {
+    return this.http.put<ManagementDueMonthDto>(`${this.root}/due/items/${id}/settle`, body);
   }
 }
 

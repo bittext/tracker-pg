@@ -398,3 +398,72 @@ export interface ManagementRecordingTranscriptSegmentDto {
 export interface ManagementRecordingReprocessDto {
   clearedCount: number;
 }
+
+export type ManagementDueSide = 'PAYABLE' | 'RECEIVABLE';
+
+export interface ManagementDueOccurrenceDto {
+  itemId: number;
+  occurrenceId: number | null;
+  side: ManagementDueSide;
+  counterparty: string;
+  recurring: boolean;
+  dayOfMonth: number | null;
+  oneOffDate: string | null;
+  occurrenceDate: string;
+  amountOverride: number | null;
+  estimatedAmount: number | null;
+  displayAmount: number | null;
+  amountSource: 'settled' | 'override' | 'history' | 'none' | string;
+  notes: string;
+  settled: boolean;
+  settledAmount: number | null;
+}
+
+export interface ManagementDueSuggestionDto {
+  side: ManagementDueSide;
+  counterparty: string;
+  typicalDay: number;
+  estimatedAmount: number | null;
+  sampleCount: number;
+}
+
+export interface ManagementDueDayDto {
+  date: string;
+  payableCount: number;
+  receivableCount: number;
+  payableTotal: number;
+  receivableTotal: number;
+  items: ManagementDueOccurrenceDto[];
+}
+
+export interface ManagementDueMonthDto {
+  year: number;
+  month: number;
+  paidTotal: number;
+  receivedTotal: number;
+  netTotal: number;
+  yearPaidTotal: number;
+  yearReceivedTotal: number;
+  yearNetTotal: number;
+  days: ManagementDueDayDto[];
+  suggestions: ManagementDueSuggestionDto[];
+}
+
+export interface ManagementDueItemWriteBody {
+  side: ManagementDueSide;
+  counterparty: string;
+  recurring: boolean;
+  dayOfMonth?: number | null;
+  oneOffDate?: string | null;
+  amountOverride?: number | null;
+  notes?: string | null;
+  startYear?: number | null;
+  startMonth?: number | null;
+}
+
+export interface ManagementDueSettleBody {
+  year: number;
+  month: number;
+  settled: boolean;
+  settledAmount?: number | null;
+}

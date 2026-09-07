@@ -37,4 +37,15 @@ public interface BankingTransactionRepository extends JpaRepository<BankingTrans
 
     @Query("SELECT t.dedupeHash FROM BankingTransaction t WHERE t.ownerUserId = :ownerId AND t.dedupeHash IN :hashes")
     List<String> findExistingDedupeHashes(@Param("ownerId") long ownerId, @Param("hashes") Collection<String> hashes);
+
+    @Query(
+            """
+            SELECT t FROM BankingTransaction t
+            JOIN FETCH t.institution
+            WHERE t.ownerUserId = :ownerId
+            AND t.txnDate >= :fromInclusive
+            ORDER BY t.txnDate DESC, t.id DESC
+            """)
+    List<BankingTransaction> listSince(
+            @Param("ownerId") long ownerId, @Param("fromInclusive") LocalDate fromInclusive);
 }

@@ -119,7 +119,7 @@ export const NOW_ROADMAP_DONE: readonly NowRoadmapCard[] = [
     id: 'now-mgmt-vault',
     type: 'platform',
     title: 'Per-user Management vault',
-    body: 'Tasks, work log, month notes, write-ups, accounts, and calendar scoped to the signed-in member.',
+    body: 'Tasks, work log, month notes, write-ups, accounts, calendar, and Due (payables and receivables) scoped to the signed-in member.',
     milestone: '2026',
   },
 ];

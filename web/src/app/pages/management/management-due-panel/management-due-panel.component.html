@@ -1,0 +1,217 @@
+<div class="tab-panel due-panel">
+  <section aria-labelledby="due-heading">
+    <h2 id="due-heading" class="subsection-title">Due</h2>
+    <p class="muted due-intro">
+      Payables and receivables on the day of the month they land. Recurring rows carry into later months. One-time rows
+      stay on their date. Amounts you type win; otherwise the app estimates from bank history and skips transfers between
+      your own accounts. Totals count only what you mark paid or received, from this month forward.
+    </p>
+
+    <div class="due-totals" aria-label="Paid and received totals">
+      <div class="due-total">
+        <span class="due-total-label">{{ calendarTitle }} paid</span>
+        <strong class="due-total-value due-out">{{ money(monthData?.paidTotal) }}</strong>
+      </div>
+      <div class="due-total">
+        <span class="due-total-label">Received</span>
+        <strong class="due-total-value due-in">{{ money(monthData?.receivedTotal) }}</strong>
+      </div>
+      <div class="due-total">
+        <span class="due-total-label">Net</span>
+        <strong class="due-total-value">{{ money(monthData?.netTotal) }}</strong>
+      </div>
+      <div class="due-total due-total--year">
+        <span class="due-total-label">{{ year }} paid</span>
+        <strong class="due-total-value due-out">{{ money(monthData?.yearPaidTotal) }}</strong>
+      </div>
+      <div class="due-total due-total--year">
+        <span class="due-total-label">{{ year }} received</span>
+        <strong class="due-total-value due-in">{{ money(monthData?.yearReceivedTotal) }}</strong>
+      </div>
+    </div>
+
+    <div class="due-layout">
+      <section class="due-column" aria-label="Due calendar">
+        <mat-card appearance="outlined" class="due-card">
+          <mat-card-header>
+            <mat-card-title>Month</mat-card-title>
+            <mat-card-subtitle>
+              Red is what you owe. Green is what is owed to you. Click a day to add or mark it.
+            </mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="cal-toolbar">
+              <button mat-icon-button type="button" (click)="prevMonth()" aria-label="Previous month">
+                <mat-icon>chevron_left</mat-icon>
+              </button>
+              <h3 class="cal-title">{{ calendarTitle }}</h3>
+              <button mat-icon-button type="button" (click)="nextMonth()" aria-label="Next month">
+                <mat-icon>chevron_right</mat-icon>
+              </button>
+            </div>
+
+            <div class="calendar-shell">
+              <div class="cal-weekdays" role="row">
+                @for (wd of weekDays; track wd) {
+                  <span class="cal-weekday" role="columnheader">{{ wd }}</span>
+                }
+              </div>
+              @for (row of calendarRows(); track $index) {
+                <div class="cal-week" role="row">
+                  @for (cell of row; track cell.trackKey) {
+                    @if (cell.type === 'pad') {
+                      <div class="cal-slot cal-slot--pad"></div>
+                    } @else {
+                      <button
+                        type="button"
+                        class="cal-day"
+                        [class.cal-day--selected]="cell.iso === selectedIso"
+                        [class.cal-day--today]="isToday(cell.iso)"
+                        [class.cal-day--has]="!!cell.day && (cell.day.payableCount > 0 || cell.day.receivableCount > 0)"
+                        (click)="selectDay(cell.iso!)"
+                      >
+                        <span class="cal-day-num">{{ cell.label }}</span>
+                        @if (cell.day && (cell.day.payableCount || cell.day.receivableCount)) {
+                          <span class="cal-day-lines">
+                            @for (item of cell.day.items.slice(0, 2); track item.itemId) {
+                              <span class="cal-chip" [class.cal-chip--out]="item.side === 'PAYABLE'" [class.cal-chip--in]="item.side === 'RECEIVABLE'">
+                                {{ item.counterparty }}
+                              </span>
+                            }
+                          </span>
+                          <span class="cal-day-net">{{ dayNet(cell.day) }}</span>
+                        }
+                      </button>
+                    }
+                  }
+                </div>
+              }
+            </div>
+            @if (loading) {
+              <p class="muted">Loading…</p>
+            }
+          </mat-card-content>
+        </mat-card>
+      </section>
+
+      <section class="due-column" aria-label="Selected day">
+        <mat-card appearance="outlined" class="due-card">
+          <mat-card-header>
+            <mat-card-title>{{ selectedIso || 'Day' }}</mat-card-title>
+            <mat-card-subtitle>Businesses due on this day</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            @if (!selectedDay?.items?.length) {
+              <p class="muted empty-hint">Nothing scheduled. Add a payable or receivable below.</p>
+            } @else {
+              <ul class="due-list">
+                @for (row of selectedDay!.items; track row.itemId) {
+                  <li class="due-row" [class.due-row--out]="row.side === 'PAYABLE'" [class.due-row--in]="row.side === 'RECEIVABLE'">
+                    <div class="due-row-main">
+                      <strong>{{ row.counterparty }}</strong>
+                      <span class="due-row-meta">
+                        {{ row.side === 'PAYABLE' ? 'Payable' : 'Receivable' }}
+                        ·
+                        {{ row.recurring ? 'Recurring' : 'This month only' }}
+                        @if (row.amountSource === 'history') {
+                          · from history
+                        }
+                      </span>
+                      <span class="due-row-amt">{{ signedMoney(row) }}</span>
+                    </div>
+                    <div class="due-row-actions">
+                      <button
+                        mat-stroked-button
+                        type="button"
+                        [disabled]="saving"
+                        (click)="settle(row, !row.settled)"
+                      >
+                        {{ row.settled ? (row.side === 'PAYABLE' ? 'Undo paid' : 'Undo received') : row.side === 'PAYABLE' ? 'Mark paid' : 'Mark received' }}
+                      </button>
+                      <button mat-icon-button type="button" (click)="startEdit(row)" aria-label="Edit">
+                        <mat-icon>edit</mat-icon>
+                      </button>
+                      <button mat-icon-button type="button" color="warn" (click)="deleteItem(row)" aria-label="Delete">
+                        <mat-icon>delete</mat-icon>
+                      </button>
+                    </div>
+                  </li>
+                }
+              </ul>
+            }
+
+            <form class="due-form" (ngSubmit)="saveItem()">
+              <h3 class="due-form-title">{{ editingItemId ? 'Edit' : 'Add' }}</h3>
+              <div class="due-form-grid">
+                <mat-form-field appearance="outline">
+                  <mat-label>Side</mat-label>
+                  <mat-select [(ngModel)]="draft.side" name="dueSide">
+                    <mat-option value="PAYABLE">Payable — I owe</mat-option>
+                    <mat-option value="RECEIVABLE">Receivable — owed to me</mat-option>
+                  </mat-select>
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Business</mat-label>
+                  <input matInput [(ngModel)]="draft.counterparty" name="dueBiz" required />
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Amount (optional)</mat-label>
+                  <input matInput [(ngModel)]="draft.amount" name="dueAmt" inputmode="decimal" />
+                </mat-form-field>
+                @if (draft.recurring) {
+                  <mat-form-field appearance="outline">
+                    <mat-label>Day of month</mat-label>
+                    <input matInput type="number" min="1" max="31" [(ngModel)]="draft.dayOfMonth" name="dueDom" />
+                  </mat-form-field>
+                } @else {
+                  <mat-form-field appearance="outline">
+                    <mat-label>Date</mat-label>
+                    <input matInput type="date" [(ngModel)]="draft.oneOffDate" name="dueDate" />
+                  </mat-form-field>
+                }
+                <mat-form-field appearance="outline" class="due-form-notes">
+                  <mat-label>Notes</mat-label>
+                  <input matInput [(ngModel)]="draft.notes" name="dueNotes" />
+                </mat-form-field>
+              </div>
+              <mat-checkbox [(ngModel)]="draft.recurring" name="dueRecurring">Recurring every month</mat-checkbox>
+              <div class="due-form-actions">
+                <button mat-flat-button color="primary" type="submit" [disabled]="saving">
+                  {{ editingItemId ? 'Save' : 'Add' }}
+                </button>
+                @if (editingItemId) {
+                  <button mat-button type="button" (click)="cancelEdit()">Cancel</button>
+                } @else {
+                  <button mat-button type="button" (click)="startCreate()">Clear</button>
+                }
+              </div>
+            </form>
+          </mat-card-content>
+        </mat-card>
+
+        @if (suggestions.length) {
+          <mat-card appearance="outlined" class="due-card due-suggest">
+            <mat-card-header>
+              <mat-card-title>Suggestions from history</mat-card-title>
+              <mat-card-subtitle>Repeated external bank payees. Accept to add a recurring row.</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+              <ul class="due-suggest-list">
+                @for (row of suggestions; track row.counterparty + row.side) {
+                  <li>
+                    <span>
+                      <strong>{{ row.counterparty }}</strong>
+                      · {{ row.side === 'PAYABLE' ? 'owe' : 'receive' }}
+                      ~{{ money(row.estimatedAmount) }} on the {{ row.typicalDay }}
+                    </span>
+                    <button mat-stroked-button type="button" (click)="addSuggestion(row)">Use</button>
+                  </li>
+                }
+              </ul>
+            </mat-card-content>
+          </mat-card>
+        }
+      </section>
+    </div>
+  </section>
+</div>
