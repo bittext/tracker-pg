@@ -29,7 +29,7 @@ import { MarketsRoadmapSummaryComponent } from '../markets-roadmap-summary/marke
       <mat-card appearance="outlined" class="kpi-card">
         <mat-card-header>
           <mat-card-title>Trade</mat-card-title>
-          <mat-card-subtitle>Robinhood execution &amp; orders</mat-card-subtitle>
+          <mat-card-subtitle>Live desk — review, place, capture</mat-card-subtitle>
         </mat-card-header>
         <mat-card-actions>
           <a mat-flat-button color="primary" routerLink="/markets/trade">Open trade</a>

@@ -1,427 +1,145 @@
-<section class="rh-trading" aria-labelledby="rh-trading-heading">
-  <h2 id="rh-trading-heading" class="rh-trading__title">Robinhood</h2>
-
-  <h3 class="rh-trading__subtitle">Account tracker</h3>
-  <p class="muted rh-trading__hint">
-    Individual <strong>••••3370</strong> NBIS ledger from CSV since <strong>Jun 24, 2026 00:00 Central</strong>
-    (baseline <strong>732</strong> shares). Agentic <strong>••••3550</strong> portfolio return vs
-    <strong>S&amp;P 500 (^GSPC)</strong> over the same window.
-  </p>
-
-  @if (accountTrackerLoading) {
-    <p class="muted">Loading account tracker…</p>
-  } @else if (accountTracker; as t) {
-    <div class="rh-trading__tracker" role="region" aria-label="Account tracker">
-      <div class="rh-trading__tracker-grid">
-        <div class="rh-trading__tracker-card">
-          <h4 class="rh-trading__positions-title">Individual NBIS · {{ t.individualNbis.accountMasked }}</h4>
-          <ul class="rh-trading__stats muted">
-            <li>Cutoff: <strong>{{ formatDate(t.trackingStartedAt) }}</strong></li>
-            <li>Baseline: <strong>{{ formatNbis(t.individualNbis.baselineNbis) }}</strong> NBIS</li>
-            <li>Bought since: <strong>{{ formatNbis(t.individualNbis.boughtSince) }}</strong></li>
-            <li>Sold since: <strong>{{ formatNbis(t.individualNbis.soldSince) }}</strong></li>
-            <li>Expected: <strong>{{ formatNbis(t.individualNbis.expectedNbis) }}</strong></li>
-            <li>
-              Live (sync): <strong>{{ formatNbis(t.individualNbis.liveNbis) }}</strong>
-              @if (t.individualNbis.liveSyncedAt) {
-                · {{ formatDate(t.individualNbis.liveSyncedAt) }}
-              }
-            </li>
-            <li [class]="varianceClass(t.individualNbis.variance)">
-              Variance: <strong>{{ formatNbis(t.individualNbis.variance) }}</strong>
-            </li>
-          </ul>
-        </div>
-
-        <div class="rh-trading__tracker-card">
-          <h4 class="rh-trading__positions-title">Agentic vs SPX · {{ t.agenticVsSpx.agenticAccountMasked }}</h4>
-          <ul class="rh-trading__stats muted">
-            <li>
-              {{ t.agenticVsSpx.spxSymbol }}:
-              <strong>{{ formatPct(t.agenticVsSpx.spxReturnPct) }}</strong>
-              @if (t.agenticVsSpx.spxStartPrice != null && t.agenticVsSpx.spxCurrentPrice != null) {
-                ({{ t.agenticVsSpx.spxStartPrice | number: '1.2-2' }} →
-                {{ t.agenticVsSpx.spxCurrentPrice | number: '1.2-2' }})
-              }
-            </li>
-            <li>
-              Agentic portfolio:
-              <strong>{{ formatPct(t.agenticVsSpx.agenticReturnPct) }}</strong>
-              · MV <strong>{{ t.agenticVsSpx.agenticMarketValue | currency }}</strong>
-            </li>
-            <li class="muted">{{ t.agenticVsSpx.agenticReturnBasis }}</li>
-          </ul>
-        </div>
-      </div>
-
-      @if (t.notes.length) {
-        <ul class="rh-trading__notes muted">
-          @for (note of t.notes; track note) {
-            <li>{{ note }}</li>
-          }
-        </ul>
-      }
-
-      @if (t.ledgerEvents.length) {
-        <h4 class="rh-trading__positions-title">Ledger since cutoff (individual CSV)</h4>
-        <div class="rh-trading__positions">
-          <table class="rh-trading__table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Code</th>
-                <th>Instrument</th>
-                <th>Qty</th>
-                <th>Amount</th>
-                <th>Flow</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (row of t.ledgerEvents; track $index) {
-                <tr>
-                  <td>{{ row.activityDate ?? '—' }}</td>
-                  <td><code>{{ row.transCode }}</code></td>
-                  <td>{{ row.instrument ?? '—' }}</td>
-                  <td>{{ row.quantity ?? '—' }}</td>
-                  <td>{{ row.amount != null ? (row.amount | currency) : '—' }}</td>
-                  <td>{{ row.direction }}</td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      } @else {
-        <p class="muted">No CSV activity since cutoff.</p>
-      }
-
-      <button mat-stroked-button type="button" (click)="refreshAccountTracker()" [disabled]="accountTrackerLoading">
-        <mat-icon>refresh</mat-icon>
-        Refresh tracker
-      </button>
+<section class="rh-desk" aria-labelledby="rh-desk-heading">
+  <header class="rh-desk__head">
+    <div>
+      <h2 id="rh-desk-heading" class="rh-desk__title">Desk</h2>
+      <p class="muted rh-desk__lead">
+        Live execution for Agentic <strong>••••3550</strong>. Review, place, and capture here.
+        Analytics stays the record.
+      </p>
+      <p class="muted rh-desk__session">{{ marketSessionLabel() }}</p>
     </div>
-  }
-
-  <h3 class="rh-trading__subtitle">Agentic live sync</h3>
-  <p class="muted rh-trading__hint">
-    Connect OAuth tokens from <code>phase0_oauth.py</code> (paste <code>.tokens.json</code>) to sync live positions from
-    your Robinhood <strong>Agentic</strong> account via MCP. Phase 2 adds guarded order execution on the Agentic account
-    only (<code>review_equity_order</code> → approval → <code>place_equity_order</code>). Option contracts require MCP
-    tool <code>get_option_positions</code> (not on all accounts yet).
-  </p>
-
-  <div class="rh-trading__status" aria-live="polite">
-    @if (agenticLoading) {
-      <p class="muted">Loading Agentic status…</p>
-    } @else if (agenticStatus) {
-      @if (!agenticStatus.featureEnabled) {
-        <p class="muted">Agentic sync is disabled on the server (<code>TRACKER_FINANCE_ROBINHOOD_AGENTIC_ENABLED</code>).</p>
-      } @else if (!agenticStatus.serviceConfigured) {
-        <p class="muted">Agentic sidecar not configured.</p>
-      } @else if (agenticStatus.connected) {
-        <ul class="rh-trading__stats muted">
-          <li>
-            Connected · Agentic account <strong>{{ agenticStatus.agenticNickname || 'Agentic' }}</strong>
-            <code>{{ agenticStatus.agenticAccountNumberMasked }}</code>
-          </li>
-          <li>
-            Last sync: <strong>{{ formatDate(agenticStatus.lastSyncAt) }}</strong>
-            @if (agenticStatus.lastSyncStatus) {
-              ({{ agenticStatus.lastSyncStatus }})
-            }
-          </li>
-          <li><strong>{{ agenticStatus.positionCount | number }}</strong> open position(s) shown (max 50)</li>
-        </ul>
-        @if (agenticStatus.lastSyncMessage) {
-          <p class="muted">{{ agenticStatus.lastSyncMessage }}</p>
+    <div class="rh-desk__toolbar">
+      <button mat-stroked-button type="button" (click)="loadDesk()" [disabled]="loading || capturing">
+        @if (loading) {
+          <mat-spinner diameter="18" />
+        } @else {
+          <mat-icon>refresh</mat-icon>
         }
-      } @else {
-        <p class="muted">Not connected — paste tokens below.</p>
-      }
-    }
-
-    @if (agenticStatus?.featureEnabled && agenticStatus?.serviceConfigured) {
-      <button mat-stroked-button type="button" (click)="refreshAgentic()" [disabled]="agenticLoading">
-        <mat-icon>refresh</mat-icon>
         Refresh
       </button>
-      @if (agenticStatus?.connected) {
-        <button mat-flat-button color="primary" type="button" (click)="syncAgentic()" [disabled]="agenticSyncing">
-          <mat-icon>sync</mat-icon>
-          Sync now
-        </button>
-        <button mat-stroked-button type="button" (click)="disconnectAgentic()">Disconnect</button>
-      }
-    }
-  </div>
-
-  @if (agenticStatus?.featureEnabled && agenticStatus?.serviceConfigured && !agenticStatus?.connected) {
-    <div class="rh-trading__agentic-connect">
-      <label class="rh-trading__token-label" for="rhAgenticTokens">Paste .tokens.json or access_token</label>
-      <textarea
-        id="rhAgenticTokens"
-        class="rh-trading__token-input"
-        rows="4"
-        [(ngModel)]="agenticTokenJson"
-        name="rhAgenticTokens"
-        [disabled]="agenticSavingTokens"
-        placeholder='{"access_token":"…","refresh_token":"…"}'
-      ></textarea>
-      <button mat-flat-button color="primary" type="button" (click)="saveAgenticTokens()" [disabled]="agenticSavingTokens">
-        Save tokens
+      <button
+        mat-stroked-button
+        type="button"
+        (click)="syncAgentic()"
+        [disabled]="!connected() || agenticSyncing"
+      >
+        <mat-icon>sync</mat-icon>
+        Sync
       </button>
-    </div>
-  }
-
-  @if (displayedLivePositions().length) {
-    <div class="rh-trading__positions" role="region" aria-label="Live Agentic positions">
-      <h4 class="rh-trading__positions-title">Live open positions (top 50)</h4>
-      <p class="muted rh-trading__hint">Open holdings ranked by market value. Closed or zero-qty positions are not shown.</p>
-      <table class="rh-trading__table">
-        <thead>
-          <tr>
-            <th>Type</th>
-            <th>Symbol</th>
-            <th>Contract</th>
-            <th>Account</th>
-            <th>Qty</th>
-            <th>Avg cost</th>
-            <th>Value</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (p of displayedLivePositions(); track p.positionKey + p.accountNumberMasked) {
-            <tr [class.rh-trading__row--open]="isOpenPosition(p)">
-              <td>{{ positionTypeLabel(p) }}</td>
-              <td><strong>{{ p.symbol }}</strong></td>
-              <td>{{ optionContractLabel(p) }}</td>
-              <td><code>{{ p.accountNumberMasked }}</code></td>
-              <td>{{ p.quantity ?? '—' }}</td>
-              <td>{{ p.averageBuyPrice ?? '—' }}</td>
-              <td>{{ p.marketValue != null ? (p.marketValue | number:'1.2-2') : '—' }}</td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-  }
-
-  @if (agenticSyncedOrders.length) {
-    <div class="rh-trading__positions" role="region" aria-label="Recent Robinhood orders">
-      <h4 class="rh-trading__positions-title">Recent Robinhood orders (last 15 days)</h4>
-      <table class="rh-trading__table">
-        <thead>
-          <tr>
-            <th>When</th>
-            <th>Account</th>
-            <th>Symbol</th>
-            <th>Side</th>
-            <th>Type</th>
-            <th>Qty</th>
-            <th>Limit</th>
-            <th>Avg fill</th>
-            <th>State</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (o of agenticSyncedOrders; track o.robinhoodOrderId + o.accountNumber) {
-            <tr>
-              <td>{{ formatDate(o.updatedAt ?? o.createdAt) }}</td>
-              <td><code>{{ o.accountNumber }}</code></td>
-              <td><strong>{{ o.symbol }}</strong></td>
-              <td>{{ o.side ?? '—' }}</td>
-              <td>{{ o.orderType ?? '—' }}</td>
-              <td>{{ o.quantity ?? '—' }}</td>
-              <td>{{ o.limitPrice != null ? (o.limitPrice | number:'1.2-2') : '—' }}</td>
-              <td>{{ o.averagePrice != null ? (o.averagePrice | number:'1.2-2') : '—' }}</td>
-              <td>{{ o.state ?? '—' }}</td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </div>
-  }
-
-  @if (agenticStatus?.connected) {
-    <div class="rh-trading__phase2" role="region" aria-label="Agentic order guardrails">
-      <h4 class="rh-trading__positions-title">Order guardrails</h4>
-      @if (agenticSettings) {
-        <p class="muted rh-trading__hint">
-          Server execution:
-          @if (agenticSettings.executionEnabled) {
-            <strong>enabled</strong> — orders may be placed on your Agentic account after review/approval.
-          } @else {
-            <strong>disabled</strong> — set <code>TRACKER_FINANCE_ROBINHOOD_AGENTIC_EXECUTION_ENABLED=true</code> to allow
-            placement.
-          }
-        </p>
-        <div class="rh-trading__guardrails">
-          <label class="rh-trading__apply">
-            <input type="checkbox" [(ngModel)]="settingsRequireApproval" name="rhRequireApproval" [disabled]="agenticSavingSettings" />
-            Require approval before placing
-          </label>
-          <label class="rh-trading__field">
-            <span>Max order notional (USD)</span>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              [(ngModel)]="settingsMaxNotional"
-              name="rhMaxNotional"
-              [disabled]="agenticSavingSettings"
-              placeholder="No cap"
-            />
-          </label>
-          <label class="rh-trading__field">
-            <span>Allowed symbols (comma-separated, empty = all)</span>
-            <input
-              type="text"
-              [(ngModel)]="settingsAllowedSymbols"
-              name="rhAllowedSymbols"
-              [disabled]="agenticSavingSettings"
-              placeholder="AAPL,MSFT"
-            />
-          </label>
-          <button mat-stroked-button type="button" (click)="saveAgenticSettings()" [disabled]="agenticSavingSettings">
-            Save guardrails
-          </button>
-        </div>
-
-        <h4 class="rh-trading__positions-title">AI auto-trade (Predicts → Agentic)</h4>
-        <p class="muted rh-trading__hint">
-          Uses Finance → Predicts tracked tickers. Server auto-trade:
-          @if (agenticSettings.autoTradeServerEnabled) {
-            <strong>enabled</strong>
-          } @else {
-            <strong>disabled</strong> — set <code>TRACKER_FINANCE_ROBINHOOD_AGENTIC_AUTO_TRADE_ENABLED=true</code>
-          }
-          · Evaluates bullish/bearish sentiment + spikeZ, then review → optional auto-place on Agentic account only.
-        </p>
-        @if (autoTradeLastMessage) {
-          <p class="muted">Last run: {{ autoTradeLastMessage }}</p>
+      <button mat-flat-button color="primary" type="button" (click)="captureNow()" [disabled]="capturing">
+        @if (capturing) {
+          <mat-spinner diameter="18" />
+        } @else {
+          <mat-icon>photo_camera</mat-icon>
         }
-        <div class="rh-trading__guardrails">
-          <label class="rh-trading__apply">
-            <input type="checkbox" [(ngModel)]="autoTradeEnabled" name="rhAutoEnabled" [disabled]="agenticSavingSettings" />
-            Enable AI auto-trade (scheduled + manual evaluate)
-          </label>
-          <label class="rh-trading__apply">
-            <input type="checkbox" [(ngModel)]="autoTradeKillSwitch" name="rhKillSwitch" [disabled]="agenticSavingSettings" />
-            Kill switch (pause all auto orders)
-          </label>
-          <label class="rh-trading__apply">
-            <input type="checkbox" [(ngModel)]="autoTradeRequireApproval" name="rhAutoRequireApproval" [disabled]="agenticSavingSettings" />
-            Require approval for auto orders
-          </label>
-          <label class="rh-trading__apply">
-            <input type="checkbox" [(ngModel)]="autoTradeMarketHoursOnly" name="rhMarketHours" [disabled]="agenticSavingSettings" />
-            US market hours only (9:30–16:00 ET)
-          </label>
-          <label class="rh-trading__field">
-            <span>Buy min positivity %</span>
-            <input type="number" [(ngModel)]="autoTradeMinPositivityBuy" name="rhMinBuy" [disabled]="agenticSavingSettings" />
-          </label>
-          <label class="rh-trading__field">
-            <span>Sell max positivity %</span>
-            <input type="number" [(ngModel)]="autoTradeMaxPositivitySell" name="rhMaxSell" [disabled]="agenticSavingSettings" />
-          </label>
-          <label class="rh-trading__field">
-            <span>Min spike Z</span>
-            <input type="number" step="0.1" [(ngModel)]="autoTradeMinSpikeZ" name="rhMinSpike" [disabled]="agenticSavingSettings" />
-          </label>
-          <label class="rh-trading__field">
-            <span>Min mentions (24h)</span>
-            <input type="number" min="1" [(ngModel)]="autoTradeMinMentions24h" name="rhMinMentions" [disabled]="agenticSavingSettings" />
-          </label>
-          <label class="rh-trading__field">
-            <span>Order quantity</span>
-            <input type="number" min="0" step="any" [(ngModel)]="autoTradeOrderQuantity" name="rhAutoQty" [disabled]="agenticSavingSettings" />
-          </label>
-          <label class="rh-trading__field">
-            <span>Max trades / day</span>
-            <input type="number" min="1" [(ngModel)]="autoTradeMaxTradesPerDay" name="rhMaxTrades" [disabled]="agenticSavingSettings" />
-          </label>
-          <label class="rh-trading__field">
-            <span>Max daily notional (USD)</span>
-            <input type="number" min="0" [(ngModel)]="autoTradeMaxDailyNotional" name="rhMaxDaily" [disabled]="agenticSavingSettings" placeholder="No cap" />
-          </label>
-          <label class="rh-trading__field">
-            <span>Cooldown (minutes)</span>
-            <input type="number" min="1" [(ngModel)]="autoTradeCooldownMinutes" name="rhCooldown" [disabled]="agenticSavingSettings" />
-          </label>
-          <button mat-stroked-button type="button" (click)="saveAgenticSettings()" [disabled]="agenticSavingSettings">
-            Save AI settings
-          </button>
-          <button mat-flat-button color="primary" type="button" (click)="evaluateAutoTradeNow()" [disabled]="autoTradeEvaluating">
-            Run evaluate now
-          </button>
-          <button mat-stroked-button color="warn" type="button" (click)="activateKillSwitch()" [disabled]="agenticSavingSettings">
-            Emergency stop
-          </button>
-        </div>
-      }
+        Capture now
+      </button>
+      <a mat-stroked-button routerLink="/markets/analytics" (click)="openAnalytics()">Analytics</a>
+      <a mat-stroked-button routerLink="/markets/interest">Interest</a>
+    </div>
+  </header>
 
-      <h4 class="rh-trading__positions-title">Propose order</h4>
-      <p class="muted rh-trading__hint">
-        Stocks use MCP equity review/place. Crypto uses MCP <code>preview_crypto_order</code> /
-        <code>place_crypto_order</code> on the dedicated <strong>Agentic</strong> account only — not Individual.
+  <section class="rh-desk__hero" aria-label="Desk scoreboard">
+    <article class="rh-desk__kpi rh-desk__kpi--now">
+      <span class="rh-desk__kpi-label">Now</span>
+      <strong class="rh-desk__kpi-value">
+        {{ nowLive()?.total != null ? (nowLive()!.total | currency) : '—' }}
+      </strong>
+      <small class="muted">{{ nowAtLabel() }}</small>
+    </article>
+    <article class="rh-desk__kpi">
+      <span class="rh-desk__kpi-label">Since last close</span>
+      <strong
+        class="rh-desk__kpi-value"
+        [class.rh-desk__pnl--pos]="isGain(sinceLastClose())"
+        [class.rh-desk__pnl--neg]="isLoss(sinceLastClose())"
+      >
+        {{ sinceLastClose() != null ? (sinceLastClose()! | currency) : '—' }}
+      </strong>
+      <small class="muted">Latest capture vs last 9:00 PM CT</small>
+    </article>
+    <article class="rh-desk__kpi">
+      <span class="rh-desk__kpi-label">Agentic book</span>
+      <strong class="rh-desk__kpi-value">{{ agenticBook() | currency }}</strong>
+      <small class="muted">
+        @if (connected()) {
+          {{ displayedLivePositions().length }} open · ••••3550
+        } @else {
+          Not connected
+        }
+      </small>
+    </article>
+    <article class="rh-desk__kpi" [class.rh-desk__kpi--warn]="pendingReviews().length">
+      <span class="rh-desk__kpi-label">Pending reviews</span>
+      <strong class="rh-desk__kpi-value">{{ pendingReviews().length }}</strong>
+      <small class="muted">Approve or reject below</small>
+    </article>
+  </section>
+
+  @if (!connected()) {
+    <p class="rh-desk__banner" role="status">
+      Agentic is not connected. Open Setup at the bottom to paste tokens, then Sync.
+    </p>
+  }
+
+  <div class="rh-desk__grid">
+    <section class="rh-desk__card" aria-label="Propose order">
+      <h3 class="rh-desk__card-title">Propose order</h3>
+      <p class="muted rh-desk__hint">
+        Stocks and crypto on Agentic ••••3550 only. Review first; placement follows your approval setting.
       </p>
-      <div class="rh-trading__order-form">
-        <label class="rh-trading__field">
+      <div class="rh-desk__form">
+        <label class="rh-desk__field">
           <span>Asset</span>
-          <select [(ngModel)]="orderAssetClass" name="rhOrderAsset" [disabled]="agenticReviewingOrder">
+          <select [(ngModel)]="orderAssetClass" name="deskAsset" [disabled]="agenticReviewingOrder">
             <option value="equity">Stock</option>
             <option value="crypto">Crypto</option>
           </select>
         </label>
-        <label class="rh-trading__field">
+        <label class="rh-desk__field">
           <span>Symbol</span>
-          <input type="text" [(ngModel)]="orderSymbol" name="rhOrderSymbol" [disabled]="agenticReviewingOrder" />
+          <input type="text" [(ngModel)]="orderSymbol" name="deskSymbol" [disabled]="agenticReviewingOrder" />
         </label>
-        <label class="rh-trading__field">
+        <label class="rh-desk__field">
           <span>Side</span>
-          <select [(ngModel)]="orderSide" name="rhOrderSide" [disabled]="agenticReviewingOrder">
+          <select [(ngModel)]="orderSide" name="deskSide" [disabled]="agenticReviewingOrder">
             <option value="buy">Buy</option>
             <option value="sell">Sell</option>
           </select>
         </label>
-        <label class="rh-trading__field">
+        <label class="rh-desk__field">
           <span>Type</span>
-          <select [(ngModel)]="orderType" name="rhOrderType" [disabled]="agenticReviewingOrder">
+          <select [(ngModel)]="orderType" name="deskType" [disabled]="agenticReviewingOrder">
             <option value="market">Market</option>
             <option value="limit">Limit</option>
           </select>
         </label>
-        <label class="rh-trading__field">
+        <label class="rh-desk__field">
           <span>Quantity</span>
           <input
             type="number"
             min="0"
             step="any"
             [(ngModel)]="orderQuantity"
-            name="rhOrderQty"
+            name="deskQty"
             [disabled]="agenticReviewingOrder || (orderAssetClass === 'crypto' && orderSide === 'sell' && orderSellAll)"
           />
         </label>
         @if (orderAssetClass === 'crypto' && orderSide === 'sell') {
-          <label class="rh-trading__field rh-trading__field--check">
-            <input
-              type="checkbox"
-              [(ngModel)]="orderSellAll"
-              name="rhOrderSellAll"
-              [disabled]="agenticReviewingOrder"
-            />
-            <span>Sell all transferable (no leftover dust)</span>
+          <label class="rh-desk__check">
+            <input type="checkbox" [(ngModel)]="orderSellAll" name="deskSellAll" [disabled]="agenticReviewingOrder" />
+            Sell all transferable
           </label>
         }
         @if (orderType === 'limit') {
-          <label class="rh-trading__field">
+          <label class="rh-desk__field">
             <span>Limit price</span>
             <input
               type="number"
               min="0"
               step="0.01"
               [(ngModel)]="orderLimitPrice"
-              name="rhOrderLimit"
+              name="deskLimit"
               [disabled]="agenticReviewingOrder"
             />
           </label>
@@ -431,100 +149,371 @@
           color="primary"
           type="button"
           (click)="reviewAgenticOrder()"
-          [disabled]="agenticReviewingOrder"
+          [disabled]="!connected() || agenticReviewingOrder"
         >
           Review order
         </button>
       </div>
-    </div>
-  }
+    </section>
 
-  <h3 class="rh-trading__subtitle">CSV history</h3>
-  <p class="muted rh-trading__lead">
-    Historical data from <strong>Robinhood transaction CSV exports</strong>. Tracker views are under
-    <a routerLink="/markets/analytics">Markets → Analytics</a>.
-  </p>
-
-  <div class="rh-trading__status" aria-live="polite">
-    @if (statusLoading) {
-      <p class="muted">Loading account snapshot…</p>
-    } @else if (status) {
-      <ul class="rh-trading__stats muted">
-        <li>
-          <strong>{{ status.transactionRowCount | number }}</strong> transaction row(s) in
-          <code>{{ status.tableQueried }}</code>
-        </li>
-        <li>
-          Activity range:
-          <strong>{{ formatDate(status.earliestActivity) }}</strong> –
-          <strong>{{ formatDate(status.latestActivity) }}</strong>
-        </li>
-      </ul>
-      @if (status.transactionRowCount === 0) {
-        <p class="rh-trading__empty muted">Import a CSV below to populate trading data.</p>
+    <section class="rh-desk__card" aria-label="Pending reviews">
+      <h3 class="rh-desk__card-title">Needs approval</h3>
+      @if (!pendingReviews().length) {
+        <p class="muted rh-desk__hint">Nothing waiting. New reviews land here.</p>
+      } @else {
+        <table class="rh-desk__table">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Symbol</th>
+              <th>Side</th>
+              <th>Qty</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (o of pendingReviews(); track o.id) {
+              <tr>
+                <td>{{ formatWhen(o.createdAt) }}</td>
+                <td>
+                  <strong>{{ o.symbol }}</strong>
+                  <small class="muted"> {{ o.assetClass }} · {{ o.source }}</small>
+                </td>
+                <td>{{ o.side }}</td>
+                <td>{{ o.quantity ?? (o.sellAll ? 'all' : '—') }}</td>
+                <td class="rh-desk__actions">
+                  <button
+                    mat-flat-button
+                    color="primary"
+                    type="button"
+                    (click)="approveOrder(o)"
+                    [disabled]="approvingOrderId === o.id"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    mat-stroked-button
+                    type="button"
+                    (click)="rejectOrder(o)"
+                    [disabled]="approvingOrderId === o.id"
+                  >
+                    Reject
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
       }
-    }
-    <button mat-stroked-button type="button" (click)="refreshStatus()" [disabled]="statusLoading">
-      <mat-icon>refresh</mat-icon>
-      Refresh
-    </button>
+    </section>
   </div>
 
-  <h3 class="rh-trading__subtitle">Import CSV</h3>
-  <p class="muted rh-trading__hint">
-    Export from Robinhood (Account → Reports → Generate report, or request a transaction export). Dry-run first, then
-    check <strong>Apply to database</strong>.
-  </p>
-
-  <div class="rh-trading__toolbar">
-    <input
-      #csvPick
-      type="file"
-      accept=".csv,text/csv"
-      class="rh-trading__file-input"
-      (change)="onCsvSelected($event)"
-    />
-    <button mat-stroked-button type="button" (click)="csvPick.click()" [disabled]="csvUploading">Choose CSV…</button>
-    @if (csvSelectedLabel) {
-      <span class="muted rh-trading__file-label">{{ csvSelectedLabel }}</span>
-    }
-    <label class="rh-trading__apply">
-      <input type="checkbox" [(ngModel)]="csvApplyToDb" name="rhCsvApply" [disabled]="csvUploading" />
-      Apply to database
-    </label>
-    <button mat-flat-button color="primary" type="button" (click)="uploadCsvDirect()" [disabled]="csvUploading || !csvSelectedFile">
-      <mat-icon>upload</mat-icon>
-      Import
-    </button>
-    @if (directoryImportConfigured) {
-      <button mat-stroked-button type="button" (click)="uploadCsvToDirectory()" [disabled]="csvUploading || !csvSelectedFile">
-        Save to server folder &amp; import
-      </button>
-    }
-  </div>
-
-  @if (csvUploading) {
-    <p class="muted">Running import…</p>
-  }
-
-  @if (csvDirectResult; as r) {
-    <div class="rh-trading__result" role="region" aria-label="Import result">
-      <p class="muted">
-        <strong>{{ r.apply ? 'Applied' : 'Dry-run' }}</strong> · parsed {{ r.parsedRows }} · inserted {{ r.insertedRows }}
-        · duplicates skipped {{ r.duplicateRowsSkipped }} · errors {{ r.errorCount }}
-      </p>
-      @if (r.errors.length) {
-        <ul class="rh-trading__errors">
-          @for (err of r.errors; track err) {
-            <li>{{ err }}</li>
+  <section class="rh-desk__card" aria-label="Open Agentic positions">
+    <div class="rh-desk__card-head">
+      <h3 class="rh-desk__card-title">Open positions</h3>
+      <p class="muted rh-desk__hint">Click a row to load it into the ticket as a sell.</p>
+    </div>
+    @if (!displayedLivePositions().length) {
+      <p class="muted">No open Agentic positions.</p>
+    } @else {
+      <table class="rh-desk__table">
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Symbol</th>
+            <th>Contract</th>
+            <th>Qty</th>
+            <th>Avg cost</th>
+            <th>Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (p of displayedLivePositions(); track p.positionKey + p.accountNumberMasked) {
+            <tr class="rh-desk__click" (click)="fillFromPosition(p)">
+              <td>{{ positionTypeLabel(p) }}</td>
+              <td><strong>{{ p.symbol }}</strong></td>
+              <td>{{ optionContractLabel(p) }}</td>
+              <td>{{ p.quantity ?? '—' }}</td>
+              <td>{{ p.averageBuyPrice ?? '—' }}</td>
+              <td>{{ p.marketValue != null ? (p.marketValue | currency) : '—' }}</td>
+            </tr>
           }
-        </ul>
+        </tbody>
+      </table>
+    }
+  </section>
+
+  <div class="rh-desk__grid">
+    <section class="rh-desk__card" aria-label="Today fills">
+      <div class="rh-desk__card-head">
+        <h3 class="rh-desk__card-title">Today’s fills</h3>
+        <a routerLink="/markets/analytics" (click)="openAnalytics()">All trades</a>
+      </div>
+      @if (!todayFills().length) {
+        <p class="muted">No executed trades today (CT).</p>
+      } @else {
+        <table class="rh-desk__table">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Account</th>
+              <th>Symbol</th>
+              <th>Side</th>
+              <th>Qty</th>
+              <th>Avg</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (t of todayFills(); track (t.executedAt ?? '') + t.symbol + (t.accountSuffix ?? '')) {
+              <tr>
+                <td>{{ formatWhen(t.executedAt) }}</td>
+                <td><code>••••{{ t.accountSuffix }}</code></td>
+                <td><strong>{{ t.symbol }}</strong></td>
+                <td>{{ t.side ?? '—' }}</td>
+                <td>{{ t.quantity ?? '—' }}</td>
+                <td>{{ t.averagePrice != null ? (t.averagePrice | number: '1.2-2') : '—' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </section>
+
+    <section class="rh-desk__card" aria-label="Recent orders">
+      <h3 class="rh-desk__card-title">Recent orders</h3>
+      @if (!blotterRows().length) {
+        <p class="muted">No recent Robinhood or crypto orders.</p>
+      } @else {
+        <table class="rh-desk__table">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Source</th>
+              <th>Symbol</th>
+              <th>Side</th>
+              <th>State</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of blotterRows(); track row.key) {
+              <tr [class.rh-desk__today]="row.today">
+                <td>{{ formatWhen(row.when) }}</td>
+                <td>{{ row.source }}</td>
+                <td><strong>{{ row.symbol }}</strong></td>
+                <td>{{ row.side }}</td>
+                <td>{{ row.state }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </section>
+  </div>
+
+  <section class="rh-desk__card" aria-label="Auto-trade runs">
+    <div class="rh-desk__card-head">
+      <h3 class="rh-desk__card-title">Last auto-trade runs</h3>
+      <div class="rh-desk__toolbar">
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="evaluateAutoTradeNow()"
+          [disabled]="autoTradeEvaluating"
+        >
+          Evaluate stocks
+        </button>
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="evaluateCryptoNow()"
+          [disabled]="cryptoEvaluating"
+        >
+          Evaluate crypto
+        </button>
+        <button mat-stroked-button color="warn" type="button" (click)="activateKillSwitch()">
+          Emergency stop
+        </button>
+        <a routerLink="/markets/analytics" (click)="openCrypto()">Crypto tracker</a>
+      </div>
+    </div>
+    @if (autoTradeKillSwitch || cryptoSettings?.autoTradeKillSwitch) {
+      <p class="rh-desk__banner rh-desk__banner--warn">Kill switch is on. Auto orders are paused.</p>
+    }
+    @if (!recentRuns().length) {
+      <p class="muted">No auto-trade runs yet.</p>
+    } @else {
+      <table class="rh-desk__table">
+        <thead>
+          <tr>
+            <th>When</th>
+            <th>Kind</th>
+            <th>Status</th>
+            <th>Message</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (r of recentRuns(); track r.key) {
+            <tr>
+              <td>{{ formatWhen(r.at) }}</td>
+              <td>{{ r.kind }}</td>
+              <td>{{ r.status }}</td>
+              <td>{{ r.message || '—' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </section>
+
+  <details class="rh-desk__setup">
+    <summary>Setup — connection, guardrails, CSV import</summary>
+
+    <h4 class="rh-desk__sub">Agentic connection</h4>
+    @if (agenticStatus; as s) {
+      <p class="muted">
+        @if (!s.featureEnabled) {
+          Agentic sync is disabled on the server.
+        } @else if (!s.serviceConfigured) {
+          Agentic sidecar not configured.
+        } @else if (s.connected) {
+          Connected · {{ s.agenticNickname || 'Agentic' }}
+          <code>{{ s.agenticAccountNumberMasked }}</code>
+          · last sync {{ formatWhen(s.lastSyncAt) }}
+          @if (s.lastSyncStatus) {
+            ({{ s.lastSyncStatus }})
+          }
+        } @else {
+          Not connected — paste tokens below.
+        }
+      </p>
+    }
+    @if (agenticStatus?.featureEnabled && agenticStatus?.serviceConfigured && !agenticStatus?.connected) {
+      <div class="rh-desk__connect">
+        <label class="rh-desk__field" for="rhAgenticTokens">
+          <span>Paste .tokens.json or access_token</span>
+          <textarea
+            id="rhAgenticTokens"
+            rows="4"
+            [(ngModel)]="agenticTokenJson"
+            name="rhAgenticTokens"
+            [disabled]="agenticSavingTokens"
+            placeholder='{"access_token":"…","refresh_token":"…"}'
+          ></textarea>
+        </label>
+        <button mat-flat-button color="primary" type="button" (click)="saveAgenticTokens()" [disabled]="agenticSavingTokens">
+          Save tokens
+        </button>
+      </div>
+    }
+    @if (connected()) {
+      <button mat-stroked-button type="button" (click)="disconnectAgentic()">Disconnect</button>
+    }
+
+    @if (agenticSettings) {
+      <h4 class="rh-desk__sub">Order guardrails</h4>
+      <p class="muted">
+        Server execution:
+        <strong>{{ agenticSettings.executionEnabled ? 'enabled' : 'disabled' }}</strong>
+        · AI auto-trade:
+        <strong>{{ agenticSettings.autoTradeServerEnabled ? 'enabled' : 'disabled' }}</strong>
+      </p>
+      <div class="rh-desk__form">
+        <label class="rh-desk__check">
+          <input type="checkbox" [(ngModel)]="settingsRequireApproval" name="deskRequireApproval" [disabled]="agenticSavingSettings" />
+          Require approval before placing
+        </label>
+        <label class="rh-desk__field">
+          <span>Max order notional (USD)</span>
+          <input type="number" min="0" step="0.01" [(ngModel)]="settingsMaxNotional" name="deskMaxNotional" [disabled]="agenticSavingSettings" />
+        </label>
+        <label class="rh-desk__field rh-desk__field--wide">
+          <span>Allowed symbols (empty = all)</span>
+          <input type="text" [(ngModel)]="settingsAllowedSymbols" name="deskAllowed" [disabled]="agenticSavingSettings" />
+        </label>
+        <label class="rh-desk__check">
+          <input type="checkbox" [(ngModel)]="autoTradeEnabled" name="deskAutoEnabled" [disabled]="agenticSavingSettings" />
+          Enable stock auto-trade
+        </label>
+        <label class="rh-desk__check">
+          <input type="checkbox" [(ngModel)]="autoTradeKillSwitch" name="deskKill" [disabled]="agenticSavingSettings" />
+          Kill switch
+        </label>
+        <label class="rh-desk__check">
+          <input type="checkbox" [(ngModel)]="autoTradeRequireApproval" name="deskAutoApprove" [disabled]="agenticSavingSettings" />
+          Require approval for auto orders
+        </label>
+        <label class="rh-desk__check">
+          <input type="checkbox" [(ngModel)]="autoTradeMarketHoursOnly" name="deskHours" [disabled]="agenticSavingSettings" />
+          US market hours only
+        </label>
+        <label class="rh-desk__field">
+          <span>Buy min positivity %</span>
+          <input type="number" [(ngModel)]="autoTradeMinPositivityBuy" name="deskMinBuy" [disabled]="agenticSavingSettings" />
+        </label>
+        <label class="rh-desk__field">
+          <span>Sell max positivity %</span>
+          <input type="number" [(ngModel)]="autoTradeMaxPositivitySell" name="deskMaxSell" [disabled]="agenticSavingSettings" />
+        </label>
+        <label class="rh-desk__field">
+          <span>Min spike Z</span>
+          <input type="number" step="0.1" [(ngModel)]="autoTradeMinSpikeZ" name="deskSpike" [disabled]="agenticSavingSettings" />
+        </label>
+        <label class="rh-desk__field">
+          <span>Min mentions (24h)</span>
+          <input type="number" min="1" [(ngModel)]="autoTradeMinMentions24h" name="deskMentions" [disabled]="agenticSavingSettings" />
+        </label>
+        <label class="rh-desk__field">
+          <span>Order quantity</span>
+          <input type="number" min="0" step="any" [(ngModel)]="autoTradeOrderQuantity" name="deskAutoQty" [disabled]="agenticSavingSettings" />
+        </label>
+        <label class="rh-desk__field">
+          <span>Max trades / day</span>
+          <input type="number" min="1" [(ngModel)]="autoTradeMaxTradesPerDay" name="deskMaxTrades" [disabled]="agenticSavingSettings" />
+        </label>
+        <label class="rh-desk__field">
+          <span>Max daily notional</span>
+          <input type="number" min="0" [(ngModel)]="autoTradeMaxDailyNotional" name="deskMaxDaily" [disabled]="agenticSavingSettings" />
+        </label>
+        <label class="rh-desk__field">
+          <span>Cooldown (minutes)</span>
+          <input type="number" min="1" [(ngModel)]="autoTradeCooldownMinutes" name="deskCooldown" [disabled]="agenticSavingSettings" />
+        </label>
+        <button mat-stroked-button type="button" (click)="saveAgenticSettings()" [disabled]="agenticSavingSettings">
+          Save guardrails
+        </button>
+      </div>
+    }
+
+    <h4 class="rh-desk__sub">CSV import</h4>
+    <p class="muted">
+      Historical Robinhood transaction exports. Tracker views live under
+      <a routerLink="/markets/analytics">Analytics</a>.
+    </p>
+    <div class="rh-desk__form">
+      <input #csvPick type="file" accept=".csv,text/csv" class="rh-desk__file" (change)="onCsvSelected($event)" />
+      <button mat-stroked-button type="button" (click)="csvPick.click()" [disabled]="csvUploading">Choose CSV…</button>
+      @if (csvSelectedLabel) {
+        <span class="muted">{{ csvSelectedLabel }}</span>
+      }
+      <label class="rh-desk__check">
+        <input type="checkbox" [(ngModel)]="csvApplyToDb" name="deskCsvApply" [disabled]="csvUploading" />
+        Apply to database
+      </label>
+      <button mat-flat-button color="primary" type="button" (click)="uploadCsvDirect()" [disabled]="csvUploading || !csvSelectedFile">
+        Import
+      </button>
+      @if (directoryImportConfigured) {
+        <button mat-stroked-button type="button" (click)="uploadCsvToDirectory()" [disabled]="csvUploading || !csvSelectedFile">
+          Save to server folder
+        </button>
       }
     </div>
-  }
-
-  <p class="muted rh-trading__links">
-    Browse rows: Finance → Trading → <strong>Transactions</strong> or <strong>Summary</strong>.
-    Operators can also use Admin → Finance → Trading for directory-based imports.
-  </p>
+    @if (csvDirectResult; as r) {
+      <p class="muted">
+        <strong>{{ r.apply ? 'Applied' : 'Dry-run' }}</strong>
+        · parsed {{ r.parsedRows }} · inserted {{ r.insertedRows }} · duplicates {{ r.duplicateRowsSkipped }} · errors
+        {{ r.errorCount }}
+      </p>
+    }
+  </details>
 </section>

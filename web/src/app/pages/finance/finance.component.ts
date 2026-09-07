@@ -385,7 +385,7 @@ export class FinanceComponent implements OnInit {
     if (this.isTradingWorkspace) {
       switch (this.tradingSection) {
         case 'trade':
-          return 'Robinhood execution, cash inputs/outputs, and selective trade notes with AI review.';
+          return 'Live desk for Agentic review/place, cash inputs/outputs, and selective trade notes.';
         case 'research':
           return 'Watch companies into earnings, plus news, crawler, screeners, predicts, options backtest, and then & now.';
         case 'history':

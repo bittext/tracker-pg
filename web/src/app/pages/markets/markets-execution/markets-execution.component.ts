@@ -8,8 +8,8 @@ import { PageHeaderComponent } from '../../../components/page-header/page-header
   imports: [PageHeaderComponent, RobinhoodTradingPanelComponent],
   template: `
     <app-page-header
-      title="Execution"
-      subtitle="Robinhood trading — import CSV, review positions, and place trades when configured."
+      title="Trade"
+      subtitle="Live desk for Agentic ••••3550 — review, place, and capture. Analytics stays the record."
     />
     <app-robinhood-trading-panel />
   `,
