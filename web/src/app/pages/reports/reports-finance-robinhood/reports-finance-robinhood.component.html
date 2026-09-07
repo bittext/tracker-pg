@@ -4,15 +4,23 @@
   [selectedIndex]="journalNav.analyticsTabIndex()"
   (selectedIndexChange)="journalNav.analyticsTabIndex.set($event)"
 >
+  <mat-tab label="Performance">
+    <div class="rh-report-tab-panel">
+      <app-reports-finance-robinhood-performance />
+    </div>
+  </mat-tab>
+
   <mat-tab label="Daily Tracker">
     <div class="rh-report-tab-panel">
-      <app-reports-finance-robinhood-daily-tracker />
+      @if (journalNav.analyticsTabIndex() === 1) {
+        <app-reports-finance-robinhood-daily-tracker />
+      }
     </div>
   </mat-tab>
 
   <mat-tab label="Trades">
     <div class="rh-report-tab-panel">
-      @if (journalNav.analyticsTabIndex() === 1) {
+      @if (journalNav.analyticsTabIndex() === 2) {
         <app-reports-finance-robinhood-executed-trades />
       }
     </div>
@@ -20,7 +28,7 @@
 
   <mat-tab label="Balances">
     <div class="rh-report-tab-panel">
-      @if (journalNav.analyticsTabIndex() === 2) {
+      @if (journalNav.analyticsTabIndex() === 3) {
         <app-reports-finance-robinhood-period-balances />
       }
     </div>
@@ -28,7 +36,7 @@
 
   <mat-tab label="Ownership history">
     <div class="rh-report-tab-panel">
-      @if (journalNav.analyticsTabIndex() === 3) {
+      @if (journalNav.analyticsTabIndex() === 4) {
         <app-reports-finance-robinhood-ownership-history />
       }
     </div>
@@ -36,14 +44,16 @@
 
   <mat-tab label="Journal">
     <div class="rh-report-tab-panel">
-      @if (journalNav.analyticsTabIndex() === 4) {
+      @if (journalNav.analyticsTabIndex() === 5) {
         <app-trading-journal-panel />
       }
     </div>
   </mat-tab>
   <mat-tab label="Crypto Tracker">
     <div class="rh-report-tab-panel">
-      <app-reports-finance-robinhood-crypto-tracker />
+      @if (journalNav.analyticsTabIndex() === 6) {
+        <app-reports-finance-robinhood-crypto-tracker />
+      }
     </div>
   </mat-tab>
   <mat-tab label="Roadmap">

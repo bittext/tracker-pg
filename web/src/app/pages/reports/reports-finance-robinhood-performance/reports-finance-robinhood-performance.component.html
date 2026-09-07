@@ -1,0 +1,347 @@
+<section class="rh-perf" aria-labelledby="rh-perf-heading">
+  <header class="rh-perf__head">
+    <div class="rh-perf__head-text">
+      <h2 id="rh-perf-heading" class="rh-perf__title">Performance</h2>
+      <p class="muted rh-perf__lead">
+        Live account value and realized P&amp;L. Auto-capture {{ scheduleLabel() }}. This page reloads after each
+        new snapshot.
+      </p>
+    </div>
+    <div class="rh-perf__toolbar">
+      <mat-form-field appearance="outline" class="rh-perf__year" subscriptSizing="dynamic">
+        <mat-label>Year</mat-label>
+        <mat-select [(ngModel)]="reportYear" name="rhPerfYear" (selectionChange)="load()">
+          @for (y of yearChoices(); track y) {
+            <mat-option [value]="y">{{ y }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      <button mat-stroked-button type="button" (click)="load()" [disabled]="loading || capturing">
+        @if (loading && !softRefreshing) {
+          <mat-spinner diameter="18" />
+        } @else {
+          <mat-icon>refresh</mat-icon>
+        }
+        Refresh
+      </button>
+      <button mat-flat-button color="primary" type="button" (click)="captureNow()" [disabled]="loading || capturing">
+        @if (capturing) {
+          <mat-spinner diameter="18" />
+        } @else {
+          <mat-icon>download</mat-icon>
+        }
+        Capture now
+      </button>
+    </div>
+  </header>
+
+  @if (softRefreshing) {
+    <p class="muted rh-perf__live">Updating from the latest capture…</p>
+  } @else if (daily?.autoCaptureScheduled) {
+    <p class="muted rh-perf__live">
+      <mat-icon aria-hidden="true">sync</mat-icon>
+      Live — {{ nowAtLabel() }}
+    </p>
+  }
+
+  @if (loading && !daily && !balances) {
+    <div class="rh-perf__loading">
+      <mat-spinner diameter="32" />
+    </div>
+  } @else if (error && !daily && !balances) {
+    <p class="load-error" role="alert">{{ error }}</p>
+  } @else {
+    <section class="rh-perf__hero" aria-label="Current scoreboard">
+      <article class="rh-perf__kpi rh-perf__kpi--now">
+        <span class="rh-perf__kpi-label">Now</span>
+        <strong class="rh-perf__kpi-value">{{ nowTotal() != null ? (nowTotal()! | currency) : '—' }}</strong>
+        <small class="muted">{{ nowAtLabel() }}</small>
+        @if (stocksNow() != null || cashNow() != null || impliedCryptoNow() != null) {
+          <dl class="rh-perf__mix">
+            <div>
+              <dt>Stocks</dt>
+              <dd>
+                {{ stocksNow() != null ? (stocksNow()! | currency) : '—' }}
+                @if (stocksAreClosed()) {
+                  <span class="muted">closed</span>
+                }
+              </dd>
+            </div>
+            <div>
+              <dt>Crypto</dt>
+              <dd [class.rh-perf__pnl--pos]="isGain(cryptoChange())" [class.rh-perf__pnl--neg]="isLoss(cryptoChange())">
+                {{ impliedCryptoNow() != null ? (impliedCryptoNow()! | currency) : '—' }}
+              </dd>
+            </div>
+            <div>
+              <dt>Cash</dt>
+              <dd [class.rh-perf__pnl--neg]="(cashNow() ?? 0) < 0">
+                {{ cashNow() != null ? (cashNow()! | currency) : '—' }}
+              </dd>
+            </div>
+          </dl>
+        }
+      </article>
+      <article class="rh-perf__kpi">
+        <span class="rh-perf__kpi-label">Since last close</span>
+        <strong
+          class="rh-perf__kpi-value"
+          [class.rh-perf__pnl--pos]="isGain(sinceLastClose())"
+          [class.rh-perf__pnl--neg]="isLoss(sinceLastClose())"
+        >
+          {{ sinceLastClose() != null ? (sinceLastClose()! | currency) : '—' }}
+        </strong>
+        <small class="muted">Latest capture vs last 9:00 PM CT</small>
+      </article>
+      <article class="rh-perf__kpi">
+        <span class="rh-perf__kpi-label">{{ yearEndLabel() }}</span>
+        <strong
+          class="rh-perf__kpi-value"
+          [class.rh-perf__pnl--pos]="isGain(yearChange())"
+          [class.rh-perf__pnl--neg]="isLoss(yearChange())"
+        >
+          {{ yearChange() != null ? (yearChange()! | currency) : '—' }}
+          @if (pct(yearStart(), yearChange()); as p) {
+            <em>{{ p | number: '1.1-1' }}%</em>
+          }
+        </strong>
+        <small class="muted">Official closes · {{ yearStart() != null ? (yearStart()! | currency) : '—' }} start</small>
+      </article>
+      <article class="rh-perf__kpi">
+        <span class="rh-perf__kpi-label">Realized P&amp;L</span>
+        <strong
+          class="rh-perf__kpi-value"
+          [class.rh-perf__pnl--pos]="isGain(realizedPnl())"
+          [class.rh-perf__pnl--neg]="isLoss(realizedPnl())"
+        >
+          {{ realizedPnl() | currency }}
+        </strong>
+        <small class="muted">
+          Sells this year
+          @if (winRate() != null) {
+            · {{ winRate()! | number: '1.0-0' }}% win
+          }
+          · {{ sellCount() }} sells / {{ tradingDays() }} days
+        </small>
+      </article>
+      <article class="rh-perf__kpi">
+        <span class="rh-perf__kpi-label">Crypto now</span>
+        <strong
+          class="rh-perf__kpi-value"
+          [class.rh-perf__pnl--pos]="isGain(cryptoChange())"
+          [class.rh-perf__pnl--neg]="isLoss(cryptoChange())"
+        >
+          {{ cryptoNow() != null ? (cryptoNow()! | currency) : '—' }}
+        </strong>
+        <small class="muted">
+          @if (cryptoChange() != null) {
+            {{ cryptoChange()! | currency }} vs prior close ·
+          }
+          {{ cryptoAtLabel() }}
+        </small>
+      </article>
+    </section>
+
+    <section class="rh-perf__section" aria-labelledby="rh-perf-accounts-heading">
+      <div class="rh-perf__section-head">
+        <h3 id="rh-perf-accounts-heading" class="rh-perf__section-title">Accounts</h3>
+        <button mat-button type="button" (click)="openDailyTracker()">Daily Tracker</button>
+      </div>
+      @if (!accountRows().length) {
+        <p class="muted">No Daily Tracker accounts for this year.</p>
+      } @else {
+        <div class="rh-perf__accounts">
+          @for (acct of accountRows(); track acct.suffix) {
+            <article class="rh-perf__account">
+              <header class="rh-perf__account-head">
+                <strong>{{ acct.shortLabel }}</strong>
+                <span class="muted">••••{{ acct.suffix }}</span>
+              </header>
+              <p class="rh-perf__account-now">{{ acct.now != null ? (acct.now | currency) : '—' }}</p>
+              <dl class="rh-perf__account-meta">
+                <div>
+                  <dt>Since close</dt>
+                  <dd
+                    [class.rh-perf__pnl--pos]="isGain(acct.sinceClose)"
+                    [class.rh-perf__pnl--neg]="isLoss(acct.sinceClose)"
+                  >
+                    {{ acct.sinceClose != null ? (acct.sinceClose | currency) : '—' }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Year</dt>
+                  <dd
+                    [class.rh-perf__pnl--pos]="isGain(acct.yearChange)"
+                    [class.rh-perf__pnl--neg]="isLoss(acct.yearChange)"
+                  >
+                    {{ acct.yearChange != null ? (acct.yearChange | currency) : '—' }}
+                    @if (pct(acct.yearStart, acct.yearChange); as p) {
+                      <span class="muted">({{ p | number: '1.1-1' }}%)</span>
+                    }
+                  </dd>
+                </div>
+              </dl>
+            </article>
+          }
+        </div>
+      }
+    </section>
+
+    <div class="rh-perf__grid">
+      <section class="rh-perf__section" aria-labelledby="rh-perf-months-heading">
+        <div class="rh-perf__section-head">
+          <h3 id="rh-perf-months-heading" class="rh-perf__section-title">Official closes by month</h3>
+        </div>
+        @if (!monthRows().length) {
+          <p class="muted">No scheduled closes for this year yet.</p>
+        } @else {
+          <ol class="rh-perf__months">
+            @for (row of monthRows(); track row.key) {
+              <li class="rh-perf__month">
+                <div class="rh-perf__month-label">
+                  <strong>{{ monthShort(row.label) }}</strong>
+                  @if (row.currentPeriod) {
+                    <span class="muted">so far</span>
+                  }
+                </div>
+                <div class="rh-perf__month-bar" aria-hidden="true">
+                  <span
+                    class="rh-perf__month-fill"
+                    [class.rh-perf__month-fill--pos]="isGain(row.combinedChange)"
+                    [class.rh-perf__month-fill--neg]="isLoss(row.combinedChange)"
+                    [style.width.%]="monthBarWidth(row.combinedChange)"
+                  ></span>
+                </div>
+                <div
+                  class="rh-perf__month-change"
+                  [class.rh-perf__pnl--pos]="isGain(row.combinedChange)"
+                  [class.rh-perf__pnl--neg]="isLoss(row.combinedChange)"
+                >
+                  {{ row.combinedChange != null ? (row.combinedChange | currency) : '—' }}
+                </div>
+                <div class="muted rh-perf__month-ends">
+                  {{ row.combinedStart != null ? (row.combinedStart | currency:'USD':'symbol':'1.0-0') : '—' }}
+                  →
+                  {{ row.combinedEnd != null ? (row.combinedEnd | currency:'USD':'symbol':'1.0-0') : '—' }}
+                </div>
+              </li>
+            }
+          </ol>
+        }
+      </section>
+
+      <section class="rh-perf__section" aria-labelledby="rh-perf-symbols-heading">
+        <div class="rh-perf__section-head">
+          <h3 id="rh-perf-symbols-heading" class="rh-perf__section-title">Realized by symbol</h3>
+          <button mat-button type="button" (click)="openTrades()">Trades</button>
+        </div>
+        @if (!symbolRows().length) {
+          <p class="muted">No realized sells in {{ reportYear }} yet.</p>
+        } @else {
+          <table class="rh-perf__table">
+            <thead>
+              <tr>
+                <th scope="col">Symbol</th>
+                <th scope="col" class="rh-perf__num">Sells</th>
+                <th scope="col" class="rh-perf__num">W / L</th>
+                <th scope="col" class="rh-perf__num">Realized</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of symbolRows(); track row.symbol) {
+                <tr>
+                  <th scope="row">{{ row.symbol }}</th>
+                  <td class="rh-perf__num">{{ row.sells }}</td>
+                  <td class="rh-perf__num">{{ row.wins }} / {{ row.losses }}</td>
+                  <td
+                    class="rh-perf__num"
+                    [class.rh-perf__pnl--pos]="isGain(row.realized)"
+                    [class.rh-perf__pnl--neg]="isLoss(row.realized)"
+                  >
+                    {{ row.realized | currency }}
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </section>
+    </div>
+
+    <div class="rh-perf__grid">
+      <section class="rh-perf__section" aria-labelledby="rh-perf-sells-heading">
+        <div class="rh-perf__section-head">
+          <h3 id="rh-perf-sells-heading" class="rh-perf__section-title">Latest sells</h3>
+        </div>
+        @if (!recentSells().length) {
+          <p class="muted">No sells with realized P&amp;L in {{ reportYear }}.</p>
+        } @else {
+          <table class="rh-perf__table">
+            <thead>
+              <tr>
+                <th scope="col">When</th>
+                <th scope="col">Symbol</th>
+                <th scope="col">Account</th>
+                <th scope="col" class="rh-perf__num">P&amp;L</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (tr of recentSells(); track tr.executedAt + tr.symbol + (tr.accountSuffix ?? '')) {
+                <tr>
+                  <td>{{ formatTradeWhen(tr.executedAt) }}</td>
+                  <th scope="row">{{ tr.symbol }}</th>
+                  <td class="muted">••••{{ tr.accountSuffix || '—' }}</td>
+                  <td
+                    class="rh-perf__num"
+                    [class.rh-perf__pnl--pos]="isGain(tr.realizedPnl)"
+                    [class.rh-perf__pnl--neg]="isLoss(tr.realizedPnl)"
+                  >
+                    {{ tr.realizedPnl != null ? (tr.realizedPnl | currency) : '—' }}
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </section>
+
+      <section class="rh-perf__section" aria-labelledby="rh-perf-crypto-heading">
+        <div class="rh-perf__section-head">
+          <h3 id="rh-perf-crypto-heading" class="rh-perf__section-title">Crypto holdings</h3>
+          <button mat-button type="button" (click)="openCrypto()">Crypto Tracker</button>
+        </div>
+        @if (!cryptoHoldings().length) {
+          <p class="muted">{{ cryptoAtLabel() }}.</p>
+        } @else {
+          <table class="rh-perf__table">
+            <thead>
+              <tr>
+                <th scope="col">Coin</th>
+                <th scope="col" class="rh-perf__num">Value</th>
+                <th scope="col" class="rh-perf__num">Unrealized</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (h of cryptoHoldings(); track h.symbol) {
+                <tr>
+                  <th scope="row">{{ h.symbol }}</th>
+                  <td class="rh-perf__num">{{ h.marketValue | currency }}</td>
+                  <td
+                    class="rh-perf__num"
+                    [class.rh-perf__pnl--pos]="isGain(h.unrealizedPnL)"
+                    [class.rh-perf__pnl--neg]="isLoss(h.unrealizedPnL)"
+                  >
+                    {{ h.unrealizedPnL | currency }}
+                    @if (h.unrealizedPnLPercent != null) {
+                      <span class="muted">({{ h.unrealizedPnLPercent | number: '1.1-1' }}%)</span>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        }
+      </section>
+    </div>
+  }
+</section>

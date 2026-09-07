@@ -1,0 +1,343 @@
+.rh-perf {
+  padding: 0.15rem 0.1rem 1.4rem;
+}
+
+.rh-perf__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.85rem 1.25rem;
+}
+
+.rh-perf__title {
+  margin: 0 0 0.25rem;
+  font-size: 1.2rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.rh-perf__lead {
+  margin: 0;
+  max-width: 42rem;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.rh-perf__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.rh-perf__year {
+  width: 7.5rem;
+}
+
+.rh-perf__live {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0.55rem 0 0;
+  font-size: 0.8rem;
+
+  mat-icon {
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
+  }
+}
+
+.rh-perf__loading {
+  padding: 1.75rem 0;
+}
+
+.rh-perf__hero {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 0.95rem 0 1.2rem;
+}
+
+.rh-perf__kpi {
+  min-width: 0;
+  padding: 0.8rem 0.9rem 0.85rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
+  border-radius: 12px;
+  background: var(--app-surface, #fff);
+}
+
+.rh-perf__kpi--now {
+  grid-column: span 2;
+  background: color-mix(in srgb, var(--mat-sys-primary, #1a5f4a) 7%, var(--app-surface, #fff));
+}
+
+.rh-perf__kpi-label {
+  display: block;
+  margin-bottom: 0.28rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--app-text-muted, #64748b);
+}
+
+.rh-perf__kpi-value {
+  display: block;
+  font-size: 1.2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+
+  em {
+    margin-left: 0.3rem;
+    font-style: normal;
+    font-size: 0.78rem;
+    font-weight: 650;
+    color: inherit;
+    opacity: 0.8;
+  }
+}
+
+.rh-perf__kpi small {
+  display: block;
+  margin-top: 0.28rem;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.rh-perf__mix {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin: 0.65rem 0 0;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+
+  dt {
+    margin: 0 0 0.08rem;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--app-text-muted, #64748b);
+  }
+
+  dd {
+    margin: 0;
+    font-size: 0.74rem;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.rh-perf__section {
+  min-width: 0;
+  margin-bottom: 1.15rem;
+}
+
+.rh-perf__section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
+}
+
+.rh-perf__section-title {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.rh-perf__accounts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.rh-perf__account {
+  min-width: 0;
+  padding: 0.75rem 0.85rem 0.8rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
+  border-radius: 12px;
+  background: var(--app-surface, #fff);
+}
+
+.rh-perf__account-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+}
+
+.rh-perf__account-now {
+  margin: 0.35rem 0 0.55rem;
+  font-size: 1.12rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.rh-perf__account-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem 0.6rem;
+  margin: 0;
+
+  dt {
+    margin: 0 0 0.1rem;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--app-text-muted, #64748b);
+  }
+
+  dd {
+    margin: 0;
+    font-size: 0.82rem;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.rh-perf__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: 1rem 1.25rem;
+}
+
+.rh-perf__months {
+  list-style: none;
+  margin: 0;
+  padding: 0.15rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.rh-perf__month {
+  display: grid;
+  grid-template-columns: 6.2rem minmax(0, 1fr) 6.6rem;
+  grid-template-areas:
+    'label bar change'
+    'ends ends ends';
+  align-items: center;
+  gap: 0.2rem 0.7rem;
+}
+
+.rh-perf__month-label {
+  grid-area: label;
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+}
+
+.rh-perf__month-bar {
+  grid-area: bar;
+  height: 0.42rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--app-border, #cbd5e1) 70%, transparent);
+}
+
+.rh-perf__month-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #94a3b8;
+}
+
+.rh-perf__month-fill--pos {
+  background: #16a34a;
+}
+
+.rh-perf__month-fill--neg {
+  background: #dc2626;
+}
+
+.rh-perf__month-change {
+  grid-area: change;
+  text-align: right;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.rh-perf__month-ends {
+  grid-area: ends;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.rh-perf__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.rh-perf__table th,
+.rh-perf__table td {
+  padding: 0.42rem 0.35rem;
+  border-bottom: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+  text-align: left;
+  vertical-align: middle;
+}
+
+.rh-perf__table thead th {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--app-text-muted, #64748b);
+}
+
+.rh-perf__table tbody th {
+  font-weight: 650;
+}
+
+.rh-perf__num {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rh-perf__pnl--pos {
+  color: #047857;
+}
+
+.rh-perf__pnl--neg {
+  color: #b91c1c;
+}
+
+@media (max-width: 1100px) {
+  .rh-perf__hero,
+  .rh-perf__accounts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .rh-perf__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .rh-perf__hero,
+  .rh-perf__accounts {
+    grid-template-columns: 1fr;
+  }
+
+  .rh-perf__month {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      'label change'
+      'bar bar'
+      'ends ends';
+  }
+}

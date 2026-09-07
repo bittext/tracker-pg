@@ -1,5 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { MatTabsModule } from '@angular/material/tabs';
+import { ReportsFinanceRobinhoodPerformanceComponent } from '../reports-finance-robinhood-performance/reports-finance-robinhood-performance.component';
 import { ReportsFinanceRobinhoodDailyTrackerComponent } from '../reports-finance-robinhood-daily-tracker/reports-finance-robinhood-daily-tracker.component';
 import { ReportsFinanceRobinhoodExecutedTradesComponent } from '../reports-finance-robinhood-executed-trades/reports-finance-robinhood-executed-trades.component';
 import { ReportsFinanceRobinhoodPeriodBalancesComponent } from '../reports-finance-robinhood-period-balances/reports-finance-robinhood-period-balances.component';
@@ -14,6 +15,7 @@ import { TradingJournalNavService } from '../../../services/trading-journal-nav.
   standalone: true,
   imports: [
     MatTabsModule,
+    ReportsFinanceRobinhoodPerformanceComponent,
     ReportsFinanceRobinhoodDailyTrackerComponent,
     ReportsFinanceRobinhoodExecutedTradesComponent,
     ReportsFinanceRobinhoodPeriodBalancesComponent,
