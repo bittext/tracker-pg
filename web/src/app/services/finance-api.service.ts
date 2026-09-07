@@ -21,6 +21,7 @@ import {
   RobinhoodRhCryptoTrackerReportDto,
   RobinhoodCryptoTradingCredentialsRequestDto,
   RobinhoodCryptoTradingStatusDto,
+  RobinhoodCryptoTradingSyncResultDto,
   RobinhoodRhCryptoAutoTradeEvaluateDto,
   RobinhoodRhCryptoAutoTradeRunDto,
   RobinhoodRhCryptoAutoTradeSettingsDto,
@@ -239,6 +240,10 @@ export class FinanceApiService {
 
   robinhoodCryptoTradingDisconnect() {
     return this.http.delete<void>(`${this.root}/crypto-trading/connection`);
+  }
+
+  robinhoodCryptoTradingSync() {
+    return this.http.post<RobinhoodCryptoTradingSyncResultDto>(`${this.root}/crypto-trading/sync`, {});
   }
 
   robinhoodCryptoTrackerCapture(sync = true) {

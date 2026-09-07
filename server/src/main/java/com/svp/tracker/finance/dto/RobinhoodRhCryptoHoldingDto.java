@@ -1,8 +1,10 @@
 package com.svp.tracker.finance.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.math.BigDecimal;
 
 /** One coin row within a crypto snapshot (future use). */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record RobinhoodRhCryptoHoldingDto(
         String symbol,
         BigDecimal quantity,
@@ -11,4 +13,7 @@ public record RobinhoodRhCryptoHoldingDto(
         BigDecimal marketValue,
         BigDecimal costBasis,
         BigDecimal unrealizedPnL,
-        BigDecimal unrealizedPnLPercent) {}
+        BigDecimal unrealizedPnLPercent,
+        BigDecimal buyFees,
+        BigDecimal lifetimeFees,
+        BigDecimal sellFeeRate) {}

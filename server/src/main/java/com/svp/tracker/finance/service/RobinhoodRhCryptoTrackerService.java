@@ -408,7 +408,9 @@ public class RobinhoodRhCryptoTrackerService {
             notes.add("Auto-capture: " + props.autoCaptureScheduleLabel() + ".");
         }
         notes.add("Capture now does not replace that day's 9 PM CT close.");
-        notes.add("Cost basis and unrealized P&L are not available from holdings-only sync yet.");
+        notes.add(
+                "Average, cost, and buy fees come from filled crypto orders (FIFO, fees included). "
+                        + "Sell-all brokerage uses the last exchange taker rate, usually 0.95%.");
         return List.copyOf(notes);
     }
 

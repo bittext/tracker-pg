@@ -468,6 +468,113 @@
           }
         </p>
       }
+
+      <section class="rh-crypto__cost" aria-label="Crypto cost and sell-all fees">
+        <div class="rh-crypto__cost-head">
+          <div>
+            <h3 class="rh-crypto__cost-title">Cost, fees, and sell-all</h3>
+            <p class="muted rh-crypto__cost-lead">
+              Exact average includes buy brokerage. Sell-all uses the last exchange taker rate
+              ({{ sellFeeRate() * 100 | number: '1.2-2' }}%). Market-maker routing has no line-item fee; the
+              same ~0.95% is usually in the spread.
+            </p>
+          </div>
+          <button mat-stroked-button type="button" (click)="loadCost()" [disabled]="costLoading">
+            @if (costLoading) {
+              <mat-spinner diameter="18" />
+            } @else {
+              <mat-icon>payments</mat-icon>
+            }
+            Refresh cost
+          </button>
+        </div>
+        @if (costError) {
+          <p class="rh-crypto__banner rh-crypto__banner--error" role="alert">{{ costError }}</p>
+        }
+        @if (costRows().length) {
+          <div class="rh-crypto__cost-kpis">
+            <article>
+              <span>Cost basis</span>
+              <strong>{{ costBasisTotal() | currency }}</strong>
+            </article>
+            <article>
+              <span>Buy fees in the open book</span>
+              <strong>{{ buyFeesTotal() | currency }}</strong>
+            </article>
+            <article>
+              <span>Sell-all brokerage</span>
+              <strong>{{ sellAllFeeTotal() | currency }}</strong>
+              <small>{{ sellAllFeePct() | number: '1.2-2' }}% of {{ sellAllMarketTotal() | currency }}</small>
+            </article>
+            <article>
+              <span>Net if sold now</span>
+              <strong>{{ sellAllMarketTotal() - sellAllFeeTotal() | currency }}</strong>
+            </article>
+          </div>
+          @if (dogeRow(); as doge) {
+            <div class="rh-crypto__doge" role="status">
+              <h4>DOGE tradeable price</h4>
+              <p>
+                Average (fees in):
+                <strong>${{ formatExactPrice(doge.averageBuyPrice) }}</strong>
+                · {{ formatQty(doge.quantity) }} coins · cost {{ doge.costBasis | currency }} · buy fees
+                {{ (doge.buyFees ?? 0) | currency }}
+              </p>
+              <p>
+                Mark now:
+                <strong>${{ formatExactPrice(doge.currentUnitPrice) }}</strong>
+                · sell-all fee
+                {{ sellAllFee(doge) | currency }}
+                ({{ sellFeeRate(doge) * 100 | number: '1.2-2' }}%)
+              </p>
+              @if (breakevenPrice(doge); as even) {
+                <p class="rh-crypto__doge-even">
+                  Need
+                  <strong>${{ formatExactPrice(even) }}</strong>
+                  on the chart to finish flat after the sell fee. Below that, a full sell loses money after
+                  pay-offs.
+                </p>
+              }
+            </div>
+          }
+          <table class="rh-crypto__holdings rh-crypto__holdings--cost">
+            <thead>
+              <tr>
+                <th>Coin</th>
+                <th class="rh-crypto__num">Qty</th>
+                <th class="rh-crypto__num">Exact avg</th>
+                <th class="rh-crypto__num">Mark</th>
+                <th class="rh-crypto__num">Cost</th>
+                <th class="rh-crypto__num">Buy fees</th>
+                <th class="rh-crypto__num">Sell-all fee</th>
+                <th class="rh-crypto__num">Breakeven</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (h of costRows(); track h.symbol) {
+                <tr>
+                  <td><span class="rh-crypto__coin">{{ h.symbol }}</span></td>
+                  <td class="rh-crypto__num">{{ formatQty(h.quantity) }}</td>
+                  <td class="rh-crypto__num">{{ h.averageBuyPrice ? '$' + formatExactPrice(h.averageBuyPrice) : '—' }}</td>
+                  <td class="rh-crypto__num">{{ h.currentUnitPrice ? '$' + formatExactPrice(h.currentUnitPrice) : '—' }}</td>
+                  <td class="rh-crypto__num">{{ h.costBasis | currency }}</td>
+                  <td class="rh-crypto__num">{{ (h.buyFees ?? 0) | currency }}</td>
+                  <td class="rh-crypto__num">
+                    {{ sellAllFee(h) | currency }}
+                    <small class="muted">{{ sellFeeRate(h) * 100 | number: '1.2-2' }}%</small>
+                  </td>
+                  <td class="rh-crypto__num">
+                    {{ breakevenPrice(h) != null ? '$' + formatExactPrice(breakevenPrice(h)!) : '—' }}
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        } @else if (!costLoading) {
+          <p class="muted">Capture or refresh cost to load exact averages and sell-all fees.</p>
+        }
+      </section>
+
       <div class="rh-crypto__timeline" role="region" aria-label="Crypto capture history">
         @for (day of t.days; track day.snapshotDate) {
           <article class="rh-crypto__day" [class.rh-crypto__day--open]="isDayExpanded(day)">
@@ -503,7 +610,8 @@
                           <tr>
                             <th>Coin</th>
                             <th class="rh-crypto__num">Qty</th>
-                            <th class="rh-crypto__num">Price</th>
+                            <th class="rh-crypto__num">Exact avg</th>
+                            <th class="rh-crypto__num">Mark</th>
                             <th class="rh-crypto__num">Market value</th>
                           </tr>
                         </thead>
@@ -513,14 +621,19 @@
                               <td>
                                 <span class="rh-crypto__coin">{{ h.symbol }}</span>
                               </td>
-                              <td class="rh-crypto__num">{{ h.quantity | number: '1.0-8' }}</td>
-                              <td class="rh-crypto__num">{{ h.currentUnitPrice | currency }}</td>
+                              <td class="rh-crypto__num">{{ formatQty(h.quantity) }}</td>
+                              <td class="rh-crypto__num">
+                                {{ h.averageBuyPrice ? '$' + formatExactPrice(h.averageBuyPrice) : '—' }}
+                              </td>
+                              <td class="rh-crypto__num">
+                                {{ h.currentUnitPrice ? '$' + formatExactPrice(h.currentUnitPrice) : '—' }}
+                              </td>
                               <td class="rh-crypto__num rh-crypto__mv">{{ h.marketValue | currency }}</td>
                             </tr>
                           }
                           @if (!acct.holdings.length) {
                             <tr>
-                              <td colspan="4" class="muted">No coins</td>
+                              <td colspan="5" class="muted">No coins</td>
                             </tr>
                           }
                         </tbody>
@@ -535,7 +648,8 @@
                       <tr>
                         <th>Coin</th>
                         <th class="rh-crypto__num">Qty</th>
-                        <th class="rh-crypto__num">Price</th>
+                        <th class="rh-crypto__num">Exact avg</th>
+                        <th class="rh-crypto__num">Mark</th>
                         <th class="rh-crypto__num">Market value</th>
                       </tr>
                     </thead>
@@ -545,8 +659,13 @@
                           <td>
                             <span class="rh-crypto__coin">{{ h.symbol }}</span>
                           </td>
-                          <td class="rh-crypto__num">{{ h.quantity | number: '1.0-8' }}</td>
-                          <td class="rh-crypto__num">{{ h.currentUnitPrice | currency }}</td>
+                          <td class="rh-crypto__num">{{ formatQty(h.quantity) }}</td>
+                          <td class="rh-crypto__num">
+                            {{ h.averageBuyPrice ? '$' + formatExactPrice(h.averageBuyPrice) : '—' }}
+                          </td>
+                          <td class="rh-crypto__num">
+                            {{ h.currentUnitPrice ? '$' + formatExactPrice(h.currentUnitPrice) : '—' }}
+                          </td>
                           <td class="rh-crypto__num rh-crypto__mv">{{ h.marketValue | currency }}</td>
                         </tr>
                       }

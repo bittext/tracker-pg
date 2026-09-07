@@ -7,6 +7,7 @@ import datetime
 import json
 import logging
 import uuid
+from collections import defaultdict, deque
 from decimal import Decimal, ROUND_DOWN, ROUND_HALF_UP
 from typing import Any, Optional
 from urllib.parse import urlencode
@@ -229,6 +230,29 @@ class RobinhoodCryptoTradingClient:
                 break
         return all_rows
 
+    def list_orders(self, account_number: str) -> list[dict[str, Any]]:
+        all_rows: list[dict[str, Any]] = []
+        base_path = "/api/v2/crypto/trading/orders/"
+        query = urlencode({"account_number": account_number})
+        path = f"{base_path}?{query}"
+        while path:
+            payload = self._get(path)
+            if not isinstance(payload, dict):
+                break
+            batch = payload.get("results")
+            if isinstance(batch, list):
+                for row in batch:
+                    if isinstance(row, dict):
+                        all_rows.append(row)
+            next_url = payload.get("next")
+            if not next_url or not isinstance(next_url, str):
+                break
+            if next_url.startswith(BASE_URL):
+                path = next_url[len(BASE_URL) :]
+            else:
+                break
+        return all_rows
+
     def list_holdings(self, account_number: str) -> list[dict[str, Any]]:
         all_rows: list[dict[str, Any]] = []
         base_path = "/api/v2/crypto/trading/holdings/"
@@ -295,8 +319,17 @@ def _to_decimal(value: Any) -> Optional[Decimal]:
         return None
 
 
+DEFAULT_TAKER_FEE_RATE = Decimal("0.0095")
+
+
 def _money(value: Decimal) -> str:
     return str(value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+
+def _price(value: Decimal, places: int = 12) -> str:
+    quant = Decimal("1").scaleb(-places)
+    text = format(value.quantize(quant, rounding=ROUND_HALF_UP), "f")
+    return text.rstrip("0").rstrip(".") or "0"
 
 
 def _format_asset_quantity(qty: Decimal) -> str:
@@ -306,12 +339,131 @@ def _format_asset_quantity(qty: Decimal) -> str:
     return text if text else "0"
 
 
+def _order_symbol(row: dict[str, Any]) -> str:
+    raw = str(row.get("currency_code") or row.get("symbol") or "").strip().upper()
+    if raw.endswith("-USD"):
+        return raw[:-4]
+    if raw.endswith("USD") and len(raw) > 3:
+        return raw[:-3]
+    return raw
+
+
+def _order_fee_amount(row: dict[str, Any]) -> Decimal:
+    fees = row.get("fees")
+    if isinstance(fees, list):
+        for fee in fees:
+            if not isinstance(fee, dict):
+                continue
+            data = fee.get("fee_data")
+            if isinstance(data, dict):
+                amount = _to_decimal(data.get("fee_amount"))
+                if amount is not None:
+                    return amount
+    direct = _to_decimal(row.get("fee"))
+    return direct if direct is not None else Decimal("0")
+
+
+def _order_fee_rate(row: dict[str, Any]) -> Optional[Decimal]:
+    fees = row.get("fees")
+    if isinstance(fees, list):
+        for fee in fees:
+            if not isinstance(fee, dict):
+                continue
+            data = fee.get("fee_data")
+            if isinstance(data, dict):
+                ratio = _to_decimal(data.get("fee_ratio"))
+                if ratio is not None and ratio > 0:
+                    return ratio
+    rate = _to_decimal(row.get("fee_rate"))
+    return rate if rate is not None and rate > 0 else None
+
+
+def _filled_buy_cost(row: dict[str, Any], qty: Decimal) -> tuple[Decimal, Decimal]:
+    """Return (cash outlay including fee, fee) for a filled buy."""
+    notional = _to_decimal(row.get("rounded_executed_notional"))
+    if notional is None:
+        avg = _to_decimal(row.get("average_price"))
+        notional = (avg * qty) if avg is not None else Decimal("0")
+    with_fee = _to_decimal(row.get("rounded_executed_notional_with_fee"))
+    fee = _order_fee_amount(row)
+    if with_fee is None:
+        with_fee = notional + fee
+    elif fee == 0 and with_fee > notional:
+        fee = with_fee - notional
+    return with_fee, fee
+
+
+def lots_from_orders(orders: list[dict[str, Any]]) -> dict[str, dict[str, Decimal]]:
+    """FIFO remaining lots per symbol from filled orders. Cost includes buy fees."""
+    filled = [
+        row
+        for row in orders
+        if str(row.get("state") or "").strip().lower() == "filled"
+        and _order_symbol(row)
+        and str(row.get("side") or "").strip().lower() in {"buy", "sell"}
+    ]
+    filled.sort(key=lambda row: str(row.get("created_at") or ""))
+    books: dict[str, deque[dict[str, Decimal]]] = defaultdict(deque)
+    last_fee_rate: dict[str, Decimal] = {}
+    lifetime_fees: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
+
+    for row in filled:
+        symbol = _order_symbol(row)
+        side = str(row.get("side") or "").strip().lower()
+        qty = _to_decimal(row.get("cumulative_quantity")) or _to_decimal(row.get("quantity"))
+        if qty is None or qty <= 0:
+            continue
+        rate = _order_fee_rate(row)
+        if rate is not None:
+            last_fee_rate[symbol] = rate
+        if side == "buy":
+            cost, fee = _filled_buy_cost(row, qty)
+            lifetime_fees[symbol] += fee
+            books[symbol].append({"qty": qty, "cost": cost, "fee": fee})
+            continue
+        sell_fee = _order_fee_amount(row)
+        lifetime_fees[symbol] += sell_fee
+        remaining = qty
+        lots = books[symbol]
+        while remaining > 0 and lots:
+            lot = lots[0]
+            take = min(lot["qty"], remaining)
+            if take == lot["qty"]:
+                lots.popleft()
+            else:
+                share = take / lot["qty"]
+                lot["qty"] -= take
+                lot["cost"] -= lot["cost"] * share
+                lot["fee"] -= lot["fee"] * share
+            remaining -= take
+
+    out: dict[str, dict[str, Decimal]] = {}
+    for symbol, lots in books.items():
+        qty = sum((lot["qty"] for lot in lots), Decimal("0"))
+        cost = sum((lot["cost"] for lot in lots), Decimal("0"))
+        buy_fees = sum((lot["fee"] for lot in lots), Decimal("0"))
+        if qty <= 0:
+            continue
+        out[symbol] = {
+            "quantity": qty,
+            "costBasis": cost,
+            "buyFees": buy_fees,
+            "averageBuyPrice": cost / qty,
+            "sellFeeRate": last_fee_rate.get(symbol, DEFAULT_TAKER_FEE_RATE),
+            "lifetimeFees": lifetime_fees.get(symbol, Decimal("0")),
+        }
+    return out
+
+
 def _holdings_from_rows(
-    raw_holdings: list[dict[str, Any]], quotes: dict[str, Decimal]
+    raw_holdings: list[dict[str, Any]],
+    quotes: dict[str, Decimal],
+    lots: dict[str, dict[str, Decimal]] | None = None,
 ) -> tuple[list[dict[str, Any]], Decimal, list[str]]:
     holdings: list[dict[str, Any]] = []
     total_value = Decimal("0")
     warnings: list[str] = []
+    lots = lots or {}
     for row in raw_holdings:
         asset = str(row.get("asset_code") or "").strip().upper()
         qty = _to_decimal(row.get("total_quantity"))
@@ -325,16 +477,33 @@ def _holdings_from_rows(
         else:
             warnings.append(f"No quote for {pair}; market value set to 0")
         total_value += market_value
+        lot = lots.get(asset)
+        cost = lot["costBasis"] if lot else Decimal("0")
+        buy_fees = lot["buyFees"] if lot else Decimal("0")
+        avg = lot["averageBuyPrice"] if lot else Decimal("0")
+        fee_rate = lot["sellFeeRate"] if lot else DEFAULT_TAKER_FEE_RATE
+        lifetime_fees = lot["lifetimeFees"] if lot else Decimal("0")
+        if lot and lot["quantity"] > 0 and abs(lot["quantity"] - qty) / qty > Decimal("0.02"):
+            # Holding qty drifted from FIFO (dust / transfer). Scale cost to live qty.
+            scale = qty / lot["quantity"]
+            cost *= scale
+            buy_fees *= scale
+            avg = cost / qty if qty else avg
+        pnl = market_value - cost
+        pnl_pct = (pnl / cost * Decimal("100")) if cost > 0 else Decimal("0")
         holdings.append(
             {
                 "symbol": asset,
-                "quantity": str(qty.normalize()),
-                "currentUnitPrice": _money(unit_price) if unit_price is not None else "0",
+                "quantity": _price(qty, 8),
+                "currentUnitPrice": _price(unit_price) if unit_price is not None else "0",
                 "marketValue": _money(market_value),
-                "costBasis": "0",
-                "averageBuyPrice": "0",
-                "unrealizedPnL": "0",
-                "unrealizedPnLPercent": "0",
+                "costBasis": _money(cost),
+                "averageBuyPrice": _price(avg),
+                "buyFees": _money(buy_fees),
+                "lifetimeFees": _money(lifetime_fees),
+                "sellFeeRate": _price(fee_rate, 6),
+                "unrealizedPnL": _money(pnl),
+                "unrealizedPnLPercent": _price(pnl_pct, 4),
             }
         )
     holdings.sort(key=lambda h: h.get("symbol", ""))
@@ -371,6 +540,7 @@ def run_crypto_sync(api_key: str, private_key_base64: str) -> dict[str, Any]:
         portfolios: list[dict[str, Any]] = []
         all_symbols: list[str] = []
         holdings_by_account: dict[str, list[dict[str, Any]]] = {}
+        lots_by_account: dict[str, dict[str, dict[str, Decimal]]] = {}
         for acct in accounts:
             number = str(acct.get("account_number") or "").strip()
             status = str(acct.get("status") or "").strip().lower()
@@ -383,13 +553,20 @@ def run_crypto_sync(api_key: str, private_key_base64: str) -> dict[str, Any]:
                 qty = _to_decimal(row.get("total_quantity"))
                 if asset and qty is not None and qty > 0:
                     all_symbols.append(f"{asset}-USD")
+            try:
+                lots_by_account[number] = lots_from_orders(client.list_orders(number))
+            except Exception as exc:  # noqa: BLE001
+                warnings.append(f"Order history unavailable for cost basis on {number[-4:]}: {exc}")
+                lots_by_account[number] = {}
 
         quotes = client.best_bid_ask(all_symbols)
         primary_holdings: list[dict[str, Any]] = []
         primary_total = Decimal("0")
 
         for number, raw_holdings in holdings_by_account.items():
-            holdings, total_value, pair_warnings = _holdings_from_rows(raw_holdings, quotes)
+            holdings, total_value, pair_warnings = _holdings_from_rows(
+                raw_holdings, quotes, lots_by_account.get(number)
+            )
             warnings.extend(pair_warnings)
             portfolios.append(
                 {

@@ -13,6 +13,7 @@ import {
   RobinhoodRhCryptoAutoTradeRunDto,
   RobinhoodRhCryptoAutoTradeSettingsDto,
   RobinhoodRhCryptoAutoTradeSettingsRequestDto,
+  RobinhoodRhCryptoHoldingDto,
   RobinhoodRhCryptoOrderDto,
   RobinhoodRhCryptoTrackerDayDto,
   RobinhoodRhCryptoTrackerReportDto,
@@ -79,8 +80,12 @@ export class ReportsFinanceRobinhoodCryptoTrackerComponent implements OnInit {
   autoTradeSaving = false;
   autoTradeEvaluating = false;
   autoTradeLastMessage = '';
+  liveHoldings: RobinhoodRhCryptoHoldingDto[] = [];
+  costLoading = false;
+  costError: string | null = null;
 
   readonly coinChoices = ['BTC', 'ETH', 'SOL', 'DOGE', 'ADA', 'XRP', 'AVAX', 'LINK'] as const;
+  private static readonly DEFAULT_SELL_FEE_RATE = 0.0095;
 
   readonly expandedDays = new Set<string>();
 
@@ -133,6 +138,7 @@ export class ReportsFinanceRobinhoodCryptoTrackerComponent implements OnInit {
           this.connectExpanded = true;
         } else {
           this.loadAutoTradePanel();
+          this.loadCost();
         }
       },
       error: () => {
@@ -337,12 +343,149 @@ export class ReportsFinanceRobinhoodCryptoTrackerComponent implements OnInit {
         this.showCaptureFeedback(r.ok ? 'ok' : 'error', r.message);
         this.loadCryptoStatus();
         this.load();
+        this.loadCost();
       },
       error: (err) => {
         this.capturing = false;
         this.showCaptureFeedback('error', formatHttpErrorMessage(err));
       },
     });
+  }
+
+  loadCost(): void {
+    this.costLoading = true;
+    this.costError = null;
+    this.financeApi.robinhoodCryptoTradingSync().subscribe({
+      next: (sync) => {
+        const fromPortfolios = (sync.portfolios ?? []).flatMap((p) => p.holdings ?? []);
+        this.liveHoldings = this.mergeHoldings(fromPortfolios.length ? fromPortfolios : (sync.holdings ?? []));
+        this.costLoading = false;
+        if (!sync.ok && !this.liveHoldings.length) {
+          this.costError = sync.message || 'Could not load crypto cost';
+        }
+      },
+      error: (err) => {
+        this.costLoading = false;
+        this.liveHoldings = [];
+        this.costError = formatHttpErrorDetail(err);
+      },
+    });
+  }
+
+  costRows(): RobinhoodRhCryptoHoldingDto[] {
+    if (this.liveHoldings.length) {
+      return this.liveHoldings;
+    }
+    const latest = this.tracker?.days?.[0];
+    if (!latest) {
+      return [];
+    }
+    const fromAccounts = (latest.accounts ?? []).flatMap((a) => a.holdings ?? []);
+    return this.mergeHoldings(fromAccounts.length ? fromAccounts : (latest.holdings ?? []));
+  }
+
+  sellFeeRate(row?: RobinhoodRhCryptoHoldingDto | null): number {
+    const rate = row?.sellFeeRate;
+    if (rate != null && rate > 0) {
+      return rate;
+    }
+    return ReportsFinanceRobinhoodCryptoTrackerComponent.DEFAULT_SELL_FEE_RATE;
+  }
+
+  sellAllFee(row: RobinhoodRhCryptoHoldingDto): number {
+    return (row.marketValue ?? 0) * this.sellFeeRate(row);
+  }
+
+  sellAllNet(row: RobinhoodRhCryptoHoldingDto): number {
+    return (row.marketValue ?? 0) - this.sellAllFee(row);
+  }
+
+  breakevenPrice(row: RobinhoodRhCryptoHoldingDto): number | null {
+    const qty = row.quantity ?? 0;
+    const cost = row.costBasis ?? 0;
+    const rate = this.sellFeeRate(row);
+    if (qty <= 0 || cost <= 0 || rate >= 1) {
+      return null;
+    }
+    return cost / (qty * (1 - rate));
+  }
+
+  sellAllFeeTotal(): number {
+    return this.costRows().reduce((sum, row) => sum + this.sellAllFee(row), 0);
+  }
+
+  sellAllMarketTotal(): number {
+    return this.costRows().reduce((sum, row) => sum + (row.marketValue ?? 0), 0);
+  }
+
+  sellAllFeePct(): number {
+    const mv = this.sellAllMarketTotal();
+    return mv > 0 ? (this.sellAllFeeTotal() / mv) * 100 : this.sellFeeRate() * 100;
+  }
+
+  buyFeesTotal(): number {
+    return this.costRows().reduce((sum, row) => sum + (row.buyFees ?? 0), 0);
+  }
+
+  costBasisTotal(): number {
+    return this.costRows().reduce((sum, row) => sum + (row.costBasis ?? 0), 0);
+  }
+
+  dogeRow(): RobinhoodRhCryptoHoldingDto | null {
+    return this.costRows().find((row) => (row.symbol || '').toUpperCase() === 'DOGE') ?? null;
+  }
+
+  formatExactPrice(value: number | null | undefined, maxDigits = 12): string {
+    if (value == null || Number.isNaN(value)) {
+      return '—';
+    }
+    return value.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: maxDigits,
+      useGrouping: false,
+    });
+  }
+
+  formatQty(value: number | null | undefined): string {
+    if (value == null || Number.isNaN(value)) {
+      return '—';
+    }
+    return value.toLocaleString('en-US', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 8,
+      useGrouping: true,
+    });
+  }
+
+  private mergeHoldings(rows: RobinhoodRhCryptoHoldingDto[]): RobinhoodRhCryptoHoldingDto[] {
+    const bySymbol = new Map<string, RobinhoodRhCryptoHoldingDto>();
+    for (const row of rows) {
+      const symbol = (row.symbol || '').toUpperCase();
+      if (!symbol) {
+        continue;
+      }
+      const existing = bySymbol.get(symbol);
+      if (!existing) {
+        bySymbol.set(symbol, { ...row, symbol });
+        continue;
+      }
+      const quantity = (existing.quantity ?? 0) + (row.quantity ?? 0);
+      const costBasis = (existing.costBasis ?? 0) + (row.costBasis ?? 0);
+      const marketValue = (existing.marketValue ?? 0) + (row.marketValue ?? 0);
+      const buyFees = (existing.buyFees ?? 0) + (row.buyFees ?? 0);
+      const lifetimeFees = (existing.lifetimeFees ?? 0) + (row.lifetimeFees ?? 0);
+      existing.quantity = quantity;
+      existing.costBasis = costBasis;
+      existing.marketValue = marketValue;
+      existing.buyFees = buyFees;
+      existing.lifetimeFees = lifetimeFees;
+      existing.averageBuyPrice = quantity > 0 ? costBasis / quantity : existing.averageBuyPrice;
+      existing.currentUnitPrice = quantity > 0 ? marketValue / quantity : existing.currentUnitPrice;
+      existing.unrealizedPnL = marketValue - costBasis;
+      existing.unrealizedPnLPercent = costBasis > 0 ? (existing.unrealizedPnL / costBasis) * 100 : 0;
+      existing.sellFeeRate = Math.max(existing.sellFeeRate ?? 0, row.sellFeeRate ?? 0);
+    }
+    return [...bySymbol.values()].sort((a, b) => (b.marketValue ?? 0) - (a.marketValue ?? 0));
   }
 
   isConnected(): boolean {

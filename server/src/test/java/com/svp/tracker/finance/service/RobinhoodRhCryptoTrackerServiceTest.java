@@ -193,6 +193,9 @@ class RobinhoodRhCryptoTrackerServiceTest {
                 new BigDecimal(marketValue),
                 BigDecimal.ZERO,
                 BigDecimal.ZERO,
-                BigDecimal.ZERO);
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                new BigDecimal("0.0095"));
     }
 }

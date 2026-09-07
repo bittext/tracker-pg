@@ -12,6 +12,7 @@ from crypto_trading_service import (
     RobinhoodCryptoTradingClient,
     _select_account_number,
     decode_ed25519_seed,
+    lots_from_orders,
     normalize_base64,
     run_crypto_sync,
 )
@@ -54,6 +55,7 @@ def test_run_crypto_sync_normalizes_holdings(mock_client_cls: MagicMock) -> None
         {"asset_code": "ETH", "total_quantity": "0"},
     ]
     mock_client.best_bid_ask.return_value = {"BTC-USD": Decimal("50000")}
+    mock_client.list_orders.return_value = []
 
     result = run_crypto_sync("key", base64.b64encode(SigningKey.generate().encode()).decode())
 
@@ -62,6 +64,7 @@ def test_run_crypto_sync_normalizes_holdings(mock_client_cls: MagicMock) -> None
     assert result["total_value"] == "25000.00"
     assert len(result["holdings"]) == 1
     assert result["holdings"][0]["symbol"] == "BTC"
+    assert result["holdings"][0]["currentUnitPrice"] == "50000"
     assert len(result["portfolios"]) == 1
     assert result["portfolios"][0]["account_number"] == "999"
     mock_client.close.assert_called_once()
@@ -85,6 +88,7 @@ def test_run_crypto_sync_lists_each_active_account(mock_client_cls: MagicMock) -
         "BTC-USD": Decimal("50000"),
         "ETH-USD": Decimal("3000"),
     }
+    mock_client.list_orders.return_value = []
 
     result = run_crypto_sync("key", base64.b64encode(SigningKey.generate().encode()).decode())
 
@@ -102,6 +106,59 @@ def test_decode_ed25519_seed_rejects_api_key_length() -> None:
 
     with pytest.raises(ValueError, match="not the Robinhood API key"):
         decode_ed25519_seed("not-valid-base64!!!")
+
+
+def test_lots_from_orders_keeps_open_doge_book_with_exact_average() -> None:
+    orders = [
+        {
+            "state": "filled",
+            "side": "buy",
+            "currency_code": "DOGE",
+            "created_at": "2026-09-06T22:53:36-04:00",
+            "cumulative_quantity": "1",
+            "average_price": "0.0904961",
+            "rounded_executed_notional": "0.1",
+            "rounded_executed_notional_with_fee": "0.11",
+            "fees": [{"fee_data": {"fee_amount": "0.01", "fee_ratio": "0.0095"}}],
+        },
+        {
+            "state": "filled",
+            "side": "sell",
+            "currency_code": "DOGE",
+            "created_at": "2026-09-06T22:55:22-04:00",
+            "cumulative_quantity": "1",
+            "fees": [{"fee_data": {"fee_amount": "0.01", "fee_ratio": "0.0095"}}],
+        },
+        {
+            "state": "filled",
+            "side": "buy",
+            "currency_code": "DOGE",
+            "created_at": "2026-09-06T23:04:59-04:00",
+            "cumulative_quantity": "219414.22",
+            "average_price": "0.090271888303806908",
+            "rounded_executed_notional": "19806.94",
+            "rounded_executed_notional_with_fee": "19995.11",
+            "fees": [{"fee_data": {"fee_amount": "188.17", "fee_ratio": "0.0095"}}],
+        },
+        {
+            "state": "filled",
+            "side": "buy",
+            "currency_code": "DOGE",
+            "created_at": "2026-09-06T23:08:09-04:00",
+            "cumulative_quantity": "329515.46",
+            "average_price": "0.090025561044753409",
+            "rounded_executed_notional": "29664.82",
+            "rounded_executed_notional_with_fee": "29946.63",
+            "fees": [{"fee_data": {"fee_amount": "281.82", "fee_ratio": "0.0095"}}],
+        },
+    ]
+    lots = lots_from_orders(orders)
+    doge = lots["DOGE"]
+    assert doge["quantity"] == Decimal("548929.68")
+    assert doge["costBasis"] == Decimal("49941.74")
+    assert doge["buyFees"] == Decimal("469.99")
+    assert doge["sellFeeRate"] == Decimal("0.0095")
+    assert doge["averageBuyPrice"] == Decimal("49941.74") / Decimal("548929.68")
 
 
 def test_normalize_base64_adds_padding() -> None:

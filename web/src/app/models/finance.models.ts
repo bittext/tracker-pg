@@ -349,6 +349,25 @@ export interface RobinhoodRhCryptoHoldingDto {
   costBasis: number;
   unrealizedPnL: number;
   unrealizedPnLPercent: number;
+  buyFees?: number | null;
+  lifetimeFees?: number | null;
+  sellFeeRate?: number | null;
+}
+
+export interface RobinhoodCryptoTradingPortfolioDto {
+  accountNumber: string;
+  totalValue: number;
+  holdings: RobinhoodRhCryptoHoldingDto[];
+}
+
+export interface RobinhoodCryptoTradingSyncResultDto {
+  ok: boolean;
+  message: string;
+  accountNumber: string;
+  totalValue: number;
+  holdings: RobinhoodRhCryptoHoldingDto[];
+  warnings?: string[];
+  portfolios?: RobinhoodCryptoTradingPortfolioDto[];
 }
 
 /** Crypto Tracker Predicts-driven auto-trade */
