@@ -53,7 +53,7 @@
       <section class="rh-snap-dialog__moved" aria-label="What moved">
         <h3 class="rh-snap-dialog__section">What moved</h3>
         <p class="muted rh-snap-dialog__moved-lead">
-          Total change is stocks + crypto + cash vs the prior pull
+          Total change is stocks + options + cash vs the prior pull
           @if (d.priorSnapshotAt) {
             ({{ d.priorSnapshotAt | date: 'shortTime' }} CT)
           }
@@ -70,10 +70,10 @@
             }
           </li>
           <li>
-            <span>Crypto</span>
-            <strong>{{ cryptoValue(d) | currency }}</strong>
-            @if (showDelta(cryptoChange(d))) {
-              <em [ngClass]="deltaClass(cryptoChange(d))">{{ signedMoney(cryptoChange(d)) }}</em>
+            <span>Options</span>
+            <strong>{{ optionsValue(d) | currency }}</strong>
+            @if (showDelta(optionsChange(d))) {
+              <em [ngClass]="deltaClass(optionsChange(d))">{{ signedMoney(optionsChange(d)) }}</em>
             } @else {
               <em class="muted">unchanged</em>
             }
@@ -117,9 +117,9 @@
               }
             </tbody>
           </table>
-        } @else if (showDelta(cryptoChange(d)) && !showDelta(d.equityMarketValueChange) && !showDelta(d.cashBalanceChange)) {
+        } @else if (showDelta(optionsChange(d)) && !showDelta(d.equityMarketValueChange) && !showDelta(d.cashBalanceChange)) {
           <p class="muted">
-            Stocks and cash did not move. The {{ signedMoney(cryptoChange(d)) }} is the crypto mark on this account.
+            Stocks and cash did not move. The {{ signedMoney(optionsChange(d)) }} is the options mark on this account.
           </p>
         }
       </section>

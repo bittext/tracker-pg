@@ -262,14 +262,12 @@ export class ReportsFinanceRobinhoodPerformanceComponent implements OnInit {
     return this.sumDetail('cashBalanceChange');
   }
 
-  impliedCryptoNow(): number | null {
-    const total = this.nowTotal();
-    const stocks = this.stocksNow();
-    const cash = this.cashNow();
-    if (total == null || stocks == null || cash == null) {
-      return this.cryptoNow();
-    }
-    return total - stocks - cash;
+  optionsNow(): number | null {
+    return this.sumOptionField('marketValue');
+  }
+
+  optionsChange(): number | null {
+    return this.sumOptionField('marketValueChange');
   }
 
   stocksAreClosed(): boolean {
@@ -508,6 +506,22 @@ export class ReportsFinanceRobinhoodPerformanceComponent implements OnInit {
       return null;
     }
     return this.snapshotDetails.reduce((sum, row) => sum + (row[field] ?? 0), 0);
+  }
+
+  private sumOptionField(field: 'marketValue' | 'marketValueChange'): number | null {
+    if (!this.snapshotDetails.length) {
+      return null;
+    }
+    let sum = 0;
+    for (const row of this.snapshotDetails) {
+      for (const item of row.holdings ?? []) {
+        if ((item.holding?.positionType ?? '').toLowerCase() !== 'option') {
+          continue;
+        }
+        sum += field === 'marketValue' ? (item.holding.marketValue ?? 0) : (item.marketValueChange ?? 0);
+      }
+    }
+    return sum;
   }
 
   private closedSells(): RobinhoodExecutedTradeDto[] {

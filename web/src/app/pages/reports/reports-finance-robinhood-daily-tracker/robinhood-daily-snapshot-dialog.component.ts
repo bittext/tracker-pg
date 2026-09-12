@@ -141,19 +141,29 @@ export class RobinhoodDailySnapshotDialogComponent implements OnInit {
     return abs;
   }
 
-  cryptoValue(d: RobinhoodRhDailySnapshotDetailDto): number {
-    return (d.totalAccountValue ?? 0) - (d.equityMarketValue ?? 0) - (d.cashBalance ?? 0);
+  optionsValue(d: RobinhoodRhDailySnapshotDetailDto): number {
+    return (d.holdings ?? []).reduce((sum, row) => {
+      if ((row.holding?.positionType ?? '').toLowerCase() !== 'option') {
+        return sum;
+      }
+      return sum + (row.holding.marketValue ?? 0);
+    }, 0);
   }
 
-  cryptoChange(d: RobinhoodRhDailySnapshotDetailDto): number | null {
-    if (d.totalAccountValueChange == null) {
-      return null;
+  optionsChange(d: RobinhoodRhDailySnapshotDetailDto): number | null {
+    let any = false;
+    let sum = 0;
+    for (const row of d.holdings ?? []) {
+      if ((row.holding?.positionType ?? '').toLowerCase() !== 'option') {
+        continue;
+      }
+      if (row.marketValueChange == null) {
+        continue;
+      }
+      any = true;
+      sum += row.marketValueChange;
     }
-    return (
-      (d.totalAccountValueChange ?? 0) -
-      (d.equityMarketValueChange ?? 0) -
-      (d.cashBalanceChange ?? 0)
-    );
+    return any ? sum : null;
   }
 
   movedHoldings(d: RobinhoodRhDailySnapshotDetailDto): RobinhoodRhDailySnapshotHoldingDto[] {

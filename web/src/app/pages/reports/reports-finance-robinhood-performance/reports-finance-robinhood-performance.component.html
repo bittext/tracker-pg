@@ -56,7 +56,7 @@
         <span class="rh-perf__kpi-label">Now</span>
         <strong class="rh-perf__kpi-value">{{ nowTotal() != null ? (nowTotal()! | currency) : '—' }}</strong>
         <small class="muted">{{ nowAtLabel() }}</small>
-        @if (stocksNow() != null || cashNow() != null || impliedCryptoNow() != null) {
+        @if (stocksNow() != null || cashNow() != null || optionsNow() != null) {
           <dl class="rh-perf__mix">
             <div>
               <dt>Stocks</dt>
@@ -68,9 +68,9 @@
               </dd>
             </div>
             <div>
-              <dt>Crypto</dt>
-              <dd [class.rh-perf__pnl--pos]="isGain(cryptoChange())" [class.rh-perf__pnl--neg]="isLoss(cryptoChange())">
-                {{ impliedCryptoNow() != null ? (impliedCryptoNow()! | currency) : '—' }}
+              <dt>Options</dt>
+              <dd [class.rh-perf__pnl--pos]="isGain(optionsChange())" [class.rh-perf__pnl--neg]="isLoss(optionsChange())">
+                {{ optionsNow() != null ? (optionsNow()! | currency) : '—' }}
               </dd>
             </div>
             <div>
