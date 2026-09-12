@@ -9,10 +9,13 @@ import com.svp.tracker.finance.dto.RobinhoodRhPeriodBalancesDto;
 import com.svp.tracker.finance.repository.RobinhoodRhDailySnapshotRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -38,6 +41,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class RobinhoodRhPeriodBalancesService {
 
     private static final ZoneId CENTRAL = ZoneId.of("America/Chicago");
+    private static final DateTimeFormatter SHORT_DAY = DateTimeFormatter.ofPattern("MMM d", Locale.US);
     private static final List<String> PREFERRED_SUFFIX_ORDER =
             List.of("3370", "3550", "4123", "8696", "4190", "7581");
 
@@ -73,6 +77,18 @@ public class RobinhoodRhPeriodBalancesService {
             }
         }
 
+        Map<String, ClosePoint> liveEnds = new LinkedHashMap<>();
+        for (RhScheduledTotalRow row : snapshotRepository.findLatestTotalsBySuffix(ownerUserId)) {
+            if (row.accountSuffix() == null
+                    || row.accountSuffix().isBlank()
+                    || !accountTrackerConfigService.isDailyTrackerSuffix(ownerUserId, row.accountSuffix())) {
+                continue;
+            }
+            String suffix = row.accountSuffix().trim();
+            liveEnds.put(suffix, new ClosePoint(row.snapshotDate(), nullToZero(row.totalAccountValue())));
+            suffixesInYear.add(suffix);
+        }
+
         List<String> suffixes = orderSuffixes(suffixesInYear);
         List<RobinhoodRhPeriodAccountColumnDto> accounts = suffixes.stream()
                 .map(s -> new RobinhoodRhPeriodAccountColumnDto(
@@ -95,26 +111,72 @@ public class RobinhoodRhPeriodBalancesService {
                     periodEnd,
                     ym.equals(currentYm),
                     suffixes,
-                    seriesBySuffix));
+                    seriesBySuffix,
+                    Map.of()));
         }
 
         LocalDate yearStart = LocalDate.of(year, 1, 1);
         LocalDate yearEnd = YearMonth.of(year, 12).isAfter(currentYm) ? today : LocalDate.of(year, 12, 31);
+        boolean yearOpen = year == today.getYear();
         RobinhoodRhPeriodBalanceRowDto yearBalance = buildRow(
                 String.valueOf(year),
                 "Year " + year,
                 yearStart,
                 yearEnd,
-                year == today.getYear(),
+                yearOpen,
                 suffixes,
-                seriesBySuffix);
+                seriesBySuffix,
+                yearOpen ? liveEnds : Map.of());
+
+        LocalDate weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate thisMonthStart = currentYm.atDay(1);
+        LocalDate ytdStart = LocalDate.of(today.getYear(), 1, 1);
+        List<RobinhoodRhPeriodBalanceRowDto> windows = List.of(
+                buildRow(
+                        "day",
+                        "Today",
+                        today,
+                        today,
+                        true,
+                        suffixes,
+                        seriesBySuffix,
+                        liveEnds),
+                buildRow(
+                        "week",
+                        "This week · " + SHORT_DAY.format(weekStart) + "–" + SHORT_DAY.format(today),
+                        weekStart,
+                        today,
+                        true,
+                        suffixes,
+                        seriesBySuffix,
+                        liveEnds),
+                buildRow(
+                        "month",
+                        currentYm.getMonth().getDisplayName(TextStyle.FULL, Locale.US) + " so far",
+                        thisMonthStart,
+                        today,
+                        true,
+                        suffixes,
+                        seriesBySuffix,
+                        liveEnds),
+                buildRow(
+                        "ytd",
+                        "Year to date",
+                        ytdStart,
+                        today,
+                        true,
+                        suffixes,
+                        seriesBySuffix,
+                        liveEnds),
+                yearBalance);
 
         String note = suffixes.isEmpty()
                 ? "No Daily Tracker scheduled closes in " + year + " yet."
                 : "Opening is the last 9 PM CT close before the period (calendar midnight start). "
                         + "If tracking started later, opening is the first close in that period. "
-                        + "Closing is the last 9 PM CT close on or before the period end.";
-        return new RobinhoodRhPeriodBalancesDto(year, note, accounts, months, yearBalance);
+                        + "Day / week / month / YTD end on the latest hourly capture. "
+                        + "Month rows still use the official 9 PM CT close.";
+        return new RobinhoodRhPeriodBalancesDto(year, note, accounts, windows, months, yearBalance);
     }
 
     private static RobinhoodRhPeriodBalanceRowDto buildRow(
@@ -124,7 +186,8 @@ public class RobinhoodRhPeriodBalancesService {
             LocalDate periodEnd,
             boolean currentPeriod,
             List<String> suffixes,
-            Map<String, TreeMap<LocalDate, BigDecimal>> seriesBySuffix) {
+            Map<String, TreeMap<LocalDate, BigDecimal>> seriesBySuffix,
+            Map<String, ClosePoint> liveEnds) {
         List<RobinhoodRhPeriodAccountFigureDto> figures = new ArrayList<>();
         BigDecimal combinedStart = BigDecimal.ZERO;
         BigDecimal combinedEnd = BigDecimal.ZERO;
@@ -135,6 +198,10 @@ public class RobinhoodRhPeriodBalancesService {
                     seriesBySuffix.getOrDefault(suffix, new TreeMap<>());
             ClosePoint start = openingForPeriod(series, periodStart, periodEnd);
             ClosePoint end = lastOnOrBefore(series, periodEnd);
+            ClosePoint live = liveEnds.get(suffix);
+            if (currentPeriod && live != null && (end == null || !live.date().isBefore(end.date()))) {
+                end = live;
+            }
             if (start != null) {
                 combinedStart = combinedStart.add(start.value());
                 anyStart = true;

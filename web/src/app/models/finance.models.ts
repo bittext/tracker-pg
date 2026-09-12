@@ -151,6 +151,7 @@ export interface RobinhoodRhPeriodBalancesDto {
   year: number;
   note: string | null;
   accounts: RobinhoodRhPeriodAccountColumnDto[];
+  windows?: RobinhoodRhPeriodBalanceRowDto[];
   months: RobinhoodRhPeriodBalanceRowDto[];
   yearBalance: RobinhoodRhPeriodBalanceRowDto;
 }

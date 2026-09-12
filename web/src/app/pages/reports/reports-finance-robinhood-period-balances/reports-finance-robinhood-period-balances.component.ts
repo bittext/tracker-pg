@@ -70,8 +70,29 @@ export class ReportsFinanceRobinhoodPeriodBalancesComponent implements OnInit {
     });
   }
 
+  liveWindows(): RobinhoodRhPeriodBalanceRowDto[] {
+    return (this.data?.windows ?? []).filter((row) => !this.isYearWindow(row));
+  }
+
+  isYearWindow(row: RobinhoodRhPeriodBalanceRowDto): boolean {
+    return row.key === `${this.data?.year ?? ''}`;
+  }
+
   visibleMonths(): RobinhoodRhPeriodBalanceRowDto[] {
-    return (this.data?.months ?? []).filter((row) => this.rowHasFigures(row));
+    const hideCurrentMonth = (this.data?.windows ?? []).some((row) => row.key === 'month');
+    return (this.data?.months ?? []).filter(
+      (row) => this.rowHasFigures(row) && !(hideCurrentMonth && row.currentPeriod),
+    );
+  }
+
+  windowRange(row: RobinhoodRhPeriodBalanceRowDto): string {
+    if (!row.periodStart || !row.periodEnd) {
+      return '';
+    }
+    if (row.periodStart === row.periodEnd) {
+      return this.formatIsoDate(row.periodStart);
+    }
+    return this.formatIsoDate(row.periodStart) + ' – ' + this.formatIsoDate(row.periodEnd);
   }
 
   private rowHasFigures(row: RobinhoodRhPeriodBalanceRowDto): boolean {

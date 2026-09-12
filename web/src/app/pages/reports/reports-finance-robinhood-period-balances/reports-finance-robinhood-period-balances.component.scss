@@ -36,6 +36,10 @@
   margin: 0 0 1.1rem;
 }
 
+.rh-bal__year-hero--windows {
+  grid-template-columns: repeat(5, minmax(10rem, 1fr));
+}
+
 .rh-bal__year-stat {
   min-width: 0;
   padding: 0.75rem 0.9rem;
@@ -166,6 +170,15 @@
   font-variant-numeric: tabular-nums;
 }
 
+.rh-bal__window-row th,
+.rh-bal__window-row td {
+  font-weight: 600;
+}
+
+.rh-bal__window-row .rh-bal__period {
+  background: color-mix(in srgb, var(--app-accent, #6366f1) 5%, var(--app-surface, #fff));
+}
+
 .rh-bal__year-row th,
 .rh-bal__year-row td {
   border-top: 2px solid var(--app-border, rgba(15, 23, 42, 0.22));
@@ -184,8 +197,15 @@
   color: #b91c1c;
 }
 
+@media (max-width: 1100px) {
+  .rh-bal__year-hero--windows {
+    grid-template-columns: repeat(3, minmax(10rem, 1fr));
+  }
+}
+
 @media (max-width: 720px) {
-  .rh-bal__year-hero {
+  .rh-bal__year-hero,
+  .rh-bal__year-hero--windows {
     grid-template-columns: 1fr;
   }
 }

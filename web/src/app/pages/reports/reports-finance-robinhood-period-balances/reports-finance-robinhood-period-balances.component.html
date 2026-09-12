@@ -1,9 +1,9 @@
 <section class="rh-bal" aria-labelledby="rh-bal-heading">
   <h2 id="rh-bal-heading" class="rh-bal__title">Period balances</h2>
   <p class="muted rh-bal__lead">
-    Starting balance at calendar midnight (last 9 PM CT close before the period) through midnight at period end
-    (last 9 PM CT close on or before that day), per Daily Tracker account. If tracking started mid-period, start
-    is the first close in that window.
+    Day, week, month, and year-to-date use the latest hourly capture as the ending print. Month rows and the year
+    close still start from the last 9 PM CT snapshot before the period. If tracking started mid-period, start is
+    the first close in that window.
   </p>
 
   <div class="rh-bal__toolbar">
@@ -34,7 +34,32 @@
       <p class="muted rh-bal__note">{{ d.note }}</p>
     }
 
-    @if (d.yearBalance; as yb) {
+    @if (d.windows?.length) {
+      <div class="rh-bal__year-hero rh-bal__year-hero--windows" role="group" aria-label="Period combined balances">
+        @for (win of d.windows; track win.key) {
+          <div class="rh-bal__year-stat">
+            <span class="muted">{{ win.label }}</span>
+            <strong [class.rh-bal__pnl--pos]="isGain(win.combinedChange)" [class.rh-bal__pnl--neg]="isLoss(win.combinedChange)">
+              {{ win.combinedChange != null ? (win.combinedChange | currency) : '—' }}
+              @if (changePercent(win.combinedStart, win.combinedChange); as pct) {
+                <small>({{ pct | number: '1.1-1' }}%)</small>
+              }
+            </strong>
+            <small class="muted">
+              {{ win.combinedStart != null ? (win.combinedStart | currency) : '—' }}
+              →
+              {{ win.combinedEnd != null ? (win.combinedEnd | currency) : '—' }}
+            </small>
+            @if (windowRange(win); as range) {
+              <small class="muted">{{ range }}</small>
+            }
+            @if (isYearWindow(win) && yearStartCaption(win); as asOf) {
+              <small class="muted">First tracked close · {{ asOf }}</small>
+            }
+          </div>
+        }
+      </div>
+    } @else if (d.yearBalance; as yb) {
       <div class="rh-bal__year-hero" role="group" aria-label="Year combined balances">
         <div class="rh-bal__year-stat">
           <span class="muted">Year start</span>
@@ -99,6 +124,78 @@
             </tr>
           </thead>
           <tbody>
+            @for (row of liveWindows(); track row.key) {
+              <tr class="rh-bal__window-row">
+                <th class="rh-bal__period" scope="row">
+                  {{ row.label }}
+                  @if (row.currentPeriod) {
+                    <span class="muted rh-bal__so-far">so far</span>
+                  }
+                </th>
+                <td class="rh-bal__num rh-bal__group--combined">
+                  {{ row.combinedStart != null ? (row.combinedStart | currency) : '—' }}
+                </td>
+                <td class="rh-bal__num rh-bal__group--combined">
+                  {{ row.combinedEnd != null ? (row.combinedEnd | currency) : '—' }}
+                </td>
+                <td
+                  class="rh-bal__num rh-bal__group--combined"
+                  [class.rh-bal__pnl--pos]="isGain(row.combinedChange)"
+                  [class.rh-bal__pnl--neg]="isLoss(row.combinedChange)"
+                >
+                  {{ row.combinedChange != null ? (row.combinedChange | currency) : '—' }}
+                </td>
+                @for (acct of d.accounts; track acct.accountSuffix; let i = $index) {
+                  @if (figureFor(row, acct.accountSuffix); as fig) {
+                    <td
+                      class="rh-bal__num rh-bal__group-start"
+                      [class.rh-bal__group--alt]="isAltGroup(i)"
+                      [class.rh-bal__group--plain]="!isAltGroup(i)"
+                    >
+                      {{ fig.start != null ? (fig.start | currency) : '—' }}
+                    </td>
+                    <td
+                      class="rh-bal__num"
+                      [class.rh-bal__group--alt]="isAltGroup(i)"
+                      [class.rh-bal__group--plain]="!isAltGroup(i)"
+                    >
+                      {{ fig.end != null ? (fig.end | currency) : '—' }}
+                    </td>
+                    <td
+                      class="rh-bal__num"
+                      [class.rh-bal__group--alt]="isAltGroup(i)"
+                      [class.rh-bal__group--plain]="!isAltGroup(i)"
+                      [class.rh-bal__pnl--pos]="isGain(fig.change)"
+                      [class.rh-bal__pnl--neg]="isLoss(fig.change)"
+                    >
+                      {{ fig.change != null ? (fig.change | currency) : '—' }}
+                    </td>
+                  } @else {
+                    <td
+                      class="rh-bal__num muted rh-bal__group-start"
+                      [class.rh-bal__group--alt]="isAltGroup(i)"
+                      [class.rh-bal__group--plain]="!isAltGroup(i)"
+                    >
+                      —
+                    </td>
+                    <td
+                      class="rh-bal__num muted"
+                      [class.rh-bal__group--alt]="isAltGroup(i)"
+                      [class.rh-bal__group--plain]="!isAltGroup(i)"
+                    >
+                      —
+                    </td>
+                    <td
+                      class="rh-bal__num muted"
+                      [class.rh-bal__group--alt]="isAltGroup(i)"
+                      [class.rh-bal__group--plain]="!isAltGroup(i)"
+                    >
+                      —
+                    </td>
+                  }
+                }
+              </tr>
+            }
             @for (row of visibleMonths(); track row.key) {
               <tr>
                 <th class="rh-bal__period" scope="row">

@@ -61,6 +61,17 @@ class RobinhoodRhPeriodBalancesServiceTest {
     }
 
     @Test
+    void dailyOpeningIsPriorClose() {
+        TreeMap<LocalDate, BigDecimal> series = new TreeMap<>();
+        series.put(LocalDate.of(2026, 9, 10), new BigDecimal("277000"));
+        series.put(LocalDate.of(2026, 9, 11), new BigDecimal("280000"));
+        var open = RobinhoodRhPeriodBalancesService.openingForPeriod(
+                series, LocalDate.of(2026, 9, 11), LocalDate.of(2026, 9, 11));
+        assertEquals(LocalDate.of(2026, 9, 10), open.date());
+        assertEquals(0, new BigDecimal("277000").compareTo(open.value()));
+    }
+
+    @Test
     void openingIgnoresFirstCloseAfterPeriodEnd() {
         TreeMap<LocalDate, BigDecimal> series = new TreeMap<>();
         series.put(LocalDate.of(2026, 6, 2), new BigDecimal("50"));
