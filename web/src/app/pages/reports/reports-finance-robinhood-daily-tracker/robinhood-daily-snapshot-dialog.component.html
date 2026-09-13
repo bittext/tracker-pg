@@ -46,7 +46,7 @@
       }
       @if (d.periodValueChange) {
         <li>
-          Value change vs prior close (excl. cash in/out):
+          Value change vs prior close (excl. deposits, withdrawals, and transfers):
           <strong>{{ d.periodValueChange | currency }}</strong>
           <span class="muted rh-snap-dialog__hint">book mark, not trade P&amp;L</span>
         </li>
@@ -64,9 +64,35 @@
       <section class="rh-snap-dialog__tape" aria-label="As it happened">
         <h3 class="rh-snap-dialog__section">As it happened</h3>
         <p class="muted rh-snap-dialog__moved-lead">
-          Hourly book for this account, with fills and share hops in that hour. The close line above is vs the prior
-          9 PM, so a green midday flatten can still finish red.
+          Hourly book for this account, with fills, transfers, and share hops in that hour. The close line above is
+          vs the prior 9 PM, so a green midday flatten can still finish red.
         </p>
+        <div class="rh-snap-dialog__cash-io" aria-label="Cash in or out">
+          @if (hasCashIo(d)) {
+            <p>
+              @if (d.periodAdded) {
+                <span class="rh-snap-dialog__in">Added {{ d.periodAdded | currency }}</span>
+              }
+              @if (d.periodRemoved) {
+                <span class="rh-snap-dialog__out">Removed {{ d.periodRemoved | currency }}</span>
+              }
+            </p>
+            @if (d.periodFlows.length) {
+              <ul class="rh-snap-dialog__tape-fills">
+                @for (f of d.periodFlows; track $index) {
+                  <li>
+                    <span [ngClass]="flowDeltaClass(f)">{{ flowDirectionLabel(f) }}</span>
+                    <strong>{{ f.amount | currency }}</strong>
+                    <span class="muted">{{ flowCategoryLabel(f.flowCategory) }}</span>
+                    <span>{{ f.description ?? f.transCode }}</span>
+                  </li>
+                }
+              </ul>
+            }
+          } @else {
+            <p class="muted">No deposits, withdrawals, or transfers this day — cash swings here are buys, sells, and margin.</p>
+          }
+        </div>
         <ol class="rh-snap-dialog__tape-list">
           @for (p of d.dayTape; track p.snapshotId) {
             <li class="rh-snap-dialog__tape-row" [class.rh-snap-dialog__tape-row--close]="p.captureKind === 'SCHEDULED'">
@@ -84,6 +110,18 @@
               </div>
               @if (p.cashBalance > 0 && p.equityMarketValue === 0) {
                 <p class="muted rh-snap-dialog__tape-note">All cash</p>
+              }
+              @if (p.flows?.length) {
+                <ul class="rh-snap-dialog__tape-fills">
+                  @for (f of p.flows; track $index) {
+                    <li>
+                      <span [ngClass]="flowDeltaClass(f)">{{ flowDirectionLabel(f) }}</span>
+                      <strong>{{ f.amount | currency }}</strong>
+                      <span class="muted">{{ flowCategoryLabel(f.flowCategory) }}</span>
+                      <span>{{ f.description ?? f.transCode }}</span>
+                    </li>
+                  }
+                </ul>
               }
               @if (p.trades.length) {
                 <ul class="rh-snap-dialog__tape-fills">
@@ -301,7 +339,7 @@
     }
 
     @if (d.periodFlows.length) {
-      <h3 class="rh-snap-dialog__section">Cash movements in period</h3>
+      <h3 class="rh-snap-dialog__section">Deposits, withdrawals, and transfers</h3>
       <div class="rh-snap-dialog__table-wrap">
         <table class="rh-snap-dialog__table rh-snap-dialog__table--flows">
           <thead>
@@ -327,7 +365,7 @@
         </table>
       </div>
     } @else {
-      <p class="muted">No cash movements in this period.</p>
+      <p class="muted">No deposits, withdrawals, or transfers in this period.</p>
     }
   } @else {
     <p class="muted">Could not load snapshot detail.</p>

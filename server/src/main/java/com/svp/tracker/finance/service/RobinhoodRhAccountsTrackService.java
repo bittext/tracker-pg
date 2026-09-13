@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.FinanceProperties;
+import com.svp.tracker.finance.domain.RobinhoodAccountCashIo;
 import com.svp.tracker.finance.domain.RobinhoodAccountTrackerConfig;
 import com.svp.tracker.finance.domain.RobinhoodAgenticConnection;
 import com.svp.tracker.finance.domain.RobinhoodAgenticPosition;
@@ -19,6 +20,7 @@ import com.svp.tracker.finance.dto.RobinhoodRhOwnedAccountsDto;
 import com.svp.tracker.finance.repository.RobinhoodAgenticConnectionRepository;
 import com.svp.tracker.finance.repository.RobinhoodAgenticPositionRepository;
 import com.svp.tracker.finance.repository.RobinhoodRhAccountStartingBalanceRepository;
+import com.svp.tracker.finance.repository.RobinhoodAccountCashIoRepository;
 import com.svp.tracker.finance.repository.RobinhoodRhSupplementalCashFlowRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -55,6 +57,7 @@ public class RobinhoodRhAccountsTrackService {
 
     private final RobinhoodAccountTrackerConfigService accountTrackerConfigService;
     private final RobinhoodRhSupplementalCashFlowRepository supplementalCashFlowRepository;
+    private final RobinhoodAccountCashIoRepository cashIoRepository;
     private final RobinhoodRhAccountStartingBalanceRepository startingBalanceRepository;
     private final RobinhoodAgenticConnectionRepository connectionRepository;
     private final RobinhoodAgenticPositionRepository positionRepository;
@@ -125,6 +128,7 @@ public class RobinhoodRhAccountsTrackService {
                         managedSuffix,
                         knownSuffixes);
         mergeSupplementalCashFlows(flowsBySuffix, ownerUserId);
+        mergeLoggedCashIo(flowsBySuffix, ownerUserId);
 
         LocalDate trackingStartDate = trackingStartedAt.atZone(CENTRAL).toLocalDate();
         LinkedHashSet<String> trackedSuffixes =
@@ -462,6 +466,39 @@ public class RobinhoodRhAccountsTrackService {
                 scaleMoney(internalIn),
                 scaleMoney(internalOut),
                 net);
+    }
+
+    private void mergeLoggedCashIo(
+            Map<String, List<RobinhoodRhCashFlowEventDto>> flowsBySuffix, long ownerUserId) {
+        for (RobinhoodAccountCashIo row :
+                cashIoRepository.findByOwnerUserIdAndActivityDateBetweenOrderByActivityDateDescIdDesc(
+                        ownerUserId, LocalDate.of(2000, 1, 1), LocalDate.of(2100, 12, 31))) {
+            String suffix = row.getAccountSuffix() == null ? null : row.getAccountSuffix().trim();
+            if (suffix == null || suffix.isEmpty()) {
+                continue;
+            }
+            RobinhoodRhCashFlowEventDto event = RobinhoodCashFlowClassifier.fromLoggedCashIo(
+                    row.getActivityDate(), row.getDirection(), row.getAmount(), row.getNote());
+            List<RobinhoodRhCashFlowEventDto> list = flowsBySuffix.computeIfAbsent(suffix, k -> new ArrayList<>());
+            if (alreadyHasFlow(list, event)) {
+                continue;
+            }
+            list.add(event);
+            RobinhoodRhCashFlowAllocator.sortCashFlowEvents(list);
+        }
+    }
+
+    private static boolean alreadyHasFlow(List<RobinhoodRhCashFlowEventDto> list, RobinhoodRhCashFlowEventDto event) {
+        for (RobinhoodRhCashFlowEventDto existing : list) {
+            if (existing.activityDate() != null
+                    && existing.activityDate().equals(event.activityDate())
+                    && Objects.equals(existing.direction(), event.direction())
+                    && nullToZero(existing.amount()).subtract(nullToZero(event.amount())).abs().compareTo(new BigDecimal("0.02"))
+                            <= 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void mergeSupplementalCashFlows(

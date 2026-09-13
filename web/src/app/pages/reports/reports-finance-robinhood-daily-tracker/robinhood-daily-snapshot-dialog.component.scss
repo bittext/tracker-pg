@@ -193,6 +193,17 @@
   font-size: 0.82em;
 }
 
+.rh-snap-dialog__cash-io {
+  margin: 0 0 0.75rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  border: 1px dashed var(--app-border, rgba(15, 23, 42, 0.16));
+
+  p {
+    margin: 0;
+  }
+}
+
 .rh-snap-dialog__tape-list {
   list-style: none;
   margin: 0;

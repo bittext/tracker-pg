@@ -662,6 +662,7 @@ export interface RobinhoodRhDayTapePointDto {
   valueChange: number | null;
   trades: RobinhoodRhDailyTradeDto[];
   holdingMoves: RobinhoodRhDailySnapshotHoldingDto[];
+  flows: RobinhoodRhCashFlowEventDto[];
 }
 
 export interface RobinhoodRhDailyTradeDto {

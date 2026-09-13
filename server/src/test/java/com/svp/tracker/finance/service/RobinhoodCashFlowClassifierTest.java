@@ -4,7 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.svp.tracker.finance.dto.RobinhoodRhCashFlowEventDto;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import org.junit.jupiter.api.Test;
 
 class RobinhoodCashFlowClassifierTest {
@@ -88,5 +90,21 @@ class RobinhoodCashFlowClassifierTest {
         assertEquals(
                 "IN",
                 RobinhoodCashFlowClassifier.cashFlowDirection("ACH", "ACH Deposit", new BigDecimal("1000")));
+    }
+
+    @Test
+    void loggedChaseDepositIsExternalIn() {
+        RobinhoodRhCashFlowEventDto event = RobinhoodCashFlowClassifier.fromLoggedCashIo(
+                LocalDate.of(2026, 9, 7), "IN", new BigDecimal("150"), "weekly Chase → RH brokerage");
+        assertEquals("EXTERNAL_IN", event.flowCategory());
+        assertFalse(event.internalTransfer());
+    }
+
+    @Test
+    void loggedBankingToBrokerageIsInternalIn() {
+        RobinhoodRhCashFlowEventDto event = RobinhoodCashFlowClassifier.fromLoggedCashIo(
+                LocalDate.of(2026, 9, 3), "IN", new BigDecimal("1000"), "RH Banking → Individual");
+        assertEquals("INTERNAL_IN", event.flowCategory());
+        assertTrue(event.internalTransfer());
     }
 }

@@ -35,6 +35,7 @@ import com.svp.tracker.finance.dto.RobinhoodRhDayTapePointDto;
 import com.svp.tracker.finance.dto.RobinhoodRhHoldingDto;
 import com.svp.tracker.finance.dto.TradingJournalCalendarDayDto;
 import com.svp.tracker.finance.repository.RhDailyTrackerAlertEventRepository;
+import com.svp.tracker.finance.repository.RobinhoodAccountCashIoRepository;
 import com.svp.tracker.finance.repository.RobinhoodAgenticConnectionRepository;
 import com.svp.tracker.finance.repository.RobinhoodAgenticSyncedOrderRepository;
 import com.svp.tracker.finance.repository.RobinhoodRhDailyDayNoteRepository;
@@ -92,6 +93,7 @@ public class RobinhoodRhDailyTrackerService {
     private final RobinhoodAgenticConnectionRepository connectionRepository;
     private final RobinhoodAgenticSyncedOrderRepository syncedOrderRepository;
     private final RobinhoodRhDailySnapshotRepository snapshotRepository;
+    private final RobinhoodAccountCashIoRepository cashIoRepository;
     private final RobinhoodRhDailyDayNoteRepository dayNoteRepository;
     private final RhDailyTrackerAlertEventRepository alertEventRepository;
     private final RobinhoodAccountTrackerConfigService accountTrackerConfigService;
@@ -945,11 +947,20 @@ public class RobinhoodRhDailyTrackerService {
                         readJson(prior.getHoldingsJson(), new TypeReference<>() {}));
         List<RobinhoodRhDailySnapshotHoldingDto> holdingsWithDeltas =
                 RobinhoodRhDailySnapshotCompare.holdingsWithPriorDeltas(holdings, priorHoldings);
-        List<RobinhoodRhCashFlowEventDto> flows = readJson(row.getFlowsJson(), new TypeReference<>() {});
+        List<RobinhoodRhCashFlowEventDto> flows =
+                overlayLoggedCashIo(row, readJson(row.getFlowsJson(), new TypeReference<>() {}));
+        BigDecimal periodAdded = sumFlowAmounts(flows, true);
+        BigDecimal periodRemoved = sumFlowAmounts(flows, false);
         List<RobinhoodAgenticSyncedOrder> ownerOrders =
                 syncedOrderRepository.findByOwnerUserIdOrderByUpdatedAtRhDescCreatedAtRhDesc(row.getOwnerUserId());
         List<RobinhoodRhDailyTradeDto> trades = resolveTradesForSnapshot(row, ownerOrders);
         boolean hasPrior = prior != null;
+        BigDecimal periodValueChange = hasPrior
+                ? scaleMoney(nullToZero(row.getTotalAccountValue())
+                        .subtract(nullToZero(prior.getTotalAccountValue()))
+                        .subtract(periodAdded)
+                        .add(periodRemoved))
+                : scaleMoney(row.getPeriodValueChange());
         return new RobinhoodRhDailySnapshotDetailDto(
                 row.getId(),
                 row.getSnapshotDate(),
@@ -975,9 +986,9 @@ public class RobinhoodRhDailyTrackerService {
                                 row.getEquityMarketValue(), prior.getEquityMarketValue())
                         : null,
                 hasPrior ? prior.getSnapshotAt() : null,
-                scaleMoney(row.getPeriodAdded()),
-                scaleMoney(row.getPeriodRemoved()),
-                scaleMoney(row.getPeriodValueChange()),
+                scaleMoney(periodAdded),
+                scaleMoney(periodRemoved),
+                periodValueChange,
                 holdingsWithDeltas,
                 flows,
                 trades,
@@ -1003,8 +1014,13 @@ public class RobinhoodRhDailyTrackerService {
                                 focus.getOwnerUserId(), focus.getAccountSuffix(), firstAt)
                         .orElse(null);
         List<RobinhoodRhDailyTradeDto> trades = dayTrades == null ? List.of() : dayTrades;
+        boolean hasScheduled = dayRows.stream()
+                .anyMatch(r -> RobinhoodRhDailyCaptureKind.SCHEDULED.equals(r.getCaptureKind()));
+        List<RobinhoodRhCashFlowEventDto> dayLoggedFlows = overlayLoggedCashIo(
+                focus, List.of());
         List<RobinhoodRhDayTapePointDto> out = new ArrayList<>();
-        for (RobinhoodRhDailySnapshot row : dayRows) {
+        for (int i = 0; i < dayRows.size(); i++) {
+            RobinhoodRhDailySnapshot row = dayRows.get(i);
             Instant from = prior == null ? null : prior.getSnapshotAt();
             Instant to = row.getSnapshotAt();
             List<RobinhoodRhDailyTradeDto> hourTrades = trades.stream()
@@ -1028,6 +1044,13 @@ public class RobinhoodRhDailyTrackerService {
                     ? null
                     : RobinhoodRhDailySnapshotCompare.signedMoneyDelta(
                             row.getTotalAccountValue(), prior.getTotalAccountValue());
+            List<RobinhoodRhCashFlowEventDto> hourFlows =
+                    readJson(row.getFlowsJson(), new TypeReference<>() {});
+            boolean attachDayFlows = RobinhoodRhDailyCaptureKind.SCHEDULED.equals(row.getCaptureKind())
+                    || (!hasScheduled && i == dayRows.size() - 1);
+            if (attachDayFlows) {
+                hourFlows = mergeCashFlows(hourFlows, dayLoggedFlows);
+            }
             out.add(new RobinhoodRhDayTapePointDto(
                     row.getId() == null ? 0L : row.getId(),
                     row.getSnapshotAt(),
@@ -1037,7 +1060,8 @@ public class RobinhoodRhDailyTrackerService {
                     scaleMoney(row.getEquityMarketValue()),
                     valueChange,
                     hourTrades,
-                    moves));
+                    moves,
+                    hourFlows == null ? List.of() : hourFlows));
             prior = row;
         }
         return out;
@@ -1347,6 +1371,59 @@ public class RobinhoodRhDailyTrackerService {
             return false;
         }
         return RobinhoodRhDailySnapshotCompare.positionsChanged(priorOpt.get(), current);
+    }
+
+    private List<RobinhoodRhCashFlowEventDto> overlayLoggedCashIo(
+            RobinhoodRhDailySnapshot row, List<RobinhoodRhCashFlowEventDto> existing) {
+        List<RobinhoodRhCashFlowEventDto> extras = List.of();
+        if (row.getOwnerUserId() != null && row.getAccountSuffix() != null && row.getSnapshotDate() != null) {
+            LocalDate snapshotDate = row.getSnapshotDate();
+            LocalDate periodStart = row.getPeriodStartDate();
+            LocalDate from = periodStart == null ? snapshotDate : periodStart.plusDays(1);
+            if (from.isAfter(snapshotDate)) {
+                from = snapshotDate;
+            }
+            extras = cashIoRepository
+                    .findByOwnerUserIdAndAccountSuffixAndActivityDateBetweenOrderByActivityDateDescIdDesc(
+                            row.getOwnerUserId(), row.getAccountSuffix(), from, snapshotDate)
+                    .stream()
+                    .map(extra -> RobinhoodCashFlowClassifier.fromLoggedCashIo(
+                            extra.getActivityDate(), extra.getDirection(), extra.getAmount(), extra.getNote()))
+                    .toList();
+        }
+        return mergeCashFlows(existing, extras);
+    }
+
+    private static List<RobinhoodRhCashFlowEventDto> mergeCashFlows(
+            List<RobinhoodRhCashFlowEventDto> existing, List<RobinhoodRhCashFlowEventDto> extras) {
+        List<RobinhoodRhCashFlowEventDto> out = new ArrayList<>(existing == null ? List.of() : existing);
+        if (extras != null) {
+            for (RobinhoodRhCashFlowEventDto event : extras) {
+                if (!alreadyHasCashFlow(out, event)) {
+                    out.add(event);
+                }
+            }
+        }
+        out.sort(Comparator.comparing(
+                RobinhoodRhCashFlowEventDto::activityDate, Comparator.nullsLast(Comparator.naturalOrder())));
+        return out;
+    }
+
+    private static boolean alreadyHasCashFlow(
+            List<RobinhoodRhCashFlowEventDto> list, RobinhoodRhCashFlowEventDto event) {
+        for (RobinhoodRhCashFlowEventDto existing : list) {
+            if (existing.activityDate() != null
+                    && existing.activityDate().equals(event.activityDate())
+                    && Objects.equals(existing.direction(), event.direction())
+                    && nullToZero(existing.amount())
+                                    .subtract(nullToZero(event.amount()))
+                                    .abs()
+                                    .compareTo(new BigDecimal("0.02"))
+                            <= 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static List<RobinhoodRhCashFlowEventDto> flowsInPeriod(

@@ -43,6 +43,7 @@ class RobinhoodRhDailyTrackerTradesTest {
                 mock(RobinhoodAgenticConnectionRepository.class),
                 mock(RobinhoodAgenticSyncedOrderRepository.class),
                 mock(RobinhoodRhDailySnapshotRepository.class),
+                mock(com.svp.tracker.finance.repository.RobinhoodAccountCashIoRepository.class),
                 mock(RobinhoodRhDailyDayNoteRepository.class),
                 mock(com.svp.tracker.finance.repository.RhDailyTrackerAlertEventRepository.class),
                 mock(RobinhoodAccountTrackerConfigService.class),

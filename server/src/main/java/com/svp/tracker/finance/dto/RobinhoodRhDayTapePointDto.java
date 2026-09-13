@@ -14,4 +14,5 @@ public record RobinhoodRhDayTapePointDto(
         BigDecimal equityMarketValue,
         BigDecimal valueChange,
         List<RobinhoodRhDailyTradeDto> trades,
-        List<RobinhoodRhDailySnapshotHoldingDto> holdingMoves) {}
+        List<RobinhoodRhDailySnapshotHoldingDto> holdingMoves,
+        List<RobinhoodRhCashFlowEventDto> flows) {}

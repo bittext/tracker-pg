@@ -1,6 +1,8 @@
 package com.svp.tracker.finance.service;
 
+import com.svp.tracker.finance.dto.RobinhoodRhCashFlowEventDto;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
@@ -170,6 +172,46 @@ final class RobinhoodCashFlowClassifier {
 
     static boolean internalTransfer(String transCode, String description) {
         return isInternalTransfer(transCode, description);
+    }
+
+    /** Logged Cash I/O row (deposits, withdrawals, and RH/bank transfers). */
+    static RobinhoodRhCashFlowEventDto fromLoggedCashIo(
+            LocalDate activityDate, String direction, BigDecimal amount, String note) {
+        String dir = direction == null ? "OTHER" : direction.trim().toUpperCase(Locale.ROOT);
+        boolean in = "IN".equals(dir);
+        boolean internal = looksLikeInternalLoggedTransfer(note);
+        String category = internal ? (in ? "INTERNAL_IN" : "INTERNAL_OUT") : (in ? "EXTERNAL_IN" : "EXTERNAL_OUT");
+        return new RobinhoodRhCashFlowEventDto(
+                activityDate,
+                dir,
+                amount,
+                internal ? "ITRF" : "TRANSFER",
+                note,
+                "Cash I/O",
+                category,
+                internal,
+                null);
+    }
+
+    private static boolean looksLikeInternalLoggedTransfer(String note) {
+        String desc = norm(note);
+        if (desc.isEmpty()) {
+            return false;
+        }
+        if (desc.contains("BANKING")
+                || desc.contains("MANAGED")
+                || desc.contains("AGENTIC")
+                || desc.contains("AMMU")
+                || desc.contains("ITRF")) {
+            return true;
+        }
+        if (isExternalBankTransfer(desc)
+                || desc.contains("CHASE")
+                || desc.contains("DEPOSIT")
+                || desc.contains("WITHDRAW")) {
+            return false;
+        }
+        return isInternalTransfer(null, note);
     }
 
     static String codeKey(String transCode) {

@@ -6,6 +6,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { rhHoldingAverageBuyPrice, rhHoldingCurrentUnitPrice, rhHoldingPnlPercent } from '../../finance/rh-holding-display.util';
 import {
+  RobinhoodRhCashFlowEventDto,
   RobinhoodRhDailySnapshotDetailDto,
   RobinhoodRhDailySnapshotHoldingDto,
   RobinhoodRhDayTapePointDto,
@@ -57,6 +58,30 @@ export class RobinhoodDailySnapshotDialogComponent implements OnInit {
 
   close(): void {
     this.ref.close();
+  }
+
+  hasCashIo(d: RobinhoodRhDailySnapshotDetailDto): boolean {
+    return (
+      (d.periodAdded ?? 0) !== 0 ||
+      (d.periodRemoved ?? 0) !== 0 ||
+      (d.periodFlows?.length ?? 0) > 0 ||
+      (d.dayTape ?? []).some((p) => (p.flows?.length ?? 0) > 0)
+    );
+  }
+
+  flowDirectionLabel(f: RobinhoodRhCashFlowEventDto): string {
+    const dir = (f.direction || '').toLowerCase();
+    if (dir === 'in' || dir === 'credit' || (f.flowCategory || '').includes('_IN')) {
+      return 'In';
+    }
+    if (dir === 'out' || dir === 'debit' || (f.flowCategory || '').includes('_OUT')) {
+      return 'Out';
+    }
+    return f.direction || 'Flow';
+  }
+
+  flowDeltaClass(f: RobinhoodRhCashFlowEventDto): string {
+    return this.deltaClass(this.flowDirectionLabel(f) === 'Out' ? -1 : 1);
   }
 
   flowCategoryLabel(category: string): string {
