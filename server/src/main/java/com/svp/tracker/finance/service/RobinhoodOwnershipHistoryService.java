@@ -742,7 +742,7 @@ public class RobinhoodOwnershipHistoryService {
             List<RobinhoodRhDailySnapshot> accountRows, String accountSuffix, String label) {
         Map<String, List<DayQty>> bySymbol = new LinkedHashMap<>();
         for (RobinhoodRhDailySnapshot row : accountRows) {
-            Map<String, BigDecimal> qty = new LinkedHashMap<>();
+            Map<String, DayQty> qty = new LinkedHashMap<>();
             for (RobinhoodRhHoldingDto h : readHoldings(row)) {
                 if (!isEquity(h)) {
                     continue;
@@ -751,55 +751,72 @@ public class RobinhoodOwnershipHistoryService {
                 if (sym.isEmpty()) {
                     continue;
                 }
-                qty.merge(sym, nullToZero(h.quantity()), BigDecimal::add);
+                qty.merge(sym, DayQty.from(row, h), DayQty::add);
             }
             Set<String> symbols = new HashSet<>(qty.keySet());
             symbols.addAll(bySymbol.keySet());
             for (String sym : symbols) {
                 bySymbol.computeIfAbsent(sym, k -> new ArrayList<>())
-                        .add(new DayQty(row, qty.getOrDefault(sym, ZERO)));
+                        .add(qty.getOrDefault(sym, DayQty.empty(row)));
             }
         }
         List<RobinhoodOwnershipHopDto> out = new ArrayList<>();
         for (Map.Entry<String, List<DayQty>> e : bySymbol.entrySet()) {
             List<DayQty> series = e.getValue();
             BigDecimal prev = ZERO;
+            BigDecimal prevCost = ZERO;
             boolean seen = false;
             for (DayQty d : series) {
                 BigDecimal cur = nullToZero(d.qty);
+                BigDecimal curCost = nullToZero(d.cost);
                 if (seen && cur.subtract(prev).abs().compareTo(new BigDecimal("0.0000005")) <= 0) {
                     prev = cur;
+                    prevCost = curCost;
                     continue;
                 }
                 if (!seen && cur.signum() == 0) {
                     prev = cur;
+                    prevCost = curCost;
                     seen = true;
                     continue;
                 }
                 BigDecimal delta = seen ? cur.subtract(prev) : cur;
                 if (delta.signum() == 0) {
                     prev = cur;
+                    prevCost = curCost;
                     seen = true;
                     continue;
                 }
                 String side = delta.signum() > 0 ? "buy" : "sell";
                 Instant at = d.row.getSnapshotAt();
                 LocalDate date = d.row.getSnapshotDate();
+                BigDecimal hopQty = delta.abs();
+                BigDecimal hopCost = seen ? curCost.subtract(prevCost).abs() : curCost;
+                BigDecimal px = null;
+                BigDecimal notional = null;
+                if (hopQty.signum() > 0 && hopCost.signum() > 0) {
+                    px = hopCost.divide(hopQty, 4, RoundingMode.HALF_UP);
+                    notional = hopCost.setScale(2, RoundingMode.HALF_UP);
+                } else if (d.avg != null && d.avg.signum() > 0) {
+                    px = d.avg.setScale(4, RoundingMode.HALF_UP);
+                    notional = hopQty.multiply(d.avg).setScale(2, RoundingMode.HALF_UP);
+                }
                 out.add(new RobinhoodOwnershipHopDto(
                         at,
                         date,
                         d.row.getCaptureKind(),
                         e.getKey(),
                         side,
-                        scaleQty(delta.abs()),
+                        scaleQty(hopQty),
                         scaleQty(prev),
                         scaleQty(cur),
-                        null,
-                        null,
+                        px,
+                        notional,
                         "holding",
                         accountSuffix,
                         label));
                 prev = cur;
+                prevCost = curCost;
                 seen = true;
             }
         }
@@ -818,7 +835,7 @@ public class RobinhoodOwnershipHistoryService {
         }
         LocalDate date = at.atZone(CENTRAL).toLocalDate();
         BigDecimal qty = scaleQty(nullToZero(trade.quantity()));
-        BigDecimal px = trade.averagePrice();
+        BigDecimal px = trade.averagePrice() != null ? trade.averagePrice() : trade.limitPrice();
         BigDecimal notional = null;
         if (trade.quantity() != null && px != null) {
             notional = trade.quantity().multiply(px).setScale(2, RoundingMode.HALF_UP);
@@ -1032,7 +1049,24 @@ public class RobinhoodOwnershipHistoryService {
 
     private record DayHolding(RobinhoodRhDailySnapshot row, HoldingAgg agg, RobinhoodRhHoldingDto sample) {}
 
-    private record DayQty(RobinhoodRhDailySnapshot row, BigDecimal qty) {}
+    private record DayQty(RobinhoodRhDailySnapshot row, BigDecimal qty, BigDecimal cost, BigDecimal avg) {
+        static DayQty empty(RobinhoodRhDailySnapshot row) {
+            return new DayQty(row, ZERO, ZERO, null);
+        }
+
+        static DayQty from(RobinhoodRhDailySnapshot row, RobinhoodRhHoldingDto h) {
+            return new DayQty(row, nullToZero(h.quantity()), nullToZero(h.costBasis()), h.averageBuyPrice());
+        }
+
+        DayQty add(DayQty other) {
+            BigDecimal nextQty = qty.add(other.qty);
+            BigDecimal nextCost = cost.add(other.cost);
+            BigDecimal nextAvg = nextQty.signum() > 0 && nextCost.signum() > 0
+                    ? nextCost.divide(nextQty, 4, RoundingMode.HALF_UP)
+                    : (other.avg != null ? other.avg : avg);
+            return new DayQty(row, nextQty, nextCost, nextAvg);
+        }
+    }
 
     private record Summary(LocalDate highDate, BigDecimal highQty, LocalDate lowDate, BigDecimal lowQty) {}
 
