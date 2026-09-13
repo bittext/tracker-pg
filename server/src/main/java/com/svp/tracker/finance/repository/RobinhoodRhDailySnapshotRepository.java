@@ -18,6 +18,9 @@ public interface RobinhoodRhDailySnapshotRepository extends JpaRepository<Robinh
     Optional<RobinhoodRhDailySnapshot> findByOwnerUserIdAndSnapshotDateAndAccountSuffixAndCaptureKind(
             long ownerUserId, LocalDate snapshotDate, String accountSuffix, String captureKind);
 
+    List<RobinhoodRhDailySnapshot> findByOwnerUserIdAndAccountSuffixAndSnapshotDateOrderBySnapshotAtAsc(
+            long ownerUserId, String accountSuffix, LocalDate snapshotDate);
+
     Optional<RobinhoodRhDailySnapshot> findTopByOwnerUserIdAndAccountSuffixAndCaptureKindOrderBySnapshotDateDesc(
             long ownerUserId, String accountSuffix, String captureKind);
 

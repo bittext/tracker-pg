@@ -31,6 +31,7 @@ import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerPriorPullDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerRefreshHintDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerReportDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTradeDto;
+import com.svp.tracker.finance.dto.RobinhoodRhDayTapePointDto;
 import com.svp.tracker.finance.dto.RobinhoodRhHoldingDto;
 import com.svp.tracker.finance.dto.TradingJournalCalendarDayDto;
 import com.svp.tracker.finance.repository.RhDailyTrackerAlertEventRepository;
@@ -979,7 +980,77 @@ public class RobinhoodRhDailyTrackerService {
                 scaleMoney(row.getPeriodValueChange()),
                 holdingsWithDeltas,
                 flows,
-                trades);
+                trades,
+                buildDayTape(row, trades));
+    }
+
+    private List<RobinhoodRhDayTapePointDto> buildDayTape(
+            RobinhoodRhDailySnapshot focus, List<RobinhoodRhDailyTradeDto> dayTrades) {
+        if (focus.getOwnerUserId() == null || focus.getAccountSuffix() == null || focus.getSnapshotDate() == null) {
+            return List.of();
+        }
+        List<RobinhoodRhDailySnapshot> dayRows =
+                snapshotRepository.findByOwnerUserIdAndAccountSuffixAndSnapshotDateOrderBySnapshotAtAsc(
+                        focus.getOwnerUserId(), focus.getAccountSuffix(), focus.getSnapshotDate());
+        if (dayRows.isEmpty()) {
+            return List.of();
+        }
+        Instant firstAt = dayRows.get(0).getSnapshotAt();
+        RobinhoodRhDailySnapshot prior = firstAt == null
+                ? null
+                : snapshotRepository
+                        .findTopByOwnerUserIdAndAccountSuffixAndSnapshotAtLessThanOrderBySnapshotAtDesc(
+                                focus.getOwnerUserId(), focus.getAccountSuffix(), firstAt)
+                        .orElse(null);
+        List<RobinhoodRhDailyTradeDto> trades = dayTrades == null ? List.of() : dayTrades;
+        List<RobinhoodRhDayTapePointDto> out = new ArrayList<>();
+        for (RobinhoodRhDailySnapshot row : dayRows) {
+            Instant from = prior == null ? null : prior.getSnapshotAt();
+            Instant to = row.getSnapshotAt();
+            List<RobinhoodRhDailyTradeDto> hourTrades = trades.stream()
+                    .filter(t -> tradeInWindow(t.executedAt(), from, to))
+                    .sorted(Comparator.comparing(
+                            RobinhoodRhDailyTradeDto::executedAt, Comparator.nullsLast(Comparator.naturalOrder())))
+                    .toList();
+            List<RobinhoodRhHoldingDto> holdings =
+                    RobinhoodRhHoldingValues.normalizeStoredSnapshotHoldings(
+                            readJson(row.getHoldingsJson(), new TypeReference<>() {}));
+            List<RobinhoodRhHoldingDto> priorHoldings = prior == null
+                    ? null
+                    : RobinhoodRhHoldingValues.normalizeStoredSnapshotHoldings(
+                            readJson(prior.getHoldingsJson(), new TypeReference<>() {}));
+            List<RobinhoodRhDailySnapshotHoldingDto> moves =
+                    RobinhoodRhDailySnapshotCompare.holdingsWithPriorDeltas(holdings, priorHoldings).stream()
+                            .filter(h -> h.quantityChange() != null
+                                    && h.quantityChange().abs().compareTo(new BigDecimal("0.0000005")) > 0)
+                            .toList();
+            BigDecimal valueChange = prior == null
+                    ? null
+                    : RobinhoodRhDailySnapshotCompare.signedMoneyDelta(
+                            row.getTotalAccountValue(), prior.getTotalAccountValue());
+            out.add(new RobinhoodRhDayTapePointDto(
+                    row.getId() == null ? 0L : row.getId(),
+                    row.getSnapshotAt(),
+                    row.getCaptureKind(),
+                    scaleMoney(row.getTotalAccountValue()),
+                    scaleMoney(row.getCashBalance()),
+                    scaleMoney(row.getEquityMarketValue()),
+                    valueChange,
+                    hourTrades,
+                    moves));
+            prior = row;
+        }
+        return out;
+    }
+
+    private static boolean tradeInWindow(Instant executedAt, Instant fromExclusive, Instant toInclusive) {
+        if (executedAt == null || toInclusive == null) {
+            return false;
+        }
+        if (fromExclusive != null && !executedAt.isAfter(fromExclusive)) {
+            return false;
+        }
+        return !executedAt.isAfter(toInclusive);
     }
 
     /**

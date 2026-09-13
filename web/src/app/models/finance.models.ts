@@ -649,6 +649,19 @@ export interface RobinhoodRhDailySnapshotDetailDto {
   holdings: RobinhoodRhDailySnapshotHoldingDto[];
   periodFlows: RobinhoodRhCashFlowEventDto[];
   trades: RobinhoodRhDailyTradeDto[];
+  dayTape: RobinhoodRhDayTapePointDto[];
+}
+
+export interface RobinhoodRhDayTapePointDto {
+  snapshotId: number;
+  snapshotAt: string;
+  captureKind: string;
+  totalAccountValue: number;
+  cashBalance: number;
+  equityMarketValue: number;
+  valueChange: number | null;
+  trades: RobinhoodRhDailyTradeDto[];
+  holdingMoves: RobinhoodRhDailySnapshotHoldingDto[];
 }
 
 export interface RobinhoodRhDailyTradeDto {

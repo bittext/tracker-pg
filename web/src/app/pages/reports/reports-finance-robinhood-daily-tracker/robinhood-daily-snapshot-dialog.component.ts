@@ -8,6 +8,7 @@ import { rhHoldingAverageBuyPrice, rhHoldingCurrentUnitPrice, rhHoldingPnlPercen
 import {
   RobinhoodRhDailySnapshotDetailDto,
   RobinhoodRhDailySnapshotHoldingDto,
+  RobinhoodRhDayTapePointDto,
   RobinhoodRhHoldingDto,
 } from '../../../models/finance.models';
 
@@ -170,6 +171,23 @@ export class RobinhoodDailySnapshotDialogComponent implements OnInit {
     return [...(d.holdings ?? [])]
       .filter((row) => this.showDelta(row.marketValueChange) || this.showDelta(row.quantityChange))
       .sort((a, b) => Math.abs(b.marketValueChange ?? 0) - Math.abs(a.marketValueChange ?? 0));
+  }
+
+  tapePeak(d: RobinhoodRhDailySnapshotDetailDto): RobinhoodRhDayTapePointDto | null {
+    const tape = d.dayTape ?? [];
+    if (tape.length < 2) {
+      return null;
+    }
+    let best = tape[0];
+    for (const p of tape) {
+      if ((p.totalAccountValue ?? 0) > (best.totalAccountValue ?? 0)) {
+        best = p;
+      }
+    }
+    if ((best.totalAccountValue ?? 0) <= (d.totalAccountValue ?? 0) + 0.005) {
+      return null;
+    }
+    return best;
   }
 
   signedQty(value: number | null | undefined): string {

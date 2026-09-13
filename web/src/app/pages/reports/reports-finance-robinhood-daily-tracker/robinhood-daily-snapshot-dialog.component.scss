@@ -186,3 +186,72 @@
 .rh-snap-dialog__row--exited td {
   opacity: 0.72;
 }
+
+.rh-snap-dialog__hint {
+  display: inline-block;
+  margin-left: 0.35rem;
+  font-size: 0.82em;
+}
+
+.rh-snap-dialog__tape-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  max-height: 28rem;
+  overflow: auto;
+}
+
+.rh-snap-dialog__tape-row {
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
+  border-radius: 8px;
+}
+
+.rh-snap-dialog__tape-row--close {
+  border-color: color-mix(in srgb, var(--app-text, #0f172a) 22%, transparent);
+}
+
+.rh-snap-dialog__tape-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+}
+
+.rh-snap-dialog__tape-time {
+  min-width: 5.5rem;
+  font-weight: 650;
+
+  em {
+    font-style: normal;
+    margin-left: 0.35rem;
+    font-size: 0.75em;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.7;
+  }
+}
+
+.rh-snap-dialog__tape-note {
+  margin: 0.25rem 0 0;
+}
+
+.rh-snap-dialog__tape-fills {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 0.5rem;
+    font-size: 0.88rem;
+  }
+}

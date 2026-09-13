@@ -26,4 +26,6 @@ public record RobinhoodRhDailySnapshotDetailDto(
         BigDecimal periodValueChange,
         List<RobinhoodRhDailySnapshotHoldingDto> holdings,
         List<RobinhoodRhCashFlowEventDto> periodFlows,
-        List<RobinhoodRhDailyTradeDto> trades) {}
+        List<RobinhoodRhDailyTradeDto> trades,
+        /** Same-day hourly + close pulls for this account, oldest first. */
+        List<RobinhoodRhDayTapePointDto> dayTape) {}
