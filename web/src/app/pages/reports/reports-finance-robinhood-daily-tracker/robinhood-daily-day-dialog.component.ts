@@ -4,6 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogConfig, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import {
+  RobinhoodRhCashFlowEventDto,
   RobinhoodRhDailyTrackerAccountCellDto,
   RobinhoodRhDailyTrackerDayDto,
   RobinhoodRhDailyTradeDto,
@@ -116,6 +117,21 @@ export class RobinhoodDailyDayDialogComponent {
       return null;
     }
     return Math.abs(tr.quantity) * Math.abs(px);
+  }
+
+  flowDirectionLabel(f: RobinhoodRhCashFlowEventDto): string {
+    const dir = (f.direction || '').toLowerCase();
+    if (dir === 'in' || (f.flowCategory || '').includes('_IN')) {
+      return 'In';
+    }
+    if (dir === 'out' || (f.flowCategory || '').includes('_OUT')) {
+      return 'Out';
+    }
+    return f.direction || 'Flow';
+  }
+
+  flowSigned(f: RobinhoodRhCashFlowEventDto): number {
+    return this.flowDirectionLabel(f) === 'Out' ? -1 : 1;
   }
 
   deltaPercent(current: number | null, change: number | null): number | null {

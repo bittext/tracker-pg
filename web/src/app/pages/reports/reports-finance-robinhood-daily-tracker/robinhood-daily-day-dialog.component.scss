@@ -11,6 +11,39 @@
   min-width: min(28rem, 90vw);
 }
 
+.rh-day-dialog__hero-excl {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding-top: 0.35rem;
+  border-top: 1px dashed var(--app-border, rgba(15, 23, 42, 0.14));
+
+  > .muted {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+}
+
+.rh-day-dialog__acct-flows {
+  grid-column: 1 / -1;
+  list-style: none;
+  margin: 0.15rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.78rem;
+  text-align: left;
+
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 0.45rem;
+  }
+}
+
 .rh-day-dialog__hero {
   display: grid;
   grid-template-columns: 1fr 1fr;

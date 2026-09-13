@@ -11,7 +11,7 @@
       </strong>
     </div>
     <div class="rh-day-dialog__hero-delta">
-      <span class="muted">Day change</span>
+      <span class="muted">Book vs prior close</span>
       <strong [class]="pnlClass(data.delta)">
         @if (data.delta != null) {
           <mat-icon aria-hidden="true">{{ trendIcon(data.delta) }}</mat-icon>
@@ -29,17 +29,28 @@
         <span class="rh-day-dialog__live muted">9 PM CT close</span>
       }
     </div>
+    @if (data.day.combinedPeriodValueChange != null && data.day.combinedPeriodValueChange !== data.delta) {
+      <div class="rh-day-dialog__hero-excl">
+        <span class="muted">Excl. deposits / withdrawals / transfers</span>
+        <strong [class]="pnlClass(data.day.combinedPeriodValueChange)">
+          {{ data.day.combinedPeriodValueChange | currency }}
+        </strong>
+      </div>
+    }
   </div>
 
-  <div class="rh-day-dialog__flows muted">
+  <div class="rh-day-dialog__flows">
     @if (data.day.combinedPeriodAdded) {
-      <span>In {{ data.day.combinedPeriodAdded | currency }}</span>
+      <span class="rh-day-dialog__pnl--pos">In {{ data.day.combinedPeriodAdded | currency }}</span>
     }
     @if (data.day.combinedPeriodRemoved) {
-      <span>Out {{ data.day.combinedPeriodRemoved | currency }}</span>
+      <span class="rh-day-dialog__pnl--neg">Out {{ data.day.combinedPeriodRemoved | currency }}</span>
+    }
+    @if (!data.day.combinedPeriodAdded && !data.day.combinedPeriodRemoved) {
+      <span class="muted">No deposits, withdrawals, or transfers across accounts</span>
     }
     @if (data.day.trades.length) {
-      <span>{{ data.day.trades.length }} trade{{ data.day.trades.length === 1 ? '' : 's' }}</span>
+      <span class="muted">{{ data.day.trades.length }} trade{{ data.day.trades.length === 1 ? '' : 's' }}</span>
     }
   </div>
 
@@ -53,8 +64,11 @@
           <button type="button" class="rh-day-dialog__acct" (click)="openAccount(row)">
             <span class="rh-day-dialog__acct-label">{{ row.label || accountFallbackLabel(row.cell.accountSuffix) }}</span>
             <span class="rh-day-dialog__acct-value">{{ row.cell.totalAccountValue | currency }}</span>
-            <span class="rh-day-dialog__acct-delta" [class]="pnlClass(row.change)">
-              @if (row.change != null && row.change !== 0) {
+            <span class="rh-day-dialog__acct-delta" [class]="pnlClass(row.cell.periodValueChange || row.change)">
+              @if (row.cell.periodValueChange) {
+                <span class="muted">excl. flows</span>
+                {{ row.cell.periodValueChange | currency }}
+              } @else if (row.change != null && row.change !== 0) {
                 <mat-icon aria-hidden="true">{{ trendIcon(row.change) }}</mat-icon>
                 {{ row.change | currency }}
               } @else {
@@ -65,6 +79,9 @@
             <span class="rh-day-dialog__acct-meta muted">
               Cash {{ row.cell.cashBalance | currency }}
               · Equity {{ row.cell.equityMarketValue | currency }}
+              @if (row.change != null && row.change !== 0) {
+                · Book {{ row.change | currency }}
+              }
               @if (row.cell.periodRemoved) {
                 · Out {{ row.cell.periodRemoved | currency }}
               }
@@ -75,6 +92,17 @@
                 · {{ row.cell.tradeCount }} trades
               }
             </span>
+            @if (row.cell.periodFlows?.length) {
+              <ul class="rh-day-dialog__acct-flows">
+                @for (f of row.cell.periodFlows; track $index) {
+                  <li>
+                    <span [class]="pnlClass(flowSigned(f))">{{ flowDirectionLabel(f) }}</span>
+                    <strong>{{ f.amount | currency }}</strong>
+                    <span>{{ f.description || f.transCode }}</span>
+                  </li>
+                }
+              </ul>
+            }
           </button>
         </li>
       }

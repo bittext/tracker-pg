@@ -429,7 +429,10 @@
       <header class="rh-daily__cal-head">
         <div>
           <h3 id="rh-daily-cal-title" class="rh-daily__cal-title">Month at a glance</h3>
-          <p class="muted rh-daily__cal-lead">Green / red cells show day gains and losses. Click a day for details.</p>
+          <p class="muted rh-daily__cal-lead">
+            Green / red cells are the raw book vs the prior 9 PM, before deposits and transfers. Click a day for
+            excl. flows and the account books.
+          </p>
         </div>
         <div class="rh-daily__cal-nav">
           <button mat-icon-button type="button" (click)="previousCalendarMonth()" aria-label="Previous month">
