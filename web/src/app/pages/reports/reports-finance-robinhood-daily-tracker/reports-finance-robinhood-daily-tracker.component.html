@@ -1238,9 +1238,9 @@
               <div class="rh-daily__focus-detail-body">
                 <p class="muted rh-daily__focus-detail-help">
                   <strong>Δ previous</strong> compares this 9 PM value with the previous scheduled snapshot.
-                  <strong>Added/removed</strong> are CSV cash transfers (not stock buys/sells).
-                  <strong>Value change</strong> is the tracker’s flow-adjusted movement. Click any account value to
-                  inspect holdings, prices, and the flows table for that stored snapshot.
+                  <strong>Added/removed</strong> are deposits, withdrawals, and transfers (CSV plus Cash I/O), not stock
+                  buys/sells. <strong>Value change</strong> is the book move after those flows. Click a value for the
+                  hourly tape.
                 </p>
                 <div class="rh-daily__focus-table-wrap">
                   <table class="rh-daily__focus-table">
@@ -1248,6 +1248,8 @@
                     <tr>
                       <th>Date</th>
                       <th class="rh-daily__num">Value</th>
+                      <th class="rh-daily__num">Cash</th>
+                      <th class="rh-daily__num">Equity</th>
                       <th class="rh-daily__num">Δ previous</th>
                       <th class="rh-daily__num">Δ %</th>
                       <th class="rh-daily__num">Added</th>
@@ -1271,6 +1273,8 @@
                             {{ row.cell.totalAccountValue | currency }}
                           </button>
                         </td>
+                        <td class="rh-daily__num">{{ row.cell.cashBalance | currency }}</td>
+                        <td class="rh-daily__num">{{ row.cell.equityMarketValue | currency }}</td>
                         <td class="rh-daily__num" [class]="pnlClass(row.cell.totalChangeFromPrevious)">
                           {{ row.cell.totalChangeFromPrevious | currency }}
                         </td>
@@ -1684,7 +1688,7 @@
                   <div
                     class="rh-daily__accounts-block"
                     role="region"
-                    aria-label="Account snapshots"
+                    aria-label="Account books"
                     [class.rh-daily__accounts-block--open]="isAccountsExpanded(day)"
                   >
                     <button
@@ -1696,83 +1700,140 @@
                       <mat-icon class="rh-daily__chevron rh-daily__chevron--sm" aria-hidden="true">
                         {{ isAccountsExpanded(day) ? 'expand_less' : 'expand_more' }}
                       </mat-icon>
-                      <h4 class="rh-daily__accounts-title">Accounts</h4>
+                      <h4 class="rh-daily__accounts-title">Account books</h4>
                       <span class="rh-daily__section-count muted">{{ t.accounts.length }}</span>
                     </button>
                     @if (isAccountsExpanded(day)) {
-                      <div class="rh-daily__accounts-strip-wrap">
-                        <table class="rh-daily__accounts-strip">
-                          <thead>
-                            <tr>
-                              <th>Account</th>
-                              <th>Kind</th>
-                              <th class="rh-daily__num">Value</th>
-                              <th class="rh-daily__num">Δ previous</th>
-                              <th class="rh-daily__num">Value change</th>
-                              <th class="rh-daily__num">Trades</th>
-                              <th>Signals</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            @for (acct of t.accounts; track acct.accountSuffix) {
-                              @if (cellForDay(day, acct.accountSuffix); as cell) {
-                                <tr
-                                  class="rh-daily__accounts-strip-row"
-                                  [class.rh-daily__accounts-strip-row--focus]="acct.accountSuffix === focusAccountSuffix"
-                                  [class.rh-daily__accounts-strip-row--alert]="hasSpikeAlert(cell.spikeAlert)"
+                      <div class="rh-daily__books">
+                        @for (acct of t.accounts; track acct.accountSuffix) {
+                          @if (cellForDay(day, acct.accountSuffix); as cell) {
+                            <article
+                              class="rh-daily__book"
+                              [class.rh-daily__book--focus]="acct.accountSuffix === focusAccountSuffix"
+                              [class.rh-daily__book--alert]="hasSpikeAlert(cell.spikeAlert)"
+                            >
+                              <header class="rh-daily__book-head">
+                                <div>
+                                  <h5 class="rh-daily__acct-label">{{ acct.label }}</h5>
+                                  <span class="rh-daily__acct-kind muted">{{ acct.accountKind }} · ••••{{ acct.accountSuffix }}</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  class="rh-daily__book-open"
                                   (click)="openSnapshot(cell, day)"
-                                  (keydown.enter)="openSnapshot(cell, day)"
-                                  (keydown.space)="$event.preventDefault(); openSnapshot(cell, day)"
-                                  tabindex="0"
-                                  role="button"
-                                  [attr.aria-label]="'View ' + acct.label + ' details for ' + day.snapshotDate"
+                                  [attr.aria-label]="'Open tape for ' + acct.label"
                                 >
-                                  <td>
-                                    <span class="rh-daily__acct-label">{{ acct.label }}</span>
-                                  </td>
-                                  <td>
-                                    <span class="rh-daily__acct-kind muted">{{ acct.accountKind }}</span>
-                                  </td>
-                                  <td class="rh-daily__num">
+                                  Hourly tape
+                                </button>
+                              </header>
+                              <dl class="rh-daily__book-stats">
+                                <div>
+                                  <dt>Close</dt>
+                                  <dd>
                                     <strong>{{ cell.totalAccountValue | currency }}</strong>
-                                  </td>
-                                  <td class="rh-daily__num" [class]="pnlClass(cell.totalChangeFromPrevious)">
                                     @if (dayShowsPreviousDelta(day)) {
-                                      {{ cell.totalChangeFromPrevious | currency }}
-                                      @if (deltaPercentForCurrent(cell.totalAccountValue, cell.totalChangeFromPrevious); as cpct) {
-                                        <span class="rh-daily__delta-pct">&nbsp;({{ cpct | number: '1.2-2' }}%)</span>
-                                      }
-                                    } @else {
-                                      <span class="muted">—</span>
-                                    }
-                                  </td>
-                                  <td class="rh-daily__num" [class]="pnlClass(cell.periodValueChange)">
-                                    {{ cell.periodValueChange | currency }}
-                                  </td>
-                                  <td class="rh-daily__num">{{ cell.tradeCount }}</td>
-                                  <td>
-                                    @if (hasSpikeAlert(cell.spikeAlert)) {
-                                      <span
-                                        class="rh-daily__spike-alert rh-daily__spike-alert--compact"
-                                        [class.rh-daily__spike-alert--up]="isSpikeAlertPositive(cell.spikeAlert)"
-                                        [title]="spikeAlertTitle(cell.spikeAlert!)"
-                                      >
-                                        <mat-icon class="rh-daily__spike-alert-icon" aria-hidden="true">notifications_active</mat-icon>
-                                        <span class="rh-daily__spike-alert-label">{{ alertTriggerLabel(cell.spikeAlert!.triggerReasons!) }}</span>
+                                      <span [class]="pnlClass(cell.totalChangeFromPrevious)">
+                                        {{ cell.totalChangeFromPrevious | currency }}
+                                        @if (deltaPercentForCurrent(cell.totalAccountValue, cell.totalChangeFromPrevious); as cpct) {
+                                          ({{ cpct | number: '1.2-2' }}%)
+                                        }
                                       </span>
                                     }
-                                    @if (cell.positionsChangedFromPrior) {
-                                      <span class="rh-daily__focus-signal">positions</span>
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt>Cash</dt>
+                                  <dd>
+                                    {{ cell.cashBalance | currency }}
+                                    @if (cell.cashChangeFromPrevious != null) {
+                                      <span [class]="pnlClass(cell.cashChangeFromPrevious)">{{ cell.cashChangeFromPrevious | currency }}</span>
                                     }
-                                    @if (!hasSpikeAlert(cell.spikeAlert) && !cell.positionsChangedFromPrior) {
-                                      <span class="muted">—</span>
+                                    @if (isAllCash(cell)) {
+                                      <em class="muted">all cash</em>
                                     }
-                                  </td>
-                                </tr>
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt>Equity</dt>
+                                  <dd>
+                                    {{ cell.equityMarketValue | currency }}
+                                    @if (cell.equityChangeFromPrevious != null) {
+                                      <span [class]="pnlClass(cell.equityChangeFromPrevious)">{{ cell.equityChangeFromPrevious | currency }}</span>
+                                    }
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt>Excl. flows</dt>
+                                  <dd [class]="pnlClass(cell.periodValueChange)">{{ cell.periodValueChange | currency }}</dd>
+                                </div>
+                                <div>
+                                  <dt>Trades</dt>
+                                  <dd>{{ cell.tradeCount }}</dd>
+                                </div>
+                              </dl>
+                              <div class="rh-daily__book-flows">
+                                <h6>Deposits, withdrawals, and transfers</h6>
+                                @if (cell.periodAdded) {
+                                  <span class="rh-daily__flow-in">Added {{ cell.periodAdded | currency }}</span>
+                                }
+                                @if (cell.periodRemoved) {
+                                  <span class="rh-daily__flow-out">Removed {{ cell.periodRemoved | currency }}</span>
+                                }
+                                @if (cell.periodFlows?.length) {
+                                  <ul>
+                                    @for (f of cell.periodFlows; track $index) {
+                                      <li>
+                                        <span [class]="flowDeltaClass(f)">{{ flowDirectionLabel(f) }}</span>
+                                        <strong>{{ f.amount | currency }}</strong>
+                                        <span class="muted">{{ flowCategoryLabel(f.flowCategory) }}</span>
+                                        <span>{{ f.description || f.transCode }}</span>
+                                      </li>
+                                    }
+                                  </ul>
+                                } @else {
+                                  <p class="muted">None this period — cash swings are buys, sells, and margin.</p>
+                                }
+                              </div>
+                              <div class="rh-daily__book-holdings">
+                                <h6>Holdings at close</h6>
+                                @if (cell.holdings?.length) {
+                                  <ul>
+                                    @for (h of cell.holdings; track holdingBriefTrack(h)) {
+                                      <li [class.muted]="h.exited">
+                                        <strong>{{ h.symbol }}</strong>
+                                        <span class="muted">{{ h.positionType || 'equity' }}</span>
+                                        <span>{{ h.quantity | number: '1.0-4' }}</span>
+                                        <span>{{ h.marketValue | currency }}</span>
+                                        @if (h.quantityChange) {
+                                          <span [class]="pnlClass(h.quantityChange)">{{ signedQty(h.quantityChange) }}</span>
+                                        }
+                                      </li>
+                                    }
+                                  </ul>
+                                } @else {
+                                  <p class="muted">No stock or option lots at this close.</p>
+                                }
+                              </div>
+                              @if (hasSpikeAlert(cell.spikeAlert) || cell.positionsChangedFromPrior) {
+                                <footer class="rh-daily__book-signals">
+                                  @if (hasSpikeAlert(cell.spikeAlert)) {
+                                    <span
+                                      class="rh-daily__spike-alert rh-daily__spike-alert--compact"
+                                      [class.rh-daily__spike-alert--up]="isSpikeAlertPositive(cell.spikeAlert)"
+                                      [title]="spikeAlertTitle(cell.spikeAlert!)"
+                                    >
+                                      <mat-icon class="rh-daily__spike-alert-icon" aria-hidden="true">notifications_active</mat-icon>
+                                      {{ alertTriggerLabel(cell.spikeAlert!.triggerReasons!) }}
+                                    </span>
+                                  }
+                                  @if (cell.positionsChangedFromPrior) {
+                                    <span class="rh-daily__focus-signal">positions moved</span>
+                                  }
+                                </footer>
                               }
-                            }
-                          </tbody>
-                        </table>
+                            </article>
+                          }
+                        }
                       </div>
                     }
                   </div>

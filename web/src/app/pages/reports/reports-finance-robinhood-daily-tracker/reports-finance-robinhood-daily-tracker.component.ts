@@ -16,7 +16,9 @@ import { RouterLink } from '@angular/router';
 import { filter, interval, switchMap } from 'rxjs';
 import {
   RobinhoodRhAccountSummaryDto,
+  RobinhoodRhCashFlowEventDto,
   RobinhoodRhDailyTrackerAccountCellDto,
+  RobinhoodRhDailyTrackerHoldingBriefDto,
   RobinhoodRhDailyTrackerAccountColumnDto,
   RobinhoodRhDailyTrackerDayDto,
   RobinhoodRhDailyTrackerManualCaptureDto,
@@ -887,6 +889,12 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       tradeCount: 0,
       positionsChangedFromPrior: acct.positionsChangedFromPrior ?? false,
       spikeAlert: acct.spikeAlert ?? { fired: false, emailStatus: null, triggerReasons: null, deltaDollars: null, deltaPercent: null },
+      cashBalance: 0,
+      equityMarketValue: 0,
+      cashChangeFromPrevious: null,
+      equityChangeFromPrevious: null,
+      periodFlows: [],
+      holdings: [],
     };
   }
 
@@ -1087,6 +1095,12 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         tradeCount: 0,
         positionsChangedFromPrior: acct.positionsChangedFromPrior,
         spikeAlert: acct.spikeAlert,
+        cashBalance: 0,
+        equityMarketValue: 0,
+        cashChangeFromPrevious: null,
+        equityChangeFromPrevious: null,
+        periodFlows: [],
+        holdings: [],
       },
       day,
     );
@@ -1987,6 +2001,62 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
 
   hasFlowBlock(day: RobinhoodRhDailyTrackerDayDto): boolean {
     return day.hasScheduledSnapshot && (day.combinedPeriodAdded !== 0 || day.combinedPeriodRemoved !== 0);
+  }
+
+  isAllCash(cell: RobinhoodRhDailyTrackerAccountCellDto): boolean {
+    return (cell.cashBalance ?? 0) > 0 && (cell.equityMarketValue ?? 0) === 0;
+  }
+
+  flowDirectionLabel(f: RobinhoodRhCashFlowEventDto): string {
+    const dir = (f.direction || '').toLowerCase();
+    if (dir === 'in' || dir === 'credit' || (f.flowCategory || '').includes('_IN')) {
+      return 'In';
+    }
+    if (dir === 'out' || dir === 'debit' || (f.flowCategory || '').includes('_OUT')) {
+      return 'Out';
+    }
+    return f.direction || 'Flow';
+  }
+
+  flowDeltaClass(f: RobinhoodRhCashFlowEventDto): string {
+    return this.pnlClass(this.flowDirectionLabel(f) === 'Out' ? -1 : 1);
+  }
+
+  flowCategoryLabel(category: string | null | undefined): string {
+    switch (category) {
+      case 'EXTERNAL_IN':
+        return 'Deposit';
+      case 'EXTERNAL_OUT':
+        return 'Withdrawal';
+      case 'INTERNAL_IN':
+        return 'Transfer in';
+      case 'INTERNAL_OUT':
+        return 'Transfer out';
+      case 'INTEREST':
+        return 'Interest';
+      case 'FEE':
+        return 'Fee';
+      default:
+        return category || '—';
+    }
+  }
+
+  holdingBriefTrack(h: RobinhoodRhDailyTrackerHoldingBriefDto): string {
+    return `${h.symbol}|${h.positionType}|${h.exited ? 'out' : 'in'}`;
+  }
+
+  signedQty(value: number | null | undefined): string {
+    if (value == null) {
+      return '';
+    }
+    const abs = Math.abs(value).toLocaleString('en-US', { maximumFractionDigits: 4 });
+    if (value > 0) {
+      return `+${abs}`;
+    }
+    if (value < 0) {
+      return `−${abs}`;
+    }
+    return abs;
   }
 
   isTradesExpanded(day: RobinhoodRhDailyTrackerDayDto): boolean {

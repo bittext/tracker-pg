@@ -928,6 +928,121 @@
   padding: 0 0.85rem 0.75rem;
 }
 
+.rh-daily__books {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 0.75rem;
+  padding: 0 0.85rem 0.85rem;
+}
+
+.rh-daily__book {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.75rem 0.8rem;
+  border-radius: 10px;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
+  background: var(--app-surface, #fff);
+
+  &--focus {
+    border-color: color-mix(in srgb, #2563eb 45%, var(--app-border, #cbd5e1));
+    box-shadow: inset 3px 0 0 #2563eb;
+  }
+
+  &--alert {
+    box-shadow: inset 3px 0 0 #b91c1c;
+  }
+
+  h6 {
+    margin: 0 0 0.3rem;
+    font-size: 0.68rem;
+    font-weight: 650;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--app-muted, #64748b);
+  }
+}
+
+.rh-daily__book-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.rh-daily__book-open {
+  flex: 0 0 auto;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.16));
+  background: none;
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+  color: inherit;
+
+  &:hover {
+    background: var(--app-surface-muted, #f8fafc);
+  }
+}
+
+.rh-daily__book-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem 0.7rem;
+  margin: 0;
+
+  dt {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--app-muted, #64748b);
+  }
+
+  dd {
+    margin: 0.1rem 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.45rem;
+    align-items: baseline;
+    font-size: 0.82rem;
+
+    strong {
+      font-size: 0.95rem;
+    }
+  }
+}
+
+.rh-daily__book-flows,
+.rh-daily__book-holdings {
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.28rem;
+  }
+
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.45rem;
+    font-size: 0.78rem;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.78rem;
+  }
+}
+
+.rh-daily__book-signals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
 .rh-daily__accounts-strip {
   width: 100%;
   border-collapse: collapse;

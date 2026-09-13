@@ -604,6 +604,16 @@ export interface RhDailyTrackerSnapshotAlertDto {
   deltaPercent: number | null;
 }
 
+export interface RobinhoodRhDailyTrackerHoldingBriefDto {
+  symbol: string;
+  positionType: string;
+  quantity: number;
+  marketValue: number;
+  quantityChange: number | null;
+  marketValueChange: number | null;
+  exited: boolean;
+}
+
 export interface RobinhoodRhDailyTrackerAccountCellDto {
   snapshotId: number;
   accountSuffix: string;
@@ -617,6 +627,12 @@ export interface RobinhoodRhDailyTrackerAccountCellDto {
   /** Stock/option quantity changes vs prior pull (always false for ••••4123). */
   positionsChangedFromPrior: boolean;
   spikeAlert: RhDailyTrackerSnapshotAlertDto;
+  cashBalance: number;
+  equityMarketValue: number;
+  cashChangeFromPrevious: number | null;
+  equityChangeFromPrevious: number | null;
+  periodFlows: RobinhoodRhCashFlowEventDto[];
+  holdings: RobinhoodRhDailyTrackerHoldingBriefDto[];
 }
 
 export interface RobinhoodRhDailySnapshotHoldingDto {

@@ -31,7 +31,7 @@ export interface RobinhoodDailyDayDialogData {
 }
 
 export const RH_DAY_DIALOG_CONFIG: Pick<MatDialogConfig, 'width' | 'maxWidth' | 'maxHeight' | 'panelClass'> = {
-  width: 'min(720px, 96vw)',
+  width: 'min(820px, 96vw)',
   maxWidth: '96vw',
   maxHeight: '90vh',
   panelClass: 'rh-day-dialog-panel',

@@ -1,6 +1,7 @@
 package com.svp.tracker.finance.dto;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public record RobinhoodRhDailyTrackerAccountCellDto(
         long snapshotId,
@@ -16,4 +17,10 @@ public record RobinhoodRhDailyTrackerAccountCellDto(
         /** Stock/option quantity changes vs the immediately prior pull (false for ••••4123). */
         boolean positionsChangedFromPrior,
         /** Spike alert evaluation result for this snapshot (null fields when not fired). */
-        RhDailyTrackerSnapshotAlertDto spikeAlert) {}
+        RhDailyTrackerSnapshotAlertDto spikeAlert,
+        BigDecimal cashBalance,
+        BigDecimal equityMarketValue,
+        BigDecimal cashChangeFromPrevious,
+        BigDecimal equityChangeFromPrevious,
+        List<RobinhoodRhCashFlowEventDto> periodFlows,
+        List<RobinhoodRhDailyTrackerHoldingBriefDto> holdings) {}

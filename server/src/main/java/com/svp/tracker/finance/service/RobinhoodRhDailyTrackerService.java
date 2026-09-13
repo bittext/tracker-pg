@@ -7,6 +7,7 @@ import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.RobinhoodAgenticProperties;
 import com.svp.tracker.config.RobinhoodRhDailyTrackerProperties;
 import com.svp.tracker.finance.domain.RhDailyTrackerAlertEvent;
+import com.svp.tracker.finance.domain.RobinhoodAccountCashIo;
 import com.svp.tracker.finance.domain.RobinhoodAgenticSyncedOrder;
 import com.svp.tracker.finance.domain.RobinhoodRhDailyCaptureKind;
 import com.svp.tracker.finance.domain.RobinhoodRhDailyDayNote;
@@ -23,6 +24,7 @@ import com.svp.tracker.finance.dto.RobinhoodRhDailySnapshotDetailDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailySnapshotHoldingDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerAccountCellDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerAccountColumnDto;
+import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerHoldingBriefDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerDayDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerManualCaptureAccountDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerManualCaptureDto;
@@ -220,6 +222,9 @@ public class RobinhoodRhDailyTrackerService {
             accountTotalByScheduledDate.put(scheduledDate, bySuffix);
         }
 
+        Map<String, List<RobinhoodAccountCashIo>> cashIoBySuffix =
+                loadCashIoBySuffix(ownerUserId, yearStart.minusDays(3), yearEnd);
+
         Map<LocalDate, String> summaryNotesByDate = new LinkedHashMap<>();
         for (RobinhoodRhDailyDayNote noteRow :
                 dayNoteRepository.findByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateDesc(
@@ -258,31 +263,25 @@ public class RobinhoodRhDailyTrackerService {
                             ? Map.of()
                             : yearAccountTotalByScheduledDate.getOrDefault(previousScheduledDate, Map.of());
 
+            Map<String, RobinhoodRhDailySnapshot> previousScheduledRows = previousScheduledDate == null
+                    ? Map.of()
+                    : indexBySuffix(yearScheduledByDate.getOrDefault(previousScheduledDate, List.of()));
             for (RobinhoodRhDailySnapshot row : dayScheduled) {
-                combinedTotal = combinedTotal.add(nullToZero(row.getTotalAccountValue()));
-                combinedAdded = combinedAdded.add(nullToZero(row.getPeriodAdded()));
-                combinedRemoved = combinedRemoved.add(nullToZero(row.getPeriodRemoved()));
-                combinedValueChange = combinedValueChange.add(nullToZero(row.getPeriodValueChange()));
-                boolean flowActivity =
-                        row.getPeriodAdded().signum() != 0 || row.getPeriodRemoved().signum() != 0;
+                RobinhoodRhDailySnapshot priorScheduled = previousScheduledRows.get(row.getAccountSuffix());
                 List<RobinhoodRhDailyTradeDto> rowTrades = resolveTradesForSnapshot(row, ownerOrders);
-                BigDecimal accountTotalChange = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-                if (previousScheduledDate != null) {
-                    accountTotalChange = scaleMoney(nullToZero(row.getTotalAccountValue())
-                            .subtract(nullToZero(previousAccountTotals.get(row.getAccountSuffix()))));
-                }
-                cells.add(new RobinhoodRhDailyTrackerAccountCellDto(
-                        row.getId(),
-                        row.getAccountSuffix(),
-                        scaleMoney(row.getTotalAccountValue()),
-                        accountTotalChange,
-                        scaleMoney(row.getPeriodAdded()),
-                        scaleMoney(row.getPeriodRemoved()),
-                        scaleMoney(row.getPeriodValueChange()),
-                        flowActivity,
-                        rowTrades.size(),
+                RobinhoodRhDailyTrackerAccountCellDto cell = buildScheduledAccountCell(
+                        row,
+                        priorScheduled,
+                        previousAccountTotals.get(row.getAccountSuffix()),
+                        rowTrades,
                         positionsChangedFromPrior(ownerUserId, row, allYearRows),
-                        spikeAlertFor(alertsBySnapshotId, row.getId())));
+                        spikeAlertFor(alertsBySnapshotId, row.getId()),
+                        cashIoBySuffix);
+                combinedTotal = combinedTotal.add(nullToZero(cell.totalAccountValue()));
+                combinedAdded = combinedAdded.add(nullToZero(cell.periodAdded()));
+                combinedRemoved = combinedRemoved.add(nullToZero(cell.periodRemoved()));
+                combinedValueChange = combinedValueChange.add(nullToZero(cell.periodValueChange()));
+                cells.add(cell);
             }
 
             List<RobinhoodRhDailyTradeDto> dayTrades = buildDayTrades(
@@ -515,6 +514,14 @@ public class RobinhoodRhDailyTrackerService {
         if (needsSyncedOrderFallback(dayScheduled, dayIntraday, dayManual)) {
             ownerOrders = syncedOrderRepository.findByOwnerUserIdOrderByUpdatedAtRhDescCreatedAtRhDesc(ownerUserId);
         }
+        Map<String, List<RobinhoodAccountCashIo>> cashIoBySuffix =
+                loadCashIoBySuffix(ownerUserId, snapshotDate.minusDays(10), snapshotDate);
+        Map<String, RobinhoodRhDailySnapshot> previousScheduledRows = previousScheduledDate == null
+                ? Map.of()
+                : indexBySuffix(scheduledOnly(visibleSnapshots(
+                        ownerUserId,
+                        snapshotRepository.findByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateDescAccountSuffixAsc(
+                                ownerUserId, previousScheduledDate, previousScheduledDate))));
 
         Instant snapshotAt = dayScheduled.stream()
                 .map(RobinhoodRhDailySnapshot::getSnapshotAt)
@@ -530,31 +537,21 @@ public class RobinhoodRhDailyTrackerService {
         LinkedHashMap<String, RobinhoodRhDailyTrackerAccountColumnDto> columnBySuffix = new LinkedHashMap<>();
 
         for (RobinhoodRhDailySnapshot row : dayScheduled) {
-            combinedTotal = combinedTotal.add(nullToZero(row.getTotalAccountValue()));
-            combinedAdded = combinedAdded.add(nullToZero(row.getPeriodAdded()));
-            combinedRemoved = combinedRemoved.add(nullToZero(row.getPeriodRemoved()));
-            combinedValueChange = combinedValueChange.add(nullToZero(row.getPeriodValueChange()));
-            boolean flowActivity =
-                    row.getPeriodAdded().signum() != 0 || row.getPeriodRemoved().signum() != 0;
-            List<RobinhoodRhDailyTradeDto> rowTrades = resolveTradesForSnapshot(row, ownerOrders);
-            BigDecimal accountTotalChange = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-            if (previousScheduledDate != null) {
-                accountTotalChange = scaleMoney(nullToZero(row.getTotalAccountValue())
-                        .subtract(nullToZero(previousAccountTotals.get(row.getAccountSuffix()))));
-            }
             columnBySuffix.putIfAbsent(row.getAccountSuffix(), accountColumn(row));
-            cells.add(new RobinhoodRhDailyTrackerAccountCellDto(
-                    row.getId(),
-                    row.getAccountSuffix(),
-                    scaleMoney(row.getTotalAccountValue()),
-                    accountTotalChange,
-                    scaleMoney(row.getPeriodAdded()),
-                    scaleMoney(row.getPeriodRemoved()),
-                    scaleMoney(row.getPeriodValueChange()),
-                    flowActivity,
-                    rowTrades.size(),
+            List<RobinhoodRhDailyTradeDto> rowTrades = resolveTradesForSnapshot(row, ownerOrders);
+            RobinhoodRhDailyTrackerAccountCellDto cell = buildScheduledAccountCell(
+                    row,
+                    previousScheduledRows.get(row.getAccountSuffix()),
+                    previousAccountTotals.get(row.getAccountSuffix()),
+                    rowTrades,
                     false,
-                    RhDailyTrackerSnapshotAlertDto.none()));
+                    RhDailyTrackerSnapshotAlertDto.none(),
+                    cashIoBySuffix);
+            combinedTotal = combinedTotal.add(nullToZero(cell.totalAccountValue()));
+            combinedAdded = combinedAdded.add(nullToZero(cell.periodAdded()));
+            combinedRemoved = combinedRemoved.add(nullToZero(cell.periodRemoved()));
+            combinedValueChange = combinedValueChange.add(nullToZero(cell.periodValueChange()));
+            cells.add(cell);
         }
 
         for (RobinhoodRhDailySnapshot row : dayRows) {
@@ -1373,20 +1370,159 @@ public class RobinhoodRhDailyTrackerService {
         return RobinhoodRhDailySnapshotCompare.positionsChanged(priorOpt.get(), current);
     }
 
+    private RobinhoodRhDailyTrackerAccountCellDto buildScheduledAccountCell(
+            RobinhoodRhDailySnapshot row,
+            RobinhoodRhDailySnapshot priorScheduled,
+            BigDecimal previousScheduledTotal,
+            List<RobinhoodRhDailyTradeDto> rowTrades,
+            boolean positionsChanged,
+            RhDailyTrackerSnapshotAlertDto spike,
+            Map<String, List<RobinhoodAccountCashIo>> cashIoBySuffix) {
+        List<RobinhoodRhCashFlowEventDto> flows = overlayLoggedCashIo(
+                row, readJson(row.getFlowsJson(), new TypeReference<>() {}), cashIoBySuffix);
+        BigDecimal periodAdded = sumFlowAmounts(flows, true);
+        BigDecimal periodRemoved = sumFlowAmounts(flows, false);
+        BigDecimal priorTotal = previousScheduledTotal != null
+                ? previousScheduledTotal
+                : (priorScheduled == null ? null : priorScheduled.getTotalAccountValue());
+        BigDecimal bookDelta = priorTotal == null
+                ? null
+                : nullToZero(row.getTotalAccountValue()).subtract(nullToZero(priorTotal));
+        BigDecimal periodValueChange = bookDelta == null
+                ? scaleMoney(row.getPeriodValueChange())
+                : scaleMoney(bookDelta.subtract(periodAdded).add(periodRemoved));
+        BigDecimal accountTotalChange = bookDelta == null
+                ? BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)
+                : scaleMoney(bookDelta);
+        boolean flowActivity = periodAdded.signum() != 0 || periodRemoved.signum() != 0 || !flows.isEmpty();
+        return new RobinhoodRhDailyTrackerAccountCellDto(
+                row.getId() == null ? 0L : row.getId(),
+                row.getAccountSuffix(),
+                scaleMoney(row.getTotalAccountValue()),
+                accountTotalChange,
+                scaleMoney(periodAdded),
+                scaleMoney(periodRemoved),
+                periodValueChange,
+                flowActivity,
+                rowTrades == null ? 0 : rowTrades.size(),
+                positionsChanged,
+                spike == null ? RhDailyTrackerSnapshotAlertDto.none() : spike,
+                scaleMoney(row.getCashBalance()),
+                scaleMoney(row.getEquityMarketValue()),
+                priorScheduled == null
+                        ? null
+                        : RobinhoodRhDailySnapshotCompare.signedMoneyDelta(
+                                row.getCashBalance(), priorScheduled.getCashBalance()),
+                priorScheduled == null
+                        ? null
+                        : RobinhoodRhDailySnapshotCompare.signedMoneyDelta(
+                                row.getEquityMarketValue(), priorScheduled.getEquityMarketValue()),
+                flows,
+                holdingBriefs(row, priorScheduled));
+    }
+
+    private List<RobinhoodRhDailyTrackerHoldingBriefDto> holdingBriefs(
+            RobinhoodRhDailySnapshot row, RobinhoodRhDailySnapshot prior) {
+        List<RobinhoodRhHoldingDto> holdings =
+                RobinhoodRhHoldingValues.normalizeStoredSnapshotHoldings(
+                        readJson(row.getHoldingsJson(), new TypeReference<>() {}));
+        List<RobinhoodRhHoldingDto> priorHoldings = prior == null
+                ? null
+                : RobinhoodRhHoldingValues.normalizeStoredSnapshotHoldings(
+                        readJson(prior.getHoldingsJson(), new TypeReference<>() {}));
+        List<RobinhoodRhDailySnapshotHoldingDto> withDeltas =
+                RobinhoodRhDailySnapshotCompare.holdingsWithPriorDeltas(holdings, priorHoldings);
+        withDeltas.sort((a, b) -> {
+            boolean aMoved = a.quantityChange() != null
+                    && a.quantityChange().abs().compareTo(new BigDecimal("0.0000005")) > 0;
+            boolean bMoved = b.quantityChange() != null
+                    && b.quantityChange().abs().compareTo(new BigDecimal("0.0000005")) > 0;
+            if (aMoved != bMoved) {
+                return aMoved ? -1 : 1;
+            }
+            return nullToZero(b.holding() == null ? null : b.holding().marketValue())
+                    .abs()
+                    .compareTo(nullToZero(a.holding() == null ? null : a.holding().marketValue()).abs());
+        });
+        List<RobinhoodRhDailyTrackerHoldingBriefDto> out = new ArrayList<>();
+        for (RobinhoodRhDailySnapshotHoldingDto item : withDeltas) {
+            if (item.holding() == null) {
+                continue;
+            }
+            out.add(new RobinhoodRhDailyTrackerHoldingBriefDto(
+                    item.holding().symbol(),
+                    item.holding().positionType(),
+                    item.holding().quantity(),
+                    scaleMoney(item.holding().marketValue()),
+                    item.quantityChange(),
+                    item.marketValueChange(),
+                    item.exited()));
+            if (out.size() >= 12) {
+                break;
+            }
+        }
+        return out;
+    }
+
+    private static Map<String, RobinhoodRhDailySnapshot> indexBySuffix(List<RobinhoodRhDailySnapshot> rows) {
+        Map<String, RobinhoodRhDailySnapshot> out = new LinkedHashMap<>();
+        if (rows == null) {
+            return out;
+        }
+        for (RobinhoodRhDailySnapshot row : rows) {
+            if (row.getAccountSuffix() != null) {
+                out.putIfAbsent(row.getAccountSuffix(), row);
+            }
+        }
+        return out;
+    }
+
+    private Map<String, List<RobinhoodAccountCashIo>> loadCashIoBySuffix(
+            long ownerUserId, LocalDate from, LocalDate to) {
+        Map<String, List<RobinhoodAccountCashIo>> out = new HashMap<>();
+        for (RobinhoodAccountCashIo row :
+                cashIoRepository.findByOwnerUserIdAndActivityDateBetweenOrderByActivityDateDescIdDesc(
+                        ownerUserId, from, to)) {
+            if (row.getAccountSuffix() == null || row.getAccountSuffix().isBlank()) {
+                continue;
+            }
+            out.computeIfAbsent(row.getAccountSuffix().trim(), k -> new ArrayList<>()).add(row);
+        }
+        return out;
+    }
+
     private List<RobinhoodRhCashFlowEventDto> overlayLoggedCashIo(
             RobinhoodRhDailySnapshot row, List<RobinhoodRhCashFlowEventDto> existing) {
+        return overlayLoggedCashIo(row, existing, null);
+    }
+
+    private List<RobinhoodRhCashFlowEventDto> overlayLoggedCashIo(
+            RobinhoodRhDailySnapshot row,
+            List<RobinhoodRhCashFlowEventDto> existing,
+            Map<String, List<RobinhoodAccountCashIo>> cashIoBySuffix) {
         List<RobinhoodRhCashFlowEventDto> extras = List.of();
-        if (row.getOwnerUserId() != null && row.getAccountSuffix() != null && row.getSnapshotDate() != null) {
+        if (row.getAccountSuffix() != null && row.getSnapshotDate() != null) {
             LocalDate snapshotDate = row.getSnapshotDate();
             LocalDate periodStart = row.getPeriodStartDate();
-            LocalDate from = periodStart == null ? snapshotDate : periodStart.plusDays(1);
-            if (from.isAfter(snapshotDate)) {
-                from = snapshotDate;
+            LocalDate fromInclusive = periodStart == null ? snapshotDate : periodStart.plusDays(1);
+            if (fromInclusive.isAfter(snapshotDate)) {
+                fromInclusive = snapshotDate;
             }
-            extras = cashIoRepository
-                    .findByOwnerUserIdAndAccountSuffixAndActivityDateBetweenOrderByActivityDateDescIdDesc(
-                            row.getOwnerUserId(), row.getAccountSuffix(), from, snapshotDate)
-                    .stream()
+            final LocalDate periodFrom = fromInclusive;
+            List<RobinhoodAccountCashIo> source;
+            if (cashIoBySuffix != null) {
+                source = cashIoBySuffix.getOrDefault(row.getAccountSuffix().trim(), List.of());
+            } else if (row.getOwnerUserId() != null) {
+                source = cashIoRepository
+                        .findByOwnerUserIdAndAccountSuffixAndActivityDateBetweenOrderByActivityDateDescIdDesc(
+                                row.getOwnerUserId(), row.getAccountSuffix(), periodFrom, snapshotDate);
+            } else {
+                source = List.of();
+            }
+            extras = source.stream()
+                    .filter(extra -> extra.getActivityDate() != null
+                            && !extra.getActivityDate().isBefore(periodFrom)
+                            && !extra.getActivityDate().isAfter(snapshotDate))
                     .map(extra -> RobinhoodCashFlowClassifier.fromLoggedCashIo(
                             extra.getActivityDate(), extra.getDirection(), extra.getAmount(), extra.getNote()))
                     .toList();

@@ -62,6 +62,19 @@
               }
             </span>
             <mat-icon class="rh-day-dialog__acct-chevron" aria-hidden="true">chevron_right</mat-icon>
+            <span class="rh-day-dialog__acct-meta muted">
+              Cash {{ row.cell.cashBalance | currency }}
+              · Equity {{ row.cell.equityMarketValue | currency }}
+              @if (row.cell.periodRemoved) {
+                · Out {{ row.cell.periodRemoved | currency }}
+              }
+              @if (row.cell.periodAdded) {
+                · In {{ row.cell.periodAdded | currency }}
+              }
+              @if (row.cell.tradeCount) {
+                · {{ row.cell.tradeCount }} trades
+              }
+            </span>
           </button>
         </li>
       }
