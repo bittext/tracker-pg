@@ -2,10 +2,14 @@ package com.svp.tracker.finance.service;
 
 import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.finance.domain.RobinhoodAgenticSyncedOrder;
+import com.svp.tracker.finance.domain.RobinhoodRhDailyCaptureKind;
+import com.svp.tracker.finance.domain.RobinhoodRhDailySnapshot;
 import com.svp.tracker.finance.dto.RobinhoodExecutedTradeDto;
 import com.svp.tracker.finance.dto.RobinhoodExecutedTradesDto;
+import com.svp.tracker.finance.dto.RobinhoodRhDailyTradeDto;
 import com.svp.tracker.finance.dto.RobinhoodRhPeriodAccountColumnDto;
 import com.svp.tracker.finance.repository.RobinhoodAgenticSyncedOrderRepository;
+import com.svp.tracker.finance.repository.RobinhoodRhDailySnapshotRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -15,6 +19,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -37,6 +42,7 @@ public class RobinhoodExecutedTradesService {
 
     private final CurrentUserService currentUser;
     private final RobinhoodAgenticSyncedOrderRepository syncedOrderRepository;
+    private final RobinhoodRhDailySnapshotRepository snapshotRepository;
     private final RobinhoodAccountTrackerConfigService accountTrackerConfigService;
 
     @Transactional(readOnly = true)
@@ -82,6 +88,57 @@ public class RobinhoodExecutedTradesService {
                     executedAt.atZone(CENTRAL).toLocalDate(),
                     suffix,
                     RobinhoodRhDailyTrackerAccountPolicy.displayLabel(suffix)));
+        }
+        Set<String> seen = new HashSet<>();
+        for (WorkingTrade row : history) {
+            seen.add(tradeKey(row));
+        }
+        for (RobinhoodRhDailySnapshot snap :
+                snapshotRepository.findByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateDescAccountSuffixAsc(
+                        ownerUserId, yearStart, yearEnd)) {
+            if (!RobinhoodRhDailyCaptureKind.SCHEDULED.equals(snap.getCaptureKind())) {
+                continue;
+            }
+            String suffix = snap.getAccountSuffix() == null ? null : snap.getAccountSuffix().trim();
+            if (suffix == null
+                    || !TRADE_LIST_SUFFIXES.contains(suffix)
+                    || !accountTrackerConfigService.isDailyTrackerSuffix(ownerUserId, suffix)) {
+                continue;
+            }
+            for (RobinhoodRhDailyTradeDto trade : RobinhoodRhSnapshotTradeReader.read(snap.getTradesJson())) {
+                if (!isExecutedTrade(trade.state())) {
+                    continue;
+                }
+                Instant executedAt = trade.executedAt();
+                if (executedAt == null) {
+                    continue;
+                }
+                String tradeSuffix = trade.accountSuffix() == null || trade.accountSuffix().isBlank()
+                        ? suffix
+                        : trade.accountSuffix().trim();
+                if (!TRADE_LIST_SUFFIXES.contains(tradeSuffix)) {
+                    continue;
+                }
+                WorkingTrade row = new WorkingTrade(
+                        trade.symbol(),
+                        trade.side(),
+                        trade.orderType(),
+                        trade.quantity(),
+                        trade.averagePrice() != null ? trade.averagePrice() : trade.limitPrice(),
+                        notional(
+                                trade.symbol(),
+                                trade.quantity(),
+                                trade.averagePrice() != null ? trade.averagePrice() : trade.limitPrice()),
+                        trade.state(),
+                        executedAt,
+                        executedAt.atZone(CENTRAL).toLocalDate(),
+                        tradeSuffix,
+                        RobinhoodRhDailyTrackerAccountPolicy.displayLabel(tradeSuffix));
+                if (!seen.add(tradeKey(row))) {
+                    continue;
+                }
+                history.add(row);
+            }
         }
         history.sort(Comparator.comparing(WorkingTrade::executedAt, Comparator.nullsLast(Comparator.naturalOrder())));
 
@@ -132,9 +189,10 @@ public class RobinhoodExecutedTradesService {
         List<String> symbolChoices = tradedSymbols.stream().sorted().toList();
         String note = trades.isEmpty()
                 ? "No filled buys or sells in " + year + " yet. Sync Robinhood orders from Finance if this looks short."
-                : "Filled and partially filled orders only, newest first. Times are America/Chicago. "
-                        + "Individual, Agentic, and Ammu's accounts. Stock filter is names in the list below. "
-                        + "Sell gain/loss is FIFO against earlier synced buys on the same account and symbol.";
+                : "Filled buys and sells, newest first — live synced orders plus fills frozen on each Daily Tracker close. "
+                        + "Times are America/Chicago. Individual, Agentic, and Ammu's accounts. "
+                        + "Same-day hops stay listed even after the position is gone. "
+                        + "Sell gain/loss is FIFO against earlier buys on the same account and symbol.";
         return new RobinhoodExecutedTradesDto(year, note, accounts, symbolChoices, trades);
     }
 
@@ -249,6 +307,16 @@ public class RobinhoodExecutedTradesService {
                     .setScale(1, RoundingMode.HALF_UP);
         }
         return new RealizedPnl(pnl, percent);
+    }
+
+    private static String tradeKey(WorkingTrade row) {
+        return String.join(
+                "|",
+                row.suffix() == null ? "" : row.suffix(),
+                row.symbol() == null ? "" : row.symbol().trim().toUpperCase(Locale.ROOT),
+                row.side() == null ? "" : row.side().trim().toLowerCase(Locale.ROOT),
+                row.qty() == null ? "" : row.qty().stripTrailingZeros().toPlainString(),
+                row.executedAt() == null ? "" : row.executedAt().toString());
     }
 
     private static String fifoKey(String suffix, String symbol) {

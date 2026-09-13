@@ -10,11 +10,15 @@ import com.svp.tracker.finance.dto.RobinhoodOwnershipContractDto;
 import com.svp.tracker.finance.dto.RobinhoodOwnershipContractSeriesDto;
 import com.svp.tracker.finance.dto.RobinhoodOwnershipHistoryDto;
 import com.svp.tracker.finance.dto.RobinhoodOwnershipHistoryPointDto;
+import com.svp.tracker.finance.dto.RobinhoodOwnershipHopDto;
+import com.svp.tracker.finance.dto.RobinhoodRhDailyTradeDto;
 import com.svp.tracker.finance.dto.RobinhoodRhHoldingDto;
 import com.svp.tracker.finance.repository.RobinhoodRhDailySnapshotRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -42,6 +46,9 @@ import org.springframework.web.server.ResponseStatusException;
 public class RobinhoodOwnershipHistoryService {
 
     private static final BigDecimal ZERO = BigDecimal.ZERO;
+    private static final ZoneId CENTRAL = ZoneId.of("America/Chicago");
+    static final String ALL_SYMBOLS = "*";
+    static final String CAPTURE_ALL = "ALL";
     /** Monkey / Then-Now capital start — option ownership history begins here. */
     static final LocalDate OPTIONS_HISTORY_START = LocalDate.of(2026, 6, 28);
 
@@ -76,10 +83,7 @@ public class RobinhoodOwnershipHistoryService {
 
         List<RobinhoodRhDailySnapshot> rawYearRows = snapshotRepository
                 .findByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateDescAccountSuffixAsc(
-                        ownerUserId, from, yearEnd)
-                .stream()
-                .filter(r -> captureKind.equals(r.getCaptureKind()))
-                .toList();
+                        ownerUserId, from, yearEnd);
         Set<String> allowedSuffixes = new TreeSet<>();
         for (RobinhoodRhDailySnapshot row : rawYearRows) {
             String suf = row.getAccountSuffix();
@@ -106,18 +110,21 @@ public class RobinhoodOwnershipHistoryService {
         List<RobinhoodRhDailySnapshot> accountRows = yearRows.stream()
                 .filter(r -> accountSuffix.equals(r.getAccountSuffix()))
                 .sorted(Comparator.comparing(RobinhoodRhDailySnapshot::getSnapshotDate)
-                        .thenComparing(RobinhoodRhDailySnapshot::getSnapshotAt))
+                        .thenComparing(RobinhoodRhDailySnapshot::getSnapshotAt)
+                        .thenComparing(RobinhoodRhDailySnapshot::getId, Comparator.nullsLast(Long::compareTo)))
                 .toList();
+        List<RobinhoodRhDailySnapshot> pointRows = rowsForPoints(accountRows, captureKind);
 
         if ("option".equals(assetKind)) {
             return buildOptions(
-                    accountRows, year, from, accountSuffix, captureKind, contractKeyRaw, availableSuffixes);
+                    pointRows, year, from, accountSuffix, captureKind, contractKeyRaw, availableSuffixes);
         }
         return buildEquity(
-                accountRows, year, from, accountSuffix, captureKind, symbolRaw, availableSuffixes);
+                pointRows, accountRows, year, from, accountSuffix, captureKind, symbolRaw, availableSuffixes);
     }
 
     private RobinhoodOwnershipHistoryDto buildEquity(
+            List<RobinhoodRhDailySnapshot> pointRows,
             List<RobinhoodRhDailySnapshot> accountRows,
             int year,
             LocalDate from,
@@ -125,25 +132,34 @@ public class RobinhoodOwnershipHistoryService {
             String captureKind,
             String symbolRaw,
             List<String> availableSuffixes) {
-        List<String> availableSymbols = collectEquitySymbols(accountRows);
-        String symbol = resolveSymbol(symbolRaw, availableSymbols);
+        List<RobinhoodOwnershipHopDto> hops = buildEquityHops(accountRows, accountSuffix);
+        List<String> availableSymbols = collectEquitySymbols(accountRows, hops);
+        boolean overview = isAllSymbols(symbolRaw);
+        String symbol = overview ? ALL_SYMBOLS : resolveSymbol(symbolRaw, availableSymbols);
 
         List<RobinhoodOwnershipHistoryPointDto> points = new ArrayList<>();
-        for (RobinhoodRhDailySnapshot row : accountRows) {
-            HoldingAgg agg = extractEquity(row, symbol);
-            points.add(toPoint(row, agg, true));
+        if (!overview && !symbol.isEmpty()) {
+            for (RobinhoodRhDailySnapshot row : pointRows) {
+                HoldingAgg agg = extractEquity(row, symbol);
+                points.add(toPoint(row, agg, true));
+            }
         }
+
+        List<RobinhoodOwnershipHopDto> visibleHops = overview
+                ? hops
+                : hops.stream().filter(h -> symbol.equals(trimUpper(h.symbol()))).toList();
 
         List<String> notes = new ArrayList<>();
         notes.add(
-                "Updated automatically by the Daily Tracker snapshot job (hourly intraday + 9 PM Central scheduled close).");
+                "Buys and sells come from Daily Tracker fills (frozen at each 9 PM close) plus leftover quantity hops from hourly captures.");
+        notes.add("Same-day in-and-out names (held at noon, gone by close) still appear here.");
         notes.add(
                 "Own vs margin share split estimates margin loan as max(0, −cash) and attributes shares by loan ÷ equity market value.");
         notes.add("Margin used % is 100 × loan ÷ equity market value; the UI highlights values at 33% or higher.");
-        if (points.isEmpty()) {
+        if (points.isEmpty() && !overview) {
             notes.add("No " + captureKind + " snapshots for account ••••" + accountSuffix + " in " + year + ".");
         }
-        if (!availableSymbols.contains(symbol) && !points.isEmpty()) {
+        if (!overview && !availableSymbols.contains(symbol) && !points.isEmpty()) {
             notes.add("Symbol " + symbol + " was not found in holdings for this account/year — series may be zeros.");
         }
 
@@ -152,9 +168,9 @@ public class RobinhoodOwnershipHistoryService {
 
         return new RobinhoodOwnershipHistoryDto(
                 "equity",
-                symbol,
+                overview ? ALL_SYMBOLS : symbol,
                 null,
-                null,
+                overview ? "All hops" : null,
                 accountSuffix,
                 RobinhoodRhDailyTrackerAccountPolicy.displayLabel(accountSuffix),
                 year,
@@ -175,6 +191,7 @@ public class RobinhoodOwnershipHistoryService {
                 latest == null ? null : latest.costBasis(),
                 points,
                 List.of(),
+                visibleHops,
                 notes);
     }
 
@@ -284,6 +301,7 @@ public class RobinhoodOwnershipHistoryService {
                     null,
                     List.of(),
                     allSeries,
+                    List.of(),
                     notes);
         }
 
@@ -332,6 +350,7 @@ public class RobinhoodOwnershipHistoryService {
                 latest == null ? null : latest.marketValue(),
                 latest == null ? null : latest.costBasis(),
                 points,
+                List.of(),
                 List.of(),
                 notes);
     }
@@ -626,13 +645,224 @@ public class RobinhoodOwnershipHistoryService {
             return RobinhoodRhDailyCaptureKind.SCHEDULED;
         }
         String u = raw.trim().toUpperCase(Locale.ROOT);
-        if (RobinhoodRhDailyCaptureKind.SCHEDULED.equals(u)
+        if (CAPTURE_ALL.equals(u)
+                || RobinhoodRhDailyCaptureKind.SCHEDULED.equals(u)
                 || RobinhoodRhDailyCaptureKind.INTRADAY.equals(u)
                 || RobinhoodRhDailyCaptureKind.MANUAL.equals(u)) {
             return u;
         }
         throw new ResponseStatusException(
-                HttpStatus.BAD_REQUEST, "captureKind must be SCHEDULED, INTRADAY, or MANUAL");
+                HttpStatus.BAD_REQUEST, "captureKind must be ALL, SCHEDULED, INTRADAY, or MANUAL");
+    }
+
+    static boolean isAllSymbols(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return true;
+        }
+        String u = raw.trim().toUpperCase(Locale.ROOT);
+        return ALL_SYMBOLS.equals(u) || "ALL".equals(u);
+    }
+
+    private static List<RobinhoodRhDailySnapshot> rowsForPoints(
+            List<RobinhoodRhDailySnapshot> accountRows, String captureKind) {
+        if (!CAPTURE_ALL.equals(captureKind)) {
+            return accountRows.stream()
+                    .filter(r -> captureKind.equals(r.getCaptureKind()))
+                    .toList();
+        }
+        Map<LocalDate, RobinhoodRhDailySnapshot> lastOfDay = new LinkedHashMap<>();
+        for (RobinhoodRhDailySnapshot row : accountRows) {
+            lastOfDay.put(row.getSnapshotDate(), row);
+        }
+        return List.copyOf(lastOfDay.values());
+    }
+
+    private List<RobinhoodOwnershipHopDto> buildEquityHops(
+            List<RobinhoodRhDailySnapshot> accountRows, String accountSuffix) {
+        String label = RobinhoodRhDailyTrackerAccountPolicy.displayLabel(accountSuffix);
+        List<RobinhoodOwnershipHopDto> trades = new ArrayList<>();
+        Map<String, RobinhoodOwnershipHopDto> uniqueTrades = new LinkedHashMap<>();
+        for (RobinhoodRhDailySnapshot row : accountRows) {
+            if (!RobinhoodRhDailyCaptureKind.SCHEDULED.equals(row.getCaptureKind())) {
+                continue;
+            }
+            for (RobinhoodRhDailyTradeDto trade : RobinhoodRhSnapshotTradeReader.read(row.getTradesJson())) {
+                if (!isEquityTrade(trade)) {
+                    continue;
+                }
+                RobinhoodOwnershipHopDto hop = tradeHop(trade, row, accountSuffix, label);
+                if (hop == null) {
+                    continue;
+                }
+                uniqueTrades.putIfAbsent(tradeKey(hop), hop);
+            }
+        }
+        trades.addAll(uniqueTrades.values());
+        List<RobinhoodOwnershipHopDto> holdings = holdingHops(accountRows, accountSuffix, label);
+        return mergeHops(trades, holdings);
+    }
+
+    static List<RobinhoodOwnershipHopDto> mergeHops(
+            List<RobinhoodOwnershipHopDto> trades, List<RobinhoodOwnershipHopDto> holdings) {
+        List<RobinhoodOwnershipHopDto> out = new ArrayList<>(trades);
+        for (RobinhoodOwnershipHopDto hop : holdings) {
+            if (coveredByTrade(trades, hop)) {
+                continue;
+            }
+            out.add(hop);
+        }
+        out.sort(Comparator.comparing(
+                        RobinhoodOwnershipHopDto::at, Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(RobinhoodOwnershipHopDto::symbol, Comparator.nullsLast(String::compareTo)));
+        return out;
+    }
+
+    static boolean coveredByTrade(List<RobinhoodOwnershipHopDto> trades, RobinhoodOwnershipHopDto hop) {
+        if (hop.date() == null || hop.symbol() == null || hop.side() == null) {
+            return false;
+        }
+        for (RobinhoodOwnershipHopDto trade : trades) {
+            if (!hop.date().equals(trade.date())) {
+                continue;
+            }
+            if (!hop.symbol().equalsIgnoreCase(trade.symbol() == null ? "" : trade.symbol())) {
+                continue;
+            }
+            if (!hop.side().equalsIgnoreCase(trade.side() == null ? "" : trade.side())) {
+                continue;
+            }
+            if (sameQty(hop.quantity(), trade.quantity())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private List<RobinhoodOwnershipHopDto> holdingHops(
+            List<RobinhoodRhDailySnapshot> accountRows, String accountSuffix, String label) {
+        Map<String, List<DayQty>> bySymbol = new LinkedHashMap<>();
+        for (RobinhoodRhDailySnapshot row : accountRows) {
+            Map<String, BigDecimal> qty = new LinkedHashMap<>();
+            for (RobinhoodRhHoldingDto h : readHoldings(row)) {
+                if (!isEquity(h)) {
+                    continue;
+                }
+                String sym = trimUpper(h.symbol());
+                if (sym.isEmpty()) {
+                    continue;
+                }
+                qty.merge(sym, nullToZero(h.quantity()), BigDecimal::add);
+            }
+            Set<String> symbols = new HashSet<>(qty.keySet());
+            symbols.addAll(bySymbol.keySet());
+            for (String sym : symbols) {
+                bySymbol.computeIfAbsent(sym, k -> new ArrayList<>())
+                        .add(new DayQty(row, qty.getOrDefault(sym, ZERO)));
+            }
+        }
+        List<RobinhoodOwnershipHopDto> out = new ArrayList<>();
+        for (Map.Entry<String, List<DayQty>> e : bySymbol.entrySet()) {
+            List<DayQty> series = e.getValue();
+            BigDecimal prev = ZERO;
+            boolean seen = false;
+            for (DayQty d : series) {
+                BigDecimal cur = nullToZero(d.qty);
+                if (seen && cur.subtract(prev).abs().compareTo(new BigDecimal("0.0000005")) <= 0) {
+                    prev = cur;
+                    continue;
+                }
+                if (!seen && cur.signum() == 0) {
+                    prev = cur;
+                    seen = true;
+                    continue;
+                }
+                BigDecimal delta = seen ? cur.subtract(prev) : cur;
+                if (delta.signum() == 0) {
+                    prev = cur;
+                    seen = true;
+                    continue;
+                }
+                String side = delta.signum() > 0 ? "buy" : "sell";
+                Instant at = d.row.getSnapshotAt();
+                LocalDate date = d.row.getSnapshotDate();
+                out.add(new RobinhoodOwnershipHopDto(
+                        at,
+                        date,
+                        d.row.getCaptureKind(),
+                        e.getKey(),
+                        side,
+                        scaleQty(delta.abs()),
+                        scaleQty(prev),
+                        scaleQty(cur),
+                        null,
+                        null,
+                        "holding",
+                        accountSuffix,
+                        label));
+                prev = cur;
+                seen = true;
+            }
+        }
+        return out;
+    }
+
+    private RobinhoodOwnershipHopDto tradeHop(
+            RobinhoodRhDailyTradeDto trade, RobinhoodRhDailySnapshot row, String accountSuffix, String label) {
+        Instant at = trade.executedAt() != null ? trade.executedAt() : row.getSnapshotAt();
+        if (at == null) {
+            return null;
+        }
+        String side = trade.side() == null ? "" : trade.side().trim().toLowerCase(Locale.ROOT);
+        if (!"buy".equals(side) && !"sell".equals(side)) {
+            return null;
+        }
+        LocalDate date = at.atZone(CENTRAL).toLocalDate();
+        BigDecimal qty = scaleQty(nullToZero(trade.quantity()));
+        BigDecimal px = trade.averagePrice();
+        BigDecimal notional = null;
+        if (trade.quantity() != null && px != null) {
+            notional = trade.quantity().multiply(px).setScale(2, RoundingMode.HALF_UP);
+        }
+        return new RobinhoodOwnershipHopDto(
+                at,
+                date,
+                row.getCaptureKind(),
+                trimUpper(trade.symbol()),
+                side,
+                qty,
+                null,
+                null,
+                px == null ? null : px.setScale(4, RoundingMode.HALF_UP),
+                notional,
+                "trade",
+                accountSuffix,
+                label);
+    }
+
+    private static String tradeKey(RobinhoodOwnershipHopDto hop) {
+        return String.join(
+                "|",
+                hop.date() == null ? "" : hop.date().toString(),
+                hop.symbol() == null ? "" : hop.symbol(),
+                hop.side() == null ? "" : hop.side(),
+                hop.quantity() == null ? "" : hop.quantity().stripTrailingZeros().toPlainString(),
+                hop.at() == null ? "" : hop.at().toString());
+    }
+
+    private static boolean isEquityTrade(RobinhoodRhDailyTradeDto trade) {
+        String symbol = trade.symbol();
+        if (symbol == null || symbol.isBlank()) {
+            return false;
+        }
+        String s = symbol.toUpperCase(Locale.ROOT);
+        return !s.contains(" CALL") && !s.contains(" PUT") && !s.contains(" $");
+    }
+
+    private static boolean sameQty(BigDecimal a, BigDecimal b) {
+        if (a == null || b == null) {
+            return false;
+        }
+        return a.subtract(b).abs().compareTo(new BigDecimal("0.0005")) <= 0;
     }
 
     private static String resolveSuffix(
@@ -663,7 +893,8 @@ public class RobinhoodOwnershipHistoryService {
         return "";
     }
 
-    private List<String> collectEquitySymbols(List<RobinhoodRhDailySnapshot> rows) {
+    private List<String> collectEquitySymbols(
+            List<RobinhoodRhDailySnapshot> rows, List<RobinhoodOwnershipHopDto> hops) {
         Set<String> symbols = new TreeSet<>();
         for (RobinhoodRhDailySnapshot row : rows) {
             for (RobinhoodRhHoldingDto h : readHoldings(row)) {
@@ -674,6 +905,12 @@ public class RobinhoodOwnershipHistoryService {
                 if (!sym.isEmpty()) {
                     symbols.add(sym);
                 }
+            }
+        }
+        for (RobinhoodOwnershipHopDto hop : hops) {
+            String sym = trimUpper(hop.symbol());
+            if (!sym.isEmpty()) {
+                symbols.add(sym);
             }
         }
         return List.copyOf(symbols);
@@ -794,6 +1031,8 @@ public class RobinhoodOwnershipHistoryService {
     }
 
     private record DayHolding(RobinhoodRhDailySnapshot row, HoldingAgg agg, RobinhoodRhHoldingDto sample) {}
+
+    private record DayQty(RobinhoodRhDailySnapshot row, BigDecimal qty) {}
 
     private record Summary(LocalDate highDate, BigDecimal highQty, LocalDate lowDate, BigDecimal lowQty) {}
 

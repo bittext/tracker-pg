@@ -40,4 +40,6 @@ public record RobinhoodOwnershipHistoryDto(
         List<RobinhoodOwnershipHistoryPointDto> points,
         /** All option contract series when {@code assetKind=option} and no {@code contractKey}. */
         List<RobinhoodOwnershipContractSeriesDto> contractSeries,
+        /** Buys and sells — frozen Daily Tracker fills plus leftover holding hops. */
+        List<RobinhoodOwnershipHopDto> hops,
         List<String> notes) {}

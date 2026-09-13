@@ -4,8 +4,8 @@
       <p class="own__eyebrow">Robinhood · Daily Tracker</p>
       <h2 id="own-heading" class="own__title">Ownership</h2>
       <p class="own__lead">
-        How many shares or option contracts you held — any symbol from your snapshots. Green / red days mark when the
-        count changed.
+        Every stock buy and sell from Daily Tracker fills — including same-day hops that are gone by the 9 PM close.
+        Pick a ticker for the share-count calendar.
       </p>
     </div>
     <div class="own__toolbar">
@@ -63,11 +63,30 @@
 
   @if (report(); as r) {
     @if (r.assetKind === 'equity') {
-      <div class="own__symbols" role="list" aria-label="Held stock symbols">
+      <div class="own__symbols" role="list" aria-label="Stock symbols">
+        <button
+          type="button"
+          class="own__sym-chip"
+          role="listitem"
+          [class.own__sym-chip--active]="showingAllEquities()"
+          (click)="onSymbolChange('*')"
+        >
+          All hops
+        </button>
+        <mat-form-field appearance="outline" class="own__field own__field--search" subscriptSizing="dynamic">
+          <mat-label>Find ticker</mat-label>
+          <input
+            matInput
+            [ngModel]="symbolQuery()"
+            (ngModelChange)="symbolQuery.set($event)"
+            name="ownHistSymQ"
+            placeholder="SKHY"
+          />
+        </mat-form-field>
         @if (!r.availableSymbols.length) {
-          <p class="own__empty-inline muted">No equity symbols in snapshots for this account / year.</p>
+          <p class="own__empty-inline muted">No equity symbols or fills for this account / year.</p>
         } @else {
-          @for (s of r.availableSymbols; track s) {
+          @for (s of visibleSymbols(); track s) {
             <button
               type="button"
               class="own__sym-chip"
@@ -105,17 +124,24 @@
       <div class="own__summary-main">
         <span class="own__summary-label">{{ positionTitle(r) }}</span>
         <span class="own__summary-qty">
-          {{ r.latestQuantity | number: '1.0-4' }}
-          <span class="own__summary-unit">{{
-            r.assetKind === 'option' && !r.contractKey ? 'open (sum)' : qtyUnit(r)
-          }}</span>
+          @if (showingAllEquities()) {
+            {{ hopRows().length | number: '1.0-0' }}
+            <span class="own__summary-unit">hops</span>
+          } @else {
+            {{ r.latestQuantity | number: '1.0-4' }}
+            <span class="own__summary-unit">{{
+              r.assetKind === 'option' && !r.contractKey ? 'open (sum)' : qtyUnit(r)
+            }}</span>
+          }
         </span>
         <span class="own__summary-meta muted">
-          {{ r.accountMasked }} · {{ r.captureKind }} · {{ r.points.length }} day(s) in {{ r.year }}
+          {{ r.accountMasked }} · {{ r.captureKind }} ·
+          {{ showingAllEquities() ? hopRows().length + ' hop(s)' : r.points.length + ' day(s)' }}
+          in {{ r.year }}
         </span>
       </div>
       <div class="own__kpis" role="group" aria-label="Position summary">
-        @if (r.assetKind === 'equity') {
+        @if (r.assetKind === 'equity' && !showingAllEquities()) {
           <div class="own__kpi">
             <span class="own__kpi-label">Own ≈</span>
             <span class="own__kpi-value own__kpi-value--own">{{ r.latestOwnSharesEstimate | number: '1.0-2' }}</span>
@@ -142,7 +168,7 @@
               }}</span
             >
           </div>
-        } @else {
+        } @else if (r.assetKind === 'option') {
           <div class="own__kpi">
             <span class="own__kpi-label">Mkt value</span>
             <span class="own__kpi-value">{{
@@ -154,17 +180,19 @@
             <span class="own__kpi-value">{{ r.availableContracts.length }}</span>
           </div>
         }
-        <div class="own__kpi">
-          <span class="own__kpi-label">Peak</span>
-          <span class="own__kpi-value">{{ r.highQuantity != null ? (r.highQuantity | number: '1.0-2') : '—' }}</span>
-          <span class="own__kpi-sub muted">{{ formatDay(r.highDate) }}</span>
-        </div>
-        @if (r.assetKind === 'equity' || r.contractKey) {
+        @if (!showingAllEquities()) {
           <div class="own__kpi">
-            <span class="own__kpi-label">Low (&gt;0)</span>
-            <span class="own__kpi-value">{{ r.lowQuantity != null ? (r.lowQuantity | number: '1.0-2') : '—' }}</span>
-            <span class="own__kpi-sub muted">{{ formatDay(r.lowDate) }}</span>
+            <span class="own__kpi-label">Peak</span>
+            <span class="own__kpi-value">{{ r.highQuantity != null ? (r.highQuantity | number: '1.0-2') : '—' }}</span>
+            <span class="own__kpi-sub muted">{{ formatDay(r.highDate) }}</span>
           </div>
+          @if (r.assetKind === 'equity' || r.contractKey) {
+            <div class="own__kpi">
+              <span class="own__kpi-label">Low (&gt;0)</span>
+              <span class="own__kpi-value">{{ r.lowQuantity != null ? (r.lowQuantity | number: '1.0-2') : '—' }}</span>
+              <span class="own__kpi-sub muted">{{ formatDay(r.lowDate) }}</span>
+            </div>
+          }
         }
       </div>
     </div>
@@ -636,13 +664,80 @@
         </div>
       </section>
     } @else {
+      @if (hopRows().length) {
+        <section class="own__panel own__hops" aria-label="Buys and sells">
+          <div class="own__panel-head">
+            <div>
+              <h3 class="own__panel-title">Buys &amp; sells</h3>
+              <p class="muted own__panel-sub">
+                {{ hopRows().length }} fill{{ hopRows().length === 1 ? '' : 's' }}
+                @if (!showingAllEquities()) {
+                  in {{ r.symbol }}
+                }
+                — newest first. Same-day in-and-out stays listed.
+              </p>
+            </div>
+          </div>
+          <div class="own__hops-table-wrap">
+            <table class="own__hops-table">
+              <thead>
+                <tr>
+                  <th>When</th>
+                  <th>Side</th>
+                  @if (showingAllEquities()) {
+                    <th>Stock</th>
+                  }
+                  <th class="own__hops-num">Qty</th>
+                  <th class="own__hops-num">Price</th>
+                  <th class="own__hops-num">Notional</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (h of hopRows(); track (h.at || h.date) + h.symbol + h.side + h.quantity) {
+                  <tr
+                    [class.own__hops-row--sell]="hopIsSell(h.side)"
+                    [class.own__hops-row--active]="h.date === selectedDate()"
+                    (click)="focusDate(h.date)"
+                  >
+                    <td>
+                      <span class="own__hops-when">{{ formatHopWhen(h.at) || formatDay(h.date) }}</span>
+                    </td>
+                    <td>
+                      <span
+                        class="own__hops-side"
+                        [class.own__hops-side--sell]="hopIsSell(h.side)"
+                        >{{ hopSideLabel(h.side) }}</span
+                      >
+                    </td>
+                    @if (showingAllEquities()) {
+                      <td>
+                        <button type="button" class="own__hops-sym" (click)="onSymbolChange(h.symbol); $event.stopPropagation()">
+                          {{ h.symbol }}
+                        </button>
+                      </td>
+                    }
+                    <td class="own__hops-num">{{ h.quantity | number: '1.0-4' }}</td>
+                    <td class="own__hops-num">
+                      {{ h.averagePrice != null ? (h.averagePrice | currency: 'USD':'symbol':'1.2-4') : '—' }}
+                    </td>
+                    <td class="own__hops-num">
+                      {{ h.notional != null ? (h.notional | currency: 'USD':'symbol':'1.0-0') : '—' }}
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </section>
+      }
+
       <div class="own__workspace">
         <section class="own__panel own__cal-panel" aria-labelledby="own-cal-title">
           <div class="own__panel-head own__cal-head">
             <div>
               <h3 id="own-cal-title" class="own__panel-title">When the count changed</h3>
               <p class="muted own__panel-sub">
-                Calendar for {{ positionTitle(r) }}. Colored days = quantity moved; tap a day for detail.
+                Calendar for {{ positionTitle(r) }}. Colored days = buys or sells that day; tap a day for detail.
               </p>
             </div>
             <div class="own__cal-nav">
@@ -753,7 +848,26 @@
         <aside class="own__panel own__day-panel" aria-label="Selected day">
           @if (selectedDate(); as day) {
             <h3 class="own__panel-title">{{ formatDayFriendly(day) }}</h3>
-            @if (selectedChange(); as ch) {
+            @if (selectedHops().length) {
+              <ul class="own__day-hops">
+                @for (h of selectedHops(); track (h.at || h.date) + h.symbol + h.side + h.quantity) {
+                  <li>
+                    <span
+                      class="own__hops-side"
+                      [class.own__hops-side--sell]="hopIsSell(h.side)"
+                      >{{ hopSideLabel(h.side) }}</span
+                    >
+                    @if (showingAllEquities()) {
+                      <strong>{{ h.symbol }}</strong>
+                    }
+                    <span>{{ h.quantity | number: '1.0-4' }}</span>
+                    @if (h.averagePrice != null) {
+                      <span class="muted">@ {{ h.averagePrice | currency: 'USD':'symbol':'1.2-4' }}</span>
+                    }
+                  </li>
+                }
+              </ul>
+            } @else if (selectedChange(); as ch) {
               <p class="own__day-change" [class.own__day-change--pos]="ch.delta > 0" [class.own__day-change--neg]="ch.delta < 0">
                 Count changed
                 <strong>{{ ch.from | number: '1.0-4' }}</strong>
@@ -766,7 +880,7 @@
             } @else if (selectedPoint()) {
               <p class="muted own__day-flat">No quantity change this day — holding carried forward.</p>
             } @else {
-              <p class="muted">No snapshot on this day.</p>
+              <p class="muted">No snapshot or hop on this day.</p>
             }
 
             @if (selectedPoint(); as p) {
@@ -818,28 +932,31 @@
             <p class="muted">Select a day on the calendar.</p>
           }
 
-          @if (changeRows().length) {
+          @if (hopRows().length) {
             <div class="own__change-list">
-              <h4 class="own__change-list-title">All changes in {{ r.year }}</h4>
+              <h4 class="own__change-list-title">All hops in {{ r.year }}</h4>
               <ul>
-                @for (c of changeRows(); track c.date + c.to) {
+                @for (h of hopRows(); track (h.at || h.date) + h.symbol + h.side + h.quantity) {
                   <li>
                     <button
                       type="button"
-                      class="own__change-row"
-                      [class.own__change-row--active]="c.date === selectedDate()"
-                      (click)="focusDate(c.date)"
+                      class="own__change-row own__change-row--hop"
+                      [class.own__change-row--active]="h.date === selectedDate()"
+                      (click)="focusDate(h.date)"
                     >
-                      <span class="own__change-date">{{ formatDay(c.date) }}</span>
+                      <span class="own__change-date">{{ formatDay(h.date) }}</span>
                       <span
                         class="own__change-delta"
-                        [class.own__delta--pos]="c.delta > 0"
-                        [class.own__delta--neg]="c.delta < 0"
-                        >{{ c.delta > 0 ? '+' : '' }}{{ c.delta | number: '1.0-4' }}</span
+                        [class.own__delta--pos]="!hopIsSell(h.side)"
+                        [class.own__delta--neg]="hopIsSell(h.side)"
+                        >{{ hopIsSell(h.side) ? '−' : '+' }}{{ h.quantity | number: '1.0-4' }}</span
                       >
-                      <span class="muted own__change-range"
-                        >{{ c.from | number: '1.0-2' }} → {{ c.to | number: '1.0-2' }}</span
-                      >
+                      <span class="muted own__change-range">
+                        @if (showingAllEquities()) {
+                          {{ h.symbol }}
+                        }
+                        {{ hopSideLabel(h.side) }}
+                      </span>
                     </button>
                   </li>
                 }
@@ -849,7 +966,7 @@
         </aside>
       </div>
 
-      @if (chartBars().length) {
+      @if (!showingAllEquities() && chartBars().length) {
         <section class="own__panel own__spark" aria-label="Quantity over time">
           <h3 class="own__panel-title">{{ positionTitle(r) }} over time</h3>
           <div class="own__bars" [style.--bar-count]="chartBars().length" role="img">

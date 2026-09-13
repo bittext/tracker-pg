@@ -5,6 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -15,6 +16,7 @@ import {
   RobinhoodOwnershipContractSeriesDto,
   RobinhoodOwnershipHistoryDto,
   RobinhoodOwnershipHistoryPointDto,
+  RobinhoodOwnershipHopDto,
 } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { formatHttpErrorMessage } from '../../../util/http-error';
@@ -25,6 +27,14 @@ interface QtyChangeRow {
   from: number;
   to: number;
   delta: number;
+}
+
+interface DayHopSummary {
+  date: string;
+  net: number;
+  buyQty: number;
+  sellQty: number;
+  hops: RobinhoodOwnershipHopDto[];
 }
 
 interface CalendarCell {
@@ -133,6 +143,7 @@ interface OptionCalCell {
     MatButtonToggleModule,
     MatFormFieldModule,
     MatIconModule,
+    MatInputModule,
     MatProgressSpinnerModule,
     MatSelectModule,
     MatSnackBarModule,
@@ -152,8 +163,9 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
 
   reportYear = new Date().getFullYear();
   assetKind: RobinhoodOwnershipAssetKind = 'equity';
-  /** Empty until first load; server picks first available equity symbol. */
-  symbol = '';
+  /** `*` = all stock hops; otherwise a ticker from Daily Tracker holdings or fills. */
+  symbol = '*';
+  readonly symbolQuery = signal('');
   /** Empty string = all contracts overview. */
   contractKey = '';
   accountSuffix = '';
@@ -180,6 +192,7 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
 
   readonly captureKinds = [
     { value: 'SCHEDULED', label: 'Daily close' },
+    { value: 'ALL', label: 'All hops' },
     { value: 'INTRADAY', label: 'Hourly' },
     { value: 'MANUAL', label: 'Manual' },
   ] as const;
@@ -189,6 +202,44 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
   readonly showingAllContracts = computed(() => {
     const r = this.report();
     return r?.assetKind === 'option' && !r.contractKey;
+  });
+
+  readonly showingAllEquities = computed(() => {
+    const r = this.report();
+    return r?.assetKind === 'equity' && (!r.symbol || r.symbol === '*');
+  });
+
+  readonly visibleSymbols = computed(() => {
+    const q = this.symbolQuery().trim().toUpperCase();
+    const symbols = this.report()?.availableSymbols ?? [];
+    if (!q) {
+      return symbols;
+    }
+    return symbols.filter((s) => s.includes(q));
+  });
+
+  readonly hopRows = computed((): RobinhoodOwnershipHopDto[] => this.report()?.hops ?? []);
+
+  readonly hopsByDate = computed(() => {
+    const map = new Map<string, DayHopSummary>();
+    for (const hop of this.hopRows()) {
+      const date = (hop.date || hop.at || '').slice(0, 10);
+      if (!date) {
+        continue;
+      }
+      const qty = Number(hop.quantity) || 0;
+      const signed = (hop.side || '').toLowerCase() === 'sell' ? -qty : qty;
+      const cur = map.get(date) ?? { date, net: 0, buyQty: 0, sellQty: 0, hops: [] };
+      cur.net += signed;
+      if (signed >= 0) {
+        cur.buyQty += qty;
+      } else {
+        cur.sellQty += qty;
+      }
+      cur.hops.push(hop);
+      map.set(date, cur);
+    }
+    return map;
   });
 
   readonly optionContractViews = computed((): OptionContractView[] => {
@@ -539,6 +590,15 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
   });
 
   readonly changeRows = computed((): QtyChangeRow[] => {
+    const hopDays = [...this.hopsByDate().values()].sort((a, b) => a.date.localeCompare(b.date));
+    if (hopDays.length) {
+      return hopDays.map((d) => ({
+        date: d.date,
+        from: 0,
+        to: d.net,
+        delta: d.net,
+      }));
+    }
     const pts = this.report()?.points ?? [];
     const out: QtyChangeRow[] = [];
     for (let i = 1; i < pts.length; i++) {
@@ -602,14 +662,15 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
       const date = `${ys}-${String(ms).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const point = pointMap.get(date) ?? null;
       const change = changeMap.get(date) ?? null;
+      const hopDay = this.hopsByDate().get(date) ?? null;
       cells.push({
         type: 'day',
         trackKey: date,
         date,
         dayNumber: d,
-        quantity: point != null ? Number(point.quantity) || 0 : null,
-        delta: change?.delta ?? null,
-        hasSnapshot: point != null,
+        quantity: point != null ? Number(point.quantity) || 0 : hopDay != null ? hopDay.net : null,
+        delta: hopDay != null ? hopDay.net : (change?.delta ?? null),
+        hasSnapshot: point != null || hopDay != null,
         isToday: date === today,
         isSelected: date === selected,
         point,
@@ -641,6 +702,14 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
       return null;
     }
     return this.changeByDate().get(d) ?? null;
+  });
+
+  readonly selectedHops = computed((): RobinhoodOwnershipHopDto[] => {
+    const d = this.selectedDate();
+    if (!d) {
+      return [];
+    }
+    return this.hopsByDate().get(d)?.hops ?? [];
   });
 
   readonly chartBars = computed(() => {
@@ -692,9 +761,7 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
   onAssetKindChange(kind: RobinhoodOwnershipAssetKind): void {
     this.assetKind = kind;
     this.contractKey = '';
-    if (kind === 'option') {
-      this.symbol = '';
-    }
+    this.symbol = kind === 'option' ? '' : '*';
     this.selectedDate.set(null);
     this.selectedOptionsContractKey.set(null);
     this.selectedOptionsDate.set(null);
@@ -709,7 +776,7 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
       .robinhoodOwnershipHistory({
         year: this.reportYear,
         assetKind: this.assetKind,
-        symbol: this.assetKind === 'equity' && this.symbol ? this.symbol : null,
+        symbol: this.assetKind === 'equity' ? this.symbol || '*' : null,
         contractKey: this.assetKind === 'option' && this.contractKey ? this.contractKey : null,
         accountSuffix: this.accountSuffix || null,
         captureKind: this.captureKind,
@@ -718,7 +785,9 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
         next: (r) => {
           this.report.set(r);
           this.assetKind = r.assetKind;
-          if (r.symbol) {
+          if (r.assetKind === 'equity') {
+            this.symbol = r.symbol || '*';
+          } else if (r.symbol) {
             this.symbol = r.symbol;
           }
           this.contractKey = r.contractKey ?? '';
@@ -744,6 +813,13 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
         months[months.length - 1] ||
         `${r.year}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
       this.calendarMonth.set(prefer.slice(0, 7) + '-01');
+      return;
+    }
+    const hopDates = [...this.hopsByDate().keys()].sort();
+    if (this.showingAllEquities() && hopDates.length) {
+      const last = hopDates[hopDates.length - 1];
+      this.calendarMonth.set(last.slice(0, 7) + '-01');
+      this.selectedDate.set(last);
       return;
     }
     const changes = this.changeRows();
@@ -1213,7 +1289,34 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
     if (r.assetKind === 'option') {
       return r.contractLabel || 'All option contracts';
     }
-    return r.symbol || 'Stock';
+    if (!r.symbol || r.symbol === '*') {
+      return 'All stock hops';
+    }
+    return r.symbol;
+  }
+
+  hopSideLabel(side: string | null | undefined): string {
+    return (side || '').toLowerCase() === 'sell' ? 'Sell' : 'Buy';
+  }
+
+  hopIsSell(side: string | null | undefined): boolean {
+    return (side || '').toLowerCase() === 'sell';
+  }
+
+  formatHopWhen(iso: string | null | undefined): string {
+    if (!iso) {
+      return '';
+    }
+    const dt = new Date(iso);
+    if (Number.isNaN(dt.getTime())) {
+      return iso;
+    }
+    return dt.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
   }
 
   marginUsedHigh(row: RobinhoodOwnershipHistoryPointDto | null | undefined): boolean {

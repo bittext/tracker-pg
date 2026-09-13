@@ -245,7 +245,24 @@ export interface RobinhoodOwnershipHistoryDto {
   latestCostBasis: number | null;
   points: RobinhoodOwnershipHistoryPointDto[];
   contractSeries: RobinhoodOwnershipContractSeriesDto[];
+  hops: RobinhoodOwnershipHopDto[];
   notes: string[];
+}
+
+export interface RobinhoodOwnershipHopDto {
+  at: string | null;
+  date: string;
+  captureKind: string | null;
+  symbol: string;
+  side: string;
+  quantity: number;
+  fromQuantity: number | null;
+  toQuantity: number | null;
+  averagePrice: number | null;
+  notional: number | null;
+  source: 'trade' | 'holding' | string;
+  accountSuffix: string | null;
+  accountLabel: string | null;
 }
 
 export interface RobinhoodOwnershipHistoryPointDto {

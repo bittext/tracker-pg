@@ -72,6 +72,10 @@
   min-width: 8.5rem;
 }
 
+.own__field--search {
+  width: 8.5rem;
+}
+
 .own__field--contract {
   min-width: 16rem;
   flex: 1 1 14rem;
@@ -999,6 +1003,97 @@
   .own__activity {
     grid-template-columns: 5.5rem 2.5rem 1fr;
   }
+}
+
+.own__hops {
+  margin: 0 0 1rem;
+}
+
+.own__hops-table-wrap {
+  overflow: auto;
+  max-height: 22rem;
+}
+
+.own__hops-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+
+  th,
+  td {
+    padding: 0.45rem 0.55rem;
+    text-align: left;
+    border-bottom: 1px solid var(--own-line);
+  }
+
+  th {
+    position: sticky;
+    top: 0;
+    background: var(--own-surface);
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--own-muted);
+    font-weight: 700;
+  }
+}
+
+.own__hops-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.own__hops-table tbody tr {
+  cursor: pointer;
+
+  &:hover,
+  &.own__hops-row--active {
+    background: color-mix(in srgb, var(--own-accent) 8%, transparent);
+  }
+}
+
+.own__hops-side {
+  font-weight: 700;
+  color: var(--own-pos);
+
+  &--sell {
+    color: var(--own-neg);
+  }
+}
+
+.own__hops-sym {
+  font: inherit;
+  font-weight: 700;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--own-accent);
+  cursor: pointer;
+}
+
+.own__hops-when {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.own__day-hops {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.55rem;
+    align-items: baseline;
+  }
+}
+
+.own__change-row--hop {
+  grid-template-columns: 6.5rem auto 1fr;
 }
 
 @media (max-width: 560px) {
