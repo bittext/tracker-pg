@@ -1,3 +1,11 @@
+<mat-tab-group
+  class="rh-ex-inner"
+  animationDuration="180ms"
+  [selectedIndex]="journalNav.tradesInnerTabIndex()"
+  (selectedIndexChange)="journalNav.tradesInnerTabIndex.set($event)"
+>
+  <mat-tab label="Ledger">
+    <div class="rh-ex-inner__panel">
 <section class="rh-ex" aria-labelledby="rh-ex-heading">
   <h2 id="rh-ex-heading" class="rh-ex__title">Executed trades</h2>
   <p class="muted rh-ex__lead">
@@ -161,3 +169,13 @@
     }
   }
 </section>
+    </div>
+  </mat-tab>
+  <mat-tab label="Tax desk">
+    <div class="rh-ex-inner__panel">
+      @if (journalNav.tradesInnerTabIndex() === 1) {
+        <app-reports-finance-robinhood-tax-desk />
+      }
+    </div>
+  </mat-tab>
+</mat-tab-group>

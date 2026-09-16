@@ -11,6 +11,10 @@ import {
   FinanceStockAlertDto,
   FinanceStockAlertRequestDto,
   FinanceTax1040ReturnDto,
+  FinanceTaxDeskIncomeItemDto,
+  FinanceTaxDeskPageDto,
+  FinanceTaxDeskPaymentDto,
+  FinanceTaxDeskSettingsDto,
   MarketOverviewDto,
   RobinhoodAccountStatusDto,
   RobinhoodAccountTrackerDto,
@@ -112,6 +116,7 @@ export class FinanceApiService {
   private readonly http = inject(HttpClient);
   private readonly root = `${environment.apiBaseUrl}/api/finance/robinhood`;
   private readonly tax1040Root = `${environment.apiBaseUrl}/api/finance/tax/1040`;
+  private readonly taxDeskRoot = `${environment.apiBaseUrl}/api/finance/tax/desk`;
   private readonly adminNotificationsRoot = `${environment.apiBaseUrl}/api/admin/finance/notifications`;
   private readonly bankingRoot = `${environment.apiBaseUrl}/api/finance/banking`;
   private readonly bankingPlaidRoot = `${environment.apiBaseUrl}/api/finance/banking/plaid`;
@@ -667,6 +672,50 @@ export class FinanceApiService {
   downloadTax1040Blob(downloadPath: string) {
     const u = downloadPath.startsWith('http') ? downloadPath : `${environment.apiBaseUrl}${downloadPath}`;
     return this.http.get(u, { responseType: 'blob' });
+  }
+
+  taxDesk(year: number, asOf?: string | null) {
+    let params = new HttpParams().set('year', String(year));
+    if (asOf?.trim()) {
+      params = params.set('asOf', asOf.trim());
+    }
+    return this.http.get<FinanceTaxDeskPageDto>(this.taxDeskRoot, { params });
+  }
+
+  saveTaxDeskSettings(year: number, body: FinanceTaxDeskSettingsDto) {
+    return this.http.put<FinanceTaxDeskPageDto>(this.taxDeskRoot + '/settings', body, {
+      params: { year: String(year) },
+    });
+  }
+
+  addTaxDeskIncome(year: number, body: Partial<FinanceTaxDeskIncomeItemDto>) {
+    return this.http.post<FinanceTaxDeskPageDto>(this.taxDeskRoot + '/income', body, {
+      params: { year: String(year) },
+    });
+  }
+
+  updateTaxDeskIncome(year: number, id: number, body: Partial<FinanceTaxDeskIncomeItemDto>) {
+    return this.http.put<FinanceTaxDeskPageDto>(`${this.taxDeskRoot}/income/${id}`, body, {
+      params: { year: String(year) },
+    });
+  }
+
+  deleteTaxDeskIncome(year: number, id: number) {
+    return this.http.delete<FinanceTaxDeskPageDto>(`${this.taxDeskRoot}/income/${id}`, {
+      params: { year: String(year) },
+    });
+  }
+
+  addTaxDeskPayment(year: number, body: Partial<FinanceTaxDeskPaymentDto>) {
+    return this.http.post<FinanceTaxDeskPageDto>(this.taxDeskRoot + '/payments', body, {
+      params: { year: String(year) },
+    });
+  }
+
+  deleteTaxDeskPayment(year: number, id: number) {
+    return this.http.delete<FinanceTaxDeskPageDto>(`${this.taxDeskRoot}/payments/${id}`, {
+      params: { year: String(year) },
+    });
   }
 
   listBankingInstitutions() {

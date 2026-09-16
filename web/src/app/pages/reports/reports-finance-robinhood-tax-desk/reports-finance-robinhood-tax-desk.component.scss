@@ -1,0 +1,506 @@
+.desk {
+  --desk-ink: #1b2430;
+  --desk-muted: #5c6b7a;
+  --desk-rule: rgba(27, 36, 48, 0.12);
+  --desk-paper: #f6f1e8;
+  --desk-card: #fffdf8;
+  padding: 0.15rem 0 2.5rem;
+  color: var(--desk-ink);
+}
+
+.desk__mast {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.25rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.desk__kicker {
+  margin: 0 0 0.2rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--desk-muted);
+}
+
+.desk h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1.55rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.desk h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.02rem;
+  font-weight: 700;
+}
+
+.desk h4 {
+  margin: 1rem 0 0.35rem;
+  font-size: 0.86rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--desk-muted);
+}
+
+.desk__lead,
+.muted {
+  color: var(--desk-muted);
+  max-width: 52rem;
+  line-height: 1.45;
+  margin: 0 0 0.75rem;
+}
+
+.desk__toolbar {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.desk__loading {
+  padding: 2rem 0;
+}
+
+.desk__banner {
+  border-radius: 16px;
+  padding: 1.1rem 1.2rem 0.35rem;
+  margin-bottom: 0.75rem;
+  color: #fff;
+}
+
+.risk-refund {
+  background: linear-gradient(135deg, #0f766e, #147a4a);
+}
+
+.risk-harbor {
+  background: linear-gradient(135deg, #1d4ed8, #0f766e);
+}
+
+.risk-catch {
+  background: linear-gradient(135deg, #c2410c, #b45309);
+}
+
+.risk-penalty {
+  background: linear-gradient(135deg, #9f1239, #be123c);
+}
+
+.risk-spike {
+  background: linear-gradient(135deg, #9a3412, #c2410c);
+}
+
+.desk__banner-main p {
+  margin: 0.45rem 0 0.8rem;
+  max-width: 46rem;
+  line-height: 1.4;
+  font-size: 0.98rem;
+}
+
+.desk__pill {
+  display: inline-block;
+  padding: 0.12rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.desk__hero-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.desk__hero-metrics div {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 0.7rem 0.8rem 0.8rem;
+  margin-bottom: 0.85rem;
+}
+
+.desk__hero-metrics dt {
+  font-size: 0.72rem;
+  opacity: 0.86;
+}
+
+.desk__hero-metrics dd {
+  margin: 0.2rem 0 0;
+  font-size: 1.28rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.desk__meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  font-size: 0.84rem;
+  color: var(--desk-muted);
+  margin: 0 0 1.1rem;
+}
+
+.desk__history,
+.desk__quarters,
+.desk__split > section,
+.desk__settings,
+.desk__paper {
+  margin-bottom: 1.4rem;
+}
+
+.desk__chips {
+  display: flex;
+  gap: 0.55rem;
+  overflow-x: auto;
+  padding: 0.15rem 0.1rem 0.55rem;
+  scroll-snap-type: x proximity;
+}
+
+.desk__chip {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  min-width: 7.6rem;
+  border: 0;
+  border-radius: 12px;
+  padding: 0.65rem 0.75rem;
+  color: #fff;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
+}
+
+.desk__chip strong,
+.desk__chip span,
+.desk__chip small {
+  display: block;
+}
+
+.desk__chip span,
+.desk__chip small {
+  font-variant-numeric: tabular-nums;
+}
+
+.desk__chip small {
+  margin-top: 0.15rem;
+  opacity: 0.92;
+  font-size: 0.72rem;
+}
+
+.desk__chip--on {
+  outline: 2px solid #1b2430;
+  outline-offset: 2px;
+}
+
+.desk__qgrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.desk__q {
+  background: var(--desk-card);
+  border: 1px solid var(--desk-rule);
+  border-radius: 14px;
+  padding: 0.85rem 0.9rem 0.7rem;
+  border-top-width: 5px;
+}
+
+.q-ok {
+  border-top-color: #0f766e;
+}
+
+.q-next {
+  border-top-color: #64748b;
+}
+
+.q-warn {
+  border-top-color: #d97706;
+}
+
+.q-hot {
+  border-top-color: #be123c;
+  background: #fff5f5;
+}
+
+.desk__q header {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.desk__q header span {
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--desk-muted);
+}
+
+.desk__q-status {
+  margin: 0.25rem 0 0.6rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.desk__q dl {
+  margin: 0;
+}
+
+.desk__q dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  padding: 0.18rem 0;
+}
+
+.desk__q dt {
+  color: var(--desk-muted);
+}
+
+.desk__q dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+
+.desk__q-pay {
+  margin-top: 0.35rem;
+  padding-top: 0.4rem !important;
+  border-top: 1px dashed var(--desk-rule);
+}
+
+.desk__split {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 1.1rem;
+}
+
+.desk__kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 0 0 0.85rem;
+}
+
+.desk__kpis div {
+  background: var(--desk-paper);
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+}
+
+.desk__kpis span {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--desk-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.desk__kpis strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.desk__table-wrap {
+  overflow: auto;
+  border: 1px solid var(--desk-rule);
+  border-radius: 12px;
+  background: var(--desk-card);
+}
+
+.desk__table {
+  width: 100%;
+  min-width: 52rem;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.desk__table th,
+.desk__table td {
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid var(--desk-rule);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.desk__table th {
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--desk-muted);
+  background: #f3eee4;
+}
+
+.desk__table input,
+.desk__table select {
+  width: 100%;
+  min-width: 4.5rem;
+  border: 1px solid var(--desk-rule);
+  border-radius: 6px;
+  padding: 0.28rem 0.4rem;
+  font: inherit;
+}
+
+.desk__row-actions {
+  white-space: nowrap;
+}
+
+.desk__trades,
+.desk__pays,
+.desk__sources {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--desk-rule);
+  border-radius: 12px;
+  background: var(--desk-card);
+  overflow: hidden;
+}
+
+.desk__trades li,
+.desk__pays li,
+.desk__sources li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.7rem;
+  align-items: flex-start;
+  padding: 0.65rem 0.8rem;
+  border-bottom: 1px solid var(--desk-rule);
+}
+
+.desk__trades li:last-child,
+.desk__pays li:last-child,
+.desk__sources li:last-child {
+  border-bottom: 0;
+}
+
+.desk__trades small,
+.desk__pays small,
+.desk__sources small {
+  display: block;
+  color: var(--desk-muted);
+  margin-top: 0.15rem;
+}
+
+.desk__side {
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.desk__side.buy {
+  color: #166534;
+  background: rgba(22, 101, 52, 0.12);
+}
+
+.desk__side.sell {
+  color: #9f1239;
+  background: rgba(159, 18, 57, 0.12);
+}
+
+.desk__amt {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.desk__tag {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  padding: 0.18rem 0.4rem;
+  border-radius: 6px;
+  background: #e8e0d2;
+}
+
+.desk__pay-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
+  margin-top: 0.75rem;
+}
+
+.desk__form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem 0.75rem;
+}
+
+.desk__notes {
+  grid-column: 1 / -1;
+}
+
+.desk__paper {
+  background: var(--desk-paper);
+  border: 1px solid var(--desk-rule);
+  border-radius: 16px;
+  padding: 1.1rem 1.2rem 1.3rem;
+}
+
+.desk__paper pre {
+  white-space: pre-wrap;
+  font-family: ui-serif, 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  margin: 0 0 0.75rem;
+}
+
+.desk__paper ol {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: var(--desk-ink);
+}
+
+.desk__paper li {
+  margin: 0.25rem 0;
+  line-height: 1.45;
+}
+
+.desk__pos {
+  color: #166534;
+}
+
+.desk__neg {
+  color: #9f1239;
+}
+
+.desk__unreliable td {
+  background: #fff4e5;
+}
+
+@media (max-width: 1100px) {
+  .desk__hero-metrics,
+  .desk__qgrid,
+  .desk__split,
+  .desk__kpis,
+  .desk__form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .desk__hero-metrics,
+  .desk__qgrid,
+  .desk__split,
+  .desk__kpis,
+  .desk__form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .desk__hero-metrics dd {
+    font-size: 1.1rem;
+  }
+}

@@ -1475,6 +1475,166 @@ export interface FinanceTax1040ReturnDto {
   updatedAt: string;
 }
 
+/** GET /api/finance/tax/desk — estimated-tax working papers under Trades. */
+export type TaxDeskRiskLevel = 'REFUND_TRACK' | 'SAFE_HARBOR' | 'CATCH_UP' | 'PENALTY_RISK' | 'LIABILITY_SPIKE' | string;
+
+export interface FinanceTaxDeskPageDto {
+  taxYear: number;
+  asOf: string;
+  live: boolean;
+  workbook: FinanceTaxDeskWorkbookDto;
+  history: FinanceTaxDeskSnapshotSummaryDto[];
+}
+
+export interface FinanceTaxDeskWorkbookDto {
+  taxYear: number;
+  asOf: string;
+  filingStatus: string;
+  residentState: string;
+  riskLevel: TaxDeskRiskLevel;
+  riskHeadline: string;
+  estimatedFederalTax: number;
+  estimatedIncomeTax: number;
+  estimatedNiit: number;
+  projectedWithholding: number;
+  estimatesPaid: number;
+  totalCredits: number;
+  filingDayBalance: number;
+  targetRefund: number;
+  recommendedAdditionalPrepay: number;
+  requiredAnnualPayment: number;
+  rapBasis: string;
+  priorYearSafeHarbor: number;
+  currentYearSafeHarbor: number;
+  penaltyExposure: number;
+  safeHarborCovered: boolean;
+  refundTargetCovered: boolean;
+  wagesProjected: number;
+  externalProjected: number;
+  realizedYtd: number;
+  capitalLossCarryoverApplied: number;
+  netTaxableGain: number;
+  agi: number;
+  standardDeduction: number;
+  taxableIncome: number;
+  childCredit: number;
+  vsPriorSnapshotTaxDelta: number;
+  settings: FinanceTaxDeskSettingsDto;
+  incomeItems: FinanceTaxDeskIncomeItemDto[];
+  payments: FinanceTaxDeskPaymentDto[];
+  quarters: FinanceTaxDeskQuarterDto[];
+  today: FinanceTaxDeskTodayDto;
+  priorFilings: FinanceTaxDeskFilingRefDto[];
+  irsSources: FinanceTaxDeskIrsSourceDto[];
+  assumptions: string[];
+  caveats: string[];
+  cpaNarrative: string;
+}
+
+export interface FinanceTaxDeskSettingsDto {
+  id: number | null;
+  taxYear: number;
+  filingStatus: string;
+  residentState: string;
+  shortTermLossCarryover: number;
+  longTermLossCarryover: number;
+  priorYearAgi: number;
+  priorYearTax: number;
+  childTaxCredit: number;
+  targetRefund: number;
+  notes: string;
+}
+
+export interface FinanceTaxDeskIncomeItemDto {
+  id: number;
+  kind: string;
+  payer: string;
+  ytdAmount: number;
+  annualProjected: number;
+  withholdingYtd: number;
+  withholdingAnnualProjected: number;
+  notes: string;
+  sortOrder: number;
+}
+
+export interface FinanceTaxDeskPaymentDto {
+  id: number;
+  paidOn: string;
+  amount: number;
+  method: string;
+  source: string;
+  sourceRef: string;
+  notes: string;
+}
+
+export interface FinanceTaxDeskQuarterDto {
+  quarter: number;
+  dueDate: string;
+  requiredInstallment: number;
+  requiredToDate: number;
+  withholdingCredit: number;
+  estimateCredit: number;
+  paidToDate: number;
+  shortfall: number;
+  suggestedPayment: number;
+  status: string;
+}
+
+export interface FinanceTaxDeskTodayDto {
+  tradeDate: string;
+  tradeCount: number;
+  sellCount: number;
+  realizedToday: number;
+  buyNotional: number;
+  sellNotional: number;
+  trades: FinanceTaxDeskTradeRowDto[];
+}
+
+export interface FinanceTaxDeskTradeRowDto {
+  symbol: string | null;
+  side: string | null;
+  quantity: number | null;
+  averagePrice: number | null;
+  notional: number | null;
+  realizedPnl: number | null;
+  accountLabel: string | null;
+  executedAt: string | null;
+}
+
+export interface FinanceTaxDeskFilingRefDto {
+  id: number;
+  taxYear: number;
+  originalFilename: string;
+  filingStatus: string | null;
+  confidenceLabel: string | null;
+  wages: number | null;
+  totalTax: number | null;
+  withholding: number | null;
+  estimatedPayments: number | null;
+  refund: number | null;
+  amountOwed: number | null;
+  parserUnreliable: boolean;
+  note: string | null;
+}
+
+export interface FinanceTaxDeskIrsSourceDto {
+  kind: string;
+  title: string | null;
+  date: string | null;
+  amount: number | null;
+  notes: string | null;
+  sourceRef: string | null;
+}
+
+export interface FinanceTaxDeskSnapshotSummaryDto {
+  asOf: string;
+  riskLevel: TaxDeskRiskLevel;
+  estimatedTax: number;
+  filingBalance: number;
+  penaltyExposure: number;
+  realizedYtd: number;
+}
+
 /** Banking imports (CSV, QFX, QIF, QBO, Excel, PDF) scoped to the logged-in user. */
 export type BankingLedgerRange = 'WEEK' | 'BIWEEK' | 'MONTH' | 'QUARTER' | 'YEAR';
 

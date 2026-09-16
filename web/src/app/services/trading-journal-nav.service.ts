@@ -8,6 +8,8 @@ export class TradingJournalNavService {
    * 0 Performance, 1 Daily Tracker, 2 Trades, 3 Balances, 4 Ownership history, 5 Journal, 6 Crypto, 7 Roadmap.
    */
   readonly analyticsTabIndex = signal(0);
+  /** Nested Trades tabs: 0 Ledger, 1 Tax desk. */
+  readonly tradesInnerTabIndex = signal(0);
   readonly requestedDate = signal<string | null>(null);
 
   openJournal(dateIso: string): void {
@@ -28,6 +30,12 @@ export class TradingJournalNavService {
 
   openExecutedTrades(): void {
     this.analyticsTabIndex.set(2);
+    this.tradesInnerTabIndex.set(0);
+  }
+
+  openTaxDesk(): void {
+    this.analyticsTabIndex.set(2);
+    this.tradesInnerTabIndex.set(1);
   }
 
   consumeRequestedDate(): string | null {

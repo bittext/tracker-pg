@@ -1,12 +1,10 @@
 package com.svp.tracker.admin.cron;
 
-import com.svp.tracker.config.FinanceAlertProperties;
 import com.svp.tracker.config.RobinhoodAgenticAutoTradeProperties;
 import com.svp.tracker.config.RobinhoodAgenticProperties;
 import com.svp.tracker.config.RobinhoodRhCryptoAutoTradeProperties;
 import com.svp.tracker.config.RobinhoodRhCryptoTrackerProperties;
 import com.svp.tracker.config.RobinhoodRhDailyTrackerProperties;
-import com.svp.tracker.finance.predicts.config.FinancePredictsProperties;
 import com.svp.tracker.finance.predicts.service.PredictsBaselineService;
 import com.svp.tracker.finance.predicts.service.PredictsService;
 import com.svp.tracker.finance.predicts.service.RedditIngestService;
@@ -16,6 +14,7 @@ import com.svp.tracker.finance.service.RobinhoodAgenticAutoTradeScheduler;
 import com.svp.tracker.finance.service.RobinhoodAgenticSyncScheduler;
 import com.svp.tracker.finance.service.RobinhoodRhCryptoAutoTradeScheduler;
 import com.svp.tracker.finance.service.RobinhoodRhCryptoSnapshotScheduler;
+import com.svp.tracker.finance.service.FinanceTaxDeskSnapshotScheduler;
 import com.svp.tracker.finance.service.RobinhoodRhDailySnapshotScheduler;
 import com.svp.tracker.finance.service.YahooBatchQuoteService;
 import java.util.Collection;
@@ -35,6 +34,7 @@ public class AdminCronJobRunnerRegistry {
             FinanceAlertEvaluationService financeAlertEvaluationService,
             YahooBatchQuoteService yahooBatchQuoteService,
             ObjectProvider<RobinhoodRhDailySnapshotScheduler> rhDailySnapshotScheduler,
+            ObjectProvider<FinanceTaxDeskSnapshotScheduler> taxDeskSnapshotScheduler,
             ObjectProvider<RobinhoodRhCryptoSnapshotScheduler> rhCryptoSnapshotScheduler,
             ObjectProvider<RobinhoodRhCryptoAutoTradeScheduler> rhCryptoAutoTradeScheduler,
             ObjectProvider<RobinhoodAgenticSyncScheduler> agenticSyncScheduler,
@@ -83,6 +83,12 @@ public class AdminCronJobRunnerRegistry {
                 () -> rhCryptoAutoTradeScheduler.getObject().pollAutoTrade(),
                 () -> rhCryptoAutoTradeScheduler.getIfAvailable() != null
                         && rhCryptoAutoTradeProps.schedulerActive()));
+        register(new AdminCronJobRunnerDefinition(
+                "finance.tax-desk.daily-snapshot",
+                "Tax desk daily working papers",
+                "Saves estimated-tax working papers after the 9 PM CT Daily Tracker close.",
+                "Finance",
+                () -> taxDeskSnapshotScheduler.getObject().captureDailyWorkbooks()));
         register(new AdminCronJobRunnerDefinition(
                 "finance.robinhood-agentic.sync",
                 "Robinhood Agentic sync",

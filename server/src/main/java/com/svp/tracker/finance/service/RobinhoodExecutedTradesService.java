@@ -47,7 +47,11 @@ public class RobinhoodExecutedTradesService {
 
     @Transactional(readOnly = true)
     public RobinhoodExecutedTradesDto build(int year) {
-        long ownerUserId = currentUser.requireUserId();
+        return buildForOwner(currentUser.requireUserId(), year);
+    }
+
+    @Transactional(readOnly = true)
+    public RobinhoodExecutedTradesDto buildForOwner(long ownerUserId, int year) {
         LocalDate yearStart = LocalDate.of(year, 1, 1);
         LocalDate yearEnd = LocalDate.of(year, 12, 31);
 

@@ -1,0 +1,394 @@
+<section class="desk" aria-labelledby="tax-desk-title">
+  <header class="desk__mast">
+    <div>
+      <p class="desk__kicker">Trades · Estimated tax</p>
+      <h2 id="tax-desk-title">Federal tax working papers</h2>
+      <p class="desk__lead">
+        Daily rollforward of W-2 wages, outside earnings, Robinhood realized trades, 1040-ES dates, and Life →
+        Management calendar / Due IRS items. Goal: stay off underpayment penalty and finish April with a refund, not a
+        payable. Planning file only — not a filed return.
+      </p>
+    </div>
+    <div class="desk__toolbar">
+      <mat-form-field appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Tax year</mat-label>
+        <mat-select [(ngModel)]="reportYear" name="taxDeskYear" (selectionChange)="onYearChange()">
+          @for (y of yearChoices(); track y) {
+            <mat-option [value]="y">{{ y }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      <button mat-stroked-button type="button" (click)="load()" [disabled]="loading">
+        @if (loading) {
+          <mat-spinner diameter="18" />
+        } @else {
+          <mat-icon>refresh</mat-icon>
+        }
+        Recalculate
+      </button>
+    </div>
+  </header>
+
+  @if (loading && !page) {
+    <div class="desk__loading"><mat-spinner diameter="36" /></div>
+  } @else if (wb(); as wb) {
+    <div class="desk__banner" [ngClass]="riskClass(wb.riskLevel)">
+      <div class="desk__banner-main">
+        <span class="desk__pill">{{ riskLabel(wb.riskLevel) }}</span>
+        <p>{{ wb.riskHeadline }}</p>
+      </div>
+      <dl class="desk__hero-metrics">
+        <div>
+          <dt>Estimated federal tax</dt>
+          <dd>{{ wb.estimatedFederalTax | currency }}</dd>
+        </div>
+        <div [class.desk__neg]="wb.filingDayBalance > 0" [class.desk__pos]="wb.filingDayBalance < 0">
+          <dt>{{ filingOutcome(wb) }}</dt>
+          <dd>{{ filingAmount(wb) | currency }}</dd>
+        </div>
+        <div [class.desk__neg]="wb.penaltyExposure > 0">
+          <dt>Penalty exposure</dt>
+          <dd>{{ wb.penaltyExposure | currency }}</dd>
+        </div>
+        <div>
+          <dt>Still to prepay (refund plan)</dt>
+          <dd>{{ wb.recommendedAdditionalPrepay | currency }}</dd>
+        </div>
+      </dl>
+    </div>
+
+    <div class="desk__meta-row">
+      <span>{{ page?.live ? 'Live as of' : 'Saved papers for' }} {{ wb.asOf | date: 'fullDate' }}</span>
+      <span>Safe harbor {{ wb.safeHarborCovered ? 'covered' : 'short' }} · {{ wb.rapBasis }}</span>
+      @if (wb.vsPriorSnapshotTaxDelta) {
+        <span [class.desk__neg]="deltaUp(wb.vsPriorSnapshotTaxDelta)" [class.desk__pos]="!deltaUp(wb.vsPriorSnapshotTaxDelta)">
+          vs prior day {{ deltaUp(wb.vsPriorSnapshotTaxDelta) ? '+' : '' }}{{ wb.vsPriorSnapshotTaxDelta | currency }}
+        </span>
+      }
+    </div>
+
+    @if (page?.history?.length) {
+      <section class="desk__history" aria-label="Saved daily papers">
+        <h3>Daily file</h3>
+        <p class="muted">Each close is stored. Scroll and open a day to read that snapshot.</p>
+        <div class="desk__chips" tabindex="0">
+          @for (h of page!.history; track h.asOf) {
+            <button
+              type="button"
+              class="desk__chip"
+              [ngClass]="riskClass(h.riskLevel)"
+              [class.desk__chip--on]="h.asOf === asOf"
+              (click)="selectDay(h.asOf)"
+            >
+              <strong>{{ h.asOf | date: 'MMM d' }}</strong>
+              <span>{{ h.estimatedTax | currency:'USD':'symbol':'1.0-0' }}</span>
+              <small [class.desk__neg]="h.filingBalance > 0" [class.desk__pos]="h.filingBalance < 0">
+                {{ h.filingBalance > 0 ? 'owe' : 'refund' }}
+                {{ (h.filingBalance > 0 ? h.filingBalance : -h.filingBalance) | currency:'USD':'symbol':'1.0-0' }}
+              </small>
+            </button>
+          }
+        </div>
+      </section>
+    }
+
+    <section class="desk__quarters" aria-label="Quarterly estimated tax">
+      <h3>1040-ES calendar</h3>
+      <p class="muted">
+        Pay the suggested amount by each due date so withholding + estimates cover tax plus your refund cushion.
+        Withholding is spread evenly; dated IRS payments from calendar land in the quarter they were paid.
+      </p>
+      <div class="desk__qgrid">
+        @for (q of wb.quarters; track q.quarter) {
+          <article class="desk__q" [ngClass]="quarterClass(q)">
+            <header>
+              <span>Q{{ q.quarter }}</span>
+              <strong>{{ q.dueDate | date: 'MMM d, y' }}</strong>
+            </header>
+            <p class="desk__q-status">{{ quarterStatus(q) }}</p>
+            <dl>
+              <div><dt>Safe-harbor installment</dt><dd>{{ q.requiredInstallment | currency }}</dd></div>
+              <div><dt>Estimates in this window</dt><dd>{{ q.estimateCredit | currency }}</dd></div>
+              <div><dt>Shortfall vs required</dt><dd [class.desk__neg]="q.shortfall > 0">{{ q.shortfall | currency }}</dd></div>
+              <div class="desk__q-pay">
+                <dt>Pay this quarter</dt>
+                <dd>{{ q.suggestedPayment | currency }}</dd>
+              </div>
+            </dl>
+          </article>
+        }
+      </div>
+    </section>
+
+    <div class="desk__split">
+      <section>
+        <h3>Income used in the estimate</h3>
+        <p class="muted">
+          W-2 annual projection drives the wage line. Fill YTD from paystubs when you have them. Add 1099 / other
+          earnings as External.
+        </p>
+        <div class="desk__kpis">
+          <div><span>W-2 projected</span><strong>{{ wb.wagesProjected | currency }}</strong></div>
+          <div><span>External</span><strong>{{ wb.externalProjected | currency }}</strong></div>
+          <div><span>Realized trades</span><strong>{{ wb.realizedYtd | currency }}</strong></div>
+          <div><span>Carryover applied</span><strong>{{ wb.capitalLossCarryoverApplied | currency }}</strong></div>
+          <div><span>Taxable leftover gain</span><strong>{{ wb.netTaxableGain | currency }}</strong></div>
+          <div><span>AGI</span><strong>{{ wb.agi | currency }}</strong></div>
+        </div>
+        <div class="desk__table-wrap">
+          <table class="desk__table">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Payer</th>
+                <th>YTD</th>
+                <th>Annual</th>
+                <th>WH YTD</th>
+                <th>WH annual</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of wb.incomeItems; track row.id) {
+                <tr>
+                  <td>
+                    <select [(ngModel)]="row.kind" [name]="'kind' + row.id">
+                      <option value="W2">W-2</option>
+                      <option value="EXTERNAL">External</option>
+                      <option value="OTHER">Other</option>
+                    </select>
+                  </td>
+                  <td><input [(ngModel)]="row.payer" [name]="'payer' + row.id" /></td>
+                  <td><input type="number" step="0.01" [(ngModel)]="row.ytdAmount" [name]="'ytd' + row.id" /></td>
+                  <td>
+                    <input type="number" step="0.01" [(ngModel)]="row.annualProjected" [name]="'ann' + row.id" />
+                  </td>
+                  <td>
+                    <input type="number" step="0.01" [(ngModel)]="row.withholdingYtd" [name]="'why' + row.id" />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      step="0.01"
+                      [(ngModel)]="row.withholdingAnnualProjected"
+                      [name]="'wha' + row.id"
+                    />
+                  </td>
+                  <td class="desk__row-actions">
+                    <button mat-button type="button" (click)="saveIncomeRow(row)" [disabled]="saving">Save</button>
+                    <button mat-button type="button" (click)="removeIncome(row)" [disabled]="saving">Remove</button>
+                  </td>
+                </tr>
+              }
+              <tr class="desk__add-row">
+                <td>
+                  <select [(ngModel)]="newIncome.kind" name="newKind">
+                    <option value="W2">W-2</option>
+                    <option value="EXTERNAL">External</option>
+                    <option value="OTHER">Other</option>
+                  </select>
+                </td>
+                <td><input [(ngModel)]="newIncome.payer" name="newPayer" placeholder="Payer or description" /></td>
+                <td><input type="number" step="0.01" [(ngModel)]="newIncome.ytdAmount" name="newYtd" /></td>
+                <td><input type="number" step="0.01" [(ngModel)]="newIncome.annualProjected" name="newAnn" /></td>
+                <td><input type="number" step="0.01" [(ngModel)]="newIncome.withholdingYtd" name="newWhy" /></td>
+                <td>
+                  <input type="number" step="0.01" [(ngModel)]="newIncome.withholdingAnnualProjected" name="newWha" />
+                </td>
+                <td><button mat-flat-button color="primary" type="button" (click)="addIncome()" [disabled]="saving">Add</button></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h3>Trades on {{ wb.today.tradeDate | date: 'mediumDate' }}</h3>
+        <p class="muted">
+          {{ wb.today.tradeCount }} fills · realized {{ wb.today.realizedToday | currency }} · buys
+          {{ wb.today.buyNotional | currency }} · sells {{ wb.today.sellNotional | currency }}. Year-to-date FIFO
+          realized {{ wb.realizedYtd | currency }}.
+        </p>
+        @if (!wb.today.trades.length) {
+          <p class="muted">No executed buys or sells on this date in Individual, Agentic, or Ammu.</p>
+        } @else {
+          <ul class="desk__trades">
+            @for (tr of wb.today.trades; track (tr.executedAt || '') + (tr.symbol || '') + (tr.side || '')) {
+              <li>
+                <span class="desk__side" [class.buy]="isBuy(tr.side)" [class.sell]="isSell(tr.side)">{{ tr.side }}</span>
+                <div>
+                  <strong>{{ tr.symbol }}</strong>
+                  <small>{{ tr.accountLabel }} · {{ tr.executedAt | date: 'shortTime' }}</small>
+                </div>
+                <div class="desk__amt">
+                  {{ tr.notional | currency }}
+                  @if (tr.realizedPnl != null) {
+                    <small [class.desk__pos]="tr.realizedPnl > 0" [class.desk__neg]="tr.realizedPnl < 0">
+                      {{ tr.realizedPnl | currency }}
+                    </small>
+                  }
+                </div>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+    </div>
+
+    <div class="desk__split">
+      <section>
+        <h3>Estimated payments recorded</h3>
+        <p class="muted">Calendar IRS amounts are imported once. Add Direct Pay / withholding extras here.</p>
+        <ul class="desk__pays">
+          @for (p of wb.payments; track p.id) {
+            <li>
+              <div>
+                <strong>{{ p.paidOn | date: 'mediumDate' }}</strong>
+                <small>{{ p.source }} · {{ p.method }} · {{ p.notes }}</small>
+              </div>
+              <div class="desk__amt">
+                {{ p.amount | currency }}
+                <button mat-button type="button" (click)="removePayment(p)" [disabled]="saving">Remove</button>
+              </div>
+            </li>
+          }
+        </ul>
+        <div class="desk__pay-add">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Date</mat-label>
+            <input matInput type="date" [(ngModel)]="newPayment.paidOn" name="payOn" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Amount</mat-label>
+            <input matInput type="number" step="0.01" [(ngModel)]="newPayment.amount" name="payAmt" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Method</mat-label>
+            <input matInput [(ngModel)]="newPayment.method" name="payMethod" />
+          </mat-form-field>
+          <button mat-flat-button color="primary" type="button" (click)="addPayment()" [disabled]="saving">Log payment</button>
+        </div>
+      </section>
+
+      <section>
+        <h3>Life → Management · IRS</h3>
+        <p class="muted">Due tab payables and calendar entries that mention IRS or estimated tax (India tax ignored).</p>
+        @if (!wb.irsSources.length) {
+          <p class="muted">No IRS lines found on calendar or Due for this year.</p>
+        } @else {
+          <ul class="desk__sources">
+            @for (s of wb.irsSources; track (s.sourceRef || '') + (s.title || '')) {
+              <li>
+                <span class="desk__tag">{{ s.kind }}</span>
+                <div>
+                  <strong>{{ s.title }}</strong>
+                  <small>{{ s.date | date: 'mediumDate' }} · {{ s.notes }}</small>
+                </div>
+                <span>{{ s.amount != null ? (s.amount | currency) : '—' }}</span>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+    </div>
+
+    <section>
+      <h3>Prior filings in the app</h3>
+      @if (!wb.priorFilings.length) {
+        <p class="muted">No Form 1040 PDFs uploaded yet. Add them under Finance → Tax.</p>
+      } @else {
+        <div class="desk__table-wrap">
+          <table class="desk__table desk__table--filings">
+            <thead>
+              <tr>
+                <th>Year</th>
+                <th>File</th>
+                <th>Wages</th>
+                <th>Tax</th>
+                <th>Withheld</th>
+                <th>Refund / owed</th>
+                <th>Note</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (f of wb.priorFilings; track f.id) {
+                <tr [class.desk__unreliable]="f.parserUnreliable">
+                  <td>{{ f.taxYear }}</td>
+                  <td>{{ f.originalFilename }}</td>
+                  <td>{{ f.wages | currency }}</td>
+                  <td>{{ f.totalTax | currency }}</td>
+                  <td>{{ f.withholding | currency }}</td>
+                  <td>
+                    @if (f.refund) {
+                      refund {{ f.refund | currency }}
+                    }
+                    @if (f.amountOwed) {
+                      owe {{ f.amountOwed | currency }}
+                    }
+                  </td>
+                  <td>{{ f.note }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+
+    @if (settingsDraft; as st) {
+      <section class="desk__settings">
+        <h3>Carryover, prior-year tax, refund target</h3>
+        <div class="desk__form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>ST loss carryover</mat-label>
+            <input matInput type="number" step="0.01" [(ngModel)]="st.shortTermLossCarryover" name="stCo" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>LT loss carryover</mat-label>
+            <input matInput type="number" step="0.01" [(ngModel)]="st.longTermLossCarryover" name="ltCo" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Prior-year AGI</mat-label>
+            <input matInput type="number" step="0.01" [(ngModel)]="st.priorYearAgi" name="pyAgi" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Prior-year tax (line 24)</mat-label>
+            <input matInput type="number" step="0.01" [(ngModel)]="st.priorYearTax" name="pyTax" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Child / other dependent credit</mat-label>
+            <input matInput type="number" step="0.01" [(ngModel)]="st.childTaxCredit" name="ctc" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Target refund at filing</mat-label>
+            <input matInput type="number" step="0.01" [(ngModel)]="st.targetRefund" name="tref" />
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="desk__notes">
+            <mat-label>File notes</mat-label>
+            <textarea matInput rows="3" [(ngModel)]="st.notes" name="snotes"></textarea>
+          </mat-form-field>
+        </div>
+        <button mat-flat-button color="primary" type="button" (click)="saveSettings()" [disabled]="saving">
+          Save assumptions
+        </button>
+      </section>
+    }
+
+    <section class="desk__paper">
+      <h3>Memorandum</h3>
+      <pre>{{ wb.cpaNarrative }}</pre>
+      <h4>Assumptions</h4>
+      <ol>
+        @for (a of wb.assumptions; track a) {
+          <li>{{ a }}</li>
+        }
+      </ol>
+      <h4>Limitations</h4>
+      <ol>
+        @for (c of wb.caveats; track c) {
+          <li>{{ c }}</li>
+        }
+      </ol>
+    </section>
+  }
+</section>

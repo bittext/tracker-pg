@@ -8,12 +8,15 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTabsModule } from '@angular/material/tabs';
 import {
   RobinhoodExecutedTradeDto,
   RobinhoodExecutedTradesDto,
 } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
+import { TradingJournalNavService } from '../../../services/trading-journal-nav.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
+import { ReportsFinanceRobinhoodTaxDeskComponent } from '../reports-finance-robinhood-tax-desk/reports-finance-robinhood-tax-desk.component';
 
 interface TradeDayGroup {
   key: string;
@@ -34,8 +37,10 @@ interface TradeDayGroup {
     MatIconModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
+    MatTabsModule,
     CurrencyPipe,
     DecimalPipe,
+    ReportsFinanceRobinhoodTaxDeskComponent,
   ],
   templateUrl: './reports-finance-robinhood-executed-trades.component.html',
   styleUrl: './reports-finance-robinhood-executed-trades.component.scss',
@@ -43,6 +48,7 @@ interface TradeDayGroup {
 export class ReportsFinanceRobinhoodExecutedTradesComponent implements OnInit {
   private readonly financeApi = inject(FinanceApiService);
   private readonly snackBar = inject(MatSnackBar);
+  readonly journalNav = inject(TradingJournalNavService);
 
   reportYear = new Date().getFullYear();
   sideFilter: 'all' | 'buy' | 'sell' = 'all';

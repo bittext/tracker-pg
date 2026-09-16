@@ -112,6 +112,14 @@ public class AdminCronJobBuiltinCatalog {
                 "predicts.baseline.nightly",
                 "0 17 3 * * *",
                 "UTC"));
+        jobs.add(cron(
+                "finance.tax-desk.daily-snapshot",
+                "Tax desk daily working papers",
+                "Saves estimated-tax working papers after the 9 PM CT Daily Tracker close.",
+                "Finance",
+                "finance.tax-desk.daily-snapshot",
+                "0 5 21 * * *",
+                "America/Chicago"));
         jobs.add(fixedDelay(
                 "predicts.auto-seed",
                 "Predicts Robinhood auto-seed",
