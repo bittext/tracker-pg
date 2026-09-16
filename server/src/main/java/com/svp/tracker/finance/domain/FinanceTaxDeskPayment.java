@@ -48,6 +48,9 @@ public class FinanceTaxDeskPayment {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String notes = "";
 
+    @Column(nullable = false)
+    private boolean ignored = false;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 }

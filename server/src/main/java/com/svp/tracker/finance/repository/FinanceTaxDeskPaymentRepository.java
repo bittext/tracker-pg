@@ -7,7 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface FinanceTaxDeskPaymentRepository extends JpaRepository<FinanceTaxDeskPayment, Long> {
 
-    List<FinanceTaxDeskPayment> findByOwnerUserIdAndTaxYearOrderByPaidOnAscIdAsc(long ownerUserId, int taxYear);
+    List<FinanceTaxDeskPayment> findByOwnerUserIdAndTaxYearAndIgnoredFalseOrderByPaidOnAscIdAsc(
+            long ownerUserId, int taxYear);
 
     Optional<FinanceTaxDeskPayment> findByIdAndOwnerUserId(long id, long ownerUserId);
 

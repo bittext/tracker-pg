@@ -173,11 +173,16 @@ export class ReportsFinanceRobinhoodTaxDeskComponent implements OnInit {
   }
 
   removePayment(row: FinanceTaxDeskPaymentDto): void {
+    if (row?.id == null) {
+      this.snack.open('This payment cannot be removed', 'Dismiss', { duration: 4000 });
+      return;
+    }
     this.saving = true;
     this.api.deleteTaxDeskPayment(this.reportYear, row.id).subscribe({
       next: (page) => {
         this.applyPage(page);
         this.saving = false;
+        this.snack.open('Payment removed', 'Dismiss', { duration: 2500 });
       },
       error: (err) => {
         this.saving = false;

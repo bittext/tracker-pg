@@ -238,7 +238,10 @@
     <div class="desk__split">
       <section>
         <h3>Estimated payments recorded</h3>
-        <p class="muted">Calendar IRS amounts are imported once. Add Direct Pay / withholding extras here.</p>
+        <p class="muted">
+          Calendar IRS amounts are imported once. Remove keeps them off even if the calendar event remains.
+          Add Direct Pay / withholding extras here.
+        </p>
         <ul class="desk__pays">
           @for (p of wb.payments; track p.id) {
             <li>

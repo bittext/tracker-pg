@@ -203,7 +203,14 @@ public class FinanceTaxDeskService {
         FinanceTaxDeskPayment row = paymentRepository
                 .findByIdAndOwnerUserId(id, owner)
                 .orElseThrow(() -> new NotFoundException("Payment not found"));
-        paymentRepository.delete(row);
+        String source = row.getSource() == null ? "" : row.getSource().trim().toUpperCase(Locale.ROOT);
+        if ("CALENDAR".equals(source) || "DUE".equals(source)) {
+            // Hard-delete would be re-imported on the next load from the same Life calendar/Due line.
+            row.setIgnored(true);
+            paymentRepository.save(row);
+        } else {
+            paymentRepository.delete(row);
+        }
         return loadForOwner(owner, taxYear, null, true);
     }
 
@@ -222,7 +229,7 @@ public class FinanceTaxDeskService {
         List<FinanceTaxDeskIncomeItem> income =
                 incomeRepository.findByOwnerUserIdAndTaxYearOrderBySortOrderAscIdAsc(owner, taxYear);
         List<FinanceTaxDeskPayment> payments =
-                paymentRepository.findByOwnerUserIdAndTaxYearOrderByPaidOnAscIdAsc(owner, taxYear);
+                paymentRepository.findByOwnerUserIdAndTaxYearAndIgnoredFalseOrderByPaidOnAscIdAsc(owner, taxYear);
 
         BigDecimal wages = BigDecimal.ZERO;
         BigDecimal external = BigDecimal.ZERO;
@@ -597,7 +604,22 @@ public class FinanceTaxDeskService {
         }
     }
 
+    private void dismissMisimportedCashMoves(long owner, int taxYear) {
+        for (FinanceTaxDeskPayment p :
+                paymentRepository.findByOwnerUserIdAndTaxYearAndIgnoredFalseOrderByPaidOnAscIdAsc(owner, taxYear)) {
+            String source = p.getSource() == null ? "" : p.getSource().trim().toUpperCase(Locale.ROOT);
+            if (!"CALENDAR".equals(source) && !"DUE".equals(source)) {
+                continue;
+            }
+            if (FederalTaxDeskCalculator.looksLikeInternalCashMove(p.getNotes(), p.getMethod())) {
+                p.setIgnored(true);
+                paymentRepository.save(p);
+            }
+        }
+    }
+
     private void importIrsSources(long owner, int taxYear) {
+        dismissMisimportedCashMoves(owner, taxYear);
         LocalDate from = LocalDate.of(taxYear, 1, 1);
         LocalDate to = LocalDate.of(taxYear + 1, 1, 31);
         for (ReportCalendarEntry e :

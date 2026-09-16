@@ -58,6 +58,16 @@ class FederalTaxDeskCalculatorTest {
     }
 
     @Test
+    void brokerageTransfersAndFirstAreNotIrs() {
+        assertFalse(FederalTaxDeskCalculator.looksLikeIrs("Transfer: Agentic", "$1,000.00"));
+        assertFalse(FederalTaxDeskCalculator.looksLikeIrs(
+                "Transfer: Agentic", "First deposit to Agentic", "moved $1,000.00"));
+        assertFalse(FederalTaxDeskCalculator.looksLikeIrs("First paycheck", "$1,000.00"));
+        assertTrue(FederalTaxDeskCalculator.looksLikeInternalCashMove("Transfer: Agentic", "$1,000.00"));
+        assertTrue(FederalTaxDeskCalculator.looksLikeIrs("IRS 1040-ES", "wired from Individual $1,000.00"));
+    }
+
+    @Test
     void overpayPutsFilingOnRefundTrack() {
         FederalTaxDeskCalculator.Result r = FederalTaxDeskCalculator.compute(new FederalTaxDeskCalculator.Input(
                 FederalTaxDeskCalculator.MFJ,

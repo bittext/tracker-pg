@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * 2026 Form 1040 / 1040-ES working-paper math for married filing jointly (Texas).
@@ -29,6 +30,12 @@ public final class FederalTaxDeskCalculator {
     public static final BigDecimal HIGH_AGI_THRESHOLD = new BigDecimal("150000");
     /** Approximate IRS individual underpayment rate used for exposure, not Form 2210 interest. */
     public static final BigDecimal UNDERPAYMENT_RATE = new BigDecimal("0.07");
+    /**
+     * Whole-token IRS / 1040-ES / estimated tax. {@code String.contains("irs")} also matches
+     * "first", which pulled brokerage transfers into Tax desk payments.
+     */
+    private static final Pattern IRS_TOKEN =
+            Pattern.compile("(?<![a-z0-9])irs(?![a-z0-9])|1040-?es|estimated\\s+tax");
 
     private static final List<Bracket> MFJ_2026 = List.of(
             new Bracket(new BigDecimal("24800"), new BigDecimal("0.10")),
@@ -223,16 +230,28 @@ public final class FederalTaxDeskCalculator {
 
     public static boolean looksLikeIrs(String... parts) {
         String blob = String.join(" ", parts).toLowerCase(Locale.ROOT);
-        if (blob.isBlank()) {
+        if (blob.isBlank() || blob.contains("india")) {
             return false;
         }
-        if (blob.contains("india")) {
+        String title = parts.length > 0 && parts[0] != null ? parts[0].toLowerCase(Locale.ROOT) : "";
+        if (looksLikeInternalCashMove(blob) && !IRS_TOKEN.matcher(title).find()) {
             return false;
         }
-        return blob.contains("irs")
-                || blob.contains("1040-es")
-                || blob.contains("1040es")
-                || blob.contains("estimated tax");
+        return IRS_TOKEN.matcher(blob).find();
+    }
+
+    /** Brokerage/account moves (e.g. Transfer: Agentic), not 1040-ES deposits. */
+    public static boolean looksLikeInternalCashMove(String... parts) {
+        String blob = String.join(" ", parts).toLowerCase(Locale.ROOT);
+        if (!blob.contains("transfer")) {
+            return false;
+        }
+        return blob.contains("agentic")
+                || blob.contains("individual")
+                || blob.contains("robinhood")
+                || blob.contains("ammu")
+                || blob.contains("3370")
+                || blob.contains("3550");
     }
 
     public static BigDecimal parseMoney(String... texts) {
