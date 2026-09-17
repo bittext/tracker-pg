@@ -10,7 +10,8 @@
   <h2 id="rh-ex-heading" class="rh-ex__title">Executed trades</h2>
   <p class="muted rh-ex__lead">
     Filled buys and sells from Individual, Agentic, and Ammu's accounts — live sync plus fills frozen on each Daily
-    Tracker close, so same-day hops stay listed. Newest first. The stock filter lists names in the trades below.
+    Tracker close, so same-day hops stay listed. Days newest first; fills first to last. Sell gain/loss is FIFO against
+    earlier buys on the same account and symbol. The stock filter lists names in the trades below.
   </p>
 
   <div class="rh-ex__toolbar">
@@ -87,7 +88,7 @@
       <p class="muted rh-ex__note">{{ d.note }}</p>
     }
 
-    <div class="rh-ex__summary" role="group" aria-label="Trade counts">
+    <div class="rh-ex__summary" role="group" aria-label="Trade counts and realized P&amp;L">
       <div class="rh-ex__stat">
         <span class="muted">Trades</span>
         <strong>{{ visibleTrades().length }}</strong>
@@ -100,6 +101,20 @@
         <span class="muted">Sells</span>
         <strong class="rh-ex__sell">{{ sellCount() }}</strong>
       </div>
+      @if (yearPnl(); as yp) {
+        <div class="rh-ex__stat">
+          <span class="muted">Gains</span>
+          <strong class="rh-ex__pnl--pos">{{ yp.gains | currency }}</strong>
+        </div>
+        <div class="rh-ex__stat">
+          <span class="muted">Losses</span>
+          <strong class="rh-ex__pnl--neg">{{ yp.losses | currency }}</strong>
+        </div>
+        <div class="rh-ex__stat">
+          <span class="muted">Net</span>
+          <strong [class.rh-ex__pnl--pos]="yp.net > 0" [class.rh-ex__pnl--neg]="yp.net < 0">{{ yp.net | currency }}</strong>
+        </div>
+      }
     </div>
 
     @if (!visibleTrades().length) {
@@ -108,9 +123,25 @@
       @for (group of dayGroups(); track group.key) {
         <section class="rh-ex__day" [attr.aria-label]="group.label">
           <h3 class="rh-ex__day-title">{{ group.label }}</h3>
-          @if (optionCashLabel(group.trades); as optionCash) {
-            <p class="muted rh-ex__day-options">{{ optionCash }}</p>
-          }
+          <div class="rh-ex__day-sum" aria-label="Day cash and realized P&amp;L">
+            @if (group.summary.optionFills) {
+              <span>{{ group.summary.optionFills }} option fill{{ group.summary.optionFills === 1 ? '' : 's' }}</span>
+              @if (group.summary.spent) {
+                <span>Spent {{ group.summary.spent | currency }}</span>
+              }
+              @if (group.summary.received) {
+                <span>Received {{ group.summary.received | currency }}</span>
+              }
+            }
+            <span class="rh-ex__pnl--pos">Gains {{ group.summary.gains | currency }}</span>
+            <span class="rh-ex__pnl--neg">Losses {{ group.summary.losses | currency }}</span>
+            <span
+              [class.rh-ex__pnl--pos]="group.summary.net > 0"
+              [class.rh-ex__pnl--neg]="group.summary.net < 0"
+            >
+              Net {{ group.summary.net | currency }}
+            </span>
+          </div>
           <ul class="rh-ex__list">
             @for (tr of group.trades; track tr.executedAt + tr.symbol + tr.side + (tr.accountSuffix ?? '')) {
               <li class="rh-ex__row">

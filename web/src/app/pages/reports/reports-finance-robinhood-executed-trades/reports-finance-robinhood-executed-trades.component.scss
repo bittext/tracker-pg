@@ -60,7 +60,7 @@
 
 .rh-ex__summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(7rem, 12rem));
+  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 11rem));
   gap: 0.65rem;
   margin: 0 0 1.1rem;
 }
@@ -98,9 +98,23 @@
   color: var(--app-text-muted, #64748b);
 }
 
-.rh-ex__day-options {
-  margin: -0.2rem 0 0.45rem;
+.rh-ex__day-sum {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.55rem;
+  margin: -0.1rem 0 0.5rem;
   font-size: 0.82rem;
+  color: var(--app-text-muted, #64748b);
+}
+
+.rh-ex__day-sum span {
+  font-variant-numeric: tabular-nums;
+}
+
+.rh-ex__day-sum span:not(:last-child)::after {
+  content: '·';
+  margin-left: 0.55rem;
+  color: var(--app-text-muted, #94a3b8);
 }
 
 .rh-ex__list {

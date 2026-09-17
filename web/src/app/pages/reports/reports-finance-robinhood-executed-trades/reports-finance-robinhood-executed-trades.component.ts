@@ -18,10 +18,21 @@ import { TradingJournalNavService } from '../../../services/trading-journal-nav.
 import { formatHttpErrorDetail } from '../../../util/http-error';
 import { ReportsFinanceRobinhoodTaxDeskComponent } from '../reports-finance-robinhood-tax-desk/reports-finance-robinhood-tax-desk.component';
 
+interface DayPnlSummary {
+  optionFills: number;
+  spent: number;
+  received: number;
+  gains: number;
+  losses: number;
+  net: number;
+  closed: number;
+}
+
 interface TradeDayGroup {
   key: string;
   label: string;
   trades: RobinhoodExecutedTradeDto[];
+  summary: DayPnlSummary;
 }
 
 @Component({
@@ -217,11 +228,17 @@ export class ReportsFinanceRobinhoodExecutedTradesComponent implements OnInit {
     }
     return [...groups.entries()]
       .sort((a, b) => b[0].localeCompare(a[0]))
-      .map(([key, trades]) => ({
-        key,
-        label: this.dayLabel(key),
-        trades: [...trades].sort((a, b) => this.executedMs(a.executedAt) - this.executedMs(b.executedAt)),
-      }));
+      .map(([key, trades]) => {
+        const ordered = [...trades].sort(
+          (a, b) => this.executedMs(a.executedAt) - this.executedMs(b.executedAt),
+        );
+        return {
+          key,
+          label: this.dayLabel(key),
+          trades: ordered,
+          summary: this.pnlSummary(ordered),
+        };
+      });
   }
 
   private executedMs(iso: string | null | undefined): number {
@@ -317,34 +334,39 @@ export class ReportsFinanceRobinhoodExecutedTradesComponent implements OnInit {
     return `${formatted} ${unit}`;
   }
 
-  optionCashLabel(trades: RobinhoodExecutedTradeDto[]): string {
+  yearPnl(): DayPnlSummary {
+    return this.pnlSummary(this.visibleTrades());
+  }
+
+  pnlSummary(trades: RobinhoodExecutedTradeDto[]): DayPnlSummary {
+    let optionFills = 0;
     let spent = 0;
     let received = 0;
-    let count = 0;
+    let gains = 0;
+    let losses = 0;
+    let net = 0;
+    let closed = 0;
     for (const trade of trades) {
-      if (!this.isOption(trade) || trade.notional == null) {
+      if (this.isOption(trade) && trade.notional != null) {
+        optionFills += 1;
+        if (this.isSell(trade.side)) {
+          received += trade.notional;
+        } else {
+          spent += trade.notional;
+        }
+      }
+      if (trade.realizedPnl == null) {
         continue;
       }
-      count += 1;
-      if (this.isSell(trade.side)) {
-        received += trade.notional;
-      } else {
-        spent += trade.notional;
+      closed += 1;
+      net += trade.realizedPnl;
+      if (trade.realizedPnl > 0) {
+        gains += trade.realizedPnl;
+      } else if (trade.realizedPnl < 0) {
+        losses += Math.abs(trade.realizedPnl);
       }
     }
-    if (count === 0) {
-      return '';
-    }
-    const money = (n: number) =>
-      new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
-    const bits = [`${count} option fill${count === 1 ? '' : 's'}`];
-    if (spent) {
-      bits.push(`spent ${money(spent)}`);
-    }
-    if (received) {
-      bits.push(`received ${money(received)}`);
-    }
-    return bits.join(' · ');
+    return { optionFills, spent, received, gains, losses, net, closed };
   }
 
   timeLabel(iso: string | null): string {
