@@ -1,9 +1,18 @@
+:host {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+}
+
 .desk {
   --desk-ink: #1b2430;
   --desk-muted: #5c6b7a;
   --desk-rule: rgba(27, 36, 48, 0.12);
   --desk-paper: #f6f1e8;
   --desk-card: #fffdf8;
+  container-type: inline-size;
+  container-name: taxdesk;
+  min-width: 0;
   padding: 0.15rem 0 2.5rem;
   color: var(--desk-ink);
 }
@@ -70,6 +79,7 @@
   padding: 1.1rem 1.2rem 0.35rem;
   margin-bottom: 0.75rem;
   color: #fff;
+  min-width: 0;
 }
 
 .risk-refund {
@@ -112,7 +122,7 @@
 
 .desk__hero-metrics {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
   margin: 0;
 }
@@ -122,6 +132,8 @@
   border-radius: 12px;
   padding: 0.7rem 0.8rem 0.8rem;
   margin-bottom: 0.85rem;
+  min-width: 0;
+  overflow: visible;
 }
 
 .desk__hero-metrics dt {
@@ -131,9 +143,10 @@
 
 .desk__hero-metrics dd {
   margin: 0.2rem 0 0;
-  font-size: 1.28rem;
+  font-size: 1.2rem;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .desk__hero-metrics small {
@@ -176,78 +189,91 @@
 
 .desk__explain {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.1rem;
   margin-bottom: 1.25rem;
 }
 
-.desk__ledger {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.86rem;
+.desk__sheet {
+  min-width: 0;
   background: var(--desk-card);
   border: 1px solid var(--desk-rule);
   border-radius: 12px;
-  overflow: hidden;
 }
 
-.desk__ledger th {
-  font-weight: 600;
-  text-align: left;
-}
-
-.desk__ledger td,
-.desk__ledger th {
-  padding: 0.42rem 0.55rem;
+.desk__line {
+  display: grid;
+  grid-template-columns: 1.25rem minmax(0, 1fr) max-content;
+  column-gap: 0.55rem;
+  row-gap: 0.18rem;
+  align-items: baseline;
+  padding: 0.55rem 0.85rem;
   border-bottom: 1px solid var(--desk-rule);
-  vertical-align: top;
 }
 
-.desk__ledger tr:last-child td,
-.desk__ledger tr:last-child th {
+.desk__line:last-child {
   border-bottom: 0;
 }
 
-.desk__ledger td:last-child {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  font-weight: 650;
-  white-space: nowrap;
-  width: 8.5rem;
-}
-
 .desk__op {
-  width: 1.4rem;
   color: var(--desk-muted);
   font-weight: 700;
 }
 
-.desk__note td {
+.desk__name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+  font-size: 0.86rem;
+}
+
+.desk__fig {
+  justify-self: end;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  font-size: 0.86rem;
+}
+
+.desk__hint {
+  grid-column: 2 / -1;
+  margin: 0;
   color: var(--desk-muted);
   font-size: 0.75rem;
   font-weight: 400;
-  padding-top: 0;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  text-align: left;
 }
 
-.desk__sum {
+.desk__line--sum {
   background: #f3eee4;
 }
 
-.desk__total {
+.desk__line--total {
   background: #ebe4d6;
 }
 
-.desk__total th,
-.desk__total td:last-child {
+.desk__line--total .desk__name,
+.desk__line--total .desk__fig {
   font-weight: 750;
 }
 
-.desk__pos-row th,
+.desk__line--pos .desk__name,
+.desk__line--pos .desk__fig {
+  color: #166534;
+}
+
+.desk__line--neg .desk__name,
+.desk__line--neg .desk__fig {
+  color: #9f1239;
+}
+
 .desk__pos-row td {
   color: #166534;
 }
 
-.desk__neg-row th,
 .desk__neg-row td {
   color: #9f1239;
 }
@@ -344,6 +370,7 @@
   border-radius: 16px;
   padding: 1rem 1.1rem 1.15rem;
   margin: 0 0 1.15rem;
+  min-width: 0;
 }
 
 .desk__day[data-risk='REFUND_TRACK'] {
@@ -382,7 +409,7 @@
 
 .desk__day-kpis {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.6rem;
   margin: 0 0 0.85rem;
 }
@@ -402,9 +429,10 @@
 
 .desk__day-kpis dd {
   margin: 0.2rem 0 0;
-  font-size: 1.12rem;
+  font-size: 1.08rem;
   font-variant-numeric: tabular-nums;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .desk__day-kpis small {
@@ -416,7 +444,7 @@
 
 .desk__accts {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.55rem;
   margin: 0 0 0.7rem;
 }
@@ -438,6 +466,7 @@
   display: block;
   margin: 0.2rem 0 0.1rem;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .desk__day-note {
@@ -497,7 +526,7 @@
 
 .desk__qgrid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.75rem;
 }
 
@@ -568,6 +597,7 @@
   margin: 0;
   font-variant-numeric: tabular-nums;
   font-weight: 650;
+  white-space: nowrap;
 }
 
 .desk__q-pay {
@@ -578,13 +608,13 @@
 
 .desk__split {
   display: grid;
-  grid-template-columns: 1.2fr 0.8fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.1rem;
 }
 
 .desk__kpis {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
   margin: 0 0 0.85rem;
 }
@@ -605,6 +635,7 @@
 
 .desk__kpis strong {
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .desk__table-wrap {
@@ -660,18 +691,29 @@
   border: 1px solid var(--desk-rule);
   border-radius: 12px;
   background: var(--desk-card);
-  overflow: hidden;
 }
 
-.desk__trades li,
+.desk__trades li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) max-content;
+  column-gap: 0.75rem;
+  align-items: start;
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid var(--desk-rule);
+}
+
 .desk__pays li,
 .desk__sources li {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.7rem;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  column-gap: 0.75rem;
+  align-items: start;
   padding: 0.65rem 0.8rem;
   border-bottom: 1px solid var(--desk-rule);
+}
+
+.desk__sources li {
+  grid-template-columns: auto minmax(0, 1fr) max-content;
 }
 
 .desk__trades li:last-child,
@@ -680,22 +722,41 @@
   border-bottom: 0;
 }
 
+.desk__trade-body,
+.desk__pays li > div:first-child,
+.desk__sources li > div {
+  min-width: 0;
+}
+
+.desk__trade-body strong,
+.desk__sources strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
 .desk__trades small,
 .desk__pays small,
 .desk__sources small {
   display: block;
   color: var(--desk-muted);
   margin-top: 0.15rem;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .desk__side {
+  flex-shrink: 0;
+  align-self: start;
+  min-width: 2.85rem;
+  text-align: center;
   text-transform: uppercase;
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.04em;
-  padding: 0.15rem 0.4rem;
+  padding: 0.18rem 0.45rem;
   border-radius: 999px;
   background: #e2e8f0;
+  white-space: nowrap;
 }
 
 .desk__side.buy {
@@ -710,6 +771,12 @@
 
 .desk__amt {
   text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.desk__sources li > span:last-child {
   font-variant-numeric: tabular-nums;
   font-weight: 650;
   white-space: nowrap;
@@ -735,7 +802,7 @@
 
 .desk__form-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.5rem 0.75rem;
 }
 
@@ -781,32 +848,50 @@
   background: #fff4e5;
 }
 
-@media (max-width: 1100px) {
-  .desk__hero-metrics,
-  .desk__qgrid,
-  .desk__split,
-  .desk__kpis,
-  .desk__form-grid,
-  .desk__explain,
-  .desk__day-kpis,
-  .desk__accts {
-    grid-template-columns: 1fr 1fr;
+@media (max-width: 720px) {
+  .desk__hero-metrics dd {
+    font-size: 1.05rem;
   }
 }
 
-@media (max-width: 720px) {
-  .desk__hero-metrics,
+@container taxdesk (min-width: 36rem) {
+  .desk__accts,
   .desk__qgrid,
+  .desk__form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container taxdesk (min-width: 48rem) {
   .desk__split,
-  .desk__kpis,
-  .desk__form-grid,
-  .desk__explain,
-  .desk__day-kpis,
-  .desk__accts {
-    grid-template-columns: 1fr;
+  .desk__kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .desk__hero-metrics dd {
-    font-size: 1.1rem;
+  .desk__form-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@container taxdesk (min-width: 72rem) {
+  .desk__hero-metrics,
+  .desk__day-kpis {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .desk__accts {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .desk__qgrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .desk__kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .desk__explain {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

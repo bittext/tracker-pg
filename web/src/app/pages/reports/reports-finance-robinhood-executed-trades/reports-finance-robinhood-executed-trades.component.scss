@@ -1,3 +1,8 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
 .rh-ex {
   padding: 0.15rem 0.1rem 1.25rem;
 }
@@ -7,7 +12,13 @@
 }
 
 .rh-ex-inner__panel {
+  min-width: 0;
+  overflow-x: auto;
   padding-top: 0.55rem;
+}
+
+:host ::ng-deep .rh-ex-inner .mat-mdc-tab-body-content {
+  overflow: visible;
 }
 
 .rh-ex__title {

@@ -278,12 +278,12 @@ public class FinanceTaxDeskService {
                 if (t.realizedPnl() != null) {
                     realizedToday = realizedToday.add(t.realizedPnl());
                 }
-                if ("sell".equalsIgnoreCase(t.side())) {
+                if (isSellSide(t.side())) {
                     sellCount++;
                     if (t.notional() != null) {
                         sellNotional = sellNotional.add(t.notional());
                     }
-                } else if ("buy".equalsIgnoreCase(t.side()) && t.notional() != null) {
+                } else if (isBuySide(t.side()) && t.notional() != null) {
                     buyNotional = buyNotional.add(t.notional());
                 }
             }
@@ -908,6 +908,23 @@ public class FinanceTaxDeskService {
             return null;
         }
         return executedAt.atZone(CENTRAL).toLocalDate();
+    }
+
+    static boolean isBuySide(String side) {
+        String s = normalizeSide(side);
+        return s.equals("buy") || s.startsWith("buy");
+    }
+
+    static boolean isSellSide(String side) {
+        String s = normalizeSide(side);
+        return s.equals("sell") || s.startsWith("sell");
+    }
+
+    private static String normalizeSide(String side) {
+        if (side == null) {
+            return "";
+        }
+        return side.trim().toLowerCase(Locale.ROOT).replaceAll("[\\s-]+", "_");
     }
 
     private static String dueNote(ManagementDueItem item) {

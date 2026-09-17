@@ -14,6 +14,7 @@ import {
   FinanceTaxDeskPaymentDto,
   FinanceTaxDeskQuarterDto,
   FinanceTaxDeskSettingsDto,
+  FinanceTaxDeskTradeRowDto,
   FinanceTaxDeskWorkbookDto,
   TaxDeskRiskLevel,
 } from '../../../models/finance.models';
@@ -461,11 +462,97 @@ export class ReportsFinanceRobinhoodTaxDeskComponent implements OnInit {
   }
 
   isBuy(side: string | null | undefined): boolean {
-    return (side ?? '').toLowerCase() === 'buy';
+    return this.normalizedSide(side).startsWith('buy');
   }
 
   isSell(side: string | null | undefined): boolean {
-    return (side ?? '').toLowerCase() === 'sell';
+    return this.normalizedSide(side).startsWith('sell');
+  }
+
+  sideLabel(side: string | null | undefined): string {
+    const s = this.normalizedSide(side);
+    if (!s) {
+      return 'Fill';
+    }
+    const labels: Record<string, string> = {
+      buy: 'Buy',
+      sell: 'Sell',
+      buy_to_open: 'BTO',
+      buy_to_close: 'BTC',
+      sell_to_open: 'STO',
+      sell_to_close: 'STC',
+      buy_to_o: 'BTO',
+      buy_to_c: 'BTC',
+      sell_to_o: 'STO',
+      sell_to_c: 'STC',
+    };
+    if (labels[s]) {
+      return labels[s];
+    }
+    if (s.startsWith('buy_to_open') || s === 'bto') {
+      return 'BTO';
+    }
+    if (s.startsWith('buy_to_close') || s === 'btc') {
+      return 'BTC';
+    }
+    if (s.startsWith('sell_to_open') || s === 'sto') {
+      return 'STO';
+    }
+    if (s.startsWith('sell_to_close') || s === 'stc') {
+      return 'STC';
+    }
+    if (s.startsWith('buy')) {
+      return 'Buy';
+    }
+    if (s.startsWith('sell')) {
+      return 'Sell';
+    }
+    return (side ?? 'Fill').trim() || 'Fill';
+  }
+
+  cashSign(side: string | null | undefined): string {
+    if (this.isSell(side)) {
+      return '+';
+    }
+    if (this.isBuy(side)) {
+      return '−';
+    }
+    return '';
+  }
+
+  tradeMeta(tr: FinanceTaxDeskTradeRowDto): string {
+    const bits: string[] = [];
+    if (tr.quantity != null) {
+      const formatted = new Intl.NumberFormat('en-US', { maximumFractionDigits: 6 }).format(tr.quantity);
+      const option = / call | put /i.test(tr.symbol ?? '');
+      const unit = option
+        ? tr.quantity === 1
+          ? 'contract'
+          : 'contracts'
+        : tr.quantity === 1
+          ? 'share'
+          : 'shares';
+      bits.push(`${formatted} ${unit}`);
+    }
+    if (tr.averagePrice != null) {
+      bits.push(
+        `@ ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(tr.averagePrice)}`,
+      );
+    }
+    if (tr.accountLabel) {
+      bits.push(tr.accountLabel);
+    }
+    if (tr.executedAt) {
+      const d = new Date(tr.executedAt);
+      if (!Number.isNaN(d.getTime())) {
+        bits.push(d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }));
+      }
+    }
+    return bits.join(' · ');
+  }
+
+  private normalizedSide(side: string | null | undefined): string {
+    return (side ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_');
   }
 
   private applyPage(page: FinanceTaxDeskPageDto): void {

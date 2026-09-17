@@ -163,18 +163,18 @@
           <p class="muted">No executed buys or sells on this date in Individual, Agentic, or Ammu.</p>
         } @else {
           <ul class="desk__trades">
-            @for (tr of wb.today.trades; track (tr.executedAt || '') + (tr.symbol || '') + (tr.side || '')) {
+            @for (tr of wb.today.trades; track (tr.executedAt || '') + (tr.symbol || '') + (tr.side || '') + (tr.quantity || '')) {
               <li>
-                <span class="desk__side" [class.buy]="isBuy(tr.side)" [class.sell]="isSell(tr.side)">{{ tr.side }}</span>
-                <div>
-                  <strong>{{ tr.symbol }}</strong>
-                  <small>{{ tr.accountLabel }} · {{ tr.executedAt | date: 'shortTime' }}</small>
+                <span class="desk__side" [class.buy]="isBuy(tr.side)" [class.sell]="isSell(tr.side)">{{ sideLabel(tr.side) }}</span>
+                <div class="desk__trade-body">
+                  <strong>{{ tr.symbol || '—' }}</strong>
+                  <small>{{ tradeMeta(tr) }}</small>
                 </div>
                 <div class="desk__amt">
-                  {{ tr.notional | currency }}
+                  {{ cashSign(tr.side) }}{{ tr.notional | currency }}
                   @if (tr.realizedPnl != null) {
                     <small [class.desk__pos]="tr.realizedPnl > 0" [class.desk__neg]="tr.realizedPnl < 0">
-                      {{ tr.realizedPnl | currency }}
+                      Realized {{ tr.realizedPnl | currency }}
                     </small>
                   }
                 </div>
@@ -199,138 +199,123 @@
           calendar YTD; the in-app FIFO tape is a footnote. Carryover comes from Settings (seeded from the
           reviewed 2025 return).
         </p>
-        <table class="desk__ledger">
-          <tbody>
-            <tr>
-              <td class="desk__op">+</td>
-              <th>W-2 wages (projected)</th>
-              <td>{{ wb.wagesProjected | currency }}</td>
-            </tr>
-            <tr class="desk__note">
-              <td></td>
-              <td colspan="2">{{ wageSource(wb) }}</td>
-            </tr>
-            <tr>
-              <td class="desk__op">+</td>
-              <th>External / other ordinary</th>
-              <td>{{ wb.externalProjected | currency }}</td>
-            </tr>
-            <tr>
-              <td class="desk__op">+</td>
-              <th>{{ realizedLineLabel(wb) }}</th>
-              <td>{{ wb.realizedYtd | currency }}</td>
-            </tr>
-            <tr class="desk__note">
-              <td></td>
-              <td colspan="2">{{ realizedSourceNote(wb) }}</td>
-            </tr>
-            <tr>
-              <td class="desk__op">−</td>
-              <th>Capital-loss carryover ({{ wb.taxYear - 1 }})</th>
-              <td>{{ carryoverPool(wb) | currency }}</td>
-            </tr>
-            <tr class="desk__note">
-              <td></td>
-              <td colspan="2">
-                ST {{ (wb.settings.shortTermLossCarryover || 0) | currency }} + LT
-                {{ (wb.settings.longTermLossCarryover || 0) | currency }}. Applied before this year’s gain is taxed.
-              </td>
-            </tr>
-            @if (ordinaryLossUsed(wb) > 0) {
-              <tr>
-                <td class="desk__op">−</td>
-                <th>Ordinary-income offset (cap $3,000)</th>
-                <td>{{ ordinaryLossUsed(wb) | currency }}</td>
-              </tr>
-            }
-            <tr class="desk__sum">
-              <td class="desk__op">=</td>
-              <th>Capital in AGI</th>
-              <td>{{ capitalInAgi(wb) | currency }}</td>
-            </tr>
+        <div class="desk__sheet">
+          <div class="desk__line">
+            <span class="desk__op">+</span>
+            <span class="desk__name">W-2 wages (projected)</span>
+            <span class="desk__fig">{{ wb.wagesProjected | currency }}</span>
+            <p class="desk__hint">{{ wageSource(wb) }}</p>
+          </div>
+          <div class="desk__line">
+            <span class="desk__op">+</span>
+            <span class="desk__name">External / other ordinary</span>
+            <span class="desk__fig">{{ wb.externalProjected | currency }}</span>
+          </div>
+          <div class="desk__line">
+            <span class="desk__op">+</span>
+            <span class="desk__name">{{ realizedLineLabel(wb) }}</span>
+            <span class="desk__fig">{{ wb.realizedYtd | currency }}</span>
+            <p class="desk__hint">{{ realizedSourceNote(wb) }}</p>
+          </div>
+          <div class="desk__line">
+            <span class="desk__op">−</span>
+            <span class="desk__name">Capital-loss carryover ({{ wb.taxYear - 1 }})</span>
+            <span class="desk__fig">{{ carryoverPool(wb) | currency }}</span>
+            <p class="desk__hint">
+              ST {{ (wb.settings.shortTermLossCarryover || 0) | currency }} + LT
+              {{ (wb.settings.longTermLossCarryover || 0) | currency }}. Applied before this year’s gain is taxed.
+            </p>
+          </div>
+          @if (ordinaryLossUsed(wb) > 0) {
+            <div class="desk__line">
+              <span class="desk__op">−</span>
+              <span class="desk__name">Ordinary-income offset (cap $3,000)</span>
+              <span class="desk__fig">{{ ordinaryLossUsed(wb) | currency }}</span>
+            </div>
+          }
+          <div class="desk__line desk__line--sum">
+            <span class="desk__op">=</span>
+            <span class="desk__name">Capital in AGI</span>
+            <span class="desk__fig">{{ capitalInAgi(wb) | currency }}</span>
             @if (wb.netTaxableGain > 0) {
-              <tr class="desk__note">
-                <td></td>
-                <td colspan="2">Leftover taxable gain after carryover: {{ wb.netTaxableGain | currency }} (also the NIIT base).</td>
-              </tr>
+              <p class="desk__hint">Leftover taxable gain after carryover: {{ wb.netTaxableGain | currency }} (also the NIIT base).</p>
             }
             @if (unusedCarryover(wb) > 0) {
-              <tr class="desk__note">
-                <td></td>
-                <td colspan="2">Unused carryover still available after this year: {{ unusedCarryover(wb) | currency }}.</td>
-              </tr>
+              <p class="desk__hint">Unused carryover still available after this year: {{ unusedCarryover(wb) | currency }}.</p>
             }
-            <tr class="desk__sum">
-              <td class="desk__op">=</td>
-              <th>AGI</th>
-              <td>{{ wb.agi | currency }}</td>
-            </tr>
-            <tr>
-              <td class="desk__op">−</td>
-              <th>Standard deduction (MFJ {{ wb.taxYear }})</th>
-              <td>{{ wb.standardDeduction | currency }}</td>
-            </tr>
-            <tr class="desk__total">
-              <td class="desk__op">=</td>
-              <th>Taxable income</th>
-              <td>{{ wb.taxableIncome | currency }}</td>
-            </tr>
-          </tbody>
-        </table>
+          </div>
+          <div class="desk__line desk__line--sum">
+            <span class="desk__op">=</span>
+            <span class="desk__name">AGI</span>
+            <span class="desk__fig">{{ wb.agi | currency }}</span>
+          </div>
+          <div class="desk__line">
+            <span class="desk__op">−</span>
+            <span class="desk__name">Standard deduction (MFJ {{ wb.taxYear }})</span>
+            <span class="desk__fig">{{ wb.standardDeduction | currency }}</span>
+          </div>
+          <div class="desk__line desk__line--total">
+            <span class="desk__op">=</span>
+            <span class="desk__name">Taxable income</span>
+            <span class="desk__fig">{{ wb.taxableIncome | currency }}</span>
+          </div>
+        </div>
       </div>
 
       <div>
         <h3>How that becomes the tax number</h3>
         <p class="muted">Ordinary brackets on taxable income, then credits and NIIT. Then money already sent to IRS.</p>
-        <table class="desk__ledger">
-          <tbody>
-            <tr>
-              <td class="desk__op"></td>
-              <th>Ordinary income tax</th>
-              <td>{{ wb.estimatedIncomeTax | currency }}</td>
-            </tr>
-            <tr>
-              <td class="desk__op">−</td>
-              <th>Child / other dependent credit</th>
-              <td>{{ wb.childCredit | currency }}</td>
-            </tr>
-            <tr class="desk__sum">
-              <td class="desk__op">=</td>
-              <th>Tax after credits</th>
-              <td>{{ taxAfterCredits(wb) | currency }}</td>
-            </tr>
-            <tr>
-              <td class="desk__op">+</td>
-              <th>NIIT 3.8% on leftover gain</th>
-              <td>{{ wb.estimatedNiit | currency }}</td>
-            </tr>
-            <tr class="desk__total">
-              <td class="desk__op">=</td>
-              <th>Full-year federal tax</th>
-              <td>{{ wb.estimatedFederalTax | currency }}</td>
-            </tr>
-            <tr>
-              <td class="desk__op">−</td>
-              <th>Projected W-2 withholding</th>
-              <td>{{ wb.projectedWithholding | currency }}</td>
-            </tr>
-            <tr>
-              <td class="desk__op">−</td>
-              <th>1040-ES / Direct Pay logged</th>
-              <td>{{ wb.estimatesPaid | currency }}</td>
-            </tr>
-            <tr class="desk__sum">
-              <td class="desk__op">=</td>
-              <th>Credits already counted</th>
-              <td>{{ wb.totalCredits | currency }}</td>
-            </tr>
-            <tr class="desk__total" [class.desk__pos-row]="wb.filingDayBalance < 0" [class.desk__neg-row]="wb.filingDayBalance > 0">
-              <td class="desk__op">=</td>
-              <th>{{ filingOutcome(wb) }}</th>
-              <td>{{ filingAmount(wb) | currency }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="desk__sheet">
+          <div class="desk__line">
+            <span class="desk__op"></span>
+            <span class="desk__name">Ordinary income tax</span>
+            <span class="desk__fig">{{ wb.estimatedIncomeTax | currency }}</span>
+          </div>
+          <div class="desk__line">
+            <span class="desk__op">−</span>
+            <span class="desk__name">Child / other dependent credit</span>
+            <span class="desk__fig">{{ wb.childCredit | currency }}</span>
+          </div>
+          <div class="desk__line desk__line--sum">
+            <span class="desk__op">=</span>
+            <span class="desk__name">Tax after credits</span>
+            <span class="desk__fig">{{ taxAfterCredits(wb) | currency }}</span>
+          </div>
+          <div class="desk__line">
+            <span class="desk__op">+</span>
+            <span class="desk__name">NIIT 3.8% on leftover gain</span>
+            <span class="desk__fig">{{ wb.estimatedNiit | currency }}</span>
+          </div>
+          <div class="desk__line desk__line--total">
+            <span class="desk__op">=</span>
+            <span class="desk__name">Full-year federal tax</span>
+            <span class="desk__fig">{{ wb.estimatedFederalTax | currency }}</span>
+          </div>
+          <div class="desk__line">
+            <span class="desk__op">−</span>
+            <span class="desk__name">Projected W-2 withholding</span>
+            <span class="desk__fig">{{ wb.projectedWithholding | currency }}</span>
+          </div>
+          <div class="desk__line">
+            <span class="desk__op">−</span>
+            <span class="desk__name">1040-ES / Direct Pay logged</span>
+            <span class="desk__fig">{{ wb.estimatesPaid | currency }}</span>
+          </div>
+          <div class="desk__line desk__line--sum">
+            <span class="desk__op">=</span>
+            <span class="desk__name">Credits already counted</span>
+            <span class="desk__fig">{{ wb.totalCredits | currency }}</span>
+          </div>
+          <div
+            class="desk__line desk__line--total"
+            [class.desk__line--pos]="wb.filingDayBalance < 0"
+            [class.desk__line--neg]="wb.filingDayBalance > 0"
+          >
+            <span class="desk__op">=</span>
+            <span class="desk__name">{{ filingOutcome(wb) }}</span>
+            <span class="desk__fig">{{ filingAmount(wb) | currency }}</span>
+          </div>
+        </div>
       </div>
     </section>
 
