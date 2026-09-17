@@ -375,6 +375,9 @@ public class FinanceTaxDeskService {
         String narrative = buildNarrative(
                 settings, calc, asOf, taxYear, riskLevel, priorDelta, filings, sources, realizedSource);
 
+        todayTrades.sort(Comparator.comparing(
+                FinanceTaxDeskTradeRowDto::executedAt, Comparator.nullsLast(Comparator.naturalOrder())));
+
         FinanceTaxDeskTodayDto today = new FinanceTaxDeskTodayDto(
                 asOf,
                 todayTrades.size(),

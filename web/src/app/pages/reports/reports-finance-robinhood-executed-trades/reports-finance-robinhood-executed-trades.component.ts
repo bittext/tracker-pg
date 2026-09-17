@@ -215,11 +215,21 @@ export class ReportsFinanceRobinhoodExecutedTradesComponent implements OnInit {
       list.push(trade);
       groups.set(key, list);
     }
-    return [...groups.entries()].map(([key, trades]) => ({
-      key,
-      label: this.dayLabel(key),
-      trades,
-    }));
+    return [...groups.entries()]
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([key, trades]) => ({
+        key,
+        label: this.dayLabel(key),
+        trades: [...trades].sort((a, b) => this.executedMs(a.executedAt) - this.executedMs(b.executedAt)),
+      }));
+  }
+
+  private executedMs(iso: string | null | undefined): number {
+    if (!iso) {
+      return Number.POSITIVE_INFINITY;
+    }
+    const t = Date.parse(iso);
+    return Number.isNaN(t) ? Number.POSITIVE_INFINITY : t;
   }
 
   buyCount(): number {

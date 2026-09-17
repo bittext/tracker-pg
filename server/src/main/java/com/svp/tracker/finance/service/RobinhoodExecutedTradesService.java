@@ -182,7 +182,7 @@ public class RobinhoodExecutedTradesService {
                     realized == null ? null : realized.percent()));
         }
         trades.sort(Comparator.comparing(
-                RobinhoodExecutedTradeDto::executedAt, Comparator.nullsLast(Comparator.reverseOrder())));
+                RobinhoodExecutedTradeDto::executedAt, Comparator.nullsLast(Comparator.naturalOrder())));
 
         List<RobinhoodRhPeriodAccountColumnDto> accounts = orderSuffixes(suffixes).stream()
                 .map(s -> new RobinhoodRhPeriodAccountColumnDto(
