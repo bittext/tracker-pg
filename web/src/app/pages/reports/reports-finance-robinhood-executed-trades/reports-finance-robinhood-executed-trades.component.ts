@@ -264,7 +264,28 @@ export class ReportsFinanceRobinhoodExecutedTradesComponent implements OnInit {
     return side!.charAt(0).toUpperCase() + side!.slice(1).toLowerCase();
   }
 
-  isOption(symbol: string | null | undefined): boolean {
+  isOption(trade: RobinhoodExecutedTradeDto | string | null | undefined): boolean {
+    if (trade && typeof trade === 'object') {
+      if (this.symbolLooksLikeOption(trade.symbol)) {
+        return true;
+      }
+      if (trade.quantity != null && trade.averagePrice != null && trade.notional != null) {
+        const raw = trade.quantity * trade.averagePrice;
+        const x100 = raw * 100;
+        if (Math.abs(trade.notional - x100) < 0.06 && Math.abs(trade.notional - raw) > 0.06) {
+          return true;
+        }
+      }
+      const side = (trade.side ?? '').trim();
+      const tickerOnly = !!trade.symbol?.trim() && !/\s/.test(trade.symbol.trim());
+      const whole = trade.quantity != null && Number.isInteger(Number(trade.quantity));
+      const type = (trade.orderType ?? '').toLowerCase();
+      return !side && tickerOnly && whole && (type === 'limit' || type === 'market');
+    }
+    return this.symbolLooksLikeOption(typeof trade === 'string' ? trade : null);
+  }
+
+  private symbolLooksLikeOption(symbol: string | null | undefined): boolean {
     const s = (symbol ?? '').trim().toUpperCase();
     if (!s) {
       return false;
@@ -281,7 +302,7 @@ export class ReportsFinanceRobinhoodExecutedTradesComponent implements OnInit {
       return '';
     }
     const formatted = new Intl.NumberFormat('en-US', { maximumFractionDigits: 6 }).format(qty);
-    const option = this.isOption(trade.symbol);
+    const option = this.isOption(trade);
     const unit = option ? (qty === 1 ? 'contract' : 'contracts') : qty === 1 ? 'share' : 'shares';
     return `${formatted} ${unit}`;
   }
@@ -291,7 +312,7 @@ export class ReportsFinanceRobinhoodExecutedTradesComponent implements OnInit {
     let received = 0;
     let count = 0;
     for (const trade of trades) {
-      if (!this.isOption(trade.symbol) || trade.notional == null) {
+      if (!this.isOption(trade) || trade.notional == null) {
         continue;
       }
       count += 1;

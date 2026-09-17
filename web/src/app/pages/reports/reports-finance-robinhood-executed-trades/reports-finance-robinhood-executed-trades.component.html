@@ -127,7 +127,7 @@
                     <span class="muted rh-ex__meta">
                       {{ qtyLabel(tr) }}
                       @if (tr.averagePrice != null) {
-                        · {{ isOption(tr.symbol) ? 'premium ' : '' }}{{ tr.averagePrice | currency }}
+                        · {{ isOption(tr) ? 'premium ' : '' }}{{ tr.averagePrice | currency }}
                       }
                       @if (tr.orderType) {
                         · {{ tr.orderType }}

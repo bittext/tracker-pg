@@ -68,6 +68,38 @@ class RobinhoodExecutedTradesServiceTest {
         assertTrue(RobinhoodExecutedTradesService.isOptionSymbol("MRNA $155 Call 2026-09-25"));
         assertTrue(RobinhoodExecutedTradesService.isOptionSymbol("HOOD $155 CALL 2027-01-15"));
         assertFalse(RobinhoodExecutedTradesService.isOptionSymbol("MRNA"));
+        assertEquals(
+                0,
+                new BigDecimal("445.00")
+                        .compareTo(RobinhoodExecutedTradesService.notional(
+                                "MRNA",
+                                new BigDecimal("1"),
+                                new BigDecimal("4.45"),
+                                null,
+                                "limit")));
+        assertEquals(
+                0,
+                new BigDecimal("3750.00")
+                        .compareTo(RobinhoodExecutedTradesService.notional(
+                                "MRNA",
+                                new BigDecimal("5.00000"),
+                                new BigDecimal("7.50"),
+                                "",
+                                "limit")));
+        assertEquals(
+                0,
+                new BigDecimal("410.00")
+                        .compareTo(RobinhoodExecutedTradesService.notional(
+                                "HOOD",
+                                new BigDecimal("1"),
+                                new BigDecimal("4.10"),
+                                null,
+                                "limit")));
+        assertEquals(
+                0,
+                new BigDecimal("11.05")
+                        .compareTo(RobinhoodExecutedTradesService.notional(
+                                "MU", new BigDecimal("1"), new BigDecimal("11.05"), "buy", "limit")));
     }
 
     @Test

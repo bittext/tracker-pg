@@ -524,7 +524,13 @@ export class ReportsFinanceRobinhoodTaxDeskComponent implements OnInit {
     const bits: string[] = [];
     if (tr.quantity != null) {
       const formatted = new Intl.NumberFormat('en-US', { maximumFractionDigits: 6 }).format(tr.quantity);
-      const option = / call | put | \$/i.test(tr.symbol ?? '');
+      const option =
+        / call | put | \$/i.test(tr.symbol ?? '')
+        || (tr.quantity != null
+          && tr.averagePrice != null
+          && tr.notional != null
+          && Math.abs(tr.notional - tr.quantity * tr.averagePrice * 100) < 0.06
+          && Math.abs(tr.notional - tr.quantity * tr.averagePrice) > 0.06);
       const unit = option
         ? tr.quantity === 1
           ? 'contract'

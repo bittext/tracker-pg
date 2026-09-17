@@ -88,7 +88,7 @@ public class RobinhoodExecutedTradesService {
                             order.getOrderType(),
                             qty,
                             price,
-                            notional(order.getSymbol(), qty, price),
+                            notional(order.getSymbol(), qty, price, order.getSide(), order.getOrderType()),
                             order.getState(),
                             executedAt,
                             executedAt.atZone(CENTRAL).toLocalDate(),
@@ -132,7 +132,9 @@ public class RobinhoodExecutedTradesService {
                                 notional(
                                         trade.symbol(),
                                         trade.quantity(),
-                                        trade.averagePrice() != null ? trade.averagePrice() : trade.limitPrice()),
+                                        trade.averagePrice() != null ? trade.averagePrice() : trade.limitPrice(),
+                                        trade.side(),
+                                        trade.orderType()),
                                 trade.state(),
                                 executedAt,
                                 executedAt.atZone(CENTRAL).toLocalDate(),
@@ -242,12 +244,53 @@ public class RobinhoodExecutedTradesService {
         return compact.matches("[A-Z]{1,6}\\d{6}[CP]\\d{8}");
     }
 
+    static boolean isTickerOnly(String symbol) {
+        String ticker = underlyingSymbol(symbol);
+        if (ticker == null || symbol == null) {
+            return false;
+        }
+        return ticker.equals(symbol.trim().toUpperCase(Locale.ROOT));
+    }
+
+    static boolean isWholeQuantity(BigDecimal quantity) {
+        if (quantity == null) {
+            return false;
+        }
+        return quantity.stripTrailingZeros().scale() <= 0;
+    }
+
+    /**
+     * Option cash is premium × 100. Labels like {@code MRNA $155 CALL} are enough. Stored option
+     * fills from Robinhood still arrive as the ticker plus a missing side (the side lives on the
+     * option leg), so those are treated as contracts too.
+     */
+    static boolean isOptionTrade(String symbol, String side, BigDecimal quantity, String orderType) {
+        if (isOptionSymbol(symbol)) {
+            return true;
+        }
+        if (!isTickerOnly(symbol) || !isWholeQuantity(quantity)) {
+            return false;
+        }
+        String s = side == null ? "" : side.trim().toLowerCase(Locale.ROOT).replace(' ', '_');
+        if (s.contains("to_open") || s.contains("to_close") || s.equals("bto") || s.equals("btc")
+                || s.equals("sto") || s.equals("stc")) {
+            return true;
+        }
+        String type = orderType == null ? "" : orderType.trim().toLowerCase(Locale.ROOT);
+        return s.isEmpty() && (type.equals("limit") || type.equals("market"));
+    }
+
     static BigDecimal notional(String symbol, BigDecimal quantity, BigDecimal price) {
+        return notional(symbol, quantity, price, null, null);
+    }
+
+    static BigDecimal notional(
+            String symbol, BigDecimal quantity, BigDecimal price, String side, String orderType) {
         if (quantity == null || price == null) {
             return null;
         }
         BigDecimal raw = quantity.multiply(price);
-        if (isOptionSymbol(symbol)) {
+        if (isOptionTrade(symbol, side, quantity, orderType)) {
             raw = raw.multiply(BigDecimal.valueOf(100));
         }
         return raw.setScale(2, RoundingMode.HALF_UP);
