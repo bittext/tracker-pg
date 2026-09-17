@@ -39,20 +39,24 @@
       </div>
       <dl class="desk__hero-metrics">
         <div>
-          <dt>Estimated federal tax</dt>
+          <dt>Full-year federal tax</dt>
           <dd>{{ wb.estimatedFederalTax | currency }}</dd>
+          <small>What the year looks like. Not a check due today.</small>
         </div>
         <div [class.desk__neg]="wb.filingDayBalance > 0" [class.desk__pos]="wb.filingDayBalance < 0">
           <dt>{{ filingOutcome(wb) }}</dt>
           <dd>{{ filingAmount(wb) | currency }}</dd>
+          <small>Tax minus withholding and 1040-ES already logged.</small>
         </div>
         <div [class.desk__neg]="wb.penaltyExposure > 0">
-          <dt>Penalty exposure</dt>
+          <dt>Possible quarter penalty</dt>
           <dd>{{ wb.penaltyExposure | currency }}</dd>
+          <small>Interest-style flag if a past 1040-ES date was short — not tax still due.</small>
         </div>
         <div>
-          <dt>Still to prepay (refund plan)</dt>
+          <dt>Extra 1040-ES to send now</dt>
           <dd>{{ wb.recommendedAdditionalPrepay | currency }}</dd>
+          <small>Additional estimate to keep the refund target. $0 means do not send another.</small>
         </div>
       </dl>
     </div>
@@ -66,6 +70,210 @@
         </span>
       }
     </div>
+
+    <aside class="desk__takeaway" aria-label="What this means">
+      <p class="desk__takeaway-kicker">In one sentence</p>
+      <p class="desk__takeaway-title">{{ takeawayTitle(wb) }}</p>
+      <p>{{ takeawayBody(wb) }}</p>
+    </aside>
+
+    <section class="desk__explain" aria-label="How taxable amounts are derived">
+      <div>
+        <h3>How taxable income is built</h3>
+        <p class="muted">
+          W-2 is last year’s pattern until you edit Annual. Trades are this year’s <em>closed</em> Robinhood lots only.
+          Carryover comes from Settings (seeded from the reviewed 2025 return).
+        </p>
+        <table class="desk__ledger">
+          <tbody>
+            <tr>
+              <td class="desk__op">+</td>
+              <th>W-2 wages (projected)</th>
+              <td>{{ wb.wagesProjected | currency }}</td>
+            </tr>
+            <tr class="desk__note">
+              <td></td>
+              <td colspan="2">{{ wageSource(wb) }}</td>
+            </tr>
+            <tr>
+              <td class="desk__op">+</td>
+              <th>External / other ordinary</th>
+              <td>{{ wb.externalProjected | currency }}</td>
+            </tr>
+            <tr>
+              <td class="desk__op">+</td>
+              <th>This year’s realized trades</th>
+              <td>{{ wb.realizedYtd | currency }}</td>
+            </tr>
+            <tr class="desk__note">
+              <td></td>
+              <td colspan="2">FIFO on Individual, Agentic, and Ammu through {{ wb.asOf | date: 'mediumDate' }}. Open lots are out.</td>
+            </tr>
+            <tr>
+              <td class="desk__op">−</td>
+              <th>Capital-loss carryover ({{ wb.taxYear - 1 }})</th>
+              <td>{{ carryoverPool(wb) | currency }}</td>
+            </tr>
+            <tr class="desk__note">
+              <td></td>
+              <td colspan="2">
+                ST {{ (wb.settings.shortTermLossCarryover || 0) | currency }} + LT
+                {{ (wb.settings.longTermLossCarryover || 0) | currency }}. Applied before this year’s gain is taxed.
+              </td>
+            </tr>
+            @if (ordinaryLossUsed(wb) > 0) {
+              <tr>
+                <td class="desk__op">−</td>
+                <th>Ordinary-income offset (cap $3,000)</th>
+                <td>{{ ordinaryLossUsed(wb) | currency }}</td>
+              </tr>
+            }
+            <tr class="desk__sum">
+              <td class="desk__op">=</td>
+              <th>Capital in AGI</th>
+              <td>{{ capitalInAgi(wb) | currency }}</td>
+            </tr>
+            @if (wb.netTaxableGain > 0) {
+              <tr class="desk__note">
+                <td></td>
+                <td colspan="2">Leftover taxable gain after carryover: {{ wb.netTaxableGain | currency }} (also the NIIT base).</td>
+              </tr>
+            }
+            @if (unusedCarryover(wb) > 0) {
+              <tr class="desk__note">
+                <td></td>
+                <td colspan="2">Unused carryover still available after this year: {{ unusedCarryover(wb) | currency }}.</td>
+              </tr>
+            }
+            <tr class="desk__sum">
+              <td class="desk__op">=</td>
+              <th>AGI</th>
+              <td>{{ wb.agi | currency }}</td>
+            </tr>
+            <tr>
+              <td class="desk__op">−</td>
+              <th>Standard deduction (MFJ {{ wb.taxYear }})</th>
+              <td>{{ wb.standardDeduction | currency }}</td>
+            </tr>
+            <tr class="desk__total">
+              <td class="desk__op">=</td>
+              <th>Taxable income</th>
+              <td>{{ wb.taxableIncome | currency }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div>
+        <h3>How that becomes the tax number</h3>
+        <p class="muted">Ordinary brackets on taxable income, then credits and NIIT. Then money already sent to IRS.</p>
+        <table class="desk__ledger">
+          <tbody>
+            <tr>
+              <td class="desk__op"></td>
+              <th>Ordinary income tax</th>
+              <td>{{ wb.estimatedIncomeTax | currency }}</td>
+            </tr>
+            <tr>
+              <td class="desk__op">−</td>
+              <th>Child / other dependent credit</th>
+              <td>{{ wb.childCredit | currency }}</td>
+            </tr>
+            <tr class="desk__sum">
+              <td class="desk__op">=</td>
+              <th>Tax after credits</th>
+              <td>{{ taxAfterCredits(wb) | currency }}</td>
+            </tr>
+            <tr>
+              <td class="desk__op">+</td>
+              <th>NIIT 3.8% on leftover gain</th>
+              <td>{{ wb.estimatedNiit | currency }}</td>
+            </tr>
+            <tr class="desk__total">
+              <td class="desk__op">=</td>
+              <th>Full-year federal tax</th>
+              <td>{{ wb.estimatedFederalTax | currency }}</td>
+            </tr>
+            <tr>
+              <td class="desk__op">−</td>
+              <th>Projected W-2 withholding</th>
+              <td>{{ wb.projectedWithholding | currency }}</td>
+            </tr>
+            <tr>
+              <td class="desk__op">−</td>
+              <th>1040-ES / Direct Pay logged</th>
+              <td>{{ wb.estimatesPaid | currency }}</td>
+            </tr>
+            <tr class="desk__sum">
+              <td class="desk__op">=</td>
+              <th>Credits already counted</th>
+              <td>{{ wb.totalCredits | currency }}</td>
+            </tr>
+            <tr class="desk__total" [class.desk__pos-row]="wb.filingDayBalance < 0" [class.desk__neg-row]="wb.filingDayBalance > 0">
+              <td class="desk__op">=</td>
+              <th>{{ filingOutcome(wb) }}</th>
+              <td>{{ filingAmount(wb) | currency }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="desk__payplan" aria-label="When to pay">
+      <h3>When it has to be paid</h3>
+      <p class="muted">
+        You do not pay the full-year tax as one bill today. Withholding is treated as paid in four equal slices.
+        Dated 1040-ES deposits land in the quarter they were paid. Form 1040 in mid-April {{ wb.taxYear + 1 }}
+        settles the leftover refund or balance.
+      </p>
+      <div class="desk__table-wrap desk__table-wrap--pay">
+        <table class="desk__table desk__table--pay">
+          <thead>
+            <tr>
+              <th>Period</th>
+              <th>Pay by</th>
+              <th>Withholding counted</th>
+              <th>1040-ES already logged</th>
+              <th>Send by this date</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (q of wb.quarters; track q.quarter) {
+              <tr [ngClass]="quarterClass(q)">
+                <td>Q{{ q.quarter }} 1040-ES</td>
+                <td>{{ q.dueDate | date: 'MMM d, y' }}</td>
+                <td>{{ q.withholdingCredit | currency }}</td>
+                <td>{{ q.estimateCredit | currency }}</td>
+                <td [class.desk__neg]="q.suggestedPayment > 0">{{ q.suggestedPayment | currency }}</td>
+                <td>{{ quarterAction(q) }}</td>
+              </tr>
+            }
+            <tr [class.desk__pos-row]="wb.filingDayBalance < 0" [class.desk__neg-row]="wb.filingDayBalance > 0">
+              <td>Form 1040</td>
+              <td>mid-April {{ wb.taxYear + 1 }}</td>
+              <td colspan="2">All withholding + all 1040-ES above</td>
+              <td>
+                @if (wb.filingDayBalance > 0) {
+                  {{ wb.filingDayBalance | currency }}
+                } @else {
+                  {{ 0 | currency }}
+                }
+              </td>
+              <td>
+                @if (wb.filingDayBalance < 0) {
+                  IRS pays you {{ filingAmount(wb) | currency }}
+                } @else if (wb.filingDayBalance > 0) {
+                  You pay IRS {{ filingAmount(wb) | currency }}
+                } @else {
+                  Even
+                }
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
 
     @if (page?.history?.length) {
       <section class="desk__history" aria-label="Saved daily papers">
@@ -92,11 +300,10 @@
       </section>
     }
 
-    <section class="desk__quarters" aria-label="Quarterly estimated tax">
-      <h3>1040-ES calendar</h3>
+    <section class="desk__quarters" aria-label="Quarterly estimated tax cards">
+      <h3>1040-ES cards</h3>
       <p class="muted">
-        Pay the suggested amount by each due date so withholding + estimates cover tax plus your refund cushion.
-        Withholding is spread evenly; dated IRS payments from calendar land in the quarter they were paid.
+        Same four dates as the table above. “Send this 1040-ES” is only the extra check, not the full-year tax.
       </p>
       <div class="desk__qgrid">
         @for (q of wb.quarters; track q.quarter) {
@@ -105,13 +312,14 @@
               <span>Q{{ q.quarter }}</span>
               <strong>{{ q.dueDate | date: 'MMM d, y' }}</strong>
             </header>
-            <p class="desk__q-status">{{ quarterStatus(q) }}</p>
+            <p class="desk__q-status">{{ quarterAction(q) }}</p>
             <dl>
-              <div><dt>Safe-harbor installment</dt><dd>{{ q.requiredInstallment | currency }}</dd></div>
-              <div><dt>Estimates in this window</dt><dd>{{ q.estimateCredit | currency }}</dd></div>
-              <div><dt>Shortfall vs required</dt><dd [class.desk__neg]="q.shortfall > 0">{{ q.shortfall | currency }}</dd></div>
+              <div><dt>Safe-harbor slice</dt><dd>{{ q.requiredInstallment | currency }}</dd></div>
+              <div><dt>Withholding counted</dt><dd>{{ q.withholdingCredit | currency }}</dd></div>
+              <div><dt>1040-ES in this window</dt><dd>{{ q.estimateCredit | currency }}</dd></div>
+              <div><dt>Short vs required-to-date</dt><dd [class.desk__neg]="q.shortfall > 0">{{ q.shortfall | currency }}</dd></div>
               <div class="desk__q-pay">
-                <dt>Pay this quarter</dt>
+                <dt>Send by {{ q.dueDate | date: 'MMM d' }}</dt>
                 <dd>{{ q.suggestedPayment | currency }}</dd>
               </div>
             </dl>

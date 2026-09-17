@@ -250,16 +250,126 @@ export class ReportsFinanceRobinhoodTaxDeskComponent implements OnInit {
 
   filingOutcome(wb: FinanceTaxDeskWorkbookDto): string {
     if (wb.filingDayBalance > 0) {
-      return 'Balance due at filing';
+      return 'Still owe at April filing';
     }
     if (wb.filingDayBalance < 0) {
-      return 'Refund at filing';
+      return 'Refund at April filing';
     }
-    return 'Even at filing';
+    return 'Even at April filing';
   }
 
   filingAmount(wb: FinanceTaxDeskWorkbookDto): number {
     return Math.abs(wb.filingDayBalance ?? 0);
+  }
+
+  carryoverPool(wb: FinanceTaxDeskWorkbookDto): number {
+    const st = wb.settings?.shortTermLossCarryover ?? 0;
+    const lt = wb.settings?.longTermLossCarryover ?? 0;
+    const fromSettings = st + lt;
+    return fromSettings > 0 ? fromSettings : (wb.capitalLossCarryoverApplied ?? 0);
+  }
+
+  capitalInAgi(wb: FinanceTaxDeskWorkbookDto): number {
+    return (wb.agi ?? 0) - (wb.wagesProjected ?? 0) - (wb.externalProjected ?? 0);
+  }
+
+  ordinaryLossUsed(wb: FinanceTaxDeskWorkbookDto): number {
+    const net = (wb.realizedYtd ?? 0) - this.carryoverPool(wb);
+    if (net >= 0) {
+      return 0;
+    }
+    return Math.min(3000, Math.abs(net));
+  }
+
+  unusedCarryover(wb: FinanceTaxDeskWorkbookDto): number {
+    const net = (wb.realizedYtd ?? 0) - this.carryoverPool(wb);
+    if (net >= 0) {
+      return 0;
+    }
+    return Math.abs(net) - this.ordinaryLossUsed(wb);
+  }
+
+  wageSource(wb: FinanceTaxDeskWorkbookDto): string {
+    const w2 = (wb.incomeItems || []).find((row) => (row.kind || '').toUpperCase() === 'W2');
+    return w2?.payer?.trim() || 'W-2 annual projection (last-year pattern until you edit it)';
+  }
+
+  taxAfterCredits(wb: FinanceTaxDeskWorkbookDto): number {
+    return (wb.estimatedIncomeTax ?? 0) - (wb.childCredit ?? 0);
+  }
+
+  takeawayTitle(wb: FinanceTaxDeskWorkbookDto): string {
+    if ((wb.recommendedAdditionalPrepay ?? 0) > 0) {
+      return 'Send a 1040-ES by the next due date below.';
+    }
+    if ((wb.filingDayBalance ?? 0) > 0) {
+      return 'No extra 1040-ES on the refund plan, but April filing still shows a balance due.';
+    }
+    if ((wb.filingDayBalance ?? 0) < 0) {
+      return 'Nothing more to send. April filing is a refund on these papers.';
+    }
+    return 'Nothing more to send. April filing is even.';
+  }
+
+  takeawayBody(wb: FinanceTaxDeskWorkbookDto): string {
+    const year = wb.taxYear;
+    const next = this.nextOpenQuarter(wb);
+    const extra = wb.recommendedAdditionalPrepay ?? 0;
+    if (extra > 0 && next) {
+      return (
+        `Full-year tax is the first tile — not a check due today. Send the extra 1040-ES on Q${next.quarter} ` +
+        `(due ${this.formatDay(next.dueDate)}). Withholding is counted as paid evenly across the four dates.`
+      );
+    }
+    if ((wb.filingDayBalance ?? 0) > 0) {
+      return `Full-year tax is already computed from wages, this year’s closed trades, and loss carryover. Credits are short of that tax, so Form 1040 in April ${year + 1} would still owe unless you add withholding or another estimate.`;
+    }
+    return (
+      `The $${this.roundDollars(wb.estimatedFederalTax)} figure is full-year tax after carryover. ` +
+      `Withholding plus logged 1040-ES already cover it` +
+      ((wb.filingDayBalance ?? 0) < 0 ? ` and leave a refund` : '') +
+      `. Remaining 1040-ES dates are on the calendar below — send $0 unless income jumps. ` +
+      `Form 1040 is due mid-April ${year + 1}.`
+    );
+  }
+
+  nextOpenQuarter(wb: FinanceTaxDeskWorkbookDto): FinanceTaxDeskQuarterDto | null {
+    const asOf = wb.asOf;
+    return (wb.quarters || []).find((q) => !asOf || q.dueDate >= asOf) ?? null;
+  }
+
+  quarterCounted(q: FinanceTaxDeskQuarterDto): number {
+    return (q.withholdingCredit ?? 0) + (q.estimateCredit ?? 0);
+  }
+
+  quarterAction(q: FinanceTaxDeskQuarterDto): string {
+    const asOf = this.page?.workbook?.asOf;
+    const past = !!asOf && q.dueDate < asOf;
+    if ((q.suggestedPayment ?? 0) > 0) {
+      return past ? 'Was the catch-up slot' : 'Send this 1040-ES';
+    }
+    if (past && (q.shortfall ?? 0) > 0) {
+      return 'Date passed · installment short';
+    }
+    if (past) {
+      return 'Date passed · no extra check';
+    }
+    return 'No extra 1040-ES needed';
+  }
+
+  formatDay(iso: string | null | undefined): string {
+    if (!iso) {
+      return '—';
+    }
+    const d = new Date(iso.length === 10 ? `${iso}T12:00:00` : iso);
+    if (Number.isNaN(d.getTime())) {
+      return iso;
+    }
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  private roundDollars(n: number | null | undefined): string {
+    return Math.round(n ?? 0).toLocaleString('en-US');
   }
 
   deltaUp(n: number | null | undefined): boolean {

@@ -135,6 +135,141 @@
   font-weight: 700;
 }
 
+.desk__hero-metrics small {
+  display: block;
+  margin-top: 0.28rem;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  opacity: 0.9;
+  font-weight: 500;
+}
+
+.desk__takeaway {
+  background: var(--desk-paper);
+  border: 1px solid var(--desk-rule);
+  border-radius: 14px;
+  padding: 0.85rem 1rem 1rem;
+  margin: 0 0 1.1rem;
+}
+
+.desk__takeaway-kicker {
+  margin: 0 0 0.2rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--desk-muted);
+}
+
+.desk__takeaway-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.08rem;
+  font-weight: 700;
+}
+
+.desk__takeaway p:last-child {
+  margin: 0;
+  color: var(--desk-muted);
+  line-height: 1.45;
+  max-width: 52rem;
+}
+
+.desk__explain {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.1rem;
+  margin-bottom: 1.25rem;
+}
+
+.desk__ledger {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+  background: var(--desk-card);
+  border: 1px solid var(--desk-rule);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.desk__ledger th {
+  font-weight: 600;
+  text-align: left;
+}
+
+.desk__ledger td,
+.desk__ledger th {
+  padding: 0.42rem 0.55rem;
+  border-bottom: 1px solid var(--desk-rule);
+  vertical-align: top;
+}
+
+.desk__ledger tr:last-child td,
+.desk__ledger tr:last-child th {
+  border-bottom: 0;
+}
+
+.desk__ledger td:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+  white-space: nowrap;
+  width: 8.5rem;
+}
+
+.desk__op {
+  width: 1.4rem;
+  color: var(--desk-muted);
+  font-weight: 700;
+}
+
+.desk__note td {
+  color: var(--desk-muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+  padding-top: 0;
+}
+
+.desk__sum {
+  background: #f3eee4;
+}
+
+.desk__total {
+  background: #ebe4d6;
+}
+
+.desk__total th,
+.desk__total td:last-child {
+  font-weight: 750;
+}
+
+.desk__pos-row th,
+.desk__pos-row td {
+  color: #166534;
+}
+
+.desk__neg-row th,
+.desk__neg-row td {
+  color: #9f1239;
+}
+
+.desk__payplan {
+  margin-bottom: 1.4rem;
+}
+
+.desk__table-wrap--pay {
+  margin-top: 0.35rem;
+}
+
+.desk__table--pay {
+  min-width: 44rem;
+}
+
+.desk__table--pay .q-hot,
+.desk__table--pay .q-warn,
+.desk__table--pay .q-ok,
+.desk__table--pay .q-next {
+  border-top-width: 0;
+}
+
 .desk__meta-row {
   display: flex;
   flex-wrap: wrap;
@@ -486,7 +621,8 @@
   .desk__qgrid,
   .desk__split,
   .desk__kpis,
-  .desk__form-grid {
+  .desk__form-grid,
+  .desk__explain {
     grid-template-columns: 1fr 1fr;
   }
 }
@@ -496,7 +632,8 @@
   .desk__qgrid,
   .desk__split,
   .desk__kpis,
-  .desk__form-grid {
+  .desk__form-grid,
+  .desk__explain {
     grid-template-columns: 1fr;
   }
 
