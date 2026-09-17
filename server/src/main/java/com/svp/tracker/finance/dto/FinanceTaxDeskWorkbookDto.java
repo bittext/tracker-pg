@@ -1,9 +1,11 @@
 package com.svp.tracker.finance.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record FinanceTaxDeskWorkbookDto(
         int taxYear,
         LocalDate asOf,
@@ -46,4 +48,20 @@ public record FinanceTaxDeskWorkbookDto(
         List<FinanceTaxDeskIrsSourceDto> irsSources,
         List<String> assumptions,
         List<String> caveats,
-        String cpaNarrative) {}
+        String cpaNarrative,
+        String realizedYtdSource,
+        BigDecimal fifoTapeRealizedYtd,
+        List<FinanceTaxDeskRhAccountRealizedDto> robinhoodRealizedAccounts) {
+
+    public FinanceTaxDeskWorkbookDto {
+        if (realizedYtdSource == null || realizedYtdSource.isBlank()) {
+            realizedYtdSource = "FIFO_TAPE";
+        }
+        if (fifoTapeRealizedYtd == null) {
+            fifoTapeRealizedYtd = realizedYtd;
+        }
+        if (robinhoodRealizedAccounts == null) {
+            robinhoodRealizedAccounts = List.of();
+        }
+    }
+}

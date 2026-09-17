@@ -1529,6 +1529,17 @@ export interface FinanceTaxDeskWorkbookDto {
   assumptions: string[];
   caveats: string[];
   cpaNarrative: string;
+  /** ROBINHOOD = calendar YTD from get_realized_pnl; FIFO_TAPE = in-app unmatched-sells tape. */
+  realizedYtdSource?: string;
+  fifoTapeRealizedYtd?: number;
+  robinhoodRealizedAccounts?: FinanceTaxDeskRhAccountRealizedDto[];
+}
+
+export interface FinanceTaxDeskRhAccountRealizedDto {
+  suffix: string;
+  label: string;
+  realized: number;
+  closingTrades: number;
 }
 
 export interface FinanceTaxDeskSettingsDto {

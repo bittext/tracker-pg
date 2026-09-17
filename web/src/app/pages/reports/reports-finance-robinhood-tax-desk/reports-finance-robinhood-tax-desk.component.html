@@ -81,8 +81,9 @@
       <div>
         <h3>How taxable income is built</h3>
         <p class="muted">
-          W-2 is last year’s pattern until you edit Annual. Trades are this year’s <em>closed</em> Robinhood lots only.
-          Carryover comes from Settings (seeded from the reviewed 2025 return).
+          W-2 is last year’s pattern until you edit Annual. Closed-trade P/L prefers Robinhood’s
+          calendar YTD; the in-app FIFO tape is a footnote. Carryover comes from Settings (seeded from the
+          reviewed 2025 return).
         </p>
         <table class="desk__ledger">
           <tbody>
@@ -102,13 +103,26 @@
             </tr>
             <tr>
               <td class="desk__op">+</td>
-              <th>This year’s realized trades</th>
+              <th>{{ realizedLineLabel(wb) }}</th>
               <td>{{ wb.realizedYtd | currency }}</td>
             </tr>
             <tr class="desk__note">
               <td></td>
-              <td colspan="2">FIFO on Individual, Agentic, and Ammu through {{ wb.asOf | date: 'mediumDate' }}. Open lots are out.</td>
+              <td colspan="2">{{ realizedSourceNote(wb) }}</td>
             </tr>
+            @if (usesBrokerYtd(wb) && (wb.robinhoodRealizedAccounts?.length || 0) > 0) {
+              <tr class="desk__note">
+                <td></td>
+                <td colspan="2">
+                  @for (a of wb.robinhoodRealizedAccounts; track a.suffix; let last = $last) {
+                    {{ a.label }} ••••{{ a.suffix }} {{ a.realized | currency }}@if (!last) {; }
+                  }
+                  @if (wb.fifoTapeRealizedYtd != null && wb.fifoTapeRealizedYtd !== wb.realizedYtd) {
+                    App FIFO tape {{ wb.fifoTapeRealizedYtd | currency }}.
+                  }
+                </td>
+              </tr>
+            }
             <tr>
               <td class="desk__op">−</td>
               <th>Capital-loss carryover ({{ wb.taxYear - 1 }})</th>
@@ -338,7 +352,7 @@
         <div class="desk__kpis">
           <div><span>W-2 projected</span><strong>{{ wb.wagesProjected | currency }}</strong></div>
           <div><span>External</span><strong>{{ wb.externalProjected | currency }}</strong></div>
-          <div><span>Realized trades</span><strong>{{ wb.realizedYtd | currency }}</strong></div>
+          <div><span>{{ realizedKpiLabel(wb) }}</span><strong>{{ wb.realizedYtd | currency }}</strong></div>
           <div><span>Carryover applied</span><strong>{{ wb.capitalLossCarryoverApplied | currency }}</strong></div>
           <div><span>Taxable leftover gain</span><strong>{{ wb.netTaxableGain | currency }}</strong></div>
           <div><span>AGI</span><strong>{{ wb.agi | currency }}</strong></div>
@@ -414,8 +428,13 @@
         <h3>Trades on {{ wb.today.tradeDate | date: 'mediumDate' }}</h3>
         <p class="muted">
           {{ wb.today.tradeCount }} fills · realized {{ wb.today.realizedToday | currency }} · buys
-          {{ wb.today.buyNotional | currency }} · sells {{ wb.today.sellNotional | currency }}. Year-to-date FIFO
-          realized {{ wb.realizedYtd | currency }}.
+          {{ wb.today.buyNotional | currency }} · sells {{ wb.today.sellNotional | currency }}.
+          Year-to-date used in tax: {{ wb.realizedYtd | currency }}
+          @if (wb.realizedYtdSource === 'ROBINHOOD') {
+            (Robinhood broker YTD)
+          } @else {
+            (app FIFO tape)
+          }.
         </p>
         @if (!wb.today.trades.length) {
           <p class="muted">No executed buys or sells on this date in Individual, Agentic, or Ammu.</p>

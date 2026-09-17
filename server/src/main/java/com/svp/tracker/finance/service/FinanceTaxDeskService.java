@@ -16,6 +16,7 @@ import com.svp.tracker.finance.dto.FinanceTaxDeskPageDto;
 import com.svp.tracker.finance.dto.FinanceTaxDeskPaymentDto;
 import com.svp.tracker.finance.dto.FinanceTaxDeskPaymentWriteDto;
 import com.svp.tracker.finance.dto.FinanceTaxDeskQuarterDto;
+import com.svp.tracker.finance.dto.FinanceTaxDeskRhAccountRealizedDto;
 import com.svp.tracker.finance.dto.FinanceTaxDeskSettingsDto;
 import com.svp.tracker.finance.dto.FinanceTaxDeskSettingsWriteDto;
 import com.svp.tracker.finance.dto.FinanceTaxDeskSnapshotSummaryDto;
@@ -49,6 +50,7 @@ import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -82,6 +84,7 @@ public class FinanceTaxDeskService {
     private final ReportCalendarEntryRepository calendarRepository;
     private final ManagementDueItemRepository dueItemRepository;
     private final RobinhoodExecutedTradesService executedTradesService;
+    private final RobinhoodBrokerRealizedPnlService brokerRealizedPnlService;
     private final RobinhoodAgenticConnectionRepository connectionRepository;
     private final JsonMapper jsonMapper;
 
@@ -111,7 +114,7 @@ public class FinanceTaxDeskService {
             }
         }
 
-        FinanceTaxDeskWorkbookDto workbook = computeWorkbook(owner, taxYear, asOf);
+        FinanceTaxDeskWorkbookDto workbook = computeWorkbook(owner, taxYear, asOf, live);
         if (persistToday && (live || asOf.equals(today))) {
             saveSnapshot(owner, taxYear, asOf, workbook);
         }
@@ -222,7 +225,7 @@ public class FinanceTaxDeskService {
         return List.copyOf(ids);
     }
 
-    private FinanceTaxDeskWorkbookDto computeWorkbook(long owner, int taxYear, LocalDate asOf) {
+    private FinanceTaxDeskWorkbookDto computeWorkbook(long owner, int taxYear, LocalDate asOf, boolean live) {
         FinanceTaxDeskSettings settings = settingsRepository
                 .findByOwnerUserIdAndTaxYear(owner, taxYear)
                 .orElseThrow();
@@ -287,6 +290,22 @@ public class FinanceTaxDeskService {
         }
         realizedYtd = realizedYtd.setScale(2, RoundingMode.HALF_UP);
         realizedToday = realizedToday.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal fifoTapeRealizedYtd = realizedYtd;
+        String realizedSource = "FIFO_TAPE";
+        List<FinanceTaxDeskRhAccountRealizedDto> rhAccounts = List.of();
+        Optional<RobinhoodBrokerRealizedPnlService.Fetched> broker = Optional.empty();
+        if (live) {
+            broker = brokerRealizedPnlService.fetchLive(owner, taxYear, asOf);
+            broker.ifPresent(fetched -> brokerRealizedPnlService.persist(owner, taxYear, fetched));
+        }
+        if (broker.isEmpty()) {
+            broker = brokerRealizedPnlService.storedOnOrBefore(owner, taxYear, asOf);
+        }
+        if (broker.isPresent()) {
+            realizedYtd = broker.get().total();
+            realizedSource = "ROBINHOOD";
+            rhAccounts = broker.get().accounts();
+        }
 
         List<FederalTaxDeskCalculator.Payment> calcPays = payments.stream()
                 .map(p -> new FederalTaxDeskCalculator.Payment(p.getPaidOn(), p.getAmount()))
@@ -330,8 +349,12 @@ public class FinanceTaxDeskService {
                 "Filing status " + humanStatus(settings.getFilingStatus()) + "; residence " + settings.getResidentState()
                         + " (Texas has no individual income tax).",
                 "W-2 and external rows are your inputs. Annual projection is used when set; otherwise year-to-date is annualized.",
-                "Robinhood realized P&L is FIFO from executed trades in Individual, Agentic, and Ammu accounts through "
-                        + asOf.format(MDY) + ". Open lots are unrealized and excluded.",
+                "ROBINHOOD".equals(realizedSource)
+                        ? "Robinhood calendar YTD realized (broker) on Individual, Agentic, and Ammu from 1 January "
+                                + taxYear + " through " + asOf.format(MDY)
+                                + " is used for the tax estimate. App FIFO tape is a footnote only."
+                        : "Robinhood broker YTD was unavailable, so realized P&L is app FIFO from executed trades in Individual, Agentic, and Ammu through "
+                                + asOf.format(MDY) + ". Unmatched sells contribute $0 on that tape.",
                 "Trading gain is treated as short-term (ordinary brackets), matching active HOOD / MRVL / MRNA / option turnover.",
                 "2025 capital-loss carryover is applied before any 2026 gain is taxed. Unused 2025 bracket space does not carry.",
                 "NIIT is 3.8% of the lesser of net investment income or MAGI over $250,000 MFJ.",
@@ -342,13 +365,15 @@ public class FinanceTaxDeskService {
         List<String> caveats = List.of(
                 "These are estimated-tax working papers, not a CPA attest opinion, Form 1040, Form 2210, or e-file.",
                 "The IRS will use Forms W-2, 1099-B (with basis and wash-sale adjustments), 1099-NEC/INT/DIV, and the return as filed.",
+                "Robinhood YTD realized is a broker screen figure, not Form 1099-B. Wash sales, cost-basis adjustments, and year-end 1099-B can differ.",
                 "The in-app 1040 PDF extract has misread line numbers as dollars on at least one upload; 2025 figures here were seeded from the reviewed return, not that extract.",
                 "More trades after " + asOf.format(MDY) + " change tax. Selling open MRNA (unrealized) is not in this number until closed.",
                 "Annualized-income installment method (Form 2210 AI) is not computed; it can reduce penalty when income is back-loaded.",
                 "Penalty exposure uses a 7% annualized underpayment rate as a planning flag, not IRS interest compounding.",
                 "Q4 1040-ES is due 15 January " + (taxYear + 1) + ". The return is due mid-April " + (taxYear + 1) + ".");
 
-        String narrative = buildNarrative(settings, calc, asOf, taxYear, riskLevel, priorDelta, filings, sources);
+        String narrative = buildNarrative(
+                settings, calc, asOf, taxYear, riskLevel, priorDelta, filings, sources, realizedSource);
 
         FinanceTaxDeskTodayDto today = new FinanceTaxDeskTodayDto(
                 asOf,
@@ -405,7 +430,10 @@ public class FinanceTaxDeskService {
                 sources,
                 assumptions,
                 caveats,
-                narrative);
+                narrative,
+                realizedSource,
+                fifoTapeRealizedYtd,
+                rhAccounts);
     }
 
     private String buildNarrative(
@@ -416,7 +444,8 @@ public class FinanceTaxDeskService {
             String riskLevel,
             BigDecimal priorDelta,
             List<FinanceTaxDeskFilingRefDto> filings,
-            List<FinanceTaxDeskIrsSourceDto> sources) {
+            List<FinanceTaxDeskIrsSourceDto> sources,
+            String realizedSource) {
         String filingDay = calc.filingBalance().signum() > 0
                 ? "a balance due of " + money(calc.filingBalance())
                 : calc.filingBalance().signum() < 0
@@ -446,7 +475,10 @@ public class FinanceTaxDeskService {
                 .append(money(calc.wages().add(calc.otherOrdinary())))
                 .append(" with projected withholding ")
                 .append(money(calc.withholding()))
-                .append(". Broker FIFO realized gain ")
+                .append(". ")
+                .append("ROBINHOOD".equals(realizedSource)
+                        ? "Robinhood calendar YTD realized (broker) "
+                        : "App FIFO realized tape ")
                 .append(money(calc.realizedCapital()))
                 .append(" after applying capital-loss carryover ")
                 .append(money(calc.carryoverApplied()))
@@ -841,8 +873,25 @@ public class FinanceTaxDeskService {
     private FinanceTaxDeskWorkbookDto readWorkbook(String json) {
         try {
             return jsonMapper.readValue(json, FinanceTaxDeskWorkbookDto.class);
-        } catch (JacksonException e) {
-            throw new IllegalStateException("Could not read saved tax-desk snapshot", e);
+        } catch (JacksonException first) {
+            try {
+                var node = jsonMapper.readTree(json);
+                if (node instanceof tools.jackson.databind.node.ObjectNode obj) {
+                    if (!obj.has("realizedYtdSource")) {
+                        obj.put("realizedYtdSource", "FIFO_TAPE");
+                    }
+                    if (!obj.has("fifoTapeRealizedYtd") && obj.has("realizedYtd")) {
+                        obj.set("fifoTapeRealizedYtd", obj.get("realizedYtd"));
+                    }
+                    if (!obj.has("robinhoodRealizedAccounts")) {
+                        obj.set("robinhoodRealizedAccounts", jsonMapper.createArrayNode());
+                    }
+                    return jsonMapper.treeToValue(obj, FinanceTaxDeskWorkbookDto.class);
+                }
+            } catch (Exception ignored) {
+                // fall through to original error
+            }
+            throw new IllegalStateException("Could not read saved tax-desk snapshot", first);
         }
     }
 

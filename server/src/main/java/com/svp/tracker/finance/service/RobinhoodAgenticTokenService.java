@@ -92,4 +92,11 @@ public class RobinhoodAgenticTokenService {
     public JsonNode fetchFinancials(RobinhoodAgenticConnection conn, String symbol, int limit) {
         return withFreshToken(conn, token -> sidecarClient.fetchFinancials(token, symbol, limit));
     }
+
+    /** Sidecar get_realized_pnl HTTP only — same isolation as {@link #syncAllAccounts}. */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public JsonNode fetchRealizedPnl(
+            RobinhoodAgenticConnection conn, String startDate, String endDate, List<String> suffixes) {
+        return withFreshToken(conn, token -> sidecarClient.fetchRealizedPnl(token, startDate, endDate, suffixes));
+    }
 }

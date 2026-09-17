@@ -294,6 +294,35 @@ export class ReportsFinanceRobinhoodTaxDeskComponent implements OnInit {
     return w2?.payer?.trim() || 'W-2 annual projection (last-year pattern until you edit it)';
   }
 
+  usesBrokerYtd(wb: FinanceTaxDeskWorkbookDto): boolean {
+    return (wb.realizedYtdSource || '').toUpperCase() === 'ROBINHOOD';
+  }
+
+  realizedLineLabel(wb: FinanceTaxDeskWorkbookDto): string {
+    return this.usesBrokerYtd(wb) ? 'Robinhood YTD realized (broker)' : 'This year’s realized trades (app FIFO)';
+  }
+
+  realizedKpiLabel(wb: FinanceTaxDeskWorkbookDto): string {
+    return this.usesBrokerYtd(wb) ? 'Broker YTD realized' : 'FIFO realized trades';
+  }
+
+  realizedSourceNote(wb: FinanceTaxDeskWorkbookDto): string {
+    const asOf = wb.asOf;
+    if (this.usesBrokerYtd(wb)) {
+      const parts = (wb.robinhoodRealizedAccounts || [])
+        .map((row) => `${row.label} ••••${row.suffix}`)
+        .filter(Boolean);
+      const who = parts.length ? parts.join(', ') : 'Individual, Agentic, and Ammu';
+      let note = `Calendar YTD from Robinhood on ${who} through ${asOf}. Not Form 1099-B. Open lots are out.`;
+      const fifo = wb.fifoTapeRealizedYtd;
+      if (fifo != null && Math.abs(fifo - (wb.realizedYtd ?? 0)) > 0.005) {
+        note += ` App FIFO tape was different because unmatched sells contribute $0 there.`;
+      }
+      return note;
+    }
+    return `FIFO on Individual, Agentic, and Ammu through ${asOf}. Broker YTD was unavailable, so this is the in-app tape. Open lots are out.`;
+  }
+
   taxAfterCredits(wb: FinanceTaxDeskWorkbookDto): number {
     return (wb.estimatedIncomeTax ?? 0) - (wb.childCredit ?? 0);
   }

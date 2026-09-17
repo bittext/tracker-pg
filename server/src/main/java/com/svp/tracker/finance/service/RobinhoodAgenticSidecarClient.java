@@ -99,6 +99,28 @@ public class RobinhoodAgenticSidecarClient {
         return post("/v1/financials", body);
     }
 
+    public JsonNode fetchRealizedPnl(
+            String accessToken, String startDate, String endDate, List<String> suffixes) {
+        requireConfigured();
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("access_token", accessToken);
+        body.put("start_date", startDate);
+        body.put("end_date", endDate);
+        var arr = body.putArray("suffixes");
+        if (suffixes != null) {
+            for (String suffix : suffixes) {
+                if (suffix != null && !suffix.isBlank()) {
+                    arr.add(suffix.trim());
+                }
+            }
+        }
+        return postToBase(
+                stripTrailingSlash(props.serviceBaseUrl()),
+                Math.min(300_000, Math.max(props.serviceTimeoutMs(), 180_000)),
+                "/v1/realized-pnl",
+                body);
+    }
+
     public JsonNode fetchQuotes(String accessToken, List<String> symbols, List<String> optionInstrumentIds) {
         requireConfigured();
         ObjectNode body = objectMapper.createObjectNode();
