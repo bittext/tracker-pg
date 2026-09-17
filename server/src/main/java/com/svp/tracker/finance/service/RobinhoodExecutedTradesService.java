@@ -19,7 +19,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -55,7 +55,7 @@ public class RobinhoodExecutedTradesService {
         LocalDate yearStart = LocalDate.of(year, 1, 1);
         LocalDate yearEnd = LocalDate.of(year, 12, 31);
 
-        List<WorkingTrade> history = new ArrayList<>();
+        Map<String, WorkingTrade> unique = new LinkedHashMap<>();
         Set<String> suffixes = new LinkedHashSet<>();
         Set<String> tradedSymbols = new LinkedHashSet<>();
         for (String pinned : TRADE_LIST_SUFFIXES) {
@@ -80,22 +80,20 @@ public class RobinhoodExecutedTradesService {
             }
             BigDecimal qty = order.getQuantity();
             BigDecimal price = order.getAveragePrice() != null ? order.getAveragePrice() : order.getLimitPrice();
-            history.add(new WorkingTrade(
-                    order.getSymbol(),
-                    order.getSide(),
-                    order.getOrderType(),
-                    qty,
-                    price,
-                    notional(order.getSymbol(), qty, price),
-                    order.getState(),
-                    executedAt,
-                    executedAt.atZone(CENTRAL).toLocalDate(),
-                    suffix,
-                    RobinhoodRhDailyTrackerAccountPolicy.displayLabel(suffix)));
-        }
-        Set<String> seen = new HashSet<>();
-        for (WorkingTrade row : history) {
-            seen.add(tradeKey(row));
+            rememberTrade(
+                    unique,
+                    new WorkingTrade(
+                            order.getSymbol(),
+                            order.getSide(),
+                            order.getOrderType(),
+                            qty,
+                            price,
+                            notional(order.getSymbol(), qty, price),
+                            order.getState(),
+                            executedAt,
+                            executedAt.atZone(CENTRAL).toLocalDate(),
+                            suffix,
+                            RobinhoodRhDailyTrackerAccountPolicy.displayLabel(suffix)));
         }
         for (RobinhoodRhDailySnapshot snap :
                 snapshotRepository.findByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateDescAccountSuffixAsc(
@@ -123,27 +121,26 @@ public class RobinhoodExecutedTradesService {
                 if (!TRADE_LIST_SUFFIXES.contains(tradeSuffix)) {
                     continue;
                 }
-                WorkingTrade row = new WorkingTrade(
-                        trade.symbol(),
-                        trade.side(),
-                        trade.orderType(),
-                        trade.quantity(),
-                        trade.averagePrice() != null ? trade.averagePrice() : trade.limitPrice(),
-                        notional(
+                rememberTrade(
+                        unique,
+                        new WorkingTrade(
                                 trade.symbol(),
+                                trade.side(),
+                                trade.orderType(),
                                 trade.quantity(),
-                                trade.averagePrice() != null ? trade.averagePrice() : trade.limitPrice()),
-                        trade.state(),
-                        executedAt,
-                        executedAt.atZone(CENTRAL).toLocalDate(),
-                        tradeSuffix,
-                        RobinhoodRhDailyTrackerAccountPolicy.displayLabel(tradeSuffix));
-                if (!seen.add(tradeKey(row))) {
-                    continue;
-                }
-                history.add(row);
+                                trade.averagePrice() != null ? trade.averagePrice() : trade.limitPrice(),
+                                notional(
+                                        trade.symbol(),
+                                        trade.quantity(),
+                                        trade.averagePrice() != null ? trade.averagePrice() : trade.limitPrice()),
+                                trade.state(),
+                                executedAt,
+                                executedAt.atZone(CENTRAL).toLocalDate(),
+                                tradeSuffix,
+                                RobinhoodRhDailyTrackerAccountPolicy.displayLabel(tradeSuffix)));
             }
         }
+        List<WorkingTrade> history = new ArrayList<>(unique.values());
         history.sort(Comparator.comparing(WorkingTrade::executedAt, Comparator.nullsLast(Comparator.naturalOrder())));
 
         Map<String, ArrayDeque<Lot>> books = new HashMap<>();
@@ -152,9 +149,9 @@ public class RobinhoodExecutedTradesService {
             RealizedPnl realized = null;
             String side = row.side() == null ? "" : row.side().trim().toLowerCase(Locale.ROOT);
             String bookKey = fifoKey(row.suffix(), row.symbol());
-            if ("buy".equals(side)) {
+            if (side.equals("buy") || side.startsWith("buy")) {
                 addLot(books.computeIfAbsent(bookKey, k -> new ArrayDeque<>()), row.symbol(), row.qty(), row.price());
-            } else if ("sell".equals(side)) {
+            } else if (side.equals("sell") || side.startsWith("sell")) {
                 realized = consumeSell(
                         books.computeIfAbsent(bookKey, k -> new ArrayDeque<>()),
                         row.symbol(),
@@ -237,8 +234,12 @@ public class RobinhoodExecutedTradesService {
         if (symbol == null || symbol.isBlank()) {
             return false;
         }
-        String s = symbol.toUpperCase(Locale.ROOT);
-        return s.contains(" CALL") || s.contains(" PUT") || s.contains(" $");
+        String s = symbol.trim().toUpperCase(Locale.ROOT);
+        if (s.contains(" CALL") || s.contains(" PUT") || s.contains(" $")) {
+            return true;
+        }
+        String compact = s.replace(" ", "");
+        return compact.matches("[A-Z]{1,6}\\d{6}[CP]\\d{8}");
     }
 
     static BigDecimal notional(String symbol, BigDecimal quantity, BigDecimal price) {
@@ -313,14 +314,57 @@ public class RobinhoodExecutedTradesService {
         return new RealizedPnl(pnl, percent);
     }
 
-    private static String tradeKey(WorkingTrade row) {
+    private static void rememberTrade(Map<String, WorkingTrade> unique, WorkingTrade row) {
+        String key = tradeKey(row);
+        WorkingTrade existing = unique.get(key);
+        if (existing == null || richerTrade(row, existing)) {
+            unique.put(key, row);
+        }
+    }
+
+    static boolean richerTrade(WorkingTrade candidate, WorkingTrade existing) {
+        int candidateScore = optionDetailScore(candidate.symbol());
+        int existingScore = optionDetailScore(existing.symbol());
+        if (candidateScore != existingScore) {
+            return candidateScore > existingScore;
+        }
+        boolean candidateSide = candidate.side() != null && !candidate.side().isBlank();
+        boolean existingSide = existing.side() != null && !existing.side().isBlank();
+        return candidateSide && !existingSide;
+    }
+
+    static int optionDetailScore(String symbol) {
+        if (isOptionSymbol(symbol)) {
+            return 2;
+        }
+        if (symbol != null && symbol.trim().contains(" ")) {
+            return 1;
+        }
+        return 0;
+    }
+
+    static String tradeKey(WorkingTrade row) {
+        return tradeKey(row.suffix(), row.symbol(), row.qty(), row.price(), row.executedAt());
+    }
+
+    static String tradeKey(String suffix, String symbol, BigDecimal qty, BigDecimal price, Instant executedAt) {
+        String second = "";
+        if (executedAt != null) {
+            second = Instant.ofEpochSecond(executedAt.getEpochSecond()).toString();
+        }
+        String qtyText = qty == null ? "" : qty.stripTrailingZeros().toPlainString();
+        String priceText = "";
+        if (price != null) {
+            priceText = price.setScale(2, RoundingMode.HALF_UP).toPlainString();
+        }
+        String under = underlyingSymbol(symbol);
         return String.join(
                 "|",
-                row.suffix() == null ? "" : row.suffix(),
-                row.symbol() == null ? "" : row.symbol().trim().toUpperCase(Locale.ROOT),
-                row.side() == null ? "" : row.side().trim().toLowerCase(Locale.ROOT),
-                row.qty() == null ? "" : row.qty().stripTrailingZeros().toPlainString(),
-                row.executedAt() == null ? "" : row.executedAt().toString());
+                suffix == null ? "" : suffix,
+                under == null ? "" : under,
+                qtyText,
+                priceText,
+                second);
     }
 
     private static String fifoKey(String suffix, String symbol) {

@@ -524,7 +524,7 @@ export class ReportsFinanceRobinhoodTaxDeskComponent implements OnInit {
     const bits: string[] = [];
     if (tr.quantity != null) {
       const formatted = new Intl.NumberFormat('en-US', { maximumFractionDigits: 6 }).format(tr.quantity);
-      const option = / call | put /i.test(tr.symbol ?? '');
+      const option = / call | put | \$/i.test(tr.symbol ?? '');
       const unit = option
         ? tr.quantity === 1
           ? 'contract'

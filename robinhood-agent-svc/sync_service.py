@@ -429,7 +429,7 @@ def _orders_from_equity_payload(payload: Any) -> list[dict[str, Any]]:
 def _orders_from_option_payload(payload: Any) -> list[dict[str, Any]]:
     """Best-effort extract order rows from get_option_orders payload."""
     rows = _extract_order_rows(payload, ("orders", "option_orders", "results", "items"))
-    normalized = [_normalize_order(row) for row in rows]
+    normalized = [_normalize_order(row, option=True) for row in rows]
     return _dedupe_orders(normalized)
 
 
@@ -438,10 +438,24 @@ def _option_dict(row: dict[str, Any]) -> dict[str, Any] | None:
     return option if isinstance(option, dict) else None
 
 
+def _first_leg(row: dict[str, Any]) -> dict[str, Any] | None:
+    legs = row.get("legs")
+    if not isinstance(legs, list):
+        return None
+    for leg in legs:
+        if isinstance(leg, dict):
+            return leg
+    return None
+
+
 def _looks_like_option_order(row: dict[str, Any]) -> bool:
     if row.get("chain_symbol") or row.get("underlying_symbol"):
         return True
     if row.get("option_id") or row.get("option_instrument_id"):
+        return True
+    if row.get("opening_strategy") or row.get("closing_strategy") or row.get("premium"):
+        return True
+    if _first_leg(row):
         return True
     option = _option_dict(row)
     if option:
@@ -452,11 +466,30 @@ def _looks_like_option_order(row: dict[str, Any]) -> bool:
     return False
 
 
+def _pretty_strike(strike: Any) -> str:
+    raw = str(strike).strip()
+    if not raw:
+        return ""
+    if raw.startswith("$"):
+        raw = raw[1:]
+    try:
+        number = float(raw)
+        if number.is_integer():
+            return f"${int(number)}"
+        text = f"{number:.4f}".rstrip("0").rstrip(".")
+        return f"${text}"
+    except (TypeError, ValueError):
+        return f"${raw}"
+
+
 def _format_option_symbol(row: dict[str, Any], *, chain_hint: str | None = None) -> str:
     option = _option_dict(row)
+    leg = _first_leg(row)
     chain = chain_hint or row.get("chain_symbol") or row.get("underlying_symbol") or row.get("symbol")
     if not chain and option:
         chain = option.get("chain_symbol") or option.get("symbol") or option.get("underlying_symbol")
+    if not chain and leg:
+        chain = leg.get("chain_symbol") or leg.get("symbol") or leg.get("underlying_symbol")
     chain_text = str(chain).strip().upper() if chain else ""
     if not chain_text:
         return ""
@@ -465,16 +498,19 @@ def _format_option_symbol(row: dict[str, Any], *, chain_hint: str | None = None)
     strike = row.get("strike_price") or row.get("strike")
     if strike is None and option:
         strike = option.get("strike_price") or option.get("strike")
+    if strike is None and leg:
+        strike = leg.get("strike_price") or leg.get("strike")
     if strike is not None:
-        strike_text = str(strike).strip()
-        if strike_text and not strike_text.startswith("$"):
-            strike_text = f"${strike_text}"
+        strike_text = _pretty_strike(strike)
         if strike_text:
             parts.append(strike_text)
 
-    option_type = row.get("option_type") or row.get("type")
+    # Order "type" is limit/market — strike kind lives on the leg.
+    option_type = row.get("option_type")
     if not option_type and option:
         option_type = option.get("type") or option.get("option_type")
+    if not option_type and leg:
+        option_type = leg.get("option_type") or leg.get("type")
     if option_type:
         ot = str(option_type).lower()
         if ot in {"call", "c"}:
@@ -485,17 +521,20 @@ def _format_option_symbol(row: dict[str, Any], *, chain_hint: str | None = None)
     exp = row.get("expiration_date") or row.get("expiration") or row.get("expires_at")
     if not exp and option:
         exp = option.get("expiration_date") or option.get("expiration") or option.get("expires_at")
+    if not exp and leg:
+        exp = leg.get("expiration_date") or leg.get("expiration") or leg.get("expires_at")
     if exp:
         parts.append(str(exp)[:10])
     return " ".join(parts)
 
 
-def _order_display_symbol(row: dict[str, Any]) -> str:
+def _order_display_symbol(row: dict[str, Any], *, option: bool = False) -> str:
     symbol = row.get("symbol") or row.get("instrument_symbol")
     instrument = row.get("instrument")
     if not symbol and isinstance(instrument, dict):
         symbol = instrument.get("symbol")
-    if symbol and not _looks_like_option_order(row):
+    looks_option = option or _looks_like_option_order(row)
+    if symbol and not looks_option:
         return str(symbol).strip().upper()
     option_symbol = _format_option_symbol(row, chain_hint=str(symbol).strip().upper() if symbol else None)
     if option_symbol:
@@ -505,16 +544,40 @@ def _order_display_symbol(row: dict[str, Any]) -> str:
     return ""
 
 
-def _normalize_order(row: dict[str, Any]) -> dict[str, Any]:
+def _option_side(row: dict[str, Any]) -> Any:
+    leg = _first_leg(row)
+    if leg:
+        side = str(leg.get("side") or "").strip().lower()
+        if side:
+            return side
+    return row.get("side")
+
+
+def _option_fill_price(row: dict[str, Any]) -> Any:
+    leg = _first_leg(row)
+    if leg:
+        executions = leg.get("executions")
+        if isinstance(executions, list):
+            for ex in executions:
+                if isinstance(ex, dict) and ex.get("price") is not None:
+                    return ex.get("price")
+    return row.get("average_price") or row.get("price") or row.get("limit_price")
+
+
+def _normalize_order(row: dict[str, Any], *, option: bool = False) -> dict[str, Any]:
     order_id = row.get("id") or row.get("order_id")
+    looks_option = option or _looks_like_option_order(row)
     return {
         "robinhood_order_id": str(order_id) if order_id else None,
-        "symbol": _order_display_symbol(row),
-        "side": row.get("side"),
+        "symbol": _order_display_symbol(row, option=looks_option),
+        "side": _option_side(row) if looks_option else row.get("side"),
         "order_type": row.get("type") or row.get("order_type"),
-        "quantity": row.get("quantity") or row.get("cumulative_quantity") or row.get("contracts"),
+        "quantity": row.get("processed_quantity")
+        or row.get("quantity")
+        or row.get("cumulative_quantity")
+        or row.get("contracts"),
         "limit_price": row.get("price") or row.get("limit_price"),
-        "average_price": row.get("average_price"),
+        "average_price": _option_fill_price(row) if looks_option else row.get("average_price"),
         "state": row.get("state") or row.get("status"),
         "created_at": row.get("created_at"),
         "updated_at": row.get("updated_at") or row.get("last_transaction_at") or row.get("created_at"),

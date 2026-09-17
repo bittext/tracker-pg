@@ -108,6 +108,9 @@
       @for (group of dayGroups(); track group.key) {
         <section class="rh-ex__day" [attr.aria-label]="group.label">
           <h3 class="rh-ex__day-title">{{ group.label }}</h3>
+          @if (optionCashLabel(group.trades); as optionCash) {
+            <p class="muted rh-ex__day-options">{{ optionCash }}</p>
+          }
           <ul class="rh-ex__list">
             @for (tr of group.trades; track tr.executedAt + tr.symbol + tr.side + (tr.accountSuffix ?? '')) {
               <li class="rh-ex__row">
@@ -124,7 +127,7 @@
                     <span class="muted rh-ex__meta">
                       {{ qtyLabel(tr) }}
                       @if (tr.averagePrice != null) {
-                        · {{ tr.averagePrice | currency }}
+                        · {{ isOption(tr.symbol) ? 'premium ' : '' }}{{ tr.averagePrice | currency }}
                       }
                       @if (tr.orderType) {
                         · {{ tr.orderType }}

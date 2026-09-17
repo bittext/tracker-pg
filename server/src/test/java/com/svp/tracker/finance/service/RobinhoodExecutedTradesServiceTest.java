@@ -55,6 +55,36 @@ class RobinhoodExecutedTradesServiceTest {
                 new BigDecimal("108.54")
                         .compareTo(RobinhoodExecutedTradesService.notional(
                                 "MRVL", new BigDecimal("0.493575"), new BigDecimal("219.9101"))));
+        assertEquals(
+                0,
+                new BigDecimal("445.00")
+                        .compareTo(RobinhoodExecutedTradesService.notional(
+                                "MRNA $155 CALL 2026-09-25", new BigDecimal("1"), new BigDecimal("4.45"))));
+        assertEquals(
+                0,
+                new BigDecimal("3750.00")
+                        .compareTo(RobinhoodExecutedTradesService.notional(
+                                "MRNA $148 CALL 2026-09-25", new BigDecimal("5"), new BigDecimal("7.50"))));
+        assertTrue(RobinhoodExecutedTradesService.isOptionSymbol("MRNA $155 Call 2026-09-25"));
+        assertTrue(RobinhoodExecutedTradesService.isOptionSymbol("HOOD $155 CALL 2027-01-15"));
+        assertFalse(RobinhoodExecutedTradesService.isOptionSymbol("MRNA"));
+    }
+
+    @Test
+    void duplicateFillsAtSameSecondCollapse() {
+        String live = RobinhoodExecutedTradesService.tradeKey(
+                "3550",
+                "MRNA $155 CALL 2026-09-25",
+                new BigDecimal("1"),
+                new BigDecimal("4.45"),
+                java.time.Instant.parse("2026-09-16T17:43:18.414024Z"));
+        String snapshot = RobinhoodExecutedTradesService.tradeKey(
+                "3550",
+                "MRNA",
+                new BigDecimal("1.00000"),
+                new BigDecimal("4.45000000"),
+                java.time.Instant.parse("2026-09-16T17:43:18.229000Z"));
+        assertEquals(live, snapshot);
     }
 
     @Test

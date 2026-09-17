@@ -150,7 +150,10 @@ export class ReportsFinanceRobinhoodExecutedTradesComponent implements OnInit {
   private tradesMatching(opts: { ignoreDay?: boolean; ignoreSymbol?: boolean }): RobinhoodExecutedTradeDto[] {
     const trades = this.data?.trades ?? [];
     return trades.filter((t) => {
-      if (this.sideFilter !== 'all' && (t.side ?? '').toLowerCase() !== this.sideFilter) {
+      if (this.sideFilter === 'buy' && !this.isBuy(t.side)) {
+        return false;
+      }
+      if (this.sideFilter === 'sell' && !this.isSell(t.side)) {
         return false;
       }
       if (this.accountFilter && t.accountSuffix !== this.accountFilter) {
@@ -220,26 +223,56 @@ export class ReportsFinanceRobinhoodExecutedTradesComponent implements OnInit {
   }
 
   buyCount(): number {
-    return this.visibleTrades().filter((t) => (t.side ?? '').toLowerCase() === 'buy').length;
+    return this.visibleTrades().filter((t) => this.isBuy(t.side)).length;
   }
 
   sellCount(): number {
-    return this.visibleTrades().filter((t) => (t.side ?? '').toLowerCase() === 'sell').length;
+    return this.visibleTrades().filter((t) => this.isSell(t.side)).length;
   }
 
   isBuy(side: string | null | undefined): boolean {
-    return (side ?? '').toLowerCase() === 'buy';
+    return (side ?? '').trim().toLowerCase().startsWith('buy');
   }
 
   isSell(side: string | null | undefined): boolean {
-    return (side ?? '').toLowerCase() === 'sell';
+    return (side ?? '').trim().toLowerCase().startsWith('sell');
   }
 
   sideLabel(side: string | null | undefined): string {
-    if (!side) {
+    const s = (side ?? '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+    if (!s) {
       return 'Trade';
     }
-    return side.charAt(0).toUpperCase() + side.slice(1).toLowerCase();
+    if (s.startsWith('buy_to_open') || s === 'bto') {
+      return 'BTO';
+    }
+    if (s.startsWith('buy_to_close') || s === 'btc') {
+      return 'BTC';
+    }
+    if (s.startsWith('sell_to_open') || s === 'sto') {
+      return 'STO';
+    }
+    if (s.startsWith('sell_to_close') || s === 'stc') {
+      return 'STC';
+    }
+    if (s.startsWith('buy')) {
+      return 'Buy';
+    }
+    if (s.startsWith('sell')) {
+      return 'Sell';
+    }
+    return side!.charAt(0).toUpperCase() + side!.slice(1).toLowerCase();
+  }
+
+  isOption(symbol: string | null | undefined): boolean {
+    const s = (symbol ?? '').trim().toUpperCase();
+    if (!s) {
+      return false;
+    }
+    if (s.includes(' CALL') || s.includes(' PUT') || s.includes(' $')) {
+      return true;
+    }
+    return /^[A-Z]{1,6}\d{6}[CP]\d{8}$/.test(s.replace(/\s+/g, ''));
   }
 
   qtyLabel(trade: RobinhoodExecutedTradeDto): string {
@@ -248,9 +281,39 @@ export class ReportsFinanceRobinhoodExecutedTradesComponent implements OnInit {
       return '';
     }
     const formatted = new Intl.NumberFormat('en-US', { maximumFractionDigits: 6 }).format(qty);
-    const option = / call | put /i.test(trade.symbol ?? '');
+    const option = this.isOption(trade.symbol);
     const unit = option ? (qty === 1 ? 'contract' : 'contracts') : qty === 1 ? 'share' : 'shares';
     return `${formatted} ${unit}`;
+  }
+
+  optionCashLabel(trades: RobinhoodExecutedTradeDto[]): string {
+    let spent = 0;
+    let received = 0;
+    let count = 0;
+    for (const trade of trades) {
+      if (!this.isOption(trade.symbol) || trade.notional == null) {
+        continue;
+      }
+      count += 1;
+      if (this.isSell(trade.side)) {
+        received += trade.notional;
+      } else {
+        spent += trade.notional;
+      }
+    }
+    if (count === 0) {
+      return '';
+    }
+    const money = (n: number) =>
+      new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
+    const bits = [`${count} option fill${count === 1 ? '' : 's'}`];
+    if (spent) {
+      bits.push(`spent ${money(spent)}`);
+    }
+    if (received) {
+      bits.push(`received ${money(received)}`);
+    }
+    return bits.join(' · ');
   }
 
   timeLabel(iso: string | null): string {
