@@ -1,5 +1,5 @@
 import { CommonModule, CurrencyPipe, DatePipe } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -43,6 +43,8 @@ export class ReportsFinanceRobinhoodTaxDeskComponent implements OnInit {
   private readonly api = inject(FinanceApiService);
   private readonly snack = inject(MatSnackBar);
 
+  @ViewChild('dayDetail') dayDetail?: ElementRef<HTMLElement>;
+
   reportYear = new Date().getFullYear();
   asOf = '';
   loading = false;
@@ -65,12 +67,16 @@ export class ReportsFinanceRobinhoodTaxDeskComponent implements OnInit {
     return years;
   }
 
-  load(asOf?: string | null): void {
+  load(asOf?: string | null, opts?: { scrollToDay?: boolean }): void {
     this.loading = true;
-    this.api.taxDesk(this.reportYear, asOf || undefined).subscribe({
+    const day = asOf ? this.isoDate(asOf) : undefined;
+    this.api.taxDesk(this.reportYear, day).subscribe({
       next: (page) => {
         this.applyPage(page);
         this.loading = false;
+        if (opts?.scrollToDay) {
+          setTimeout(() => this.scrollToDay(), 40);
+        }
       },
       error: (err) => {
         this.loading = false;
@@ -84,8 +90,57 @@ export class ReportsFinanceRobinhoodTaxDeskComponent implements OnInit {
     this.load();
   }
 
-  selectDay(asOf: string): void {
-    this.load(asOf);
+  refreshCurrent(): void {
+    this.load(this.asOf || undefined);
+  }
+
+  selectDay(asOf: string | null | undefined): void {
+    const day = this.isoDate(asOf);
+    if (!day) {
+      return;
+    }
+    this.load(day, { scrollToDay: true });
+  }
+
+  backToToday(): void {
+    this.asOf = '';
+    this.load(undefined, { scrollToDay: true });
+  }
+
+  openPriorDay(): void {
+    const prior = this.priorHistoryAsOf();
+    if (prior) {
+      this.selectDay(prior);
+    }
+  }
+
+  isHistorical(): boolean {
+    return this.page?.live === false;
+  }
+
+  sameDay(a?: string | null, b?: string | null): boolean {
+    return this.isoDate(a) === this.isoDate(b) && !!this.isoDate(a);
+  }
+
+  priorHistoryAsOf(): string | null {
+    const hist = this.page?.history ?? [];
+    const cur = this.isoDate(this.asOf);
+    const idx = hist.findIndex((h) => this.sameDay(h.asOf, cur));
+    if (idx >= 0 && idx + 1 < hist.length) {
+      return hist[idx + 1].asOf;
+    }
+    return hist.length > 1 ? hist[1].asOf : null;
+  }
+
+  private scrollToDay(): void {
+    this.dayDetail?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  isoDate(value: string | null | undefined): string {
+    if (!value) {
+      return '';
+    }
+    return value.length >= 10 ? value.slice(0, 10) : value.trim();
   }
 
   saveSettings(): void {
