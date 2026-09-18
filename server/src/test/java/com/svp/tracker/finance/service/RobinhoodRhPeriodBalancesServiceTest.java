@@ -3,8 +3,10 @@ package com.svp.tracker.finance.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import com.svp.tracker.finance.domain.RobinhoodAccountCashIo;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.TreeMap;
 import org.junit.jupiter.api.Test;
 
@@ -77,5 +79,36 @@ class RobinhoodRhPeriodBalancesServiceTest {
         series.put(LocalDate.of(2026, 6, 2), new BigDecimal("50"));
         assertNull(RobinhoodRhPeriodBalancesService.openingForPeriod(
                 series, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 5, 31)));
+    }
+
+    @Test
+    void cashTotalsCountsDepositsAndWithdrawalsInTheWindow() {
+        var deposit = cash("3370", LocalDate.of(2026, 9, 2), "IN", "1000");
+        var withdraw = cash("3370", LocalDate.of(2026, 9, 14), "OUT", "24000");
+        var prior = cash("3370", LocalDate.of(2026, 8, 30), "OUT", "50");
+        var totals = RobinhoodRhPeriodBalancesService.cashTotals(
+                List.of(deposit, withdraw, prior),
+                LocalDate.of(2026, 9, 1),
+                LocalDate.of(2026, 9, 18));
+        assertEquals(0, new BigDecimal("1000").compareTo(totals.added()));
+        assertEquals(0, new BigDecimal("24000").compareTo(totals.removed()));
+    }
+
+    @Test
+    void marketChangeRemovesDepositsAndAddsWithdrawals() {
+        var cash = new RobinhoodRhPeriodBalancesService.CashTotals(new BigDecimal("1000"), new BigDecimal("24000"));
+        assertEquals(
+                0,
+                new BigDecimal("-33520.76")
+                        .compareTo(RobinhoodRhPeriodBalancesService.marketChange(new BigDecimal("-56520.76"), cash)));
+    }
+
+    private static RobinhoodAccountCashIo cash(String suffix, LocalDate day, String direction, String amount) {
+        var row = new RobinhoodAccountCashIo();
+        row.setAccountSuffix(suffix);
+        row.setActivityDate(day);
+        row.setDirection(direction);
+        row.setAmount(new BigDecimal(amount));
+        return row;
     }
 }

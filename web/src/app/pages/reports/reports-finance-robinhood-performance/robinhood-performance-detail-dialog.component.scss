@@ -2,10 +2,13 @@
   min-width: min(40rem, 86vw);
 }
 
-.rh-perf-detail__lead {
+.rh-perf-detail__cash {
   margin: 0 0 0.85rem;
-  font-size: 0.86rem;
-  line-height: 1.4;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .rh-perf-detail__h {

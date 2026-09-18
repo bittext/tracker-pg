@@ -13,4 +13,7 @@ public record RobinhoodRhPeriodBalanceRowDto(
         BigDecimal combinedStart,
         BigDecimal combinedEnd,
         BigDecimal combinedChange,
+        BigDecimal combinedAdded,
+        BigDecimal combinedRemoved,
+        BigDecimal combinedMarketChange,
         List<RobinhoodRhPeriodAccountFigureDto> accounts) {}

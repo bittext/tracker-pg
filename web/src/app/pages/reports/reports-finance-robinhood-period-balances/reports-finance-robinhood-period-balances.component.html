@@ -53,6 +53,14 @@
             @if (windowRange(win); as range) {
               <small class="muted">{{ range }}</small>
             }
+            @if (hasCash(win)) {
+              <small class="muted">
+                Added {{ win.combinedAdded | currency }} · Taken out {{ win.combinedRemoved | currency }} · After cash
+                <span [class.rh-bal__pnl--pos]="isGain(win.combinedMarketChange)" [class.rh-bal__pnl--neg]="isLoss(win.combinedMarketChange)">
+                  {{ win.combinedMarketChange | currency }}
+                </span>
+              </small>
+            }
             @if (isYearWindow(win) && yearStartCaption(win); as asOf) {
               <small class="muted">First tracked close · {{ asOf }}</small>
             }

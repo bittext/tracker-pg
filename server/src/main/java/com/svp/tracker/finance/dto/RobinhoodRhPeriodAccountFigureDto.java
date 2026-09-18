@@ -9,4 +9,7 @@ public record RobinhoodRhPeriodAccountFigureDto(
         BigDecimal end,
         BigDecimal change,
         LocalDate startDate,
-        LocalDate endDate) {}
+        LocalDate endDate,
+        BigDecimal added,
+        BigDecimal removed,
+        BigDecimal marketChange) {}

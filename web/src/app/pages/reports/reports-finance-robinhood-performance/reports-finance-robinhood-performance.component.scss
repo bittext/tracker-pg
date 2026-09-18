@@ -222,6 +222,11 @@
   }
 }
 
+.rh-perf__account-cash {
+  grid-column: 1 / -1;
+  padding-top: 0.2rem;
+}
+
 .rh-perf__grid {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
@@ -255,7 +260,8 @@
   grid-template-columns: 6.2rem minmax(0, 1fr) 6.6rem;
   grid-template-areas:
     'label bar change'
-    'ends ends ends';
+    'ends ends ends'
+    'cash cash cash';
   align-items: center;
   gap: 0.2rem 0.7rem;
 }
@@ -303,6 +309,13 @@
   grid-area: ends;
   font-size: 0.7rem;
   font-variant-numeric: tabular-nums;
+}
+
+.rh-perf__month-cash {
+  grid-area: cash;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.35;
 }
 
 .rh-perf__table {
@@ -367,6 +380,7 @@
     grid-template-areas:
       'label change'
       'bar bar'
-      'ends ends';
+      'ends ends'
+      'cash cash';
   }
 }

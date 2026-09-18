@@ -132,6 +132,9 @@ export interface RobinhoodRhPeriodAccountFigureDto {
   change: number | null;
   startDate: string | null;
   endDate: string | null;
+  added?: number | null;
+  removed?: number | null;
+  marketChange?: number | null;
 }
 
 export interface RobinhoodRhPeriodBalanceRowDto {
@@ -143,6 +146,9 @@ export interface RobinhoodRhPeriodBalanceRowDto {
   combinedStart: number | null;
   combinedEnd: number | null;
   combinedChange: number | null;
+  combinedAdded?: number | null;
+  combinedRemoved?: number | null;
+  combinedMarketChange?: number | null;
   accounts: RobinhoodRhPeriodAccountFigureDto[];
 }
 

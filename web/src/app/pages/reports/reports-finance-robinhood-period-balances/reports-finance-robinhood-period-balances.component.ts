@@ -78,6 +78,13 @@ export class ReportsFinanceRobinhoodPeriodBalancesComponent implements OnInit {
     return row.key === `${this.data?.year ?? ''}`;
   }
 
+  hasCash(row: RobinhoodRhPeriodBalanceRowDto | null | undefined): boolean {
+    if (!row) {
+      return false;
+    }
+    return (row.combinedAdded ?? 0) !== 0 || (row.combinedRemoved ?? 0) !== 0;
+  }
+
   visibleMonths(): RobinhoodRhPeriodBalanceRowDto[] {
     const hideCurrentMonth = (this.data?.windows ?? []).some((row) => row.key === 'month');
     return (this.data?.months ?? []).filter(

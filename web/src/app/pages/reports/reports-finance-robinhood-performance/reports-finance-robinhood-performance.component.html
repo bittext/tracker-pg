@@ -3,8 +3,9 @@
     <div class="rh-perf__head-text">
       <h2 id="rh-perf-heading" class="rh-perf__title">Performance</h2>
       <p class="muted rh-perf__lead">
-        Live account value and realized P&amp;L. Auto-capture {{ scheduleLabel() }}. This page reloads after each
-        new snapshot.
+        Live account value and realized P&amp;L, with deposits and withdrawals called out so a month’s drop is not
+        mixed with cash you added or took out. Auto-capture {{ scheduleLabel() }}. This page reloads after each new
+        snapshot.
       </p>
     </div>
     <div class="rh-perf__toolbar">
@@ -105,7 +106,19 @@
             <em>{{ p | number: '1.1-1' }}%</em>
           }
         </strong>
-        <small class="muted">Official closes · {{ yearStart() != null ? (yearStart()! | currency) : '—' }} start</small>
+        <small class="muted">
+          Official closes · {{ yearStart() != null ? (yearStart()! | currency) : '—' }} start
+          @if (hasCash(balances?.yearBalance)) {
+            · Added {{ balances!.yearBalance.combinedAdded | currency }} · Taken out
+            {{ balances!.yearBalance.combinedRemoved | currency }} · After cash
+            <span
+              [class.rh-perf__pnl--pos]="isGain(balances!.yearBalance.combinedMarketChange)"
+              [class.rh-perf__pnl--neg]="isLoss(balances!.yearBalance.combinedMarketChange)"
+            >
+              {{ balances!.yearBalance.combinedMarketChange | currency }}
+            </span>
+          }
+        </small>
       </article>
       <article class="rh-perf__kpi">
         <span class="rh-perf__kpi-label">Realized P&amp;L</span>
@@ -180,6 +193,22 @@
                     }
                   </dd>
                 </div>
+                @if ((acct.yearAdded ?? 0) !== 0 || (acct.yearRemoved ?? 0) !== 0) {
+                  <div class="rh-perf__account-cash">
+                    <dt>Cash in / out</dt>
+                    <dd>
+                      Added {{ acct.yearAdded | currency }}
+                      · Taken out {{ acct.yearRemoved | currency }}
+                    </dd>
+                    <dt>After cash</dt>
+                    <dd
+                      [class.rh-perf__pnl--pos]="isGain(acct.yearMarketChange)"
+                      [class.rh-perf__pnl--neg]="isLoss(acct.yearMarketChange)"
+                    >
+                      {{ acct.yearMarketChange != null ? (acct.yearMarketChange | currency) : '—' }}
+                    </dd>
+                  </div>
+                }
               </dl>
             </article>
           }
@@ -226,6 +255,19 @@
                   →
                   {{ row.combinedEnd != null ? (row.combinedEnd | currency:'USD':'symbol':'1.0-0') : '—' }}
                 </div>
+                @if (hasCash(row)) {
+                  <div class="muted rh-perf__month-cash">
+                    Added {{ row.combinedAdded | currency }}
+                    · Taken out {{ row.combinedRemoved | currency }}
+                    · After cash
+                    <span
+                      [class.rh-perf__pnl--pos]="isGain(row.combinedMarketChange)"
+                      [class.rh-perf__pnl--neg]="isLoss(row.combinedMarketChange)"
+                    >
+                      {{ row.combinedMarketChange | currency }}
+                    </span>
+                  </div>
+                }
                 </button>
               </li>
             }

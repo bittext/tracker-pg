@@ -10,11 +10,17 @@ export interface RhPerfAccountLine {
   start: number | null;
   end: number | null;
   change: number | null;
+  added?: number | null;
+  removed?: number | null;
+  marketChange?: number | null;
 }
 
 export interface RhPerfDetailDialogData {
   title: string;
   subtitle: string;
+  added?: number | null;
+  removed?: number | null;
+  marketChange?: number | null;
   accounts: RhPerfAccountLine[];
   trades: RobinhoodExecutedTradeDto[];
 }
@@ -36,6 +42,14 @@ export class RobinhoodPerformanceDetailDialogComponent {
 
   realizedTotal(): number {
     return this.data.trades.reduce((sum, t) => sum + (t.realizedPnl ?? 0), 0);
+  }
+
+  hasCash(): boolean {
+    return (this.data.added ?? 0) !== 0 || (this.data.removed ?? 0) !== 0;
+  }
+
+  accountHasCash(acct: RhPerfAccountLine): boolean {
+    return (acct.added ?? 0) !== 0 || (acct.removed ?? 0) !== 0;
   }
 
   isGain(value: number | null | undefined): boolean {

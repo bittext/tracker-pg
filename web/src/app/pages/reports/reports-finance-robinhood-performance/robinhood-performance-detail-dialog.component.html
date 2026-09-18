@@ -2,6 +2,20 @@
 <mat-dialog-content class="rh-perf-detail">
   <p class="muted rh-perf-detail__lead">{{ data.subtitle }}</p>
 
+  @if (hasCash()) {
+    <p class="rh-perf-detail__cash">
+      Added {{ data.added | currency }}
+      · Taken out {{ data.removed | currency }}
+      · After cash
+      <strong
+        [class.rh-perf-detail__pos]="isGain(data.marketChange)"
+        [class.rh-perf-detail__neg]="isLoss(data.marketChange)"
+      >
+        {{ data.marketChange | currency }}
+      </strong>
+    </p>
+  }
+
   @if (data.accounts.length) {
     <h3 class="rh-perf-detail__h">Account closes</h3>
     <table class="rh-perf-detail__table">
@@ -11,6 +25,9 @@
           <th scope="col" class="rh-perf-detail__num">Start</th>
           <th scope="col" class="rh-perf-detail__num">End</th>
           <th scope="col" class="rh-perf-detail__num">Change</th>
+          <th scope="col" class="rh-perf-detail__num">Added</th>
+          <th scope="col" class="rh-perf-detail__num">Taken out</th>
+          <th scope="col" class="rh-perf-detail__num">After cash</th>
         </tr>
       </thead>
       <tbody>
@@ -28,6 +45,19 @@
               [class.rh-perf-detail__neg]="isLoss(acct.change)"
             >
               {{ acct.change != null ? (acct.change | currency) : '—' }}
+            </td>
+            <td class="rh-perf-detail__num">
+              {{ accountHasCash(acct) ? (acct.added | currency) : '—' }}
+            </td>
+            <td class="rh-perf-detail__num">
+              {{ accountHasCash(acct) ? (acct.removed | currency) : '—' }}
+            </td>
+            <td
+              class="rh-perf-detail__num"
+              [class.rh-perf-detail__pos]="isGain(acct.marketChange)"
+              [class.rh-perf-detail__neg]="isLoss(acct.marketChange)"
+            >
+              {{ acct.marketChange != null ? (acct.marketChange | currency) : '—' }}
             </td>
           </tr>
         }

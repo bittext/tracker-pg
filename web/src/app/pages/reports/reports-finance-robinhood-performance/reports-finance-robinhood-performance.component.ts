@@ -42,6 +42,9 @@ interface LiveAccountRow {
   sinceClose: number | null;
   yearChange: number | null;
   yearStart: number | null;
+  yearAdded: number | null;
+  yearRemoved: number | null;
+  yearMarketChange: number | null;
 }
 
 interface SymbolPnlRow {
@@ -311,6 +314,9 @@ export class ReportsFinanceRobinhoodPerformanceComponent implements OnInit {
         sinceClose: now != null && prior != null ? now - prior : null,
         yearChange: yearFig?.change ?? null,
         yearStart: yearFig?.start ?? null,
+        yearAdded: yearFig?.added ?? null,
+        yearRemoved: yearFig?.removed ?? null,
+        yearMarketChange: yearFig?.marketChange ?? null,
       };
     });
   }
@@ -356,6 +362,13 @@ export class ReportsFinanceRobinhoodPerformanceComponent implements OnInit {
 
   scheduleLabel(): string {
     return this.daily?.autoCaptureScheduleLabel || this.crypto?.autoCaptureScheduleLabel || 'hourly + 9:00 PM CT close';
+  }
+
+  hasCash(row: RobinhoodRhPeriodBalanceRowDto | null | undefined): boolean {
+    if (!row) {
+      return false;
+    }
+    return (row.combinedAdded ?? 0) !== 0 || (row.combinedRemoved ?? 0) !== 0;
   }
 
   isGain(value: number | null | undefined): boolean {
@@ -424,12 +437,18 @@ export class ReportsFinanceRobinhoodPerformanceComponent implements OnInit {
         start: fig?.start ?? null,
         end: fig?.end ?? null,
         change: fig?.change ?? null,
+        added: fig?.added ?? null,
+        removed: fig?.removed ?? null,
+        marketChange: fig?.marketChange ?? null,
       };
     });
     this.openDetail({
       title: row.label,
       subtitle:
-        'Official 9:00 PM CT closes for this month. Sells below are realized FIFO in the same window — they are not the same as the account-value change.',
+        'Official 9:00 PM CT closes for this month. Added / taken out is Cash I/O in the same window. After cash is the account-value change with deposits and withdrawals removed. Sells below are realized FIFO — not the same as after-cash.',
+      added: row.combinedAdded ?? null,
+      removed: row.combinedRemoved ?? null,
+      marketChange: row.combinedMarketChange ?? null,
       accounts,
       trades: this.closedSells().filter((t) => this.tradeInRange(t, row.periodStart, row.periodEnd)),
     });
@@ -447,7 +466,10 @@ export class ReportsFinanceRobinhoodPerformanceComponent implements OnInit {
   openAccountDetail(acct: LiveAccountRow): void {
     this.openDetail({
       title: `${acct.shortLabel} ••••${acct.suffix}`,
-      subtitle: `Year ${this.reportYear} official close change and realized sells on this account.`,
+      subtitle: `Year ${this.reportYear} official close change, Cash I/O, and realized sells on this account.`,
+      added: acct.yearAdded,
+      removed: acct.yearRemoved,
+      marketChange: acct.yearMarketChange,
       accounts: [
         {
           suffix: acct.suffix,
@@ -455,6 +477,9 @@ export class ReportsFinanceRobinhoodPerformanceComponent implements OnInit {
           start: acct.yearStart,
           end: acct.now,
           change: acct.yearChange,
+          added: acct.yearAdded,
+          removed: acct.yearRemoved,
+          marketChange: acct.yearMarketChange,
         },
       ],
       trades: this.closedSells().filter((t) => t.accountSuffix === acct.suffix),

@@ -6,6 +6,8 @@ import com.svp.tracker.finance.dto.RobinhoodRhPeriodAccountColumnDto;
 import com.svp.tracker.finance.dto.RobinhoodRhPeriodAccountFigureDto;
 import com.svp.tracker.finance.dto.RobinhoodRhPeriodBalanceRowDto;
 import com.svp.tracker.finance.dto.RobinhoodRhPeriodBalancesDto;
+import com.svp.tracker.finance.domain.RobinhoodAccountCashIo;
+import com.svp.tracker.finance.repository.RobinhoodAccountCashIoRepository;
 import com.svp.tracker.finance.repository.RobinhoodRhDailySnapshotRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -34,7 +36,9 @@ import org.springframework.transaction.annotation.Transactional;
  * Month and year opening/closing balances from Daily Tracker 9 PM CT scheduled closes.
  * Opening = last close before the calendar period (midnight start). If none exists (tracker
  * started mid-period), opening is the first close on or after period start. Closing = last
- * close on or before period end (or latest close if the period is still open).
+ * close on or before period end (or latest close if the period is still open). Cash added /
+ * taken out comes from the Cash I/O ledger in that window; market change is book change minus
+ * deposits plus withdrawals.
  */
 @Service
 @RequiredArgsConstructor
@@ -48,6 +52,7 @@ public class RobinhoodRhPeriodBalancesService {
     private final CurrentUserService currentUser;
     private final RobinhoodRhDailySnapshotRepository snapshotRepository;
     private final RobinhoodAccountTrackerConfigService accountTrackerConfigService;
+    private final RobinhoodAccountCashIoRepository cashIoRepository;
 
     @Transactional(readOnly = true)
     public RobinhoodRhPeriodBalancesDto build(int year) {
@@ -95,6 +100,8 @@ public class RobinhoodRhPeriodBalancesService {
                         s, RobinhoodRhDailyTrackerAccountPolicy.displayLabel(s)))
                 .toList();
 
+        Map<String, List<RobinhoodAccountCashIo>> cashBySuffix = loadCashIo(ownerUserId, yearStartForCash(year), to);
+
         List<RobinhoodRhPeriodBalanceRowDto> months = new ArrayList<>();
         YearMonth currentYm = YearMonth.from(today);
         for (int month = 1; month <= 12; month++) {
@@ -112,7 +119,8 @@ public class RobinhoodRhPeriodBalancesService {
                     ym.equals(currentYm),
                     suffixes,
                     seriesBySuffix,
-                    Map.of()));
+                    Map.of(),
+                    cashBySuffix));
         }
 
         LocalDate yearStart = LocalDate.of(year, 1, 1);
@@ -126,7 +134,8 @@ public class RobinhoodRhPeriodBalancesService {
                 yearOpen,
                 suffixes,
                 seriesBySuffix,
-                yearOpen ? liveEnds : Map.of());
+                yearOpen ? liveEnds : Map.of(),
+                cashBySuffix);
 
         LocalDate weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
         LocalDate thisMonthStart = currentYm.atDay(1);
@@ -140,7 +149,8 @@ public class RobinhoodRhPeriodBalancesService {
                         true,
                         suffixes,
                         seriesBySuffix,
-                        liveEnds),
+                        liveEnds,
+                        cashBySuffix),
                 buildRow(
                         "week",
                         "This week · " + SHORT_DAY.format(weekStart) + "–" + SHORT_DAY.format(today),
@@ -149,7 +159,8 @@ public class RobinhoodRhPeriodBalancesService {
                         true,
                         suffixes,
                         seriesBySuffix,
-                        liveEnds),
+                        liveEnds,
+                        cashBySuffix),
                 buildRow(
                         "month",
                         currentYm.getMonth().getDisplayName(TextStyle.FULL, Locale.US) + " so far",
@@ -158,7 +169,8 @@ public class RobinhoodRhPeriodBalancesService {
                         true,
                         suffixes,
                         seriesBySuffix,
-                        liveEnds),
+                        liveEnds,
+                        cashBySuffix),
                 buildRow(
                         "ytd",
                         "Year to date",
@@ -167,7 +179,8 @@ public class RobinhoodRhPeriodBalancesService {
                         true,
                         suffixes,
                         seriesBySuffix,
-                        liveEnds),
+                        liveEnds,
+                        cashBySuffix),
                 yearBalance);
 
         String note = suffixes.isEmpty()
@@ -175,7 +188,8 @@ public class RobinhoodRhPeriodBalancesService {
                 : "Opening is the last 9 PM CT close before the period (calendar midnight start). "
                         + "If tracking started later, opening is the first close in that period. "
                         + "Day / week / month / YTD end on the latest hourly capture. "
-                        + "Month rows still use the official 9 PM CT close.";
+                        + "Month rows still use the official 9 PM CT close. "
+                        + "Added / taken out is Cash I/O in the same window; after cash is the value change with deposits and withdrawals removed.";
         return new RobinhoodRhPeriodBalancesDto(year, note, accounts, windows, months, yearBalance);
     }
 
@@ -187,10 +201,13 @@ public class RobinhoodRhPeriodBalancesService {
             boolean currentPeriod,
             List<String> suffixes,
             Map<String, TreeMap<LocalDate, BigDecimal>> seriesBySuffix,
-            Map<String, ClosePoint> liveEnds) {
+            Map<String, ClosePoint> liveEnds,
+            Map<String, List<RobinhoodAccountCashIo>> cashBySuffix) {
         List<RobinhoodRhPeriodAccountFigureDto> figures = new ArrayList<>();
         BigDecimal combinedStart = BigDecimal.ZERO;
         BigDecimal combinedEnd = BigDecimal.ZERO;
+        BigDecimal combinedAdded = BigDecimal.ZERO;
+        BigDecimal combinedRemoved = BigDecimal.ZERO;
         boolean anyStart = false;
         boolean anyEnd = false;
         for (String suffix : suffixes) {
@@ -210,14 +227,23 @@ public class RobinhoodRhPeriodBalancesService {
                 combinedEnd = combinedEnd.add(end.value());
                 anyEnd = true;
             }
+            CashTotals cash = cashTotals(cashBySuffix.get(suffix), periodStart, periodEnd);
+            combinedAdded = combinedAdded.add(cash.added());
+            combinedRemoved = combinedRemoved.add(cash.removed());
+            BigDecimal bookChange = start == null || end == null ? null : end.value().subtract(start.value());
             figures.add(new RobinhoodRhPeriodAccountFigureDto(
                     suffix,
                     start == null ? null : scaleMoney(start.value()),
                     end == null ? null : scaleMoney(end.value()),
-                    start == null || end == null ? null : scaleMoney(end.value().subtract(start.value())),
+                    bookChange == null ? null : scaleMoney(bookChange),
                     start == null ? null : start.date(),
-                    end == null ? null : end.date()));
+                    end == null ? null : end.date(),
+                    scaleMoney(cash.added()),
+                    scaleMoney(cash.removed()),
+                    bookChange == null ? null : scaleMoney(marketChange(bookChange, cash))));
         }
+        BigDecimal bookCombined = anyStart && anyEnd ? combinedEnd.subtract(combinedStart) : null;
+        CashTotals combinedCash = new CashTotals(combinedAdded, combinedRemoved);
         return new RobinhoodRhPeriodBalanceRowDto(
                 key,
                 label,
@@ -226,7 +252,10 @@ public class RobinhoodRhPeriodBalancesService {
                 currentPeriod,
                 anyStart ? scaleMoney(combinedStart) : null,
                 anyEnd ? scaleMoney(combinedEnd) : null,
-                anyStart && anyEnd ? scaleMoney(combinedEnd.subtract(combinedStart)) : null,
+                bookCombined == null ? null : scaleMoney(bookCombined),
+                scaleMoney(combinedAdded),
+                scaleMoney(combinedRemoved),
+                bookCombined == null ? null : scaleMoney(marketChange(bookCombined, combinedCash)),
                 figures);
     }
 
@@ -271,6 +300,53 @@ public class RobinhoodRhPeriodBalancesService {
         return entry == null ? null : new ClosePoint(entry.getKey(), entry.getValue());
     }
 
+    private Map<String, List<RobinhoodAccountCashIo>> loadCashIo(long ownerUserId, LocalDate from, LocalDate to) {
+        Map<String, List<RobinhoodAccountCashIo>> out = new LinkedHashMap<>();
+        for (RobinhoodAccountCashIo row :
+                cashIoRepository.findByOwnerUserIdAndActivityDateBetweenOrderByActivityDateDescIdDesc(
+                        ownerUserId, from, to)) {
+            if (row.getAccountSuffix() == null || row.getAccountSuffix().isBlank()) {
+                continue;
+            }
+            out.computeIfAbsent(row.getAccountSuffix().trim(), k -> new ArrayList<>()).add(row);
+        }
+        return out;
+    }
+
+    private static LocalDate yearStartForCash(int year) {
+        return LocalDate.of(year, 1, 1);
+    }
+
+    static CashTotals cashTotals(List<RobinhoodAccountCashIo> rows, LocalDate periodStart, LocalDate periodEnd) {
+        BigDecimal added = BigDecimal.ZERO;
+        BigDecimal removed = BigDecimal.ZERO;
+        if (rows == null || rows.isEmpty() || periodStart == null || periodEnd == null) {
+            return new CashTotals(added, removed);
+        }
+        for (RobinhoodAccountCashIo row : rows) {
+            LocalDate day = row.getActivityDate();
+            if (day == null || day.isBefore(periodStart) || day.isAfter(periodEnd)) {
+                continue;
+            }
+            BigDecimal amount = row.getAmount() == null ? BigDecimal.ZERO : row.getAmount().abs();
+            String dir = row.getDirection() == null ? "" : row.getDirection().trim().toUpperCase(Locale.ROOT);
+            if ("IN".equals(dir)) {
+                added = added.add(amount);
+            } else if ("OUT".equals(dir)) {
+                removed = removed.add(amount);
+            }
+        }
+        return new CashTotals(added, removed);
+    }
+
+    static BigDecimal marketChange(BigDecimal bookChange, CashTotals cash) {
+        if (bookChange == null) {
+            return null;
+        }
+        CashTotals flow = cash == null ? CashTotals.ZERO : cash;
+        return bookChange.subtract(flow.added()).add(flow.removed());
+    }
+
     private static List<String> orderSuffixes(Set<String> suffixes) {
         List<String> out = new ArrayList<>();
         for (String preferred : PREFERRED_SUFFIX_ORDER) {
@@ -294,4 +370,8 @@ public class RobinhoodRhPeriodBalancesService {
     }
 
     record ClosePoint(LocalDate date, BigDecimal value) {}
+
+    record CashTotals(BigDecimal added, BigDecimal removed) {
+        static final CashTotals ZERO = new CashTotals(BigDecimal.ZERO, BigDecimal.ZERO);
+    }
 }
