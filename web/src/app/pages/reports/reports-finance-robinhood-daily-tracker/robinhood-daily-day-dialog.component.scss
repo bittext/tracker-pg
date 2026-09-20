@@ -187,23 +187,114 @@
   font-size: 1.1rem;
 }
 
-.rh-day-dialog__trades {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
+.rh-day-dialog__trades-wrap {
+  overflow-x: auto;
+  margin: 0 -0.1rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+  border-radius: 10px;
+  background: var(--app-surface, #fff);
+}
 
-  li {
-    display: grid;
-    grid-template-columns: 4.5rem 3.2rem auto auto auto minmax(0, 1fr);
-    gap: 0.5rem;
-    align-items: baseline;
-    padding: 0.3rem 0.2rem;
-    font-size: 0.85rem;
+.rh-day-dialog__trades {
+  width: 100%;
+  min-width: 40rem;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+
+  th,
+  td {
+    padding: 0.45rem 0.55rem;
+    text-align: left;
+    vertical-align: middle;
     border-bottom: 1px solid var(--app-border, rgba(15, 23, 42, 0.06));
   }
+
+  th {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--app-text-muted, #64748b);
+    background: color-mix(in srgb, var(--app-surface, #fff) 88%, #e2e8f0);
+  }
+
+  tr:last-child td {
+    border-bottom: 0;
+  }
+
+  th:nth-child(1),
+  td:nth-child(1) {
+    width: 32%;
+  }
+
+  th:nth-child(2),
+  td:nth-child(2) {
+    width: 4.6rem;
+  }
+
+  th:nth-child(3),
+  td:nth-child(3) {
+    width: 4.4rem;
+  }
+
+  th:nth-child(4),
+  td:nth-child(4) {
+    width: 5.8rem;
+  }
+
+  th:nth-child(5),
+  td:nth-child(5) {
+    width: 7.2rem;
+  }
+}
+
+.rh-day-dialog__num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.rh-day-dialog__trade-symbol {
+  min-width: 0;
+
+  strong {
+    display: block;
+    font-weight: 650;
+    letter-spacing: 0.01em;
+  }
+}
+
+.rh-day-dialog__trade-contract {
+  display: block;
+  margin-top: 0.12rem;
+  font-size: 0.75rem;
+  color: var(--app-text-muted, #64748b);
+  white-space: nowrap;
+}
+
+.rh-day-dialog__trade-side {
+  display: inline-block;
+  min-width: 2.7rem;
+  padding: 0.12rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+  text-align: center;
+  text-transform: uppercase;
+  white-space: nowrap;
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.rh-day-dialog__trade-side--buy {
+  color: #15803d;
+  background: rgba(21, 128, 61, 0.1);
+}
+
+.rh-day-dialog__trade-side--sell {
+  color: #b91c1c;
+  background: rgba(185, 28, 28, 0.1);
 }
 
 .rh-day-dialog__trade-price,
@@ -213,13 +304,19 @@
 }
 
 .rh-day-dialog__trade-cost {
-  font-weight: 600;
+  font-weight: 650;
 }
 
 .rh-day-dialog__trade-account {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rh-day-dialog__trades-more {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
 }
 
 .rh-day-dialog__pnl--pos {
@@ -256,13 +353,5 @@
 
   .rh-day-dialog__acct-chevron {
     grid-area: chevron;
-  }
-
-  .rh-day-dialog__trades li {
-    grid-template-columns: 3.5rem 3rem auto auto;
-  }
-
-  .rh-day-dialog__trade-account {
-    display: none;
   }
 }

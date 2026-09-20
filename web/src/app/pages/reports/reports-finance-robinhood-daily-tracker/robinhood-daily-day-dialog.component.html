@@ -111,33 +111,71 @@
 
   @if (data.day.trades.length) {
     <h3 class="rh-day-dialog__section">Trades</h3>
-    <ul class="rh-day-dialog__trades">
-      @for (tr of data.day.trades.slice(0, 12); track $index) {
-        <li>
-          <strong>{{ tr.symbol }}</strong>
-          <span class="muted">{{ tr.side || '—' }}</span>
-          <span>{{ tr.quantity | number: '1.0-4' }}</span>
-          <span class="rh-day-dialog__trade-price">
-            @if (tradeUnitPrice(tr); as px) {
-              @ {{ px | currency }}
-            } @else {
-              <span class="muted">—</span>
-            }
-          </span>
-          <span class="rh-day-dialog__trade-cost">
-            @if (tradeCost(tr); as cost) {
-              {{ cost | currency }}
-            }
-          </span>
-          <span class="muted rh-day-dialog__trade-account">{{
-            tr.accountLabel || ('••••' + (tr.accountSuffix || ''))
-          }}</span>
-        </li>
-      }
-      @if (data.day.trades.length > 12) {
-        <li class="muted">+{{ data.day.trades.length - 12 }} more in timeline</li>
-      }
-    </ul>
+    <div class="rh-day-dialog__trades-wrap">
+      <table class="rh-day-dialog__trades">
+        <thead>
+          <tr>
+            <th>Symbol</th>
+            <th>Side</th>
+            <th class="rh-day-dialog__num">Qty</th>
+            <th class="rh-day-dialog__num">Price</th>
+            <th class="rh-day-dialog__num">Total</th>
+            <th>Account</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (tr of data.day.trades.slice(0, 12); track $index) {
+            @let symbol = tradeSymbol(tr);
+            <tr>
+              <td class="rh-day-dialog__trade-symbol">
+                <strong>{{ symbol.ticker }}</strong>
+                @if (symbol.contract; as contract) {
+                  <span class="rh-day-dialog__trade-contract">{{ contract }}</span>
+                }
+              </td>
+              <td>
+                <span
+                  class="rh-day-dialog__trade-side"
+                  [class.rh-day-dialog__trade-side--buy]="isBuy(tr.side)"
+                  [class.rh-day-dialog__trade-side--sell]="isSell(tr.side)"
+                >
+                  {{ sideLabel(tr.side) }}
+                </span>
+              </td>
+              <td class="rh-day-dialog__num">
+                @if (tr.quantity != null) {
+                  {{ tr.quantity | number: '1.0-4' }}
+                } @else {
+                  <span class="muted">—</span>
+                }
+              </td>
+              <td class="rh-day-dialog__num rh-day-dialog__trade-price">
+                @if (tradeUnitPrice(tr); as px) {
+                  {{ px | currency }}
+                } @else {
+                  <span class="muted">—</span>
+                }
+              </td>
+              <td
+                class="rh-day-dialog__num rh-day-dialog__trade-cost"
+                [class.rh-day-dialog__pnl--pos]="isSell(tr.side)"
+                [class.rh-day-dialog__pnl--neg]="isBuy(tr.side)"
+              >
+                @if (tradeCost(tr); as cost) {
+                  {{ isSell(tr.side) ? '+' : isBuy(tr.side) ? '−' : '' }}{{ cost | currency }}
+                }
+              </td>
+              <td class="rh-day-dialog__trade-account">
+                {{ tr.accountLabel || accountFallbackLabel(tr.accountSuffix || '') }}
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (data.day.trades.length > 12) {
+      <p class="muted rh-day-dialog__trades-more">+{{ data.day.trades.length - 12 }} more in timeline</p>
+    }
   }
 </mat-dialog-content>
 
