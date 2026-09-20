@@ -187,6 +187,15 @@
   font-size: 1.1rem;
 }
 
+.rh-day-dialog__tally {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.7rem;
+  margin: -0.15rem 0 0.45rem;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .rh-day-dialog__trades-wrap {
   overflow-x: auto;
   margin: 0 -0.1rem;
@@ -197,7 +206,7 @@
 
 .rh-day-dialog__trades {
   width: 100%;
-  min-width: 40rem;
+  min-width: 52rem;
   border-collapse: collapse;
   font-size: 0.84rem;
 
@@ -222,36 +231,19 @@
     border-bottom: 0;
   }
 
-  th:nth-child(1),
-  td:nth-child(1) {
-    width: 32%;
-  }
-
-  th:nth-child(2),
-  td:nth-child(2) {
-    width: 4.6rem;
-  }
-
-  th:nth-child(3),
-  td:nth-child(3) {
-    width: 4.4rem;
-  }
-
-  th:nth-child(4),
-  td:nth-child(4) {
-    width: 5.8rem;
-  }
-
-  th:nth-child(5),
-  td:nth-child(5) {
-    width: 7.2rem;
-  }
 }
 
 .rh-day-dialog__num {
   text-align: right;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+.rh-day-dialog__trade-time {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--app-text-muted, #64748b);
+  font-size: 0.78rem;
 }
 
 .rh-day-dialog__trade-symbol {
@@ -279,7 +271,7 @@
   border-radius: 999px;
   font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 0.03em;
+  letter-spacing: 0;
   line-height: 1.2;
   text-align: center;
   text-transform: uppercase;
@@ -305,6 +297,19 @@
 
 .rh-day-dialog__trade-cost {
   font-weight: 650;
+}
+
+.rh-day-dialog__trade-pnl {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.08rem;
+  font-weight: 650;
+
+  small {
+    font-size: 0.72rem;
+    font-weight: 500;
+  }
 }
 
 .rh-day-dialog__trade-account {

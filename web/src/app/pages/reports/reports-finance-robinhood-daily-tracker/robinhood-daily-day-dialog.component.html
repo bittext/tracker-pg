@@ -111,22 +111,51 @@
 
   @if (data.day.trades.length) {
     <h3 class="rh-day-dialog__section">Trades</h3>
+    @if (sellTally(); as tally) {
+      <div class="rh-day-dialog__tally" aria-label="Day sell gains and losses">
+        <span class="muted">{{ tally.sells }} sell{{ tally.sells === 1 ? '' : 's' }}</span>
+        @if (tally.matched) {
+          <span class="rh-day-dialog__pnl--pos">Gains {{ tally.gains | currency }}</span>
+          <span class="rh-day-dialog__pnl--neg">Losses {{ tally.losses | currency }}</span>
+          <span [class]="pnlClass(tally.net)">
+            Net {{ tally.net | currency }}
+            @if (tally.percent != null) {
+              ({{ tally.percent | number: '1.1-1' }}%)
+            }
+          </span>
+        } @else if (loadingPnl) {
+          <span class="muted">Matching FIFO P&amp;L…</span>
+        } @else {
+          <span class="muted">No matched cost basis yet</span>
+        }
+      </div>
+    }
     <div class="rh-day-dialog__trades-wrap">
       <table class="rh-day-dialog__trades">
         <thead>
           <tr>
+            <th>Time</th>
             <th>Symbol</th>
             <th>Side</th>
             <th class="rh-day-dialog__num">Qty</th>
             <th class="rh-day-dialog__num">Price</th>
             <th class="rh-day-dialog__num">Total</th>
+            <th class="rh-day-dialog__num">P&amp;L</th>
             <th>Account</th>
           </tr>
         </thead>
         <tbody>
-          @for (tr of data.day.trades.slice(0, 12); track $index) {
+          @for (tr of displayedTrades(); track $index) {
             @let symbol = tradeSymbol(tr);
+            @let pnl = sellPnl(tr);
             <tr>
+              <td class="rh-day-dialog__trade-time">
+                @if (tr.executedAt) {
+                  {{ tr.executedAt | date: 'h:mm a' }}
+                } @else {
+                  <span class="muted">—</span>
+                }
+              </td>
               <td class="rh-day-dialog__trade-symbol">
                 <strong>{{ symbol.ticker }}</strong>
                 @if (symbol.contract; as contract) {
@@ -156,13 +185,23 @@
                   <span class="muted">—</span>
                 }
               </td>
-              <td
-                class="rh-day-dialog__num rh-day-dialog__trade-cost"
-                [class.rh-day-dialog__pnl--pos]="isSell(tr.side)"
-                [class.rh-day-dialog__pnl--neg]="isBuy(tr.side)"
-              >
+              <td class="rh-day-dialog__num rh-day-dialog__trade-cost">
                 @if (tradeCost(tr); as cost) {
                   {{ isSell(tr.side) ? '+' : isBuy(tr.side) ? '−' : '' }}{{ cost | currency }}
+                }
+              </td>
+              <td class="rh-day-dialog__num rh-day-dialog__trade-pnl" [class]="pnl ? pnlClass(pnl.pnl) : ''">
+                @if (isSell(tr.side)) {
+                  @if (pnl) {
+                    <strong>{{ pnl.pnl > 0 ? '+' : '' }}{{ pnl.pnl | currency }}</strong>
+                    @if (pnl.percent != null) {
+                      <small>{{ pnl.percent > 0 ? '+' : '' }}{{ pnl.percent | number: '1.1-1' }}%</small>
+                    }
+                  } @else if (loadingPnl) {
+                    <mat-spinner diameter="14" />
+                  } @else {
+                    <span class="muted">—</span>
+                  }
                 }
               </td>
               <td class="rh-day-dialog__trade-account">
@@ -173,9 +212,6 @@
         </tbody>
       </table>
     </div>
-    @if (data.day.trades.length > 12) {
-      <p class="muted rh-day-dialog__trades-more">+{{ data.day.trades.length - 12 }} more in timeline</p>
-    }
   }
 </mat-dialog-content>
 

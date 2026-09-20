@@ -1,14 +1,17 @@
 import { CommonModule, CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
-import { Component, inject } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogConfig, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import {
+  RobinhoodExecutedTradeDto,
   RobinhoodRhCashFlowEventDto,
   RobinhoodRhDailyTrackerAccountCellDto,
   RobinhoodRhDailyTrackerDayDto,
   RobinhoodRhDailyTradeDto,
 } from '../../../models/finance.models';
+import { FinanceApiService } from '../../../services/finance-api.service';
 import { robinhoodAccountDisplayLabel } from '../../../util/robinhood-account-display';
 import {
   RobinhoodDailySnapshotDialogComponent,
@@ -32,11 +35,25 @@ export interface RobinhoodDailyDayDialogData {
 }
 
 export const RH_DAY_DIALOG_CONFIG: Pick<MatDialogConfig, 'width' | 'maxWidth' | 'maxHeight' | 'panelClass'> = {
-  width: 'min(880px, 96vw)',
+  width: 'min(980px, 96vw)',
   maxWidth: '96vw',
   maxHeight: '90vh',
   panelClass: 'rh-day-dialog-panel',
 };
+
+export interface DayTradeSellPnl {
+  pnl: number;
+  percent: number | null;
+}
+
+export interface DaySellTally {
+  sells: number;
+  matched: number;
+  gains: number;
+  losses: number;
+  net: number;
+  percent: number | null;
+}
 
 @Component({
   selector: 'app-robinhood-daily-day-dialog',
@@ -46,6 +63,7 @@ export const RH_DAY_DIALOG_CONFIG: Pick<MatDialogConfig, 'width' | 'maxWidth' | 
     MatDialogModule,
     MatButtonModule,
     MatIconModule,
+    MatProgressSpinnerModule,
     CurrencyPipe,
     DatePipe,
     DecimalPipe,
@@ -53,10 +71,90 @@ export const RH_DAY_DIALOG_CONFIG: Pick<MatDialogConfig, 'width' | 'maxWidth' | 
   templateUrl: './robinhood-daily-day-dialog.component.html',
   styleUrl: './robinhood-daily-day-dialog.component.scss',
 })
-export class RobinhoodDailyDayDialogComponent {
+export class RobinhoodDailyDayDialogComponent implements OnInit {
   readonly data = inject<RobinhoodDailyDayDialogData>(MAT_DIALOG_DATA);
   private readonly ref = inject(MatDialogRef<RobinhoodDailyDayDialogComponent>);
   private readonly dialog = inject(MatDialog);
+  private readonly financeApi = inject(FinanceApiService);
+
+  yearSells: RobinhoodExecutedTradeDto[] = [];
+  loadingPnl = false;
+
+  ngOnInit(): void {
+    const year = this.dayYear();
+    this.loadingPnl = true;
+    this.financeApi.robinhoodExecutedTrades(year).subscribe({
+      next: (res) => {
+        this.yearSells = (res.trades ?? []).filter((t) => this.isSell(t.side) && t.realizedPnl != null);
+        this.loadingPnl = false;
+      },
+      error: () => {
+        this.yearSells = [];
+        this.loadingPnl = false;
+      },
+    });
+  }
+
+  /** Latest fill first so the day reads newest-to-oldest. */
+  displayedTrades(): RobinhoodRhDailyTradeDto[] {
+    return [...(this.data.day.trades ?? [])].sort((a, b) => this.executedMs(b.executedAt) - this.executedMs(a.executedAt));
+  }
+
+  sellPnl(tr: RobinhoodRhDailyTradeDto): DayTradeSellPnl | null {
+    if (!this.isSell(tr.side)) {
+      return null;
+    }
+    const matches = this.yearSells.filter((s) => this.sameSell(s, tr));
+    if (!matches.length) {
+      return null;
+    }
+    const target = this.executedMs(tr.executedAt);
+    matches.sort(
+      (a, b) => Math.abs(this.executedMs(a.executedAt) - target) - Math.abs(this.executedMs(b.executedAt) - target),
+    );
+    const best = matches[0];
+    if (best.realizedPnl == null) {
+      return null;
+    }
+    return { pnl: best.realizedPnl, percent: best.realizedPnlPercent };
+  }
+
+  sellTally(): DaySellTally | null {
+    const sells = this.displayedTrades().filter((t) => this.isSell(t.side));
+    if (!sells.length) {
+      return null;
+    }
+    let matched = 0;
+    let gains = 0;
+    let losses = 0;
+    let net = 0;
+    let cost = 0;
+    for (const tr of sells) {
+      const row = this.sellPnl(tr);
+      if (!row) {
+        continue;
+      }
+      matched += 1;
+      net += row.pnl;
+      if (row.pnl > 0) {
+        gains += row.pnl;
+      } else if (row.pnl < 0) {
+        losses += Math.abs(row.pnl);
+      }
+      const proceeds = this.tradeCost(tr);
+      if (proceeds != null) {
+        cost += proceeds - row.pnl;
+      }
+    }
+    return {
+      sells: sells.length,
+      matched,
+      gains,
+      losses,
+      net,
+      percent: matched && cost !== 0 ? (net / cost) * 100 : null,
+    };
+  }
 
   close(): void {
     this.ref.close();
@@ -220,6 +318,48 @@ export class RobinhoodDailyDayDialogComponent {
 
   flowSigned(f: RobinhoodRhCashFlowEventDto): number {
     return this.flowDirectionLabel(f) === 'Out' ? -1 : 1;
+  }
+
+  private dayYear(): number {
+    const raw = this.data.day.snapshotDate ?? '';
+    const year = Number(raw.slice(0, 4));
+    return Number.isFinite(year) && year >= 2000 ? year : new Date().getFullYear();
+  }
+
+  private executedMs(value: string | null | undefined): number {
+    if (!value) {
+      return 0;
+    }
+    const ms = Date.parse(value);
+    return Number.isFinite(ms) ? ms : 0;
+  }
+
+  private sameSell(a: RobinhoodExecutedTradeDto, b: RobinhoodRhDailyTradeDto): boolean {
+    if ((a.accountSuffix || '') !== (b.accountSuffix || '')) {
+      return false;
+    }
+    const as = this.parseSymbol(a.symbol);
+    const bs = this.parseSymbol(b.symbol);
+    if (as.ticker !== bs.ticker || as.option !== bs.option) {
+      return false;
+    }
+    if (as.option && as.contract && bs.contract && as.contract !== bs.contract) {
+      return false;
+    }
+    if (a.quantity != null && b.quantity != null && Math.abs(a.quantity - b.quantity) > 0.0001) {
+      return false;
+    }
+    const ap = a.averagePrice;
+    const bp = this.tradeUnitPrice(b);
+    if (ap != null && bp != null && Math.abs(ap - bp) > 0.02) {
+      return false;
+    }
+    const am = this.executedMs(a.executedAt);
+    const bm = this.executedMs(b.executedAt);
+    if (am && bm && Math.abs(am - bm) > 120_000) {
+      return false;
+    }
+    return true;
   }
 
   deltaPercent(current: number | null, change: number | null): number | null {
