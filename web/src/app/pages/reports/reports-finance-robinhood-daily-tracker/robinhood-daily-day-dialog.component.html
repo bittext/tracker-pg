@@ -148,6 +148,7 @@
           @for (tr of displayedTrades(); track $index) {
             @let symbol = tradeSymbol(tr);
             @let pnl = sellPnl(tr);
+            @let acct = tradeAccount(tr);
             <tr>
               <td class="rh-day-dialog__trade-time">
                 @if (tr.executedAt) {
@@ -193,10 +194,14 @@
               <td class="rh-day-dialog__num rh-day-dialog__trade-pnl" [class]="pnl ? pnlClass(pnl.pnl) : ''">
                 @if (isSell(tr.side)) {
                   @if (pnl) {
-                    <strong>{{ pnl.pnl > 0 ? '+' : '' }}{{ pnl.pnl | currency }}</strong>
-                    @if (pnl.percent != null) {
-                      <small>{{ pnl.percent > 0 ? '+' : '' }}{{ pnl.percent | number: '1.1-1' }}%</small>
-                    }
+                    <span class="rh-day-dialog__trade-pnl-line">
+                      {{ pnl.pnl > 0 ? '+' : '' }}{{ pnl.pnl | currency }}
+                      @if (pnl.percent != null) {
+                        <span class="rh-day-dialog__trade-pnl-pct"
+                          >{{ pnl.percent > 0 ? '+' : '' }}{{ pnl.percent | number: '1.1-1' }}%</span
+                        >
+                      }
+                    </span>
                   } @else if (loadingPnl) {
                     <mat-spinner diameter="14" />
                   } @else {
@@ -205,7 +210,10 @@
                 }
               </td>
               <td class="rh-day-dialog__trade-account">
-                {{ tr.accountLabel || accountFallbackLabel(tr.accountSuffix || '') }}
+                <span class="rh-day-dialog__acct-name">{{ acct.name }}</span>
+                @if (acct.last4) {
+                  <span class="rh-day-dialog__acct-id">{{ acct.last4 }}</span>
+                }
               </td>
             </tr>
           }

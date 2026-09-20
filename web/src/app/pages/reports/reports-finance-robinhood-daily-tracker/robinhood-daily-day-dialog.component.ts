@@ -12,7 +12,7 @@ import {
   RobinhoodRhDailyTradeDto,
 } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
-import { robinhoodAccountDisplayLabel } from '../../../util/robinhood-account-display';
+import { robinhoodAccountDisplayLabel, robinhoodAccountParts } from '../../../util/robinhood-account-display';
 import {
   RobinhoodDailySnapshotDialogComponent,
   RobinhoodDailySnapshotDialogData,
@@ -196,6 +196,16 @@ export class RobinhoodDailyDayDialogComponent implements OnInit {
 
   accountFallbackLabel(suffix: string): string {
     return robinhoodAccountDisplayLabel(suffix);
+  }
+
+  tradeAccount(tr: RobinhoodRhDailyTradeDto): { name: string; last4: string } {
+    const fromSuffix = robinhoodAccountParts(tr.accountSuffix);
+    if (fromSuffix.last4) {
+      return fromSuffix;
+    }
+    const label = tr.accountLabel ?? '';
+    const digits = label.match(/(\d{4})\s*\)?\s*$/);
+    return robinhoodAccountParts(digits?.[1] ?? '');
   }
 
   tradeSymbol(tr: RobinhoodRhDailyTradeDto): {
