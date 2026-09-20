@@ -433,6 +433,19 @@ public class StockNewsService {
     }
 
     public StockNewsDto fetchLatestNews(String symbolRaw, String companyNameRaw, Integer limitRaw) {
+        return fetchLatestNews(symbolRaw, companyNameRaw, limitRaw, "7d", true);
+    }
+
+    /**
+     * Same Google News RSS path as {@link #fetchLatestNews(String, String, Integer)} with a custom {@code when:}
+     * window. Pass {@code strictTrustedOnly=false} to keep non-allowlist outlets (header scan).
+     */
+    public StockNewsDto fetchLatestNews(
+            String symbolRaw,
+            String companyNameRaw,
+            Integer limitRaw,
+            String whenWindow,
+            boolean strictTrustedOnly) {
         if (!props.newsEnabled()) {
             throw new IllegalStateException("Stock news endpoint is disabled (tracker.finance.news-enabled=false)");
         }
@@ -442,10 +455,13 @@ public class StockNewsService {
             throw new IllegalArgumentException("Provide symbol or companyName");
         }
         int limit = sanitizeLimit(limitRaw);
-        String query = newsQuery(symbol, companyName);
+        String query = newsQuery(symbol, companyName, whenWindow);
         String rss = fetchFeed(query);
-        List<StockNewsItemDto> items = parseAndFilter(rss, limit, true);
+        List<StockNewsItemDto> items = parseAndFilter(rss, limit, strictTrustedOnly);
         StockNewsAnalysisDto analysis = analyze(items);
+        String note = strictTrustedOnly
+                ? "Latest validated headlines from trusted sources (up to 10) plus heuristic sentiment and stress signals."
+                : "Headlines from the last " + sanitizeWhenWindow(whenWindow) + " (worldwide Google News).";
         return new StockNewsDto(
                 symbol,
                 companyName,
@@ -453,9 +469,14 @@ public class StockNewsService {
                 items.size(),
                 FEED_NAME,
                 Instant.now().toString(),
-                "Latest validated headlines from trusted sources (up to 10) plus heuristic sentiment and stress signals.",
+                note,
                 analysis,
                 items);
+    }
+
+    /** Trusted-outlet flag for the Markets header strip (name allowlist or known host). */
+    public boolean isTrustedOutlet(String source, String url) {
+        return isStrictTrusted(source, url);
     }
 
     /**
@@ -506,6 +527,10 @@ public class StockNewsService {
     }
 
     private static String newsQuery(String symbol, String companyName) {
+        return newsQuery(symbol, companyName, "7d");
+    }
+
+    private static String newsQuery(String symbol, String companyName, String whenWindow) {
         StringBuilder q = new StringBuilder();
         if (symbol != null) {
             q.append(symbol).append(' ');
@@ -513,8 +538,19 @@ public class StockNewsService {
         if (companyName != null) {
             q.append('"').append(companyName).append('"').append(' ');
         }
-        q.append("stock when:7d");
+        q.append("stock when:").append(sanitizeWhenWindow(whenWindow));
         return q.toString().trim();
+    }
+
+    static String sanitizeWhenWindow(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return "7d";
+        }
+        String s = raw.trim().toLowerCase(Locale.ROOT);
+        if (s.matches("^[1-9][0-9]?d$")) {
+            return s;
+        }
+        throw new IllegalArgumentException("News window must look like 1d or 7d");
     }
 
     private int sanitizeLimit(Integer raw) {

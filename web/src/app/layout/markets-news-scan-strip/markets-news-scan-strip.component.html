@@ -1,0 +1,62 @@
+@if (!scan || scan.enabled) {
+  <div class="mns" role="region" aria-label="Today’s ticker headlines">
+    <span class="mns__label">News</span>
+    <div class="mns__track">
+      @if (loading && !scan) {
+        <mat-spinner diameter="16" />
+        <span class="mns__hint">Scanning headlines…</span>
+      } @else if (loadError && !scan) {
+        <span class="mns__hint">{{ loadError }}</span>
+      } @else if (scan && scan.tickers.length === 0) {
+        <button type="button" class="mns__cta" (click)="editList()">Add tickers</button>
+        <span class="mns__hint">Scan today’s worldwide headlines</span>
+      } @else if (scan) {
+        @for (symbol of scan.tickers; track symbol) {
+          @let hit = hitFor(symbol);
+          @if (hit) {
+            <a
+              class="mns__chip"
+              [class.mns__chip--trusted]="hit.trustedOutlet"
+              [class.mns__chip--story]="!hit.trustedOutlet"
+              [href]="hit.url"
+              target="_blank"
+              rel="noopener noreferrer"
+              [attr.title]="hit.title + ' — ' + hit.source"
+            >
+              <strong>{{ symbol }}</strong>
+              <span class="mns__dot">·</span>
+              <span class="mns__source">{{ hit.source }}</span>
+              <span class="mns__headline">{{ hit.title }}</span>
+              @if (hit.headlineCount > 1) {
+                <span class="mns__count">+{{ hit.headlineCount - 1 }}</span>
+              }
+            </a>
+          } @else {
+            <span class="mns__chip mns__chip--quiet">{{ symbol }}</span>
+          }
+        }
+      }
+    </div>
+    <div class="mns__actions">
+      <button
+        mat-icon-button
+        type="button"
+        (click)="editList()"
+        matTooltip="Edit ticker list"
+        aria-label="Edit ticker list"
+      >
+        <mat-icon>tune</mat-icon>
+      </button>
+      <button
+        mat-icon-button
+        type="button"
+        (click)="load(true)"
+        [disabled]="loading"
+        matTooltip="Refresh headlines"
+        aria-label="Refresh headlines"
+      >
+        <mat-icon>refresh</mat-icon>
+      </button>
+    </div>
+  </div>
+}

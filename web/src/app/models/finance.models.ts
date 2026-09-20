@@ -1061,6 +1061,29 @@ export interface StockNewsItemDto {
   summary: string;
 }
 
+/** GET /api/markets/news-scan — Markets header ticker scan. */
+export interface FinanceNewsScanDto {
+  enabled: boolean;
+  tickers: string[];
+  fetchedAt: string;
+  note: string;
+  hits: FinanceNewsScanHitDto[];
+}
+
+export interface FinanceNewsScanHitDto {
+  symbol: string;
+  title: string;
+  source: string;
+  url: string;
+  publishedAt: string;
+  trustedOutlet: boolean;
+  headlineCount: number;
+}
+
+export interface FinanceNewsScanTickersRequestDto {
+  tickers: string;
+}
+
 /** GET /api/finance/robinhood/rising-52w-highs */
 export interface Surge52WeekHighsDto {
   source: string;

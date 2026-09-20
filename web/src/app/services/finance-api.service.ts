@@ -5,6 +5,8 @@ import {
   FinanceAlertEvaluationDto,
   FinanceAlertEventDto,
   FinanceCrawlSnapshotDto,
+  FinanceNewsScanDto,
+  FinanceNewsScanTickersRequestDto,
   FinanceNotificationSettingsDto,
   FinanceNotificationSettingsRequestDto,
   FinanceNotificationTestResultDto,
@@ -424,6 +426,20 @@ export class FinanceApiService {
       params = params.set('limit', String(Math.floor(limit)));
     }
     return this.http.get<StockNewsDto>(`${this.root}/news`, { params });
+  }
+
+  /** Markets header: today’s headlines for the saved ticker list. */
+  financeNewsScan(force = false) {
+    let params = new HttpParams();
+    if (force) {
+      params = params.set('force', 'true');
+    }
+    return this.http.get<FinanceNewsScanDto>(`${this.root}/news-scan`, { params });
+  }
+
+  replaceFinanceNewsScanTickers(tickers: string) {
+    const body: FinanceNewsScanTickersRequestDto = { tickers };
+    return this.http.put<FinanceNewsScanDto>(`${this.root}/news-scan/tickers`, body);
   }
 
   /** Finance “Crawler” tab: topic news + watchlist + index marks. */

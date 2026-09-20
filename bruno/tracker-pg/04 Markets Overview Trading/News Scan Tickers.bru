@@ -1,0 +1,21 @@
+meta {
+  name: News Scan Tickers
+  type: http
+  seq: 22
+}
+
+put {
+  url: {{baseUrl}}/api/markets/news-scan/tickers
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "tickers": "HOOD, MRNA, SKHY"
+  }
+}

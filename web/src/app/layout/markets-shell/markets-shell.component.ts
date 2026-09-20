@@ -10,6 +10,7 @@ import { environment } from '../../../environments/environment';
 import { APP_DISPLAY_NAME, APP_SHORT_NAME } from '../../app-branding';
 import { MARKETS_FOOTER_NAV, MARKETS_PRIMARY_NAV, NavEntry } from '../../config/app-nav.config';
 import { ThemeSettingsComponent } from '../../components/theme-settings/theme-settings.component';
+import { MarketsNewsScanStripComponent } from '../markets-news-scan-strip/markets-news-scan-strip.component';
 import { MarketsRoadmapSummaryComponent } from '../../pages/markets/markets-roadmap-summary/markets-roadmap-summary.component';
 import { WEB_RELEASE_VERSION, formatReleaseUpdatedAt } from '../../release-version';
 import { AuthService } from '../../services/auth.service';
@@ -31,6 +32,7 @@ interface ApiVersionPayload {
     MatButtonModule,
     MatIconModule,
     ThemeSettingsComponent,
+    MarketsNewsScanStripComponent,
     MarketsRoadmapSummaryComponent,
   ],
   templateUrl: './markets-shell.component.html',
