@@ -623,11 +623,22 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     });
   }
 
-  calendarMonthGainLoss(): { gain: number; loss: number; net: number; daysWithDelta: number } {
+  calendarMonthGainLoss(): {
+    gain: number;
+    loss: number;
+    net: number;
+    daysWithDelta: number;
+    added: number;
+    removed: number;
+  } {
     let gain = 0;
     let loss = 0;
     let daysWithDelta = 0;
+    let added = 0;
+    let removed = 0;
     for (const day of this.daysForCalendarMonth()) {
+      added += Number(day.combinedPeriodAdded) || 0;
+      removed += Number(day.combinedPeriodRemoved) || 0;
       const delta = this.dayHeaderDelta(day);
       if (delta == null || delta === 0) {
         continue;
@@ -639,7 +650,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         loss += delta;
       }
     }
-    return { gain, loss, net: gain + loss, daysWithDelta };
+    return { gain, loss, net: gain + loss, daysWithDelta, added, removed };
   }
 
   previousCalendarMonth(): void {

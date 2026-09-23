@@ -55,7 +55,7 @@
 
 .rh-daily__cal-summary {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 0.55rem;
   margin: 0 0 0.85rem;
 }
@@ -78,6 +78,11 @@
   strong {
     font-size: 0.98rem;
     font-variant-numeric: tabular-nums;
+  }
+
+  .rh-daily__flow-in,
+  .rh-daily__flow-out {
+    margin-left: 0;
   }
 }
 
@@ -184,6 +189,12 @@
 .rh-daily__cal-total {
   font-size: 0.62rem;
   font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 1100px) {
+  .rh-daily__cal-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 800px) {
