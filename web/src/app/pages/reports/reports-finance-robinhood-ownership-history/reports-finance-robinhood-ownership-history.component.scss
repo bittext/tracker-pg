@@ -462,6 +462,18 @@
   font-variant-numeric: tabular-nums;
 }
 
+.own__cal-avg {
+  margin-left: 0.2rem;
+  font-weight: 650;
+  color: var(--own-muted);
+}
+
+.own__summary-avg {
+  margin-left: 0.45rem;
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
 .own__cal-pct {
   margin-left: 0.2rem;
   font-size: 0.68em;

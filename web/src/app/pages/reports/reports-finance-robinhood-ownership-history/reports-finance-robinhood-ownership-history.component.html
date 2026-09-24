@@ -132,6 +132,11 @@
             <span class="own__summary-unit">{{
               r.assetKind === 'option' && !r.contractKey ? 'open (sum)' : qtyUnit(r)
             }}</span>
+            @if (r.points.length && r.points[r.points.length - 1].averageBuyPrice != null) {
+              <span class="own__summary-avg muted">
+                avg {{ r.points[r.points.length - 1].averageBuyPrice | currency: 'USD':'symbol':'1.2-2' }}
+              </span>
+            }
           }
         </span>
         <span class="own__summary-meta muted">
@@ -814,9 +819,15 @@
                             (cell.delta > 0 ? '+' : '') +
                             cell.delta +
                             ' → ' +
-                            cell.quantity
+                            cell.quantity +
+                            (cell.point?.averageBuyPrice != null ? ' @ ' + cell.point?.averageBuyPrice : '')
                           : cell.hasSnapshot
-                            ? formatDay(cell.date) + ': ' + cell.quantity + ' ' + qtyUnit()
+                            ? formatDay(cell.date) +
+                              ': ' +
+                              cell.quantity +
+                              ' ' +
+                              qtyUnit() +
+                              (cell.point?.averageBuyPrice != null ? ' @ ' + cell.point?.averageBuyPrice : '')
                             : formatDay(cell.date)
                       "
                     >
@@ -825,9 +836,23 @@
                         <span class="own__cal-delta"
                           >{{ cell.delta > 0 ? '+' : '' }}{{ cell.delta | number: '1.0-2' }}</span
                         >
-                        <span class="own__cal-qty muted">{{ cell.quantity | number: '1.0-2' }}</span>
+                        <span class="own__cal-qty muted">
+                          {{ cell.quantity | number: '1.0-2' }}
+                          @if (cell.point?.averageBuyPrice != null) {
+                            <span class="own__cal-avg">{{
+                              cell.point?.averageBuyPrice | currency: 'USD':'symbol':'1.2-2'
+                            }}</span>
+                          }
+                        </span>
                       } @else if (cell.hasSnapshot) {
-                        <span class="own__cal-qty">{{ cell.quantity | number: '1.0-2' }}</span>
+                        <span class="own__cal-qty">
+                          {{ cell.quantity | number: '1.0-2' }}
+                          @if (cell.point?.averageBuyPrice != null) {
+                            <span class="own__cal-avg">{{
+                              cell.point?.averageBuyPrice | currency: 'USD':'symbol':'1.2-2'
+                            }}</span>
+                          }
+                        </span>
                       }
                     </button>
                   }
@@ -887,7 +912,12 @@
               <dl class="own__day-facts">
                 <div>
                   <dt>{{ qtyUnit() | titlecase }}</dt>
-                  <dd>{{ p.quantity | number: '1.0-4' }}</dd>
+                  <dd>
+                    {{ p.quantity | number: '1.0-4' }}
+                    @if (p.averageBuyPrice != null) {
+                      <span class="muted"> avg {{ p.averageBuyPrice | currency: 'USD':'symbol':'1.2-2' }}</span>
+                    }
+                  </dd>
                 </div>
                 <div>
                   <dt>Mkt value</dt>
@@ -1009,6 +1039,7 @@
                 <tr>
                   <th>Date</th>
                   <th>{{ r.assetKind === 'option' ? 'Contracts' : 'Shares' }}</th>
+                  <th>Avg cost</th>
                   @if (r.assetKind === 'equity') {
                     <th>Own ≈</th>
                     <th>Margin ≈</th>
@@ -1028,6 +1059,13 @@
                   >
                     <td>{{ formatDay(row.snapshotDate) }}</td>
                     <td>{{ row.quantity | number: '1.0-4' }}</td>
+                    <td>
+                      {{
+                        row.averageBuyPrice != null
+                          ? (row.averageBuyPrice | currency: 'USD':'symbol':'1.2-2')
+                          : '—'
+                      }}
+                    </td>
                     @if (r.assetKind === 'equity') {
                       <td>{{ row.ownSharesEstimate | number: '1.0-2' }}</td>
                       <td>{{ row.marginSharesEstimate | number: '1.0-2' }}</td>
