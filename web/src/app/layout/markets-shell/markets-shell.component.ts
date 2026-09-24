@@ -15,6 +15,7 @@ import { MarketsRoadmapSummaryComponent } from '../../pages/markets/markets-road
 import { WEB_RELEASE_VERSION, formatReleaseUpdatedAt } from '../../release-version';
 import { AuthService } from '../../services/auth.service';
 import { ThemeService } from '../../services/theme.service';
+import { UiLayoutService } from '../../services/ui-layout.service';
 
 interface ApiVersionPayload {
   version: string;
@@ -41,6 +42,7 @@ interface ApiVersionPayload {
 export class MarketsShellComponent implements OnInit {
   readonly auth = inject(AuthService);
   readonly theme = inject(ThemeService);
+  readonly uiLayout = inject(UiLayoutService);
   private readonly http = inject(HttpClient);
   private readonly documentTitle = inject(Title);
   private readonly router = inject(Router);

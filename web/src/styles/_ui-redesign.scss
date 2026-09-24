@@ -1,0 +1,104 @@
+/* Ledger redesign — only when the user toggles it on. Current v16 is unchanged. */
+
+[data-ui-layout='redesign'] {
+  --ds-control-height: 36px;
+  --ds-panel-pad: 0.9rem;
+
+  .app-platform-main {
+    padding-top: 1.15rem;
+    max-width: 1440px;
+  }
+
+  .page-title,
+  .own__title,
+  .rh-daily__title {
+    letter-spacing: -0.04em;
+  }
+
+  .app-sidebar__link {
+    padding-top: 0.42rem;
+    padding-bottom: 0.42rem;
+    font-size: 0.8125rem;
+  }
+
+  .insights-rail {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem 0.65rem;
+    margin: 0 0 0.85rem;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-lg);
+    background: var(--app-surface);
+    position: sticky;
+    top: 0;
+    z-index: 4;
+  }
+
+  .insights-rail__jump {
+    flex: 1 1 10rem;
+    min-width: 8rem;
+    max-width: 16rem;
+  }
+
+  .insights-rail__accounts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+  }
+
+  .insights-rail__acct,
+  .insights-rail__view {
+    margin: 0;
+    padding: 0.28rem 0.65rem;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-pill);
+    background: var(--app-surface-tint);
+    color: var(--app-text-muted);
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 650;
+    cursor: pointer;
+  }
+
+  .insights-rail__acct--active,
+  .insights-rail__view--active {
+    border-color: color-mix(in srgb, var(--app-accent) 50%, var(--app-border));
+    background: var(--app-accent-soft);
+    color: var(--app-text);
+  }
+
+  .rh-daily__cal-summary {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+
+  @media (max-width: 1100px) {
+    .rh-daily__cal-summary {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 800px) {
+    .rh-daily__cal-summary {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .rh-report-tabs .mat-mdc-tab .mdc-tab__text-label {
+    font-size: 0.78rem;
+  }
+}
+
+[data-ui-layout='current'] .insights-rail {
+  display: none;
+}
+
+.ui-layout-toggle {
+  min-width: auto;
+  padding: 0 0.7rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}

@@ -11,6 +11,10 @@ export class TradingJournalNavService {
   /** Nested Trades tabs: 0 Ledger, 1 Tax desk. */
   readonly tradesInnerTabIndex = signal(0);
   readonly requestedDate = signal<string | null>(null);
+  /** Shared Insights rail — year, ticker, and account for the redesign layout. */
+  readonly insightsYear = signal(new Date().getFullYear());
+  readonly insightsSymbol = signal('');
+  readonly insightsAccountSuffix = signal('');
 
   openJournal(dateIso: string): void {
     this.requestedDate.set(dateIso);

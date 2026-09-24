@@ -1,5 +1,5 @@
 import { CommonModule, CurrencyPipe, DecimalPipe } from '@angular/common';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -19,6 +19,8 @@ import {
   RobinhoodOwnershipHopDto,
 } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
+import { TradingJournalNavService } from '../../../services/trading-journal-nav.service';
+import { UiLayoutService } from '../../../services/ui-layout.service';
 import { formatHttpErrorMessage } from '../../../util/http-error';
 import { robinhoodAccountDisplayLabel } from '../../../util/robinhood-account-display';
 
@@ -161,6 +163,9 @@ interface OptionCalCell {
 export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit {
   private readonly financeApi = inject(FinanceApiService);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly journalNav = inject(TradingJournalNavService);
+  readonly uiLayout = inject(UiLayoutService);
+  private railPrimed = false;
 
   /** Aligns with Daily Tracker monkey / Then-Now capital start. */
   readonly optionsHistoryStart = '2026-06-28';
@@ -793,8 +798,42 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
     return [...months].sort();
   });
 
+  constructor() {
+    effect(() => {
+      this.journalNav.insightsYear();
+      this.journalNav.insightsSymbol();
+      this.journalNav.insightsAccountSuffix();
+      this.uiLayout.layout();
+      if (!this.railPrimed || !this.uiLayout.isRedesign()) {
+        return;
+      }
+      this.applyInsightsRail();
+      this.load();
+    });
+  }
+
   ngOnInit(): void {
+    this.applyInsightsRail();
+    this.railPrimed = true;
     this.load();
+  }
+
+  private applyInsightsRail(): void {
+    if (!this.uiLayout.isRedesign()) {
+      return;
+    }
+    const year = this.journalNav.insightsYear();
+    if (year) {
+      this.reportYear = year;
+    }
+    const symbol = this.journalNav.insightsSymbol().trim().toUpperCase();
+    if (symbol && this.assetKind === 'equity') {
+      this.symbol = symbol;
+    }
+    const account = this.journalNav.insightsAccountSuffix();
+    if (account) {
+      this.accountSuffix = account;
+    }
   }
 
   yearChoices(): number[] {

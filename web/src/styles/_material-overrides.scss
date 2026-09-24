@@ -311,6 +311,11 @@ table.mat-mdc-table .mat-mdc-row:nth-child(even) .mat-mdc-cell {
   gap: 0.4rem;
 }
 
+.theme-settings-menu__modes:has(+ .theme-settings-menu__section),
+[aria-labelledby='ui-layout-label'].theme-settings-menu__modes {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .theme-settings-menu__mode {
   display: flex;
   flex-direction: column;

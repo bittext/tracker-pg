@@ -3,6 +3,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { ThemeService } from './services/theme.service';
+import { UiLayoutService } from './services/ui-layout.service';
 
 @Component({
   selector: 'app-root',
@@ -13,6 +14,7 @@ import { ThemeService } from './services/theme.service';
 export class AppComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly theme = inject(ThemeService);
+  private readonly uiLayout = inject(UiLayoutService);
 
   /** True for routes that render their own shell (life, markets, admin). */
   usesChildShell = this.isChildShellRoute(this.router.url);
@@ -28,6 +30,7 @@ export class AppComponent implements OnInit {
 
   ngOnInit(): void {
     this.theme.init();
+    this.uiLayout.init();
   }
 
   private isChildShellRoute(url: string): boolean {

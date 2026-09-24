@@ -64,6 +64,16 @@
             <span class="app-release-hint__updated">Updated {{ releaseUpdatedLabel }}</span>
           }
         </span>
+        <button
+          mat-stroked-button
+          type="button"
+          class="ui-layout-toggle"
+          (click)="uiLayout.toggle()"
+          [attr.aria-pressed]="uiLayout.isRedesign()"
+          [attr.title]="uiLayout.isRedesign() ? 'Switch to current layout' : 'Switch to redesign layout'"
+        >
+          {{ uiLayout.isRedesign() ? 'Redesign' : 'Current' }}
+        </button>
         <app-theme-settings />
       </header>
       <main class="app-platform-main">
@@ -85,6 +95,15 @@
           <span class="app-release-hint__updated">Updated {{ releaseUpdatedLabel }}</span>
         }
       </span>
+      <button
+        mat-stroked-button
+        type="button"
+        class="ui-layout-toggle"
+        (click)="uiLayout.toggle()"
+        [attr.aria-pressed]="uiLayout.isRedesign()"
+      >
+        {{ uiLayout.isRedesign() ? 'Redesign' : 'Current' }}
+      </button>
       <app-theme-settings />
       <span class="life-classic-shell__user">{{ username }}</span>
       <button mat-button type="button" (click)="logout()">Log out</button>

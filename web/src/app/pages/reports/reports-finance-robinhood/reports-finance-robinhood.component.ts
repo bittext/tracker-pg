@@ -8,6 +8,7 @@ import { ReportsFinanceRobinhoodCryptoTrackerComponent } from '../reports-financ
 import { ReportsFinanceRobinhoodOwnershipHistoryComponent } from '../reports-finance-robinhood-ownership-history/reports-finance-robinhood-ownership-history.component';
 import { TradingJournalPanelComponent } from '../trading-journal-panel/trading-journal-panel.component';
 import { MarketsJourneyComponent } from '../../markets/markets-journey/markets-journey.component';
+import { InsightsRedesignRailComponent } from '../../../components/insights-redesign-rail/insights-redesign-rail.component';
 import { TradingJournalNavService } from '../../../services/trading-journal-nav.service';
 
 @Component({
@@ -23,6 +24,7 @@ import { TradingJournalNavService } from '../../../services/trading-journal-nav.
     ReportsFinanceRobinhoodOwnershipHistoryComponent,
     TradingJournalPanelComponent,
     MarketsJourneyComponent,
+    InsightsRedesignRailComponent,
   ],
   templateUrl: './reports-finance-robinhood.component.html',
   styleUrl: './reports-finance-robinhood.component.scss',

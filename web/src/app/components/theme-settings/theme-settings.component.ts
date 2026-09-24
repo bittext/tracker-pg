@@ -5,7 +5,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { THEME_MODES, THEME_PRESETS, ThemeMode, ThemePreset } from '../../models/theme.models';
+import { UiLayout } from '../../models/ui-layout.models';
 import { ThemeService } from '../../services/theme.service';
+import { UiLayoutService } from '../../services/ui-layout.service';
 
 @Component({
   selector: 'app-theme-settings',
@@ -53,6 +55,32 @@ import { ThemeService } from '../../services/theme.service';
         </div>
 
         <div class="theme-settings-menu__section">
+          <span class="theme-settings-menu__label" id="ui-layout-label">Layout</span>
+          <div class="theme-settings-menu__modes" role="group" aria-labelledby="ui-layout-label">
+            <button
+              type="button"
+              class="theme-settings-menu__mode"
+              [class.theme-settings-menu__mode--active]="layout.layout() === 'current'"
+              [attr.aria-pressed]="layout.layout() === 'current'"
+              (click)="onLayoutChange('current')"
+            >
+              <mat-icon aria-hidden="true">view_agenda</mat-icon>
+              <span>Current</span>
+            </button>
+            <button
+              type="button"
+              class="theme-settings-menu__mode"
+              [class.theme-settings-menu__mode--active]="layout.isRedesign()"
+              [attr.aria-pressed]="layout.isRedesign()"
+              (click)="onLayoutChange('redesign')"
+            >
+              <mat-icon aria-hidden="true">space_dashboard</mat-icon>
+              <span>Redesign</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="theme-settings-menu__section">
           <span class="theme-settings-menu__label" id="theme-mode-label">Color mode</span>
           <div class="theme-settings-menu__modes" role="group" aria-labelledby="theme-mode-label">
             @for (m of modes; track m.id) {
@@ -75,6 +103,7 @@ import { ThemeService } from '../../services/theme.service';
 })
 export class ThemeSettingsComponent {
   readonly theme = inject(ThemeService);
+  readonly layout = inject(UiLayoutService);
   readonly presets = THEME_PRESETS;
   readonly modes = THEME_MODES;
 
@@ -103,5 +132,9 @@ export class ThemeSettingsComponent {
     if (value) {
       this.theme.setMode(value);
     }
+  }
+
+  onLayoutChange(value: UiLayout): void {
+    this.layout.setLayout(value);
   }
 }

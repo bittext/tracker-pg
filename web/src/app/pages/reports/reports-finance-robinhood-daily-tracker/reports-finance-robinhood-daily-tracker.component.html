@@ -467,6 +467,12 @@
             <span class="muted">Net</span>
             <strong [class]="pnlClass(gl.net)">{{ gl.net | currency }}</strong>
           </div>
+          @if (uiLayout.isRedesign()) {
+            <div class="rh-daily__cal-summary-item">
+              <span class="muted">Flow-adj</span>
+              <strong [class]="pnlClass(gl.flowAdj)">{{ gl.flowAdj | currency }}</strong>
+            </div>
+          }
           <div class="rh-daily__cal-summary-item">
             <span class="muted">Added</span>
             <strong class="rh-daily__flow-in">{{ gl.added | currency }}</strong>

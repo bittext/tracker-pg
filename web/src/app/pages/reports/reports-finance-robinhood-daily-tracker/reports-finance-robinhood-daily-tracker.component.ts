@@ -1,5 +1,5 @@
 import { CommonModule, CurrencyPipe, DatePipe, DecimalPipe } from '@angular/common';
-import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, effect, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -36,6 +36,7 @@ import {
 } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { TradingJournalNavService } from '../../../services/trading-journal-nav.service';
+import { UiLayoutService } from '../../../services/ui-layout.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
 import { robinhoodAccountDisplayLabel } from '../../../util/robinhood-account-display';
 import {
@@ -216,6 +217,8 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   readonly monkeyCapitalStartDate = '2026-06-28';
   private readonly financeApi = inject(FinanceApiService);
   private readonly journalNav = inject(TradingJournalNavService);
+  readonly uiLayout = inject(UiLayoutService);
+  private railPrimed = false;
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
   private readonly destroyRef = inject(DestroyRef);
@@ -308,9 +311,27 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     return [y, y - 1, y - 2];
   }
 
+  constructor() {
+    effect(() => {
+      const year = this.journalNav.insightsYear();
+      this.uiLayout.layout();
+      if (!this.railPrimed || !this.uiLayout.isRedesign()) {
+        return;
+      }
+      if (year && year !== this.reportYear) {
+        this.reportYear = year;
+        this.load();
+      }
+    });
+  }
+
   ngOnInit(): void {
     this.aiWeekStart = this.mondayOf(this.todayIso());
     this.aiDay = this.todayIso();
+    if (this.uiLayout.isRedesign()) {
+      this.reportYear = this.journalNav.insightsYear();
+    }
+    this.railPrimed = true;
     this.load();
     this.loadSpikeAlerts({ silent: true });
     this.loadAiStatus();
@@ -630,6 +651,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     daysWithDelta: number;
     added: number;
     removed: number;
+    flowAdj: number;
   } {
     let gain = 0;
     let loss = 0;
@@ -650,7 +672,8 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         loss += delta;
       }
     }
-    return { gain, loss, net: gain + loss, daysWithDelta, added, removed };
+    const net = gain + loss;
+    return { gain, loss, net, daysWithDelta, added, removed, flowAdj: net - added + removed };
   }
 
   previousCalendarMonth(): void {
