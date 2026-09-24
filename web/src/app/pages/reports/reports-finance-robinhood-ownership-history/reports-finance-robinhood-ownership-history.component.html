@@ -820,14 +820,22 @@
                             cell.delta +
                             ' → ' +
                             cell.quantity +
-                            (cell.point?.averageBuyPrice != null ? ' @ ' + cell.point?.averageBuyPrice : '')
+                            (cell.sellAvg != null
+                              ? ' sold @ ' + cell.sellAvg
+                              : cell.point?.averageBuyPrice != null
+                                ? ' @ ' + cell.point?.averageBuyPrice
+                                : '')
                           : cell.hasSnapshot
                             ? formatDay(cell.date) +
                               ': ' +
                               cell.quantity +
                               ' ' +
                               qtyUnit() +
-                              (cell.point?.averageBuyPrice != null ? ' @ ' + cell.point?.averageBuyPrice : '')
+                              (cell.sellAvg != null
+                                ? ' sold @ ' + cell.sellAvg
+                                : cell.point?.averageBuyPrice != null
+                                  ? ' @ ' + cell.point?.averageBuyPrice
+                                  : '')
                             : formatDay(cell.date)
                       "
                     >
@@ -838,7 +846,14 @@
                         >
                         <span class="own__cal-qty muted">
                           {{ cell.quantity | number: '1.0-2' }}
-                          @if (cell.point?.averageBuyPrice != null) {
+                          @if (cell.sellAvg != null) {
+                            <span
+                              class="own__cal-avg"
+                              [class.own__cal-avg--up]="cell.sellTone === 'up'"
+                              [class.own__cal-avg--down]="cell.sellTone === 'down'"
+                              >{{ cell.sellAvg | currency: 'USD':'symbol':'1.2-2' }}</span
+                            >
+                          } @else if (cell.point?.averageBuyPrice != null) {
                             <span class="own__cal-avg">{{
                               cell.point?.averageBuyPrice | currency: 'USD':'symbol':'1.2-2'
                             }}</span>
@@ -847,7 +862,14 @@
                       } @else if (cell.hasSnapshot) {
                         <span class="own__cal-qty">
                           {{ cell.quantity | number: '1.0-2' }}
-                          @if (cell.point?.averageBuyPrice != null) {
+                          @if (cell.sellAvg != null) {
+                            <span
+                              class="own__cal-avg"
+                              [class.own__cal-avg--up]="cell.sellTone === 'up'"
+                              [class.own__cal-avg--down]="cell.sellTone === 'down'"
+                              >{{ cell.sellAvg | currency: 'USD':'symbol':'1.2-2' }}</span
+                            >
+                          } @else if (cell.point?.averageBuyPrice != null) {
                             <span class="own__cal-avg">{{
                               cell.point?.averageBuyPrice | currency: 'USD':'symbol':'1.2-2'
                             }}</span>
@@ -914,7 +936,14 @@
                   <dt>{{ qtyUnit() | titlecase }}</dt>
                   <dd>
                     {{ p.quantity | number: '1.0-4' }}
-                    @if (p.averageBuyPrice != null) {
+                    @if (sellByDate().get(p.snapshotDate.slice(0, 10)); as sold) {
+                      <span
+                        class="own__cal-avg"
+                        [class.own__cal-avg--up]="sold.tone === 'up'"
+                        [class.own__cal-avg--down]="sold.tone === 'down'"
+                        >sold {{ sold.avg | currency: 'USD':'symbol':'1.2-2' }}</span
+                      >
+                    } @else if (p.averageBuyPrice != null) {
                       <span class="muted"> avg {{ p.averageBuyPrice | currency: 'USD':'symbol':'1.2-2' }}</span>
                     }
                   </dd>
@@ -1060,11 +1089,20 @@
                     <td>{{ formatDay(row.snapshotDate) }}</td>
                     <td>{{ row.quantity | number: '1.0-4' }}</td>
                     <td>
-                      {{
-                        row.averageBuyPrice != null
-                          ? (row.averageBuyPrice | currency: 'USD':'symbol':'1.2-2')
-                          : '—'
-                      }}
+                      @if (sellByDate().get(row.snapshotDate.slice(0, 10)); as sold) {
+                        <span
+                          class="own__cal-avg"
+                          [class.own__cal-avg--up]="sold.tone === 'up'"
+                          [class.own__cal-avg--down]="sold.tone === 'down'"
+                          >{{ sold.avg | currency: 'USD':'symbol':'1.2-2' }}</span
+                        >
+                      } @else {
+                        {{
+                          row.averageBuyPrice != null
+                            ? (row.averageBuyPrice | currency: 'USD':'symbol':'1.2-2')
+                            : '—'
+                        }}
+                      }
                     </td>
                     @if (r.assetKind === 'equity') {
                       <td>{{ row.ownSharesEstimate | number: '1.0-2' }}</td>

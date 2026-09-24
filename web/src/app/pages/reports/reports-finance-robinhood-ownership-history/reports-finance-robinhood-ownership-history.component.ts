@@ -48,6 +48,10 @@ interface CalendarCell {
   isToday: boolean;
   isSelected: boolean;
   point: RobinhoodOwnershipHistoryPointDto | null;
+  /** Weighted fill price of sells that day. Shown when the position average is gone. */
+  sellAvg: number | null;
+  /** Above or below the average cost of the shares sold. */
+  sellTone: 'up' | 'down' | null;
 }
 
 interface OptionActivity {
@@ -238,6 +242,40 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
       }
       cur.hops.push(hop);
       map.set(date, cur);
+    }
+    return map;
+  });
+
+  /** Sell fill price for a day, colored against the average cost of the shares held into that sale. */
+  readonly sellByDate = computed(() => {
+    const map = new Map<string, { avg: number; cost: number | null; tone: 'up' | 'down' | null }>();
+    const points = [...(this.report()?.points ?? [])].sort((a, b) =>
+      a.snapshotDate.slice(0, 10).localeCompare(b.snapshotDate.slice(0, 10)),
+    );
+    for (const [date, day] of this.hopsByDate()) {
+      const avg = this.weightedSidePrice(day.hops, 'sell');
+      if (avg == null) {
+        continue;
+      }
+      let cost: number | null = null;
+      for (const p of points) {
+        const d = p.snapshotDate.slice(0, 10);
+        if (d >= date) {
+          break;
+        }
+        if ((Number(p.quantity) || 0) > 0 && p.averageBuyPrice != null) {
+          cost = Number(p.averageBuyPrice);
+        }
+      }
+      let tone: 'up' | 'down' | null = null;
+      if (cost != null) {
+        if (avg > cost + 0.005) {
+          tone = 'up';
+        } else if (avg < cost - 0.005) {
+          tone = 'down';
+        }
+      }
+      map.set(date, { avg, cost, tone });
     }
     return map;
   });
@@ -656,13 +694,17 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
         isToday: false,
         isSelected: false,
         point: null,
+        sellAvg: null,
+        sellTone: null,
       });
     }
+    const sells = this.sellByDate();
     for (let d = 1; d <= daysInMonth; d++) {
       const date = `${ys}-${String(ms).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const point = pointMap.get(date) ?? null;
       const change = changeMap.get(date) ?? null;
       const hopDay = this.hopsByDate().get(date) ?? null;
+      const sell = sells.get(date) ?? null;
       cells.push({
         type: 'day',
         trackKey: date,
@@ -674,6 +716,8 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
         isToday: date === today,
         isSelected: date === selected,
         point,
+        sellAvg: sell?.avg ?? null,
+        sellTone: sell?.tone ?? null,
       });
     }
     return cells;
@@ -1247,6 +1291,24 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
       return 'Sell';
     }
     return 'Closed';
+  }
+
+  private weightedSidePrice(hops: RobinhoodOwnershipHopDto[], side: string): number | null {
+    let qty = 0;
+    let notional = 0;
+    for (const hop of hops) {
+      if ((hop.side || '').toLowerCase() !== side) {
+        continue;
+      }
+      const q = Number(hop.quantity) || 0;
+      const px = hop.averagePrice == null ? null : Number(hop.averagePrice);
+      if (q <= 0 || px == null || !Number.isFinite(px) || px <= 0) {
+        continue;
+      }
+      qty += q;
+      notional += q * px;
+    }
+    return qty > 0 ? notional / qty : null;
   }
 
   cellTone(cell: CalendarCell): 'pos' | 'neg' | 'hold' | 'empty' {

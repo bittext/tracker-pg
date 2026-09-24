@@ -468,6 +468,14 @@
   color: var(--own-muted);
 }
 
+.own__cal-avg--up {
+  color: var(--own-pos);
+}
+
+.own__cal-avg--down {
+  color: var(--own-neg);
+}
+
 .own__summary-avg {
   margin-left: 0.45rem;
   font-size: 0.95rem;
