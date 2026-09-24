@@ -567,7 +567,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
 
   openDayDetail(day: RobinhoodRhDailyTrackerDayDto): void {
     const total = this.dayHeaderTotal(day);
-    const delta = this.dayHeaderDelta(day);
+    const delta = this.chainedBookDelta(day);
     const accounts = this.accountColumns()
       .map((col) => {
         const cell = this.cellForDay(day, col.accountSuffix);
@@ -639,7 +639,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     for (const day of this.daysForCalendarMonth()) {
       added += Number(day.combinedPeriodAdded) || 0;
       removed += Number(day.combinedPeriodRemoved) || 0;
-      const delta = this.dayHeaderDelta(day);
+      const delta = this.chainedBookDelta(day);
       if (delta == null || delta === 0) {
         continue;
       }
@@ -690,7 +690,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       const date = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const day = byDate.get(date) ?? null;
       const total = day ? this.dayHeaderTotal(day) : null;
-      const delta = day ? this.dayHeaderDelta(day) : null;
+      const delta = day ? this.chainedBookDelta(day) : null;
       dayMeta.set(date, { total, delta });
       if (delta != null) {
         maxAbs = Math.max(maxAbs, Math.abs(delta));
@@ -863,6 +863,36 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       return null;
     }
     return live.combinedTotal - day.priorPull.combinedTotal;
+  }
+
+  /**
+   * Change from the book shown on the previous day. A 9 PM close that follows a midday pull
+   * is measured from that pull, so the month's cells add up to the book move.
+   */
+  chainedBookDelta(day: RobinhoodRhDailyTrackerDayDto): number | null {
+    const book = this.dayHeaderTotal(day);
+    if (book == null) {
+      return null;
+    }
+    let priorDate: string | null = null;
+    let priorBook: number | null = null;
+    for (const other of this.tracker?.days ?? []) {
+      if (other.snapshotDate >= day.snapshotDate) {
+        continue;
+      }
+      const otherBook = this.dayHeaderTotal(other);
+      if (otherBook == null) {
+        continue;
+      }
+      if (priorDate == null || other.snapshotDate > priorDate) {
+        priorDate = other.snapshotDate;
+        priorBook = otherBook;
+      }
+    }
+    if (priorBook == null) {
+      return this.dayHeaderDelta(day);
+    }
+    return book - priorBook;
   }
 
   dayHeaderLiveBadge(day: RobinhoodRhDailyTrackerDayDto): string {

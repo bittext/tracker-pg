@@ -430,8 +430,8 @@
         <div>
           <h3 id="rh-daily-cal-title" class="rh-daily__cal-title">Month at a glance</h3>
           <p class="muted rh-daily__cal-lead">
-            Green / red cells are the raw book vs the prior 9 PM, before deposits and transfers. Added and moved out
-            are those cash flows combined across accounts. Click a day for excl. flows and the account books.
+            Green / red cells are the change from the book on the previous day. Added and moved out are cash flows
+            combined across accounts. Click a day for excl. flows and the account books.
           </p>
         </div>
         <div class="rh-daily__cal-nav">
@@ -1358,32 +1358,34 @@
                   <span class="rh-daily__day-row-badge muted">9 PM CT</span>
                 }
                 <strong class="rh-daily__day-row-total">{{ day.combinedTotal | currency }}</strong>
-                @if (day.hasPreviousScheduledSnapshot && day.combinedTotalChangeFromPrevious !== 0) {
+                @if (chainedBookDelta(day); as bookDelta) {
+                  @if (bookDelta !== 0) {
                   <span
                     class="rh-daily__day-row-delta muted"
-                    [class]="pnlClass(day.combinedTotalChangeFromPrevious)"
-                    title="Combined total vs previous 9 PM CT snapshot"
+                    [class]="pnlClass(bookDelta)"
+                    title="Combined total vs the book on the previous day"
                   >
                     <mat-icon class="rh-daily__trend-icon" aria-hidden="true">
-                      {{ trendIcon(day.combinedTotalChangeFromPrevious) }}
+                      {{ trendIcon(bookDelta) }}
                     </mat-icon>
-                    {{ day.combinedTotalChangeFromPrevious | currency }}
-                    @if (deltaPercentForCurrent(day.combinedTotal, day.combinedTotalChangeFromPrevious); as cpct) {
+                    {{ bookDelta | currency }}
+                    @if (deltaPercentForCurrent(day.combinedTotal, bookDelta); as cpct) {
                       <span class="rh-daily__delta-pct">&nbsp;({{ cpct | number: '1.2-2' }}%)</span>
                     }
                   </span>
+                  }
                 }
               } @else if (dayHeaderTotal(day); as liveTotal) {
                 <span class="rh-daily__day-row-badge rh-daily__day-row-badge--live muted">
                   {{ dayHeaderLiveBadge(day) }}
                 </span>
                 <strong class="rh-daily__day-row-total">{{ liveTotal | currency }}</strong>
-                @if (dayHeaderDelta(day); as liveDelta) {
+                @if (chainedBookDelta(day); as liveDelta) {
                   @if (liveDelta !== 0) {
                     <span
                       class="rh-daily__day-row-delta muted"
                       [class]="pnlClass(liveDelta)"
-                      title="Combined total vs prior pull"
+                      title="Combined total vs the book on the previous day"
                     >
                       <mat-icon class="rh-daily__trend-icon" aria-hidden="true">
                         {{ trendIcon(liveDelta) }}
