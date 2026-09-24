@@ -151,7 +151,7 @@ public class RobinhoodOwnershipHistoryService {
 
         List<String> notes = new ArrayList<>();
         notes.add(
-                "Buys and sells come from Daily Tracker fills (frozen at each 9 PM close) plus leftover quantity hops from hourly captures.");
+                "Buys and sells are filled shares only. A cancelled remainder is left out, and a partial order is counted at the shares that filled.");
         notes.add("Same-day in-and-out names (held at noon, gone by close) still appear here.");
         notes.add(
                 "Own vs margin share split estimates margin loan as max(0, −cash) and attributes shares by loan ÷ equity market value.");
@@ -680,8 +680,8 @@ public class RobinhoodOwnershipHistoryService {
     private List<RobinhoodOwnershipHopDto> buildEquityHops(
             List<RobinhoodRhDailySnapshot> accountRows, String accountSuffix) {
         String label = RobinhoodRhDailyTrackerAccountPolicy.displayLabel(accountSuffix);
-        List<RobinhoodOwnershipHopDto> trades = new ArrayList<>();
-        Map<String, RobinhoodOwnershipHopDto> uniqueTrades = new LinkedHashMap<>();
+        Map<String, RobinhoodOwnershipHopDto> uniqueFull = new LinkedHashMap<>();
+        Map<String, RobinhoodOwnershipHopDto> uniquePartial = new LinkedHashMap<>();
         for (RobinhoodRhDailySnapshot row : accountRows) {
             if (!RobinhoodRhDailyCaptureKind.SCHEDULED.equals(row.getCaptureKind())) {
                 continue;
@@ -694,12 +694,179 @@ public class RobinhoodOwnershipHistoryService {
                 if (hop == null) {
                     continue;
                 }
-                uniqueTrades.putIfAbsent(tradeKey(hop), hop);
+                if (isPartialFill(trade.state())) {
+                    uniquePartial.putIfAbsent(tradeKey(hop), hop);
+                } else if (isFullFill(trade.state())) {
+                    uniqueFull.putIfAbsent(tradeKey(hop), hop);
+                }
             }
         }
-        trades.addAll(uniqueTrades.values());
-        List<RobinhoodOwnershipHopDto> holdings = holdingHops(accountRows, accountSuffix, label);
+        List<RobinhoodOwnershipHopDto> trades = filledTrades(
+                new ArrayList<>(uniqueFull.values()),
+                new ArrayList<>(uniquePartial.values()),
+                endQtyBySymbol(accountRows));
+        List<RobinhoodOwnershipHopDto> holdings = holdingHops(accountRows, accountSuffix, label).stream()
+                .filter(hop -> !tradedThatDay(trades, hop))
+                .toList();
         return mergeHops(trades, holdings);
+    }
+
+    /** Full fills, plus the filled slice of a partial when the book shows shares the full fills do not cover. */
+    static List<RobinhoodOwnershipHopDto> filledTrades(
+            List<RobinhoodOwnershipHopDto> full,
+            List<RobinhoodOwnershipHopDto> partial,
+            Map<String, Map<LocalDate, BigDecimal>> endQtyBySymbol) {
+        List<RobinhoodOwnershipHopDto> out = new ArrayList<>(full);
+        Map<String, List<RobinhoodOwnershipHopDto>> fullByDay = groupHops(full);
+        Map<String, List<RobinhoodOwnershipHopDto>> partialByDay = groupHops(partial);
+        Set<String> days = new HashSet<>();
+        days.addAll(fullByDay.keySet());
+        days.addAll(partialByDay.keySet());
+        for (String dayKey : days) {
+            int split = dayKey.indexOf('|');
+            String symbol = dayKey.substring(0, split);
+            LocalDate date = LocalDate.parse(dayKey.substring(split + 1));
+            BigDecimal end = endQty(endQtyBySymbol, symbol, date);
+            BigDecimal start = endQtyBefore(endQtyBySymbol, symbol, date);
+            BigDecimal remainder = end.subtract(start).subtract(signedQty(fullByDay.get(dayKey)));
+            if (remainder.abs().compareTo(new BigDecimal("0.0000005")) <= 0) {
+                continue;
+            }
+            String side = remainder.signum() > 0 ? "buy" : "sell";
+            List<RobinhoodOwnershipHopDto> sidePartials = partialByDay.getOrDefault(dayKey, List.of()).stream()
+                    .filter(h -> side.equalsIgnoreCase(h.side()))
+                    .toList();
+            RobinhoodOwnershipHopDto basis = sidePartials.size() == 1 ? sidePartials.get(0) : null;
+            BigDecimal qty = scaleQty(remainder.abs());
+            BigDecimal px = basis == null ? null : basis.averagePrice();
+            BigDecimal notional = px == null ? null : qty.multiply(px).setScale(2, RoundingMode.HALF_UP);
+            out.add(new RobinhoodOwnershipHopDto(
+                    basis == null ? null : basis.at(),
+                    date,
+                    basis == null ? "SCHEDULED" : basis.captureKind(),
+                    symbol,
+                    side,
+                    qty,
+                    null,
+                    null,
+                    px,
+                    notional,
+                    basis == null ? "holding" : "trade",
+                    basis == null ? null : basis.accountSuffix(),
+                    basis == null ? null : basis.accountLabel()));
+        }
+        return out;
+    }
+
+    private static boolean isFullFill(String state) {
+        if (state == null || state.isBlank()) {
+            return true;
+        }
+        String s = state.trim().toLowerCase(Locale.ROOT);
+        return s.equals("filled") || s.equals("completed") || s.equals("executed");
+    }
+
+    private static boolean isPartialFill(String state) {
+        if (state == null || state.isBlank()) {
+            return false;
+        }
+        String s = state.trim().toLowerCase(Locale.ROOT);
+        return s.contains("partial") || (s.contains("fill") && s.contains("cancel"));
+    }
+
+    private static boolean tradedThatDay(List<RobinhoodOwnershipHopDto> trades, RobinhoodOwnershipHopDto hop) {
+        if (hop.date() == null || hop.symbol() == null) {
+            return false;
+        }
+        for (RobinhoodOwnershipHopDto trade : trades) {
+            if (hop.date().equals(trade.date())
+                    && hop.symbol().equalsIgnoreCase(trade.symbol() == null ? "" : trade.symbol())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private Map<String, Map<LocalDate, BigDecimal>> endQtyBySymbol(List<RobinhoodRhDailySnapshot> accountRows) {
+        Map<LocalDate, RobinhoodRhDailySnapshot> lastOfDay = new LinkedHashMap<>();
+        for (RobinhoodRhDailySnapshot row : accountRows) {
+            if (row.getSnapshotDate() != null) {
+                lastOfDay.put(row.getSnapshotDate(), row);
+            }
+        }
+        Set<String> symbols = new HashSet<>();
+        Map<LocalDate, Map<String, BigDecimal>> qtyByDay = new LinkedHashMap<>();
+        for (RobinhoodRhDailySnapshot row : lastOfDay.values()) {
+            Map<String, BigDecimal> qty = new LinkedHashMap<>();
+            for (RobinhoodRhHoldingDto h : readHoldings(row)) {
+                if (!isEquity(h)) {
+                    continue;
+                }
+                String sym = trimUpper(h.symbol());
+                if (sym.isEmpty()) {
+                    continue;
+                }
+                qty.merge(sym, nullToZero(h.quantity()), BigDecimal::add);
+                symbols.add(sym);
+            }
+            qtyByDay.put(row.getSnapshotDate(), qty);
+        }
+        Map<String, Map<LocalDate, BigDecimal>> out = new LinkedHashMap<>();
+        for (String sym : symbols) {
+            Map<LocalDate, BigDecimal> series = new LinkedHashMap<>();
+            for (Map.Entry<LocalDate, Map<String, BigDecimal>> day : qtyByDay.entrySet()) {
+                series.put(day.getKey(), day.getValue().getOrDefault(sym, ZERO));
+            }
+            out.put(sym, series);
+        }
+        return out;
+    }
+
+    private static Map<String, List<RobinhoodOwnershipHopDto>> groupHops(List<RobinhoodOwnershipHopDto> hops) {
+        Map<String, List<RobinhoodOwnershipHopDto>> out = new LinkedHashMap<>();
+        for (RobinhoodOwnershipHopDto hop : hops) {
+            if (hop.date() == null || hop.symbol() == null) {
+                continue;
+            }
+            out.computeIfAbsent(hop.symbol().toUpperCase(Locale.ROOT) + "|" + hop.date(), k -> new ArrayList<>())
+                    .add(hop);
+        }
+        return out;
+    }
+
+    private static BigDecimal signedQty(List<RobinhoodOwnershipHopDto> hops) {
+        BigDecimal sum = ZERO;
+        if (hops == null) {
+            return sum;
+        }
+        for (RobinhoodOwnershipHopDto hop : hops) {
+            BigDecimal qty = nullToZero(hop.quantity());
+            sum = "sell".equalsIgnoreCase(hop.side()) ? sum.subtract(qty) : sum.add(qty);
+        }
+        return sum;
+    }
+
+    private static BigDecimal endQty(Map<String, Map<LocalDate, BigDecimal>> series, String symbol, LocalDate date) {
+        Map<LocalDate, BigDecimal> days = series.get(symbol);
+        if (days == null) {
+            return ZERO;
+        }
+        return days.getOrDefault(date, ZERO);
+    }
+
+    private static BigDecimal endQtyBefore(
+            Map<String, Map<LocalDate, BigDecimal>> series, String symbol, LocalDate date) {
+        Map<LocalDate, BigDecimal> days = series.get(symbol);
+        if (days == null) {
+            return ZERO;
+        }
+        BigDecimal prior = ZERO;
+        for (Map.Entry<LocalDate, BigDecimal> e : days.entrySet()) {
+            if (e.getKey().isBefore(date)) {
+                prior = e.getValue();
+            }
+        }
+        return prior;
     }
 
     static List<RobinhoodOwnershipHopDto> mergeHops(

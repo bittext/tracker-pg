@@ -8,7 +8,9 @@ import com.svp.tracker.finance.dto.RobinhoodRhDailyTradeDto;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class RobinhoodOwnershipHopsTest {
@@ -66,5 +68,47 @@ class RobinhoodOwnershipHopsTest {
         assertEquals(1, merged.size());
         assertEquals("trade", merged.get(0).source());
         assertTrue(RobinhoodOwnershipHistoryService.coveredByTrade(List.of(trade), holding));
+    }
+
+    @Test
+    void countsOnlySharesThatFilled() {
+        LocalDate day = LocalDate.of(2026, 9, 11);
+        List<RobinhoodOwnershipHopDto> full = List.of(
+                hop(day, "buy", "1950"),
+                hop(day, "buy", "130"),
+                hop(day, "buy", "14"),
+                hop(day, "buy", "866"));
+        List<RobinhoodOwnershipHopDto> partial = List.of(hop(day, "buy", "2138"));
+        Map<String, Map<LocalDate, BigDecimal>> endQty = new LinkedHashMap<>();
+        endQty.put("MRNA", Map.of(day, new BigDecimal("3000")));
+
+        List<RobinhoodOwnershipHopDto> fills =
+                RobinhoodOwnershipHistoryService.filledTrades(full, partial, endQty);
+
+        BigDecimal net = BigDecimal.ZERO;
+        for (RobinhoodOwnershipHopDto h : fills) {
+            net = net.add(h.quantity());
+            assertTrue(h.quantity().compareTo(new BigDecimal("2138")) < 0);
+        }
+        assertEquals(0, net.compareTo(new BigDecimal("3000")));
+        assertEquals(5, fills.size());
+        assertEquals(0, fills.get(4).quantity().compareTo(new BigDecimal("40.000000")));
+    }
+
+    private static RobinhoodOwnershipHopDto hop(LocalDate day, String side, String qty) {
+        return new RobinhoodOwnershipHopDto(
+                Instant.parse("2026-09-11T17:00:00Z"),
+                day,
+                "SCHEDULED",
+                "MRNA",
+                side,
+                new BigDecimal(qty),
+                null,
+                null,
+                new BigDecimal("147.25"),
+                null,
+                "trade",
+                "3370",
+                "Individual");
     }
 }
