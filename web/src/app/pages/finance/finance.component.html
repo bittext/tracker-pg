@@ -1,6 +1,9 @@
 <div class="page-head">
-  <h1 class="page-title">{{ pageTitle }}</h1>
-  <p class="muted">{{ pageLead }}</p>
+  <div>
+    <p class="page-eyebrow">{{ isTradingWorkspace ? 'Markets' : 'Money' }}</p>
+    <h1 class="page-title">{{ pageTitle }}</h1>
+    <p class="muted">{{ pageLead }}</p>
+  </div>
 </div>
 
 <mat-card class="card">

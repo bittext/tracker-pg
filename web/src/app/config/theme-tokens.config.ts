@@ -117,11 +117,11 @@ const PHOENIX_LIGHT: AppThemeTokens = {
 
   shellMaxWidth: 'none',
   frameShadow: 'none',
-  sidebarWidth: '248px',
+  sidebarWidth: '264px',
 
-  radiusLg: '12px',
-  radius: '8px',
-  radiusSm: '6px',
+  radiusLg: '16px',
+  radius: '10px',
+  radiusSm: '7px',
   radiusPill: '9999px',
 
   shadowSm: '0 1px 2px rgba(26, 36, 33, 0.05)',
@@ -217,11 +217,11 @@ const OPENAI_LIGHT: AppThemeTokens = {
 
   shellMaxWidth: 'none',
   frameShadow: 'none',
-  sidebarWidth: '240px',
+  sidebarWidth: '256px',
 
-  radiusLg: '12px',
-  radius: '8px',
-  radiusSm: '6px',
+  radiusLg: '16px',
+  radius: '10px',
+  radiusSm: '7px',
   radiusPill: '9999px',
 
   shadowSm: '0 1px 2px rgba(0, 0, 0, 0.04)',
@@ -420,7 +420,7 @@ const AURA_LIGHT: AppThemeTokens = {
 
   shellMaxWidth: 'none',
   frameShadow: 'none',
-  sidebarWidth: '248px',
+  sidebarWidth: '264px',
 
   radiusLg: '16px',
   radius: '12px',

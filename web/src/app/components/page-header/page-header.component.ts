@@ -6,6 +6,9 @@ import { Component, Input } from '@angular/core';
   template: `
     <header class="page-header">
       <div class="page-header__text">
+        @if (eyebrow) {
+          <p class="page-header__eyebrow">{{ eyebrow }}</p>
+        }
         <h1 class="page-header__title">{{ title }}</h1>
         @if (subtitle) {
           <p class="page-header__subtitle muted">{{ subtitle }}</p>
@@ -25,16 +28,27 @@ import { Component, Input } from '@angular/core';
       flex-wrap: wrap;
       align-items: flex-start;
       justify-content: space-between;
-      gap: 0.75rem 1rem;
-      margin-bottom: 1.25rem;
+      gap: 0.85rem 1.25rem;
+      margin-bottom: 1.4rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--app-border);
+    }
+
+    .page-header__eyebrow {
+      margin: 0 0 0.28rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--app-text-subtle);
     }
 
     .page-header__title {
       margin: 0;
       font-family: var(--app-font-display);
-      font-size: 1.5rem;
-      font-weight: 600;
-      letter-spacing: -0.02em;
+      font-size: 1.7rem;
+      font-weight: 650;
+      letter-spacing: -0.03em;
       color: var(--app-text);
     }
 
@@ -59,6 +73,7 @@ import { Component, Input } from '@angular/core';
 })
 export class PageHeaderComponent {
   @Input({ required: true }) title!: string;
+  @Input() eyebrow = '';
   @Input() subtitle = '';
   @Input() hasActions = false;
 }

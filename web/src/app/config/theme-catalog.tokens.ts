@@ -9,10 +9,10 @@ const SHELL = {
   fontBody: INTER,
   shellMaxWidth: 'none',
   frameShadow: 'none',
-  sidebarWidth: '248px',
-  radiusLg: '12px',
-  radius: '8px',
-  radiusSm: '6px',
+  sidebarWidth: '264px',
+  radiusLg: '16px',
+  radius: '10px',
+  radiusSm: '7px',
   radiusPill: '9999px',
 } as const;
 

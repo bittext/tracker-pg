@@ -1,0 +1,363 @@
+/* Design system v16 — shared chrome, selection menus, and data presentation.
+ * Loaded after material-overrides so these rules win, and before theme presets
+ * so a preset can still restyle its own surfaces.
+ */
+
+:root {
+  --ds-space-1: 0.25rem;
+  --ds-space-2: 0.5rem;
+  --ds-space-3: 0.75rem;
+  --ds-space-4: 1rem;
+  --ds-space-5: 1.5rem;
+  --ds-space-6: 2rem;
+
+  --ds-text-xs: 0.72rem;
+  --ds-text-sm: 0.82rem;
+  --ds-text-md: 0.9375rem;
+  --ds-text-lg: 1.15rem;
+  --ds-text-xl: 1.5rem;
+  --ds-text-2xl: 1.9rem;
+
+  --ds-eyebrow-spacing: 0.08em;
+  --ds-panel-pad: 1.15rem;
+  --ds-control-height: 40px;
+}
+
+/* ---------------------------------------------------------------- page head */
+
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--ds-space-3) var(--ds-space-5);
+  margin-bottom: var(--ds-space-5);
+  padding-bottom: var(--ds-space-4);
+  border-bottom: 1px solid var(--app-border);
+}
+
+.page-title {
+  font-size: var(--ds-text-2xl);
+  letter-spacing: -0.035em;
+}
+
+.page-eyebrow {
+  margin: 0 0 0.3rem;
+  font-family: var(--app-font-display);
+  font-size: var(--ds-text-xs);
+  font-weight: 700;
+  letter-spacing: var(--ds-eyebrow-spacing);
+  text-transform: uppercase;
+  color: var(--app-text-subtle);
+}
+
+.page-head .muted {
+  max-width: 44rem;
+}
+
+/* ----------------------------------------------------------- panel surfaces */
+
+.ds-panel,
+.finance-panel,
+.mat-mdc-card.card,
+.reports-card.mat-mdc-card {
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow-sm);
+}
+
+.ds-panel {
+  padding: var(--ds-panel-pad);
+}
+
+.ds-panel__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ds-space-2) var(--ds-space-4);
+  margin-bottom: var(--ds-space-3);
+}
+
+.ds-panel__title {
+  margin: 0;
+  font-family: var(--app-font-display);
+  font-size: var(--ds-text-lg);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--app-text);
+}
+
+.ds-panel__sub {
+  margin: 0;
+  font-size: var(--ds-text-sm);
+  color: var(--app-text-muted);
+}
+
+/* ------------------------------------------------------------- stat tiles */
+
+.ds-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: var(--ds-space-2);
+}
+
+.ds-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  background: var(--app-surface-tint);
+}
+
+.ds-stat__label {
+  font-size: var(--ds-text-xs);
+  font-weight: 650;
+  letter-spacing: var(--ds-eyebrow-spacing);
+  text-transform: uppercase;
+  color: var(--app-text-subtle);
+}
+
+.ds-stat__value {
+  font-size: var(--ds-text-lg);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--app-text);
+}
+
+.ds-stat__sub {
+  font-size: var(--ds-text-xs);
+  color: var(--app-text-muted);
+}
+
+/* ------------------------------------------------- selection menus / filters */
+
+.ds-filterbar,
+.own__toolbar,
+.rh-daily__toolbar,
+.rh-daily-ai__toolbar,
+.rh-perf__toolbar,
+.rh-ex__toolbar,
+.rh-bal__toolbar,
+.rh-crypto__toolbar,
+.rh-desk__toolbar,
+.desk__toolbar,
+.tj__toolbar,
+.ti__toolbar,
+.finance-toolbar,
+.cr__toolbar,
+.cf__toolbar,
+.banking-toolbar,
+.money-panel__toolbar,
+.loans-panel__toolbar,
+.learning-toolbar,
+.cal-toolbar,
+.mn-toolbar,
+.now-toolbar,
+.rep-now-toolbar,
+.arh-toolbar,
+.slap__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-2);
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-lg);
+  background: color-mix(in srgb, var(--app-surface-tint) 88%, var(--app-surface));
+}
+
+.mat-mdc-form-field {
+  --mat-form-field-container-text-size: 14px;
+  --mat-form-field-container-height: var(--ds-control-height);
+  --mat-form-field-container-vertical-padding: 0.5rem;
+  --mat-form-field-filled-label-display: block;
+}
+
+.mat-mdc-text-field-wrapper {
+  border-radius: var(--app-radius) !important;
+  background: var(--app-surface);
+}
+
+.mat-mdc-form-field:hover .mat-mdc-text-field-wrapper {
+  background: var(--app-surface-hover);
+}
+
+.mat-mdc-select-panel,
+.mat-mdc-autocomplete-panel,
+.mat-mdc-menu-panel {
+  border: 1px solid var(--app-border) !important;
+  border-radius: var(--app-radius-lg) !important;
+  box-shadow: var(--app-shadow-md) !important;
+}
+
+.mat-mdc-option {
+  min-height: 2.35rem !important;
+  border-radius: var(--app-radius-sm);
+  font-size: var(--ds-text-md);
+}
+
+.mat-mdc-option.mdc-list-item--selected:not(.mat-mdc-option-multiple) {
+  background: var(--app-accent-soft) !important;
+  font-weight: 650;
+}
+
+.mat-button-toggle-group {
+  border: 1px solid var(--app-border) !important;
+  border-radius: var(--app-radius-pill) !important;
+  background: var(--app-surface-muted);
+  overflow: hidden;
+}
+
+.mat-button-toggle {
+  border: none !important;
+  background: transparent;
+  color: var(--app-text-muted);
+  font-weight: 600;
+}
+
+.mat-button-toggle .mat-button-toggle-label-content {
+  line-height: 2.1rem !important;
+  padding: 0 0.95rem !important;
+  font-size: var(--ds-text-sm);
+}
+
+.mat-button-toggle-checked {
+  background: var(--app-surface) !important;
+  color: var(--app-text) !important;
+  box-shadow: var(--app-shadow-sm);
+}
+
+.ds-chiprow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-1) var(--ds-space-2);
+}
+
+.ds-chip {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-pill);
+  background: var(--app-surface);
+  color: var(--app-text-muted);
+  font: inherit;
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.ds-chip:hover {
+  border-color: var(--app-border-strong);
+  color: var(--app-text);
+}
+
+.ds-chip--active {
+  border-color: color-mix(in srgb, var(--app-accent) 50%, var(--app-border));
+  background: var(--app-accent-soft);
+  color: var(--app-text);
+}
+
+/* ------------------------------------------------------- data presentation */
+
+.ds-table-wrap,
+.table-wrap {
+  overflow: auto;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface);
+}
+
+.ds-table-wrap table,
+.table-wrap table,
+table.rh-perf__table,
+table.rh-crypto__history-table,
+table.rh-crypto__holdings,
+table.own__table,
+table.cr__table {
+  border-collapse: collapse;
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+
+.ds-table-wrap th,
+.table-wrap th,
+table.rh-perf__table th,
+table.rh-crypto__history-table th,
+table.rh-crypto__holdings th,
+table.own__table th,
+table.cr__table th {
+  padding: 0.5rem 0.7rem;
+  background: var(--app-surface-muted);
+  border-bottom: 1px solid var(--app-border-strong);
+  font-size: var(--ds-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-align: left;
+  color: var(--app-text-subtle);
+  white-space: nowrap;
+}
+
+.ds-table-wrap td,
+.table-wrap td,
+table.rh-perf__table td,
+table.rh-crypto__history-table td,
+table.rh-crypto__holdings td,
+table.own__table td,
+table.cr__table td {
+  padding: 0.5rem 0.7rem;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.ds-empty {
+  padding: var(--ds-space-5);
+  border: 1px dashed var(--app-border-strong);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface-tint);
+  color: var(--app-text-muted);
+  text-align: center;
+}
+
+.ds-num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Report / finance tab rails read as a selection menu, not a stacked underline. */
+.mat-mdc-tab-header {
+  --mat-tab-header-divider-color: transparent;
+  margin-bottom: 0.35rem;
+}
+
+.mat-mdc-tab-group {
+  --mat-tab-header-inactive-label-text-color: var(--app-text-muted);
+  --mat-tab-header-active-label-text-color: var(--app-text);
+  --mat-tab-header-active-focus-label-text-color: var(--app-text);
+  --mat-tab-header-active-hover-label-text-color: var(--app-text);
+  --mdc-tab-indicator-active-indicator-color: var(--app-accent);
+}
+
+.mat-mdc-tab .mdc-tab__text-label {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Positive / negative figures stay tabular and token-colored. */
+.text-pos,
+.own__cal-avg--up,
+.rh-daily__flow-in {
+  color: var(--app-color-success);
+}
+
+.text-neg,
+.own__cal-avg--down,
+.rh-daily__flow-out {
+  color: #c0392b;
+}

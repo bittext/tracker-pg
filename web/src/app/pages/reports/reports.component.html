@@ -1,5 +1,7 @@
 <div class="page-head">
-  <h1 class="page-title">{{ pageTitle }}</h1>
+  <div>
+    <p class="page-eyebrow">{{ showMarketsOnly ? 'Markets' : 'Life' }}</p>
+    <h1 class="page-title">{{ pageTitle }}</h1>
   @if (!showMarketsOnly) {
     <p class="muted">
       <strong>{{ insightsTabs.trends }}</strong>: weight and consistency trends, streaks, month calendar, and day detail.
@@ -14,6 +16,7 @@
       <a routerLink="/markets/research">Markets → Research</a>.
     </p>
   }
+  </div>
 </div>
 
 <mat-card class="card reports-card">
