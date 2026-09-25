@@ -431,8 +431,8 @@
         <div>
           <h3 id="rh-daily-cal-title" class="rh-daily__cal-title">Month at a glance</h3>
           <p class="muted rh-daily__cal-lead">
-            Green / red cells are the change from the book on the previous day. Added and moved out are cash flows
-            combined across accounts. Click a day for excl. flows and the account books.
+            Green / red cells are the change from the book on the previous day. Dots mark a sale, cash added, or cash
+            taken out. The tape below overlays those on the book and on the book if no outside money moved.
           </p>
         </div>
         <div class="rh-daily__cal-nav">
@@ -514,7 +514,10 @@
                   (click)="onCalendarCellClick(cell)"
                   [attr.aria-label]="
                     (cell.date | date: 'fullDate') +
-                    (cell.delta != null ? ', change ' + (cell.delta | currency) : ', no snapshot')
+                    (cell.delta != null ? ', change ' + (cell.delta | currency) : ', no snapshot') +
+                    (cell.sellCount ? ', sells ' + (cell.saleNet | currency) : '') +
+                    (cell.added ? ', added ' + (cell.added | currency) : '') +
+                    (cell.removed ? ', taken out ' + (cell.removed | currency) : '')
                   "
                 >
                   <span class="rh-daily__cal-daynum">{{ cell.dayNumber }}</span>
@@ -530,6 +533,23 @@
                       <span class="rh-daily__cal-total muted">{{ cell.total | currency: 'USD':'symbol':'1.0-0' }}</span>
                     }
                   }
+                  @if (cell.sellCount || cell.added || cell.removed) {
+                    <span class="rh-daily__cal-marks" aria-hidden="true">
+                      @if (cell.sellCount) {
+                        <i
+                          class="rh-daily__cal-mark rh-daily__cal-mark--sale"
+                          [class.rh-daily__cal-mark--pos]="cell.saleNet > 0"
+                          [class.rh-daily__cal-mark--neg]="cell.saleNet < 0"
+                        ></i>
+                      }
+                      @if (cell.added) {
+                        <i class="rh-daily__cal-mark rh-daily__cal-mark--in"></i>
+                      }
+                      @if (cell.removed) {
+                        <i class="rh-daily__cal-mark rh-daily__cal-mark--out"></i>
+                      }
+                    </span>
+                  }
                 </button>
               }
             }
@@ -537,6 +557,195 @@
         }
       </div>
     </section>
+
+    @if (moneyPicture(); as pic) {
+      <section class="rh-daily__tape" aria-labelledby="rh-daily-tape-title">
+        <header class="rh-daily__tape-head">
+          <div>
+            <h3 id="rh-daily-tape-title" class="rh-daily__tape-title">Sale days and cash</h3>
+            <p class="muted rh-daily__tape-lead">
+              FIFO gain or loss on every sale day, cash added or taken out, and the combined book on the same axis.
+              The dashed line is the book if those outside credits and debits had not happened this month.
+            </p>
+          </div>
+        </header>
+
+        <div class="rh-daily__tape-kpis" role="group" aria-label="Book, sales, and cash">
+          <div class="rh-daily__tape-kpi">
+            <span class="muted">Book</span>
+            <strong>{{ pic.latestBook != null ? (pic.latestBook | currency) : '—' }}</strong>
+          </div>
+          <div class="rh-daily__tape-kpi">
+            <span class="muted">If no cash this month</span>
+            <strong>{{ pic.latestIfNoIo != null ? (pic.latestIfNoIo | currency) : '—' }}</strong>
+          </div>
+          <div class="rh-daily__tape-kpi">
+            <span class="muted">If no cash this year</span>
+            <strong>{{ pic.yearIfNoIo != null ? (pic.yearIfNoIo | currency) : '—' }}</strong>
+          </div>
+          <div class="rh-daily__tape-kpi">
+            <span class="muted">Sale gains / losses</span>
+            <strong>
+              <span class="rh-daily__pnl--pos">{{ pic.saleGains | currency }}</span>
+              <span class="muted"> / </span>
+              <span class="rh-daily__pnl--neg">{{ pic.saleLosses | currency }}</span>
+            </strong>
+            <small class="muted">Net {{ pic.saleNet | currency }} · {{ pic.sellDays }} sale days</small>
+          </div>
+          <div class="rh-daily__tape-kpi">
+            <span class="muted">Added / taken out</span>
+            <strong>
+              <span class="rh-daily__flow-in">{{ pic.added | currency }}</span>
+              <span class="muted"> / </span>
+              <span class="rh-daily__flow-out">{{ pic.removed | currency }}</span>
+            </strong>
+          </div>
+        </div>
+
+        <ul class="rh-daily__tape-legend" aria-label="Tape legend">
+          <li><span class="rh-daily__tape-swatch rh-daily__tape-swatch--book"></span> Book</li>
+          <li><span class="rh-daily__tape-swatch rh-daily__tape-swatch--noio"></span> If no outside cash</li>
+          <li><span class="rh-daily__tape-swatch rh-daily__tape-swatch--sale-pos"></span> Sale gain</li>
+          <li><span class="rh-daily__tape-swatch rh-daily__tape-swatch--sale-neg"></span> Sale loss</li>
+          <li><span class="rh-daily__tape-swatch rh-daily__tape-swatch--in"></span> Added</li>
+          <li><span class="rh-daily__tape-swatch rh-daily__tape-swatch--out"></span> Taken out</li>
+        </ul>
+
+        <div class="rh-daily__tape-chart" role="img" aria-label="Book and sale cash overlay for the month">
+          <svg class="rh-daily__tape-svg" viewBox="0 0 100 56" preserveAspectRatio="none">
+            <line x1="0" y1="3" x2="100" y2="3" class="rh-daily__tape-grid" />
+            <line x1="0" y1="18" x2="100" y2="18" class="rh-daily__tape-grid" />
+            <line x1="0" y1="33" x2="100" y2="33" class="rh-daily__tape-grid" />
+            <line x1="0" y1="45" x2="100" y2="45" class="rh-daily__tape-mid" />
+            @if (pic.bookPath) {
+              <path [attr.d]="pic.bookPath" class="rh-daily__tape-line rh-daily__tape-line--book" />
+            }
+            @if (pic.noIoPath) {
+              <path [attr.d]="pic.noIoPath" class="rh-daily__tape-line rh-daily__tape-line--noio" />
+            }
+            @for (point of pic.points; track point.date) {
+              @if (point.sale.count) {
+                <rect
+                  [attr.x]="point.x - 0.55"
+                  [attr.y]="point.saleUp ? 45 - point.saleBarH : 45"
+                  width="1.1"
+                  [attr.height]="point.saleBarH || 0.2"
+                  class="rh-daily__tape-bar"
+                  [class.rh-daily__tape-bar--pos]="point.saleUp && point.sale.net !== 0"
+                  [class.rh-daily__tape-bar--neg]="!point.saleUp"
+                />
+              }
+              @if (point.added) {
+                <rect
+                  [attr.x]="point.x - 0.85"
+                  [attr.y]="45 - point.addedBarH"
+                  width="0.45"
+                  [attr.height]="point.addedBarH || 0.2"
+                  class="rh-daily__tape-bar rh-daily__tape-bar--in"
+                />
+              }
+              @if (point.removed) {
+                <rect
+                  [attr.x]="point.x + 0.4"
+                  [attr.y]="45"
+                  width="0.45"
+                  [attr.height]="point.removedBarH || 0.2"
+                  class="rh-daily__tape-bar rh-daily__tape-bar--out"
+                />
+              }
+              @if (point.day && (point.sale.count || point.added || point.removed)) {
+                <rect
+                  [attr.x]="point.x - 1.2"
+                  y="0"
+                  width="2.4"
+                  height="56"
+                  class="rh-daily__tape-hit"
+                  role="button"
+                  tabindex="0"
+                  [attr.aria-label]="point.date"
+                  (click)="onMoneyPictureDay(point)"
+                  (keydown.enter)="onMoneyPictureDay(point)"
+                >
+                  <title>
+                    {{ point.date }}
+                    @if (point.book != null) { · book {{ point.book | currency }} }
+                    @if (point.bookIfNoIo != null) { · if no cash {{ point.bookIfNoIo | currency }} }
+                    @if (point.sale.count) { · sells {{ point.sale.net | currency }} }
+                    @if (point.added) { · added {{ point.added | currency }} }
+                    @if (point.removed) { · taken out {{ point.removed | currency }} }
+                  </title>
+                </rect>
+              }
+            }
+          </svg>
+          <div class="rh-daily__tape-x" aria-hidden="true">
+            @for (tick of moneyPictureXLabels(pic); track tick.date) {
+              <span [style.left.%]="tick.x">{{ tick.label }}</span>
+            }
+          </div>
+        </div>
+
+        @if (pic.eventRows.length) {
+          <div class="rh-daily__tape-table-wrap">
+            <table class="rh-daily__tape-table">
+              <thead>
+                <tr>
+                  <th>Day</th>
+                  <th>Sold</th>
+                  <th class="rh-daily__num">Sale gain</th>
+                  <th class="rh-daily__num">Sale loss</th>
+                  <th class="rh-daily__num">Sale net</th>
+                  <th class="rh-daily__num">Added</th>
+                  <th class="rh-daily__num">Taken out</th>
+                  <th class="rh-daily__num">Book</th>
+                  <th class="rh-daily__num">If no cash</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of pic.eventRows; track row.date) {
+                  <tr
+                    [class.rh-daily__tape-row--click]="!!row.day"
+                    (click)="onMoneyPictureDay(row)"
+                  >
+                    <th scope="row">{{ row.date | date: 'EEE, MMM d' }}</th>
+                    <td>{{ row.sale.symbols.join(', ') || (row.sale.count ? '—' : '') }}</td>
+                    <td class="rh-daily__num">
+                      @if (row.sale.gains) {
+                        <span class="rh-daily__pnl--pos">{{ row.sale.gains | currency }}</span>
+                      }
+                    </td>
+                    <td class="rh-daily__num">
+                      @if (row.sale.losses) {
+                        <span class="rh-daily__pnl--neg">{{ row.sale.losses | currency }}</span>
+                      }
+                    </td>
+                    <td class="rh-daily__num" [class]="row.sale.count ? pnlClass(row.sale.net) : ''">
+                      @if (row.sale.count) {
+                        {{ row.sale.net | currency }}
+                      }
+                    </td>
+                    <td class="rh-daily__num">
+                      @if (row.added) {
+                        <span class="rh-daily__flow-in">{{ row.added | currency }}</span>
+                      }
+                    </td>
+                    <td class="rh-daily__num">
+                      @if (row.removed) {
+                        <span class="rh-daily__flow-out">{{ row.removed | currency }}</span>
+                      }
+                    </td>
+                    <td class="rh-daily__num">{{ row.book != null ? (row.book | currency) : '—' }}</td>
+                    <td class="rh-daily__num">{{ row.bookIfNoIo != null ? (row.bookIfNoIo | currency) : '—' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <p class="muted">No sales or outside cash in {{ calendarTitle() }}.</p>
+        }
+      </section>
+    }
 
     @if (!t.days.length) {
       @if (t.autoCaptureScheduled) {

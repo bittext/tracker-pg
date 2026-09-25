@@ -13,8 +13,10 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
-import { filter, interval, switchMap } from 'rxjs';
+import { forkJoin, interval, of } from 'rxjs';
+import { catchError, filter, switchMap } from 'rxjs/operators';
 import {
+  RobinhoodExecutedTradeDto,
   RobinhoodRhAccountSummaryDto,
   RobinhoodRhCashFlowEventDto,
   RobinhoodRhDailyTrackerAccountCellDto,
@@ -25,6 +27,7 @@ import {
   RobinhoodRhDailyTrackerRefreshHintDto,
   RobinhoodRhDailyTrackerReportDto,
   RobinhoodRhMarginDetailsDto,
+  RobinhoodRhPeriodBalancesDto,
   RhDailyTrackerAccountAlertDto,
   RhDailyTrackerAccountAlertItemDto,
   RhDailyTrackerAccountAlertsDto,
@@ -64,6 +67,10 @@ export interface RhDailyCalendarCell {
   isToday: boolean;
   hasAlert: boolean;
   hasData: boolean;
+  saleNet: number;
+  sellCount: number;
+  added: number;
+  removed: number;
 }
 export interface RhDailyCaptureTimelineRow {
   capturedAt: string;
@@ -167,6 +174,50 @@ export interface RhDailyMonkeyAnalysis {
   playbook: string;
 }
 
+/** One day’s FIFO sale tally used by the month money picture. */
+export interface RhDailySaleDay {
+  gains: number;
+  losses: number;
+  net: number;
+  count: number;
+  symbols: string[];
+}
+
+/** Combined book, sale, and cash row for the Daily Tracker overlay. */
+export interface RhDailyMoneyPicturePoint {
+  date: string;
+  day: RobinhoodRhDailyTrackerDayDto | null;
+  book: number | null;
+  bookDelta: number | null;
+  added: number;
+  removed: number;
+  sale: RhDailySaleDay;
+  bookIfNoIo: number | null;
+  x: number;
+  bookY: number | null;
+  noIoY: number | null;
+  saleBarH: number;
+  saleUp: boolean;
+  addedBarH: number;
+  removedBarH: number;
+}
+
+export interface RhDailyMoneyPicture {
+  points: RhDailyMoneyPicturePoint[];
+  eventRows: RhDailyMoneyPicturePoint[];
+  latestBook: number | null;
+  latestIfNoIo: number | null;
+  yearIfNoIo: number | null;
+  saleGains: number;
+  saleLosses: number;
+  saleNet: number;
+  sellDays: number;
+  added: number;
+  removed: number;
+  bookPath: string;
+  noIoPath: string;
+}
+
 export interface RhDailyFocusMetrics {
   startValue: number;
   latestValue: number;
@@ -235,6 +286,9 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   softRefreshing = false;
   capturing = false;
   tracker: RobinhoodRhDailyTrackerReportDto | null = null;
+  /** FIFO sells for the selected year — overlays sale gain/loss on the month picture. */
+  executedTrades: RobinhoodExecutedTradeDto[] = [];
+  periodBalances: RobinhoodRhPeriodBalancesDto | null = null;
   /** Live margin / buying-power for the focused Individual account (••••3370). */
   focusMarginAccount: RobinhoodRhAccountSummaryDto | null = null;
   /** When true, only show days that have a Trading Journal entry. */
@@ -412,9 +466,17 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       this.loading = true;
     }
     const months = this.normalizedReportMonths();
-    this.financeApi.robinhoodDailyTracker(this.reportYear, months).subscribe({
-      next: (t) => {
+    forkJoin({
+      tracker: this.financeApi.robinhoodDailyTracker(this.reportYear, months),
+      trades: this.financeApi.robinhoodExecutedTrades(this.reportYear).pipe(catchError(() => of(null))),
+      balances: this.financeApi.robinhoodDailyTrackerPeriodBalances(this.reportYear).pipe(
+        catchError(() => of(null)),
+      ),
+    }).subscribe({
+      next: ({ tracker: t, trades, balances }) => {
         this.tracker = t;
+        this.executedTrades = trades?.trades ?? [];
+        this.periodBalances = balances;
         this.syncCalendarMonthFromTracker(t);
         const validDates = new Set(t.days.map((d) => d.snapshotDate));
         if (!silent) {
@@ -437,6 +499,8 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       },
       error: (err) => {
         this.tracker = null;
+        this.executedTrades = [];
+        this.periodBalances = null;
         this.loading = false;
         this.softRefreshing = false;
         if (!silent) {
@@ -737,6 +801,10 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         isToday: false,
         hasAlert: false,
         hasData: false,
+        saleNet: 0,
+        sellCount: 0,
+        added: 0,
+        removed: 0,
       });
     }
     for (let d = 1; d <= daysInMonth; d++) {
@@ -744,6 +812,9 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       const day = byDate.get(date) ?? null;
       const meta = dayMeta.get(date)!;
       const heat = meta.delta != null ? Math.min(1, Math.abs(meta.delta) / maxAbs) : 0;
+      const sale = this.saleDay(date);
+      const added = Number(day?.combinedPeriodAdded) || 0;
+      const removed = Number(day?.combinedPeriodRemoved) || 0;
       flat.push({
         type: 'day',
         trackKey: date,
@@ -756,6 +827,10 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         isToday: date === today,
         hasAlert: day ? this.dayHasSpikeAlerts(day) : false,
         hasData: day != null,
+        saleNet: sale.net,
+        sellCount: sale.count,
+        added,
+        removed,
       });
     }
     while (flat.length % 7 !== 0) {
@@ -771,6 +846,10 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         isToday: false,
         hasAlert: false,
         hasData: false,
+        saleNet: 0,
+        sellCount: 0,
+        added: 0,
+        removed: 0,
       });
     }
     const rows: RhDailyCalendarCell[][] = [];
@@ -796,6 +875,208 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   private daysForCalendarMonth(): RobinhoodRhDailyTrackerDayDto[] {
     const prefix = `${this.reportYear}-${String(this.calendarMonth).padStart(2, '0')}-`;
     return (this.tracker?.days ?? []).filter((d) => d.snapshotDate.startsWith(prefix));
+  }
+
+  saleDay(date: string): RhDailySaleDay {
+    return this.saleDayMap().get(date) ?? { gains: 0, losses: 0, net: 0, count: 0, symbols: [] };
+  }
+
+  moneyPicture(): RhDailyMoneyPicture | null {
+    const year = this.reportYear;
+    const month = this.calendarMonth;
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const today = this.todayIsoCentral();
+    const byDate = new Map(this.daysForCalendarMonth().map((d) => [d.snapshotDate, d]));
+    const prefix = `${year}-${String(month).padStart(2, '0')}-`;
+    const saleDates = [...this.saleDayMap().keys()].filter((d) => d.startsWith(prefix));
+    const lastNeeded = [today, ...byDate.keys(), ...saleDates].sort().at(-1) ?? today;
+
+    const dates: string[] = [];
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = `${prefix}${String(d).padStart(2, '0')}`;
+      if (date > lastNeeded) {
+        break;
+      }
+      dates.push(date);
+    }
+    if (!dates.length) {
+      return null;
+    }
+
+    const emptySale: RhDailySaleDay = { gains: 0, losses: 0, net: 0, count: 0, symbols: [] };
+    let cumAdded = 0;
+    let cumRemoved = 0;
+    let lastBook: number | null = null;
+    const raw = dates.map((date) => {
+      const day = byDate.get(date) ?? null;
+      const book = day ? this.dayHeaderTotal(day) : lastBook;
+      if (book != null) {
+        lastBook = book;
+      }
+      const added = Number(day?.combinedPeriodAdded) || 0;
+      const removed = Number(day?.combinedPeriodRemoved) || 0;
+      cumAdded += added;
+      cumRemoved += removed;
+      const sale = this.saleDayMap().get(date) ?? emptySale;
+      return {
+        date,
+        day,
+        book,
+        bookDelta: day ? this.chainedBookDelta(day) : null,
+        added,
+        removed,
+        sale,
+        bookIfNoIo: book == null ? null : book - cumAdded + cumRemoved,
+      };
+    });
+
+    const books = raw.flatMap((row) => [row.book, row.bookIfNoIo]).filter((v): v is number => v != null);
+    let bookMin = books.length ? Math.min(...books) : 0;
+    let bookMax = books.length ? Math.max(...books) : 1;
+    if (bookMin === bookMax) {
+      bookMin -= 1;
+      bookMax += 1;
+    }
+    const eventMax = Math.max(
+      1,
+      ...raw.map((row) => Math.max(Math.abs(row.sale.net), row.added, row.removed)),
+    );
+
+    const bookTop = 3;
+    const bookBottom = 33;
+    const eventMaxH = 9;
+    const n = raw.length;
+    const points: RhDailyMoneyPicturePoint[] = raw.map((row, i) => {
+      const x = n === 1 ? 50 : 3 + (i / (n - 1)) * 94;
+      return {
+        ...row,
+        x,
+        bookY: row.book == null ? null : bookTop + (1 - (row.book - bookMin) / (bookMax - bookMin)) * (bookBottom - bookTop),
+        noIoY:
+          row.bookIfNoIo == null
+            ? null
+            : bookTop + (1 - (row.bookIfNoIo - bookMin) / (bookMax - bookMin)) * (bookBottom - bookTop),
+        saleBarH: (Math.abs(row.sale.net) / eventMax) * eventMaxH,
+        saleUp: row.sale.net >= 0,
+        addedBarH: (row.added / eventMax) * eventMaxH,
+        removedBarH: (row.removed / eventMax) * eventMaxH,
+      };
+    });
+
+    const withBook = [...points].reverse().find((p) => p.book != null) ?? null;
+    const yb = this.periodBalances?.yearBalance;
+    const yearAdded = Number(yb?.combinedAdded) || 0;
+    const yearRemoved = Number(yb?.combinedRemoved) || 0;
+
+    return {
+      points,
+      eventRows: [...points]
+        .filter((p) => p.sale.count > 0 || p.added !== 0 || p.removed !== 0)
+        .reverse(),
+      latestBook: withBook?.book ?? null,
+      latestIfNoIo: withBook?.bookIfNoIo ?? null,
+      yearIfNoIo: withBook?.book == null ? null : withBook.book - yearAdded + yearRemoved,
+      saleGains: raw.reduce((sum, row) => sum + row.sale.gains, 0),
+      saleLosses: raw.reduce((sum, row) => sum + row.sale.losses, 0),
+      saleNet: raw.reduce((sum, row) => sum + row.sale.net, 0),
+      sellDays: raw.filter((row) => row.sale.count > 0).length,
+      added: cumAdded,
+      removed: cumRemoved,
+      bookPath: this.moneyLinePath(points.map((p) => (p.bookY == null ? null : { x: p.x, y: p.bookY }))),
+      noIoPath: this.moneyLinePath(points.map((p) => (p.noIoY == null ? null : { x: p.x, y: p.noIoY }))),
+    };
+  }
+
+  onMoneyPictureDay(point: RhDailyMoneyPicturePoint): void {
+    if (point.day) {
+      this.openDayDetail(point.day);
+    }
+  }
+
+  moneyPictureXLabels(pic: RhDailyMoneyPicture): Array<{ date: string; x: number; label: string }> {
+    const pts = pic.points;
+    if (!pts.length) {
+      return [];
+    }
+    const picks = [pts[0]];
+    if (pts.length > 2) {
+      picks.push(pts[Math.floor((pts.length - 1) / 2)]);
+    }
+    if (pts.length > 1) {
+      picks.push(pts[pts.length - 1]);
+    }
+    return picks.map((p) => ({
+      date: p.date,
+      x: p.x,
+      label: new Date(`${p.date}T12:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+    }));
+  }
+
+  private saleMapCache: { trades: RobinhoodExecutedTradeDto[]; map: Map<string, RhDailySaleDay> } | null = null;
+
+  private saleDayMap(): Map<string, RhDailySaleDay> {
+    if (this.saleMapCache?.trades === this.executedTrades) {
+      return this.saleMapCache.map;
+    }
+    const map = new Map<string, RhDailySaleDay>();
+    for (const trade of this.executedTrades) {
+      if (!this.isSellSide(trade.side) || !trade.executedAt) {
+        continue;
+      }
+      const date = this.centralIsoDate(trade.executedAt);
+      if (!date) {
+        continue;
+      }
+      const row = map.get(date) ?? { gains: 0, losses: 0, net: 0, count: 0, symbols: [] };
+      row.count += 1;
+      const pnl = trade.realizedPnl;
+      if (pnl != null) {
+        row.net += pnl;
+        if (pnl > 0) {
+          row.gains += pnl;
+        } else if (pnl < 0) {
+          row.losses += Math.abs(pnl);
+        }
+      }
+      const symbol = (trade.symbol ?? '').trim().toUpperCase();
+      if (symbol && !row.symbols.includes(symbol)) {
+        row.symbols.push(symbol);
+      }
+      map.set(date, row);
+    }
+    this.saleMapCache = { trades: this.executedTrades, map };
+    return map;
+  }
+
+  private isSellSide(side: string | null | undefined): boolean {
+    return (side ?? '').trim().toLowerCase().startsWith('sell');
+  }
+
+  private centralIsoDate(iso: string): string | null {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) {
+      return null;
+    }
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Chicago',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(d);
+  }
+
+  private moneyLinePath(points: Array<{ x: number; y: number } | null>): string {
+    let path = '';
+    let drawing = false;
+    for (const point of points) {
+      if (point == null) {
+        drawing = false;
+        continue;
+      }
+      path += `${drawing ? 'L' : 'M'}${point.x.toFixed(2)} ${point.y.toFixed(2)} `;
+      drawing = true;
+    }
+    return path.trim();
   }
 
   private syncCalendarMonthFromTracker(t: RobinhoodRhDailyTrackerReportDto): void {
