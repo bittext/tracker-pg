@@ -224,7 +224,8 @@ export interface RhDailyFocusMetrics {
   styleUrl: './reports-finance-robinhood-daily-tracker.component.scss',
 })
 export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
-  readonly focusAccountSuffix = '3370';
+  /** Individual when the Insights rail has no account selected. */
+  private static readonly DEFAULT_FOCUS_SUFFIX = '3370';
   /** Owned-equity chart: Growth Monkey above this line may take risk. */
   readonly monkeySafetyUsd = 170_000;
   /** Below this line the monkey drowns — capital survival mode. */
@@ -335,6 +336,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   constructor() {
     effect(() => {
       const year = this.journalNav.insightsYear();
+      this.journalNav.insightsAccountSuffix();
       this.uiLayout.layout();
       if (!this.railPrimed || !this.uiLayout.usesInsightsRail()) {
         return;
@@ -721,8 +723,8 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     let added = 0;
     let removed = 0;
     for (const day of this.daysForCalendarMonth()) {
-      added += Number(day.combinedPeriodAdded) || 0;
-      removed += Number(day.combinedPeriodRemoved) || 0;
+      added += this.dayPeriodAdded(day);
+      removed += this.dayPeriodRemoved(day);
       const delta = this.chainedBookDelta(day);
       if (delta == null || delta === 0) {
         continue;
@@ -811,8 +813,8 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       const meta = dayMeta.get(date)!;
       const heat = meta.delta != null ? Math.min(1, Math.abs(meta.delta) / maxAbs) : 0;
       const sale = this.saleDay(date);
-      const added = Number(day?.combinedPeriodAdded) || 0;
-      const removed = Number(day?.combinedPeriodRemoved) || 0;
+      const added = day ? this.dayPeriodAdded(day) : 0;
+      const removed = day ? this.dayPeriodRemoved(day) : 0;
       flat.push({
         type: 'day',
         trackKey: date,
@@ -911,8 +913,8 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       if (book != null) {
         lastBook = book;
       }
-      const added = Number(day?.combinedPeriodAdded) || 0;
-      const removed = Number(day?.combinedPeriodRemoved) || 0;
+      const added = day ? this.dayPeriodAdded(day) : 0;
+      const removed = day ? this.dayPeriodRemoved(day) : 0;
       cumAdded += added;
       cumRemoved += removed;
       const sale = this.saleDayMap().get(date) ?? emptySale;
@@ -963,8 +965,10 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
 
     const withBook = [...points].reverse().find((p) => p.book != null) ?? null;
     const yb = this.periodBalances?.yearBalance;
-    const yearAdded = Number(yb?.combinedAdded) || 0;
-    const yearRemoved = Number(yb?.combinedRemoved) || 0;
+    const scoped = this.railAccountSuffix();
+    const yearAcct = scoped ? yb?.accounts.find((a) => a.accountSuffix === scoped) : null;
+    const yearAdded = Number(yearAcct?.added ?? yb?.combinedAdded) || 0;
+    const yearRemoved = Number(yearAcct?.removed ?? yb?.combinedRemoved) || 0;
 
     return {
       points,
@@ -1014,14 +1018,22 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     }));
   }
 
-  private saleMapCache: { trades: RobinhoodExecutedTradeDto[]; map: Map<string, RhDailySaleDay> } | null = null;
+  private saleMapCache: {
+    trades: RobinhoodExecutedTradeDto[];
+    suffix: string;
+    map: Map<string, RhDailySaleDay>;
+  } | null = null;
 
   private saleDayMap(): Map<string, RhDailySaleDay> {
-    if (this.saleMapCache?.trades === this.executedTrades) {
+    const suffix = this.railAccountSuffix();
+    if (this.saleMapCache?.trades === this.executedTrades && this.saleMapCache.suffix === suffix) {
       return this.saleMapCache.map;
     }
     const map = new Map<string, RhDailySaleDay>();
     for (const trade of this.executedTrades) {
+      if (suffix && (trade.accountSuffix ?? '') !== suffix) {
+        continue;
+      }
       if (!this.isSellSide(trade.side) || !trade.executedAt) {
         continue;
       }
@@ -1046,7 +1058,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       }
       map.set(date, row);
     }
-    this.saleMapCache = { trades: this.executedTrades, map };
+    this.saleMapCache = { trades: this.executedTrades, suffix, map };
     return map;
   }
 
@@ -1152,7 +1164,44 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     );
   }
 
+  /** Insights rail account, or empty for all accounts combined. */
+  railAccountSuffix(): string {
+    return (this.journalNav.insightsAccountSuffix() || '').trim();
+  }
+
+  get focusAccountSuffix(): string {
+    return this.railAccountSuffix() || ReportsFinanceRobinhoodDailyTrackerComponent.DEFAULT_FOCUS_SUFFIX;
+  }
+
+  dayPeriodAdded(day: RobinhoodRhDailyTrackerDayDto): number {
+    const suffix = this.railAccountSuffix();
+    if (!suffix) {
+      return Number(day.combinedPeriodAdded) || 0;
+    }
+    return Number(this.cellForDay(day, suffix)?.periodAdded) || 0;
+  }
+
+  dayPeriodRemoved(day: RobinhoodRhDailyTrackerDayDto): number {
+    const suffix = this.railAccountSuffix();
+    if (!suffix) {
+      return Number(day.combinedPeriodRemoved) || 0;
+    }
+    return Number(this.cellForDay(day, suffix)?.periodRemoved) || 0;
+  }
+
   dayHeaderTotal(day: RobinhoodRhDailyTrackerDayDto): number | null {
+    const suffix = this.railAccountSuffix();
+    if (suffix) {
+      if (day.hasScheduledSnapshot) {
+        return this.cellForDay(day, suffix)?.totalAccountValue ?? null;
+      }
+      const live = this.latestDayCapture(day);
+      return (
+        live?.accounts.find((a) => a.accountSuffix === suffix)?.totalAccountValue ??
+        this.cellForDay(day, suffix)?.totalAccountValue ??
+        null
+      );
+    }
     if (day.hasScheduledSnapshot) {
       return day.combinedTotal;
     }
@@ -1161,6 +1210,19 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   }
 
   dayHeaderDelta(day: RobinhoodRhDailyTrackerDayDto): number | null {
+    const suffix = this.railAccountSuffix();
+    if (suffix) {
+      if (day.hasScheduledSnapshot) {
+        return this.cellForDay(day, suffix)?.totalChangeFromPrevious ?? null;
+      }
+      const live = this.latestDayCapture(day);
+      const liveAcct = live?.accounts.find((a) => a.accountSuffix === suffix);
+      const prior = day.priorPull?.accounts.find((a) => a.accountSuffix === suffix);
+      if (!liveAcct || !day.hasPriorPull || prior == null) {
+        return null;
+      }
+      return liveAcct.totalAccountValue - prior.totalAccountValue;
+    }
     if (day.hasScheduledSnapshot) {
       return day.hasPreviousScheduledSnapshot ? day.combinedTotalChangeFromPrevious : null;
     }
@@ -2350,7 +2412,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   }
 
   hasFlowBlock(day: RobinhoodRhDailyTrackerDayDto): boolean {
-    return day.hasScheduledSnapshot && (day.combinedPeriodAdded !== 0 || day.combinedPeriodRemoved !== 0);
+    return day.hasScheduledSnapshot && (this.dayPeriodAdded(day) !== 0 || this.dayPeriodRemoved(day) !== 0);
   }
 
   isAllCash(cell: RobinhoodRhDailyTrackerAccountCellDto): boolean {

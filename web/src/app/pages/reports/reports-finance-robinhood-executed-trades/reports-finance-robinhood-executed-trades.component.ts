@@ -1,5 +1,5 @@
 import { CommonModule, CurrencyPipe, DecimalPipe } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, effect, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
@@ -15,6 +15,7 @@ import {
 } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { TradingJournalNavService } from '../../../services/trading-journal-nav.service';
+import { UiLayoutService } from '../../../services/ui-layout.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
 import { ReportsFinanceRobinhoodTaxDeskComponent } from '../reports-finance-robinhood-tax-desk/reports-finance-robinhood-tax-desk.component';
 
@@ -60,6 +61,7 @@ export class ReportsFinanceRobinhoodExecutedTradesComponent implements OnInit {
   private readonly financeApi = inject(FinanceApiService);
   private readonly snackBar = inject(MatSnackBar);
   readonly journalNav = inject(TradingJournalNavService);
+  private readonly uiLayout = inject(UiLayoutService);
 
   reportYear = new Date().getFullYear();
   sideFilter: 'all' | 'buy' | 'sell' = 'all';
@@ -92,6 +94,16 @@ export class ReportsFinanceRobinhoodExecutedTradesComponent implements OnInit {
       years.push(y);
     }
     return years;
+  }
+
+  constructor() {
+    effect(() => {
+      const suffix = this.journalNav.insightsAccountSuffix();
+      if (!this.uiLayout.usesInsightsRail()) {
+        return;
+      }
+      this.accountFilter = suffix;
+    });
   }
 
   ngOnInit(): void {

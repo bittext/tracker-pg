@@ -437,6 +437,9 @@
           <p class="muted rh-daily__cal-lead">
             Green / red cells are the change from the book on the previous day. Dots mark a sale, cash added, or cash
             taken out. The tape below overlays those on the book and on the book if no outside money moved.
+            @if (railAccountSuffix()) {
+              Scoped to {{ focusAccountLabel() }}.
+            }
           </p>
         </div>
         <div class="rh-daily__cal-nav">
