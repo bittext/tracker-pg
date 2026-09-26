@@ -69,10 +69,10 @@
           type="button"
           class="ui-layout-toggle"
           (click)="uiLayout.toggle()"
-          [attr.aria-pressed]="uiLayout.isRedesign()"
-          [attr.title]="uiLayout.isRedesign() ? 'Switch to current layout' : 'Switch to redesign layout'"
+          [attr.aria-pressed]="uiLayout.layout() !== 'current'"
+          [attr.title]="'Layout: ' + uiLayout.layoutLabel() + ' — click to cycle'"
         >
-          {{ uiLayout.isRedesign() ? 'Redesign' : 'Current' }}
+          {{ uiLayout.layoutLabel() }}
         </button>
         <app-theme-settings />
       </header>
@@ -100,9 +100,10 @@
         type="button"
         class="ui-layout-toggle"
         (click)="uiLayout.toggle()"
-        [attr.aria-pressed]="uiLayout.isRedesign()"
+        [attr.aria-pressed]="uiLayout.layout() !== 'current'"
+        [attr.title]="'Layout: ' + uiLayout.layoutLabel() + ' — click to cycle'"
       >
-        {{ uiLayout.isRedesign() ? 'Redesign' : 'Current' }}
+        {{ uiLayout.layoutLabel() }}
       </button>
       <app-theme-settings />
       <span class="life-classic-shell__user">{{ username }}</span>

@@ -426,6 +426,10 @@
       </div>
     </div>
 
+    @if (uiLayout.isSpine() && moneyPicture(); as pic) {
+      <app-robinhood-daily-spine [picture]="pic" [monthTitle]="calendarTitle()" (openDay)="onSpineOpenDay($event)" />
+    }
+
     <section class="rh-daily__cal" aria-labelledby="rh-daily-cal-title">
       <header class="rh-daily__cal-head">
         <div>
@@ -558,7 +562,7 @@
       </div>
     </section>
 
-    @if (moneyPicture(); as pic) {
+    @if (!uiLayout.isSpine() && moneyPicture(); as pic) {
       <section class="rh-daily__tape" aria-labelledby="rh-daily-tape-title">
         <header class="rh-daily__tape-head">
           <div>

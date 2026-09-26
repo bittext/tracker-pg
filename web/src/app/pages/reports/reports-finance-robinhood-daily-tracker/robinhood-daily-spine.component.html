@@ -1,0 +1,169 @@
+<section class="rh-spine" aria-labelledby="rh-spine-title">
+  <header class="rh-spine__head">
+    <div>
+      <h3 id="rh-spine-title" class="rh-spine__title">{{ monthTitle }} spine</h3>
+      <p class="muted rh-spine__lead">
+        Three rooms on every day. Left is FIFO sale gain or loss. Center is the book as it is (solid) and the book if
+        no outside cash moved (dashed). Right is cash added or taken out. A day with both a sale and cash splits into
+        two bands.
+      </p>
+    </div>
+  </header>
+
+  <div class="rh-spine__kpis" role="group" aria-label="Book, sales, and cash">
+    <div class="rh-spine__kpi">
+      <span class="muted">Book</span>
+      <strong>{{ picture.latestBook != null ? (picture.latestBook | currency) : '—' }}</strong>
+    </div>
+    <div class="rh-spine__kpi">
+      <span class="muted">If no cash this month</span>
+      <strong>{{ picture.latestIfNoIo != null ? (picture.latestIfNoIo | currency) : '—' }}</strong>
+    </div>
+    <div class="rh-spine__kpi">
+      <span class="muted">If no cash this year</span>
+      <strong>{{ picture.yearIfNoIo != null ? (picture.yearIfNoIo | currency) : '—' }}</strong>
+    </div>
+    <div class="rh-spine__kpi">
+      <span class="muted">Sale net</span>
+      <strong [class.rh-spine__pos]="picture.saleNet > 0" [class.rh-spine__neg]="picture.saleNet < 0">
+        {{ picture.saleNet | currency }}
+      </strong>
+      <small class="muted">{{ picture.sellDays }} sale days</small>
+    </div>
+    <div class="rh-spine__kpi">
+      <span class="muted">Added / taken out</span>
+      <strong>
+        <span class="rh-spine__in">{{ picture.added | currency }}</span>
+        <span class="muted"> / </span>
+        <span class="rh-spine__out">{{ picture.removed | currency }}</span>
+      </strong>
+    </div>
+  </div>
+
+  <div class="rh-spine__stage">
+    <div class="rh-spine__grid" role="table" aria-label="Sales, books, and cash by day">
+      <div class="rh-spine__col-head rh-spine__col-head--sale" role="columnheader">
+        <strong>Sales</strong>
+        <span>FIFO only</span>
+      </div>
+      <div class="rh-spine__col-head rh-spine__col-head--book" role="columnheader">
+        <strong>Books</strong>
+        <span>Solid vs dashed</span>
+      </div>
+      <div class="rh-spine__col-head rh-spine__col-head--cash" role="columnheader">
+        <strong>Cash</strong>
+        <span>Outside I/O</span>
+      </div>
+
+      @for (band of bands(); track band.key) {
+        <button
+          type="button"
+          class="rh-spine__cell rh-spine__cell--sale"
+          [class.rh-spine__cell--selected]="band.point.date === selected()?.date"
+          (click)="select(band.point)"
+        >
+          @if (showSale(band.layer, band.point)) {
+            <span
+              class="rh-spine__amt"
+              [class.rh-spine__pos]="band.point.sale.net > 0"
+              [class.rh-spine__neg]="band.point.sale.net < 0"
+            >
+              {{ band.point.sale.net | currency }}
+            </span>
+            <span
+              class="rh-spine__bar"
+              [class.rh-spine__bar--pos]="band.point.sale.net > 0"
+              [class.rh-spine__bar--neg]="band.point.sale.net < 0"
+              [style.width.px]="eventWidth(band.point.sale.net)"
+            ></span>
+          } @else {
+            <span class="muted">—</span>
+          }
+        </button>
+        <button
+          type="button"
+          class="rh-spine__cell rh-spine__cell--book"
+          [class.rh-spine__cell--selected]="band.point.date === selected()?.date"
+          (click)="select(band.point)"
+        >
+          <span class="rh-spine__day">{{ bandLabel(band) }}</span>
+          <span class="rh-spine__track" aria-hidden="true">
+            @if (band.point.bookIfNoIo != null) {
+              <i class="rh-spine__node rh-spine__node--noio" [style.left.%]="bookLeft(band.point.bookIfNoIo)"></i>
+            }
+            @if (band.point.book != null) {
+              <i class="rh-spine__node rh-spine__node--book" [style.left.%]="bookLeft(band.point.book)"></i>
+            }
+          </span>
+        </button>
+        <button
+          type="button"
+          class="rh-spine__cell rh-spine__cell--cash"
+          [class.rh-spine__cell--selected]="band.point.date === selected()?.date"
+          (click)="select(band.point)"
+        >
+          @if (showCash(band.layer, band.point)) {
+            <span
+              class="rh-spine__bar"
+              [class.rh-spine__bar--in]="band.point.added && !band.point.removed"
+              [class.rh-spine__bar--out]="!!band.point.removed"
+              [style.width.px]="eventWidth(band.point.removed || band.point.added)"
+            ></span>
+            <span class="rh-spine__amt" [class.rh-spine__in]="band.point.added" [class.rh-spine__out]="band.point.removed">
+              @if (band.point.removed) {
+                out {{ band.point.removed | currency }}
+              } @else {
+                in {{ band.point.added | currency }}
+              }
+            </span>
+          } @else {
+            <span class="muted">—</span>
+          }
+        </button>
+      }
+    </div>
+
+    @if (selected(); as day) {
+      <aside class="rh-spine__dock" aria-label="Selected day">
+        <header class="rh-spine__dock-head">
+          <strong>{{ day.date | date: 'fullDate' }}</strong>
+        </header>
+        <p>{{ selectedNote(day) }}</p>
+        <dl class="rh-spine__dock-stats">
+          <div>
+            <dt>Book</dt>
+            <dd>{{ day.book != null ? (day.book | currency) : '—' }}</dd>
+          </div>
+          <div>
+            <dt>If no cash</dt>
+            <dd>{{ day.bookIfNoIo != null ? (day.bookIfNoIo | currency) : '—' }}</dd>
+          </div>
+          <div>
+            <dt>Sale</dt>
+            <dd [class.rh-spine__pos]="day.sale.net > 0" [class.rh-spine__neg]="day.sale.net < 0">
+              {{ day.sale.count ? (day.sale.net | currency) : '—' }}
+            </dd>
+          </div>
+          <div>
+            <dt>Cash</dt>
+            <dd>
+              @if (day.added) {
+                <span class="rh-spine__in">+{{ day.added | currency }}</span>
+              }
+              @if (day.removed) {
+                <span class="rh-spine__out">−{{ day.removed | currency }}</span>
+              }
+              @if (!day.added && !day.removed) {
+                —
+              }
+            </dd>
+          </div>
+        </dl>
+        <button mat-stroked-button type="button" [disabled]="!day.day" (click)="openSelected()">
+          <mat-icon>open_in_new</mat-icon>
+          Open day
+        </button>
+      </aside>
+    }
+  </div>
+</section>

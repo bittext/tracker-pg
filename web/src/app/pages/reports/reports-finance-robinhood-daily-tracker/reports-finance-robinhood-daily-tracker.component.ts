@@ -52,6 +52,14 @@ import {
   RobinhoodDailyDayDialogData,
   RH_DAY_DIALOG_CONFIG,
 } from './robinhood-daily-day-dialog.component';
+import { RobinhoodDailySpineComponent } from './robinhood-daily-spine.component';
+import {
+  RhDailyMoneyPicture,
+  RhDailyMoneyPicturePoint,
+  RhDailySaleDay,
+} from './rh-daily-money-picture.models';
+
+export type { RhDailyMoneyPicture, RhDailyMoneyPicturePoint, RhDailySaleDay };
 
 /** One cell in the gains/losses month calendar. */
 export interface RhDailyCalendarCell {
@@ -174,50 +182,6 @@ export interface RhDailyMonkeyAnalysis {
   playbook: string;
 }
 
-/** One day’s FIFO sale tally used by the month money picture. */
-export interface RhDailySaleDay {
-  gains: number;
-  losses: number;
-  net: number;
-  count: number;
-  symbols: string[];
-}
-
-/** Combined book, sale, and cash row for the Daily Tracker overlay. */
-export interface RhDailyMoneyPicturePoint {
-  date: string;
-  day: RobinhoodRhDailyTrackerDayDto | null;
-  book: number | null;
-  bookDelta: number | null;
-  added: number;
-  removed: number;
-  sale: RhDailySaleDay;
-  bookIfNoIo: number | null;
-  x: number;
-  bookY: number | null;
-  noIoY: number | null;
-  saleBarH: number;
-  saleUp: boolean;
-  addedBarH: number;
-  removedBarH: number;
-}
-
-export interface RhDailyMoneyPicture {
-  points: RhDailyMoneyPicturePoint[];
-  eventRows: RhDailyMoneyPicturePoint[];
-  latestBook: number | null;
-  latestIfNoIo: number | null;
-  yearIfNoIo: number | null;
-  saleGains: number;
-  saleLosses: number;
-  saleNet: number;
-  sellDays: number;
-  added: number;
-  removed: number;
-  bookPath: string;
-  noIoPath: string;
-}
-
 export interface RhDailyFocusMetrics {
   startValue: number;
   latestValue: number;
@@ -254,6 +218,7 @@ export interface RhDailyFocusMetrics {
     CurrencyPipe,
     DatePipe,
     DecimalPipe,
+    RobinhoodDailySpineComponent,
   ],
   templateUrl: './reports-finance-robinhood-daily-tracker.component.html',
   styleUrl: './reports-finance-robinhood-daily-tracker.component.scss',
@@ -369,7 +334,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     effect(() => {
       const year = this.journalNav.insightsYear();
       this.uiLayout.layout();
-      if (!this.railPrimed || !this.uiLayout.isRedesign()) {
+      if (!this.railPrimed || !this.uiLayout.usesInsightsRail()) {
         return;
       }
       if (year && year !== this.reportYear) {
@@ -382,7 +347,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   ngOnInit(): void {
     this.aiWeekStart = this.mondayOf(this.todayIso());
     this.aiDay = this.todayIso();
-    if (this.uiLayout.isRedesign()) {
+    if (this.uiLayout.usesInsightsRail()) {
       this.reportYear = this.journalNav.insightsYear();
     }
     this.railPrimed = true;
@@ -991,6 +956,10 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     if (point.day) {
       this.openDayDetail(point.day);
     }
+  }
+
+  onSpineOpenDay(point: RhDailyMoneyPicturePoint): void {
+    this.onMoneyPictureDay(point);
   }
 
   moneyPictureXLabels(pic: RhDailyMoneyPicture): Array<{ date: string; x: number; label: string }> {

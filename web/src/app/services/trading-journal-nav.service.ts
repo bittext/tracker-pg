@@ -16,8 +16,10 @@ export class TradingJournalNavService {
   readonly insightsSymbol = signal('');
   readonly insightsAccountSuffix = signal('');
 
-  openJournal(dateIso: string): void {
-    this.requestedDate.set(dateIso);
+  openJournal(dateIso?: string | null): void {
+    if (dateIso) {
+      this.requestedDate.set(dateIso);
+    }
     this.analyticsTabIndex.set(5);
   }
 

@@ -804,7 +804,7 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
       this.journalNav.insightsSymbol();
       this.journalNav.insightsAccountSuffix();
       this.uiLayout.layout();
-      if (!this.railPrimed || !this.uiLayout.isRedesign()) {
+      if (!this.railPrimed || !this.uiLayout.usesInsightsRail()) {
         return;
       }
       this.applyInsightsRail();
@@ -819,7 +819,7 @@ export class ReportsFinanceRobinhoodOwnershipHistoryComponent implements OnInit 
   }
 
   private applyInsightsRail(): void {
-    if (!this.uiLayout.isRedesign()) {
+    if (!this.uiLayout.usesInsightsRail()) {
       return;
     }
     const year = this.journalNav.insightsYear();

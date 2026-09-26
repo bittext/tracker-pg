@@ -2,9 +2,11 @@ import { Injectable, computed, inject, PLATFORM_ID, signal } from '@angular/core
 import { isPlatformBrowser } from '@angular/common';
 import {
   DEFAULT_UI_LAYOUT,
+  UI_LAYOUT_CYCLE,
   UI_LAYOUT_STORAGE_KEY,
   UiLayout,
   parseUiLayout,
+  uiLayoutLabel,
 } from '../models/ui-layout.models';
 
 @Injectable({ providedIn: 'root' })
@@ -15,6 +17,11 @@ export class UiLayoutService {
 
   readonly layout = this.layoutSignal.asReadonly();
   readonly isRedesign = computed(() => this.layoutSignal() === 'redesign');
+  readonly isSpine = computed(() => this.layoutSignal() === 'spine');
+  readonly usesInsightsRail = computed(() => {
+    const layout = this.layoutSignal();
+    return layout === 'redesign' || layout === 'spine';
+  });
 
   init(): void {
     if (!this.browser) {
@@ -37,7 +44,13 @@ export class UiLayoutService {
   }
 
   toggle(): void {
-    this.setLayout(this.layoutSignal() === 'redesign' ? 'current' : 'redesign');
+    const current = this.layoutSignal();
+    const index = UI_LAYOUT_CYCLE.indexOf(current);
+    this.setLayout(UI_LAYOUT_CYCLE[(index + 1) % UI_LAYOUT_CYCLE.length]);
+  }
+
+  layoutLabel(): string {
+    return uiLayoutLabel(this.layoutSignal());
   }
 
   private loadStored(): UiLayout {

@@ -77,6 +77,16 @@ import { UiLayoutService } from '../../services/ui-layout.service';
               <mat-icon aria-hidden="true">space_dashboard</mat-icon>
               <span>Redesign</span>
             </button>
+            <button
+              type="button"
+              class="theme-settings-menu__mode"
+              [class.theme-settings-menu__mode--active]="layout.isSpine()"
+              [attr.aria-pressed]="layout.isSpine()"
+              (click)="onLayoutChange('spine')"
+            >
+              <mat-icon aria-hidden="true">view_timeline</mat-icon>
+              <span>Spine</span>
+            </button>
           </div>
         </div>
 

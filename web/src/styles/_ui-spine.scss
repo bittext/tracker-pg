@@ -1,0 +1,11 @@
+/* Month spine — extra to the shared rail/chrome in _ui-redesign. */
+
+[data-ui-layout='spine'] {
+  .rh-report-tabs .mat-mdc-tab-header {
+    margin-bottom: 0.35rem;
+  }
+
+  .rh-daily__cal-lead {
+    max-width: 40rem;
+  }
+}

@@ -12,8 +12,8 @@ import { UiLayoutService } from '../../services/ui-layout.service';
   standalone: true,
   imports: [CommonModule, FormsModule, MatFormFieldModule, MatInputModule, MatSelectModule],
   template: `
-    @if (layout.isRedesign()) {
-      <div class="insights-rail" role="search" aria-label="Insights ledger rail">
+    @if (layout.usesInsightsRail()) {
+      <div class="insights-rail" role="search" aria-label="Insights rail">
         <div class="insights-rail__accounts" role="group" aria-label="Account">
           @for (a of accounts; track a.suffix) {
             <button
@@ -73,6 +73,14 @@ import { UiLayoutService } from '../../services/ui-layout.service';
             (click)="journalNav.openExecutedTrades()"
           >
             Ledger
+          </button>
+          <button
+            type="button"
+            class="insights-rail__view"
+            [class.insights-rail__view--active]="journalNav.analyticsTabIndex() === 5"
+            (click)="journalNav.openJournal()"
+          >
+            Journal
           </button>
         </span>
       </div>

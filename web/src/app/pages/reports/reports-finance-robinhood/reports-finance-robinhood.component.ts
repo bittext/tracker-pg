@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, effect, inject } from '@angular/core';
 import { MatTabsModule } from '@angular/material/tabs';
 import { ReportsFinanceRobinhoodPerformanceComponent } from '../reports-finance-robinhood-performance/reports-finance-robinhood-performance.component';
 import { ReportsFinanceRobinhoodDailyTrackerComponent } from '../reports-finance-robinhood-daily-tracker/reports-finance-robinhood-daily-tracker.component';
@@ -10,6 +10,8 @@ import { TradingJournalPanelComponent } from '../trading-journal-panel/trading-j
 import { MarketsJourneyComponent } from '../../markets/markets-journey/markets-journey.component';
 import { InsightsRedesignRailComponent } from '../../../components/insights-redesign-rail/insights-redesign-rail.component';
 import { TradingJournalNavService } from '../../../services/trading-journal-nav.service';
+import { UiLayoutService } from '../../../services/ui-layout.service';
+import { UiLayout } from '../../../models/ui-layout.models';
 
 @Component({
   selector: 'app-reports-finance-robinhood',
@@ -31,4 +33,16 @@ import { TradingJournalNavService } from '../../../services/trading-journal-nav.
 })
 export class ReportsFinanceRobinhoodComponent {
   readonly journalNav = inject(TradingJournalNavService);
+  private readonly uiLayout = inject(UiLayoutService);
+  private lastLayout: UiLayout | null = null;
+
+  constructor() {
+    effect(() => {
+      const layout = this.uiLayout.layout();
+      if (layout === 'spine' && this.lastLayout !== 'spine') {
+        this.journalNav.openDailyTracker();
+      }
+      this.lastLayout = layout;
+    });
+  }
 }
