@@ -103,17 +103,18 @@
           (click)="select(band.point)"
         >
           @if (showCash(band.layer, band.point)) {
-            <span
-              class="rh-spine__bar"
-              [class.rh-spine__bar--in]="band.point.added && !band.point.removed"
-              [class.rh-spine__bar--out]="!!band.point.removed"
-              [style.width.px]="eventWidth(band.point.removed || band.point.added)"
-            ></span>
-            <span class="rh-spine__amt" [class.rh-spine__in]="band.point.added" [class.rh-spine__out]="band.point.removed">
-              @if (band.point.removed) {
-                out {{ band.point.removed | currency }}
-              } @else {
-                in {{ band.point.added | currency }}
+            <span class="rh-spine__cash-stack">
+              @if (showIn(band.layer, band.point)) {
+                <span class="rh-spine__cash-row">
+                  <span class="rh-spine__bar rh-spine__bar--in" [style.width.px]="eventWidth(band.point.added)"></span>
+                  <span class="rh-spine__amt rh-spine__in">in {{ band.point.added | currency }}</span>
+                </span>
+              }
+              @if (showOut(band.layer, band.point)) {
+                <span class="rh-spine__cash-row">
+                  <span class="rh-spine__bar rh-spine__bar--out" [style.width.px]="eventWidth(band.point.removed)"></span>
+                  <span class="rh-spine__amt rh-spine__out">out {{ band.point.removed | currency }}</span>
+                </span>
               }
             </span>
           } @else {

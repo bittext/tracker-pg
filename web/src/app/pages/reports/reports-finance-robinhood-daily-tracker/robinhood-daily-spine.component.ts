@@ -4,7 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { RhDailyMoneyPicture, RhDailyMoneyPicturePoint } from './rh-daily-money-picture.models';
 
-type SpineLayer = 'all' | 'sale' | 'cash';
+type SpineLayer = 'all' | 'sale' | 'in' | 'out';
 
 interface SpineBand {
   key: string;
@@ -29,10 +29,20 @@ export class RobinhoodDailySpineComponent {
   bands(): SpineBand[] {
     const out: SpineBand[] = [];
     for (const point of this.picture.points) {
-      const split = point.sale.count > 0 && (point.added !== 0 || point.removed !== 0);
-      if (split) {
-        out.push({ key: `${point.date}-sale`, point, layer: 'sale' });
-        out.push({ key: `${point.date}-cash`, point, layer: 'cash' });
+      const hasSale = point.sale.count > 0;
+      const hasIn = point.added !== 0;
+      const hasOut = point.removed !== 0;
+      const kinds = Number(hasSale) + Number(hasIn) + Number(hasOut);
+      if (kinds > 1) {
+        if (hasSale) {
+          out.push({ key: `${point.date}-sale`, point, layer: 'sale' });
+        }
+        if (hasIn) {
+          out.push({ key: `${point.date}-in`, point, layer: 'in' });
+        }
+        if (hasOut) {
+          out.push({ key: `${point.date}-out`, point, layer: 'out' });
+        }
       } else {
         out.push({ key: `${point.date}-all`, point, layer: 'all' });
       }
@@ -81,11 +91,19 @@ export class RobinhoodDailySpineComponent {
   }
 
   showSale(layer: SpineLayer, point: RhDailyMoneyPicturePoint): boolean {
-    return layer !== 'cash' && point.sale.count > 0;
+    return (layer === 'all' || layer === 'sale') && point.sale.count > 0;
+  }
+
+  showIn(layer: SpineLayer, point: RhDailyMoneyPicturePoint): boolean {
+    return (layer === 'all' || layer === 'in') && point.added !== 0;
+  }
+
+  showOut(layer: SpineLayer, point: RhDailyMoneyPicturePoint): boolean {
+    return (layer === 'all' || layer === 'out') && point.removed !== 0;
   }
 
   showCash(layer: SpineLayer, point: RhDailyMoneyPicturePoint): boolean {
-    return layer !== 'sale' && (point.added !== 0 || point.removed !== 0);
+    return this.showIn(layer, point) || this.showOut(layer, point);
   }
 
   bandLabel(band: SpineBand): string {
@@ -93,8 +111,11 @@ export class RobinhoodDailySpineComponent {
     if (band.layer === 'sale') {
       return `${day} sale`;
     }
-    if (band.layer === 'cash') {
-      return `${day} cash`;
+    if (band.layer === 'in') {
+      return `${day} in`;
+    }
+    if (band.layer === 'out') {
+      return `${day} out`;
     }
     return String(day);
   }
