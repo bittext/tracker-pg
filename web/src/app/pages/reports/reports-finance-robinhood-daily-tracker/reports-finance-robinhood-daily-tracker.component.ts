@@ -13,7 +13,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
-import { forkJoin, interval, of } from 'rxjs';
+import { interval, of } from 'rxjs';
 import { catchError, filter, switchMap } from 'rxjs/operators';
 import {
   RobinhoodExecutedTradeDto,
@@ -240,8 +240,8 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
 
   reportYear = new Date().getFullYear();
-  /** Empty = all months in the selected year. */
-  reportMonths: number[] = [];
+  /** Empty = all months in the selected year. Defaults to the calendar month so first paint stays small. */
+  reportMonths: number[] = [new Date().getMonth() + 1];
   /** Month shown in the gains/losses calendar grid (1–12). */
   calendarMonth = new Date().getMonth() + 1;
   /** Classic expandable day timeline (secondary to the calendar). */
@@ -309,6 +309,8 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
 
   private lastKnownSnapshotId = 0;
   private refreshPollReady = false;
+  private loadGeneration = 0;
+  private extrasYear: number | null = null;
 
   readonly monthChoices = [
     { value: 1, label: 'January' },
@@ -425,27 +427,27 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
 
   load(opts?: { silent?: boolean }): void {
     const silent = opts?.silent ?? false;
+    const seq = ++this.loadGeneration;
     if (silent) {
       this.softRefreshing = true;
     } else {
       this.loading = true;
     }
+    if (this.extrasYear !== this.reportYear) {
+      this.executedTrades = [];
+      this.periodBalances = null;
+      this.extrasYear = null;
+    }
     const months = this.normalizedReportMonths();
-    forkJoin({
-      tracker: this.financeApi.robinhoodDailyTracker(this.reportYear, months),
-      trades: this.financeApi.robinhoodExecutedTrades(this.reportYear).pipe(catchError(() => of(null))),
-      balances: this.financeApi.robinhoodDailyTrackerPeriodBalances(this.reportYear).pipe(
-        catchError(() => of(null)),
-      ),
-    }).subscribe({
-      next: ({ tracker: t, trades, balances }) => {
+    this.financeApi.robinhoodDailyTracker(this.reportYear, months).subscribe({
+      next: (t) => {
+        if (seq !== this.loadGeneration) {
+          return;
+        }
         this.tracker = t;
-        this.executedTrades = trades?.trades ?? [];
-        this.periodBalances = balances;
         this.syncCalendarMonthFromTracker(t);
         const validDates = new Set(t.days.map((d) => d.snapshotDate));
         if (!silent) {
-          // Fresh open / hard refresh always starts collapse-all.
           this.expandedDays.clear();
         }
         this.mergeExpansionStateFromStorage(validDates);
@@ -455,22 +457,53 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
         }
         this.syncNoteDrafts(t.days);
         this.loadJournalDates();
-        this.loadFocusMargin();
+        this.loadFocusMargin({ silent });
         this.loading = false;
         this.softRefreshing = false;
+        this.loadMoneyPictureExtras(seq, !silent);
         if (!silent) {
           this.syncRefreshHint(true);
         }
       },
       error: (err) => {
+        if (seq !== this.loadGeneration) {
+          return;
+        }
         this.tracker = null;
         this.executedTrades = [];
         this.periodBalances = null;
+        this.extrasYear = null;
         this.loading = false;
         this.softRefreshing = false;
         if (!silent) {
           this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 8000 });
         }
+      },
+    });
+  }
+
+  /** Sale overlay and year cash KPI — after the month tape, and skip on silent poll when the year is already loaded. */
+  private loadMoneyPictureExtras(seq: number, force: boolean): void {
+    if (!force && this.extrasYear === this.reportYear) {
+      return;
+    }
+    const year = this.reportYear;
+    this.financeApi.robinhoodExecutedTrades(year).pipe(catchError(() => of(null))).subscribe({
+      next: (trades) => {
+        if (seq !== this.loadGeneration || year !== this.reportYear) {
+          return;
+        }
+        this.executedTrades = trades?.trades ?? [];
+        this.extrasYear = year;
+      },
+    });
+    this.financeApi.robinhoodDailyTrackerPeriodBalances(year).pipe(catchError(() => of(null))).subscribe({
+      next: (balances) => {
+        if (seq !== this.loadGeneration || year !== this.reportYear) {
+          return;
+        }
+        this.periodBalances = balances;
+        this.extrasYear = year;
       },
     });
   }
@@ -1595,7 +1628,10 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     return this.focusMarginAccount?.margin ?? null;
   }
 
-  private loadFocusMargin(): void {
+  private loadFocusMargin(opts?: { silent?: boolean }): void {
+    if (opts?.silent && this.focusMarginAccount) {
+      return;
+    }
     this.financeApi.robinhoodRhAccountsTrack(false).subscribe({
       next: (track) => {
         this.focusMarginAccount =
@@ -2496,7 +2532,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   }
 
   clearMonthSelection(): void {
-    this.reportMonths = [];
+    this.reportMonths = [this.calendarMonth];
     this.load();
   }
 

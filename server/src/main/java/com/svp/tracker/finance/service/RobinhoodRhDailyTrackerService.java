@@ -123,15 +123,18 @@ public class RobinhoodRhDailyTrackerService {
     public RobinhoodRhDailyTrackerReportDto buildReport(int year, List<Integer> months) {
         long ownerUserId = currentUser.requireUserId();
         boolean scheduledOwner = isScheduledCaptureOwner(ownerUserId);
-        List<RobinhoodAgenticSyncedOrder> ownerOrders =
-                syncedOrderRepository.findByOwnerUserIdOrderByUpdatedAtRhDescCreatedAtRhDesc(ownerUserId);
         LocalDate yearStart = LocalDate.of(year, 1, 1);
         LocalDate yearEnd = LocalDate.of(year, 12, 31);
-        List<RobinhoodRhDailySnapshot> allYearRows =
-                visibleSnapshots(
-                        ownerUserId,
-                        snapshotRepository.findByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateDescAccountSuffixAsc(
-                                ownerUserId, yearStart, yearEnd));
+        Set<Integer> monthFilter = months == null || months.isEmpty() ? null : new HashSet<>(months);
+        SnapshotQueryWindow window = snapshotQueryWindow(year, monthFilter);
+        List<RobinhoodRhDailySnapshot> allYearRows = loadSnapshotWindow(ownerUserId, yearStart, window);
+        log.info(
+                "daily-tracker report year={} months={} snapshotWindow={}..{} rows={}",
+                year,
+                monthFilter == null ? "all" : monthFilter,
+                window.start(),
+                window.end(),
+                allYearRows.size());
 
         List<RobinhoodRhDailySnapshot> scheduledYearRows = scheduledOnly(allYearRows);
         List<RobinhoodRhDailySnapshot> intradayYearRows = intradayOnly(allYearRows);
@@ -143,8 +146,6 @@ public class RobinhoodRhDailyTrackerService {
         }
         Map<Long, RhDailyTrackerAlertEvent> alertsBySnapshotId =
                 loadSpikeAlertsBySnapshotId(ownerUserId, snapshotIds);
-
-        Set<Integer> monthFilter = months == null || months.isEmpty() ? null : new HashSet<>(months);
 
         List<RobinhoodRhDailySnapshot> scheduledRows = scheduledYearRows.stream()
                 .filter(r -> matchesMonthFilter(r.getSnapshotDate(), monthFilter))
@@ -223,17 +224,28 @@ public class RobinhoodRhDailyTrackerService {
         }
 
         Map<String, List<RobinhoodAccountCashIo>> cashIoBySuffix =
-                loadCashIoBySuffix(ownerUserId, yearStart.minusDays(3), yearEnd);
+                loadCashIoBySuffix(ownerUserId, window.start().minusDays(3), window.end());
 
         Map<LocalDate, String> summaryNotesByDate = new LinkedHashMap<>();
         for (RobinhoodRhDailyDayNote noteRow :
                 dayNoteRepository.findByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateDesc(
-                        ownerUserId, yearStart, yearEnd)) {
+                        ownerUserId, window.monthStart(), window.end())) {
             if (!matchesMonthFilter(noteRow.getSnapshotDate(), monthFilter)) {
                 continue;
             }
             if (noteRow.getNoteText() != null && !noteRow.getNoteText().isBlank()) {
                 summaryNotesByDate.put(noteRow.getSnapshotDate(), noteRow.getNoteText().trim());
+            }
+        }
+
+        List<RobinhoodAgenticSyncedOrder> ownerOrders = List.of();
+        for (LocalDate dayDate : dayDates) {
+            if (needsSyncedOrderFallback(
+                    scheduledByDate.getOrDefault(dayDate, List.of()),
+                    intradayByDate.getOrDefault(dayDate, List.of()),
+                    manualByDate.getOrDefault(dayDate, List.of()))) {
+                ownerOrders = syncedOrderRepository.findByOwnerUserIdOrderByUpdatedAtRhDescCreatedAtRhDesc(ownerUserId);
+                break;
             }
         }
 
@@ -339,8 +351,10 @@ public class RobinhoodRhDailyTrackerService {
 
         BigDecimal monthCombinedTotal = latestCombinedTotal(monthScheduledRows);
         BigDecimal monthCombinedChange = combinedChange(monthScheduledRows);
-        BigDecimal yearCombinedTotal = latestCombinedTotal(scheduledYearRows);
-        BigDecimal yearCombinedChange = combinedChange(scheduledYearRows);
+        List<RhScheduledTotalRow> yearScheduledTotals = visibleScheduledTotals(
+                ownerUserId, snapshotRepository.findScheduledTotalsBetween(ownerUserId, yearStart, yearEnd));
+        BigDecimal yearCombinedTotal = latestCombinedFromTotals(yearScheduledTotals);
+        BigDecimal yearCombinedChange = combinedChangeFromTotals(yearScheduledTotals);
 
         List<String> notes = new ArrayList<>();
         boolean dailyTrackerEnabled = accountTrackerConfigService.isDailyTrackerEnabled(ownerUserId);
@@ -1602,6 +1616,100 @@ public class RobinhoodRhDailyTrackerService {
 
     private static boolean matchesMonthFilter(LocalDate date, Set<Integer> monthFilter) {
         return monthFilter == null || monthFilter.contains(date.getMonthValue());
+    }
+
+    /** Full snapshot rows for selected months, plus a short lookback so day-1 deltas stay correct. */
+    record SnapshotQueryWindow(LocalDate start, LocalDate end, LocalDate monthStart) {}
+
+    static SnapshotQueryWindow snapshotQueryWindow(int year, Set<Integer> monthFilter) {
+        LocalDate yearStart = LocalDate.of(year, 1, 1);
+        LocalDate yearEnd = LocalDate.of(year, 12, 31);
+        if (monthFilter == null || monthFilter.isEmpty() || monthFilter.size() == 12) {
+            return new SnapshotQueryWindow(yearStart, yearEnd, yearStart);
+        }
+        int minM = monthFilter.stream().min(Integer::compareTo).orElse(1);
+        int maxM = monthFilter.stream().max(Integer::compareTo).orElse(12);
+        LocalDate monthStart = LocalDate.of(year, minM, 1);
+        return new SnapshotQueryWindow(monthStart.minusDays(7), YearMonth.of(year, maxM).atEndOfMonth(), monthStart);
+    }
+
+    private List<RobinhoodRhDailySnapshot> loadSnapshotWindow(
+            long ownerUserId, LocalDate yearStart, SnapshotQueryWindow window) {
+        List<RobinhoodRhDailySnapshot> rows = new ArrayList<>(visibleSnapshots(
+                ownerUserId,
+                snapshotRepository.findByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateDescAccountSuffixAsc(
+                        ownerUserId, window.start(), window.end())));
+        if (!window.monthStart().isAfter(yearStart)) {
+            return rows;
+        }
+        LocalDate beforeMonth = window.monthStart().minusDays(1);
+        List<RhScheduledTotalRow> priorTotals = visibleScheduledTotals(
+                ownerUserId, snapshotRepository.findScheduledTotalsBetween(ownerUserId, yearStart, beforeMonth));
+        if (priorTotals.isEmpty()) {
+            return rows;
+        }
+        LocalDate priorScheduled = priorTotals.get(0).snapshotDate();
+        if (!priorScheduled.isBefore(window.start())) {
+            return rows;
+        }
+        List<RobinhoodRhDailySnapshot> priorDay = visibleSnapshots(
+                ownerUserId,
+                snapshotRepository.findByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateDescAccountSuffixAsc(
+                        ownerUserId, priorScheduled, priorScheduled));
+        if (priorDay.isEmpty()) {
+            return rows;
+        }
+        List<RobinhoodRhDailySnapshot> merged = new ArrayList<>(priorDay.size() + rows.size());
+        merged.addAll(priorDay);
+        merged.addAll(rows);
+        return merged;
+    }
+
+    private static BigDecimal latestCombinedFromTotals(List<RhScheduledTotalRow> rows) {
+        if (rows.isEmpty()) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+        LocalDate latest = rows.stream()
+                .map(RhScheduledTotalRow::snapshotDate)
+                .max(LocalDate::compareTo)
+                .orElse(null);
+        if (latest == null) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+        BigDecimal sum = rows.stream()
+                .filter(r -> latest.equals(r.snapshotDate()))
+                .map(RhScheduledTotalRow::totalAccountValue)
+                .map(RobinhoodRhDailyTrackerService::nullToZero)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return scaleMoney(sum);
+    }
+
+    private static BigDecimal combinedChangeFromTotals(List<RhScheduledTotalRow> rows) {
+        if (rows.isEmpty()) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+        LocalDate earliest = rows.stream()
+                .map(RhScheduledTotalRow::snapshotDate)
+                .min(LocalDate::compareTo)
+                .orElse(null);
+        LocalDate latest = rows.stream()
+                .map(RhScheduledTotalRow::snapshotDate)
+                .max(LocalDate::compareTo)
+                .orElse(null);
+        if (earliest == null || latest == null || earliest.equals(latest)) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+        BigDecimal start = rows.stream()
+                .filter(r -> earliest.equals(r.snapshotDate()))
+                .map(RhScheduledTotalRow::totalAccountValue)
+                .map(RobinhoodRhDailyTrackerService::nullToZero)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal end = rows.stream()
+                .filter(r -> latest.equals(r.snapshotDate()))
+                .map(RhScheduledTotalRow::totalAccountValue)
+                .map(RobinhoodRhDailyTrackerService::nullToZero)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return scaleMoney(end.subtract(start));
     }
 
     private static BigDecimal latestCombinedTotal(List<RobinhoodRhDailySnapshot> rows) {
