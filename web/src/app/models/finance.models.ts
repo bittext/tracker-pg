@@ -785,6 +785,8 @@ export interface RobinhoodIndividualMarginWatchDto {
   standing: RobinhoodIndividualMarginStandingDto;
   days: RobinhoodIndividualMarginDayDto[];
   recentPeeks: RobinhoodIndividualMarginPeekDto[];
+  /** Hourly peeks continue; only rows where a monitored figure moved. */
+  ledger: RobinhoodIndividualMarginPeekDto[];
   alerts: RobinhoodIndividualMarginAlertEventDto[];
   emailConfigured: boolean;
   emailHint: string;

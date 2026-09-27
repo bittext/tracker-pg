@@ -35,6 +35,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -406,7 +407,8 @@ public class RobinhoodIndividualMarginWatchService {
                 "Near-call alerts fire when estimated buffer ÷ portfolio crosses 5% (enter or leave).");
         notes.add(
                 "House maintenance is scaled from Robinhood’s Sep 27 2026 print; the broker does not expose the official requirement on this API.");
-        notes.add("Hourly Daily Tracker captures keep the tape current; Peek now stores an extra print.");
+        notes.add(
+                "Hourly Daily Tracker captures keep peeking; the ledger only prints when debit, book, borrow, buffer, available, interest, or status moves.");
 
         List<RobinhoodIndividualMarginAlertEventDto> alerts = alertRepository
                 .findTop20ByOwnerUserIdAndAccountSuffixOrderByCreatedAtDesc(ownerUserId, ACCOUNT_SUFFIX)
@@ -422,6 +424,7 @@ public class RobinhoodIndividualMarginWatchService {
                 standing(latest),
                 List.copyOf(days),
                 withDeltas(recent),
+                withDeltas(ledgerChangePeeks(yearPeeks)),
                 alerts,
                 emailConfigured,
                 emailHint,
@@ -440,6 +443,58 @@ public class RobinhoodIndividualMarginWatchService {
             prior = row;
         }
         return Optional.ofNullable(prior);
+    }
+
+    /** First peek plus any later peek where a monitored ledger figure moved. */
+    static List<RhIndividualMarginPeek> ledgerChangePeeks(List<RhIndividualMarginPeek> ordered) {
+        List<RhIndividualMarginPeek> out = new ArrayList<>();
+        RhIndividualMarginPeek lastPrinted = null;
+        for (RhIndividualMarginPeek row : ordered) {
+            if (lastPrinted == null || monitoredChanged(lastPrinted, row)) {
+                out.add(row);
+                lastPrinted = row;
+            }
+        }
+        return out;
+    }
+
+    static boolean monitoredChanged(RhIndividualMarginPeek prior, RhIndividualMarginPeek next) {
+        if (prior == null || next == null) {
+            return true;
+        }
+        return !moneyEq(prior.getMarginDebit(), next.getMarginDebit())
+                || !moneyEq(prior.getEquityMarketValue(), next.getEquityMarketValue())
+                || !moneyEq(prior.getPortfolioValue(), next.getPortfolioValue())
+                || !moneyEq(prior.getCashBalance(), next.getCashBalance())
+                || !moneyEq(prior.getBuyingPower(), next.getBuyingPower())
+                || !moneyEq(prior.getBufferAmount(), next.getBufferAmount())
+                || !moneyEq(prior.getMaintenanceRequirement(), next.getMaintenanceRequirement())
+                || !moneyEq(prior.getDailyInterest(), next.getDailyInterest())
+                || !pctEq(prior.getBorrowPercent(), next.getBorrowPercent())
+                || !pctEq(prior.getBufferPercent(), next.getBufferPercent())
+                || !Objects.equals(prior.getRiskStatus(), next.getRiskStatus())
+                || prior.isNearCall() != next.isNearCall()
+                || prior.isHighBorrow() != next.isHighBorrow();
+    }
+
+    private static boolean moneyEq(BigDecimal a, BigDecimal b) {
+        if (a == null && b == null) {
+            return true;
+        }
+        if (a == null || b == null) {
+            return false;
+        }
+        return a.setScale(2, RoundingMode.HALF_UP).compareTo(b.setScale(2, RoundingMode.HALF_UP)) == 0;
+    }
+
+    private static boolean pctEq(BigDecimal a, BigDecimal b) {
+        if (a == null && b == null) {
+            return true;
+        }
+        if (a == null || b == null) {
+            return false;
+        }
+        return a.setScale(2, RoundingMode.HALF_UP).compareTo(b.setScale(2, RoundingMode.HALF_UP)) == 0;
     }
 
     private static List<RobinhoodIndividualMarginPeekDto> withDeltas(List<RhIndividualMarginPeek> ordered) {

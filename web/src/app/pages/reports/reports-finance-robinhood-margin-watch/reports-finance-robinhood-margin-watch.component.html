@@ -32,9 +32,7 @@
   } @else if (watch; as w) {
     <div
       class="mg-watch__banner"
-      [class.mg-watch__banner--ok]="riskTone() === 'ok'"
-      [class.mg-watch__banner--warn]="riskTone() === 'warn'"
-      [class.mg-watch__banner--hot]="riskTone() === 'hot'"
+      [style.--mg-red]="borrowRedMix() + '%'"
       [class.mg-watch__banner--call]="riskTone() === 'call'"
     >
       <div>
@@ -137,10 +135,22 @@
             <div
               class="mg-watch__cell"
               role="listitem"
+              tabindex="0"
               [attr.data-tone]="borrowTone(day.close.borrowPercent)"
               [class.mg-watch__cell--call]="day.close.nearCall"
-              [title]="day.date + ' · ' + day.close.borrowPercent + '% of book · debit ' + day.close.marginDebit"
+              [attr.aria-label]="
+                (day.date | date: 'MMM d') +
+                ' · ' +
+                (day.close.borrowPercent | number: '1.2-2') +
+                '% of book · debit ' +
+                (day.close.marginDebit | currency: 'USD' : 'symbol' : '1.2-2')
+              "
             >
+              <span class="mg-watch__cell-tip" aria-hidden="true">
+                <strong>{{ day.date | date: 'MMM d' }}</strong>
+                {{ day.close.borrowPercent | number: '1.2-2' }}% of book
+                · debit {{ day.close.marginDebit | currency: 'USD' : 'symbol' : '1.2-2' }}
+              </span>
               <span class="mg-watch__cell-bar" [style.height.%]="tapeHeight(day)"></span>
               <span class="mg-watch__cell-day">{{ day.date | date: 'M/d' }}</span>
             </div>
@@ -151,7 +161,7 @@
       }
     </section>
 
-    <section class="mg-watch__pulse" aria-label="Recent peeks">
+    <section class="mg-watch__pulse" aria-label="Hourly peeks">
       <div class="mg-watch__section-head">
         <h3>Constant peeks</h3>
         <p class="muted">Hourly Daily Tracker pulls plus manual peeks, newest on the right.</p>
@@ -163,8 +173,21 @@
               class="mg-watch__pulse-bar"
               [attr.data-tone]="borrowTone(peek.borrowPercent)"
               [style.height.%]="pulseHeight(peek)"
-              [title]="(peek.capturedAt | date: 'MMM d, h:mm a') + ' · ' + peek.borrowPercent + '%'"
-            ></span>
+              tabindex="0"
+              [attr.aria-label]="
+                (peek.capturedAt | date: 'MMM d, h:mm a') +
+                ' · ' +
+                (peek.borrowPercent | number: '1.2-2') +
+                '% of book · debit ' +
+                (peek.marginDebit | currency: 'USD' : 'symbol' : '1.2-2')
+              "
+            >
+              <span class="mg-watch__pulse-tip" aria-hidden="true">
+                <strong>{{ peek.capturedAt | date: 'MMM d, h:mm a' }}</strong>
+                {{ peek.borrowPercent | number: '1.2-2' }}% of book
+                · debit {{ peek.marginDebit | currency: 'USD' : 'symbol' : '1.2-2' }}
+              </span>
+            </span>
           }
         </div>
       } @else {
@@ -172,17 +195,20 @@
       }
     </section>
 
-    <section class="mg-watch__ledger" aria-label="Traditional daily ledger">
+    <section class="mg-watch__ledger" aria-label="Margin change ledger">
       <div class="mg-watch__section-head">
         <h3>Daily ledger</h3>
-        <p class="muted">Traditional day-by-day debit, book, borrow, and buffer.</p>
+        <p class="muted">
+          Hourly peeks continue in the background. A row appears only when debit, book, borrow, buffer, available,
+          interest, or status moves.
+        </p>
       </div>
-      @if (w.days.length) {
+      @if (w.ledger.length) {
         <div class="mg-watch__table-wrap">
           <table class="mg-watch__table">
             <thead>
               <tr>
-                <th>Date</th>
+                <th>When</th>
                 <th>Kind</th>
                 <th>Debit</th>
                 <th>Δ debit</th>
@@ -196,36 +222,38 @@
               </tr>
             </thead>
             <tbody>
-              @for (day of w.days.slice().reverse(); track day.date) {
-                <tr [class.mg-watch__row--call]="day.close.nearCall">
-                  <td>{{ day.date | date: 'MMM d' }}</td>
-                  <td>{{ captureLabel(day.close.captureKind) }}</td>
-                  <td>{{ day.close.marginDebit | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
-                  <td [class.mg-watch__delta--up]="(day.debitChange ?? 0) > 0" [class.mg-watch__delta--down]="(day.debitChange ?? 0) < 0">
-                    {{ signed(day.debitChange) }}
+              @for (row of w.ledger.slice().reverse(); track row.id) {
+                <tr [class.mg-watch__row--call]="row.nearCall">
+                  <td>{{ row.capturedAt | date: 'MMM d, h:mm a' }}</td>
+                  <td>{{ captureLabel(row.captureKind) }}</td>
+                  <td>{{ row.marginDebit | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                  <td [class.mg-watch__delta--up]="(row.debitDelta ?? 0) > 0" [class.mg-watch__delta--down]="(row.debitDelta ?? 0) < 0">
+                    {{ signed(row.debitDelta) }}
                   </td>
-                  <td>{{ day.close.equityMarketValue | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                  <td>{{ row.equityMarketValue | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
                   <td>
-                    <strong class="mg-watch__borrow" [attr.data-tone]="borrowTone(day.close.borrowPercent)">{{ day.close.borrowPercent | number: '1.2-2' }}%</strong>
+                    <strong class="mg-watch__borrow" [attr.data-tone]="borrowTone(row.borrowPercent)">{{ row.borrowPercent | number: '1.2-2' }}%</strong>
                   </td>
-                  <td>{{ day.close.portfolioValue | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                  <td>{{ row.portfolioValue | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
                   <td>
-                    @if (day.close.bufferPercent != null) {
-                      {{ day.close.bufferPercent | number: '1.2-2' }}%
+                    @if (row.bufferPercent != null) {
+                      {{ row.bufferPercent | number: '1.2-2' }}%
                     } @else {
                       —
                     }
                   </td>
                   <td>
-                    {{ day.close.buyingPower == null ? '—' : (day.close.buyingPower | currency: 'USD' : 'symbol' : '1.2-2') }}
+                    {{ row.buyingPower == null ? '—' : (row.buyingPower | currency: 'USD' : 'symbol' : '1.2-2') }}
                   </td>
-                  <td>{{ day.close.dailyInterest | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
-                  <td>{{ day.close.riskLabel }}</td>
+                  <td>{{ row.dailyInterest | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                  <td>{{ row.riskLabel }}</td>
                 </tr>
               }
             </tbody>
           </table>
         </div>
+      } @else {
+        <p class="muted">No margin changes for {{ w.year }} yet. Hourly peeks still run; a row prints when a figure moves.</p>
       }
     </section>
 

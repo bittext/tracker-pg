@@ -10,6 +10,8 @@ public record RobinhoodIndividualMarginWatchDto(
         RobinhoodIndividualMarginStandingDto standing,
         List<RobinhoodIndividualMarginDayDto> days,
         List<RobinhoodIndividualMarginPeekDto> recentPeeks,
+        /** Hourly peeks kept; only rows where a monitored figure moved. */
+        List<RobinhoodIndividualMarginPeekDto> ledger,
         List<RobinhoodIndividualMarginAlertEventDto> alerts,
         boolean emailConfigured,
         String emailHint,

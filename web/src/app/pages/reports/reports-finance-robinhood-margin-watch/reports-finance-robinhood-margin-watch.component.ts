@@ -108,6 +108,12 @@ export class ReportsFinanceRobinhoodMarginWatchComponent implements OnInit {
     return 'unknown';
   }
 
+  /** 0 = pleasant green, ~70 at 50% borrow = red footprint. Text stays dark. */
+  borrowRedMix(): number {
+    const pct = this.latest()?.borrowPercent ?? 0;
+    return Math.max(0, Math.min(72, ((pct - 5) / 50) * 72));
+  }
+
   borrowTone(pct: number | null | undefined): string {
     if (pct == null) {
       return 'unknown';

@@ -9,6 +9,7 @@ import com.svp.tracker.finance.dto.RobinhoodIndividualMarginPeekDto;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class RobinhoodIndividualMarginMathTest {
@@ -97,5 +98,36 @@ class RobinhoodIndividualMarginMathTest {
                 null,
                 null);
         assertEquals("deep", RobinhoodIndividualMarginWatchService.toneFor(latest));
+    }
+
+    @Test
+    void ledgerKeepsTheFirstPeekAndOnlyLaterMoves() {
+        RhIndividualMarginPeek first = peekAt("2026-09-25T02:00:00Z", new BigDecimal("-254813.40"));
+        RhIndividualMarginPeek same = peekAt("2026-09-26T02:00:00Z", new BigDecimal("-254813.40"));
+        RhIndividualMarginPeek moved = peekAt("2026-09-27T16:00:00Z", new BigDecimal("-269165.71"));
+
+        var printed = RobinhoodIndividualMarginWatchService.ledgerChangePeeks(List.of(first, same, moved));
+        assertEquals(2, printed.size());
+        assertEquals(first.getCapturedAt(), printed.get(0).getCapturedAt());
+        assertEquals(moved.getCapturedAt(), printed.get(1).getCapturedAt());
+        assertFalse(RobinhoodIndividualMarginWatchService.monitoredChanged(first, same));
+        assertTrue(RobinhoodIndividualMarginWatchService.monitoredChanged(first, moved));
+    }
+
+    private static RhIndividualMarginPeek peekAt(String capturedAt, BigDecimal cash) {
+        RhIndividualMarginPeek peek = new RhIndividualMarginPeek();
+        RobinhoodIndividualMarginWatchService.applyComputed(
+                peek,
+                1L,
+                Instant.parse(capturedAt),
+                LocalDate.parse(capturedAt.substring(0, 10)),
+                "INTRADAY",
+                cash,
+                new BigDecimal("494545.75"),
+                new BigDecimal("265555.03"),
+                null,
+                new BigDecimal("98.86"),
+                null);
+        return peek;
     }
 }
