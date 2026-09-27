@@ -42,6 +42,9 @@ import com.svp.tracker.finance.dto.RhDailyTrackerAlertTestResultDto;
 import com.svp.tracker.finance.dto.RhDailyTrackerAiInsightDto;
 import com.svp.tracker.finance.dto.RhDailyTrackerAiInsightRequestDto;
 import com.svp.tracker.finance.dto.RhDailyTrackerAiInsightStatusDto;
+import com.svp.tracker.finance.dto.RobinhoodIndividualMarginPeekResultDto;
+import com.svp.tracker.finance.dto.RobinhoodIndividualMarginWatchDto;
+import com.svp.tracker.finance.service.RobinhoodIndividualMarginWatchService;
 import com.svp.tracker.finance.service.RobinhoodOwnershipHistoryService;
 import com.svp.tracker.finance.service.RobinhoodRhCryptoTrackerService;
 import com.svp.tracker.finance.service.RobinhoodRhDailyTrackerAlertService;
@@ -92,6 +95,7 @@ public class FinanceController {
     private final RobinhoodOwnershipHistoryService ownershipHistoryService;
     private final RobinhoodRhDailyTrackerAlertService rhDailyTrackerAlertService;
     private final RhDailyTrackerAiInsightService rhDailyTrackerAiInsightService;
+    private final RobinhoodIndividualMarginWatchService rhIndividualMarginWatchService;
     private final FinanceProperties financeProperties;
     private final OptionsBacktestService optionsBacktestService;
 
@@ -321,6 +325,22 @@ public class FinanceController {
     public RhDailyTrackerAlertTestResultDto dailyTrackerAlertTest() {
         log.info("POST /api/finance/robinhood/daily-tracker/alerts/test");
         return rhDailyTrackerAlertService.sendTestEmail();
+    }
+
+    /** Individual ••••3370 margin debit, borrow % of equity book, and call-band standing. */
+    @GetMapping("/margin-watch")
+    public RobinhoodIndividualMarginWatchDto individualMarginWatch(
+            @RequestParam(name = "year") int year,
+            @RequestParam(name = "sync", defaultValue = "false") boolean sync) {
+        validateYear(year);
+        log.info("GET /api/finance/robinhood/margin-watch year={} sync={}", year, sync);
+        return rhIndividualMarginWatchService.watch(year, sync);
+    }
+
+    @PostMapping("/margin-watch/peek")
+    public RobinhoodIndividualMarginPeekResultDto individualMarginPeek() {
+        log.info("POST /api/finance/robinhood/margin-watch/peek");
+        return rhIndividualMarginWatchService.peekNow();
     }
 
     /** Whether Daily Tracker AI coaching is enabled and has an API key. */

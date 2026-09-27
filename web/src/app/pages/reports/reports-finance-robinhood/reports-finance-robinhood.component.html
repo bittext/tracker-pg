@@ -63,4 +63,11 @@
       <app-markets-journey />
     </div>
   </mat-tab>
+  <mat-tab label="Margin">
+    <div class="rh-report-tab-panel">
+      @if (journalNav.analyticsTabIndex() === 8) {
+        <app-reports-finance-robinhood-margin-watch />
+      }
+    </div>
+  </mat-tab>
 </mat-tab-group>

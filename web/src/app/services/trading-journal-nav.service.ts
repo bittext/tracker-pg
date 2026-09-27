@@ -5,7 +5,7 @@ import { Injectable, signal } from '@angular/core';
 export class TradingJournalNavService {
   /**
    * Robinhood analytics mat-tab index:
-   * 0 Performance, 1 Daily Tracker, 2 Trades, 3 Balances, 4 Ownership history, 5 Journal, 6 Crypto, 7 Roadmap.
+   * 0 Performance, 1 Daily Tracker, 2 Trades, 3 Balances, 4 Ownership history, 5 Journal, 6 Crypto, 7 Roadmap, 8 Margin.
    */
   readonly analyticsTabIndex = signal(0);
   /** Nested Trades tabs: 0 Ledger, 1 Tax desk. */
@@ -42,6 +42,10 @@ export class TradingJournalNavService {
   openTaxDesk(): void {
     this.analyticsTabIndex.set(2);
     this.tradesInnerTabIndex.set(1);
+  }
+
+  openMarginWatch(): void {
+    this.analyticsTabIndex.set(8);
   }
 
   consumeRequestedDate(): string | null {

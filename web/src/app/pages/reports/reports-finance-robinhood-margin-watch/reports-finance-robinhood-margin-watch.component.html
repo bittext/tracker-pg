@@ -1,0 +1,258 @@
+<section class="mg-watch" [attr.data-tone]="tone()" aria-labelledby="mg-watch-heading">
+  <p class="page-eyebrow">Robinhood · Individual ••••3370</p>
+  <div class="mg-watch__head">
+    <div>
+      <h2 id="mg-watch-heading" class="mg-watch__title">Margin</h2>
+      <p class="muted mg-watch__lead">
+        Daily debit on the Individual brokerage book only. Borrow is debit ÷ equity market value. Alerts fire when
+        estimated buffer is within 5% of a broker call. Deep red starts when borrow is about 50% of the book.
+      </p>
+    </div>
+    <div class="mg-watch__toolbar">
+      <mat-form-field appearance="outline" class="mg-watch__year">
+        <mat-label>Year</mat-label>
+        <mat-select [(ngModel)]="reportYear" name="mgYear" (selectionChange)="onYearChange()">
+          @for (y of yearChoices; track y) {
+            <mat-option [value]="y">{{ y }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      <button mat-flat-button color="primary" type="button" (click)="peekNow()" [disabled]="peeking || loading">
+        <mat-icon>radar</mat-icon>
+        {{ peeking ? 'Peeking…' : 'Peek now' }}
+      </button>
+    </div>
+  </div>
+
+  @if (loading && !watch) {
+    <div class="mg-watch__loading">
+      <mat-spinner diameter="28" />
+      <p class="muted">Loading Individual margin peeks…</p>
+    </div>
+  } @else if (watch; as w) {
+    <div class="mg-watch__banner" [class.mg-watch__banner--deep]="tone() === 'deep'" [class.mg-watch__banner--call]="tone() === 'call'" [class.mg-watch__banner--hot]="tone() === 'hot'" [class.mg-watch__banner--ok]="tone() === 'ok'">
+      <div>
+        <p class="mg-watch__banner-kicker">{{ w.accountLabel }}</p>
+        <p class="mg-watch__banner-line">{{ w.standing.headline }}</p>
+      </div>
+      <span class="mg-watch__status" [attr.data-tone]="tone()">{{ w.standing.riskLabel }}</span>
+    </div>
+
+    @if (latest(); as live) {
+      <div class="mg-watch__stage">
+        <article class="mg-watch__gauge" aria-label="Borrow of equity book">
+          <svg viewBox="0 0 140 140" class="mg-watch__dial" role="img">
+            <title>Borrow {{ live.borrowPercent | number: '1.2-2' }} percent of equity book</title>
+            <circle class="mg-watch__dial-track" cx="70" cy="70" r="54" />
+            <circle
+              class="mg-watch__dial-arc"
+              [attr.data-tone]="borrowTone(live.borrowPercent)"
+              cx="70"
+              cy="70"
+              r="54"
+              [attr.stroke-dasharray]="2 * 3.14159265 * 54"
+              [attr.stroke-dashoffset]="gaugeOffset()"
+            />
+          </svg>
+          <div class="mg-watch__dial-read">
+            <strong [attr.data-tone]="borrowTone(live.borrowPercent)">{{ live.borrowPercent | number: '1.2-2' }}%</strong>
+            <span>of equity book</span>
+          </div>
+          <p class="muted mg-watch__dial-note">
+            Debit {{ live.marginDebit | currency: 'USD' : 'symbol' : '1.2-2' }} on
+            {{ live.equityMarketValue | currency: 'USD' : 'symbol' : '1.2-2' }} equity
+          </p>
+        </article>
+
+        <article class="mg-watch__rh">
+          <h3>Broker print</h3>
+          <dl class="mg-watch__rows">
+            <div>
+              <dt>Margin used</dt>
+              <dd>{{ live.marginDebit | currency: 'USD' : 'symbol' : '1.2-2' }}</dd>
+            </div>
+            <div>
+              <dt>Margin available</dt>
+              <dd>{{ live.buyingPower == null ? '—' : (live.buyingPower | currency: 'USD' : 'symbol' : '1.2-2') }}</dd>
+            </div>
+            <div>
+              <dt>Annual rate</dt>
+              <dd>{{ live.annualRatePercent | number: '1.2-2' }}%</dd>
+            </div>
+            <div>
+              <dt>Daily interest</dt>
+              <dd>{{ live.dailyInterest | currency: 'USD' : 'symbol' : '1.2-2' }}</dd>
+            </div>
+          </dl>
+        </article>
+
+        <article class="mg-watch__rh">
+          <h3>Call distance</h3>
+          <div class="mg-watch__riskline">
+            <span>Status</span>
+            <strong [attr.data-tone]="tone()">{{ live.riskLabel }}</strong>
+          </div>
+          <div class="mg-watch__meter" role="img" [attr.aria-label]="'Maintenance ' + maintWidth() + ' percent, buffer ' + bufferWidth() + ' percent'">
+            <span class="mg-watch__meter-maint" [style.width.%]="maintWidth()"></span>
+            <span class="mg-watch__meter-buffer" [attr.data-tone]="tone()" [style.width.%]="bufferWidth()"></span>
+          </div>
+          <dl class="mg-watch__rows">
+            <div>
+              <dt>Portfolio value</dt>
+              <dd>{{ live.portfolioValue | currency: 'USD' : 'symbol' : '1.2-2' }}</dd>
+            </div>
+            <div>
+              <dt>Total maintenance req</dt>
+              <dd>{{ live.maintenanceRequirement == null ? '—' : (live.maintenanceRequirement | currency: 'USD' : 'symbol' : '1.2-2') }}</dd>
+            </div>
+            <div>
+              <dt>Buffer</dt>
+              <dd>
+                {{ live.bufferAmount == null ? '—' : (live.bufferAmount | currency: 'USD' : 'symbol' : '1.2-2') }}
+                @if (live.bufferPercent != null) {
+                  ({{ live.bufferPercent | number: '1.2-2' }}%)
+                }
+              </dd>
+            </div>
+          </dl>
+          <p class="muted mg-watch__fine">{{ w.standing.maintenanceNote }}</p>
+        </article>
+      </div>
+    }
+
+    <section class="mg-watch__tape" aria-label="Daily borrow tape">
+      <div class="mg-watch__section-head">
+        <h3>Borrow tape</h3>
+        <p class="muted">Each cell is that day’s last peek. Height and color follow borrow % of the equity book.</p>
+      </div>
+      @if (w.days.length) {
+        <div class="mg-watch__cells" role="list">
+          @for (day of w.days; track day.date) {
+            <div
+              class="mg-watch__cell"
+              role="listitem"
+              [attr.data-tone]="borrowTone(day.close.borrowPercent)"
+              [class.mg-watch__cell--call]="day.close.nearCall"
+              [title]="day.date + ' · ' + day.close.borrowPercent + '% of book · debit ' + day.close.marginDebit"
+            >
+              <span class="mg-watch__cell-bar" [style.height.%]="tapeHeight(day)"></span>
+              <span class="mg-watch__cell-day">{{ day.date | date: 'M/d' }}</span>
+            </div>
+          }
+        </div>
+      } @else {
+        <p class="muted">No daily peeks for {{ w.year }} yet. Capture Daily Tracker or peek now.</p>
+      }
+    </section>
+
+    <section class="mg-watch__pulse" aria-label="Recent peeks">
+      <div class="mg-watch__section-head">
+        <h3>Constant peeks</h3>
+        <p class="muted">Hourly Daily Tracker pulls plus manual peeks, newest on the right.</p>
+      </div>
+      @if (w.recentPeeks.length) {
+        <div class="mg-watch__pulse-row">
+          @for (peek of w.recentPeeks; track peek.id) {
+            <span
+              class="mg-watch__pulse-bar"
+              [attr.data-tone]="borrowTone(peek.borrowPercent)"
+              [style.height.%]="pulseHeight(peek)"
+              [title]="(peek.capturedAt | date: 'MMM d, h:mm a') + ' · ' + peek.borrowPercent + '%'"
+            ></span>
+          }
+        </div>
+      } @else {
+        <p class="muted">Peeks will stack here after hourly captures.</p>
+      }
+    </section>
+
+    <section class="mg-watch__ledger" aria-label="Traditional daily ledger">
+      <div class="mg-watch__section-head">
+        <h3>Daily ledger</h3>
+        <p class="muted">Traditional day-by-day debit, book, borrow, and buffer.</p>
+      </div>
+      @if (w.days.length) {
+        <div class="mg-watch__table-wrap">
+          <table class="mg-watch__table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Kind</th>
+                <th>Debit</th>
+                <th>Δ debit</th>
+                <th>Equity book</th>
+                <th>Borrow</th>
+                <th>Portfolio</th>
+                <th>Buffer</th>
+                <th>Available</th>
+                <th>Interest</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (day of w.days.slice().reverse(); track day.date) {
+                <tr [attr.data-tone]="borrowTone(day.close.borrowPercent)" [class.mg-watch__row--call]="day.close.nearCall">
+                  <td>{{ day.date | date: 'MMM d' }}</td>
+                  <td>{{ captureLabel(day.close.captureKind) }}</td>
+                  <td>{{ day.close.marginDebit | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                  <td [class.mg-watch__delta--up]="(day.debitChange ?? 0) > 0" [class.mg-watch__delta--down]="(day.debitChange ?? 0) < 0">
+                    {{ signed(day.debitChange) }}
+                  </td>
+                  <td>{{ day.close.equityMarketValue | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                  <td>
+                    <strong>{{ day.close.borrowPercent | number: '1.2-2' }}%</strong>
+                  </td>
+                  <td>{{ day.close.portfolioValue | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                  <td>
+                    @if (day.close.bufferPercent != null) {
+                      {{ day.close.bufferPercent | number: '1.2-2' }}%
+                    } @else {
+                      —
+                    }
+                  </td>
+                  <td>
+                    {{ day.close.buyingPower == null ? '—' : (day.close.buyingPower | currency: 'USD' : 'symbol' : '1.2-2') }}
+                  </td>
+                  <td>{{ day.close.dailyInterest | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                  <td>{{ day.close.riskLabel }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </section>
+
+    <section class="mg-watch__alerts">
+      <div class="mg-watch__section-head">
+        <h3>Call-band alerts</h3>
+        <p class="muted">{{ w.emailHint }}</p>
+      </div>
+      @if (w.alerts.length) {
+        <ul class="mg-watch__alert-list">
+          @for (a of w.alerts; track a.id) {
+            <li>
+              <strong>{{ alertLabel(a.eventKind) }}</strong>
+              <span>{{ a.createdAt | date: 'MMM d, h:mm a' }}</span>
+              <span>{{ a.emailStatus }}</span>
+              @if (a.bufferPercent != null) {
+                <span>buffer {{ a.bufferPercent | number: '1.2-2' }}%</span>
+              }
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="muted">No call-band emails yet. One sends when buffer ÷ portfolio crosses 5%.</p>
+      }
+    </section>
+
+    <ul class="mg-watch__notes">
+      @for (note of w.notes; track note) {
+        <li>{{ note }}</li>
+      }
+      @if (w.standing.interestMonthEstimate != null) {
+        <li>About {{ w.standing.interestMonthEstimate | currency: 'USD' : 'symbol' : '1.2-2' }} interest over 30 days at the current debit and 4.75% annual rate.</li>
+      }
+    </ul>
+  }
+</section>

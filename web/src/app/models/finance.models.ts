@@ -776,6 +776,84 @@ export interface RobinhoodRhMarginDetailsDto {
   marginInUse: boolean;
 }
 
+/** GET /api/finance/robinhood/margin-watch — Individual ••••3370 only. */
+export interface RobinhoodIndividualMarginWatchDto {
+  accountSuffix: string;
+  accountLabel: string;
+  year: number;
+  latest: RobinhoodIndividualMarginPeekDto | null;
+  standing: RobinhoodIndividualMarginStandingDto;
+  days: RobinhoodIndividualMarginDayDto[];
+  recentPeeks: RobinhoodIndividualMarginPeekDto[];
+  alerts: RobinhoodIndividualMarginAlertEventDto[];
+  emailConfigured: boolean;
+  emailHint: string;
+  notes: string[];
+}
+
+export interface RobinhoodIndividualMarginStandingDto {
+  headline: string;
+  riskStatus: string;
+  riskLabel: string;
+  tone: 'ok' | 'hot' | 'deep' | 'call' | 'unknown' | string;
+  borrowPercent: number | null;
+  bufferPercent: number | null;
+  maintenanceSharePercent: number | null;
+  interestMonthEstimate: number | null;
+  maintenanceNote: string;
+}
+
+export interface RobinhoodIndividualMarginPeekDto {
+  id: number;
+  capturedAt: string;
+  snapshotDate: string;
+  captureKind: string;
+  cashBalance: number;
+  equityMarketValue: number;
+  portfolioValue: number;
+  optionsValue: number | null;
+  buyingPower: number | null;
+  unleveragedBuyingPower: number | null;
+  marginDebit: number;
+  borrowPercent: number;
+  annualRatePercent: number;
+  dailyInterest: number;
+  maintenanceRequirement: number | null;
+  maintenanceSource: string | null;
+  bufferAmount: number | null;
+  bufferPercent: number | null;
+  nearCall: boolean;
+  highBorrow: boolean;
+  riskStatus: string;
+  riskLabel: string;
+  debitDelta: number | null;
+  borrowDelta: number | null;
+}
+
+export interface RobinhoodIndividualMarginDayDto {
+  date: string;
+  close: RobinhoodIndividualMarginPeekDto;
+  debitChange: number | null;
+  borrowChange: number | null;
+}
+
+export interface RobinhoodIndividualMarginAlertEventDto {
+  id: number;
+  eventKind: string;
+  bufferPercent: number | null;
+  borrowPercent: number | null;
+  emailStatus: string;
+  destinationMasked: string | null;
+  detail: string | null;
+  createdAt: string;
+}
+
+export interface RobinhoodIndividualMarginPeekResultDto {
+  ok: boolean;
+  message: string;
+  watch: RobinhoodIndividualMarginWatchDto;
+}
+
 export interface RobinhoodRhAccountSummaryDto {
   accountNumberMasked: string;
   accountSuffix: string;

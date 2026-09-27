@@ -104,6 +104,7 @@ public class RobinhoodRhDailyTrackerService {
     private final RobinhoodRhDailyTrackerProperties dailyTrackerProps;
     private final ObjectProvider<RobinhoodRhDailyTrackerService> selfProvider;
     private final ObjectProvider<RobinhoodRhDailyTrackerAlertService> alertServiceProvider;
+    private final ObjectProvider<RobinhoodIndividualMarginWatchService> marginWatchProvider;
     private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
     private final ConcurrentHashMap<WrapCacheKey, CachedWrap> dayWrapCache = new ConcurrentHashMap<>();
 
@@ -845,6 +846,7 @@ public class RobinhoodRhDailyTrackerService {
 
         if (captured > 0) {
             alertServiceProvider.getObject().evaluateAfterCapture(ownerUserId, savedSnapshots);
+            marginWatchProvider.getObject().recordFromCapture(ownerUserId, snapshotAt, captureKind, track);
         }
 
         String message;

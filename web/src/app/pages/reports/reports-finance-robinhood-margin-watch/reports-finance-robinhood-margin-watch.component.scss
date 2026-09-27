@@ -1,0 +1,464 @@
+.mg-watch {
+  --mg-ok: #22c55e;
+  --mg-warn: #f59e0b;
+  --mg-hot: #ef4444;
+  --mg-deep: #7f1d1d;
+  --mg-call: #450a0a;
+  padding-bottom: 2rem;
+}
+
+.mg-watch__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.mg-watch__title {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.mg-watch__lead {
+  margin: 0;
+  max-width: 40rem;
+  line-height: 1.5;
+}
+
+.mg-watch__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.mg-watch__year {
+  min-width: 6.5rem;
+}
+
+.mg-watch__loading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 6rem;
+}
+
+.mg-watch__banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+  background: color-mix(in srgb, var(--app-surface, #fff) 88%, #e2e8f0);
+}
+
+.mg-watch__banner--ok {
+  background: color-mix(in srgb, var(--mg-ok) 12%, var(--app-surface, #fff));
+}
+
+.mg-watch__banner--hot {
+  background: color-mix(in srgb, var(--mg-hot) 14%, var(--app-surface, #fff));
+}
+
+.mg-watch__banner--deep {
+  background: color-mix(in srgb, var(--mg-deep) 42%, #111);
+  color: #fee2e2;
+}
+
+.mg-watch__banner--call {
+  background: var(--mg-call);
+  color: #fecaca;
+}
+
+.mg-watch__banner-kicker {
+  margin: 0 0 0.2rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.75;
+}
+
+.mg-watch__banner-line {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 650;
+}
+
+.mg-watch__status {
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  background: rgba(15, 23, 42, 0.08);
+
+  &[data-tone='ok'] {
+    background: color-mix(in srgb, var(--mg-ok) 22%, transparent);
+    color: #166534;
+  }
+
+  &[data-tone='deep'],
+  &[data-tone='call'] {
+    background: rgba(0, 0, 0, 0.28);
+    color: #fecaca;
+  }
+}
+
+.mg-watch__stage {
+  display: grid;
+  grid-template-columns: minmax(12rem, 16rem) repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-bottom: 1.25rem;
+}
+
+.mg-watch__gauge,
+.mg-watch__rh {
+  padding: 0.95rem 1rem 1rem;
+  border-radius: 16px;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+  background: color-mix(in srgb, var(--app-surface, #111) 92%, #000);
+}
+
+.mg-watch__rh h3,
+.mg-watch__section-head h3 {
+  margin: 0 0 0.65rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.mg-watch__gauge {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  position: relative;
+}
+
+.mg-watch__dial {
+  width: 9.5rem;
+  height: 9.5rem;
+  transform: rotate(-90deg);
+}
+
+.mg-watch__dial-track,
+.mg-watch__dial-arc {
+  fill: none;
+  stroke-width: 10;
+}
+
+.mg-watch__dial-track {
+  stroke: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.mg-watch__dial-arc {
+  stroke-linecap: round;
+  transition: stroke-dashoffset 400ms ease, stroke 200ms ease;
+
+  &[data-tone='ok'] {
+    stroke: var(--mg-ok);
+  }
+
+  &[data-tone='warn'] {
+    stroke: var(--mg-warn);
+  }
+
+  &[data-tone='hot'] {
+    stroke: var(--mg-hot);
+  }
+
+  &[data-tone='deep'] {
+    stroke: #fecaca;
+    filter: drop-shadow(0 0 8px #7f1d1d);
+  }
+}
+
+.mg-watch__dial-read {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  gap: 0.1rem;
+
+  strong {
+    font-size: 1.55rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.03em;
+
+    &[data-tone='deep'] {
+      color: #fecaca;
+    }
+
+    &[data-tone='hot'] {
+      color: var(--mg-hot);
+    }
+
+    &[data-tone='ok'] {
+      color: var(--mg-ok);
+    }
+  }
+
+  span {
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 0.7;
+  }
+}
+
+.mg-watch__dial-note {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+}
+
+.mg-watch__rows {
+  margin: 0;
+  display: grid;
+  gap: 0.55rem;
+
+  > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    font-size: 0.92rem;
+  }
+
+  dt {
+    opacity: 0.72;
+  }
+
+  dd {
+    margin: 0;
+    font-variant-numeric: tabular-nums;
+    font-weight: 650;
+  }
+}
+
+.mg-watch__riskline {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.55rem;
+  font-size: 0.92rem;
+
+  strong[data-tone='ok'] {
+    color: var(--mg-ok);
+  }
+
+  strong[data-tone='deep'],
+  strong[data-tone='call'] {
+    color: #fecaca;
+  }
+}
+
+.mg-watch__meter {
+  display: flex;
+  overflow: hidden;
+  height: 0.85rem;
+  margin: 0 0 0.85rem;
+  border-radius: 999px;
+  background-image: radial-gradient(currentColor 0.85px, transparent 1px);
+  background-size: 5px 5px;
+  opacity: 0.95;
+}
+
+.mg-watch__meter-maint {
+  flex: 0 0 auto;
+  background: transparent;
+}
+
+.mg-watch__meter-buffer {
+  flex: 0 0 auto;
+  background: var(--mg-ok);
+
+  &[data-tone='hot'] {
+    background: var(--mg-warn);
+  }
+
+  &[data-tone='deep'],
+  &[data-tone='call'] {
+    background: var(--mg-hot);
+  }
+}
+
+.mg-watch__fine {
+  margin: 0.7rem 0 0;
+  font-size: 0.74rem;
+}
+
+.mg-watch__section-head {
+  margin-bottom: 0.65rem;
+
+  p {
+    margin: 0.15rem 0 0;
+    font-size: 0.82rem;
+  }
+}
+
+.mg-watch__tape,
+.mg-watch__pulse,
+.mg-watch__ledger,
+.mg-watch__alerts {
+  margin: 0 0 1.25rem;
+}
+
+.mg-watch__cells {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.28rem;
+  min-height: 8.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.mg-watch__cell {
+  flex: 0 0 1.35rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 8rem;
+  gap: 0.25rem;
+}
+
+.mg-watch__cell-bar {
+  width: 100%;
+  border-radius: 6px 6px 2px 2px;
+  background: var(--mg-ok);
+}
+
+.mg-watch__cell[data-tone='warn'] .mg-watch__cell-bar {
+  background: var(--mg-warn);
+}
+
+.mg-watch__cell[data-tone='hot'] .mg-watch__cell-bar {
+  background: var(--mg-hot);
+}
+
+.mg-watch__cell[data-tone='deep'] .mg-watch__cell-bar,
+.mg-watch__cell--call .mg-watch__cell-bar {
+  background: linear-gradient(180deg, #fecaca, var(--mg-deep));
+}
+
+.mg-watch__cell-day {
+  font-size: 0.62rem;
+  opacity: 0.65;
+  writing-mode: horizontal-tb;
+}
+
+.mg-watch__pulse-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 4.5rem;
+}
+
+.mg-watch__pulse-bar {
+  flex: 1 1 0;
+  min-width: 3px;
+  border-radius: 2px;
+  background: var(--mg-ok);
+
+  &[data-tone='warn'] {
+    background: var(--mg-warn);
+  }
+
+  &[data-tone='hot'] {
+    background: var(--mg-hot);
+  }
+
+  &[data-tone='deep'] {
+    background: var(--mg-deep);
+  }
+}
+
+.mg-watch__table-wrap {
+  overflow-x: auto;
+}
+
+.mg-watch__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+
+  th,
+  td {
+    padding: 0.45rem 0.55rem;
+    text-align: right;
+    white-space: nowrap;
+    border-bottom: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+  }
+
+  th:first-child,
+  td:first-child,
+  th:nth-child(2),
+  td:nth-child(2),
+  th:last-child,
+  td:last-child {
+    text-align: left;
+  }
+
+  thead th {
+    font-size: 0.68rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    opacity: 0.7;
+  }
+
+  tbody tr[data-tone='deep'] {
+    background: color-mix(in srgb, var(--mg-deep) 28%, transparent);
+    color: #fecaca;
+  }
+
+  tbody tr.mg-watch__row--call {
+    background: var(--mg-call);
+    color: #fecaca;
+  }
+}
+
+.mg-watch__delta--up {
+  color: var(--mg-hot);
+}
+
+.mg-watch__delta--down {
+  color: var(--mg-ok);
+}
+
+.mg-watch__alert-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.4rem;
+
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    padding: 0.45rem 0.6rem;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--app-surface, #fff) 88%, #cbd5e1);
+    font-size: 0.82rem;
+  }
+}
+
+.mg-watch__notes {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: inherit;
+  opacity: 0.75;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+  .mg-watch__stage {
+    grid-template-columns: 1fr;
+  }
+}

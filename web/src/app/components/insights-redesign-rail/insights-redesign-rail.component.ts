@@ -82,6 +82,14 @@ import { UiLayoutService } from '../../services/ui-layout.service';
           >
             Journal
           </button>
+          <button
+            type="button"
+            class="insights-rail__view"
+            [class.insights-rail__view--active]="journalNav.analyticsTabIndex() === 8"
+            (click)="journalNav.openMarginWatch()"
+          >
+            Margin
+          </button>
         </span>
       </div>
     }

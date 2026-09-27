@@ -1,6 +1,7 @@
 package com.svp.tracker.finance.repository;
 
 import com.svp.tracker.finance.domain.RobinhoodRhDailySnapshot;
+import com.svp.tracker.finance.dto.RhMarginSnapshotMoneyRow;
 import com.svp.tracker.finance.dto.RhScheduledTotalRow;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -101,4 +102,22 @@ public interface RobinhoodRhDailySnapshotRepository extends JpaRepository<Robinh
 
     List<RobinhoodRhDailySnapshot> findByOwnerUserIdAndSnapshotDateAndCaptureKind(
             long ownerUserId, LocalDate snapshotDate, String captureKind);
+
+    /** Scheduled closes for one suffix without holdings / trades JSON. */
+    @Query(
+            """
+            SELECT new com.svp.tracker.finance.dto.RhMarginSnapshotMoneyRow(
+                s.snapshotAt, s.snapshotDate, s.captureKind, s.cashBalance, s.equityMarketValue, s.totalAccountValue)
+            FROM RobinhoodRhDailySnapshot s
+            WHERE s.ownerUserId = :ownerUserId
+              AND s.accountSuffix = :accountSuffix
+              AND s.captureKind = 'SCHEDULED'
+              AND s.snapshotDate BETWEEN :from AND :to
+            ORDER BY s.snapshotAt ASC
+            """)
+    List<RhMarginSnapshotMoneyRow> findScheduledMoneyForSuffixBetween(
+            @Param("ownerUserId") long ownerUserId,
+            @Param("accountSuffix") String accountSuffix,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to);
 }

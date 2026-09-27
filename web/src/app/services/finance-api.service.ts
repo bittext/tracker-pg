@@ -47,6 +47,8 @@ import {
   RhDailyTrackerAccountAlertsDto,
   RhDailyTrackerAlertEventDto,
   RhDailyTrackerAlertTestResultDto,
+  RobinhoodIndividualMarginPeekResultDto,
+  RobinhoodIndividualMarginWatchDto,
   RobinhoodCsvImportResultDto,
   RobinhoodStocksSummaryDto,
   RobinhoodTransactionsDto,
@@ -321,6 +323,16 @@ export class FinanceApiService {
 
   robinhoodDailyTrackerAlertTest() {
     return this.http.post<RhDailyTrackerAlertTestResultDto>(`${this.root}/daily-tracker/alerts/test`, null);
+  }
+
+  robinhoodMarginWatch(year: number, sync = false) {
+    return this.http.get<RobinhoodIndividualMarginWatchDto>(`${this.root}/margin-watch`, {
+      params: { year: String(year), sync: String(sync) },
+    });
+  }
+
+  robinhoodMarginWatchPeek() {
+    return this.http.post<RobinhoodIndividualMarginPeekResultDto>(`${this.root}/margin-watch/peek`, null);
   }
 
   /** Robinhood Agentic MCP connection status (Phase 1). */
