@@ -114,7 +114,20 @@ class RobinhoodIndividualMarginMathTest {
         assertTrue(RobinhoodIndividualMarginWatchService.monitoredChanged(first, moved));
     }
 
+    @Test
+    void ledgerIgnoresPortfolioTicksWhenDebitAndBorrowHold() {
+        RhIndividualMarginPeek noon = peekAt("2026-09-27T17:00:00Z", new BigDecimal("-269165.71"), new BigDecimal("265526.27"));
+        RhIndividualMarginPeek later = peekAt("2026-09-27T18:00:00Z", new BigDecimal("-269165.71"), new BigDecimal("265555.45"));
+
+        assertFalse(RobinhoodIndividualMarginWatchService.monitoredChanged(noon, later));
+        assertEquals(1, RobinhoodIndividualMarginWatchService.ledgerChangePeeks(List.of(noon, later)).size());
+    }
+
     private static RhIndividualMarginPeek peekAt(String capturedAt, BigDecimal cash) {
+        return peekAt(capturedAt, cash, new BigDecimal("265555.03"));
+    }
+
+    private static RhIndividualMarginPeek peekAt(String capturedAt, BigDecimal cash, BigDecimal portfolio) {
         RhIndividualMarginPeek peek = new RhIndividualMarginPeek();
         RobinhoodIndividualMarginWatchService.applyComputed(
                 peek,
@@ -124,7 +137,7 @@ class RobinhoodIndividualMarginMathTest {
                 "INTRADAY",
                 cash,
                 new BigDecimal("494545.75"),
-                new BigDecimal("265555.03"),
+                portfolio,
                 null,
                 new BigDecimal("98.86"),
                 null);

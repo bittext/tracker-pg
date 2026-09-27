@@ -464,11 +464,7 @@ public class RobinhoodIndividualMarginWatchService {
         }
         return !moneyEq(prior.getMarginDebit(), next.getMarginDebit())
                 || !moneyEq(prior.getEquityMarketValue(), next.getEquityMarketValue())
-                || !moneyEq(prior.getPortfolioValue(), next.getPortfolioValue())
-                || !moneyEq(prior.getCashBalance(), next.getCashBalance())
                 || !moneyEq(prior.getBuyingPower(), next.getBuyingPower())
-                || !moneyEq(prior.getBufferAmount(), next.getBufferAmount())
-                || !moneyEq(prior.getMaintenanceRequirement(), next.getMaintenanceRequirement())
                 || !moneyEq(prior.getDailyInterest(), next.getDailyInterest())
                 || !pctEq(prior.getBorrowPercent(), next.getBorrowPercent())
                 || !pctEq(prior.getBufferPercent(), next.getBufferPercent())
