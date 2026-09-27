@@ -408,7 +408,7 @@ public class RobinhoodIndividualMarginWatchService {
         notes.add(
                 "House maintenance is scaled from Robinhood’s Sep 27 2026 print; the broker does not expose the official requirement on this API.");
         notes.add(
-                "Hourly Daily Tracker captures keep peeking; the ledger only prints when debit, book, borrow, buffer, available, interest, or status moves.");
+                "Hourly Daily Tracker captures keep peeking; the ledger only prints when debit, book, borrow, available, interest, or status moves.");
 
         List<RobinhoodIndividualMarginAlertEventDto> alerts = alertRepository
                 .findTop20ByOwnerUserIdAndAccountSuffixOrderByCreatedAtDesc(ownerUserId, ACCOUNT_SUFFIX)
@@ -467,7 +467,6 @@ public class RobinhoodIndividualMarginWatchService {
                 || !moneyEq(prior.getBuyingPower(), next.getBuyingPower())
                 || !moneyEq(prior.getDailyInterest(), next.getDailyInterest())
                 || !pctEq(prior.getBorrowPercent(), next.getBorrowPercent())
-                || !pctEq(prior.getBufferPercent(), next.getBufferPercent())
                 || !Objects.equals(prior.getRiskStatus(), next.getRiskStatus())
                 || prior.isNearCall() != next.isNearCall()
                 || prior.isHighBorrow() != next.isHighBorrow();
