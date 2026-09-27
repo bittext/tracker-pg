@@ -16,7 +16,7 @@
       <strong>{{ picture.latestBook != null ? (picture.latestBook | currency) : '—' }}</strong>
     </div>
     <div class="rh-spine__kpi">
-      <span class="muted">If no cash this month</span>
+      <span class="muted">If no cash · {{ monthTitle }}</span>
       <strong>{{ picture.latestIfNoIo != null ? (picture.latestIfNoIo | currency) : '—' }}</strong>
     </div>
     <div class="rh-spine__kpi">

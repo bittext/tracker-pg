@@ -708,6 +708,28 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
     });
   }
 
+  /** Months the spine / tape should cover — All months means the whole year. */
+  pictureMonths(): number[] {
+    const selected = this.normalizedReportMonths();
+    if (selected.length) {
+      return selected;
+    }
+    return this.monthChoices.map((m) => m.value);
+  }
+
+  pictureTitle(): string {
+    const months = this.pictureMonths();
+    if (months.length >= 12) {
+      return String(this.reportYear);
+    }
+    if (months.length === 1) {
+      return this.calendarTitle();
+    }
+    const first = this.monthChoices.find((c) => c.value === months[0])?.label ?? `Month ${months[0]}`;
+    const last = this.monthChoices.find((c) => c.value === months[months.length - 1])?.label ?? `Month ${months[months.length - 1]}`;
+    return `${first}–${last} ${this.reportYear}`;
+  }
+
   calendarMonthGainLoss(): {
     gain: number;
     loss: number;
@@ -883,21 +905,28 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
 
   moneyPicture(): RhDailyMoneyPicture | null {
     const year = this.reportYear;
-    const month = this.calendarMonth;
-    const daysInMonth = new Date(year, month, 0).getDate();
+    const months = this.pictureMonths();
     const today = this.todayIsoCentral();
-    const byDate = new Map(this.daysForCalendarMonth().map((d) => [d.snapshotDate, d]));
-    const prefix = `${year}-${String(month).padStart(2, '0')}-`;
-    const saleDates = [...this.saleDayMap().keys()].filter((d) => d.startsWith(prefix));
+    const prefixes = months.map((month) => `${year}-${String(month).padStart(2, '0')}-`);
+    const byDate = new Map(
+      (this.tracker?.days ?? [])
+        .filter((d) => prefixes.some((prefix) => d.snapshotDate.startsWith(prefix)))
+        .map((d) => [d.snapshotDate, d]),
+    );
+    const saleDates = [...this.saleDayMap().keys()].filter((d) => prefixes.some((prefix) => d.startsWith(prefix)));
     const lastNeeded = [today, ...byDate.keys(), ...saleDates].sort().at(-1) ?? today;
 
     const dates: string[] = [];
-    for (let d = 1; d <= daysInMonth; d++) {
-      const date = `${prefix}${String(d).padStart(2, '0')}`;
-      if (date > lastNeeded) {
-        break;
+    for (const month of months) {
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const prefix = `${year}-${String(month).padStart(2, '0')}-`;
+      for (let d = 1; d <= daysInMonth; d++) {
+        const date = `${prefix}${String(d).padStart(2, '0')}`;
+        if (date > lastNeeded) {
+          break;
+        }
+        dates.push(date);
       }
-      dates.push(date);
     }
     if (!dates.length) {
       return null;
@@ -1112,6 +1141,7 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
   }
 
   private shiftCalendarMonth(delta: number): void {
+    const prevYear = this.reportYear;
     let m = this.calendarMonth + delta;
     let y = this.reportYear;
     if (m < 1) {
@@ -1121,9 +1151,15 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       m = 1;
       y += 1;
     }
+    const ranged = this.normalizedReportMonths().length !== 1;
     this.reportYear = y;
     this.calendarMonth = m;
-    this.reportMonths = [m];
+    if (ranged && y === prevYear) {
+      return;
+    }
+    if (!ranged) {
+      this.reportMonths = [m];
+    }
     this.load();
   }
 

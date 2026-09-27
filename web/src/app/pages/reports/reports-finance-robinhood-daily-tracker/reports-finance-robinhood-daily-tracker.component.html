@@ -427,7 +427,7 @@
     </div>
 
     @if (uiLayout.isSpine() && moneyPicture(); as pic) {
-      <app-robinhood-daily-spine [picture]="pic" [monthTitle]="calendarTitle()" (openDay)="onSpineOpenDay($event)" />
+      <app-robinhood-daily-spine [picture]="pic" [monthTitle]="pictureTitle()" (openDay)="onSpineOpenDay($event)" />
     }
 
     <section class="rh-daily__cal" aria-labelledby="rh-daily-cal-title">
@@ -749,7 +749,7 @@
             </table>
           </div>
         } @else {
-          <p class="muted">No sales or outside cash in {{ calendarTitle() }}.</p>
+          <p class="muted">No sales or outside cash in {{ pictureTitle() }}.</p>
         }
       </section>
     }

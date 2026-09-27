@@ -28,7 +28,7 @@ export class RobinhoodDailySpineComponent {
 
   bands(): SpineBand[] {
     const out: SpineBand[] = [];
-    for (const point of this.picture.points) {
+    for (const point of this.spinePoints()) {
       const hasSale = point.sale.count > 0;
       const hasIn = point.added !== 0;
       const hasOut = point.removed !== 0;
@@ -48,6 +48,29 @@ export class RobinhoodDailySpineComponent {
       }
     }
     return out;
+  }
+
+  /** One month: every day. Several months: sale/cash days plus each month's last book. */
+  private spinePoints(): RhDailyMoneyPicturePoint[] {
+    const pts = this.picture.points;
+    if (pts.length < 2) {
+      return pts;
+    }
+    const months = new Set(pts.map((p) => p.date.slice(5, 7)));
+    if (months.size <= 1) {
+      return pts;
+    }
+    return pts.filter((point, i) => {
+      const event = point.sale.count > 0 || point.added !== 0 || point.removed !== 0;
+      const next = pts[i + 1];
+      const monthEnd = !next || next.date.slice(5, 7) !== point.date.slice(5, 7);
+      return event || monthEnd;
+    });
+  }
+
+  private spansMonths(): boolean {
+    const pts = this.picture.points;
+    return pts.length > 1 && pts[0].date.slice(5, 7) !== pts[pts.length - 1].date.slice(5, 7);
   }
 
   selected(): RhDailyMoneyPicturePoint | null {
@@ -108,16 +131,19 @@ export class RobinhoodDailySpineComponent {
 
   bandLabel(band: SpineBand): string {
     const day = Number(band.point.date.slice(8, 10));
+    const head = this.spansMonths()
+      ? `${new Date(`${band.point.date}T12:00:00`).toLocaleDateString(undefined, { month: 'short' })} ${day}`
+      : String(day);
     if (band.layer === 'sale') {
-      return `${day} sale`;
+      return `${head} sale`;
     }
     if (band.layer === 'in') {
-      return `${day} in`;
+      return `${head} in`;
     }
     if (band.layer === 'out') {
-      return `${day} out`;
+      return `${head} out`;
     }
-    return String(day);
+    return head;
   }
 
   selectedNote(point: RhDailyMoneyPicturePoint): string {
