@@ -1,9 +1,15 @@
 .mg-watch {
-  --mg-ok: #22c55e;
-  --mg-warn: #f59e0b;
-  --mg-hot: #ef4444;
-  --mg-deep: #7f1d1d;
-  --mg-call: #450a0a;
+  --mg-ok: #0f766e;
+  --mg-ok-soft: #99f6e4;
+  --mg-warn: #b45309;
+  --mg-warn-soft: #fde68a;
+  --mg-hot: #c2410c;
+  --mg-hot-soft: #fed7aa;
+  --mg-deep: #4338ca;
+  --mg-deep-soft: #c7d2fe;
+  --mg-call: #9f1239;
+  --mg-call-soft: #fecdd3;
+  color: var(--app-text, #0f172a);
   padding-bottom: 2rem;
 }
 
@@ -57,25 +63,24 @@
   padding: 0.9rem 1rem;
   border-radius: 14px;
   border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
-  background: color-mix(in srgb, var(--app-surface, #fff) 88%, #e2e8f0);
+  background: var(--app-surface, #fff);
+  color: var(--app-text, #0f172a);
 }
 
 .mg-watch__banner--ok {
-  background: color-mix(in srgb, var(--mg-ok) 12%, var(--app-surface, #fff));
+  background: color-mix(in srgb, var(--mg-ok-soft) 55%, var(--app-surface, #fff));
+}
+
+.mg-watch__banner--warn {
+  background: color-mix(in srgb, var(--mg-warn-soft) 55%, var(--app-surface, #fff));
 }
 
 .mg-watch__banner--hot {
-  background: color-mix(in srgb, var(--mg-hot) 14%, var(--app-surface, #fff));
-}
-
-.mg-watch__banner--deep {
-  background: color-mix(in srgb, var(--mg-deep) 42%, #111);
-  color: #fee2e2;
+  background: color-mix(in srgb, var(--mg-hot-soft) 50%, var(--app-surface, #fff));
 }
 
 .mg-watch__banner--call {
-  background: var(--mg-call);
-  color: #fecaca;
+  background: color-mix(in srgb, var(--mg-call-soft) 70%, var(--app-surface, #fff));
 }
 
 .mg-watch__banner-kicker {
@@ -83,7 +88,7 @@
   font-size: 0.72rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  opacity: 0.75;
+  color: var(--app-text-muted, #475569);
 }
 
 .mg-watch__banner-line {
@@ -97,17 +102,27 @@
   border-radius: 999px;
   font-size: 0.82rem;
   font-weight: 700;
-  background: rgba(15, 23, 42, 0.08);
+  background: color-mix(in srgb, var(--app-text, #0f172a) 8%, transparent);
+  color: var(--app-text, #0f172a);
 
   &[data-tone='ok'] {
-    background: color-mix(in srgb, var(--mg-ok) 22%, transparent);
-    color: #166534;
+    background: color-mix(in srgb, var(--mg-ok-soft) 80%, #fff);
+    color: var(--mg-ok);
   }
 
-  &[data-tone='deep'],
+  &[data-tone='warn'] {
+    background: color-mix(in srgb, var(--mg-warn-soft) 80%, #fff);
+    color: var(--mg-warn);
+  }
+
+  &[data-tone='hot'] {
+    background: color-mix(in srgb, var(--mg-hot-soft) 80%, #fff);
+    color: var(--mg-hot);
+  }
+
   &[data-tone='call'] {
-    background: rgba(0, 0, 0, 0.28);
-    color: #fecaca;
+    background: color-mix(in srgb, var(--mg-call-soft) 80%, #fff);
+    color: var(--mg-call);
   }
 }
 
@@ -123,7 +138,8 @@
   padding: 0.95rem 1rem 1rem;
   border-radius: 16px;
   border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
-  background: color-mix(in srgb, var(--app-surface, #111) 92%, #000);
+  background: var(--app-surface, #fff);
+  color: var(--app-text, #0f172a);
 }
 
 .mg-watch__rh h3,
@@ -153,7 +169,7 @@
 }
 
 .mg-watch__dial-track {
-  stroke: color-mix(in srgb, currentColor 12%, transparent);
+  stroke: color-mix(in srgb, var(--app-text, #0f172a) 12%, transparent);
 }
 
 .mg-watch__dial-arc {
@@ -173,8 +189,7 @@
   }
 
   &[data-tone='deep'] {
-    stroke: #fecaca;
-    filter: drop-shadow(0 0 8px #7f1d1d);
+    stroke: var(--mg-deep);
   }
 }
 
@@ -190,17 +205,22 @@
     font-size: 1.55rem;
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.03em;
+    color: var(--app-text, #0f172a);
 
-    &[data-tone='deep'] {
-      color: #fecaca;
+    &[data-tone='ok'] {
+      color: var(--mg-ok);
+    }
+
+    &[data-tone='warn'] {
+      color: var(--mg-warn);
     }
 
     &[data-tone='hot'] {
       color: var(--mg-hot);
     }
 
-    &[data-tone='ok'] {
-      color: var(--mg-ok);
+    &[data-tone='deep'] {
+      color: var(--mg-deep);
     }
   }
 
@@ -208,7 +228,7 @@
     font-size: 0.72rem;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    opacity: 0.7;
+    color: var(--app-text-muted, #475569);
   }
 }
 
@@ -230,13 +250,14 @@
   }
 
   dt {
-    opacity: 0.72;
+    color: var(--app-text-muted, #475569);
   }
 
   dd {
     margin: 0;
     font-variant-numeric: tabular-nums;
     font-weight: 650;
+    color: var(--app-text, #0f172a);
   }
 }
 
@@ -250,9 +271,16 @@
     color: var(--mg-ok);
   }
 
-  strong[data-tone='deep'],
+  strong[data-tone='warn'] {
+    color: var(--mg-warn);
+  }
+
+  strong[data-tone='hot'] {
+    color: var(--mg-hot);
+  }
+
   strong[data-tone='call'] {
-    color: #fecaca;
+    color: var(--mg-call);
   }
 }
 
@@ -262,9 +290,8 @@
   height: 0.85rem;
   margin: 0 0 0.85rem;
   border-radius: 999px;
-  background-image: radial-gradient(currentColor 0.85px, transparent 1px);
+  background-image: radial-gradient(color-mix(in srgb, var(--app-text, #0f172a) 28%, transparent) 0.85px, transparent 1px);
   background-size: 5px 5px;
-  opacity: 0.95;
 }
 
 .mg-watch__meter-maint {
@@ -274,15 +301,18 @@
 
 .mg-watch__meter-buffer {
   flex: 0 0 auto;
-  background: var(--mg-ok);
+  background: #14b8a6;
 
-  &[data-tone='hot'] {
-    background: var(--mg-warn);
+  &[data-tone='warn'] {
+    background: #f59e0b;
   }
 
-  &[data-tone='deep'],
+  &[data-tone='hot'] {
+    background: #ea580c;
+  }
+
   &[data-tone='call'] {
-    background: var(--mg-hot);
+    background: var(--mg-call);
   }
 }
 
@@ -329,26 +359,28 @@
 .mg-watch__cell-bar {
   width: 100%;
   border-radius: 6px 6px 2px 2px;
-  background: var(--mg-ok);
+  background: #14b8a6;
 }
 
 .mg-watch__cell[data-tone='warn'] .mg-watch__cell-bar {
-  background: var(--mg-warn);
+  background: #f59e0b;
 }
 
 .mg-watch__cell[data-tone='hot'] .mg-watch__cell-bar {
-  background: var(--mg-hot);
+  background: #ea580c;
 }
 
-.mg-watch__cell[data-tone='deep'] .mg-watch__cell-bar,
+.mg-watch__cell[data-tone='deep'] .mg-watch__cell-bar {
+  background: var(--mg-deep);
+}
+
 .mg-watch__cell--call .mg-watch__cell-bar {
-  background: linear-gradient(180deg, #fecaca, var(--mg-deep));
+  background: var(--mg-call);
 }
 
 .mg-watch__cell-day {
   font-size: 0.62rem;
-  opacity: 0.65;
-  writing-mode: horizontal-tb;
+  color: var(--app-text-muted, #475569);
 }
 
 .mg-watch__pulse-row {
@@ -362,14 +394,14 @@
   flex: 1 1 0;
   min-width: 3px;
   border-radius: 2px;
-  background: var(--mg-ok);
+  background: #14b8a6;
 
   &[data-tone='warn'] {
-    background: var(--mg-warn);
+    background: #f59e0b;
   }
 
   &[data-tone='hot'] {
-    background: var(--mg-hot);
+    background: #ea580c;
   }
 
   &[data-tone='deep'] {
@@ -386,6 +418,7 @@
   border-collapse: collapse;
   font-size: 0.82rem;
   font-variant-numeric: tabular-nums;
+  color: var(--app-text, #0f172a);
 
   th,
   td {
@@ -408,17 +441,45 @@
     font-size: 0.68rem;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    opacity: 0.7;
+    color: var(--app-text-muted, #475569);
   }
 
-  tbody tr[data-tone='deep'] {
-    background: color-mix(in srgb, var(--mg-deep) 28%, transparent);
-    color: #fecaca;
+  tbody tr:nth-child(even) {
+    background: color-mix(in srgb, var(--app-surface-muted, #f8fafc) 88%, transparent);
   }
 
   tbody tr.mg-watch__row--call {
-    background: var(--mg-call);
-    color: #fecaca;
+    background: color-mix(in srgb, var(--mg-call-soft) 45%, var(--app-surface, #fff));
+  }
+}
+
+.mg-watch__borrow {
+  display: inline-block;
+  min-width: 4.4rem;
+  padding: 0.12rem 0.4rem;
+  border-radius: 999px;
+  font-weight: 700;
+  color: var(--app-text, #0f172a);
+  background: color-mix(in srgb, var(--app-text, #0f172a) 6%, transparent);
+
+  &[data-tone='ok'] {
+    color: var(--mg-ok);
+    background: color-mix(in srgb, var(--mg-ok-soft) 70%, #fff);
+  }
+
+  &[data-tone='warn'] {
+    color: var(--mg-warn);
+    background: color-mix(in srgb, var(--mg-warn-soft) 70%, #fff);
+  }
+
+  &[data-tone='hot'] {
+    color: var(--mg-hot);
+    background: color-mix(in srgb, var(--mg-hot-soft) 70%, #fff);
+  }
+
+  &[data-tone='deep'] {
+    color: var(--mg-deep);
+    background: color-mix(in srgb, var(--mg-deep-soft) 70%, #fff);
   }
 }
 
@@ -443,16 +504,16 @@
     gap: 0.65rem;
     padding: 0.45rem 0.6rem;
     border-radius: 8px;
-    background: color-mix(in srgb, var(--app-surface, #fff) 88%, #cbd5e1);
+    background: var(--app-surface-muted, #f8fafc);
     font-size: 0.82rem;
+    color: var(--app-text, #0f172a);
   }
 }
 
 .mg-watch__notes {
   margin: 0;
   padding-left: 1.1rem;
-  color: inherit;
-  opacity: 0.75;
+  color: var(--app-text-muted, #475569);
   font-size: 0.8rem;
   line-height: 1.5;
 }

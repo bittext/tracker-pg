@@ -1,4 +1,4 @@
-<section class="mg-watch" [attr.data-tone]="tone()" aria-labelledby="mg-watch-heading">
+<section class="mg-watch" [attr.data-tone]="riskTone()" aria-labelledby="mg-watch-heading">
   <p class="page-eyebrow">Robinhood · Individual ••••3370</p>
   <div class="mg-watch__head">
     <div>
@@ -30,12 +30,18 @@
       <p class="muted">Loading Individual margin peeks…</p>
     </div>
   } @else if (watch; as w) {
-    <div class="mg-watch__banner" [class.mg-watch__banner--deep]="tone() === 'deep'" [class.mg-watch__banner--call]="tone() === 'call'" [class.mg-watch__banner--hot]="tone() === 'hot'" [class.mg-watch__banner--ok]="tone() === 'ok'">
+    <div
+      class="mg-watch__banner"
+      [class.mg-watch__banner--ok]="riskTone() === 'ok'"
+      [class.mg-watch__banner--warn]="riskTone() === 'warn'"
+      [class.mg-watch__banner--hot]="riskTone() === 'hot'"
+      [class.mg-watch__banner--call]="riskTone() === 'call'"
+    >
       <div>
         <p class="mg-watch__banner-kicker">{{ w.accountLabel }}</p>
         <p class="mg-watch__banner-line">{{ w.standing.headline }}</p>
       </div>
-      <span class="mg-watch__status" [attr.data-tone]="tone()">{{ w.standing.riskLabel }}</span>
+      <span class="mg-watch__status" [attr.data-tone]="riskTone()">{{ w.standing.riskLabel }}</span>
     </div>
 
     @if (latest(); as live) {
@@ -90,11 +96,11 @@
           <h3>Call distance</h3>
           <div class="mg-watch__riskline">
             <span>Status</span>
-            <strong [attr.data-tone]="tone()">{{ live.riskLabel }}</strong>
+            <strong [attr.data-tone]="riskTone()">{{ live.riskLabel }}</strong>
           </div>
           <div class="mg-watch__meter" role="img" [attr.aria-label]="'Maintenance ' + maintWidth() + ' percent, buffer ' + bufferWidth() + ' percent'">
             <span class="mg-watch__meter-maint" [style.width.%]="maintWidth()"></span>
-            <span class="mg-watch__meter-buffer" [attr.data-tone]="tone()" [style.width.%]="bufferWidth()"></span>
+            <span class="mg-watch__meter-buffer" [attr.data-tone]="riskTone()" [style.width.%]="bufferWidth()"></span>
           </div>
           <dl class="mg-watch__rows">
             <div>
@@ -191,7 +197,7 @@
             </thead>
             <tbody>
               @for (day of w.days.slice().reverse(); track day.date) {
-                <tr [attr.data-tone]="borrowTone(day.close.borrowPercent)" [class.mg-watch__row--call]="day.close.nearCall">
+                <tr [class.mg-watch__row--call]="day.close.nearCall">
                   <td>{{ day.date | date: 'MMM d' }}</td>
                   <td>{{ captureLabel(day.close.captureKind) }}</td>
                   <td>{{ day.close.marginDebit | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
@@ -200,7 +206,7 @@
                   </td>
                   <td>{{ day.close.equityMarketValue | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
                   <td>
-                    <strong>{{ day.close.borrowPercent | number: '1.2-2' }}%</strong>
+                    <strong class="mg-watch__borrow" [attr.data-tone]="borrowTone(day.close.borrowPercent)">{{ day.close.borrowPercent | number: '1.2-2' }}%</strong>
                   </td>
                   <td>{{ day.close.portfolioValue | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
                   <td>

@@ -90,8 +90,22 @@ export class ReportsFinanceRobinhoodMarginWatchComponent implements OnInit {
     return this.watch?.latest ?? null;
   }
 
-  tone(): string {
-    return this.watch?.standing?.tone || 'unknown';
+  /** Call-risk color for banners and the maintenance meter — not the borrow %. */
+  riskTone(): string {
+    const status = this.watch?.standing?.riskStatus || this.latest()?.riskStatus || 'UNKNOWN';
+    if (status === 'CALL' || status === 'NEAR_CALL') {
+      return 'call';
+    }
+    if (status === 'HIGH') {
+      return 'hot';
+    }
+    if (status === 'ELEVATED') {
+      return 'warn';
+    }
+    if (status === 'LOW') {
+      return 'ok';
+    }
+    return 'unknown';
   }
 
   borrowTone(pct: number | null | undefined): string {
