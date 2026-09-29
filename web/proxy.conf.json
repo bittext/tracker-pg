@@ -4,5 +4,23 @@
     "secure": false,
     "changeOrigin": true,
     "logLevel": "silent"
+  },
+  "/swagger-ui": {
+    "target": "http://127.0.0.1:9091",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "silent"
+  },
+  "/swagger-ui.html": {
+    "target": "http://127.0.0.1:9091",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "silent"
+  },
+  "/v3/api-docs": {
+    "target": "http://127.0.0.1:9091",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "silent"
   }
 }

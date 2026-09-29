@@ -135,7 +135,11 @@ SPRING_PROFILES_ACTIVE=local mvn spring-boot:run
 
 - Base URL: `http://localhost:9091`
 - Health: `GET http://localhost:9091/actuator/health`
-- API docs: `http://localhost:9091/swagger-ui.html` (same layout as the Oracle tracker)
+- API docs (Swagger UI): `http://localhost:9091/swagger-ui.html`
+- OpenAPI JSON: `http://localhost:9091/v3/api-docs`
+- OpenAPI YAML: `http://localhost:9091/v3/api-docs.yaml`
+
+On the public site (after nginx deploy), the same paths are same-origin: `/swagger-ui.html`, `/v3/api-docs`, `/v3/api-docs.yaml`. Click **Authorize** and paste the JWT from `POST /api/auth/login` (`accessToken`) to try authenticated routes.
 
 Finance reads/writes the `robinhood_transactions` table created by Flyway (`V1__tracker_schema.sql`). CSV import and JDBC queries use PostgreSQL-compatible SQL (`LIMIT`, `to_timestamp`, etc.) in this module’s copy of `RobinhoodFinanceService`.
 
