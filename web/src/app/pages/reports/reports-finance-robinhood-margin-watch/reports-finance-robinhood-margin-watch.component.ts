@@ -2,6 +2,7 @@ import { CommonModule, CurrencyPipe, DatePipe, DecimalPipe } from '@angular/comm
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -15,6 +16,18 @@ import {
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { TradingJournalNavService } from '../../../services/trading-journal-nav.service';
 import { formatHttpErrorMessage } from '../../../util/http-error';
+import {
+  MG_DAY_DIALOG_CONFIG,
+  MarginWatchDayDialogComponent,
+} from './margin-watch-day-dialog.component';
+
+interface MarginLedgerRow {
+  id: string;
+  openDay: boolean;
+  day: RobinhoodIndividualMarginDayDto;
+  peek: RobinhoodIndividualMarginPeekDto;
+  debitDelta: number | null;
+}
 
 @Component({
   selector: 'app-reports-finance-robinhood-margin-watch',
@@ -23,6 +36,7 @@ import { formatHttpErrorMessage } from '../../../util/http-error';
     CommonModule,
     FormsModule,
     MatButtonModule,
+    MatDialogModule,
     MatFormFieldModule,
     MatIconModule,
     MatProgressSpinnerModule,
@@ -38,6 +52,7 @@ import { formatHttpErrorMessage } from '../../../util/http-error';
 export class ReportsFinanceRobinhoodMarginWatchComponent implements OnInit {
   private readonly financeApi = inject(FinanceApiService);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly dialog = inject(MatDialog);
   readonly journalNav = inject(TradingJournalNavService);
 
   reportYear = new Date().getFullYear();
@@ -88,6 +103,72 @@ export class ReportsFinanceRobinhoodMarginWatchComponent implements OnInit {
 
   latest(): RobinhoodIndividualMarginPeekDto | null {
     return this.watch?.latest ?? null;
+  }
+
+  /** Newest first. Today keeps every peek; past days collapse to the close. */
+  ledgerRows(): MarginLedgerRow[] {
+    const today = this.todayIsoCentral();
+    const out: MarginLedgerRow[] = [];
+    for (const day of [...(this.watch?.days ?? [])].reverse()) {
+      if (this.isPastDay(day.date, today)) {
+        out.push({
+          id: `day-${day.date}`,
+          openDay: true,
+          day,
+          peek: day.close,
+          debitDelta: day.debitChange,
+        });
+        continue;
+      }
+      for (const peek of [...(day.peeks?.length ? day.peeks : [day.close])].reverse()) {
+        out.push({
+          id: `peek-${peek.id}`,
+          openDay: false,
+          day,
+          peek,
+          debitDelta: peek.debitDelta,
+        });
+      }
+    }
+    return out;
+  }
+
+  openDay(day: RobinhoodIndividualMarginDayDto, ev?: Event): void {
+    ev?.stopPropagation();
+    if (!this.isPastDay(day.date)) {
+      return;
+    }
+    this.dialog.open(MarginWatchDayDialogComponent, {
+      ...MG_DAY_DIALOG_CONFIG,
+      data: { day },
+    });
+  }
+
+  onLedgerKey(row: MarginLedgerRow, ev: KeyboardEvent): void {
+    if (!row.openDay) {
+      return;
+    }
+    if (ev.key === 'Enter' || ev.key === ' ') {
+      ev.preventDefault();
+      this.openDay(row.day);
+    }
+  }
+
+  isPastDay(date: string, today = this.todayIsoCentral()): boolean {
+    return (date ?? '').slice(0, 10) < today;
+  }
+
+  private todayIsoCentral(): string {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Chicago',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date());
+    const y = parts.find((p) => p.type === 'year')?.value;
+    const m = parts.find((p) => p.type === 'month')?.value;
+    const d = parts.find((p) => p.type === 'day')?.value;
+    return `${y}-${m}-${d}`;
   }
 
   /** Call-risk color for banners and the maintenance meter — not the borrow %. */

@@ -1,0 +1,64 @@
+<h2 mat-dialog-title>Margin peeks · {{ data.day.date | date: 'fullDate' }}</h2>
+<mat-dialog-content class="mg-day-dialog">
+  <p class="muted mg-day-dialog__lead">
+    Close
+    {{ data.day.close.marginDebit | currency: 'USD' : 'symbol' : '1.2-2' }}
+    debit · {{ data.day.close.borrowPercent | number: '1.2-2' }}% of book. Hourly and manual peeks for this day
+    newest first.
+  </p>
+  @if (peeks().length) {
+    <div class="mg-day-dialog__table-wrap">
+      <table class="mg-day-dialog__table">
+        <thead>
+          <tr>
+            <th>When</th>
+            <th>Kind</th>
+            <th>Debit</th>
+            <th>Δ debit</th>
+            <th>Equity book</th>
+            <th>Borrow</th>
+            <th>Portfolio</th>
+            <th>Buffer</th>
+            <th>Available</th>
+            <th>Interest</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of peeks(); track row.id) {
+            <tr [class.mg-day-dialog__row--call]="row.nearCall">
+              <td>{{ row.capturedAt | date: 'h:mm a' }}</td>
+              <td>{{ captureLabel(row.captureKind) }}</td>
+              <td>{{ row.marginDebit | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+              <td [class.mg-day-dialog__delta--up]="(row.debitDelta ?? 0) > 0" [class.mg-day-dialog__delta--down]="(row.debitDelta ?? 0) < 0">
+                {{ signed(row.debitDelta) }}
+              </td>
+              <td>{{ row.equityMarketValue | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+              <td>
+                <strong class="mg-day-dialog__borrow" [attr.data-tone]="borrowTone(row.borrowPercent)">
+                  {{ row.borrowPercent | number: '1.2-2' }}%
+                </strong>
+              </td>
+              <td>{{ row.portfolioValue | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+              <td>
+                @if (row.bufferPercent != null) {
+                  {{ row.bufferPercent | number: '1.2-2' }}%
+                } @else {
+                  —
+                }
+              </td>
+              <td>{{ row.buyingPower == null ? '—' : (row.buyingPower | currency: 'USD' : 'symbol' : '1.2-2') }}</td>
+              <td>{{ row.dailyInterest | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+              <td>{{ row.riskLabel }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else {
+    <p class="muted">No peeks stored for this day.</p>
+  }
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-flat-button color="primary" type="button" (click)="close()">Close</button>
+</mat-dialog-actions>

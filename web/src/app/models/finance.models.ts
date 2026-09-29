@@ -785,7 +785,7 @@ export interface RobinhoodIndividualMarginWatchDto {
   standing: RobinhoodIndividualMarginStandingDto;
   days: RobinhoodIndividualMarginDayDto[];
   recentPeeks: RobinhoodIndividualMarginPeekDto[];
-  /** Hourly peeks continue; only rows where a monitored figure moved. */
+  /** One close peek per day. Today’s full tape is on {@link days}. */
   ledger: RobinhoodIndividualMarginPeekDto[];
   alerts: RobinhoodIndividualMarginAlertEventDto[];
   emailConfigured: boolean;
@@ -837,6 +837,7 @@ export interface RobinhoodIndividualMarginDayDto {
   close: RobinhoodIndividualMarginPeekDto;
   debitChange: number | null;
   borrowChange: number | null;
+  peeks: RobinhoodIndividualMarginPeekDto[];
 }
 
 export interface RobinhoodIndividualMarginAlertEventDto {

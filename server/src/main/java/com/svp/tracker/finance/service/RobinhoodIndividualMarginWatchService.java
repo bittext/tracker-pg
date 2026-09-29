@@ -371,17 +371,38 @@ public class RobinhoodIndividualMarginWatchService {
         recent.sort(Comparator.comparing(RhIndividualMarginPeek::getCapturedAt));
 
         List<RobinhoodIndividualMarginPeekDto> yearDtos = withDeltas(yearPeeks);
-        Map<LocalDate, RobinhoodIndividualMarginPeekDto> lastByDay = new LinkedHashMap<>();
+        Map<LocalDate, List<RhIndividualMarginPeek>> entitiesByDay = new LinkedHashMap<>();
+        for (RhIndividualMarginPeek peek : yearPeeks) {
+            if (peek.getSnapshotDate() == null) {
+                continue;
+            }
+            entitiesByDay.computeIfAbsent(peek.getSnapshotDate(), d -> new ArrayList<>()).add(peek);
+        }
+        Map<LocalDate, List<RobinhoodIndividualMarginPeekDto>> peeksByDay = new LinkedHashMap<>();
         for (RobinhoodIndividualMarginPeekDto dto : yearDtos) {
-            lastByDay.put(dto.snapshotDate(), dto);
+            if (dto.snapshotDate() == null) {
+                continue;
+            }
+            peeksByDay.computeIfAbsent(dto.snapshotDate(), d -> new ArrayList<>()).add(dto);
         }
         List<RobinhoodIndividualMarginDayDto> days = new ArrayList<>();
-        RobinhoodIndividualMarginPeekDto prevDay = null;
-        for (RobinhoodIndividualMarginPeekDto close : lastByDay.values()) {
-            BigDecimal debitChange = prevDay == null ? null : close.marginDebit().subtract(prevDay.marginDebit());
-            BigDecimal borrowChange = prevDay == null ? null : close.borrowPercent().subtract(prevDay.borrowPercent());
-            days.add(new RobinhoodIndividualMarginDayDto(close.snapshotDate(), close, debitChange, borrowChange));
-            prevDay = close;
+        RobinhoodIndividualMarginPeekDto prevClose = null;
+        for (Map.Entry<LocalDate, List<RhIndividualMarginPeek>> entry : entitiesByDay.entrySet()) {
+            List<RhIndividualMarginPeek> dayEntities = entry.getValue();
+            List<RobinhoodIndividualMarginPeekDto> dayPeeks = peeksByDay.getOrDefault(entry.getKey(), List.of());
+            if (dayPeeks.isEmpty()) {
+                continue;
+            }
+            int closeIndex = dayEntities.indexOf(pickDailyClose(dayEntities));
+            RobinhoodIndividualMarginPeekDto close =
+                    closeIndex >= 0 && closeIndex < dayPeeks.size()
+                            ? dayPeeks.get(closeIndex)
+                            : dayPeeks.get(dayPeeks.size() - 1);
+            BigDecimal debitChange = prevClose == null ? null : close.marginDebit().subtract(prevClose.marginDebit());
+            BigDecimal borrowChange = prevClose == null ? null : close.borrowPercent().subtract(prevClose.borrowPercent());
+            days.add(new RobinhoodIndividualMarginDayDto(
+                    entry.getKey(), close, debitChange, borrowChange, List.copyOf(dayPeeks)));
+            prevClose = close;
         }
 
         RhIndividualMarginPeek latestEntity = peekRepository
@@ -408,7 +429,7 @@ public class RobinhoodIndividualMarginWatchService {
         notes.add(
                 "House maintenance is scaled from Robinhood’s Sep 27 2026 print; the broker does not expose the official requirement on this API.");
         notes.add(
-                "Hourly Daily Tracker captures keep peeking; the ledger only prints when debit, book, borrow, available, interest, or status moves.");
+                "The ledger keeps today’s peeks on the page. Past days show the 9 PM CT close; open a day for the hourly tape.");
 
         List<RobinhoodIndividualMarginAlertEventDto> alerts = alertRepository
                 .findTop20ByOwnerUserIdAndAccountSuffixOrderByCreatedAtDesc(ownerUserId, ACCOUNT_SUFFIX)
@@ -424,7 +445,7 @@ public class RobinhoodIndividualMarginWatchService {
                 standing(latest),
                 List.copyOf(days),
                 withDeltas(recent),
-                withDeltas(ledgerChangePeeks(yearPeeks)),
+                days.stream().map(RobinhoodIndividualMarginDayDto::close).toList(),
                 alerts,
                 emailConfigured,
                 emailHint,
@@ -443,6 +464,20 @@ public class RobinhoodIndividualMarginWatchService {
             prior = row;
         }
         return Optional.ofNullable(prior);
+    }
+
+    /** 9 PM CT scheduled close when present; otherwise the last peek that day. */
+    static RhIndividualMarginPeek pickDailyClose(List<RhIndividualMarginPeek> dayPeeks) {
+        if (dayPeeks == null || dayPeeks.isEmpty()) {
+            return null;
+        }
+        RhIndividualMarginPeek scheduled = null;
+        for (RhIndividualMarginPeek peek : dayPeeks) {
+            if (RobinhoodRhDailyCaptureKind.SCHEDULED.equals(peek.getCaptureKind())) {
+                scheduled = peek;
+            }
+        }
+        return scheduled != null ? scheduled : dayPeeks.get(dayPeeks.size() - 1);
     }
 
     /** First peek plus any later peek where a monitored ledger figure moved. */

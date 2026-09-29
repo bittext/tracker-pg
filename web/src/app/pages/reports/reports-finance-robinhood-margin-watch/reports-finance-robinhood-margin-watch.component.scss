@@ -532,6 +532,16 @@
   tbody tr.mg-watch__row--call {
     background: color-mix(in srgb, var(--mg-call-soft) 45%, var(--app-surface, #fff));
   }
+
+  tbody tr.mg-watch__row--open {
+    cursor: pointer;
+  }
+
+  tbody tr.mg-watch__row--open:hover,
+  tbody tr.mg-watch__row--open:focus-visible {
+    outline: none;
+    background: color-mix(in srgb, var(--app-text, #0f172a) 5%, var(--app-surface, #fff));
+  }
 }
 
 .mg-watch__borrow {
@@ -562,6 +572,19 @@
     color: var(--mg-deep);
     background: color-mix(in srgb, var(--mg-deep-soft) 70%, #fff);
   }
+}
+
+.mg-watch__more {
+  display: inline-block;
+  margin-left: 0.35rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--app-text-muted, #475569);
+}
+
+.mg-watch__cell--open {
+  cursor: pointer;
 }
 
 .mg-watch__delta--up {

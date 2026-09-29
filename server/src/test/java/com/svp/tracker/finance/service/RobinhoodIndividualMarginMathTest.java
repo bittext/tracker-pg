@@ -115,6 +115,15 @@ class RobinhoodIndividualMarginMathTest {
     }
 
     @Test
+    void pickDailyCloseKeepsScheduledWhenALaterHourlyExists() {
+        RhIndividualMarginPeek hourly = peekAt("2026-09-29T00:00:00Z", new BigDecimal("-149996.09"));
+        RhIndividualMarginPeek close = peekAt("2026-09-29T02:00:00Z", new BigDecimal("-149996.09"), new BigDecimal("256895.01"), "SCHEDULED");
+        RhIndividualMarginPeek later = peekAt("2026-09-29T03:00:00Z", new BigDecimal("-149996.09"), new BigDecimal("255329.08"));
+
+        assertEquals(close.getCapturedAt(), RobinhoodIndividualMarginWatchService.pickDailyClose(List.of(hourly, close, later)).getCapturedAt());
+    }
+
+    @Test
     void ledgerIgnoresPortfolioTicksWhenDebitAndBorrowHold() {
         RhIndividualMarginPeek noon = peekAt("2026-09-27T17:00:00Z", new BigDecimal("-269165.71"), new BigDecimal("265526.27"));
         RhIndividualMarginPeek two = peekAt("2026-09-27T19:00:00Z", new BigDecimal("-269165.71"), new BigDecimal("265699.90"));
@@ -126,17 +135,21 @@ class RobinhoodIndividualMarginMathTest {
     }
 
     private static RhIndividualMarginPeek peekAt(String capturedAt, BigDecimal cash) {
-        return peekAt(capturedAt, cash, new BigDecimal("265555.03"));
+        return peekAt(capturedAt, cash, new BigDecimal("265555.03"), "INTRADAY");
     }
 
     private static RhIndividualMarginPeek peekAt(String capturedAt, BigDecimal cash, BigDecimal portfolio) {
+        return peekAt(capturedAt, cash, portfolio, "INTRADAY");
+    }
+
+    private static RhIndividualMarginPeek peekAt(String capturedAt, BigDecimal cash, BigDecimal portfolio, String kind) {
         RhIndividualMarginPeek peek = new RhIndividualMarginPeek();
         RobinhoodIndividualMarginWatchService.applyComputed(
                 peek,
                 1L,
                 Instant.parse(capturedAt),
                 LocalDate.parse(capturedAt.substring(0, 10)),
-                "INTRADAY",
+                kind,
                 cash,
                 new BigDecimal("494545.75"),
                 portfolio,
