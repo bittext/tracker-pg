@@ -1,9 +1,10 @@
 <div class="sierra">
   <header class="sierra-hero">
     <p class="sierra-eyebrow">Work project</p>
-    <h2 class="sierra-title">Sierra</h2>
+    <h2 class="sierra-title">Sierra.ai learning library</h2>
     <p class="muted sierra-lead">
-      Copied Sierra.ai learning library. Modules stay on the Work desk, separate from Life → Management.
+      One topic per file. Seed briefings stay in place; add dated notes under <strong>Your notes</strong> instead of
+      growing a module into a second topic.
     </p>
   </header>
 
@@ -20,14 +21,41 @@
         </section>
       }
     </nav>
+
     <article class="sierra-read" aria-label="Sierra module">
-      <h3 class="sierra-read-title">{{ selected.title }}</h3>
-      @if (loading) {
-        <p class="muted">Loading…</p>
-      } @else if (error) {
-        <p class="muted">{{ error }}</p>
+      @if (isCatalog) {
+        <h3 class="sierra-read-title">Module catalog</h3>
+        <p class="muted sierra-read-lead">
+          Pick a briefing. Each card is a single topic — product, architecture, agents, studio, integrations, or
+          operations — plus a journal for dated observations.
+        </p>
+        @for (section of topicSections; track section.label) {
+          <section class="sierra-catalog-section">
+            <h4 class="sierra-catalog-heading">{{ section.label }}</h4>
+            <div class="sierra-cards">
+              @for (m of section.modules; track m.path) {
+                <button type="button" class="sierra-card" (click)="open(m)">
+                  <span class="sierra-card-title">{{ m.title }}</span>
+                  <span class="sierra-card-blurb">{{ m.blurb }}</span>
+                </button>
+              }
+            </div>
+          </section>
+        }
       } @else {
-        <div class="markdown-body" [innerHTML]="body | safeMarkdown"></div>
+        <p class="sierra-kicker">{{ selected.path }}</p>
+        <h3 class="sierra-read-title">{{ selected.title }}</h3>
+        @if (loading) {
+          <p class="muted">Loading…</p>
+        } @else if (error) {
+          <p class="muted">{{ error }}</p>
+        } @else {
+          <div
+            class="markdown-body notes-entry-body sierra-md"
+            [innerHTML]="body | safeMarkdown"
+            (click)="onMarkdownClick($event)"
+          ></div>
+        }
       }
     </article>
   </div>
