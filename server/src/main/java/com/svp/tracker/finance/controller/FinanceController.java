@@ -35,6 +35,7 @@ import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerReportDto;
 import com.svp.tracker.finance.dto.RobinhoodRhDailyTrackerRefreshHintDto;
 import com.svp.tracker.finance.dto.RobinhoodExecutedTradesDto;
 import com.svp.tracker.finance.dto.RobinhoodRhPeriodBalancesDto;
+import com.svp.tracker.finance.dto.RobinhoodYtdCheckDto;
 import com.svp.tracker.finance.dto.RhDailyTrackerAccountAlertSaveRequestDto;
 import com.svp.tracker.finance.dto.RhDailyTrackerAccountAlertsDto;
 import com.svp.tracker.finance.dto.RhDailyTrackerAlertEventDto;
@@ -45,6 +46,7 @@ import com.svp.tracker.finance.dto.RhDailyTrackerAiInsightStatusDto;
 import com.svp.tracker.finance.dto.RobinhoodIndividualMarginPeekResultDto;
 import com.svp.tracker.finance.dto.RobinhoodIndividualMarginWatchDto;
 import com.svp.tracker.finance.service.RobinhoodIndividualMarginWatchService;
+import com.svp.tracker.finance.service.RobinhoodYtdCheckService;
 import com.svp.tracker.finance.service.RobinhoodOwnershipHistoryService;
 import com.svp.tracker.finance.service.RobinhoodRhCryptoTrackerService;
 import com.svp.tracker.finance.service.RobinhoodRhDailyTrackerAlertService;
@@ -96,6 +98,7 @@ public class FinanceController {
     private final RobinhoodRhDailyTrackerAlertService rhDailyTrackerAlertService;
     private final RhDailyTrackerAiInsightService rhDailyTrackerAiInsightService;
     private final RobinhoodIndividualMarginWatchService rhIndividualMarginWatchService;
+    private final RobinhoodYtdCheckService rhYtdCheckService;
     private final FinanceProperties financeProperties;
     private final OptionsBacktestService optionsBacktestService;
 
@@ -342,6 +345,15 @@ public class FinanceController {
         log.info("POST /api/finance/robinhood/margin-watch/peek");
         return rhIndividualMarginWatchService.peekNow();
     }
+
+    /** Individual ••••3370 broker YTD realized vs open mark (same numbers as the Robinhood app). */
+    @GetMapping("/ytd-check")
+    public RobinhoodYtdCheckDto ytdCheck(@RequestParam(name = "year") int year) {
+        validateYear(year);
+        log.info("GET /api/finance/robinhood/ytd-check year={}", year);
+        return rhYtdCheckService.load(year);
+    }
+
 
     /** Whether Daily Tracker AI coaching is enabled and has an API key. */
     @GetMapping("/daily-tracker/ai-insights/status")

@@ -7,6 +7,7 @@ import { ReportsFinanceRobinhoodPeriodBalancesComponent } from '../reports-finan
 import { ReportsFinanceRobinhoodCryptoTrackerComponent } from '../reports-finance-robinhood-crypto-tracker/reports-finance-robinhood-crypto-tracker.component';
 import { ReportsFinanceRobinhoodOwnershipHistoryComponent } from '../reports-finance-robinhood-ownership-history/reports-finance-robinhood-ownership-history.component';
 import { ReportsFinanceRobinhoodMarginWatchComponent } from '../reports-finance-robinhood-margin-watch/reports-finance-robinhood-margin-watch.component';
+import { ReportsFinanceRobinhoodYtdCheckComponent } from '../reports-finance-robinhood-ytd-check/reports-finance-robinhood-ytd-check.component';
 import { TradingJournalPanelComponent } from '../trading-journal-panel/trading-journal-panel.component';
 import { MarketsJourneyComponent } from '../../markets/markets-journey/markets-journey.component';
 import { InsightsRedesignRailComponent } from '../../../components/insights-redesign-rail/insights-redesign-rail.component';
@@ -26,6 +27,7 @@ import { UiLayout } from '../../../models/ui-layout.models';
     ReportsFinanceRobinhoodCryptoTrackerComponent,
     ReportsFinanceRobinhoodOwnershipHistoryComponent,
     ReportsFinanceRobinhoodMarginWatchComponent,
+    ReportsFinanceRobinhoodYtdCheckComponent,
     TradingJournalPanelComponent,
     MarketsJourneyComponent,
     InsightsRedesignRailComponent,

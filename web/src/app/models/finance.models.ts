@@ -2806,3 +2806,48 @@ export interface RobinhoodTradeInterestRequestDto {
   note?: string | null;
   status?: 'OPEN' | 'TAKEN' | 'PASSED' | 'EXPIRED' | string | null;
 }
+
+/** GET /api/finance/robinhood/ytd-check */
+export interface RobinhoodYtdCheckDto {
+  accountSuffix: string;
+  accountLabel: string;
+  year: number;
+  asOf: string;
+  fetchedAt: string;
+  live: boolean;
+  source: string;
+  accountValue: number | null;
+  equityValue: number | null;
+  cash: number | null;
+  buyingPower: number | null;
+  realizedYtd: number | null;
+  realizedEquity: number | null;
+  realizedOption: number | null;
+  realizedCrypto: number | null;
+  realizedCalendarDay: number | null;
+  realizedAppDay: number | null;
+  appDayTrades: number;
+  openUnrealized: number | null;
+  impliedYtdTotal: number | null;
+  note: string;
+  positions: RobinhoodYtdCheckPositionDto[];
+  recentCloses: RobinhoodYtdCheckCloseDto[];
+  warnings: string[];
+}
+
+export interface RobinhoodYtdCheckPositionDto {
+  symbol: string;
+  quantity: number | null;
+  averageBuyPrice: number | null;
+  cost: number | null;
+  unrealized: number | null;
+}
+
+export interface RobinhoodYtdCheckCloseDto {
+  timestamp: string | null;
+  symbol: string;
+  side: string | null;
+  quantity: string | null;
+  price: number | null;
+  realized: number | null;
+}

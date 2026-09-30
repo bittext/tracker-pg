@@ -54,6 +54,14 @@ import { UiLayoutService } from '../../services/ui-layout.service';
             type="button"
             class="insights-rail__view"
             [class.insights-rail__view--active]="journalNav.analyticsTabIndex() === 1"
+            (click)="journalNav.openYtdCheck()"
+          >
+            YTD
+          </button>
+          <button
+            type="button"
+            class="insights-rail__view"
+            [class.insights-rail__view--active]="journalNav.analyticsTabIndex() === 2"
             (click)="journalNav.openDailyTracker()"
           >
             Month
@@ -61,7 +69,7 @@ import { UiLayoutService } from '../../services/ui-layout.service';
           <button
             type="button"
             class="insights-rail__view"
-            [class.insights-rail__view--active]="journalNav.analyticsTabIndex() === 4"
+            [class.insights-rail__view--active]="journalNav.analyticsTabIndex() === 5"
             (click)="journalNav.openOwnershipHistory()"
           >
             Ownership
@@ -69,7 +77,7 @@ import { UiLayoutService } from '../../services/ui-layout.service';
           <button
             type="button"
             class="insights-rail__view"
-            [class.insights-rail__view--active]="journalNav.analyticsTabIndex() === 2"
+            [class.insights-rail__view--active]="journalNav.analyticsTabIndex() === 3"
             (click)="journalNav.openExecutedTrades()"
           >
             Ledger
@@ -77,7 +85,7 @@ import { UiLayoutService } from '../../services/ui-layout.service';
           <button
             type="button"
             class="insights-rail__view"
-            [class.insights-rail__view--active]="journalNav.analyticsTabIndex() === 5"
+            [class.insights-rail__view--active]="journalNav.analyticsTabIndex() === 6"
             (click)="journalNav.openJournal()"
           >
             Journal
@@ -85,7 +93,7 @@ import { UiLayoutService } from '../../services/ui-layout.service';
           <button
             type="button"
             class="insights-rail__view"
-            [class.insights-rail__view--active]="journalNav.analyticsTabIndex() === 8"
+            [class.insights-rail__view--active]="journalNav.analyticsTabIndex() === 9"
             (click)="journalNav.openMarginWatch()"
           >
             Margin

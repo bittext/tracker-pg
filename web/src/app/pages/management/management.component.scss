@@ -14,6 +14,9 @@
 
 .page-eyebrow--work {
   color: #4338ca;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .desk-banner {
@@ -22,6 +25,44 @@
   border-radius: 8px;
   font-size: 0.88rem;
   line-height: 1.4;
+  letter-spacing: 0;
+  word-spacing: normal;
+}
+
+.desk-stamp {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.75rem;
+  margin: 0.85rem 0 0;
+  letter-spacing: 0;
+  word-spacing: normal;
+}
+
+.desk-stamp__chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.desk-stamp__copy {
+  font-size: 0.88rem;
+  line-height: 1.4;
+  letter-spacing: 0;
+}
+
+.desk-stamp--work .desk-stamp__chip {
+  background: #312e81;
+  color: #eef2ff;
+}
+
+.desk-stamp--work .desk-stamp__copy {
+  color: #312e81;
 }
 
 .desk-banner--work {
@@ -37,7 +78,27 @@
 }
 
 .mgmt-card--work {
-  border-color: #c7d2fe;
+  border-color: #4338ca;
+  border-width: 2px;
+}
+
+.mgmt-work-tab-bar {
+  margin: 0;
+  padding: 0.45rem 0.9rem;
+  background: #312e81;
+  color: #eef2ff;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mgmt-tab-group--work {
+  --mat-tab-header-active-label-text-color: #312e81;
+  --mat-tab-header-active-focus-label-text-color: #312e81;
+  --mat-tab-header-active-hover-label-text-color: #312e81;
+  --mat-tab-header-active-ripple-color: #4338ca;
+  --mdc-tab-indicator-active-indicator-color: #4338ca;
 }
 
 .muted {

@@ -99,4 +99,10 @@ public class RobinhoodAgenticTokenService {
             RobinhoodAgenticConnection conn, String startDate, String endDate, List<String> suffixes) {
         return withFreshToken(conn, token -> sidecarClient.fetchRealizedPnl(token, startDate, endDate, suffixes));
     }
+
+    /** Sidecar Individual YTD check — same isolation as {@link #syncAllAccounts}. */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public JsonNode fetchYtdCheck(RobinhoodAgenticConnection conn, int year, String asOf) {
+        return withFreshToken(conn, token -> sidecarClient.fetchYtdCheck(token, year, asOf));
+    }
 }

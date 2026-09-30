@@ -1,5 +1,6 @@
 package com.svp.tracker.management.controller;
 
+import com.svp.tracker.management.domain.ManagementDesk;
 import com.svp.tracker.management.dto.ManagementAccountDto;
 import com.svp.tracker.management.dto.ManagementAccountImportRequest;
 import com.svp.tracker.management.dto.ManagementAccountImportResultDto;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -27,14 +29,16 @@ public class ManagementAccountsController {
     private final ManagementAccountsService service;
 
     @GetMapping
-    public List<ManagementAccountDto> list() {
-        return service.list();
+    public List<ManagementAccountDto> list(@RequestParam(defaultValue = "LIFE") String desk) {
+        return service.list(ManagementDesk.fromParam(desk));
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ManagementAccountDto create(@Valid @RequestBody ManagementAccountWriteRequest body) {
-        return service.create(body);
+    public ManagementAccountDto create(
+            @Valid @RequestBody ManagementAccountWriteRequest body,
+            @RequestParam(defaultValue = "LIFE") String desk) {
+        return service.create(body, ManagementDesk.fromParam(desk));
     }
 
     @PutMapping("/{id}")
@@ -51,7 +55,9 @@ public class ManagementAccountsController {
 
     /** Bulk-import entries (one-time migration from browser localStorage). Returns counts; duplicates are skipped. */
     @PostMapping("/bulk-import")
-    public ManagementAccountImportResultDto bulkImport(@Valid @RequestBody ManagementAccountImportRequest body) {
-        return service.bulkImport(body);
+    public ManagementAccountImportResultDto bulkImport(
+            @Valid @RequestBody ManagementAccountImportRequest body,
+            @RequestParam(defaultValue = "LIFE") String desk) {
+        return service.bulkImport(body, ManagementDesk.fromParam(desk));
     }
 }

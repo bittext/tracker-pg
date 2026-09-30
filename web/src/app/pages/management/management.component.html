@@ -9,7 +9,10 @@
       <a routerLink="/life/management">Life → Management</a>.
       Work-type calendar entries and Office / Learning write-ups live here.
     </p>
-    <p class="desk-banner desk-banner--work" role="status">You are on the <strong>Work</strong> desk.</p>
+    <div class="desk-stamp desk-stamp--work" role="status">
+      <span class="desk-stamp__chip">Work desk</span>
+      <span class="desk-stamp__copy">These tabs stay on Work. Life Management is a separate library.</span>
+    </div>
   } @else {
     <p class="muted">
       Organize to-dos by <strong>balance area</strong> and <strong>urgency</strong>, then review them on the calendar. Define
@@ -32,9 +35,13 @@
 </div>
 
 <mat-card class="card mgmt-card" [class.mgmt-card--work]="isWorkLayout">
+  @if (isWorkLayout) {
+    <p class="mgmt-work-tab-bar" role="status">Work tabs</p>
+  }
   <mat-tab-group
     animationDuration="220ms"
     class="mgmt-tab-group"
+    [class.mgmt-tab-group--work]="isWorkLayout"
     [dynamicHeight]="true"
     (selectedIndexChange)="onManagementTabIndexChange($event)"
   >

@@ -1,5 +1,6 @@
 package com.svp.tracker.management.repository;
 
+import com.svp.tracker.management.domain.ManagementDesk;
 import com.svp.tracker.management.domain.ManagementRecordingCache;
 import java.time.Instant;
 import java.util.List;
@@ -12,7 +13,13 @@ public interface ManagementRecordingCacheRepository extends JpaRepository<Manage
 
     Optional<ManagementRecordingCache> findByOwnerUserIdAndRelativePath(long ownerUserId, String relativePath);
 
+    Optional<ManagementRecordingCache> findByOwnerUserIdAndDeskAndRelativePath(
+            long ownerUserId, ManagementDesk desk, String relativePath);
+
     List<ManagementRecordingCache> findByOwnerUserIdOrderByRecordedDayDescUpdatedAtDesc(long ownerUserId);
+
+    List<ManagementRecordingCache> findByOwnerUserIdAndDeskOrderByRecordedDayDescUpdatedAtDesc(
+            long ownerUserId, ManagementDesk desk);
 
     Optional<ManagementRecordingCache> findFirstByProcessingStatusOrderByUpdatedAtAsc(String processingStatus);
 
@@ -23,6 +30,7 @@ public interface ManagementRecordingCacheRepository extends JpaRepository<Manage
             """
             select c from ManagementRecordingCache c
             where c.ownerUserId = :owner
+              and c.desk = :desk
               and (
                 lower(c.displayName) like lower(concat('%', :q, '%'))
                 or lower(c.relativePath) like lower(concat('%', :q, '%'))
@@ -31,5 +39,6 @@ public interface ManagementRecordingCacheRepository extends JpaRepository<Manage
               )
             order by c.recordedDay desc, c.updatedAt desc
             """)
-    List<ManagementRecordingCache> search(@Param("owner") long ownerUserId, @Param("q") String q);
+    List<ManagementRecordingCache> search(
+            @Param("owner") long ownerUserId, @Param("desk") ManagementDesk desk, @Param("q") String q);
 }

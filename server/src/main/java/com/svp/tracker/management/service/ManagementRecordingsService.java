@@ -7,6 +7,7 @@ import com.svp.tracker.config.JournalProperties;
 import com.svp.tracker.finance.service.RhDailyTrackerOpenAiClient;
 import com.svp.tracker.journal.service.JournalBlobStore;
 import com.svp.tracker.management.config.ManagementRecordingsProperties;
+import com.svp.tracker.management.domain.ManagementDesk;
 import com.svp.tracker.management.domain.ManagementRecordingCache;
 import com.svp.tracker.management.domain.ManagementRecordingImage;
 import com.svp.tracker.management.dto.ManagementRecordingDayDto;
@@ -71,7 +72,7 @@ public class ManagementRecordingsService {
     private final AtomicBoolean processing = new AtomicBoolean();
 
     @Transactional(readOnly = true)
-    public ManagementRecordingListDto list(LocalDate dayFilter) {
+    public ManagementRecordingListDto list(LocalDate dayFilter, ManagementDesk desk) {
         if (!properties.configured()) {
             return new ManagementRecordingListDto(
                     false,
@@ -82,8 +83,9 @@ public class ManagementRecordingsService {
         }
 
         long owner = currentUser.requireUserId();
+        ManagementDesk resolved = resolveDesk(desk);
         List<ManagementRecordingCache> rows = cacheRepository
-                .findByOwnerUserIdOrderByRecordedDayDescUpdatedAtDesc(owner)
+                .findByOwnerUserIdAndDeskOrderByRecordedDayDescUpdatedAtDesc(owner, resolved)
                 .stream()
                 .filter(r -> r.getStorageKey() != null && !r.getStorageKey().isBlank())
                 .filter(r -> dayFilter == null || dayFilter.equals(r.getRecordedDay()))
@@ -101,7 +103,8 @@ public class ManagementRecordingsService {
         // Day chips should reflect the full library, not only the filtered day list.
         if (dayFilter != null) {
             dayCounts.clear();
-            for (ManagementRecordingCache r : cacheRepository.findByOwnerUserIdOrderByRecordedDayDescUpdatedAtDesc(owner)) {
+            for (ManagementRecordingCache r :
+                    cacheRepository.findByOwnerUserIdAndDeskOrderByRecordedDayDescUpdatedAtDesc(owner, resolved)) {
                 if (r.getStorageKey() == null || r.getStorageKey().isBlank() || r.getRecordedDay() == null) {
                     continue;
                 }
@@ -125,7 +128,8 @@ public class ManagementRecordingsService {
     }
 
     @Transactional
-    public ManagementRecordingUploadResultDto upload(List<MultipartFile> files, List<String> relativePaths) {
+    public ManagementRecordingUploadResultDto upload(
+            List<MultipartFile> files, List<String> relativePaths, ManagementDesk desk) {
         if (!properties.configured()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Recordings are disabled");
         }
@@ -134,6 +138,7 @@ public class ManagementRecordingsService {
         }
         long max = journalProperties.getMaxAttachmentBytes();
         long owner = currentUser.requireUserId();
+        ManagementDesk resolved = resolveDesk(desk);
         List<ManagementRecordingItemDto> out = new ArrayList<>();
         Map<String, ManagementRecordingCache> uploadedByPath = new HashMap<>();
         List<PendingFolderImage> pendingImages = new ArrayList<>();
@@ -179,7 +184,7 @@ public class ManagementRecordingsService {
             }
 
             ManagementRecordingCache row = cacheRepository
-                    .findByOwnerUserIdAndRelativePath(owner, relativePath)
+                    .findByOwnerUserIdAndDeskAndRelativePath(owner, resolved, relativePath)
                     .orElseGet(ManagementRecordingCache::new);
 
             // Replace prior blob if re-uploading the same relative path.
@@ -192,6 +197,7 @@ public class ManagementRecordingsService {
             }
 
             row.setOwnerUserId(owner);
+            row.setDesk(resolved);
             row.setRelativePath(relativePath);
             row.setDisplayName(displayName);
             row.setRecordedDay(day);
@@ -219,7 +225,7 @@ public class ManagementRecordingsService {
             out.add(toItem(row));
         }
 
-        int imageCount = attachFolderImages(owner, pendingImages, uploadedByPath);
+        int imageCount = attachFolderImages(owner, resolved, pendingImages, uploadedByPath);
         if (out.isEmpty() && imageCount == 0) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
@@ -229,13 +235,13 @@ public class ManagementRecordingsService {
     }
 
     @Transactional(readOnly = true)
-    public ManagementRecordingDetailDto detail(String relativePath) {
-        return toDetail(requireStored(relativePath));
+    public ManagementRecordingDetailDto detail(String relativePath, ManagementDesk desk) {
+        return toDetail(requireStored(relativePath, desk));
     }
 
     @Transactional(readOnly = true)
-    public RecordingFile readFile(String relativePath) {
-        ManagementRecordingCache row = requireStored(relativePath);
+    public RecordingFile readFile(String relativePath, ManagementDesk desk) {
+        ManagementRecordingCache row = requireStored(relativePath, desk);
         try {
             byte[] body = blobStore.readAllBytes(row.getStorageKey());
             String ct = row.getContentType() != null && !row.getContentType().isBlank()
@@ -251,8 +257,8 @@ public class ManagementRecordingsService {
     }
 
     @Transactional
-    public void delete(String relativePath) {
-        ManagementRecordingCache row = requireStored(relativePath);
+    public void delete(String relativePath, ManagementDesk desk) {
+        ManagementRecordingCache row = requireStored(relativePath, desk);
         deleteImagesForRecording(row);
         try {
             if (row.getStorageKey() != null) {
@@ -265,16 +271,17 @@ public class ManagementRecordingsService {
     }
 
     @Transactional(readOnly = true)
-    public List<ManagementRecordingImageDto> listImages(String relativePath) {
-        ManagementRecordingCache row = requireStored(relativePath);
+    public List<ManagementRecordingImageDto> listImages(String relativePath, ManagementDesk desk) {
+        ManagementRecordingCache row = requireStored(relativePath, desk);
         return imageRepository.findByRecordingIdOrderBySortOrderAscIdAsc(row.getId()).stream()
                 .map(this::toImageDto)
                 .toList();
     }
 
     @Transactional
-    public List<ManagementRecordingImageDto> uploadImages(String relativePath, List<MultipartFile> files) {
-        ManagementRecordingCache row = requireStored(relativePath);
+    public List<ManagementRecordingImageDto> uploadImages(
+            String relativePath, List<MultipartFile> files, ManagementDesk desk) {
+        ManagementRecordingCache row = requireStored(relativePath, desk);
         if (files == null || files.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No image files provided");
         }
@@ -360,8 +367,8 @@ public class ManagementRecordingsService {
      * iCloud Drive / Just Press Record file (upload is a one-way copy).
      */
     @Transactional
-    public ManagementRecordingDetailDto rename(String relativePath, String displayName) {
-        ManagementRecordingCache row = requireStored(relativePath);
+    public ManagementRecordingDetailDto rename(String relativePath, String displayName, ManagementDesk desk) {
+        ManagementRecordingCache row = requireStored(relativePath, desk);
         String cleaned = normalizeDisplayName(displayName, row.getDisplayName());
         row.setDisplayName(cleaned);
         // Keep downloads aligned with the label the user sees.
@@ -403,8 +410,8 @@ public class ManagementRecordingsService {
     }
 
     @Transactional
-    public ManagementRecordingDetailDto transcribe(String relativePath, boolean force) {
-        ManagementRecordingCache row = requireStored(relativePath);
+    public ManagementRecordingDetailDto transcribe(String relativePath, boolean force, ManagementDesk desk) {
+        ManagementRecordingCache row = requireStored(relativePath, desk);
         if (!force && row.getTranscript() != null && !row.getTranscript().isBlank()) {
             return toDetail(row);
         }
@@ -426,8 +433,8 @@ public class ManagementRecordingsService {
     }
 
     @Transactional
-    public ManagementRecordingDetailDto summarize(String relativePath, boolean force) {
-        ManagementRecordingCache row = requireStored(relativePath);
+    public ManagementRecordingDetailDto summarize(String relativePath, boolean force, ManagementDesk desk) {
+        ManagementRecordingCache row = requireStored(relativePath, desk);
         if (row.getTranscript() == null || row.getTranscript().isBlank()) {
             Path tmp = writeTempAudio(row);
             try {
@@ -458,8 +465,8 @@ public class ManagementRecordingsService {
      * Prefer background PENDING when auto-process is on so the HTTP request returns quickly.
      */
     @Transactional
-    public ManagementRecordingDetailDto reprocess(String relativePath) {
-        ManagementRecordingCache row = requireStored(relativePath);
+    public ManagementRecordingDetailDto reprocess(String relativePath, ManagementDesk desk) {
+        ManagementRecordingCache row = requireStored(relativePath, desk);
         if (properties.autoProcessEnabled()) {
             row.setTranscript(null);
             row.setTranscriptSource(null);
@@ -505,13 +512,13 @@ public class ManagementRecordingsService {
 
     /** Clear any leftover PENDING/PROCESSING rows for this user. */
     @Transactional
-    public ManagementRecordingReprocessDto cancelQueue() {
+    public ManagementRecordingReprocessDto cancelQueue(ManagementDesk desk) {
         if (!properties.configured()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Recordings are disabled");
         }
         long owner = currentUser.requireUserId();
         List<ManagementRecordingCache> rows =
-                cacheRepository.findByOwnerUserIdOrderByRecordedDayDescUpdatedAtDesc(owner);
+                cacheRepository.findByOwnerUserIdAndDeskOrderByRecordedDayDescUpdatedAtDesc(owner, resolveDesk(desk));
         int cleared = 0;
         for (ManagementRecordingCache row : rows) {
             String status = row.getProcessingStatus();
@@ -628,7 +635,7 @@ public class ManagementRecordingsService {
     }
 
     @Transactional(readOnly = true)
-    public List<ManagementRecordingItemDto> search(String query) {
+    public List<ManagementRecordingItemDto> search(String query, ManagementDesk desk) {
         String q = query == null ? "" : query.trim();
         if (q.length() < 2) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Search query must be at least 2 characters");
@@ -637,7 +644,7 @@ public class ManagementRecordingsService {
             return List.of();
         }
         long owner = currentUser.requireUserId();
-        return cacheRepository.search(owner, q).stream()
+        return cacheRepository.search(owner, resolveDesk(desk), q).stream()
                 .filter(r -> r.getStorageKey() != null && !r.getStorageKey().isBlank())
                 .map(this::toItem)
                 .toList();
@@ -671,14 +678,14 @@ public class ManagementRecordingsService {
         }
     }
 
-    private ManagementRecordingCache requireStored(String relativePath) {
+    private ManagementRecordingCache requireStored(String relativePath, ManagementDesk desk) {
         if (!properties.configured()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Recordings are disabled");
         }
         String path = normalizeRelativePath(relativePath, null);
         long owner = currentUser.requireUserId();
         ManagementRecordingCache row = cacheRepository
-                .findByOwnerUserIdAndRelativePath(owner, path)
+                .findByOwnerUserIdAndDeskAndRelativePath(owner, resolveDesk(desk), path)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Recording not found"));
         if (row.getStorageKey() == null || row.getStorageKey().isBlank()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Recording audio is missing — re-upload the file");
@@ -714,6 +721,7 @@ public class ManagementRecordingsService {
 
     private int attachFolderImages(
             long owner,
+            ManagementDesk desk,
             List<PendingFolderImage> images,
             Map<String, ManagementRecordingCache> uploadedByPath) {
         if (images.isEmpty()) {
@@ -722,7 +730,7 @@ public class ManagementRecordingsService {
         long maxBytes = journalProperties.getMaxAttachmentBytes();
         Map<String, ManagementRecordingCache> byPath = new HashMap<>(uploadedByPath);
         for (ManagementRecordingCache row :
-                cacheRepository.findByOwnerUserIdOrderByRecordedDayDescUpdatedAtDesc(owner)) {
+                cacheRepository.findByOwnerUserIdAndDeskOrderByRecordedDayDescUpdatedAtDesc(owner, desk)) {
             if (row.getStorageKey() == null || row.getStorageKey().isBlank()) {
                 continue;
             }
@@ -1002,4 +1010,8 @@ public class ManagementRecordingsService {
     }
 
     public record RecordingFile(String filename, String contentType, byte[] body) {}
+
+    private static ManagementDesk resolveDesk(ManagementDesk desk) {
+        return desk == null ? ManagementDesk.LIFE : desk;
+    }
 }

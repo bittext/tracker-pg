@@ -425,7 +425,7 @@ export class ReportsFinanceRobinhoodPerformanceComponent implements OnInit {
   }
 
   openCrypto(): void {
-    this.journalNav.analyticsTabIndex.set(6);
+    this.journalNav.analyticsTabIndex.set(7);
   }
 
   openMonthDetail(row: RobinhoodRhPeriodBalanceRowDto): void {

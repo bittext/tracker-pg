@@ -1,0 +1,217 @@
+<section class="rh-ytd" aria-labelledby="rh-ytd-heading">
+  <header class="rh-ytd__head">
+    <div>
+      <p class="page-eyebrow">Robinhood · Individual ••••3370</p>
+      <h2 id="rh-ytd-heading" class="rh-ytd__title">YTD</h2>
+      <p class="muted rh-ytd__lead">
+        Broker realized P&amp;L versus the larger YTD line on the Robinhood app. Realized is closed trades only. The
+        app’s YTD number also marks open lots. Informational, not tax advice.
+      </p>
+    </div>
+    <div class="rh-ytd__toolbar">
+      <mat-form-field appearance="outline" class="rh-ytd__year" subscriptSizing="dynamic">
+        <mat-label>Year</mat-label>
+        <mat-select [(ngModel)]="reportYear" name="rhYtdYear" (selectionChange)="load()">
+          @for (y of yearChoices; track y) {
+            <mat-option [value]="y">{{ y }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      <button mat-flat-button color="primary" type="button" (click)="load()" [disabled]="loading">
+        @if (loading) {
+          <mat-spinner diameter="18" />
+        } @else {
+          <mat-icon>refresh</mat-icon>
+        }
+        Refresh
+      </button>
+    </div>
+  </header>
+
+  @if (loading && !data) {
+    <div class="rh-ytd__loading">
+      <mat-spinner diameter="28" />
+      <p class="muted">Reading Individual YTD from Robinhood…</p>
+    </div>
+  } @else if (data; as d) {
+    <p class="muted rh-ytd__live">
+      <mat-icon aria-hidden="true">{{ d.live ? 'verified' : 'history' }}</mat-icon>
+      {{ d.live ? 'Live broker ledger' : 'Stored snapshot' }}
+      · {{ d.fetchedAt | date: 'MMM d, y, h:mm a' }}
+    </p>
+
+    @if (d.warnings.length) {
+      <p class="rh-ytd__warn" role="status">{{ d.warnings.join(' ') }}</p>
+    }
+
+    <section class="rh-ytd__hero" aria-label="YTD scoreboard">
+      <article class="rh-ytd__kpi rh-ytd__kpi--wide">
+        <span class="rh-ytd__kpi-label">YTD realized</span>
+        <strong
+          class="rh-ytd__kpi-value"
+          [class.rh-ytd__pnl--pos]="isGain(d.realizedYtd)"
+          [class.rh-ytd__pnl--neg]="isLoss(d.realizedYtd)"
+        >
+          {{ d.realizedYtd != null ? (d.realizedYtd | currency) : '—' }}
+        </strong>
+        <small class="muted">Closed trades · matches the app’s YTD realized line</small>
+      </article>
+      <article class="rh-ytd__kpi">
+        <span class="rh-ytd__kpi-label">Implied YTD</span>
+        <strong
+          class="rh-ytd__kpi-value"
+          [class.rh-ytd__pnl--pos]="isGain(d.impliedYtdTotal)"
+          [class.rh-ytd__pnl--neg]="isLoss(d.impliedYtdTotal)"
+        >
+          {{ d.impliedYtdTotal != null ? (d.impliedYtdTotal | currency) : '—' }}
+        </strong>
+        <small class="muted">Realized + open mark · near the app’s larger YTD line</small>
+      </article>
+      <article class="rh-ytd__kpi">
+        <span class="rh-ytd__kpi-label">Open mark</span>
+        <strong
+          class="rh-ytd__kpi-value"
+          [class.rh-ytd__pnl--pos]="isGain(d.openUnrealized)"
+          [class.rh-ytd__pnl--neg]="isLoss(d.openUnrealized)"
+        >
+          {{ d.openUnrealized != null ? (d.openUnrealized | currency) : '—' }}
+        </strong>
+        <small class="muted">Why those two YTD numbers differ</small>
+      </article>
+      <article class="rh-ytd__kpi">
+        <span class="rh-ytd__kpi-label">Day’s realized</span>
+        <strong
+          class="rh-ytd__kpi-value"
+          [class.rh-ytd__pnl--pos]="isGain(d.realizedAppDay)"
+          [class.rh-ytd__pnl--neg]="isLoss(d.realizedAppDay)"
+        >
+          {{ d.realizedAppDay != null ? (d.realizedAppDay | currency) : '—' }}
+        </strong>
+        <small class="muted">
+          Yesterday + today ET
+          @if (d.realizedCalendarDay != null) {
+            · calendar day {{ d.realizedCalendarDay | currency }}
+          }
+        </small>
+      </article>
+    </section>
+
+    <section class="rh-ytd__split" aria-labelledby="rh-ytd-split-heading">
+      <h3 id="rh-ytd-split-heading">What built realized YTD</h3>
+      <dl>
+        <div>
+          <dt>Options</dt>
+          <dd [class.rh-ytd__pnl--pos]="isGain(d.realizedOption)" [class.rh-ytd__pnl--neg]="isLoss(d.realizedOption)">
+            {{ d.realizedOption != null ? (d.realizedOption | currency) : '—' }}
+          </dd>
+        </div>
+        <div>
+          <dt>Stocks</dt>
+          <dd [class.rh-ytd__pnl--pos]="isGain(d.realizedEquity)" [class.rh-ytd__pnl--neg]="isLoss(d.realizedEquity)">
+            {{ d.realizedEquity != null ? (d.realizedEquity | currency) : '—' }}
+          </dd>
+        </div>
+        <div>
+          <dt>Crypto</dt>
+          <dd [class.rh-ytd__pnl--pos]="isGain(d.realizedCrypto)" [class.rh-ytd__pnl--neg]="isLoss(d.realizedCrypto)">
+            {{ d.realizedCrypto != null ? (d.realizedCrypto | currency) : '—' }}
+          </dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="rh-ytd__book" aria-labelledby="rh-ytd-book-heading">
+      <h3 id="rh-ytd-book-heading">Account now</h3>
+      <dl>
+        <div>
+          <dt>Account value</dt>
+          <dd>{{ d.accountValue != null ? (d.accountValue | currency) : '—' }}</dd>
+        </div>
+        <div>
+          <dt>Equity</dt>
+          <dd>{{ d.equityValue != null ? (d.equityValue | currency) : '—' }}</dd>
+        </div>
+        <div>
+          <dt>Cash</dt>
+          <dd [class.rh-ytd__pnl--neg]="(d.cash ?? 0) < 0">{{ d.cash != null ? (d.cash | currency) : '—' }}</dd>
+        </div>
+        <div>
+          <dt>Buying power</dt>
+          <dd>{{ d.buyingPower != null ? (d.buyingPower | currency) : '—' }}</dd>
+        </div>
+      </dl>
+    </section>
+
+    @if (d.positions.length) {
+      <section class="rh-ytd__table-wrap" aria-labelledby="rh-ytd-open-heading">
+        <h3 id="rh-ytd-open-heading">Open lots</h3>
+        <table class="rh-ytd__table">
+          <thead>
+            <tr>
+              <th scope="col">Symbol</th>
+              <th scope="col" class="rh-ytd__num">Qty</th>
+              <th scope="col" class="rh-ytd__num">Avg cost</th>
+              <th scope="col" class="rh-ytd__num">Cost</th>
+              <th scope="col" class="rh-ytd__num">Unrealized</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (p of d.positions; track p.symbol) {
+              <tr>
+                <td>{{ p.symbol }}</td>
+                <td class="rh-ytd__num">{{ p.quantity ?? '—' }}</td>
+                <td class="rh-ytd__num">{{ p.averageBuyPrice != null ? (p.averageBuyPrice | currency) : '—' }}</td>
+                <td class="rh-ytd__num">{{ p.cost != null ? (p.cost | currency) : '—' }}</td>
+                <td
+                  class="rh-ytd__num"
+                  [class.rh-ytd__pnl--pos]="isGain(p.unrealized)"
+                  [class.rh-ytd__pnl--neg]="isLoss(p.unrealized)"
+                >
+                  {{ p.unrealized != null ? (p.unrealized | currency) : '—' }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </section>
+    }
+
+    @if (d.recentCloses.length) {
+      <section class="rh-ytd__table-wrap" aria-labelledby="rh-ytd-closes-heading">
+        <h3 id="rh-ytd-closes-heading">Recent closes</h3>
+        <table class="rh-ytd__table">
+          <thead>
+            <tr>
+              <th scope="col">When (ET)</th>
+              <th scope="col">Symbol</th>
+              <th scope="col">Side</th>
+              <th scope="col" class="rh-ytd__num">Qty</th>
+              <th scope="col" class="rh-ytd__num">Price</th>
+              <th scope="col" class="rh-ytd__num">Realized</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (c of d.recentCloses; track c.timestamp + c.symbol + c.quantity) {
+              <tr>
+                <td>{{ formatWhen(c.timestamp) }}</td>
+                <td>{{ c.symbol }}</td>
+                <td>{{ c.side || '—' }}</td>
+                <td class="rh-ytd__num">{{ c.quantity || '—' }}</td>
+                <td class="rh-ytd__num">{{ c.price != null ? (c.price | currency) : '—' }}</td>
+                <td
+                  class="rh-ytd__num"
+                  [class.rh-ytd__pnl--pos]="isGain(c.realized)"
+                  [class.rh-ytd__pnl--neg]="isLoss(c.realized)"
+                >
+                  {{ c.realized != null ? (c.realized | currency) : '—' }}
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </section>
+    }
+
+    <p class="muted rh-ytd__note">{{ d.note }}</p>
+  }
+</section>

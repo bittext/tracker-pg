@@ -3,6 +3,7 @@ package com.svp.tracker.management.service;
 import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.fitness.exception.NotFoundException;
 import com.svp.tracker.management.domain.ManagementAccount;
+import com.svp.tracker.management.domain.ManagementDesk;
 import com.svp.tracker.management.dto.ManagementAccountDto;
 import com.svp.tracker.management.dto.ManagementAccountImportRequest;
 import com.svp.tracker.management.dto.ManagementAccountImportResultDto;
@@ -25,15 +26,17 @@ public class ManagementAccountsService {
     private final CurrentUserService currentUser;
 
     @Transactional(readOnly = true)
-    public List<ManagementAccountDto> list() {
+    public List<ManagementAccountDto> list(ManagementDesk desk) {
         long owner = currentUser.requireUserId();
-        return repository.findByOwnerUserIdOrderByFolderAscItemNameAscIdAsc(owner).stream()
+        return repository
+                .findByOwnerUserIdAndDeskOrderByFolderAscItemNameAscIdAsc(owner, resolveDesk(desk))
+                .stream()
                 .map(this::toDto)
                 .toList();
     }
 
     @Transactional
-    public ManagementAccountDto create(ManagementAccountWriteRequest req) {
+    public ManagementAccountDto create(ManagementAccountWriteRequest req, ManagementDesk desk) {
         long owner = currentUser.requireUserId();
         String itemName = nonNullTrim(req.itemName());
         if (itemName.isEmpty()) {
@@ -42,6 +45,7 @@ public class ManagementAccountsService {
         Instant now = Instant.now();
         ManagementAccount e = new ManagementAccount();
         e.setOwnerUserId(owner);
+        e.setDesk(resolveDesk(desk));
         applyWrite(e, req);
         e.setCreatedAt(now);
         e.setUpdatedAt(now);
@@ -79,8 +83,9 @@ public class ManagementAccountsService {
      * migrate localStorage on first login after upgrading to server-backed storage.
      */
     @Transactional
-    public ManagementAccountImportResultDto bulkImport(ManagementAccountImportRequest req) {
+    public ManagementAccountImportResultDto bulkImport(ManagementAccountImportRequest req, ManagementDesk desk) {
         long owner = currentUser.requireUserId();
+        ManagementDesk resolved = resolveDesk(desk);
         if (req == null || req.entries() == null || req.entries().isEmpty()) {
             return new ManagementAccountImportResultDto(0, 0, 0);
         }
@@ -95,12 +100,14 @@ public class ManagementAccountsService {
                 continue;
             }
             String folder = nonNullTrim(w.folder());
-            if (repository.existsByOwnerUserIdAndFolderIgnoreCaseAndItemNameIgnoreCase(owner, folder, itemName)) {
+            if (repository.existsByOwnerUserIdAndDeskAndFolderIgnoreCaseAndItemNameIgnoreCase(
+                    owner, resolved, folder, itemName)) {
                 skipped++;
                 continue;
             }
             ManagementAccount e = new ManagementAccount();
             e.setOwnerUserId(owner);
+            e.setDesk(resolved);
             applyWrite(e, w);
             e.setCreatedAt(now);
             e.setUpdatedAt(now);
@@ -132,6 +139,10 @@ public class ManagementAccountsService {
                 e.getNotes(),
                 e.getCreatedAt().toString(),
                 e.getUpdatedAt().toString());
+    }
+
+    private static ManagementDesk resolveDesk(ManagementDesk desk) {
+        return desk == null ? ManagementDesk.LIFE : desk;
     }
 
     private static String nonNullTrim(String s) {

@@ -1,5 +1,6 @@
 package com.svp.tracker.management.controller;
 
+import com.svp.tracker.management.domain.ManagementDesk;
 import com.svp.tracker.management.dto.ManagementMonthNoteAttachmentDto;
 import com.svp.tracker.management.dto.ManagementMonthNoteCalendarDto;
 import com.svp.tracker.management.dto.ManagementMonthNoteDto;
@@ -36,13 +37,17 @@ public class ManagementMonthNoteController {
     private final ManagementMonthNoteService service;
 
     @GetMapping("/calendar")
-    public ManagementMonthNoteCalendarDto calendar(@RequestParam int year) {
-        return service.calendar(year);
+    public ManagementMonthNoteCalendarDto calendar(
+            @RequestParam int year, @RequestParam(defaultValue = "LIFE") String desk) {
+        return service.calendar(year, ManagementDesk.fromParam(desk));
     }
 
     @GetMapping
-    public List<ManagementMonthNoteDto> list(@RequestParam int year, @RequestParam(required = false) @Nullable Integer month) {
-        return service.list(year, month);
+    public List<ManagementMonthNoteDto> list(
+            @RequestParam int year,
+            @RequestParam(required = false) @Nullable Integer month,
+            @RequestParam(defaultValue = "LIFE") String desk) {
+        return service.list(year, month, ManagementDesk.fromParam(desk));
     }
 
     @GetMapping("/{id}")
@@ -52,8 +57,10 @@ public class ManagementMonthNoteController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ManagementMonthNoteDto create(@Valid @RequestBody ManagementMonthNoteWriteRequest body) {
-        return service.create(body);
+    public ManagementMonthNoteDto create(
+            @Valid @RequestBody ManagementMonthNoteWriteRequest body,
+            @RequestParam(defaultValue = "LIFE") String desk) {
+        return service.create(body, ManagementDesk.fromParam(desk));
     }
 
     @PutMapping("/{id}")

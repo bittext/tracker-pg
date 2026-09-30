@@ -34,6 +34,16 @@
   color: var(--app-color-success);
 }
 
+.app-sidebar__link--work {
+  color: #312e81;
+  font-weight: 650;
+}
+
+.app-sidebar__link--work.app-sidebar__link--active {
+  background: #eef2ff;
+  box-shadow: inset 3px 0 0 #4338ca;
+}
+
 .spacer {
   flex: 1 1 auto;
 }
@@ -87,6 +97,16 @@
 
 .life-classic-shell__tab--switch {
   color: var(--app-color-success);
+}
+
+.life-classic-shell__tab--work {
+  color: #312e81;
+  font-weight: 650;
+}
+
+.life-classic-shell__tab--work.life-classic-shell__tab--active {
+  background: #eef2ff;
+  color: #312e81;
 }
 
 .life-classic-shell__main {

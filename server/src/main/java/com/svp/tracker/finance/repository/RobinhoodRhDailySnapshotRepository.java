@@ -41,6 +41,9 @@ public interface RobinhoodRhDailySnapshotRepository extends JpaRepository<Robinh
 
     Optional<RobinhoodRhDailySnapshot> findTopByOwnerUserIdOrderBySnapshotAtDescIdDesc(long ownerUserId);
 
+    Optional<RobinhoodRhDailySnapshot> findTopByOwnerUserIdAndAccountSuffixOrderBySnapshotAtDescIdDesc(
+            long ownerUserId, String accountSuffix);
+
     @Query("SELECT COUNT(s) FROM RobinhoodRhDailySnapshot s WHERE s.ownerUserId = :ownerUserId")
     long countByOwnerUserId(@Param("ownerUserId") long ownerUserId);
 

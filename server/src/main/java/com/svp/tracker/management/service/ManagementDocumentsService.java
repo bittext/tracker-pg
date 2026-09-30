@@ -4,6 +4,7 @@ import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.JournalProperties;
 import com.svp.tracker.fitness.exception.NotFoundException;
 import com.svp.tracker.journal.service.JournalBlobStore;
+import com.svp.tracker.management.domain.ManagementDesk;
 import com.svp.tracker.management.domain.ManagementDocument;
 import com.svp.tracker.management.dto.ManagementDocumentDto;
 import com.svp.tracker.management.dto.ManagementDocumentWriteRequest;
@@ -30,15 +31,15 @@ public class ManagementDocumentsService {
     private final CurrentUserService currentUser;
 
     @Transactional(readOnly = true)
-    public List<ManagementDocumentDto> list() {
+    public List<ManagementDocumentDto> list(ManagementDesk desk) {
         long owner = currentUser.requireUserId();
-        return repository.findByOwnerUserIdOrderByCreatedAtDesc(owner).stream()
+        return repository.findByOwnerUserIdAndDeskOrderByCreatedAtDesc(owner, resolveDesk(desk)).stream()
                 .map(this::toDto)
                 .toList();
     }
 
     @Transactional
-    public ManagementDocumentDto upload(MultipartFile file, String displayName, String docType) {
+    public ManagementDocumentDto upload(MultipartFile file, String displayName, String docType, ManagementDesk desk) {
         if (file == null || file.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File required");
         }
@@ -63,6 +64,7 @@ public class ManagementDocumentsService {
         }
         ManagementDocument d = new ManagementDocument();
         d.setOwnerUserId(owner);
+        d.setDesk(resolveDesk(desk));
         d.setDisplayName(dn);
         d.setDocType(dt);
         d.setOriginalFilename(Objects.requireNonNullElse(file.getOriginalFilename(), "file"));
@@ -132,6 +134,10 @@ public class ManagementDocumentsService {
                 path,
                 d.getCreatedAt().toString(),
                 d.getUpdatedAt().toString());
+    }
+
+    private static ManagementDesk resolveDesk(ManagementDesk desk) {
+        return desk == null ? ManagementDesk.LIFE : desk;
     }
 
     private static String normalizeName(String s) {

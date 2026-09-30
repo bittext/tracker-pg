@@ -4,6 +4,7 @@ import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.JournalProperties;
 import com.svp.tracker.fitness.exception.NotFoundException;
 import com.svp.tracker.journal.service.JournalBlobStore;
+import com.svp.tracker.management.domain.ManagementDesk;
 import com.svp.tracker.management.domain.ManagementMonthNote;
 import com.svp.tracker.management.domain.ManagementMonthNoteAttachment;
 import com.svp.tracker.management.dto.ManagementMonthNoteAttachmentDto;
@@ -41,12 +42,12 @@ public class ManagementMonthNoteService {
     private final CurrentUserService currentUser;
 
     @Transactional(readOnly = true)
-    public ManagementMonthNoteCalendarDto calendar(int year) {
+    public ManagementMonthNoteCalendarDto calendar(int year, ManagementDesk desk) {
         if (year < 1970 || year > 9999) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid year");
         }
         long owner = currentUser.requireUserId();
-        List<Object[]> rows = noteRepository.countByMonthForYear(owner, year);
+        List<Object[]> rows = noteRepository.countByMonthForYearAndDesk(owner, resolveDesk(desk), year);
         Map<Integer, Long> byMonth = new HashMap<>();
         for (Object[] r : rows) {
             byMonth.put((Integer) r[0], (Long) r[1]);
@@ -59,19 +60,20 @@ public class ManagementMonthNoteService {
     }
 
     @Transactional(readOnly = true)
-    public List<ManagementMonthNoteDto> list(int year, Integer month) {
+    public List<ManagementMonthNoteDto> list(int year, Integer month, ManagementDesk desk) {
         if (year < 1970 || year > 9999) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid year");
         }
         long owner = currentUser.requireUserId();
+        ManagementDesk resolved = resolveDesk(desk);
         List<ManagementMonthNote> list;
         if (month == null) {
-            list = noteRepository.findByOwnerAndYearWithAttachments(owner, year);
+            list = noteRepository.findByOwnerAndDeskAndYearWithAttachments(owner, resolved, year);
         } else {
             if (month < 1 || month > 12) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid month");
             }
-            list = noteRepository.findByOwnerAndYearMonthWithAttachments(owner, year, month);
+            list = noteRepository.findByOwnerAndDeskAndYearMonthWithAttachments(owner, resolved, year, month);
         }
         return list.stream().map(this::toDto).toList();
     }
@@ -86,11 +88,12 @@ public class ManagementMonthNoteService {
     }
 
     @Transactional
-    public ManagementMonthNoteDto create(ManagementMonthNoteWriteRequest req) {
+    public ManagementMonthNoteDto create(ManagementMonthNoteWriteRequest req, ManagementDesk desk) {
         long owner = currentUser.requireUserId();
         Instant now = Instant.now();
         ManagementMonthNote n = new ManagementMonthNote();
         n.setOwnerUserId(owner);
+        n.setDesk(resolveDesk(desk));
         n.setYear(req.year());
         n.setMonth(req.month());
         n.setSubject(req.subject().trim());
@@ -211,6 +214,10 @@ public class ManagementMonthNoteService {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    private static ManagementDesk resolveDesk(ManagementDesk desk) {
+        return desk == null ? ManagementDesk.LIFE : desk;
     }
 
     private void assertRowAccess(Long ownerUserId) {

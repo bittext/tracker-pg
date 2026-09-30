@@ -1,5 +1,6 @@
 package com.svp.tracker.management.controller;
 
+import com.svp.tracker.management.domain.ManagementDesk;
 import com.svp.tracker.management.dto.ManagementDocumentDto;
 import com.svp.tracker.management.dto.ManagementDocumentWriteRequest;
 import com.svp.tracker.management.service.ManagementDocumentsService;
@@ -33,8 +34,8 @@ public class ManagementDocumentsController {
     private final ManagementDocumentsService service;
 
     @GetMapping
-    public List<ManagementDocumentDto> list() {
-        return service.list();
+    public List<ManagementDocumentDto> list(@RequestParam(defaultValue = "LIFE") String desk) {
+        return service.list(ManagementDesk.fromParam(desk));
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -42,8 +43,9 @@ public class ManagementDocumentsController {
     public ManagementDocumentDto upload(
             @RequestParam("file") MultipartFile file,
             @RequestParam("displayName") String displayName,
-            @RequestParam("docType") String docType) {
-        return service.upload(file, displayName, docType);
+            @RequestParam("docType") String docType,
+            @RequestParam(defaultValue = "LIFE") String desk) {
+        return service.upload(file, displayName, docType, ManagementDesk.fromParam(desk));
     }
 
     @PutMapping("/{id}")

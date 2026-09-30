@@ -11,6 +11,7 @@
         @for (item of primaryNav; track item.id) {
           <a
             class="app-sidebar__link"
+            [class.app-sidebar__link--work]="item.id === 'work'"
             [routerLink]="item.path"
             routerLinkActive="app-sidebar__link--active"
             [routerLinkActiveOptions]="{ exact: item.exact !== false }"
@@ -113,6 +114,7 @@
       @for (item of primaryNav; track item.id) {
         <a
           class="life-classic-shell__tab"
+          [class.life-classic-shell__tab--work]="item.id === 'work'"
           [routerLink]="item.path"
           routerLinkActive="life-classic-shell__tab--active"
           [routerLinkActiveOptions]="{ exact: item.exact !== false }"

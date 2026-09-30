@@ -453,7 +453,7 @@ export class RobinhoodTradingPanelComponent implements OnInit {
   }
 
   openCrypto(): void {
-    this.journalNav.analyticsTabIndex.set(6);
+    this.journalNav.analyticsTabIndex.set(7);
   }
 
   reviewAgenticOrder(): void {

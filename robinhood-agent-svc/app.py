@@ -13,6 +13,7 @@ Endpoints
 - POST /v1/quotes         → {access_token, symbols?, option_instrument_ids?}
 - POST /v1/financials     → {access_token, symbol, limit?}
 - POST /v1/realized-pnl   → {access_token, start_date, end_date, suffixes?}
+- POST /v1/ytd-check      → {access_token, year, as_of?} Individual ••••3370 broker YTD
 - POST /v1/banking/sync   → {access_token, transaction_limit?}
 - POST /v1/banking/refresh-token → {refresh_token, client_id?}
 - POST /v1/crypto/sync     → {api_key, private_key_base64}
@@ -47,8 +48,14 @@ try:
 except ImportError:
     _run_realized_pnl = None
 
+try:
+    from ytd_check_service import run_ytd_check as _run_ytd_check
+except ImportError:
+    _run_ytd_check = None
+
 run_financials: Callable[..., dict[str, Any]] | None = _run_financials
 run_realized_pnl: Callable[..., dict[str, Any]] | None = _run_realized_pnl
+run_ytd_check: Callable[..., dict[str, Any]] | None = _run_ytd_check
 
 LOGGER = logging.getLogger("robinhood-agent-svc")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s :: %(message)s")
@@ -56,6 +63,8 @@ if run_financials is None:
     LOGGER.error("financials_service missing; /v1/financials disabled, other endpoints stay up")
 if run_realized_pnl is None:
     LOGGER.error("realized_pnl_service missing; /v1/realized-pnl disabled, other endpoints stay up")
+if run_ytd_check is None:
+    LOGGER.error("ytd_check_service missing; /v1/ytd-check disabled, other endpoints stay up")
 
 app = FastAPI(title="robinhood-agent-svc", version="2.0.0")
 
@@ -103,6 +112,12 @@ class RealizedPnlRequest(BaseModel):
     start_date: str = Field(min_length=10, max_length=10)
     end_date: str = Field(min_length=10, max_length=10)
     suffixes: list[str] | None = None
+
+
+class YtdCheckRequest(BaseModel):
+    access_token: str = Field(min_length=10)
+    year: int = Field(ge=2000, le=2100)
+    as_of: str | None = None
 
 
 class BankingSyncRequest(BaseModel):
@@ -261,6 +276,21 @@ def realized_pnl(body: RealizedPnlRequest) -> dict[str, Any]:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         LOGGER.exception("realized-pnl failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/v1/ytd-check")
+def ytd_check(body: YtdCheckRequest) -> dict[str, Any]:
+    if run_ytd_check is None:
+        raise HTTPException(status_code=503, detail="ytd_check_service is not installed in this image")
+    try:
+        return run_ytd_check(body.access_token, body.year, body.as_of)
+    except PermissionError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.exception("ytd-check failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 

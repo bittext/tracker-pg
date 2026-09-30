@@ -121,6 +121,21 @@ public class RobinhoodAgenticSidecarClient {
                 body);
     }
 
+    public JsonNode fetchYtdCheck(String accessToken, int year, String asOf) {
+        requireConfigured();
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("access_token", accessToken);
+        body.put("year", year);
+        if (asOf != null && !asOf.isBlank()) {
+            body.put("as_of", asOf);
+        }
+        return postToBase(
+                stripTrailingSlash(props.serviceBaseUrl()),
+                Math.min(300_000, Math.max(props.serviceTimeoutMs(), 180_000)),
+                "/v1/ytd-check",
+                body);
+    }
+
     public JsonNode fetchQuotes(String accessToken, List<String> symbols, List<String> optionInstrumentIds) {
         requireConfigured();
         ObjectNode body = objectMapper.createObjectNode();
