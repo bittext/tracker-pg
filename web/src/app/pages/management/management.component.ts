@@ -260,13 +260,20 @@ export class ManagementComponent implements OnInit, OnDestroy {
 
   readonly accountTableColumns: string[] = ['folder', 'itemName', 'username', 'actions'];
 
-  /** 0 Tasks, 1 Travel, 2 Documents, 3 Recordings, 4 Now, 5 Calendar, 6 Due, 7 Account, 8 Notes, 9 Write-up */
+  /** Life: 0 Tasks, 1 Travel, 2 Documents, 3 Recordings, 4 Now, 5 Calendar, 6 Due, 7 Account, 8 Notes, 9 Write-up.
+   * Work: 0 Log, 1 Sierra, then the same from Documents (Due is omitted, so Notes/Write-up shift down by 1). */
   private readonly MGMT_TAB_TRAVEL = 1;
   private readonly MGMT_TAB_DOCUMENTS = 2;
   private readonly MGMT_TAB_RECORDINGS = 3;
-  private readonly MGMT_TAB_DUE = 6;
-  private readonly MGMT_TAB_NOTES = 8;
-  private readonly MGMT_TAB_WRITEUP = 9;
+  private get mgmtTabDue(): number | null {
+    return this.isWorkLayout ? null : 6;
+  }
+  private get mgmtTabNotes(): number {
+    return this.isWorkLayout ? 7 : 8;
+  }
+  private get mgmtTabWriteup(): number {
+    return this.isWorkLayout ? 8 : 9;
+  }
 
   private readonly travelPanel = viewChild(ManagementTravelPanelComponent);
   private readonly documentsPanel = viewChild(ManagementDocumentsPanelComponent);
@@ -1457,17 +1464,17 @@ export class ManagementComponent implements OnInit, OnDestroy {
     if (index === this.MGMT_TAB_RECORDINGS) {
       this.recordingsPanel()?.refreshAll();
     }
-    if (index === this.MGMT_TAB_DUE) {
+    if (this.mgmtTabDue != null && index === this.mgmtTabDue) {
       this.duePanel()?.refreshAll();
     }
-    if (index === this.MGMT_TAB_NOTES) {
+    if (index === this.mgmtTabNotes) {
       this.noteDraft.year = this.noteYear;
       if (this.noteFilterMonth != null) {
         this.noteDraft.month = this.noteFilterMonth;
       }
       this.reloadMonthNotesData();
     }
-    if (index === this.MGMT_TAB_WRITEUP) {
+    if (index === this.mgmtTabWriteup) {
       this.loadWriteups();
     }
   }

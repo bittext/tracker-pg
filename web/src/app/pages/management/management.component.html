@@ -5,7 +5,7 @@
   @if (isWorkLayout) {
     <p class="muted">
       Work desk: daily log, the <strong>Sierra</strong> project, and copies of Management tabs. Documents, recordings,
-      Now, calendar, Due, accounts, notes, and write-ups here are stored separately from
+      Now, calendar, accounts, notes, and write-ups here are stored separately from
       <a routerLink="/life/management">Life → Management</a>. Work-type calendar entries and Office / Learning write-ups
       live here.
     </p>
@@ -611,9 +611,11 @@
       </div>
     </mat-tab>
 
-    <mat-tab label="Due">
-      <app-management-due-panel />
-    </mat-tab>
+    @if (!isWorkLayout) {
+      <mat-tab label="Due">
+        <app-management-due-panel />
+      </mat-tab>
+    }
 
     <mat-tab label="Account">
       <div class="tab-panel mgmt-accounts-panel">
