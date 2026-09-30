@@ -49,7 +49,8 @@ public class RobinhoodYtdCheckService {
     private final RobinhoodAgenticTokenService tokenService;
     private final RobinhoodBrokerRealizedPnlService brokerRealized;
     private final RobinhoodRhDailySnapshotRepository snapshotRepository;
-    private final ObjectMapper objectMapper;
+    /** Spring Boot 4 does not expose an ObjectMapper bean; local mapper for snapshot holdings JSON. */
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public RobinhoodYtdCheckDto load(int year) {
         long owner = currentUser.requireUserId();

@@ -242,7 +242,7 @@ fi
 # Ensure Caddy (re)starts and stays in the project; picks up Caddyfile bind-mount changes.
 if [[ "$use_caddy" -eq 1 ]] && [[ -f "${repo_root}/docker-compose.https-lightsail.yml" ]]; then
   remove_stale_compose_containers caddy
-  docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" up -d caddy
+  docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" up -d --no-deps caddy
 fi
 if [[ "$rebuild_notebook" -eq 1 ]]; then
   remove_stale_compose_containers robinhood-notebook
