@@ -1,5 +1,6 @@
 package com.svp.tracker.management.controller;
 
+import com.svp.tracker.management.domain.ManagementDesk;
 import com.svp.tracker.management.dto.ManagementWriteupAttachmentDto;
 import com.svp.tracker.management.dto.ManagementWriteupDto;
 import com.svp.tracker.management.dto.ManagementWriteupGroupOrderRequest;
@@ -36,8 +37,9 @@ public class ManagementWriteupController {
     private final ManagementWriteupService service;
 
     @GetMapping
-    public List<ManagementWriteupDto> list(@RequestParam int year) {
-        return service.listForYear(year);
+    public List<ManagementWriteupDto> list(
+            @RequestParam int year, @RequestParam(defaultValue = "LIFE") String desk) {
+        return service.listForYear(year, ManagementDesk.fromParam(desk));
     }
 
     @GetMapping("/{id}")
@@ -47,8 +49,10 @@ public class ManagementWriteupController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ManagementWriteupDto create(@Valid @RequestBody ManagementWriteupWriteRequest body) {
-        return service.create(body);
+    public ManagementWriteupDto create(
+            @Valid @RequestBody ManagementWriteupWriteRequest body,
+            @RequestParam(defaultValue = "LIFE") String desk) {
+        return service.create(body, ManagementDesk.fromParam(desk));
     }
 
     @PutMapping("/placement")
@@ -57,8 +61,10 @@ public class ManagementWriteupController {
     }
 
     @PutMapping("/group-order")
-    public List<ManagementWriteupDto> groupOrder(@Valid @RequestBody ManagementWriteupGroupOrderRequest body) {
-        return service.applyGroupOrder(body);
+    public List<ManagementWriteupDto> groupOrder(
+            @Valid @RequestBody ManagementWriteupGroupOrderRequest body,
+            @RequestParam(defaultValue = "LIFE") String desk) {
+        return service.applyGroupOrder(body, ManagementDesk.fromParam(desk));
     }
 
     @PutMapping("/{id}")

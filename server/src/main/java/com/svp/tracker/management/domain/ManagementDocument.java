@@ -2,6 +2,8 @@ package com.svp.tracker.management.domain;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -24,6 +26,10 @@ public class ManagementDocument {
 
     @Column(name = "owner_user_id", nullable = false)
     private Long ownerUserId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "desk", nullable = false, length = 16)
+    private ManagementDesk desk = ManagementDesk.LIFE;
 
     @Column(name = "display_name", nullable = false, length = 512)
     private String displayName;

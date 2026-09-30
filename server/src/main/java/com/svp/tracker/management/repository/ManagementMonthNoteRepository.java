@@ -1,5 +1,6 @@
 package com.svp.tracker.management.repository;
 
+import com.svp.tracker.management.domain.ManagementDesk;
 import com.svp.tracker.management.domain.ManagementMonthNote;
 import java.util.List;
 import java.util.Optional;
@@ -26,4 +27,24 @@ public interface ManagementMonthNoteRepository extends JpaRepository<ManagementM
             "SELECT n.month, COUNT(n) FROM ManagementMonthNote n "
                     + "WHERE n.ownerUserId = :ownerId AND n.year = :year GROUP BY n.month")
     List<Object[]> countByMonthForYear(@Param("ownerId") long ownerId, @Param("year") int year);
+
+    @Query("SELECT DISTINCT n FROM ManagementMonthNote n LEFT JOIN FETCH n.attachments "
+            + "WHERE n.ownerUserId = :ownerId AND n.desk = :desk AND n.year = :year ORDER BY n.month ASC, n.id ASC")
+    List<ManagementMonthNote> findByOwnerAndDeskAndYearWithAttachments(
+            @Param("ownerId") long ownerId, @Param("desk") ManagementDesk desk, @Param("year") int year);
+
+    @Query("SELECT DISTINCT n FROM ManagementMonthNote n LEFT JOIN FETCH n.attachments "
+            + "WHERE n.ownerUserId = :ownerId AND n.desk = :desk AND n.year = :year AND n.month = :month "
+            + "ORDER BY n.id ASC")
+    List<ManagementMonthNote> findByOwnerAndDeskAndYearMonthWithAttachments(
+            @Param("ownerId") long ownerId,
+            @Param("desk") ManagementDesk desk,
+            @Param("year") int year,
+            @Param("month") int month);
+
+    @Query(
+            "SELECT n.month, COUNT(n) FROM ManagementMonthNote n "
+                    + "WHERE n.ownerUserId = :ownerId AND n.desk = :desk AND n.year = :year GROUP BY n.month")
+    List<Object[]> countByMonthForYearAndDesk(
+            @Param("ownerId") long ownerId, @Param("desk") ManagementDesk desk, @Param("year") int year);
 }

@@ -1,5 +1,6 @@
 package com.svp.tracker.reportcal.controller;
 
+import com.svp.tracker.management.domain.ManagementDesk;
 import com.svp.tracker.reportcal.dto.ReportCalendarAttachmentDto;
 import com.svp.tracker.reportcal.dto.ReportCalendarEntryDto;
 import com.svp.tracker.reportcal.dto.ReportCalendarEntryWriteDto;
@@ -37,14 +38,16 @@ public class ReportCalendarController {
     public List<ReportCalendarEntryDto> list(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
-            @RequestParam(required = false) String calendarType) {
-        return service.listInRange(from, to, calendarType);
+            @RequestParam(required = false) String calendarType,
+            @RequestParam(defaultValue = "LIFE") String desk) {
+        return service.listInRange(from, to, calendarType, ManagementDesk.fromParam(desk));
     }
 
     @PostMapping("/entries")
     @ResponseStatus(HttpStatus.CREATED)
-    public ReportCalendarEntryDto create(@Valid @RequestBody ReportCalendarEntryWriteDto body) {
-        return service.create(body);
+    public ReportCalendarEntryDto create(
+            @Valid @RequestBody ReportCalendarEntryWriteDto body, @RequestParam(defaultValue = "LIFE") String desk) {
+        return service.create(body, ManagementDesk.fromParam(desk));
     }
 
     @PutMapping("/entries/{id}")

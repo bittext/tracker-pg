@@ -1,8 +1,11 @@
 package com.svp.tracker.reportcal.domain;
 
+import com.svp.tracker.management.domain.ManagementDesk;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -32,6 +35,10 @@ public class ReportCalendarEntry {
 
     @Column(name = "owner_user_id", nullable = false)
     private Long ownerUserId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "desk", nullable = false, length = 16)
+    private ManagementDesk desk = ManagementDesk.LIFE;
 
     @Column(name = "entry_date", nullable = false)
     private LocalDate entryDate;

@@ -12,6 +12,34 @@
   font-weight: 700;
 }
 
+.page-eyebrow--work {
+  color: #4338ca;
+}
+
+.desk-banner {
+  margin: 0.75rem 0 0;
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.desk-banner--work {
+  background: #eef2ff;
+  color: #312e81;
+  border: 1px solid #c7d2fe;
+}
+
+.desk-banner--life {
+  background: #f8fafc;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+}
+
+.mgmt-card--work {
+  border-color: #c7d2fe;
+}
+
 .muted {
   color: var(--app-text-muted, #64748b);
   font-size: 0.92rem;

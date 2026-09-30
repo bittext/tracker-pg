@@ -4,6 +4,7 @@ import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.JournalProperties;
 import com.svp.tracker.fitness.exception.NotFoundException;
 import com.svp.tracker.journal.service.JournalBlobStore;
+import com.svp.tracker.management.domain.ManagementDesk;
 import com.svp.tracker.management.service.ManagementCalendarTypeService;
 import com.svp.tracker.reportcal.domain.ReportCalendarAttachment;
 import com.svp.tracker.reportcal.domain.ReportCalendarEntry;
@@ -42,21 +43,24 @@ public class ReportCalendarService {
     private final ManagementCalendarTypeService calendarTypeService;
 
     @Transactional(readOnly = true)
-    public List<ReportCalendarEntryDto> listInRange(LocalDate from, LocalDate to, @Nullable String type) {
+    public List<ReportCalendarEntryDto> listInRange(
+            LocalDate from, LocalDate to, @Nullable String type, ManagementDesk desk) {
         long uid = currentUser.requireUserId();
         if (to.isBefore(from)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "to before from");
         }
+        ManagementDesk resolved = desk == null ? ManagementDesk.LIFE : desk;
         List<ReportCalendarEntry> rows =
                 type == null
-                        ? repository.findByOwnerUserIdAndEntryDateBetweenWithAttachments(uid, from, to)
-                        : repository.findByOwnerUserIdAndCalendarTypeAndEntryDateBetweenWithAttachments(
-                                uid, type, from, to);
+                        ? repository.findByOwnerUserIdAndDeskAndEntryDateBetweenWithAttachments(
+                                uid, resolved, from, to)
+                        : repository.findByOwnerUserIdAndDeskAndCalendarTypeAndEntryDateBetweenWithAttachments(
+                                uid, resolved, type, from, to);
         return rows.stream().map(this::toDto).toList();
     }
 
     @Transactional
-    public ReportCalendarEntryDto create(ReportCalendarEntryWriteDto body) {
+    public ReportCalendarEntryDto create(ReportCalendarEntryWriteDto body, ManagementDesk desk) {
         long uid = currentUser.requireUserId();
         String title = trimToNull(body.getTitle());
         String text = trimToNull(body.getBody());
@@ -64,10 +68,12 @@ public class ReportCalendarService {
         if (title == null && text == null && details == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "title, information, or details is required");
         }
+        String calendarType = calendarTypeService.assertValidForUser(uid, body.getCalendarType());
         ReportCalendarEntry e = new ReportCalendarEntry();
         e.setOwnerUserId(uid);
+        e.setDesk("WORK".equals(calendarType) ? ManagementDesk.WORK : (desk == null ? ManagementDesk.LIFE : desk));
         e.setEntryDate(body.getEntryDate());
-        e.setCalendarType(calendarTypeService.assertValidForUser(uid, body.getCalendarType()));
+        e.setCalendarType(calendarType);
         e.setTitle(title);
         e.setBody(text);
         e.setDetails(details);
@@ -88,7 +94,11 @@ public class ReportCalendarService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "title, information, or details is required");
         }
         e.setEntryDate(body.getEntryDate());
-        e.setCalendarType(calendarTypeService.assertValidForUser(e.getOwnerUserId(), body.getCalendarType()));
+        String calendarType = calendarTypeService.assertValidForUser(e.getOwnerUserId(), body.getCalendarType());
+        e.setCalendarType(calendarType);
+        if ("WORK".equals(calendarType)) {
+            e.setDesk(ManagementDesk.WORK);
+        }
         e.setTitle(title);
         e.setBody(text);
         e.setDetails(details);

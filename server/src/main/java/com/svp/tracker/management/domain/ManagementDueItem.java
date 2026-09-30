@@ -31,6 +31,10 @@ public class ManagementDueItem {
     private Long ownerUserId;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "desk", nullable = false, length = 16)
+    private ManagementDesk desk = ManagementDesk.LIFE;
+
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 16)
     private ManagementDueSide side = ManagementDueSide.PAYABLE;
 

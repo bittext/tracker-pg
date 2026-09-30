@@ -50,7 +50,7 @@ export const LIFE_PRIMARY_NAV: NavEntry[] = [
     icon: 'work',
     shell: 'life-primary',
     exact: true,
-    ariaLabel: 'Work — tasks and daily log',
+    ariaLabel: 'Work — log, Sierra, and Work-desk calendar and write-ups',
   },
   { id: 'journal', label: 'Journal', path: '/life/journal', icon: 'menu_book', shell: 'life-primary', exact: true },
   {

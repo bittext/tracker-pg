@@ -1,5 +1,6 @@
 package com.svp.tracker.management.repository;
 
+import com.svp.tracker.management.domain.ManagementDesk;
 import com.svp.tracker.management.domain.ManagementWriteup;
 import java.util.List;
 import java.util.Optional;
@@ -17,4 +18,11 @@ public interface ManagementWriteupRepository extends JpaRepository<ManagementWri
                     + "WHERE w.ownerUserId = :ownerId AND w.year = :year ORDER BY w.updatedAt DESC, w.id DESC")
     List<ManagementWriteup> findByOwnerAndYearWithAttachments(
             @Param("ownerId") long ownerId, @Param("year") int year);
+
+    @Query(
+            "SELECT DISTINCT w FROM ManagementWriteup w LEFT JOIN FETCH w.attachments "
+                    + "WHERE w.ownerUserId = :ownerId AND w.desk = :desk AND w.year = :year "
+                    + "ORDER BY w.updatedAt DESC, w.id DESC")
+    List<ManagementWriteup> findByOwnerAndDeskAndYearWithAttachments(
+            @Param("ownerId") long ownerId, @Param("desk") ManagementDesk desk, @Param("year") int year);
 }

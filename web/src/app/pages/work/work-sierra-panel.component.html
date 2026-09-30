@@ -1,0 +1,34 @@
+<div class="sierra">
+  <header class="sierra-hero">
+    <p class="sierra-eyebrow">Work project</p>
+    <h2 class="sierra-title">Sierra</h2>
+    <p class="muted sierra-lead">
+      Copied Sierra.ai learning library. Modules stay on the Work desk, separate from Life → Management.
+    </p>
+  </header>
+
+  <div class="sierra-layout">
+    <nav class="sierra-nav" aria-label="Sierra modules">
+      @for (section of catalog; track section.label) {
+        <section class="sierra-section">
+          <h3 class="sierra-section-label">{{ section.label }}</h3>
+          @for (m of section.modules; track m.path) {
+            <button type="button" class="sierra-link" [class.sierra-link--active]="isActive(m)" (click)="open(m)">
+              {{ m.title }}
+            </button>
+          }
+        </section>
+      }
+    </nav>
+    <article class="sierra-read" aria-label="Sierra module">
+      <h3 class="sierra-read-title">{{ selected.title }}</h3>
+      @if (loading) {
+        <p class="muted">Loading…</p>
+      } @else if (error) {
+        <p class="muted">{{ error }}</p>
+      } @else {
+        <div class="markdown-body" [innerHTML]="body | safeMarkdown"></div>
+      }
+    </article>
+  </div>
+</div>

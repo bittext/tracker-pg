@@ -4,6 +4,7 @@ import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.JournalProperties;
 import com.svp.tracker.fitness.exception.NotFoundException;
 import com.svp.tracker.journal.service.JournalBlobStore;
+import com.svp.tracker.management.domain.ManagementDesk;
 import com.svp.tracker.management.domain.ManagementWriteup;
 import com.svp.tracker.management.domain.ManagementWriteupAttachment;
 import com.svp.tracker.management.dto.ManagementWriteupAttachmentDto;
@@ -40,10 +41,12 @@ public class ManagementWriteupService {
     private final CurrentUserService currentUser;
 
     @Transactional(readOnly = true)
-    public List<ManagementWriteupDto> listForYear(int year) {
+    public List<ManagementWriteupDto> listForYear(int year, ManagementDesk desk) {
         validateYear(year);
         long owner = currentUser.requireUserId();
-        return repository.findByOwnerAndYearWithAttachments(owner, year).stream().map(this::toDto).toList();
+        return repository.findByOwnerAndDeskAndYearWithAttachments(owner, desk, year).stream()
+                .map(this::toDto)
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -56,18 +59,20 @@ public class ManagementWriteupService {
     }
 
     @Transactional
-    public ManagementWriteupDto create(ManagementWriteupWriteRequest req) {
+    public ManagementWriteupDto create(ManagementWriteupWriteRequest req, ManagementDesk desk) {
         long owner = currentUser.requireUserId();
         validateYear(req.year());
         Instant now = Instant.now();
         ManagementWriteup w = new ManagementWriteup();
         w.setOwnerUserId(owner);
+        String topicGroup = normalizeNullable(req.topicGroup());
+        ManagementDesk resolved = resolveDesk(desk, topicGroup);
+        w.setDesk(resolved);
         w.setYear(req.year());
         w.setTopic(req.topic().trim());
-        String topicGroup = normalizeNullable(req.topicGroup());
         w.setTopicGroup(topicGroup);
         w.setTopicGroupSort(req.topicGroupSort() == null ? 0 : req.topicGroupSort());
-        w.setTopicGroupRank(resolveGroupRank(owner, req.year(), topicGroup));
+        w.setTopicGroupRank(resolveGroupRank(owner, req.year(), topicGroup, resolved));
         w.setHighlight(normalizeNullable(req.highlight()));
         w.setBody(req.body() == null ? "" : req.body());
         w.setCreatedAt(now);
@@ -87,7 +92,9 @@ public class ManagementWriteupService {
         w.setTopic(req.topic().trim());
         String topicGroup = normalizeNullable(req.topicGroup());
         if (!Objects.equals(topicGroup, w.getTopicGroup())) {
-            w.setTopicGroupRank(resolveGroupRank(w.getOwnerUserId(), req.year(), topicGroup));
+            ManagementDesk resolved = resolveDesk(w.getDesk(), topicGroup);
+            w.setDesk(resolved);
+            w.setTopicGroupRank(resolveGroupRank(w.getOwnerUserId(), req.year(), topicGroup, resolved));
         }
         w.setTopicGroup(topicGroup);
         if (req.topicGroupSort() != null) {
@@ -128,11 +135,11 @@ public class ManagementWriteupService {
     }
 
     @Transactional
-    public List<ManagementWriteupDto> applyGroupOrder(ManagementWriteupGroupOrderRequest req) {
+    public List<ManagementWriteupDto> applyGroupOrder(ManagementWriteupGroupOrderRequest req, ManagementDesk desk) {
         validateYear(req.year());
         long owner = currentUser.requireUserId();
         Instant now = Instant.now();
-        List<ManagementWriteup> rows = repository.findByOwnerAndYearWithAttachments(owner, req.year());
+        List<ManagementWriteup> rows = repository.findByOwnerAndDeskAndYearWithAttachments(owner, desk, req.year());
 
         List<String> ranks = req.groupLabels().stream().map(ManagementWriteupService::normalizeGroupKey).toList();
         for (ManagementWriteup w : rows) {
@@ -148,12 +155,12 @@ public class ManagementWriteupService {
     }
 
     /** Rank of an existing group (so a new row joins it in place), or one past the max (new group sorts last). */
-    private int resolveGroupRank(long owner, int year, String topicGroup) {
+    private int resolveGroupRank(long owner, int year, String topicGroup, ManagementDesk desk) {
         String key = normalizeGroupKey(topicGroup);
         if (key.isEmpty()) {
             return 0;
         }
-        List<ManagementWriteup> rows = repository.findByOwnerAndYearWithAttachments(owner, year);
+        List<ManagementWriteup> rows = repository.findByOwnerAndDeskAndYearWithAttachments(owner, desk, year);
         int maxRank = -1;
         for (ManagementWriteup w : rows) {
             if (normalizeGroupKey(w.getTopicGroup()).equals(key)) {
@@ -169,6 +176,19 @@ public class ManagementWriteupService {
             return "";
         }
         return s.trim().toLowerCase().replaceAll("\\s+", " ");
+    }
+
+    /** Office and Learning write-ups live on the Work desk. */
+    static boolean isWorkTopicGroup(String topicGroup) {
+        String key = normalizeGroupKey(topicGroup);
+        return "office".equals(key) || "learning".equals(key);
+    }
+
+    private static ManagementDesk resolveDesk(ManagementDesk requested, String topicGroup) {
+        if (isWorkTopicGroup(topicGroup)) {
+            return ManagementDesk.WORK;
+        }
+        return requested == null ? ManagementDesk.LIFE : requested;
     }
 
     @Transactional

@@ -1,5 +1,6 @@
 package com.svp.tracker.reportcal.repository;
 
+import com.svp.tracker.management.domain.ManagementDesk;
 import com.svp.tracker.reportcal.domain.ReportCalendarEntry;
 import java.time.LocalDate;
 import java.util.List;
@@ -12,6 +13,20 @@ public interface ReportCalendarEntryRepository extends JpaRepository<ReportCalen
 
     @Query("SELECT DISTINCT e FROM ReportCalendarEntry e LEFT JOIN FETCH e.attachments WHERE e.id = :id")
     Optional<ReportCalendarEntry> findByIdWithAttachments(@Param("id") long id);
+
+    @Query(
+            """
+            SELECT DISTINCT e FROM ReportCalendarEntry e LEFT JOIN FETCH e.attachments
+            WHERE e.ownerUserId = :ownerUserId AND e.desk = :desk AND e.calendarType = :type
+              AND e.entryDate BETWEEN :from AND :to
+            ORDER BY e.entryDate ASC, e.id ASC
+            """)
+    List<ReportCalendarEntry> findByOwnerUserIdAndDeskAndCalendarTypeAndEntryDateBetweenWithAttachments(
+            @Param("ownerUserId") long ownerUserId,
+            @Param("desk") ManagementDesk desk,
+            @Param("type") String type,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to);
 
     @Query(
             """
@@ -34,6 +49,18 @@ public interface ReportCalendarEntryRepository extends JpaRepository<ReportCalen
             """)
     List<ReportCalendarEntry> findByOwnerUserIdAndEntryDateBetweenWithAttachments(
             @Param("ownerUserId") long ownerUserId, @Param("from") LocalDate from, @Param("to") LocalDate to);
+
+    @Query(
+            """
+            SELECT DISTINCT e FROM ReportCalendarEntry e LEFT JOIN FETCH e.attachments
+            WHERE e.ownerUserId = :ownerUserId AND e.desk = :desk AND e.entryDate BETWEEN :from AND :to
+            ORDER BY e.entryDate ASC, e.calendarType ASC, e.id ASC
+            """)
+    List<ReportCalendarEntry> findByOwnerUserIdAndDeskAndEntryDateBetweenWithAttachments(
+            @Param("ownerUserId") long ownerUserId,
+            @Param("desk") ManagementDesk desk,
+            @Param("from") LocalDate from,
+            @Param("to") LocalDate to);
 
     List<ReportCalendarEntry> findByOwnerUserIdAndCalendarTypeAndEntryDateBetweenOrderByEntryDateAscIdAsc(
             long ownerUserId, String calendarType, LocalDate from, LocalDate to);

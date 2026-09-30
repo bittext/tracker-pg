@@ -35,7 +35,7 @@ public class OpenApiConfig {
                                         "REST API for exercise, finance, calendar, management, and admin diagnostics —"
                                                 + " Health Tracker & PFM (Personal Financial Management). Use Authorize"
                                                 + " with a JWT from POST /api/auth/login to try authenticated routes.")
-                                .version("17.0.0")
+                                .version("18.0.0")
                                 .contact(new Contact().name(ApplicationBranding.DISPLAY_NAME))
                                 .license(new License().name("Proprietary")))
                 .servers(servers())

@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, OnDestroy, OnInit, inject, viewChild } from '@angular/core';
+import { Component, HostListener, Input, OnDestroy, OnInit, inject, viewChild } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { CdkDragDrop, DragDropModule, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -41,7 +42,9 @@ import {
   ReportCalendarTypeFilter,
   reportCalendarTypeLabel,
 } from '../../models/report-calendar.models';
+import type { ManagementDesk } from '../../models/management-desk';
 import { ManagementApiService } from '../../services/management-api.service';
+import { ManagementDeskContext } from '../../services/management-desk.context';
 import { ReportCalendarApiService } from '../../services/report-calendar-api.service';
 import { AuthService } from '../../services/auth.service';
 import { SafeMarkdownPipe } from '../../pipes/safe-markdown.pipe';
@@ -69,6 +72,8 @@ import {
   ReportCalendarEntryDialogComponent,
   ReportCalendarEntryDialogData,
 } from '../reports/report-calendar-entry-dialog.component';
+import { ManagementWorkPanelComponent } from './management-work-panel/management-work-panel.component';
+import { WorkSierraPanelComponent } from '../work/work-sierra-panel.component';
 import { ManagementTravelPanelComponent } from './management-travel-panel/management-travel-panel.component';
 import { ManagementDocumentsPanelComponent } from './management-documents-panel/management-documents-panel.component';
 import { ManagementRecordingsPanelComponent } from './management-recordings-panel/management-recordings-panel.component';
@@ -117,6 +122,7 @@ interface AccountEntry {
   standalone: true,
   imports: [
     CommonModule,
+    RouterLink,
     FormsModule,
     SafeMarkdownPipe,
     MatCardModule,
@@ -133,6 +139,8 @@ interface AccountEntry {
     MatNativeDateModule,
     MatCheckboxModule,
     ManagementTravelPanelComponent,
+    ManagementWorkPanelComponent,
+    WorkSierraPanelComponent,
     ManagementDocumentsPanelComponent,
     ManagementRecordingsPanelComponent,
     ManagementNowPanelComponent,
@@ -144,12 +152,23 @@ interface AccountEntry {
   styleUrl: './management.component.scss',
 })
 export class ManagementComponent implements OnInit, OnDestroy {
+  /** Life Management vs Work desk. Work hides Tasks/Travel and shows Log + Sierra. */
+  @Input() layout: 'life' | 'work' = 'life';
+
+  get desk(): ManagementDesk {
+    return this.layout === 'work' ? 'WORK' : 'LIFE';
+  }
+
+  get isWorkLayout(): boolean {
+    return this.layout === 'work';
+  }
   /**
    * Legacy unscoped key (pre–per-user storage). The string is kept verbatim so prior installs can still be detected
    * and migrated to the server vault on first login. Do not rename the string value.
    */
   private static readonly LEGACY_LOCAL_STORAGE_KEY_BASE = 'management.utilities.entries.v1';
   private readonly auth = inject(AuthService);
+  private readonly deskCtx = inject(ManagementDeskContext);
   private readonly api = inject(ManagementApiService);
   private readonly reportCalApi = inject(ReportCalendarApiService);
   private readonly snackBar = inject(MatSnackBar);
@@ -199,8 +218,15 @@ export class ManagementComponent implements OnInit, OnDestroy {
   repCalCalendarTypes: ManagementCalendarType[] = [];
   readonly yearMonthIndex = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
 
+  get visibleCalendarTypes() {
+    if (this.isWorkLayout) {
+      return this.repCalCalendarTypes;
+    }
+    return this.repCalCalendarTypes.filter((t) => t.code !== 'WORK');
+  }
+
   get repCalFilterOptions() {
-    return reportCalendarFilterOptions(this.repCalCalendarTypes);
+    return reportCalendarFilterOptions(this.visibleCalendarTypes);
   }
 
   repCalTypeLabel(t: ReportCalendarType): string {
@@ -332,6 +358,7 @@ export class ManagementComponent implements OnInit, OnDestroy {
   writeupImageUrlDraftById: Record<number, string> = {};
 
   ngOnInit(): void {
+    this.deskCtx.desk.set(this.desk);
     const t = this.todayIso();
     this.selectedDateIso = t;
     this.repCalAnchorIso = t;
@@ -345,6 +372,7 @@ export class ManagementComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.deskCtx.desk.set('LIFE');
     this.noteAutosave.destroy();
     this.writeupAutosave.destroy();
   }
@@ -405,9 +433,15 @@ export class ManagementComponent implements OnInit, OnDestroy {
   }
 
   private repCalDefaultType(): ReportCalendarType {
-    const types = this.repCalCalendarTypes;
-    if (this.repCalTypeFilter !== 'ALL') {
+    const types = this.visibleCalendarTypes;
+    if (this.repCalTypeFilter !== 'ALL' && types.some((t) => t.code === this.repCalTypeFilter)) {
       return this.repCalTypeFilter;
+    }
+    if (this.isWorkLayout) {
+      const work = types.find((t) => t.code === 'WORK');
+      if (work) {
+        return work.code;
+      }
     }
     const personal = types.find((t) => t.code === 'PERSONAL');
     if (personal) {
@@ -417,7 +451,7 @@ export class ManagementComponent implements OnInit, OnDestroy {
   }
 
   private repCalTypeOptionsForDialog(): ReadonlyArray<{ value: ReportCalendarType; label: string }> {
-    return reportCalendarTypeOptionsFromProvisioned(this.repCalCalendarTypes);
+    return reportCalendarTypeOptionsFromProvisioned(this.visibleCalendarTypes);
   }
 
   get filteredAccountEntries(): AccountEntry[] {
@@ -1414,7 +1448,7 @@ export class ManagementComponent implements OnInit, OnDestroy {
     if (this.writeupViewMode === 'compose') {
       this.writeupAutosave.flush();
     }
-    if (index === this.MGMT_TAB_TRAVEL) {
+    if (index === this.MGMT_TAB_TRAVEL && !this.isWorkLayout) {
       this.travelPanel()?.refreshAll();
     }
     if (index === this.MGMT_TAB_DOCUMENTS) {

@@ -4,6 +4,7 @@ import { provideRouter } from '@angular/router';
 import { provideAnimations } from '@angular/platform-browser/animations';
 
 import { authInterceptor } from './interceptors/auth.interceptor';
+import { managementDeskInterceptor } from './interceptors/management-desk.interceptor';
 import { stepUpInterceptor } from './interceptors/step-up.interceptor';
 import { routes } from './app.routes';
 import { assertAppNavRegistryValid } from './config/app-nav.config';
@@ -14,7 +15,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes),
-    provideHttpClient(withInterceptors([authInterceptor, stepUpInterceptor])),
+    provideHttpClient(withInterceptors([authInterceptor, stepUpInterceptor, managementDeskInterceptor])),
     provideAnimations(),
   ],
 };

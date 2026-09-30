@@ -1,29 +1,53 @@
 <div class="page-head">
   <div>
-  <p class="page-eyebrow">Life</p>
-  <h1 class="page-title">Management</h1>
-  <p class="muted">
-    Organize to-dos by <strong>balance area</strong> and <strong>urgency</strong>, then review them on the calendar. Define
-    <strong>balance categories</strong> and <strong>task types</strong> under <strong>Admin → Management</strong> (per
-    login). Work tasks and the daily log are on the Life <strong>Work</strong> tab. Use this page for tasks,
-    <strong>Travel</strong>
-    (trips and map pins), <strong>Documents</strong> (your private uploads with labels), <strong>Now</strong> (a simple
-    three-column roadmap: planned, in progress, and completed—edit the data file to update), calendar,
-    <strong>Due</strong> (payables and receivables on the month grid), accounts, month notes,
-    and year-scoped write-ups. Review sign-in activity under
-    <strong>Admin</strong> →
-    <strong>Sign-in log</strong>.
-  </p>
+  <p class="page-eyebrow" [class.page-eyebrow--work]="isWorkLayout">{{ isWorkLayout ? 'Work' : 'Life' }}</p>
+  <h1 class="page-title">{{ isWorkLayout ? 'Work' : 'Management' }}</h1>
+  @if (isWorkLayout) {
+    <p class="muted">
+      Work desk: daily log, the <strong>Sierra</strong> project, and copies of Management tabs. Documents, recordings,
+      Now, calendar, Due, accounts, notes, and write-ups here are stored separately from
+      <a routerLink="/life/management">Life → Management</a>. Work-type calendar entries and Office / Learning write-ups
+      live here.
+    </p>
+    <p class="desk-banner desk-banner--work" role="status">You are on the <strong>Work</strong> desk.</p>
+  } @else {
+    <p class="muted">
+      Organize to-dos by <strong>balance area</strong> and <strong>urgency</strong>, then review them on the calendar. Define
+      <strong>balance categories</strong> and <strong>task types</strong> under <strong>Admin → Management</strong> (per
+      login). Work tasks and the daily log are on the Life <strong>Work</strong> tab. Use this page for tasks,
+      <strong>Travel</strong>
+      (trips and map pins), <strong>Documents</strong> (your private uploads with labels), <strong>Now</strong> (a simple
+      three-column roadmap: planned, in progress, and completed—edit the data file to update), calendar,
+      <strong>Due</strong> (payables and receivables on the month grid), accounts, month notes,
+      and year-scoped write-ups. Review sign-in activity under
+      <strong>Admin</strong> →
+      <strong>Sign-in log</strong>.
+    </p>
+    <p class="desk-banner desk-banner--life" role="status">
+      You are on the <strong>Life</strong> desk.
+      <a routerLink="/life/work">Work</a> has its own calendar and write-ups (including Office and Learning).
+    </p>
+  }
   </div>
 </div>
 
-<mat-card class="card mgmt-card">
+<mat-card class="card mgmt-card" [class.mgmt-card--work]="isWorkLayout">
   <mat-tab-group
     animationDuration="220ms"
     class="mgmt-tab-group"
     [dynamicHeight]="true"
     (selectedIndexChange)="onManagementTabIndexChange($event)"
   >
+    @if (isWorkLayout) {
+      <mat-tab label="Log">
+        <div class="tab-panel">
+          <app-management-work-panel />
+        </div>
+      </mat-tab>
+      <mat-tab label="Sierra">
+        <app-work-sierra-panel />
+      </mat-tab>
+    } @else {
     <mat-tab label="Tasks">
       <div class="tab-panel mgmt-tasks-panel">
         <div class="mgmt-intro-grid">
@@ -325,6 +349,7 @@
         <app-management-travel-panel />
       </div>
     </mat-tab>
+    }
 
     <mat-tab label="Documents">
       <div class="tab-panel">
