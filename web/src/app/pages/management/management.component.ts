@@ -2725,6 +2725,25 @@ export class ManagementComponent implements OnInit, OnDestroy {
     return t.length <= max ? t : `${t.slice(0, max)}…`;
   }
 
+  formatWriteupWhen(iso: string | null | undefined): string {
+    if (!iso) {
+      return '—';
+    }
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) {
+      return '—';
+    }
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  writeupWordCount(body: string | null | undefined): number {
+    const t = (body || '').replace(/[#>*_`[\]]/g, ' ').trim();
+    if (!t) {
+      return 0;
+    }
+    return t.split(/\s+/).length;
+  }
+
   get noteMonthCells(): { month: number; noteCount: number }[] {
     return this.noteCalendar?.months ?? this.emptyNoteCalendarMonths();
   }

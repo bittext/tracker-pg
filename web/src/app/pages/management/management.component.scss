@@ -886,3 +886,452 @@
 .accounts-notes {
   white-space: pre-wrap;
 }
+
+:host .wu-studio {
+  --wu-ink: #0f172a;
+  --wu-muted: #64748b;
+  --wu-line: #e2e8f0;
+  --wu-paper: #fff;
+  --wu-wash: #f8fafc;
+  --wu-accent: #2563eb;
+  --wu-accent-soft: #eff6ff;
+  padding: 0.15rem 0.15rem 1.4rem;
+}
+
+:host .wu-studio--work {
+  --wu-ink: #1e1b4b;
+  --wu-muted: #5b5b7a;
+  --wu-line: #c7d2fe;
+  --wu-paper: #fff;
+  --wu-wash: #eef2ff;
+  --wu-accent: #4338ca;
+  --wu-accent-soft: #e0e7ff;
+}
+
+:host .wu-studio .wu-hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem 1.5rem;
+  margin: 0 0 1.15rem;
+  padding: 1.05rem 1.15rem 1.1rem;
+  border: 1px solid var(--wu-line);
+  border-radius: 14px;
+  background: linear-gradient(165deg, var(--wu-wash) 0%, var(--wu-paper) 72%);
+}
+
+:host .wu-studio .wu-hero-eyebrow {
+  margin: 0 0 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--wu-accent);
+}
+
+:host .wu-studio .wu-hero-title {
+  margin: 0 0 0.3rem;
+  font-size: 1.45rem;
+  font-weight: 750;
+  letter-spacing: -0.03em;
+  color: var(--wu-ink);
+}
+
+:host .wu-studio .wu-hero-lead {
+  margin: 0;
+  max-width: 38rem;
+  font-size: 0.88rem;
+}
+
+:host .wu-studio .wu-hero-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 0.85rem;
+}
+
+:host .wu-studio .wu-year {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--wu-line);
+  border-radius: 999px;
+  background: var(--wu-paper);
+}
+
+:host .wu-studio .wu-year-mark {
+  min-width: 3.4rem;
+  text-align: center;
+  font-weight: 750;
+  letter-spacing: 0.02em;
+  color: var(--wu-ink);
+}
+
+:host .wu-studio .wu-hero-count {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--wu-muted);
+}
+
+:host .wu-studio .wu-hero-count-total {
+  color: var(--wu-muted);
+}
+
+:host .wu-studio .wu-workspace {
+  grid-template-columns: 1fr;
+  gap: 1.15rem;
+}
+
+@media (min-width: 960px) {
+  :host .wu-studio .wu-workspace {
+    grid-template-columns: minmax(15rem, 19.5rem) minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 1400px) {
+  :host .wu-studio .wu-workspace {
+    grid-template-columns: minmax(16rem, 21rem) minmax(0, 1fr);
+  }
+}
+
+:host .wu-studio .wu-index {
+  gap: 0.7rem;
+  padding: 0.8rem 0.75rem 0.9rem;
+  border: 1px solid var(--wu-line);
+  border-radius: 12px;
+  background: var(--wu-wash);
+}
+
+:host .wu-studio .wu-search {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid var(--wu-line);
+  border-radius: 999px;
+  background: var(--wu-paper);
+}
+
+:host .wu-studio .wu-search mat-icon {
+  font-size: 1.1rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--wu-muted);
+}
+
+:host .wu-studio .wu-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 0.86rem;
+  color: var(--wu-ink);
+}
+
+:host .wu-studio .wu-search input:focus {
+  outline: none;
+}
+
+:host .wu-studio .wu-topic-group {
+  border-color: color-mix(in srgb, var(--wu-line) 80%, transparent);
+  background: var(--wu-paper);
+}
+
+:host .wu-studio .wu-topic-group--ungrouped {
+  background: color-mix(in srgb, var(--wu-wash) 70%, var(--wu-paper));
+}
+
+:host .wu-studio .wu-pick {
+  flex-direction: row;
+  align-items: flex-start;
+  border-radius: 8px;
+  padding: 0.5rem 0.45rem;
+  border-color: transparent;
+  background: transparent;
+}
+
+:host .wu-studio .wu-pick:hover {
+  border-color: transparent;
+  background: color-mix(in srgb, var(--wu-accent-soft) 70%, var(--wu-paper));
+  box-shadow: none;
+}
+
+:host .wu-studio .wu-pick.wu-pick--active {
+  outline: none;
+  border-color: transparent;
+  background: var(--wu-accent-soft);
+  box-shadow: inset 3px 0 0 var(--wu-accent);
+}
+
+:host .wu-studio .wu-pick-topic {
+  color: var(--wu-ink);
+  font-size: 0.88rem;
+}
+
+:host .wu-studio--work .wu-pick-hi {
+  color: #4338ca;
+}
+
+:host .wu-studio .wu-pick--grouped {
+  margin-left: 0.35rem;
+  border-left-color: color-mix(in srgb, var(--wu-accent) 35%, transparent);
+}
+
+:host .wu-studio .wu-compose,
+:host .wu-studio .wu-read {
+  border: 1px solid var(--wu-line);
+  background: var(--wu-paper);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
+}
+
+:host .wu-studio .wu-compose {
+  padding: 0.85rem 1.05rem 1.2rem;
+}
+
+:host .wu-studio .wu-compose-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.45rem;
+  margin: 0 0 0.85rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--wu-line);
+}
+
+:host .wu-studio .wu-compose-stats,
+:host .wu-studio .wu-save-chip {
+  margin-left: auto;
+  font-size: 0.78rem;
+}
+
+:host .wu-studio .wu-title-input {
+  display: block;
+  width: 100%;
+  margin: 0 0 0.75rem;
+  padding: 0.15rem 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: clamp(1.35rem, 2.4vw, 1.85rem);
+  font-weight: 750;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  color: var(--wu-ink);
+}
+
+:host .wu-studio .wu-title-input:focus {
+  outline: none;
+}
+
+:host .wu-studio .wu-title-input::placeholder {
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+:host .wu-studio .wu-meta-row {
+  display: grid;
+  grid-template-columns: minmax(9rem, 14rem) minmax(0, 1fr);
+  gap: 0.65rem;
+  margin: 0 0 0.85rem;
+}
+
+@media (max-width: 720px) {
+  :host .wu-studio .wu-meta-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+:host .wu-studio .wu-meta-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+:host .wu-studio .wu-meta-field span {
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--wu-muted);
+}
+
+:host .wu-studio .wu-meta-field input {
+  width: 100%;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--wu-line);
+  border-radius: 8px;
+  background: var(--wu-wash);
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--wu-ink);
+}
+
+:host .wu-studio .wu-meta-field input:focus {
+  outline: 2px solid color-mix(in srgb, var(--wu-accent) 35%, transparent);
+  outline-offset: 1px;
+}
+
+:host .wu-studio .wu-pane-toggle {
+  display: inline-flex;
+  gap: 0;
+  margin: 0 0 0.75rem;
+  padding: 0.18rem;
+  border: 1px solid var(--wu-line);
+  border-radius: 999px;
+  background: var(--wu-wash);
+}
+
+:host .wu-studio .wu-seg {
+  border: 0;
+  background: transparent;
+  padding: 0.32rem 0.75rem;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--wu-muted);
+  cursor: pointer;
+}
+
+:host .wu-studio .wu-seg--active {
+  background: var(--wu-paper);
+  color: var(--wu-accent);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+:host .wu-studio .wu-pane-head {
+  background: var(--wu-wash);
+}
+
+:host .wu-studio .wu-para-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  border: 0;
+  background: transparent;
+  color: var(--wu-accent);
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+:host .wu-studio .wu-para-btn mat-icon {
+  font-size: 1rem;
+  width: 1rem;
+  height: 1rem;
+}
+
+:host .wu-studio--work .wu-highlight-banner {
+  border-color: #c7d2fe;
+  background: linear-gradient(120deg, #eef2ff 0%, #e0e7ff 100%);
+}
+
+:host .wu-studio--work .wu-highlight-banner-inner {
+  color: #312e81;
+}
+
+:host .wu-studio .wu-read {
+  padding: 1.35rem 1.45rem 1.5rem;
+}
+
+:host .wu-studio .wu-read-head {
+  display: grid;
+  gap: 0.45rem;
+  margin-bottom: 1.1rem;
+  padding-bottom: 0.95rem;
+  border-bottom: 1px solid var(--wu-line);
+}
+
+:host .wu-studio .wu-read-kicker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.75rem;
+}
+
+:host .wu-studio .wu-read-group {
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  background: var(--wu-accent-soft);
+  color: var(--wu-accent);
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+:host .wu-studio .wu-read-subject {
+  margin: 0;
+  color: var(--wu-ink);
+  font-size: clamp(1.35rem, 2.4vw, 1.85rem);
+}
+
+:host .wu-studio .wu-read-actions {
+  justify-self: start;
+}
+
+:host .wu-studio .wu-read-prose {
+  max-width: 46rem;
+  font-size: 1.02rem;
+  line-height: 1.7;
+}
+
+:host .wu-studio .wu-vault {
+  margin-top: 1.15rem;
+  padding: 0.9rem 0.95rem 1rem;
+  border: 1px dashed var(--wu-line);
+  border-radius: 12px;
+  background: var(--wu-wash);
+}
+
+:host .wu-studio .wu-vault-head {
+  margin: 0 0 0.7rem;
+}
+
+:host .wu-studio .wu-vault-title {
+  margin: 0 0 0.2rem;
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--wu-muted);
+}
+
+:host .wu-studio .wu-empty {
+  align-items: center;
+  text-align: center;
+  min-height: 18rem;
+  justify-content: center;
+  border: 1px dashed var(--wu-line);
+  background: linear-gradient(180deg, var(--wu-wash) 0%, var(--wu-paper) 100%);
+}
+
+:host .wu-studio .wu-empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 999px;
+  background: var(--wu-accent-soft);
+  color: var(--wu-accent);
+}
+
+:host .wu-studio .wu-empty-title {
+  margin: 0;
+  font-size: 1.15rem;
+  color: var(--wu-ink);
+}
+
+:host .wu-studio .wu-empty p {
+  max-width: 26rem;
+}
+
+:host .wu-studio .wu-first-save {
+  margin: 0.85rem 0 0;
+  font-size: 0.82rem;
+}

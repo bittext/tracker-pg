@@ -1184,53 +1184,68 @@
     </mat-tab>
 
     <mat-tab label="Write-up">
-      <div class="tab-panel mgmt-writeup-panel">
-        <section aria-labelledby="mgmt-wu-heading">
-          <h2 id="mgmt-wu-heading" class="subsection-title">Write-ups</h2>
-          <p class="muted wu-intro">
-            Year-scoped reports and reviews, grouped by a topic you assign. Drag an entry between groups. Child
-            titles omit the group name. Edits autosave while you write.
-          </p>
-
-          <div class="notes-year-bar">
-            <button mat-icon-button type="button" (click)="prevWriteupYear()" aria-label="Previous year">
-              <mat-icon>chevron_left</mat-icon>
-            </button>
-            <span class="notes-year-chip wu-year-chip">{{ writeupYear }}</span>
-            <button mat-icon-button type="button" (click)="nextWriteupYear()" aria-label="Next year">
-              <mat-icon>chevron_right</mat-icon>
-            </button>
-            <span class="notes-filter-hint wu-count-hint" aria-live="polite">
-              @if (writeupSearchTrim) {
-                <strong>{{ writeupFilteredEntries.length }}</strong> matching ·
-                <span class="wu-count-total">{{ writeupsRaw.length }}</span> in {{ writeupYear }}
-              } @else {
-                <strong>{{ writeupsRaw.length }}</strong>
-                {{ writeupsRaw.length === 1 ? 'entry' : 'entries' }} in {{ writeupYear }}
-              }
-            </span>
-          </div>
+      <div class="tab-panel mgmt-writeup-panel wu-studio" [class.wu-studio--work]="isWorkLayout">
+        <section class="wu-studio-shell" aria-labelledby="mgmt-wu-heading">
+          <header class="wu-hero">
+            <div class="wu-hero-copy">
+              <p class="wu-hero-eyebrow">{{ isWorkLayout ? 'Work library' : 'Life library' }}</p>
+              <h2 id="mgmt-wu-heading" class="wu-hero-title">Write-ups</h2>
+              <p class="muted wu-hero-lead">
+                @if (isWorkLayout) {
+                  Office and Learning reports for this desk. Group them, drag to reorder, and keep writing — edits
+                  autosave.
+                } @else {
+                  Year-scoped reports and reviews. Group by topic, drag between shelves, and keep writing — edits
+                  autosave.
+                }
+              </p>
+            </div>
+            <div class="wu-hero-tools">
+              <div class="wu-year" role="group" aria-label="Write-up year">
+                <button mat-icon-button type="button" (click)="prevWriteupYear()" aria-label="Previous year">
+                  <mat-icon>chevron_left</mat-icon>
+                </button>
+                <span class="wu-year-mark">{{ writeupYear }}</span>
+                <button mat-icon-button type="button" (click)="nextWriteupYear()" aria-label="Next year">
+                  <mat-icon>chevron_right</mat-icon>
+                </button>
+              </div>
+              <p class="wu-hero-count" aria-live="polite">
+                @if (writeupSearchTrim) {
+                  <strong>{{ writeupFilteredEntries.length }}</strong> match
+                  <span class="wu-hero-count-total">of {{ writeupsRaw.length }}</span>
+                } @else {
+                  <strong>{{ writeupsRaw.length }}</strong>
+                  {{ writeupsRaw.length === 1 ? 'piece' : 'pieces' }}
+                }
+              </p>
+              <button mat-flat-button color="primary" type="button" class="wu-hero-new" (click)="startNewWriteup()">
+                <mat-icon>edit_note</mat-icon>
+                New write-up
+              </button>
+            </div>
+          </header>
 
           <div class="wu-workspace">
             <aside class="wu-index" aria-label="Write-ups for this year">
-              <mat-form-field appearance="outline" class="wu-search-field full-width-field">
-                <mat-label>Search</mat-label>
+              <label class="wu-search">
+                <mat-icon aria-hidden="true">search</mat-icon>
                 <input
-                  matInput
+                  type="search"
                   name="wuSearch"
                   [(ngModel)]="writeupSearch"
                   (ngModelChange)="rebuildWriteupSidebar()"
-                  placeholder="Topic, highlight, body, filenames…"
+                  placeholder="Search topic, body, files…"
                   autocomplete="off"
                 />
-              </mat-form-field>
+              </label>
 
               @if (!writeupFilteredEntries.length) {
                 <p class="muted empty-hint wu-index-empty">
                   @if (writeupsRaw.length && writeupSearchTrim) {
-                    Nothing matches this search.
+                    Nothing in {{ writeupYear }} matches that search.
                   } @else {
-                    No write-ups for {{ writeupYear }} yet.
+                    This shelf is empty for {{ writeupYear }}.
                   }
                 </p>
               } @else {
@@ -1330,7 +1345,7 @@
                                 <span class="wu-pick-hi">{{ writeupSnippet(w.highlight) }}</span>
                               }
                               <span class="wu-pick-meta">
-                                {{ w.updatedAt | slice: 0:16 }}
+                                {{ formatWriteupWhen(w.updatedAt) }}
                                 @if (writeupAttachmentCountLabel(w)) {
                                   <span class="wu-pick-files"> · {{ writeupAttachmentCountLabel(w) }}</span>
                                 }
@@ -1349,14 +1364,13 @@
             </aside>
 
             <div class="wu-main">
-              <div class="wu-toolbar">
-                <div class="wu-toolbar-primary">
-                  <button mat-flat-button color="primary" type="button" (click)="startNewWriteup()">
-                    <mat-icon>add</mat-icon>
-                    New write-up
-                  </button>
-                  @if (writeupViewMode === 'compose') {
-                    <button mat-button type="button" (click)="cancelWriteupCompose()">Cancel</button>
+              @if (writeupViewMode === 'compose') {
+                <section class="wu-compose" aria-label="Compose write-up">
+                  <div class="wu-compose-bar">
+                    <button mat-button type="button" (click)="cancelWriteupCompose()">
+                      <mat-icon>close</mat-icon>
+                      Cancel
+                    </button>
                     <button
                       mat-flat-button
                       color="primary"
@@ -1364,98 +1378,94 @@
                       (click)="saveWriteup()"
                       [disabled]="writeupSaving"
                     >
-                      {{ writeupEditingId != null ? 'Save changes' : 'Save write-up' }}
+                      {{ writeupEditingId != null ? 'Save' : 'Publish' }}
                     </button>
                     <button mat-button type="button" (click)="clearWriteupDraft()" [disabled]="writeupSaving">
                       Clear
                     </button>
+                    @if (writeupEditingId != null) {
+                      <button mat-button color="warn" type="button" (click)="deleteWriteup()" [disabled]="writeupSaving">
+                        Delete
+                      </button>
+                    }
                     @if (writeupSaveStatusLabel) {
-                      <span class="muted mn-autosave-status" [attr.data-status]="writeupSaveStatus">{{
+                      <span class="muted mn-autosave-status wu-save-chip" [attr.data-status]="writeupSaveStatus">{{
                         writeupSaveStatusLabel
                       }}</span>
                     }
-                  }
-                  <span class="muted wu-toolbar-meta">{{ writeupPeriodLabel }} · {{ writeupsRaw.length }} entries</span>
-                </div>
-              </div>
-
-              @if (writeupViewMode === 'compose') {
-                <section class="wu-compose" aria-label="Compose write-up">
-                  <mat-form-field appearance="outline" class="full-width-field wu-topic-field">
-                    <mat-label>Topic</mat-label>
-                    <input
-                      matInput
-                      name="wuTopic"
-                      [(ngModel)]="writeupDraft.topic"
-                      (ngModelChange)="onWriteupDraftChanged()"
-                      (blur)="onWriteupDraftBlur()"
-                      required
-                      placeholder="Clear title for this report or review"
-                    />
-                  </mat-form-field>
-
-                  <mat-form-field appearance="outline" class="full-width-field wu-group-field">
-                    <mat-label>Topic group</mat-label>
-                    <input
-                      matInput
-                      name="wuTopicGroup"
-                      [(ngModel)]="writeupDraft.topicGroup"
-                      (ngModelChange)="onWriteupDraftChanged()"
-                      (blur)="onWriteupDraftBlur()"
-                      list="wu-topic-group-suggestions"
-                      placeholder="Optional — e.g. NBIS"
-                    />
-                  </mat-form-field>
-                  <datalist id="wu-topic-group-suggestions">
-                    @for (name of writeupGroupSuggestions; track name) {
-                      <option [value]="name"></option>
-                    }
-                  </datalist>
-
-                  <mat-form-field appearance="outline" class="full-width-field wu-highlight-field">
-                    <mat-label>Topic highlight</mat-label>
-                    <textarea
-                      matInput
-                      name="wuHi"
-                      rows="2"
-                      [(ngModel)]="writeupDraft.highlight"
-                      (ngModelChange)="onWriteupDraftChanged()"
-                      (blur)="onWriteupDraftBlur()"
-                      placeholder="Short emphasis (one or two lines)"
-                    ></textarea>
-                  </mat-form-field>
-
-                  <div class="wu-highlight-banner" aria-label="Highlight preview">
-                    @if ((writeupDraft.highlight || '').trim()) {
-                      <div class="wu-highlight-banner-inner">{{ writeupDraft.highlight }}</div>
-                    } @else {
-                      <div class="wu-highlight-banner-inner wu-highlight-banner-inner--empty muted">
-                        Highlight preview appears here.
-                      </div>
-                    }
+                    <span class="muted wu-compose-stats">
+                      {{ writeupWordCount(writeupDraft.body) }}
+                      {{ writeupWordCount(writeupDraft.body) === 1 ? 'word' : 'words' }}
+                    </span>
                   </div>
+
+                  <input
+                    class="wu-title-input"
+                    name="wuTopic"
+                    [(ngModel)]="writeupDraft.topic"
+                    (ngModelChange)="onWriteupDraftChanged()"
+                    (blur)="onWriteupDraftBlur()"
+                    required
+                    placeholder="Title of this report"
+                    aria-label="Write-up title"
+                  />
+
+                  <div class="wu-meta-row">
+                    <label class="wu-meta-field">
+                      <span>Group</span>
+                      <input
+                        name="wuTopicGroup"
+                        [(ngModel)]="writeupDraft.topicGroup"
+                        (ngModelChange)="onWriteupDraftChanged()"
+                        (blur)="onWriteupDraftBlur()"
+                        list="wu-topic-group-suggestions"
+                        placeholder="Office, Learning…"
+                      />
+                    </label>
+                    <datalist id="wu-topic-group-suggestions">
+                      @for (name of writeupGroupSuggestions; track name) {
+                        <option [value]="name"></option>
+                      }
+                    </datalist>
+                    <label class="wu-meta-field wu-meta-field--wide">
+                      <span>Highlight</span>
+                      <input
+                        name="wuHi"
+                        [(ngModel)]="writeupDraft.highlight"
+                        (ngModelChange)="onWriteupDraftChanged()"
+                        (blur)="onWriteupDraftBlur()"
+                        placeholder="One-line emphasis"
+                      />
+                    </label>
+                  </div>
+
+                  @if ((writeupDraft.highlight || '').trim()) {
+                    <div class="wu-highlight-banner" aria-label="Highlight preview">
+                      <div class="wu-highlight-banner-inner">{{ writeupDraft.highlight }}</div>
+                    </div>
+                  }
 
                   <div class="wu-pane-toggle" role="group" aria-label="Editor layout">
                     <button
-                      mat-stroked-button
                       type="button"
-                      [class.wu-pane-toggle--active]="writeupComposerPane === 'split'"
+                      class="wu-seg"
+                      [class.wu-seg--active]="writeupComposerPane === 'split'"
                       (click)="setWriteupComposerPane('split')"
                     >
                       Split
                     </button>
                     <button
-                      mat-stroked-button
                       type="button"
-                      [class.wu-pane-toggle--active]="writeupComposerPane === 'write'"
+                      class="wu-seg"
+                      [class.wu-seg--active]="writeupComposerPane === 'write'"
                       (click)="setWriteupComposerPane('write')"
                     >
                       Write
                     </button>
                     <button
-                      mat-stroked-button
                       type="button"
-                      [class.wu-pane-toggle--active]="writeupComposerPane === 'preview'"
+                      class="wu-seg"
+                      [class.wu-seg--active]="writeupComposerPane === 'preview'"
                       (click)="setWriteupComposerPane('preview')"
                     >
                       Preview
@@ -1469,19 +1479,12 @@
                   >
                     <div class="wu-editor-pane">
                       <div class="wu-pane-head">
-                        <span class="wu-pane-title">Markdown</span>
-                        <span class="muted wu-pane-hint"
-                          >Blank line = paragraph · Enter = line break · drop images at caret</span
-                        >
-                      </div>
-                      <div class="wu-format-bar" role="toolbar" aria-label="Text formatting">
-                        <button mat-stroked-button type="button" (click)="insertWriteupParagraphBreak()">
+                        <span class="wu-pane-title">Draft</span>
+                        <span class="muted wu-pane-hint">Blank line starts a paragraph. Drop images at the caret.</span>
+                        <button type="button" class="wu-para-btn" (click)="insertWriteupParagraphBreak()">
                           <mat-icon>notes</mat-icon>
-                          Paragraph break
+                          Paragraph
                         </button>
-                        <span class="muted wu-format-hint"
-                          >Use blank lines between paragraphs so text wraps cleanly around floated images.</span
-                        >
                       </div>
                       <textarea
                         class="wu-editor-input"
@@ -1503,8 +1506,7 @@
                     </div>
                     <div class="wu-preview-pane" aria-label="Live preview">
                       <div class="wu-pane-head">
-                        <span class="wu-pane-title">Live preview</span>
-                        <span class="muted wu-pane-hint">Topic + highlight + body</span>
+                        <span class="wu-pane-title">Preview</span>
                       </div>
                       <div class="wu-preview-body">
                         @if (
@@ -1512,7 +1514,7 @@
                           (writeupDraft.body || '').trim() ||
                           (writeupDraft.highlight || '').trim()
                         ) {
-                          <h3 class="wu-read-topic">{{ writeupDraft.topic || '—' }}</h3>
+                          <h3 class="wu-read-topic">{{ writeupDraft.topic || 'Untitled' }}</h3>
                           @if ((writeupDraft.highlight || '').trim()) {
                             <div class="wu-highlight-banner wu-highlight-banner--read">
                               <div class="wu-highlight-banner-inner">{{ writeupDraft.highlight }}</div>
@@ -1520,37 +1522,23 @@
                           }
                           <app-writeup-markdown-body [body]="writeupDraft.body" />
                         } @else {
-                          <p class="muted wu-preview-empty">Start typing to see the preview.</p>
+                          <p class="muted wu-preview-empty">The page appears here as you write.</p>
                         }
                       </div>
                     </div>
                   </div>
 
-                  <div class="wu-compose-actions">
-                    <button mat-flat-button color="primary" type="button" (click)="saveWriteup()" [disabled]="writeupSaving">
-                      {{ writeupEditingId != null ? 'Save changes' : 'Save write-up' }}
-                    </button>
-                    <button mat-button type="button" (click)="clearWriteupDraft()" [disabled]="writeupSaving">
-                      Clear
-                    </button>
-                    @if (writeupEditingId != null) {
-                      <button mat-button color="warn" type="button" (click)="deleteWriteup()" [disabled]="writeupSaving">
-                        Delete
-                      </button>
-                    }
-                    @if (writeupSaveStatusLabel) {
-                      <span class="muted mn-autosave-status" [attr.data-status]="writeupSaveStatus">{{
-                        writeupSaveStatusLabel
-                      }}</span>
-                    }
-                  </div>
-
+                  @if (writeupEditingId == null) {
+                    <p class="muted wu-first-save">Save once to open the attachment shelf.</p>
+                  }
                   @if (writeupEditingId != null) {
-                    <div class="wu-read-attach">
-                      <p class="muted wu-attach-hint">
-                        Upload any files. Pick <strong>size</strong> + <strong>wrap</strong>, then Insert / drag images so
-                        text flows around them. Link an image to a PDF or an external URL. Blank lines create paragraphs.
-                      </p>
+                    <div class="wu-vault">
+                      <div class="wu-vault-head">
+                        <h3 class="wu-vault-title">Attachments</h3>
+                        <p class="muted wu-attach-hint">
+                          Size and wrap, then insert or drag into the draft. Images can open a PDF or a URL.
+                        </p>
+                      </div>
                       <div class="life-size-bar" role="group" aria-label="Insert image size">
                         <span class="muted life-size-label">Size</span>
                         @for (opt of writeupImageWidthOptions; track opt.pct) {
@@ -1703,12 +1691,19 @@
               } @else if (selectedWriteup; as w) {
                 <article class="wu-read" aria-label="Write-up">
                   <header class="wu-read-head">
-                    <div>
-                      <h3 class="wu-read-subject">{{ w.topic }}</h3>
-                      <p class="wu-read-meta muted">Updated {{ w.updatedAt | date: 'medium' }}</p>
+                    <div class="wu-read-kicker">
+                      @if ((w.topicGroup || '').trim()) {
+                        <span class="wu-read-group">{{ w.topicGroup }}</span>
+                      }
+                      <span class="wu-read-meta muted">Updated {{ formatWriteupWhen(w.updatedAt) }}</span>
+                      <span class="wu-read-meta muted">
+                        {{ writeupWordCount(w.body) }}
+                        {{ writeupWordCount(w.body) === 1 ? 'word' : 'words' }}
+                      </span>
                     </div>
+                    <h3 class="wu-read-subject">{{ w.topic }}</h3>
                     <div class="wu-read-actions">
-                      <button mat-stroked-button type="button" color="primary" (click)="startEditWriteup()">
+                      <button mat-flat-button type="button" color="primary" (click)="startEditWriteup()">
                         <mat-icon>edit</mat-icon>
                         Edit
                       </button>
@@ -1721,11 +1716,16 @@
                     </div>
                   }
                   @if (!(w.body || '').trim()) {
-                    <div class="wu-read-body wu-read-body--empty muted">—</div>
+                    <div class="wu-read-body wu-read-body--empty muted">This page is still blank.</div>
                   } @else {
-                    <app-writeup-markdown-body [body]="w.body" />
+                    <div class="wu-read-prose">
+                      <app-writeup-markdown-body [body]="w.body" />
+                    </div>
                   }
-                  <div class="wu-read-attach">
+                  <div class="wu-vault wu-vault--read">
+                    <div class="wu-vault-head">
+                      <h3 class="wu-vault-title">Attachments</h3>
+                    </div>
                     <div class="life-size-bar" role="group" aria-label="Insert image size">
                       <span class="muted life-size-label">Size</span>
                       @for (opt of writeupImageWidthOptions; track opt.pct) {
@@ -1762,7 +1762,7 @@
                       />
                       <span class="wu-file-label-text">Add attachment(s)</span>
                     </label>
-                    @if (w.attachments?.length) {
+                    @if (w.attachments.length) {
                       <ul class="wu-attachment-list wu-attachment-list--read">
                         @for (a of w.attachments; track a.id) {
                           <li class="wu-att-row">
@@ -1826,9 +1826,21 @@
                 </article>
               } @else {
                 <div class="wu-empty">
-                  <p class="muted">Select a write-up from the list or create a new one.</p>
-                  <button mat-stroked-button type="button" color="primary" (click)="startNewWriteup()">
-                    <mat-icon>add</mat-icon>
+                  <span class="wu-empty-icon" aria-hidden="true">
+                    <mat-icon>menu_book</mat-icon>
+                  </span>
+                  <h3 class="wu-empty-title">{{ writeupsRaw.length ? 'Open a page' : 'Start the library' }}</h3>
+                  <p class="muted">
+                    @if (writeupsRaw.length) {
+                      Pick a write-up from the shelf, or begin a new one for {{ writeupYear }}.
+                    } @else if (isWorkLayout) {
+                      Capture an Office or Learning report for {{ writeupYear }}. It stays on Work, apart from Life.
+                    } @else {
+                      Capture a year-scoped report for {{ writeupYear }}.
+                    }
+                  </p>
+                  <button mat-flat-button type="button" color="primary" (click)="startNewWriteup()">
+                    <mat-icon>edit_note</mat-icon>
                     New write-up
                   </button>
                 </div>
