@@ -30,6 +30,11 @@ public class ManagementDueController {
         return service.month(year, month);
     }
 
+    @PostMapping("/clear-later")
+    public ManagementDueMonthDto clearLater(@RequestParam int year, @RequestParam int month) {
+        return service.clearLaterDates(year, month);
+    }
+
     @PostMapping("/items")
     @ResponseStatus(HttpStatus.CREATED)
     public ManagementDueMonthDto create(@Valid @RequestBody ManagementDueItemWriteRequest body) {

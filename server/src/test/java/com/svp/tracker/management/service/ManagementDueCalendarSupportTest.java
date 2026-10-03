@@ -27,6 +27,16 @@ class ManagementDueCalendarSupportTest {
     }
 
     @Test
+    void recurringDoesNotFillMonthsAfterToday() {
+        YearMonth october = YearMonth.of(2026, 10);
+        YearMonth november = YearMonth.of(2026, 11);
+        assertTrue(ManagementDueCalendarSupport.appearsInMonth(
+                true, LocalDate.of(2026, 8, 1), null, october, october));
+        assertFalse(ManagementDueCalendarSupport.appearsInMonth(
+                true, LocalDate.of(2026, 8, 1), null, november, october));
+    }
+
+    @Test
     void oneOffAppearsOnlyInItsMonth() {
         LocalDate date = LocalDate.of(2026, 9, 12);
         assertTrue(ManagementDueCalendarSupport.appearsInMonth(false, LocalDate.of(2026, 1, 1), date, YearMonth.of(2026, 9)));

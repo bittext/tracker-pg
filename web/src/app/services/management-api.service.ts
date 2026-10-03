@@ -529,6 +529,12 @@ export class ManagementApiService {
     });
   }
 
+  clearLaterDueItems(year: number, month: number) {
+    return this.http.post<ManagementDueMonthDto>(`${this.root}/due/clear-later`, null, {
+      params: { year: String(year), month: String(month) },
+    });
+  }
+
   createDueItem(body: ManagementDueItemWriteBody) {
     return this.http.post<ManagementDueMonthDto>(`${this.root}/due/items`, body);
   }

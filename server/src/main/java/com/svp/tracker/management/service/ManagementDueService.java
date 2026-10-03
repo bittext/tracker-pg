@@ -4,6 +4,7 @@ import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.finance.domain.BankingTransaction;
 import com.svp.tracker.finance.repository.BankingTransactionRepository;
 import com.svp.tracker.fitness.exception.NotFoundException;
+import com.svp.tracker.management.domain.ManagementDesk;
 import com.svp.tracker.management.domain.ManagementDueItem;
 import com.svp.tracker.management.domain.ManagementDueOccurrence;
 import com.svp.tracker.management.domain.ManagementDueSide;
@@ -40,7 +41,6 @@ public class ManagementDueService {
     private static final ZoneId OWNER_ZONE = ZoneId.of("America/Chicago");
     private static final int HISTORY_MONTHS = 24;
     private static final int ESTIMATE_SAMPLE = 8;
-    private static final int SUGGESTION_LIMIT = 8;
 
     private final ManagementDueItemRepository itemRepository;
     private final ManagementDueOccurrenceRepository occurrenceRepository;
@@ -51,7 +51,7 @@ public class ManagementDueService {
     public ManagementDueMonthDto month(int year, int month) {
         YearMonth ym = requireYearMonth(year, month);
         long owner = currentUser.requireUserId();
-        List<ManagementDueItem> items = itemRepository.findByOwnerUserIdAndActiveTrueOrderByCounterpartyAscIdAsc(owner);
+        List<ManagementDueItem> items = activeItems(owner);
         List<ManagementDueOccurrence> yearOcc = occurrenceRepository.findByOwnerAndYearWithItem(owner, year);
         History history = loadHistory(owner);
 
@@ -69,12 +69,14 @@ public class ManagementDueService {
 
         for (ManagementDueItem item : items) {
             if (!ManagementDueCalendarSupport.appearsInMonth(
-                    item.isRecurring(), item.getStartsOn(), item.getOneOffDate(), ym)) {
+                    item.isRecurring(),
+                    item.getStartsOn(),
+                    item.getOneOffDate(),
+                    ym,
+                    YearMonth.from(todayInOwnerZone()))) {
                 continue;
             }
-            LocalDate date = item.isRecurring()
-                    ? ManagementDueCalendarSupport.occurrenceDate(year, month, item.getDayOfMonth())
-                    : item.getOneOffDate();
+            LocalDate date = occurrenceOn(item, year, month);
             if (date == null || !YearMonth.from(date).equals(ym)) {
                 continue;
             }
@@ -117,7 +119,44 @@ public class ManagementDueService {
                 yearTotals.received,
                 yearTotals.received.subtract(yearTotals.paid),
                 days,
-                suggestions(items, history));
+                suggestions(items, history, ym));
+    }
+
+    @Transactional
+    public ManagementDueMonthDto clearLaterDates(int year, int month) {
+        YearMonth ym = requireYearMonth(year, month);
+        long owner = currentUser.requireUserId();
+        LocalDate today = todayInOwnerZone();
+        List<ManagementDueOccurrence> yearOcc = occurrenceRepository.findByOwnerAndYearWithItem(owner, year);
+        Map<Long, ManagementDueOccurrence> occByItem = new HashMap<>();
+        for (ManagementDueOccurrence occ : yearOcc) {
+            if (occ.getMonth() == month && occ.getItem() != null && occ.getItem().getId() != null) {
+                occByItem.put(occ.getItem().getId(), occ);
+            }
+        }
+        Instant now = Instant.now();
+        for (ManagementDueItem item : activeItems(owner)) {
+            LocalDate date = occurrenceOn(item, year, month);
+            if (date == null) {
+                continue;
+            }
+            if (!item.isRecurring() && date.isAfter(today)) {
+                deactivate(item, now);
+                continue;
+            }
+            if (!YearMonth.from(date).equals(ym)) {
+                continue;
+            }
+            if (!date.isAfter(today)) {
+                continue;
+            }
+            ManagementDueOccurrence occ = occByItem.get(item.getId());
+            if (occ != null && occ.isSettled()) {
+                continue;
+            }
+            deactivate(item, now);
+        }
+        return month(year, month);
     }
 
     @Transactional
@@ -126,6 +165,7 @@ public class ManagementDueService {
         Instant now = Instant.now();
         ManagementDueItem item = new ManagementDueItem();
         item.setOwnerUserId(owner);
+        item.setDesk(ManagementDesk.LIFE);
         item.setStartsOn(null);
         applyWrite(item, req, todayInOwnerZone().withDayOfMonth(1), true);
         item.setCreatedAt(now);
@@ -324,51 +364,38 @@ public class ManagementDueService {
         return ManagementDueCalendarSupport.median(samples);
     }
 
-    private List<ManagementDueSuggestionDto> suggestions(List<ManagementDueItem> items, History history) {
-        Map<String, SuggestionAcc> acc = new LinkedHashMap<>();
+    private List<ManagementDueSuggestionDto> suggestions(
+            List<ManagementDueItem> items, History history, YearMonth focus) {
+        List<ManagementDueSuggestionSupport.Tracked> tracked = new ArrayList<>();
+        for (ManagementDueItem item : items) {
+            tracked.add(new ManagementDueSuggestionSupport.Tracked(item.getSide(), item.getCounterparty()));
+        }
+        List<ManagementDueSuggestionSupport.Txn> rows = new ArrayList<>();
         for (HistoryRow row : history.rows()) {
-            if (history.internalIds().contains(row.id()) || row.amount().signum() == 0) {
-                continue;
-            }
-            String key = ManagementDueCalendarSupport.normalizePayee(row.description());
-            if (key.length() < 4) {
-                continue;
-            }
-            SuggestionAcc bucket = acc.computeIfAbsent(key, ignored -> new SuggestionAcc());
-            bucket.counterparty = row.description().trim();
-            bucket.side = row.amount().signum() < 0 ? ManagementDueSide.PAYABLE : ManagementDueSide.RECEIVABLE;
-            bucket.amounts.add(row.amount().abs());
-            bucket.days.add(row.date().getDayOfMonth());
+            rows.add(new ManagementDueSuggestionSupport.Txn(row.id(), row.date(), row.amount(), row.description()));
         }
-        List<ManagementDueSuggestionDto> out = new ArrayList<>();
-        for (SuggestionAcc bucket : acc.values()) {
-            if (bucket.amounts.size() < 2) {
-                continue;
-            }
-            if (alreadyTracked(items, bucket.side, bucket.counterparty)) {
-                continue;
-            }
-            out.add(new ManagementDueSuggestionDto(
-                    bucket.side.name(),
-                    shorten(bucket.counterparty),
-                    ManagementDueCalendarSupport.medianDay(bucket.days),
-                    ManagementDueCalendarSupport.median(bucket.amounts),
-                    bucket.amounts.size()));
-        }
-        out.sort(Comparator.comparingInt(ManagementDueSuggestionDto::sampleCount).reversed());
-        if (out.size() > SUGGESTION_LIMIT) {
-            return List.copyOf(out.subList(0, SUGGESTION_LIMIT));
-        }
-        return List.copyOf(out);
+        return ManagementDueSuggestionSupport.build(rows, history.internalIds(), tracked, focus);
     }
 
-    private boolean alreadyTracked(List<ManagementDueItem> items, ManagementDueSide side, String counterparty) {
-        for (ManagementDueItem item : items) {
-            if (item.getSide() == side && ManagementDueCalendarSupport.payeeMatches(item.getCounterparty(), counterparty)) {
-                return true;
+    private List<ManagementDueItem> activeItems(long owner) {
+        return itemRepository.findByOwnerUserIdAndDeskAndActiveTrueOrderByCounterpartyAscIdAsc(
+                owner, ManagementDesk.LIFE);
+    }
+
+    private void deactivate(ManagementDueItem item, Instant now) {
+        item.setActive(false);
+        item.setUpdatedAt(now);
+        itemRepository.save(item);
+    }
+
+    private static LocalDate occurrenceOn(ManagementDueItem item, int year, int month) {
+        if (item.isRecurring()) {
+            if (item.getDayOfMonth() == null) {
+                return null;
             }
+            return ManagementDueCalendarSupport.occurrenceDate(year, month, item.getDayOfMonth());
         }
-        return false;
+        return item.getOneOffDate();
     }
 
     private History loadHistory(long owner) {
@@ -428,21 +455,9 @@ public class ManagementDueService {
         return value == null ? null : value.setScale(2, RoundingMode.HALF_UP);
     }
 
-    private static String shorten(String raw) {
-        String trimmed = raw == null ? "" : raw.trim();
-        return trimmed.length() > 48 ? trimmed.substring(0, 48).trim() : trimmed;
-    }
-
     private record History(List<HistoryRow> rows, Set<Long> internalIds) {}
 
     private record HistoryRow(long id, LocalDate date, BigDecimal amount, String description) {}
 
     private record Totals(BigDecimal paid, BigDecimal received) {}
-
-    private static final class SuggestionAcc {
-        String counterparty = "";
-        ManagementDueSide side = ManagementDueSide.PAYABLE;
-        final List<BigDecimal> amounts = new ArrayList<>();
-        final List<Integer> days = new ArrayList<>();
-    }
 }

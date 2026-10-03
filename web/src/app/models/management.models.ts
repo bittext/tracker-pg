@@ -419,12 +419,16 @@ export interface ManagementDueOccurrenceDto {
   settledAmount: number | null;
 }
 
+export type ManagementDueSuggestionKind = 'MONTHLY' | 'BIG_DEBIT' | string;
+
 export interface ManagementDueSuggestionDto {
   side: ManagementDueSide;
   counterparty: string;
   typicalDay: number;
   estimatedAmount: number | null;
   sampleCount: number;
+  kind?: ManagementDueSuggestionKind;
+  detail?: string;
 }
 
 export interface ManagementDueDayDto {

@@ -27,7 +27,23 @@ public final class ManagementDueCalendarSupport {
 
     public static boolean appearsInMonth(
             boolean recurring, LocalDate startsOn, LocalDate oneOffDate, YearMonth month) {
+        return appearsInMonth(recurring, startsOn, oneOffDate, month, null);
+    }
+
+    /**
+     * Recurring rows stay on the current and earlier months. Later months stay empty until they
+     * arrive. One-time rows still land only on their own date.
+     */
+    public static boolean appearsInMonth(
+            boolean recurring,
+            LocalDate startsOn,
+            LocalDate oneOffDate,
+            YearMonth month,
+            YearMonth currentMonth) {
         if (recurring) {
+            if (currentMonth != null && month.isAfter(currentMonth)) {
+                return false;
+            }
             if (startsOn == null) {
                 return true;
             }

@@ -367,6 +367,19 @@
   margin-top: 0.35rem;
 }
 
+.due-suggest-heading {
+  margin: 0.15rem 0 0.45rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--app-text-subtle, #64748b);
+}
+
+.due-suggest-heading + .due-suggest-list + .due-suggest-heading {
+  margin-top: 1rem;
+}
+
 .due-suggest-list {
   list-style: none;
   margin: 0;
@@ -382,6 +395,13 @@
   gap: 0.6rem;
   align-items: center;
   font-size: 0.85rem;
+}
+
+.due-suggest-detail {
+  display: block;
+  margin-top: 0.12rem;
+  font-size: 0.75rem;
+  color: var(--app-text-subtle, #64748b);
 }
 
 .empty-hint {

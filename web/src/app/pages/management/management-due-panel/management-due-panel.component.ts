@@ -62,6 +62,8 @@ export class ManagementDuePanelComponent implements OnInit {
 
   draft = this.emptyDraft();
 
+  private static readonly CLEAR_LATER_KEY = 'tracker.due.clearedLater.v1';
+
   ngOnInit(): void {
     const today = this.todayIso();
     this.selectedIso = today;
@@ -69,7 +71,15 @@ export class ManagementDuePanelComponent implements OnInit {
   }
 
   refreshAll(): void {
-    this.loadMonth();
+    this.maybeClearLaterDates();
+  }
+
+  get monthlySuggestions(): ManagementDueSuggestionDto[] {
+    return this.suggestions.filter((row) => (row.kind || 'MONTHLY') !== 'BIG_DEBIT');
+  }
+
+  get bigDebitSuggestions(): ManagementDueSuggestionDto[] {
+    return this.suggestions.filter((row) => row.kind === 'BIG_DEBIT');
   }
 
   get calendarTitle(): string {
@@ -222,15 +232,20 @@ export class ManagementDuePanelComponent implements OnInit {
 
   addSuggestion(row: ManagementDueSuggestionDto): void {
     this.editingItemId = null;
+    const lastDay = new Date(this.year, this.month, 0).getDate();
+    const day = Math.min(Math.max(row.typicalDay || 1, 1), lastDay);
+    const oneOff = this.isoFor(this.year, this.month, day);
+    const monthly = row.kind !== 'BIG_DEBIT';
     this.draft = {
       side: row.side,
       counterparty: row.counterparty,
-      recurring: true,
-      dayOfMonth: row.typicalDay,
-      oneOffDate: this.isoFor(this.year, this.month, row.typicalDay),
+      recurring: monthly,
+      dayOfMonth: day,
+      oneOffDate: oneOff,
       amount: row.estimatedAmount == null ? '' : String(row.estimatedAmount),
       notes: '',
     };
+    this.selectedIso = oneOff;
   }
 
   settle(row: ManagementDueOccurrenceDto, settled: boolean): void {
@@ -326,21 +341,53 @@ export class ManagementDuePanelComponent implements OnInit {
     return !!iso && iso === this.todayIso();
   }
 
+  private maybeClearLaterDates(): void {
+    const today = new Date();
+    const isCurrentMonth = this.year === today.getFullYear() && this.month === today.getMonth() + 1;
+    const alreadyCleared =
+      typeof localStorage !== 'undefined' && localStorage.getItem(ManagementDuePanelComponent.CLEAR_LATER_KEY);
+    if (!isCurrentMonth || alreadyCleared) {
+      this.loadMonth();
+      return;
+    }
+    this.loading = true;
+    this.api.clearLaterDueItems(this.year, this.month).subscribe({
+      next: (month) => {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(ManagementDuePanelComponent.CLEAR_LATER_KEY, '1');
+        }
+        this.monthData = month;
+        this.loading = false;
+        this.ensureSelectedInMonth();
+      },
+      error: () => {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(ManagementDuePanelComponent.CLEAR_LATER_KEY, '1');
+        }
+        this.loadMonth();
+      },
+    });
+  }
+
   private loadMonth(): void {
     this.loading = true;
     this.api.dueMonth(this.year, this.month).subscribe({
       next: (month) => {
         this.monthData = month;
         this.loading = false;
-        if (!this.selectedIso.startsWith(`${this.year}-${String(this.month).padStart(2, '0')}`)) {
-          this.selectedIso = this.isoFor(this.year, this.month, 1);
-        }
+        this.ensureSelectedInMonth();
       },
       error: (err) => {
         this.loading = false;
         this.snackBar.open(formatHttpErrorDetail(err) || 'Could not load Due', undefined, { duration: 3200 });
       },
     });
+  }
+
+  private ensureSelectedInMonth(): void {
+    if (!this.selectedIso.startsWith(`${this.year}-${String(this.month).padStart(2, '0')}`)) {
+      this.selectedIso = this.isoFor(this.year, this.month, 1);
+    }
   }
 
   private emptyDraft() {

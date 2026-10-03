@@ -2,10 +2,10 @@
   <section aria-labelledby="due-heading">
     <h2 id="due-heading" class="subsection-title">Due</h2>
     <p class="muted due-intro">
-      Payables and receivables on the day of the month they land. Recurring rows carry into later months. One-time rows
-      stay on their date. Amounts you type win; otherwise the app estimates from Banking accounts and skips transfers
-      between your own accounts. Credit cards, loans, and investments stay out. Totals count only what you mark paid or
-      received, from this month forward.
+      Payables and receivables on the day of the month they land. Recurring rows stay on this month and earlier months;
+      later months stay empty until they arrive. One-time rows stay on their date. Amounts you type win; otherwise the
+      app estimates from Banking accounts and skips transfers between your own accounts. Credit cards, loans, and
+      investments stay out. Totals count only what you mark paid or received, from this month forward.
     </p>
 
     <div class="due-totals" aria-label="Paid and received totals">
@@ -215,28 +215,59 @@
           </mat-card-content>
         </mat-card>
 
-        @if (suggestions.length) {
-          <mat-card appearance="outlined" class="due-card due-suggest">
-            <mat-card-header>
-              <mat-card-title>Suggestions from history</mat-card-title>
-              <mat-card-subtitle>Repeated external payees on Banking accounts. Accept to add a recurring row.</mat-card-subtitle>
-            </mat-card-header>
-            <mat-card-content>
+        <mat-card appearance="outlined" class="due-card due-suggest">
+          <mat-card-header>
+            <mat-card-title>Suggestions from history</mat-card-title>
+            <mat-card-subtitle>
+              Monthly bills and other large debits from Banking accounts. Use adds a row for this month.
+            </mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            @if (!monthlySuggestions.length && !bigDebitSuggestions.length) {
+              <p class="muted empty-hint">
+                No unused monthly bills or large bank debits for this month.
+              </p>
+            }
+            @if (monthlySuggestions.length) {
+              <h3 class="due-suggest-heading">This month</h3>
               <ul class="due-suggest-list">
-                @for (row of suggestions; track row.counterparty + row.side) {
+                @for (row of monthlySuggestions; track row.counterparty + row.side) {
                   <li>
                     <span>
                       <strong>{{ row.counterparty }}</strong>
                       · {{ row.side === 'PAYABLE' ? 'owe' : 'receive' }}
                       ~{{ money(row.estimatedAmount) }} on the {{ row.typicalDay }}
+                      @if (row.detail) {
+                        <span class="due-suggest-detail">{{ row.detail }}</span>
+                      }
                     </span>
                     <button mat-stroked-button type="button" (click)="addSuggestion(row)">Use</button>
                   </li>
                 }
               </ul>
-            </mat-card-content>
-          </mat-card>
-        }
+            }
+            @if (bigDebitSuggestions.length) {
+              <h3 class="due-suggest-heading">Other big debits</h3>
+              <ul class="due-suggest-list">
+                @for (row of bigDebitSuggestions; track row.counterparty + row.side + row.typicalDay) {
+                  <li>
+                    <span>
+                      <strong>{{ row.counterparty }}</strong>
+                      · owe ~{{ money(row.estimatedAmount) }}
+                      @if (row.typicalDay) {
+                        on the {{ row.typicalDay }}
+                      }
+                      @if (row.detail) {
+                        <span class="due-suggest-detail">{{ row.detail }}</span>
+                      }
+                    </span>
+                    <button mat-stroked-button type="button" (click)="addSuggestion(row)">Use</button>
+                  </li>
+                }
+              </ul>
+            }
+          </mat-card-content>
+        </mat-card>
       </section>
     </div>
   </section>
