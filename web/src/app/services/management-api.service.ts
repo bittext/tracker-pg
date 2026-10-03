@@ -39,6 +39,8 @@ import {
   ManagementDueItemWriteBody,
   ManagementDueMonthDto,
   ManagementDueSettleBody,
+  ManagementAutoPaymentDto,
+  ManagementAutoPaymentWriteBody,
   ManagementSubscriptionDto,
   ManagementSubscriptionWriteBody,
   TaskMonthCalendarDto,
@@ -394,6 +396,24 @@ export class ManagementApiService {
 
   deleteSubscription(id: number) {
     return this.http.delete<void>(`${this.subscriptionsRoot}/${id}`);
+  }
+
+  private readonly autoPaymentsRoot = `${this.root}/auto-payments`;
+
+  listAutoPayments() {
+    return this.http.get<ManagementAutoPaymentDto[]>(this.autoPaymentsRoot);
+  }
+
+  createAutoPayment(body: ManagementAutoPaymentWriteBody) {
+    return this.http.post<ManagementAutoPaymentDto>(this.autoPaymentsRoot, body);
+  }
+
+  updateAutoPayment(id: number, body: ManagementAutoPaymentWriteBody) {
+    return this.http.put<ManagementAutoPaymentDto>(`${this.autoPaymentsRoot}/${id}`, body);
+  }
+
+  deleteAutoPayment(id: number) {
+    return this.http.delete<void>(`${this.autoPaymentsRoot}/${id}`);
   }
 
   private readonly documentsRoot = `${this.root}/documents`;

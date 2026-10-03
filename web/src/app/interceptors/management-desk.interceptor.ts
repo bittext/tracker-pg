@@ -8,6 +8,7 @@ const DESK_PATHS = [
   '/api/management/recordings',
   '/api/management/accounts',
   '/api/management/subscriptions',
+  '/api/management/auto-payments',
   '/api/management/notes',
   '/api/management/due',
   '/api/report-calendar',

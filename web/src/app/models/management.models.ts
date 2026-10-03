@@ -520,3 +520,51 @@ export interface ManagementSubscriptionWriteBody {
   accountEmail?: string;
   notes?: string;
 }
+
+export type ManagementAutoPaymentStatus = 'ACTIVE' | 'PAUSED' | 'CANCELLED';
+export type ManagementAutoPaymentFrequency = 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY' | 'ANNUAL' | 'OTHER';
+export type ManagementAutoPaymentMethod = 'ACH' | 'CARD' | 'BILL_PAY' | 'OTHER';
+
+/** Life → Management → Auto Payments. */
+export interface ManagementAutoPaymentDto {
+  id: number;
+  name: string;
+  payee: string;
+  category: string;
+  paymentMethod: ManagementAutoPaymentMethod;
+  frequency: ManagementAutoPaymentFrequency;
+  amount: number | null;
+  currency: string;
+  startedOn: string | null;
+  nextPaymentOn: string | null;
+  dayOfMonth: number | null;
+  endedOn: string | null;
+  status: ManagementAutoPaymentStatus;
+  fundingAccount: string;
+  confirmationRef: string;
+  website: string;
+  notes: string;
+  nextDebitOn: string | null;
+  daysUntilDebit: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ManagementAutoPaymentWriteBody {
+  name: string;
+  payee?: string;
+  category?: string;
+  paymentMethod?: ManagementAutoPaymentMethod;
+  frequency?: ManagementAutoPaymentFrequency;
+  amount?: number | null;
+  currency?: string;
+  startedOn?: string | null;
+  nextPaymentOn?: string | null;
+  dayOfMonth?: number | null;
+  endedOn?: string | null;
+  status?: ManagementAutoPaymentStatus;
+  fundingAccount?: string;
+  confirmationRef?: string;
+  website?: string;
+  notes?: string;
+}

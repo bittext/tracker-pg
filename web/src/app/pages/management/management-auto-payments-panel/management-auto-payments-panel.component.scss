@@ -1,0 +1,193 @@
+.tab-panel {
+  padding: 0.85rem 0.15rem 0.35rem;
+}
+
+.subsection-title {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.ap-intro {
+  max-width: 46rem;
+  margin: 0 0 1rem;
+}
+
+.ap-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 0.6rem;
+  margin: 0 0 1rem;
+}
+
+.ap-stat {
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+  background: var(--app-surface, #fff);
+  border-radius: 12px;
+  padding: 0.55rem 0.75rem;
+}
+
+.ap-stat-label {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--app-text-subtle, #64748b);
+  margin-bottom: 0.15rem;
+}
+
+.ap-stat-value {
+  font-size: 0.98rem;
+  font-weight: 600;
+}
+
+.ap-layout {
+  display: grid;
+  gap: 1rem;
+  @media (min-width: 960px) {
+    grid-template-columns: minmax(19rem, 34rem) minmax(0, 1fr);
+  }
+}
+
+.ap-column {
+  min-width: 0;
+}
+
+.form-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 0.15rem;
+}
+
+.form-row.wrap {
+  flex-wrap: wrap;
+}
+
+.grow {
+  flex: 1 1 12rem;
+}
+
+.narrow {
+  flex: 0 1 7rem;
+  min-width: 6rem;
+}
+
+.full-width-field {
+  width: 100%;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.ap-table-wrap {
+  overflow: auto;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+  border-radius: 10px;
+  background: #fff;
+}
+
+.ap-row {
+  cursor: pointer;
+}
+
+.ap-row:hover {
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.ap-row--selected {
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.ap-name {
+  font-weight: 600;
+}
+
+.ap-payee {
+  font-size: 0.78rem;
+}
+
+.ap-pill {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.ap-pill[data-status='ACTIVE'] {
+  color: #166534;
+  background: rgba(22, 101, 52, 0.1);
+}
+
+.ap-pill[data-status='PAUSED'] {
+  color: #1d4ed8;
+  background: rgba(29, 78, 216, 0.1);
+}
+
+.ap-pill[data-status='CANCELLED'] {
+  color: #9a3412;
+  background: rgba(154, 52, 18, 0.1);
+}
+
+.ap-detail {
+  margin-top: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+  border-radius: 10px;
+  background: var(--app-surface-muted, #f8fafc);
+}
+
+.ap-detail-title {
+  margin: 0 0 0.65rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.ap-detail-dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(7rem, 9.5rem) 1fr;
+  gap: 0.35rem 0.75rem;
+  font-size: 0.9rem;
+}
+
+.ap-detail-dl dt {
+  margin: 0;
+  color: var(--app-text-muted, #64748b);
+  font-weight: 500;
+}
+
+.ap-detail-dl dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ap-notes {
+  white-space: pre-wrap;
+}
+
+.ap-link {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--app-link, #1d4ed8);
+  cursor: pointer;
+  text-align: left;
+  text-decoration: underline;
+}
+
+.ap-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+}
+
+.empty-hint {
+  margin: 0.35rem 0 0;
+}
