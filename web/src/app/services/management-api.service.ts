@@ -39,6 +39,8 @@ import {
   ManagementDueItemWriteBody,
   ManagementDueMonthDto,
   ManagementDueSettleBody,
+  ManagementSubscriptionDto,
+  ManagementSubscriptionWriteBody,
   TaskMonthCalendarDto,
   TravelGeocodeResultDto,
   TravelPlaceMapDto,
@@ -374,6 +376,24 @@ export class ManagementApiService {
   /** One-time import: pushes legacy localStorage entries to the server. Returns inserted / skipped counts. */
   bulkImportAccounts(entries: ManagementAccountWriteBody[]) {
     return this.http.post<ManagementAccountImportResultDto>(`${this.accountsRoot}/bulk-import`, { entries });
+  }
+
+  private readonly subscriptionsRoot = `${this.root}/subscriptions`;
+
+  listSubscriptions() {
+    return this.http.get<ManagementSubscriptionDto[]>(this.subscriptionsRoot);
+  }
+
+  createSubscription(body: ManagementSubscriptionWriteBody) {
+    return this.http.post<ManagementSubscriptionDto>(this.subscriptionsRoot, body);
+  }
+
+  updateSubscription(id: number, body: ManagementSubscriptionWriteBody) {
+    return this.http.put<ManagementSubscriptionDto>(`${this.subscriptionsRoot}/${id}`, body);
+  }
+
+  deleteSubscription(id: number) {
+    return this.http.delete<void>(`${this.subscriptionsRoot}/${id}`);
   }
 
   private readonly documentsRoot = `${this.root}/documents`;

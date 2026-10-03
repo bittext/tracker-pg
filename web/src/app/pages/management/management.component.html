@@ -21,7 +21,8 @@
       <strong>Travel</strong>
       (trips and map pins), <strong>Documents</strong> (your private uploads with labels), <strong>Now</strong> (a simple
       three-column roadmap: planned, in progress, and completed—edit the data file to update), calendar,
-      <strong>Due</strong> (payables and receivables on the month grid), accounts, month notes,
+      <strong>Due</strong> (payables and receivables on the month grid), accounts,
+      <strong>Subscriptions</strong> (plans you have enrolled in), month notes,
       and year-scoped write-ups. Review sign-in activity under
       <strong>Admin</strong> →
       <strong>Sign-in log</strong>.
@@ -926,6 +927,12 @@
         </section>
       </div>
     </mat-tab>
+
+    @if (!isWorkLayout) {
+      <mat-tab label="Subscriptions">
+        <app-management-subscriptions-panel />
+      </mat-tab>
+    }
 
     <mat-tab label="Notes">
       <div class="tab-panel mgmt-notes-panel">

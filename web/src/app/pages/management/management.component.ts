@@ -79,6 +79,7 @@ import { ManagementDocumentsPanelComponent } from './management-documents-panel/
 import { ManagementRecordingsPanelComponent } from './management-recordings-panel/management-recordings-panel.component';
 import { ManagementNowPanelComponent } from './management-now-panel/management-now-panel.component';
 import { ManagementDuePanelComponent } from './management-due-panel/management-due-panel.component';
+import { ManagementSubscriptionsPanelComponent } from './management-subscriptions-panel/management-subscriptions-panel.component';
 import {
   WriteupAttachmentPreviewDialogComponent,
   WriteupAttachmentPreviewData,
@@ -145,6 +146,7 @@ interface AccountEntry {
     ManagementRecordingsPanelComponent,
     ManagementNowPanelComponent,
     ManagementDuePanelComponent,
+    ManagementSubscriptionsPanelComponent,
     WriteupMarkdownBodyComponent,
     DragDropModule,
   ],
@@ -260,25 +262,29 @@ export class ManagementComponent implements OnInit, OnDestroy {
 
   readonly accountTableColumns: string[] = ['folder', 'itemName', 'username', 'actions'];
 
-  /** Life: 0 Tasks, 1 Travel, 2 Documents, 3 Recordings, 4 Now, 5 Calendar, 6 Due, 7 Account, 8 Notes, 9 Write-up.
-   * Work: 0 Log, 1 Sierra, then the same from Documents (Due is omitted, so Notes/Write-up shift down by 1). */
+  /** Life: 0 Tasks, 1 Travel, 2 Documents, 3 Recordings, 4 Now, 5 Calendar, 6 Due, 7 Account, 8 Subscriptions, 9 Notes, 10 Write-up.
+   * Work: 0 Log, 1 Sierra, then the same from Documents (Due and Subscriptions omitted). */
   private readonly MGMT_TAB_TRAVEL = 1;
   private readonly MGMT_TAB_DOCUMENTS = 2;
   private readonly MGMT_TAB_RECORDINGS = 3;
   private get mgmtTabDue(): number | null {
     return this.isWorkLayout ? null : 6;
   }
+  private get mgmtTabSubscriptions(): number | null {
+    return this.isWorkLayout ? null : 8;
+  }
   private get mgmtTabNotes(): number {
-    return this.isWorkLayout ? 7 : 8;
+    return this.isWorkLayout ? 7 : 9;
   }
   private get mgmtTabWriteup(): number {
-    return this.isWorkLayout ? 8 : 9;
+    return this.isWorkLayout ? 8 : 10;
   }
 
   private readonly travelPanel = viewChild(ManagementTravelPanelComponent);
   private readonly documentsPanel = viewChild(ManagementDocumentsPanelComponent);
   private readonly recordingsPanel = viewChild(ManagementRecordingsPanelComponent);
   private readonly duePanel = viewChild(ManagementDuePanelComponent);
+  private readonly subscriptionsPanel = viewChild(ManagementSubscriptionsPanelComponent);
 
   noteYear = new Date().getFullYear();
   /** When set, list is limited to that month; when null, all months in the year. Default: current month (1–12). */
@@ -1466,6 +1472,9 @@ export class ManagementComponent implements OnInit, OnDestroy {
     }
     if (this.mgmtTabDue != null && index === this.mgmtTabDue) {
       this.duePanel()?.refreshAll();
+    }
+    if (this.mgmtTabSubscriptions != null && index === this.mgmtTabSubscriptions) {
+      this.subscriptionsPanel()?.refreshAll();
     }
     if (index === this.mgmtTabNotes) {
       this.noteDraft.year = this.noteYear;

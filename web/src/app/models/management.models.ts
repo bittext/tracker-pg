@@ -471,3 +471,52 @@ export interface ManagementDueSettleBody {
   settled: boolean;
   settledAmount?: number | null;
 }
+
+export type ManagementSubscriptionStatus = 'ACTIVE' | 'TRIAL' | 'CANCELLED' | 'EXPIRED';
+export type ManagementSubscriptionBillingCycle = 'WEEKLY' | 'MONTHLY' | 'ANNUAL' | 'OTHER';
+
+/** Life → Management → Subscriptions. */
+export interface ManagementSubscriptionDto {
+  id: number;
+  name: string;
+  vendor: string;
+  category: string;
+  plan: string;
+  billingCycle: ManagementSubscriptionBillingCycle;
+  amount: number | null;
+  currency: string;
+  enrolledOn: string | null;
+  renewsOn: string | null;
+  trialEndsOn: string | null;
+  cancelledOn: string | null;
+  status: ManagementSubscriptionStatus;
+  autoRenew: boolean;
+  website: string;
+  accountEmail: string;
+  notes: string;
+  nextRenewalOn: string | null;
+  daysUntilRenewal: number | null;
+  refundWindowOpen: boolean;
+  refundWindowEndsOn: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ManagementSubscriptionWriteBody {
+  name: string;
+  vendor?: string;
+  category?: string;
+  plan?: string;
+  billingCycle?: ManagementSubscriptionBillingCycle;
+  amount?: number | null;
+  currency?: string;
+  enrolledOn?: string | null;
+  renewsOn?: string | null;
+  trialEndsOn?: string | null;
+  cancelledOn?: string | null;
+  status?: ManagementSubscriptionStatus;
+  autoRenew?: boolean;
+  website?: string;
+  accountEmail?: string;
+  notes?: string;
+}
