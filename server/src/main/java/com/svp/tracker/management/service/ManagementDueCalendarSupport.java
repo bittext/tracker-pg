@@ -41,13 +41,14 @@ public final class ManagementDueCalendarSupport {
             YearMonth month,
             YearMonth currentMonth) {
         if (recurring) {
-            if (currentMonth != null && month.isAfter(currentMonth)) {
+            YearMonth start = startsOn == null ? null : YearMonth.from(startsOn);
+            if (start != null && start.isAfter(month)) {
                 return false;
             }
-            if (startsOn == null) {
-                return true;
+            if (currentMonth != null && month.isAfter(currentMonth)) {
+                return start != null && start.equals(month);
             }
-            return !YearMonth.from(startsOn).isAfter(month);
+            return start == null || !start.isAfter(month);
         }
         return oneOffDate != null && YearMonth.from(oneOffDate).equals(month);
     }

@@ -44,7 +44,7 @@
     animationDuration="220ms"
     class="mgmt-tab-group"
     [class.mgmt-tab-group--work]="isWorkLayout"
-    [dynamicHeight]="true"
+    [dynamicHeight]="false"
     (selectedIndexChange)="onManagementTabIndexChange($event)"
   >
     @if (isWorkLayout) {

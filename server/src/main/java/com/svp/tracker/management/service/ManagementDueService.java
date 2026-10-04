@@ -124,7 +124,7 @@ public class ManagementDueService {
 
     @Transactional
     public ManagementDueMonthDto clearLaterDates(int year, int month) {
-        YearMonth ym = requireYearMonth(year, month);
+        requireYearMonth(year, month);
         long owner = currentUser.requireUserId();
         LocalDate today = todayInOwnerZone();
         List<ManagementDueOccurrence> yearOcc = occurrenceRepository.findByOwnerAndYearWithItem(owner, year);
@@ -136,18 +136,11 @@ public class ManagementDueService {
         }
         Instant now = Instant.now();
         for (ManagementDueItem item : activeItems(owner)) {
-            LocalDate date = occurrenceOn(item, year, month);
-            if (date == null) {
+            if (item.isRecurring()) {
                 continue;
             }
-            if (!item.isRecurring() && date.isAfter(today)) {
-                deactivate(item, now);
-                continue;
-            }
-            if (!YearMonth.from(date).equals(ym)) {
-                continue;
-            }
-            if (!date.isAfter(today)) {
+            LocalDate date = item.getOneOffDate();
+            if (date == null || !date.isAfter(today)) {
                 continue;
             }
             ManagementDueOccurrence occ = occByItem.get(item.getId());

@@ -56,6 +56,7 @@ export class ManagementDuePanelComponent implements OnInit {
   month = new Date().getMonth() + 1;
   selectedIso = '';
   monthData: ManagementDueMonthDto | null = null;
+  calRows: DueCalCell[][] = [];
   loading = false;
   saving = false;
   editingItemId: number | null = null;
@@ -67,6 +68,7 @@ export class ManagementDuePanelComponent implements OnInit {
   ngOnInit(): void {
     const today = this.todayIso();
     this.selectedIso = today;
+    this.rebuildCalendar();
     this.refreshAll();
   }
 
@@ -90,67 +92,30 @@ export class ManagementDuePanelComponent implements OnInit {
   }
 
   get selectedDay(): ManagementDueDayDto | null {
-    if (!this.monthData || !this.selectedIso) {
+    if (!this.monthDataMatchesView() || !this.selectedIso) {
       return null;
     }
-    return this.monthData.days.find((d) => d.date === this.selectedIso) ?? null;
+    return this.monthData!.days.find((d) => this.dayDate(d) === this.selectedIso) ?? null;
   }
 
   get suggestions(): ManagementDueSuggestionDto[] {
     return this.monthData?.suggestions ?? [];
   }
 
-  calendarRows(): DueCalCell[][] {
-    const last = new Date(this.year, this.month, 0).getDate();
-    const firstDow = new Date(this.year, this.month - 1, 1).getDay();
-    const byDate = new Map((this.monthData?.days ?? []).map((d) => [d.date, d]));
-    const flat: DueCalCell[] = [];
-    let pad = 0;
-    for (let i = 0; i < firstDow; i++) {
-      pad += 1;
-      flat.push({ type: 'pad', trackKey: `pad-${pad}` });
-    }
-    for (let d = 1; d <= last; d++) {
-      const iso = this.isoFor(this.year, this.month, d);
-      flat.push({
-        type: 'day',
-        iso,
-        label: String(d),
-        day: byDate.get(iso),
-        trackKey: iso,
-      });
-    }
-    const rows: DueCalCell[][] = [];
-    for (let i = 0; i < flat.length; i += 7) {
-      rows.push(flat.slice(i, i + 7));
-    }
-    while (rows.length && rows[rows.length - 1].length < 7) {
-      pad += 1;
-      rows[rows.length - 1].push({ type: 'pad', trackKey: `pad-tail-${pad}` });
-    }
-    return rows;
-  }
-
   prevMonth(): void {
     if (this.month === 1) {
-      this.year -= 1;
-      this.month = 12;
+      this.loadMonth(this.year - 1, 12);
     } else {
-      this.month -= 1;
+      this.loadMonth(this.year, this.month - 1);
     }
-    this.selectedIso = this.isoFor(this.year, this.month, 1);
-    this.loadMonth();
   }
 
   nextMonth(): void {
     if (this.month === 12) {
-      this.year += 1;
-      this.month = 1;
+      this.loadMonth(this.year + 1, 1);
     } else {
-      this.month += 1;
+      this.loadMonth(this.year, this.month + 1);
     }
-    this.selectedIso = this.isoFor(this.year, this.month, 1);
-    this.loadMonth();
   }
 
   selectDay(iso: string): void {
@@ -203,12 +168,8 @@ export class ManagementDuePanelComponent implements OnInit {
       oneOffDate: this.draft.recurring ? null : this.draft.oneOffDate || this.selectedIso,
       amountOverride: amount,
       notes: this.draft.notes.trim(),
-      ...(this.editingItemId
-        ? {}
-        : {
-            startYear: this.year,
-            startMonth: this.month,
-          }),
+      startYear: this.year,
+      startMonth: this.month,
     };
     this.saving = true;
     const wasUpdate = this.editingItemId != null;
@@ -217,10 +178,10 @@ export class ManagementDuePanelComponent implements OnInit {
       : this.api.createDueItem(body);
     req.subscribe({
       next: (month) => {
-        this.monthData = month;
         this.saving = false;
         this.editingItemId = null;
         this.draft = this.emptyDraft();
+        this.applyMonth(month);
         this.snackBar.open(wasUpdate ? 'Updated' : 'Added', undefined, { duration: 1600 });
       },
       error: (err) => {
@@ -259,8 +220,8 @@ export class ManagementDuePanelComponent implements OnInit {
       })
       .subscribe({
         next: (month) => {
-          this.monthData = month;
           this.saving = false;
+          this.applyMonth(month);
         },
         error: (err) => {
           this.saving = false;
@@ -276,11 +237,11 @@ export class ManagementDuePanelComponent implements OnInit {
     this.saving = true;
     this.api.deleteDueItem(row.itemId, this.year, this.month).subscribe({
       next: (month) => {
-        this.monthData = month;
         this.saving = false;
         if (this.editingItemId === row.itemId) {
           this.cancelEdit();
         }
+        this.applyMonth(month);
       },
       error: (err) => {
         this.saving = false;
@@ -356,9 +317,8 @@ export class ManagementDuePanelComponent implements OnInit {
         if (typeof localStorage !== 'undefined') {
           localStorage.setItem(ManagementDuePanelComponent.CLEAR_LATER_KEY, '1');
         }
-        this.monthData = month;
         this.loading = false;
-        this.ensureSelectedInMonth();
+        this.applyMonth(month);
       },
       error: () => {
         if (typeof localStorage !== 'undefined') {
@@ -369,13 +329,12 @@ export class ManagementDuePanelComponent implements OnInit {
     });
   }
 
-  private loadMonth(): void {
+  private loadMonth(year = this.year, month = this.month): void {
     this.loading = true;
-    this.api.dueMonth(this.year, this.month).subscribe({
-      next: (month) => {
-        this.monthData = month;
+    this.api.dueMonth(year, month).subscribe({
+      next: (data) => {
         this.loading = false;
-        this.ensureSelectedInMonth();
+        this.applyMonth(data, year, month);
       },
       error: (err) => {
         this.loading = false;
@@ -384,9 +343,75 @@ export class ManagementDuePanelComponent implements OnInit {
     });
   }
 
+  private applyMonth(month: ManagementDueMonthDto | null, fallbackYear?: number, fallbackMonth?: number): void {
+    const wantedYear = fallbackYear ?? this.year;
+    const wantedMonth = fallbackMonth ?? this.month;
+    if (!month || !Array.isArray(month.days)) {
+      if (fallbackYear == null) {
+        this.loadMonth(wantedYear, wantedMonth);
+      }
+      return;
+    }
+    if (month.year !== wantedYear || month.month !== wantedMonth) {
+      if (fallbackYear == null) {
+        this.loadMonth(wantedYear, wantedMonth);
+      }
+      return;
+    }
+    this.year = month.year;
+    this.month = month.month;
+    this.monthData = month;
+    this.ensureSelectedInMonth();
+    this.rebuildCalendar();
+  }
+
+  private monthDataMatchesView(): boolean {
+    return !!this.monthData && this.monthData.year === this.year && this.monthData.month === this.month;
+  }
+
+  private rebuildCalendar(): void {
+    const last = new Date(this.year, this.month, 0).getDate();
+    const firstDow = new Date(this.year, this.month - 1, 1).getDay();
+    const days = this.monthDataMatchesView() ? this.monthData!.days : [];
+    const byDate = new Map(days.map((d) => [this.dayDate(d), d]));
+    const flat: DueCalCell[] = [];
+    let pad = 0;
+    for (let i = 0; i < firstDow; i++) {
+      pad += 1;
+      flat.push({ type: 'pad', trackKey: `pad-${pad}` });
+    }
+    for (let d = 1; d <= last; d++) {
+      const iso = this.isoFor(this.year, this.month, d);
+      flat.push({
+        type: 'day',
+        iso,
+        label: String(d),
+        day: byDate.get(iso),
+        trackKey: iso,
+      });
+    }
+    const rows: DueCalCell[][] = [];
+    for (let i = 0; i < flat.length; i += 7) {
+      rows.push(flat.slice(i, i + 7));
+    }
+    while (rows.length && rows[rows.length - 1].length < 7) {
+      pad += 1;
+      rows[rows.length - 1].push({ type: 'pad', trackKey: `pad-tail-${pad}` });
+    }
+    this.calRows = rows;
+  }
+
+  private dayDate(day: ManagementDueDayDto): string {
+    const raw = day?.date as unknown;
+    return typeof raw === 'string' ? raw : raw != null ? String(raw) : '';
+  }
+
   private ensureSelectedInMonth(): void {
     if (!this.selectedIso.startsWith(`${this.year}-${String(this.month).padStart(2, '0')}`)) {
-      this.selectedIso = this.isoFor(this.year, this.month, 1);
+      const today = this.todayIso();
+      this.selectedIso = today.startsWith(`${this.year}-${String(this.month).padStart(2, '0')}`)
+        ? today
+        : this.isoFor(this.year, this.month, 1);
     }
   }
 

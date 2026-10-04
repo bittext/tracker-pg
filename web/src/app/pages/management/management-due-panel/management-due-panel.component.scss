@@ -47,7 +47,12 @@
 }
 
 .due-in {
-  color: #15803d;
+  color: #166534;
+}
+
+.due-total:has(.due-in) {
+  background: #dcfce7;
+  border-color: #86efac;
 }
 
 .due-layout {
@@ -248,6 +253,8 @@
   min-width: 0;
   font-size: 0.72rem;
   line-height: 1.2;
+  border-radius: 4px;
+  padding: 0.04rem 0.2rem;
 }
 
 .cal-chip-name {
@@ -268,7 +275,8 @@
 }
 
 .cal-chip--in.cal-chip--open {
-  color: #15803d;
+  color: #166534;
+  background: #bbf7d0;
 }
 
 .cal-chip--settled {
@@ -311,6 +319,11 @@
 
 .due-row--in {
   border-left: 3px solid #16a34a;
+  background: #dcfce7;
+}
+
+.due-row--in.due-row--settled {
+  background: #f0fdf4;
 }
 
 .due-row--settled {

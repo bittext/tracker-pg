@@ -63,7 +63,7 @@
                   <span class="cal-weekday" role="columnheader">{{ wd }}</span>
                 }
               </div>
-              @for (row of calendarRows(); track $index) {
+              @for (row of calRows; track row[0]?.trackKey) {
                 <div class="cal-week" role="row">
                   @for (cell of row; track cell.trackKey) {
                     @if (cell.type === 'pad') {
@@ -83,9 +83,10 @@
                             <span class="cal-today-tag">Today</span>
                           }
                         </span>
-                        @if (cell.day && (cell.day.payableCount || cell.day.receivableCount)) {
+                        @if (cell.day; as day) {
+                          @if (day.items?.length) {
                           <span class="cal-day-lines">
-                            @for (item of cell.day.items; track item.itemId) {
+                            @for (item of day.items; track item.itemId) {
                               <span
                                 class="cal-chip"
                                 [class.cal-chip--out]="item.side === 'PAYABLE'"
@@ -98,7 +99,8 @@
                               </span>
                             }
                           </span>
-                          <span class="cal-day-net">Total {{ dayNet(cell.day) }}</span>
+                          <span class="cal-day-net">Total {{ dayNet(day) }}</span>
+                          }
                         }
                       </button>
                     }
@@ -121,7 +123,13 @@
           </mat-card-header>
           <mat-card-content>
             @if (!selectedDay?.items?.length) {
-              <p class="muted empty-hint">Nothing scheduled. Add a payable or receivable below.</p>
+              <p class="muted empty-hint">
+                @if (loading) {
+                  Loading this month…
+                } @else {
+                  Nothing scheduled. Add a payable or receivable below.
+                }
+              </p>
             } @else {
               <ul class="due-list">
                 @for (row of selectedDay!.items; track row.itemId) {
@@ -231,7 +239,7 @@
             @if (monthlySuggestions.length) {
               <h3 class="due-suggest-heading">This month</h3>
               <ul class="due-suggest-list">
-                @for (row of monthlySuggestions; track row.counterparty + row.side) {
+                @for (row of monthlySuggestions; track $index + ':' + row.counterparty + ':' + row.side) {
                   <li>
                     <span>
                       <strong>{{ row.counterparty }}</strong>
@@ -249,7 +257,7 @@
             @if (bigDebitSuggestions.length) {
               <h3 class="due-suggest-heading">Other big debits</h3>
               <ul class="due-suggest-list">
-                @for (row of bigDebitSuggestions; track row.counterparty + row.side + row.typicalDay) {
+                @for (row of bigDebitSuggestions; track $index + ':' + row.counterparty + ':' + row.typicalDay) {
                   <li>
                     <span>
                       <strong>{{ row.counterparty }}</strong>
