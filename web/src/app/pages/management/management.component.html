@@ -23,7 +23,9 @@
       three-column roadmap: planned, in progress, and completed—edit the data file to update), calendar,
       <strong>Due</strong> (payables and receivables on the month grid), accounts,
       <strong>Subscriptions</strong> (plans you have enrolled in),
-      <strong>Auto Payments</strong> (bank and card autopays), month notes,
+      <strong>Auto Payments</strong> (bank and card autopays),
+      <strong>Insights</strong> (a plain reading of Due, the calendar, accounts, subscriptions, autopay, documents, and travel),
+      month notes,
       and year-scoped write-ups. Review sign-in activity under
       <strong>Admin</strong> →
       <strong>Sign-in log</strong>.
@@ -938,6 +940,12 @@
     @if (!isWorkLayout) {
       <mat-tab label="Auto Payments">
         <app-management-auto-payments-panel />
+      </mat-tab>
+    }
+
+    @if (!isWorkLayout) {
+      <mat-tab label="Insights">
+        <app-management-insights-panel />
       </mat-tab>
     }
 

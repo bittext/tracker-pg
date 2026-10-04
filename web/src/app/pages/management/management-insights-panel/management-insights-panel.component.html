@@ -1,0 +1,144 @@
+<div class="tab-panel insight-panel">
+  <h2 id="insight-heading" class="subsection-title">Insights</h2>
+  <p class="muted insight-intro">
+    A plain reading of what is entered for Due, the calendar, accounts, subscriptions, auto payments, documents, and
+    travel. Pick a year, an area, and a form. Print it, or download the same reading as text or a spreadsheet.
+    Account passwords and authenticator keys stay off every form.
+  </p>
+
+  <div class="insight-toolbar">
+    <div class="insight-year" role="group" aria-label="Report year">
+      <button mat-icon-button type="button" (click)="shiftYear(-1)" aria-label="Previous year">
+        <mat-icon>chevron_left</mat-icon>
+      </button>
+      <span class="insight-year-label">{{ year }}</span>
+      <button mat-icon-button type="button" (click)="shiftYear(1)" aria-label="Next year">
+        <mat-icon>chevron_right</mat-icon>
+      </button>
+    </div>
+    <button mat-stroked-button type="button" (click)="reload()" [disabled]="loading">Refresh</button>
+    <button mat-stroked-button type="button" (click)="printReport()" [disabled]="loading || !sections.length">Print</button>
+    <button mat-stroked-button type="button" (click)="downloadText()" [disabled]="loading || !sections.length">Text</button>
+    <button mat-stroked-button type="button" (click)="downloadCsv()" [disabled]="loading || !sections.length">CSV</button>
+  </div>
+
+  <div class="insight-chips" role="group" aria-label="Area">
+    @for (item of topics; track item.id) {
+      <button type="button" class="insight-chip" [class.insight-chip--on]="topic === item.id" (click)="setTopic(item.id)">
+        {{ item.label }}
+      </button>
+    }
+  </div>
+
+  <div class="insight-chips" role="group" aria-label="Report form">
+    @for (item of forms; track item.id) {
+      <button type="button" class="insight-chip" [class.insight-chip--on]="form === item.id" (click)="setForm(item.id)">
+        {{ item.label }}
+      </button>
+    }
+    @if (form === 'grouped') {
+      <span class="muted insight-form-hint">{{ groupHint }}</span>
+    }
+  </div>
+
+  @if (loading && !sections.length) {
+    <p class="muted">Reading what is entered…</p>
+  } @else if (failed.length) {
+    <p class="insight-warn">{{ failed.join(', ') }} could not be read. The rest of the report is still here.</p>
+  }
+
+  @if (sections.length) {
+    <article class="insight-report" aria-labelledby="insight-report-title">
+      <h3 id="insight-report-title" class="insight-report-title">{{ reportTitle }}</h3>
+      @if (form === 'brief') {
+        @for (section of activeSections; track section.title) {
+          <section class="insight-block">
+            @if (topic === 'overview') {
+              <h4>{{ section.title }}</h4>
+            }
+            <div class="insight-stats">
+              @for (stat of section.stats; track stat.label) {
+                <div class="insight-stat">
+                  <span class="insight-stat-value">{{ stat.value }}</span>
+                  <span class="insight-stat-label">{{ stat.label }}</span>
+                </div>
+              }
+            </div>
+            @for (paragraph of section.paragraphs; track paragraph) {
+              <p>{{ paragraph }}</p>
+            }
+          </section>
+        }
+      } @else if (form === 'list') {
+        @if (topic === 'overview') {
+          <div class="insight-table-wrap">
+            <table class="insight-table">
+              <thead>
+                <tr>
+                  <th>Area</th>
+                  <th>On file</th>
+                  <th>In short</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (section of activeSections; track section.title) {
+                  <tr>
+                    <td>{{ section.title }}</td>
+                    <td>{{ section.stats[0].value }}</td>
+                    <td>{{ section.paragraphs[0] }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          @for (section of activeSections; track section.title) {
+            @if (!section.rows.length) {
+              <p class="muted">Nothing is entered for this reading.</p>
+            } @else {
+              <div class="insight-table-wrap">
+                <table class="insight-table">
+                  <thead>
+                    <tr>
+                      @for (column of section.columns; track column) {
+                        <th>{{ column }}</th>
+                      }
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (row of section.rows; track $index) {
+                      <tr>
+                        @for (cell of row; track $index) {
+                          <td>{{ cell }}</td>
+                        }
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            }
+          }
+        }
+      } @else {
+        @for (section of activeSections; track section.title) {
+          <section class="insight-block">
+            @if (topic === 'overview') {
+              <h4>{{ section.title }}</h4>
+            }
+            @if (!section.groups.length) {
+              <p class="muted">Nothing is entered to group.</p>
+            }
+            @for (group of section.groups; track group.title) {
+              <h4 class="insight-group-title">{{ group.title }}</h4>
+              <ul class="insight-lines">
+                @for (line of group.lines; track line) {
+                  <li>{{ line }}</li>
+                }
+              </ul>
+            }
+          </section>
+        }
+      }
+    </article>
+  }
+</div>
