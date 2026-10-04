@@ -113,6 +113,14 @@ public class AdminCronJobBuiltinCatalog {
                 "0 17 3 * * *",
                 "UTC"));
         jobs.add(cron(
+                "finance.banking.plaid-balances",
+                "Plaid daily balances",
+                "Saves Plaid balances each morning for institutions with daily sync turned on.",
+                "Finance",
+                "finance.banking.plaid-balances",
+                "0 5 6 * * *",
+                "America/Chicago"));
+        jobs.add(cron(
                 "finance.tax-desk.daily-snapshot",
                 "Tax desk daily working papers",
                 "Saves estimated-tax working papers after the 9 PM CT Daily Tracker close.",

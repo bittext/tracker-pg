@@ -26,8 +26,13 @@ import com.svp.tracker.config.ApplicationBranding;
 import com.svp.tracker.config.BankingImportProperties;
 import com.svp.tracker.config.BankingPlaidProperties;
 import com.svp.tracker.finance.domain.BankingInstitution;
+import com.svp.tracker.finance.domain.BankingPlaidBalanceSnapshot;
 import com.svp.tracker.finance.domain.BankingPlaidItem;
 import com.svp.tracker.finance.dto.BankingImportResultDto;
+import com.svp.tracker.finance.dto.BankingPlaidOpeningBalancesDto;
+import com.svp.tracker.finance.dto.BankingPlaidOpeningBalancesDto.Account;
+import com.svp.tracker.finance.dto.BankingPlaidOpeningBalancesDto.Group;
+import com.svp.tracker.finance.dto.BankingPlaidOpeningBalancesDto.Month;
 import com.svp.tracker.finance.dto.BankingPlaidExchangeRequestDto;
 import com.svp.tracker.finance.dto.BankingPlaidExchangeResponseDto;
 import com.svp.tracker.finance.dto.BankingPlaidLinkTokenResponseDto;
@@ -37,14 +42,17 @@ import com.svp.tracker.finance.dto.BankingPlaidSyncResponseDto;
 import com.svp.tracker.member.domain.MemberProfile;
 import com.svp.tracker.member.repository.MemberProfileRepository;
 import com.svp.tracker.finance.repository.BankingInstitutionRepository;
+import com.svp.tracker.finance.repository.BankingPlaidBalanceSnapshotRepository;
 import com.svp.tracker.finance.repository.BankingPlaidItemRepository;
 import com.svp.tracker.finance.service.banking.BankingPlaidOfxWriter;
 import com.svp.tracker.finance.service.banking.BankingPlaidOfxWriter.PlaidOfxRow;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -60,7 +68,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.server.ResponseStatusException;
 import retrofit2.Response;
 
@@ -74,12 +84,16 @@ public class BankingPlaidService {
     private static final int PLAID_SYNC_MAX_DAYS = 730;
     private static final int PLAID_SYNC_MAX_PAGES = 200;
     private static final DateTimeFormatter FILE_TS = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss", Locale.ROOT);
+    private static final ZoneId CHICAGO = ZoneId.of("America/Chicago");
+    private static final LocalDate OPENING_START = LocalDate.of(2026, 9, 1);
 
     private final BankingPlaidProperties plaidProps;
     private final BankingImportProperties bankingImportProperties;
     private final CurrentUserService currentUserService;
     private final BankingInstitutionRepository institutionRepository;
     private final BankingPlaidItemRepository plaidItemRepository;
+    private final BankingPlaidBalanceSnapshotRepository balanceSnapshotRepository;
+    private final PlatformTransactionManager transactionManager;
     private final BankingService bankingService;
     private final PlaidAccessTokenCrypto plaidAccessTokenCrypto;
     private final MemberProfileRepository memberProfileRepository;
@@ -92,14 +106,205 @@ public class BankingPlaidService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Institution not found");
         }
         boolean configured = plaidProps.apiConfigured();
+        LocalDate lastBalance = lastBalanceDate(uid, institutionId);
         if (!configured) {
-            return new BankingPlaidStatusDto(false, false, "", List.of());
+            return new BankingPlaidStatusDto(false, false, "", List.of(), false, lastBalance);
         }
         return plaidItemRepository
                 .findByOwnerUserIdAndInstitution_Id(uid, institutionId)
-                .map(item ->
-                        new BankingPlaidStatusDto(true, true, maskItemId(item.getItemId()), parseConnectionLines(item)))
-                .orElseGet(() -> new BankingPlaidStatusDto(true, false, "", List.of()));
+                .map(item -> new BankingPlaidStatusDto(
+                        true, true, maskItemId(item.getItemId()), parseConnectionLines(item), item.isDailyBalanceSync(), lastBalance))
+                .orElseGet(() -> new BankingPlaidStatusDto(true, false, "", List.of(), false, lastBalance));
+    }
+
+    /**
+     * Turns the morning Plaid balance capture on or off for one linked institution. Enabling saves today's balances
+     * immediately.
+     */
+    @Transactional
+    public BankingPlaidStatusDto setDailyBalanceSync(long institutionId, boolean enabled) {
+        long uid = currentUserService.requireUserId();
+        if (!plaidProps.apiConfigured()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Plaid is not configured");
+        }
+        BankingPlaidItem item = plaidItemRepository
+                .findByOwnerUserIdAndInstitution_Id(uid, institutionId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Link Plaid for this institution before turning on daily balances"));
+        if (enabled) {
+            writeBalances(item, LocalDate.now(CHICAGO));
+        }
+        item.setDailyBalanceSync(enabled);
+        item.setUpdatedAt(Instant.now());
+        plaidItemRepository.save(item);
+        log.info("Plaid daily balance sync user={} institution={} enabled={}", uid, institutionId, enabled);
+        return status(institutionId);
+    }
+
+    /** Morning job: one Plaid balance snapshot per enabled institution. */
+    public void captureDailyBalances() {
+        if (!plaidProps.apiConfigured()) {
+            log.info("Plaid daily balance skipped; API is not configured");
+            return;
+        }
+        List<Long> ids = plaidItemRepository.findIdsByDailyBalanceSyncTrue();
+        LocalDate today = LocalDate.now(CHICAGO);
+        TransactionTemplate tx = new TransactionTemplate(transactionManager);
+        int saved = 0;
+        for (Long id : ids) {
+            try {
+                Integer n = tx.execute(status -> {
+                    BankingPlaidItem item = plaidItemRepository.findById(id).orElse(null);
+                    if (item == null || !item.isDailyBalanceSync()) {
+                        return 0;
+                    }
+                    return writeBalances(item, today);
+                });
+                saved += n == null ? 0 : n;
+            } catch (Exception e) {
+                log.warn("Plaid daily balance failed itemRow={} : {}", id, e.toString());
+            }
+        }
+        log.info("Plaid daily balance captured accounts={} institutions={}", saved, ids.size());
+    }
+
+    @Transactional(readOnly = true)
+    public BankingPlaidOpeningBalancesDto openingBalances(int year) {
+        if (year < 2000 || year > 2100) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "year is out of range");
+        }
+        long uid = currentUserService.requireUserId();
+        LocalDate from = LocalDate.of(year, 1, 1);
+        LocalDate to = LocalDate.of(year, 12, 31);
+        List<BankingPlaidBalanceSnapshot> rows =
+                balanceSnapshotRepository.findByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateAscInstitutionIdAsc(
+                        uid, from, to);
+        Map<Long, String> names = new HashMap<>();
+        for (BankingPlaidBalanceSnapshot row : rows) {
+            names.computeIfAbsent(row.getInstitutionId(), id -> institutionRepository
+                    .findById(id)
+                    .map(BankingInstitution::getName)
+                    .orElse("Bank"));
+        }
+        Map<String, Map<String, List<Account>>> byMonth = new LinkedHashMap<>();
+        for (BankingPlaidBalanceSnapshot row : rows) {
+            LocalDate day = row.getSnapshotDate();
+            if (day == null || day.getDayOfMonth() != 1 || day.isBefore(OPENING_START)) {
+                continue;
+            }
+            String monthKey = String.format("%04d-%02d", day.getYear(), day.getMonthValue());
+            String institute = instituteName(names.get(row.getInstitutionId()));
+            byMonth.computeIfAbsent(monthKey, k -> new LinkedHashMap<>())
+                    .computeIfAbsent(institute, k -> new ArrayList<>())
+                    .add(new Account(row.getAccountLabel(), row.getCurrentBalance()));
+        }
+        List<Month> months = new ArrayList<>();
+        for (Map.Entry<String, Map<String, List<Account>>> month : byMonth.entrySet()) {
+            List<Group> groups = new ArrayList<>();
+            for (Map.Entry<String, List<Account>> group : month.getValue().entrySet()) {
+                List<Account> accounts = new ArrayList<>(group.getValue());
+                accounts.sort(Comparator.comparing(Account::amount).reversed().thenComparing(Account::label));
+                BigDecimal total = BigDecimal.ZERO;
+                for (Account account : accounts) {
+                    total = total.add(account.amount() == null ? BigDecimal.ZERO : account.amount());
+                }
+                groups.add(new Group(group.getKey(), total.setScale(2, RoundingMode.HALF_UP), accounts));
+            }
+            groups.sort(Comparator.comparing(Group::institution));
+            months.add(new Month(month.getKey(), groups));
+        }
+        return new BankingPlaidOpeningBalancesDto(year, months);
+    }
+
+    static String instituteName(String institutionName) {
+        String name = institutionName == null ? "" : institutionName.trim();
+        int cut = name.indexOf(" · ");
+        String head = (cut < 0 ? name : name.substring(0, cut)).trim();
+        return head.isEmpty() ? "Bank" : head;
+    }
+
+    private LocalDate lastBalanceDate(long ownerUserId, long institutionId) {
+        return balanceSnapshotRepository
+                .findFirstByOwnerUserIdAndInstitutionIdOrderBySnapshotDateDesc(ownerUserId, institutionId)
+                .map(BankingPlaidBalanceSnapshot::getSnapshotDate)
+                .orElse(null);
+    }
+
+    private int writeBalances(BankingPlaidItem item, LocalDate day) {
+        String token = requirePlainAccessToken(item);
+        AccountsGetRequest rq = new AccountsGetRequest()
+                .clientId(plaidProps.clientId())
+                .secret(plaidProps.secret())
+                .accessToken(token);
+        AccountsGetResponse response;
+        try {
+            response = execute(plaidApi().accountsGet(rq));
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Plaid could not return balances");
+        }
+        List<AccountBase> accounts = response.getAccounts() == null ? List.of() : response.getAccounts();
+        String only = item.getPlaidAccountId();
+        int saved = 0;
+        Instant now = Instant.now();
+        for (AccountBase account : accounts) {
+            String accountId = plaidAccountIdOrNull(account);
+            if (accountId == null) {
+                continue;
+            }
+            if (only != null && !only.isBlank() && !only.equals(accountId)) {
+                continue;
+            }
+            BigDecimal current = money(account.getBalances() == null ? null : account.getBalances().getCurrent());
+            if (current == null) {
+                continue;
+            }
+            BankingPlaidBalanceSnapshot row = balanceSnapshotRepository
+                    .findByOwnerUserIdAndInstitutionIdAndSnapshotDateAndPlaidAccountId(
+                            item.getOwnerUserId(), item.getInstitution().getId(), day, accountId)
+                    .orElseGet(BankingPlaidBalanceSnapshot::new);
+            row.setOwnerUserId(item.getOwnerUserId());
+            row.setInstitutionId(item.getInstitution().getId());
+            row.setSnapshotDate(day);
+            row.setPlaidAccountId(accountId);
+            row.setAccountLabel(balanceLabel(account));
+            row.setCurrentBalance(current);
+            row.setAvailableBalance(money(account.getBalances().getAvailable()));
+            String currency = account.getBalances().getIsoCurrencyCode();
+            row.setIsoCurrency(currency == null || currency.isBlank() ? null : currency.trim());
+            row.setCapturedAt(now);
+            balanceSnapshotRepository.save(row);
+            saved++;
+        }
+        if (saved == 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Plaid returned no balances for this institution");
+        }
+        return saved;
+    }
+
+    private static BigDecimal money(Double value) {
+        if (value == null || value.isNaN() || value.isInfinite()) {
+            return null;
+        }
+        return BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private static String balanceLabel(AccountBase account) {
+        String name = plaidFirstNonBlankName(account.getOfficialName(), account.getName());
+        String kind = "";
+        if (account.getSubtype() != null) {
+            kind = account.getSubtype().name().toLowerCase(Locale.ROOT).replace('_', ' ');
+        } else if (account.getType() != null) {
+            kind = account.getType().name().toLowerCase(Locale.ROOT).replace('_', ' ');
+        }
+        StringBuilder sb = new StringBuilder(name);
+        if (!kind.isBlank()) {
+            sb.append(" (").append(kind).append(')');
+        }
+        if (account.getMask() != null && !account.getMask().isBlank()) {
+            sb.append(" · …").append(account.getMask().trim());
+        }
+        String label = sb.toString();
+        return label.length() > 180 ? label.substring(0, 180) : label;
     }
 
     public BankingPlaidLinkTokenResponseDto createLinkToken(long institutionId) {

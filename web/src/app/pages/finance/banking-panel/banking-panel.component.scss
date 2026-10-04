@@ -132,6 +132,16 @@
   color: var(--app-accent, #0f6d73);
 }
 
+.banking-plaid-daily {
+  margin: 0.35rem 0 0.85rem;
+  max-width: 48rem;
+}
+
+.banking-plaid-daily p {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+}
+
 .banking-plaid-status-line {
   margin: 0 0 0.75rem;
 }

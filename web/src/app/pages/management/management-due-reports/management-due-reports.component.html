@@ -126,7 +126,10 @@
     @if (openingSections.length) {
       <section class="rpt-openings" aria-labelledby="rpt-openings-heading">
         <h3 id="rpt-openings-heading">Opening balances</h3>
-        <p class="muted rpt-openings-note">On the 1st, grouped by institute. Left out of paid and received.</p>
+        <p class="muted rpt-openings-note">
+          On the 1st, grouped by institute. Bank accounts are the Plaid balance saved that day. Roth IRA is the latest
+          Robinhood portfolio. Left out of paid and received.
+        </p>
         @for (month of openingSections; track month.key) {
           <article class="rpt-group">
             @if (scope === 'year') {

@@ -110,10 +110,18 @@
 .mgmt-card ::ng-deep .mat-mdc-tab-body-wrapper {
   overflow: visible;
   min-height: min(50vh, 560px);
+  max-width: 100%;
+}
+
+.mgmt-card ::ng-deep .mat-mdc-tab-body {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .mgmt-card ::ng-deep .mat-mdc-tab-body-content {
   overflow: visible;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .mgmt-tab-group {

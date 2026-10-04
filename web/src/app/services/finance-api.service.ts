@@ -81,6 +81,7 @@ import {
   BankingLedgerRange,
   BankingPlaidExchangeResponseDto,
   BankingPlaidLinkTokenResponseDto,
+  BankingPlaidOpeningBalancesDto,
   BankingPlaidStatusDto,
   BankingPlaidSyncRequestDto,
   BankingPlaidSyncResponseDto,
@@ -849,6 +850,20 @@ export class FinanceApiService {
   bankingPlaidStatus(institutionId: number) {
     return this.http.get<BankingPlaidStatusDto>(`${this.bankingPlaidRoot}/status`, {
       params: { institutionId: String(institutionId) },
+    });
+  }
+
+  /** Saves today's balances, then keeps a morning snapshot for this institution. */
+  bankingPlaidDailyBalance(institutionId: number, enabled: boolean) {
+    return this.http.put<BankingPlaidStatusDto>(`${this.bankingPlaidRoot}/daily-balance`, null, {
+      params: { institutionId: String(institutionId), enabled: String(enabled) },
+    });
+  }
+
+  /** Plaid balances saved on the 1st, grouped by institute. */
+  bankingPlaidOpeningBalances(year: number) {
+    return this.http.get<BankingPlaidOpeningBalancesDto>(`${this.bankingPlaidRoot}/opening-balances`, {
+      params: { year: String(year) },
     });
   }
 

@@ -1,5 +1,6 @@
 package com.svp.tracker.finance.controller;
 
+import com.svp.tracker.finance.dto.BankingPlaidOpeningBalancesDto;
 import com.svp.tracker.finance.dto.BankingPlaidExchangeRequestDto;
 import com.svp.tracker.finance.dto.BankingPlaidExchangeResponseDto;
 import com.svp.tracker.finance.dto.BankingPlaidLinkTokenResponseDto;
@@ -15,6 +16,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -60,6 +62,21 @@ public class BankingPlaidController {
      * import-directory}/{@code plaid}/…, then imports using the same dedupe rules as manual uploads (per-row skips
      * recorded on {@code banking_import_files}).
      */
+    /** Saves today's Plaid balances now, then keeps a morning snapshot for this institution. */
+    @PutMapping("/daily-balance")
+    public BankingPlaidStatusDto dailyBalance(
+            @RequestParam long institutionId, @RequestParam boolean enabled) {
+        log.info("PUT /api/finance/banking/plaid/daily-balance institutionId={} enabled={}", institutionId, enabled);
+        return bankingPlaidService.setDailyBalanceSync(institutionId, enabled);
+    }
+
+    /** Balances captured on the 1st of each month, grouped by institute. */
+    @GetMapping("/opening-balances")
+    public BankingPlaidOpeningBalancesDto openingBalances(@RequestParam int year) {
+        log.info("GET /api/finance/banking/plaid/opening-balances year={}", year);
+        return bankingPlaidService.openingBalances(year);
+    }
+
     @PostMapping("/sync")
     public BankingPlaidSyncResponseDto sync(@Valid @RequestBody BankingPlaidSyncRequestDto body) throws IOException {
         log.info(

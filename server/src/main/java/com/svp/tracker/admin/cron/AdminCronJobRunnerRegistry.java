@@ -9,6 +9,7 @@ import com.svp.tracker.finance.predicts.service.PredictsBaselineService;
 import com.svp.tracker.finance.predicts.service.PredictsService;
 import com.svp.tracker.finance.predicts.service.RedditIngestService;
 import com.svp.tracker.finance.predicts.service.StockTwitsIngestService;
+import com.svp.tracker.finance.service.BankingPlaidService;
 import com.svp.tracker.finance.service.FinanceAlertEvaluationService;
 import com.svp.tracker.finance.service.RobinhoodAgenticAutoTradeScheduler;
 import com.svp.tracker.finance.service.RobinhoodAgenticSyncScheduler;
@@ -43,6 +44,7 @@ public class AdminCronJobRunnerRegistry {
             RedditIngestService redditIngestService,
             PredictsBaselineService predictsBaselineService,
             PredictsService predictsService,
+            BankingPlaidService bankingPlaidService,
             RobinhoodRhDailyTrackerProperties rhDailyTrackerProps,
             RobinhoodRhCryptoTrackerProperties rhCryptoTrackerProps,
             RobinhoodRhCryptoAutoTradeProperties rhCryptoAutoTradeProps,
@@ -139,6 +141,12 @@ public class AdminCronJobRunnerRegistry {
                 "Auto-seeds Predicts tickers from Robinhood transaction symbols.",
                 "Predicts",
                 predictsService::autoSeedFromRobinhood));
+        register(new AdminCronJobRunnerDefinition(
+                "finance.banking.plaid-balances",
+                "Plaid daily balances",
+                "Saves Plaid balances each morning for institutions with daily sync turned on.",
+                "Finance",
+                bankingPlaidService::captureDailyBalances));
     }
 
     private void register(AdminCronJobRunnerDefinition runner) {

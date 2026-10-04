@@ -1,5 +1,14 @@
+:host {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
 .tab-panel {
   padding: 0.85rem 0.15rem 0.35rem;
+  box-sizing: border-box;
 }
 
 .subsection-title {
@@ -9,11 +18,15 @@
 }
 
 .due-panel {
-  padding: 0.25rem 0 0.75rem;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0.25rem 0.85rem 0.75rem;
+  overflow-wrap: anywhere;
 }
 
 .due-intro {
-  max-width: 52rem;
+  max-width: min(52rem, 100%);
   margin: 0 0 1rem;
 }
 
@@ -122,6 +135,14 @@
   align-items: center;
   gap: 0.45rem 0.75rem;
   margin: 0 0 0.75rem;
+  max-width: 100%;
+  min-width: 0;
+}
+
+:host ::ng-deep .due-sales-bar .mat-button-toggle-group {
+  flex-wrap: wrap;
+  max-width: 100%;
+  height: auto;
 }
 
 .due-sales-label {
@@ -130,6 +151,8 @@
 }
 
 .due-sales-note {
+  flex: 1 1 12rem;
+  min-width: 0;
   font-size: 0.75rem;
 }
 
@@ -153,6 +176,8 @@
   flex-direction: column;
   gap: 0.35rem;
   min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .cal-weekdays,
@@ -451,43 +476,6 @@
   display: flex;
   gap: 0.4rem;
   margin-top: 0.35rem;
-}
-
-.due-suggest-heading {
-  margin: 0.15rem 0 0.45rem;
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: var(--app-text-subtle, #64748b);
-}
-
-.due-suggest-heading + .due-suggest-list + .due-suggest-heading {
-  margin-top: 1rem;
-}
-
-.due-suggest-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-}
-
-.due-suggest-list li {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.6rem;
-  align-items: center;
-  font-size: 0.85rem;
-}
-
-.due-suggest-detail {
-  display: block;
-  margin-top: 0.12rem;
-  font-size: 0.75rem;
-  color: var(--app-text-subtle, #64748b);
 }
 
 .empty-hint {

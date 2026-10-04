@@ -112,6 +112,7 @@ export class BankingPanelComponent implements OnInit {
   /** Plaid Link + sync (same APIs as documented in README). */
   plaidStatus: BankingPlaidStatusDto | null = null;
   plaidStatusLoading = false;
+  dailyBalanceBusy = false;
   plaidLinkOpening = false;
   plaidSyncBusy = false;
   /** Ledger tab: institution for Plaid status + sync. */
@@ -717,6 +718,32 @@ export class BankingPanelComponent implements OnInit {
       });
       return false;
     }
+  }
+
+  setDailyBalanceSync(enabled: boolean): void {
+    const id = this.plaidLedgerInstitutionId;
+    if (id == null || this.dailyBalanceBusy) {
+      return;
+    }
+    this.dailyBalanceBusy = true;
+    this.api.bankingPlaidDailyBalance(id, enabled).subscribe({
+      next: (status) => {
+        this.plaidStatus = status;
+        this.dailyBalanceBusy = false;
+        this.snackBar.open(
+          enabled ? 'Daily balance sync is on. Today’s balances were saved.' : 'Daily balance sync is off.',
+          undefined,
+          { duration: 2800 },
+        );
+      },
+      error: (err) => {
+        this.dailyBalanceBusy = false;
+        this.snackBar.open(formatHttpErrorDetail(err) || 'Could not update daily balance sync', undefined, {
+          duration: 4000,
+        });
+        this.refreshPlaidStatus();
+      },
+    });
   }
 
   refreshPlaidStatus(): void {

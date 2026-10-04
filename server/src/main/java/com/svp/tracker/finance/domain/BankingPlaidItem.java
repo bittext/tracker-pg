@@ -55,4 +55,8 @@ public class BankingPlaidItem {
     /** When set, Plaid transactions sync is limited to this account_id within the Item */
     @Column(name = "plaid_account_id", columnDefinition = "TEXT")
     private String plaidAccountId;
+
+    /** When true, the morning job stores this Item's Plaid balances. */
+    @Column(name = "daily_balance_sync", nullable = false)
+    private boolean dailyBalanceSync;
 }

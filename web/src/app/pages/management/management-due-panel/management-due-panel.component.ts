@@ -10,7 +10,14 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { RobinhoodExecutedTradeDto, RobinhoodRhPeriodBalancesDto } from '../../../models/finance.models';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
+import {
+  BankingPlaidOpeningBalancesDto,
+  RobinhoodExecutedTradeDto,
+  RobinhoodRhAccountsTrackDto,
+  RobinhoodRhPeriodBalancesDto,
+} from '../../../models/finance.models';
 import {
   ManagementDueCategoryDto,
   ManagementDueDayDto,
@@ -19,7 +26,6 @@ import {
   ManagementDueMonthDto,
   ManagementDueOccurrenceDto,
   ManagementDueSide,
-  ManagementDueSuggestionDto,
 } from '../../../models/management.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { ManagementApiService } from '../../../services/management-api.service';
@@ -120,14 +126,6 @@ export class ManagementDuePanelComponent implements OnInit {
     this.maybeClearLaterDates();
   }
 
-  get monthlySuggestions(): ManagementDueSuggestionDto[] {
-    return this.suggestions.filter((row) => (row.kind || 'MONTHLY') !== 'BIG_DEBIT');
-  }
-
-  get bigDebitSuggestions(): ManagementDueSuggestionDto[] {
-    return this.suggestions.filter((row) => row.kind === 'BIG_DEBIT');
-  }
-
   get calendarTitle(): string {
     return new Date(this.year, this.month - 1, 1).toLocaleDateString(undefined, {
       month: 'long',
@@ -140,10 +138,6 @@ export class ManagementDuePanelComponent implements OnInit {
       return null;
     }
     return this.monthData!.days.find((d) => this.dayDate(d) === this.selectedIso) ?? null;
-  }
-
-  get suggestions(): ManagementDueSuggestionDto[] {
-    return this.monthData?.suggestions ?? [];
   }
 
   prevMonth(): void {
@@ -316,25 +310,6 @@ export class ManagementDuePanelComponent implements OnInit {
         this.snackBar.open(formatHttpErrorDetail(err) || 'Could not save', undefined, { duration: 3200 });
       },
     });
-  }
-
-  addSuggestion(row: ManagementDueSuggestionDto): void {
-    this.editingItemId = null;
-    const lastDay = new Date(this.year, this.month, 0).getDate();
-    const day = Math.min(Math.max(row.typicalDay || 1, 1), lastDay);
-    const oneOff = this.isoFor(this.year, this.month, day);
-    const monthly = row.kind !== 'BIG_DEBIT';
-    this.draft = {
-      side: row.side,
-      counterparty: row.counterparty,
-      categoryId: null,
-      recurring: monthly,
-      dayOfMonth: day,
-      oneOffDate: oneOff,
-      amount: row.estimatedAmount == null ? '' : String(row.estimatedAmount),
-      notes: '',
-    };
-    this.selectedIso = oneOff;
   }
 
   settle(row: ManagementDueOccurrenceDto, settled: boolean): void {
@@ -523,12 +498,16 @@ export class ManagementDuePanelComponent implements OnInit {
       return;
     }
     this.openingYearLoading = year;
-    this.financeApi.robinhoodDailyTrackerPeriodBalances(year).subscribe({
-      next: (report) => {
+    forkJoin({
+      periods: this.financeApi.robinhoodDailyTrackerPeriodBalances(year).pipe(catchError(() => of(null))),
+      track: this.financeApi.robinhoodRhAccountsTrack(false).pipe(catchError(() => of(null))),
+      plaid: this.financeApi.bankingPlaidOpeningBalances(year).pipe(catchError(() => of(null))),
+    }).subscribe({
+      next: ({ periods, track, plaid }) => {
         if (this.openingYearLoading === year) {
           this.openingYearLoading = null;
         }
-        this.openingByYear.set(year, this.groupsFromBalances(report));
+        this.openingByYear.set(year, this.withPlaidOpenings(this.groupsFromBalances(periods, track), plaid));
       },
       error: () => {
         if (this.openingYearLoading === year) {
@@ -539,13 +518,14 @@ export class ManagementDuePanelComponent implements OnInit {
     });
   }
 
-  private groupsFromBalances(report: RobinhoodRhPeriodBalancesDto | null): Map<string, DueOpeningGroup[]> {
+  private groupsFromBalances(
+    report: RobinhoodRhPeriodBalancesDto | null,
+    track: RobinhoodRhAccountsTrackDto | null,
+  ): Map<string, DueOpeningGroup[]> {
     const out = new Map<string, DueOpeningGroup[]>();
-    if (!report) {
-      return out;
-    }
-    const labels = new Map((report.accounts ?? []).map((account) => [account.accountSuffix, account.label]));
-    for (const month of report.months ?? []) {
+    const roth = this.rothOpening(track);
+    const labels = new Map((report?.accounts ?? []).map((account) => [account.accountSuffix, account.label]));
+    for (const month of report?.months ?? []) {
       if (!month.key || month.key < '2026-09') {
         continue;
       }
@@ -554,13 +534,60 @@ export class ManagementDuePanelComponent implements OnInit {
         .map((account) => ({
           label: labels.get(account.accountSuffix) || `Account (...${account.accountSuffix})`,
           amount: Math.round(Number(account.start) * 100) / 100,
-        }))
-        .sort((a, b) => b.amount - a.amount || a.label.localeCompare(b.label));
+        }));
+      if (roth && !accounts.some((account) => account.label.startsWith('Roth IRA'))) {
+        accounts.push(roth);
+      }
+      accounts.sort((a, b) => b.amount - a.amount || a.label.localeCompare(b.label));
       if (!accounts.length) {
         continue;
       }
       const total = Math.round(accounts.reduce((sum, account) => sum + account.amount, 0) * 100) / 100;
       out.set(month.key, [{ institution: 'Robinhood', total, accounts }]);
+    }
+    return out;
+  }
+
+  /** Latest Robinhood portfolio for the Roth IRA. Daily Tracker does not close this account. */
+  private rothOpening(track: RobinhoodRhAccountsTrackDto | null): { label: string; amount: number } | null {
+    const row = (track?.accounts ?? []).find((account) => account.accountSuffix === '2835');
+    const amount = row?.totalAccountValue;
+    if (amount == null || !Number.isFinite(Number(amount))) {
+      return null;
+    }
+    return { label: 'Roth IRA (...2835)', amount: Math.round(Number(amount) * 100) / 100 };
+  }
+
+  private withPlaidOpenings(
+    base: Map<string, DueOpeningGroup[]>,
+    plaid: BankingPlaidOpeningBalancesDto | null,
+  ): Map<string, DueOpeningGroup[]> {
+    const out = new Map(base);
+    for (const month of plaid?.months ?? []) {
+      if (!month.key || month.key < '2026-09') {
+        continue;
+      }
+      const incoming = (month.groups ?? [])
+        .map((group) => ({
+          institution: group.institution,
+          total: Math.round(Number(group.total) * 100) / 100,
+          accounts: (group.accounts ?? [])
+            .filter((account) => account.amount != null && Number.isFinite(Number(account.amount)))
+            .map((account) => ({
+              label: account.label,
+              amount: Math.round(Number(account.amount) * 100) / 100,
+            })),
+        }))
+        .filter((group) => group.accounts.length);
+      if (!incoming.length) {
+        continue;
+      }
+      const names = new Set(incoming.map((group) => group.institution));
+      const kept = (out.get(month.key) ?? []).filter((group) => !names.has(group.institution));
+      out.set(
+        month.key,
+        [...kept, ...incoming].sort((a, b) => a.institution.localeCompare(b.institution)),
+      );
     }
     return out;
   }

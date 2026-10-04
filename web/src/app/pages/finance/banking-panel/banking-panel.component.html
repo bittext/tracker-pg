@@ -521,6 +521,25 @@
             }
           </ul>
         }
+        @if (plaidStatus?.linked) {
+          <div class="banking-plaid-daily">
+            <mat-checkbox
+              [checked]="!!plaidStatus?.dailyBalanceSync"
+              (change)="setDailyBalanceSync($event.checked)"
+              [disabled]="dailyBalanceBusy"
+              name="plaidDailyBal"
+            >
+              Daily balance sync
+            </mat-checkbox>
+            <p class="muted">
+              Saves this institution’s Plaid balances every morning at 6:05 CT. Due uses the balance saved on the 1st as
+              the opening balance. Turning this on also saves today.
+              @if (plaidStatus?.lastBalanceDate) {
+                Last saved {{ plaidStatus?.lastBalanceDate }}.
+              }
+            </p>
+          </div>
+        }
         <div class="banking-toolbar wrap banking-plaid-date-toolbar">
           <mat-form-field appearance="outline" class="banking-field plaid-date-field">
             <mat-label>From</mat-label>

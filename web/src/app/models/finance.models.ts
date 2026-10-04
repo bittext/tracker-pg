@@ -1833,6 +1833,25 @@ export interface BankingPlaidStatusDto {
   itemIdSuffix: string;
   /** Human-readable linked accounts from Plaid (after exchange). */
   connectionSummary?: string[] | null;
+  dailyBalanceSync?: boolean;
+  lastBalanceDate?: string | null;
+}
+
+/** GET /api/finance/banking/plaid/opening-balances */
+export interface BankingPlaidOpeningBalancesDto {
+  year: number;
+  months: BankingPlaidOpeningMonthDto[];
+}
+
+export interface BankingPlaidOpeningMonthDto {
+  key: string;
+  groups: BankingPlaidOpeningGroupDto[];
+}
+
+export interface BankingPlaidOpeningGroupDto {
+  institution: string;
+  total: number;
+  accounts: { label: string; amount: number }[];
 }
 
 export interface BankingPlaidExchangeResponseDto {
