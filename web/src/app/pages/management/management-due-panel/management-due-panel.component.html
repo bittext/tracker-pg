@@ -279,11 +279,15 @@
       </section>
     </div>
 
-    <app-management-due-reports
-      [year]="year"
-      [month]="month"
-      [revision]="reportRevision"
-      (selectDate)="onReportSelect($event)"
-    />
+    @defer (on viewport) {
+      <app-management-due-reports
+        [year]="year"
+        [month]="month"
+        [revision]="reportRevision"
+        (selectDate)="onReportSelect($event)"
+      />
+    } @placeholder {
+      <p class="muted">Reports load as you scroll.</p>
+    }
   </section>
 </div>
