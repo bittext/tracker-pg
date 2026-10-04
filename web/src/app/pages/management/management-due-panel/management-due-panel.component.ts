@@ -7,8 +7,10 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { RobinhoodExecutedTradeDto } from '../../../models/finance.models';
 import {
   ManagementDueDayDto,
   ManagementDueItemWriteBody,
@@ -17,9 +19,12 @@ import {
   ManagementDueSide,
   ManagementDueSuggestionDto,
 } from '../../../models/management.models';
+import { FinanceApiService } from '../../../services/finance-api.service';
 import { ManagementApiService } from '../../../services/management-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
 import { ManagementDueReportsComponent } from '../management-due-reports/management-due-reports.component';
+
+type SalesView = 'off' | 'with' | 'only';
 
 interface DueCalCell {
   type: 'pad' | 'day';
@@ -41,6 +46,7 @@ interface DueCalCell {
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
+    MatButtonToggleModule,
     MatSelectModule,
     MatSnackBarModule,
     ManagementDueReportsComponent,
@@ -50,7 +56,11 @@ interface DueCalCell {
 })
 export class ManagementDuePanelComponent implements OnInit {
   private readonly api = inject(ManagementApiService);
+  private readonly financeApi = inject(FinanceApiService);
   private readonly snackBar = inject(MatSnackBar);
+
+  /** First sale day that may appear on Due. Earlier Robinhood sales stay off this calendar. */
+  private static readonly SALES_START = '2026-09-01';
 
   readonly weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -63,6 +73,11 @@ export class ManagementDuePanelComponent implements OnInit {
   loading = false;
   saving = false;
   editingItemId: number | null = null;
+  /** Off keeps the calendar as bills only. With bills adds sale days. Sales only hides bills. */
+  salesView: SalesView = 'off';
+  private salesByDate = new Map<string, ManagementDueOccurrenceDto>();
+  private salesYearLoaded: number | null = null;
+  private salesYearLoading: number | null = null;
 
   draft = this.emptyDraft();
 
@@ -128,6 +143,29 @@ export class ManagementDuePanelComponent implements OnInit {
     if (year && month && (year !== this.year || month !== this.month)) {
       this.loadMonth(year, month);
     }
+  }
+
+  setSalesView(view: SalesView): void {
+    this.salesView = view;
+    if (view !== 'off') {
+      this.ensureSales();
+    }
+  }
+
+  visibleItems(iso: string | undefined, day: ManagementDueDayDto | undefined): ManagementDueOccurrenceDto[] {
+    const bills = day?.items ?? [];
+    if (this.salesView === 'off' || !iso) {
+      return bills;
+    }
+    const sale = this.salesByDate.get(iso);
+    if (this.salesView === 'only') {
+      return sale ? [sale] : [];
+    }
+    return sale ? [...bills, sale] : bills;
+  }
+
+  isSale(row: ManagementDueOccurrenceDto): boolean {
+    return row.amountSource === 'market-sale';
   }
 
   selectDay(iso: string): void {
@@ -376,6 +414,100 @@ export class ManagementDuePanelComponent implements OnInit {
     this.reportRevision += 1;
     this.ensureSelectedInMonth();
     this.rebuildCalendar();
+    if (this.salesView !== 'off') {
+      this.ensureSales();
+    }
+  }
+
+  private ensureSales(): void {
+    if (this.year < 2026) {
+      return;
+    }
+    if (this.salesYearLoaded === this.year || this.salesYearLoading === this.year) {
+      return;
+    }
+    const year = this.year;
+    this.salesYearLoading = year;
+    this.financeApi.robinhoodExecutedTrades(year).subscribe({
+      next: (report) => {
+        if (this.salesYearLoading === year) {
+          this.salesYearLoading = null;
+        }
+        if (this.year !== year) {
+          this.ensureSales();
+          return;
+        }
+        this.salesByDate = this.salesForYear(report?.trades ?? []);
+        this.salesYearLoaded = year;
+      },
+      error: (err) => {
+        if (this.salesYearLoading === year) {
+          this.salesYearLoading = null;
+        }
+        this.snackBar.open(formatHttpErrorDetail(err) || 'Could not load Robinhood sales', undefined, {
+          duration: 3200,
+        });
+      },
+    });
+  }
+
+  private salesForYear(trades: RobinhoodExecutedTradeDto[]): Map<string, ManagementDueOccurrenceDto> {
+    const byDate = new Map<string, { net: number; symbols: string[] }>();
+    for (const trade of trades) {
+      if (!(trade.side ?? '').trim().toLowerCase().startsWith('sell') || !trade.executedAt) {
+        continue;
+      }
+      const date = this.centralIsoDate(trade.executedAt);
+      if (!date || date < ManagementDuePanelComponent.SALES_START) {
+        continue;
+      }
+      const row = byDate.get(date) ?? { net: 0, symbols: [] };
+      if (trade.realizedPnl != null && Number.isFinite(Number(trade.realizedPnl))) {
+        row.net += Number(trade.realizedPnl);
+      }
+      const symbol = (trade.symbol ?? '').trim().toUpperCase();
+      if (symbol && !row.symbols.includes(symbol)) {
+        row.symbols.push(symbol);
+      }
+      byDate.set(date, row);
+    }
+    const out = new Map<string, ManagementDueOccurrenceDto>();
+    for (const [date, row] of byDate) {
+      const net = Math.round(row.net * 100) / 100;
+      const side: ManagementDueSide = net < 0 ? 'PAYABLE' : 'RECEIVABLE';
+      const amount = Math.abs(net);
+      out.set(date, {
+        itemId: -Number(date.replaceAll('-', '')),
+        occurrenceId: null,
+        side,
+        counterparty: 'Robinhood (Sales)',
+        recurring: false,
+        dayOfMonth: null,
+        oneOffDate: date,
+        occurrenceDate: date,
+        amountOverride: amount,
+        estimatedAmount: null,
+        displayAmount: amount,
+        amountSource: 'market-sale',
+        notes: row.symbols.length ? `Sold ${row.symbols.join(', ')}` : 'Sale',
+        settled: true,
+        settledAmount: amount,
+      });
+    }
+    return out;
+  }
+
+  private centralIsoDate(iso: string): string | null {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) {
+      return null;
+    }
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Chicago',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(d);
   }
 
   private monthDataMatchesView(): boolean {

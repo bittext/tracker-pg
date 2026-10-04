@@ -116,6 +116,23 @@
   margin-top: 0.85rem;
 }
 
+.due-sales-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.75rem;
+  margin: 0 0 0.75rem;
+}
+
+.due-sales-label {
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.due-sales-note {
+  font-size: 0.75rem;
+}
+
 .cal-toolbar {
   display: flex;
   align-items: center;

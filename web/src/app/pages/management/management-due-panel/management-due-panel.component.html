@@ -50,6 +50,20 @@
                 <mat-icon>chevron_right</mat-icon>
               </button>
             </div>
+            <div class="due-sales-bar">
+              <span class="due-sales-label">Robinhood sales</span>
+              <mat-button-toggle-group
+                [ngModel]="salesView"
+                (ngModelChange)="setSalesView($event)"
+                name="dueSalesView"
+                aria-label="Robinhood sales on the calendar"
+              >
+                <mat-button-toggle value="off">Off</mat-button-toggle>
+                <mat-button-toggle value="with">With bills</mat-button-toggle>
+                <mat-button-toggle value="only">Sales only</mat-button-toggle>
+              </mat-button-toggle-group>
+              <span class="muted due-sales-note">From Sep 1, 2026. Not in paid, received, or reports.</span>
+            </div>
             <p class="due-legend" aria-label="Calendar legend">
               <span class="due-legend-item due-legend-item--out">Unpaid</span>
               <span class="due-legend-item due-legend-item--in">Still owed to you</span>
@@ -74,7 +88,7 @@
                         class="cal-day"
                         [class.cal-day--selected]="cell.iso === selectedIso"
                         [class.cal-day--today]="isToday(cell.iso)"
-                        [class.cal-day--has]="!!cell.day && (cell.day.payableCount > 0 || cell.day.receivableCount > 0)"
+                        [class.cal-day--has]="visibleItems(cell.iso, cell.day).length > 0"
                         (click)="selectDay(cell.iso!)"
                       >
                         <span class="cal-day-head">
@@ -83,10 +97,10 @@
                             <span class="cal-today-tag">Today</span>
                           }
                         </span>
-                        @if (cell.day; as day) {
-                          @if (day.items?.length) {
+                        @if (visibleItems(cell.iso, cell.day); as shown) {
+                          @if (shown.length) {
                           <span class="cal-day-lines">
-                            @for (item of day.items; track item.itemId) {
+                            @for (item of shown; track item.itemId) {
                               <span
                                 class="cal-chip"
                                 [class.cal-chip--out]="item.side === 'PAYABLE'"
@@ -99,7 +113,9 @@
                               </span>
                             }
                           </span>
-                          <span class="cal-day-net">Total {{ dayNet(day) }}</span>
+                          @if (salesView !== 'only' && cell.day && (cell.day.payableCount > 0 || cell.day.receivableCount > 0)) {
+                            <span class="cal-day-net">Total {{ dayNet(cell.day) }}</span>
+                          }
                           }
                         }
                       </button>
@@ -122,17 +138,19 @@
             <mat-card-subtitle>Businesses due on this day</mat-card-subtitle>
           </mat-card-header>
           <mat-card-content>
-            @if (!selectedDay?.items?.length) {
+            @if (!visibleItems(selectedIso, selectedDay ?? undefined).length) {
               <p class="muted empty-hint">
                 @if (loading) {
                   Loading this month…
+                } @else if (salesView === 'only') {
+                  No Robinhood sale on this day.
                 } @else {
                   Nothing scheduled. Add a payable or receivable below.
                 }
               </p>
             } @else {
               <ul class="due-list">
-                @for (row of selectedDay!.items; track row.itemId) {
+                @for (row of visibleItems(selectedIso, selectedDay ?? undefined); track row.itemId) {
                   <li
                     class="due-row"
                     [class.due-row--out]="row.side === 'PAYABLE'"
@@ -150,9 +168,13 @@
                         @if (row.amountSource === 'history') {
                           · from history
                         }
+                        @if (isSale(row) && row.notes) {
+                          · {{ row.notes }}
+                        }
                       </span>
                       <span class="due-row-amt">{{ signedMoney(row) }}</span>
                     </div>
+                    @if (!isSale(row)) {
                     <div class="due-row-actions">
                       <button
                         mat-stroked-button
@@ -169,6 +191,7 @@
                         <mat-icon>delete</mat-icon>
                       </button>
                     </div>
+                    }
                   </li>
                 }
               </ul>
