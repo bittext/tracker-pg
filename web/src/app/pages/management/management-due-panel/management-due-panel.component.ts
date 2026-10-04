@@ -10,7 +10,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { RobinhoodExecutedTradeDto } from '../../../models/finance.models';
+import { RobinhoodExecutedTradeDto, RobinhoodRhPeriodBalancesDto } from '../../../models/finance.models';
 import {
   ManagementDueCategoryDto,
   ManagementDueDayDto,
@@ -24,9 +24,14 @@ import {
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { ManagementApiService } from '../../../services/management-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
-import { ManagementDueReportsComponent } from '../management-due-reports/management-due-reports.component';
+import {
+  DueOpeningGroup,
+  DueOpeningMonth,
+  ManagementDueReportsComponent,
+} from '../management-due-reports/management-due-reports.component';
 
 type SalesView = 'off' | 'with' | 'only';
+
 
 interface DueCalCell {
   type: 'pad' | 'day';
@@ -77,11 +82,15 @@ export class ManagementDuePanelComponent implements OnInit {
   editingItemId: number | null = null;
   /** Off keeps the calendar as bills only. With bills adds sale days. Sales only hides bills. */
   salesView: SalesView = 'off';
+  /** Off hides month-open balances. Show puts them on the 1st and in reports. */
+  showOpenings = false;
   dueCategories: ManagementDueCategoryDto[] = [];
   private salesByDate = new Map<string, ManagementDueOccurrenceDto>();
   /** Settled Robinhood (Sales) rows for the loaded year. Reports include these when sales are on. */
   salesReportRows: ManagementDueReportRowDto[] = [];
   private salesYearLoaded: number | null = null;
+  private readonly openingByYear = new Map<number, Map<string, DueOpeningGroup[]>>();
+  private openingYearLoading: number | null = null;
   private salesYearLoading: number | null = null;
 
   draft = this.emptyDraft();
@@ -167,6 +176,35 @@ export class ManagementDuePanelComponent implements OnInit {
     if (view !== 'off') {
       this.ensureSales();
     }
+  }
+
+  setOpenings(on: boolean): void {
+    this.showOpenings = on;
+    if (on) {
+      this.ensureOpenings();
+    }
+  }
+
+  get openingReportMonths(): DueOpeningMonth[] {
+    if (!this.showOpenings) {
+      return [];
+    }
+    const months = this.openingByYear.get(this.year);
+    if (!months) {
+      return [];
+    }
+    return [...months.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, groups]) => {
+        const year = Number(key.slice(0, 4));
+        const month = Number(key.slice(5, 7));
+        return {
+          key,
+          iso: `${key}-01`,
+          label: new Date(year, month - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }),
+          groups,
+        };
+      });
   }
 
   visibleItems(iso: string | undefined, day: ManagementDueDayDto | undefined): ManagementDueOccurrenceDto[] {
@@ -356,6 +394,23 @@ export class ManagementDuePanelComponent implements OnInit {
     return `${prefix}${this.money(n)}`;
   }
 
+  openingGroups(iso: string | undefined): DueOpeningGroup[] {
+    if (!this.showOpenings || !iso || !iso.endsWith('-01') || iso < '2026-09-01') {
+      return [];
+    }
+    const year = Number(iso.slice(0, 4));
+    return this.openingByYear.get(year)?.get(iso.slice(0, 7)) ?? [];
+  }
+
+  openingLabel(iso: string | undefined): string {
+    const groups = this.openingGroups(iso);
+    if (!groups.length) {
+      return '';
+    }
+    const total = groups.reduce((sum, group) => sum + group.total, 0);
+    return this.compactMoney(total);
+  }
+
   calendarAmount(row: ManagementDueOccurrenceDto): string {
     const n = row.displayAmount;
     if (n == null) {
@@ -454,9 +509,60 @@ export class ManagementDuePanelComponent implements OnInit {
     this.reportRevision += 1;
     this.ensureSelectedInMonth();
     this.rebuildCalendar();
+    if (this.showOpenings) {
+      this.ensureOpenings();
+    }
     if (this.salesView !== 'off') {
       this.ensureSales();
     }
+  }
+
+  private ensureOpenings(): void {
+    const year = this.year;
+    if (year < 2026 || this.openingByYear.has(year) || this.openingYearLoading === year) {
+      return;
+    }
+    this.openingYearLoading = year;
+    this.financeApi.robinhoodDailyTrackerPeriodBalances(year).subscribe({
+      next: (report) => {
+        if (this.openingYearLoading === year) {
+          this.openingYearLoading = null;
+        }
+        this.openingByYear.set(year, this.groupsFromBalances(report));
+      },
+      error: () => {
+        if (this.openingYearLoading === year) {
+          this.openingYearLoading = null;
+        }
+        this.openingByYear.set(year, new Map());
+      },
+    });
+  }
+
+  private groupsFromBalances(report: RobinhoodRhPeriodBalancesDto | null): Map<string, DueOpeningGroup[]> {
+    const out = new Map<string, DueOpeningGroup[]>();
+    if (!report) {
+      return out;
+    }
+    const labels = new Map((report.accounts ?? []).map((account) => [account.accountSuffix, account.label]));
+    for (const month of report.months ?? []) {
+      if (!month.key || month.key < '2026-09') {
+        continue;
+      }
+      const accounts = (month.accounts ?? [])
+        .filter((account) => account.start != null && Number.isFinite(Number(account.start)))
+        .map((account) => ({
+          label: labels.get(account.accountSuffix) || `Account (...${account.accountSuffix})`,
+          amount: Math.round(Number(account.start) * 100) / 100,
+        }))
+        .sort((a, b) => b.amount - a.amount || a.label.localeCompare(b.label));
+      if (!accounts.length) {
+        continue;
+      }
+      const total = Math.round(accounts.reduce((sum, account) => sum + account.amount, 0) * 100) / 100;
+      out.set(month.key, [{ institution: 'Robinhood', total, accounts }]);
+    }
+    return out;
   }
 
   private ensureSales(): void {

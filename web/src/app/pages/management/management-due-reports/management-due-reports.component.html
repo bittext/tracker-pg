@@ -123,6 +123,38 @@
       </div>
     }
 
+    @if (openingSections.length) {
+      <section class="rpt-openings" aria-labelledby="rpt-openings-heading">
+        <h3 id="rpt-openings-heading">Opening balances</h3>
+        <p class="muted rpt-openings-note">On the 1st, grouped by institute. Left out of paid and received.</p>
+        @for (month of openingSections; track month.key) {
+          <article class="rpt-group">
+            @if (scope === 'year') {
+              <h4>
+                <button type="button" (click)="openDay(month.iso)">{{ month.label }}</button>
+              </h4>
+            }
+            @for (group of month.groups; track group.institution) {
+              <header>
+                <strong>{{ group.institution }}</strong>
+                <span>{{ money(group.total) }}</span>
+              </header>
+              <ul>
+                @for (account of group.accounts; track account.label) {
+                  <li>
+                    <button type="button" (click)="openDay(month.iso)">
+                      <span>{{ account.label }}</span>
+                      <span>{{ money(account.amount) }}</span>
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+          </article>
+        }
+      </section>
+    }
+
     @if (!paidGroups.length && !receivedGroups.length) {
       <p class="muted">{{ hasFilters ? 'Nothing matches this search.' : 'Nothing on the calendar for this range.' }}</p>
     } @else {

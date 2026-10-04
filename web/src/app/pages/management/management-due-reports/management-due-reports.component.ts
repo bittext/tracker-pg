@@ -18,6 +18,24 @@ import { formatHttpErrorDetail } from '../../../util/http-error';
 type ReportScope = 'month' | 'year';
 type ReportGroup = 'business' | 'category';
 
+export interface DueOpeningAccount {
+  label: string;
+  amount: number;
+}
+
+export interface DueOpeningGroup {
+  institution: string;
+  total: number;
+  accounts: DueOpeningAccount[];
+}
+
+export interface DueOpeningMonth {
+  key: string;
+  label: string;
+  iso: string;
+  groups: DueOpeningGroup[];
+}
+
 interface PeriodView {
   paid: number;
   received: number;
@@ -86,6 +104,9 @@ export class ManagementDueReportsComponent implements OnChanges {
   @Input() salesRows: ManagementDueReportRowDto[] = [];
   /** Admin order, highest first. Category groups follow this list. */
   @Input() categories: ManagementDueCategoryDto[] = [];
+  /** Opening balances on the 1st, only when the calendar toggle is on. */
+  @Input() showOpenings = false;
+  @Input() openingMonths: DueOpeningMonth[] = [];
   @Output() readonly selectDate = new EventEmitter<string>();
 
   report: ManagementDueReportDto | null = null;
@@ -169,6 +190,22 @@ export class ManagementDueReportsComponent implements OnChanges {
 
   get receivedGroups(): LedgerGroup[] {
     return this.groupsFor('RECEIVABLE');
+  }
+
+  get openingSections(): DueOpeningMonth[] {
+    if (!this.showOpenings) {
+      return [];
+    }
+    const monthKey = `${this.year}-${String(this.month).padStart(2, '0')}`;
+    return (this.openingMonths ?? []).filter((row) => {
+      if (!row.key || row.key < '2026-09') {
+        return false;
+      }
+      if (this.scope === 'year') {
+        return row.key.startsWith(`${this.year}-`);
+      }
+      return row.key === monthKey;
+    });
   }
 
   get categoryLines(): CategoryLine[] {

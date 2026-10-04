@@ -301,7 +301,8 @@
   color: #15803d;
 }
 
-.cal-day-net {
+.cal-day-net,
+.cal-open {
   margin-top: 0.28rem;
   padding-top: 0.2rem;
   border-top: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
@@ -309,6 +310,56 @@
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--app-text, #334155);
+}
+
+.cal-open {
+  color: var(--app-text-subtle, #64748b);
+  font-weight: 650;
+}
+
+.due-open {
+  margin: 0 0 1rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
+  border-radius: 0.75rem;
+}
+
+.due-open-heading {
+  margin: 0 0 0.55rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--app-text-subtle, #64748b);
+}
+
+.due-open-group header,
+.due-open-group li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+}
+
+.due-open-group header {
+  font-size: 0.95rem;
+}
+
+.due-open-group ul {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0 0 0 0.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  font-size: 0.85rem;
+  color: var(--app-text, #334155);
+}
+
+.due-open-note {
+  margin: 0.65rem 0 0;
+  font-size: 0.75rem;
 }
 
 .due-list {

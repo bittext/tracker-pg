@@ -158,6 +158,38 @@
   background: #fffbeb;
 }
 
+.rpt-openings {
+  margin: 0 0 1rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.14));
+  border-radius: 12px;
+  padding: 0.9rem 1rem 0.45rem;
+  background: var(--app-surface, #fff);
+}
+
+.rpt-openings h3 {
+  margin: 0 0.15rem 0.25rem;
+  font-size: 0.95rem;
+}
+
+.rpt-openings-note {
+  margin: 0 0.15rem 0.35rem;
+  font-size: 0.75rem;
+}
+
+.rpt-openings h4 {
+  margin: 0.35rem 0 0;
+}
+
+.rpt-openings h4 button {
+  border: 0;
+  background: transparent;
+  padding: 0.2rem 0.15rem;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--app-text, #334155);
+}
+
 .rpt-books {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
