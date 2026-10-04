@@ -1,18 +1,22 @@
 <section class="rpt" aria-labelledby="due-reports-heading">
   <h2 id="due-reports-heading" class="subsection-title">Reports</h2>
   <p class="muted rpt-intro">
-    The same rows as the calendar, grouped by business. Totals count settled rows in this view.
+    The same rows as the calendar. Group by business or subcategory. Totals count settled rows in this view.
   </p>
 
   <div class="rpt-toolbar">
     <mat-form-field appearance="outline" class="rpt-search">
-      <mat-label>Search business or notes</mat-label>
+      <mat-label>Search business, category, or notes</mat-label>
       <input matInput name="dueReportQ" [(ngModel)]="query" autocomplete="off" />
       <mat-icon matPrefix>search</mat-icon>
     </mat-form-field>
     <mat-button-toggle-group [(ngModel)]="scope" name="dueReportScope" aria-label="Range">
       <mat-button-toggle value="month">This month</mat-button-toggle>
       <mat-button-toggle value="year">{{ year }}</mat-button-toggle>
+    </mat-button-toggle-group>
+    <mat-button-toggle-group [(ngModel)]="groupBy" name="dueReportGroup" aria-label="Group reports">
+      <mat-button-toggle value="business">Business</mat-button-toggle>
+      <mat-button-toggle value="category">Category</mat-button-toggle>
     </mat-button-toggle-group>
   </div>
 
@@ -90,6 +94,32 @@
           }
         </tbody>
       </table>
+      </div>
+    }
+
+    @if (categoryLines.length) {
+      <div class="rpt-months-wrap">
+        <table class="rpt-months">
+          <caption class="sr-only">{{ scopeLabel }} paid and received by subcategory</caption>
+          <thead>
+            <tr>
+              <th scope="col">Subcategory</th>
+              <th scope="col">Paid</th>
+              <th scope="col">Received</th>
+              <th scope="col">Net</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (line of categoryLines; track line.name) {
+              <tr>
+                <th scope="row">{{ line.name }}</th>
+                <td class="due-out">{{ money(line.paid) }}</td>
+                <td class="due-in">{{ money(line.received) }}</td>
+                <td>{{ signed(line.net) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
       </div>
     }
 

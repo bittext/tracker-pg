@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import {
+  ManagementDueCategoryDto,
   ManagementDueReportDto,
   ManagementDueReportRowDto,
   ManagementDueSide,
@@ -15,6 +16,7 @@ import { ManagementApiService } from '../../../services/management-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
 
 type ReportScope = 'month' | 'year';
+type ReportGroup = 'business' | 'category';
 
 interface PeriodView {
   paid: number;
@@ -50,6 +52,13 @@ interface MonthLine {
   current: boolean;
 }
 
+interface CategoryLine {
+  name: string;
+  paid: number;
+  received: number;
+  net: number;
+}
+
 @Component({
   selector: 'app-management-due-reports',
   standalone: true,
@@ -75,12 +84,15 @@ export class ManagementDueReportsComponent implements OnChanges {
   /** Off keeps bill rows. With bills adds sale days. Sales only keeps sale days. */
   @Input() salesView: 'off' | 'with' | 'only' = 'off';
   @Input() salesRows: ManagementDueReportRowDto[] = [];
+  /** Admin order, highest first. Category groups follow this list. */
+  @Input() categories: ManagementDueCategoryDto[] = [];
   @Output() readonly selectDate = new EventEmitter<string>();
 
   report: ManagementDueReportDto | null = null;
   loading = false;
   query = '';
   scope: ReportScope = 'month';
+  groupBy: ReportGroup = 'business';
   sideFilter: '' | ManagementDueSide = '';
   statusFilter: '' | 'open' | 'settled' = '';
   cadenceFilter: '' | 'recurring' | 'once' = '';
@@ -157,6 +169,34 @@ export class ManagementDueReportsComponent implements OnChanges {
 
   get receivedGroups(): LedgerGroup[] {
     return this.groupsFor('RECEIVABLE');
+  }
+
+  get categoryLines(): CategoryLine[] {
+    const byName = new Map<string, { paid: number; received: number }>();
+    for (const row of this.filteredRows) {
+      if (!row.settled) {
+        continue;
+      }
+      const name = this.categoryName(row);
+      const slot = byName.get(name) ?? { paid: 0, received: 0 };
+      const amount = Number(row.amount || 0);
+      if (row.side === 'PAYABLE') {
+        slot.paid += amount;
+      } else {
+        slot.received += amount;
+      }
+      byName.set(name, slot);
+    }
+    const lines = [...byName.entries()].map(([name, slot]) => ({
+      name,
+      paid: slot.paid,
+      received: slot.received,
+      net: slot.received - slot.paid,
+    }));
+    if (!lines.some((line) => line.name !== 'Uncategorized')) {
+      return [];
+    }
+    return lines.sort((a, b) => this.categoryRank(b.name) - this.categoryRank(a.name) || a.name.localeCompare(b.name));
   }
 
   get monthLines(): MonthLine[] {
@@ -243,9 +283,10 @@ export class ManagementDueReportsComponent implements OnChanges {
       if (row.side !== side) {
         continue;
       }
-      const list = byName.get(row.counterparty) ?? [];
+      const key = this.groupBy === 'category' ? this.categoryName(row) : row.counterparty;
+      const list = byName.get(key) ?? [];
       list.push(row);
-      byName.set(row.counterparty, list);
+      byName.set(key, list);
     }
     const groups: LedgerGroup[] = [];
     for (const [name, rows] of byName) {
@@ -262,9 +303,25 @@ export class ManagementDueReportsComponent implements OnChanges {
       const open = lines.filter((line) => !line.settled).reduce((sum, line) => sum + line.amount, 0);
       groups.push({ name, total, open, lines });
     }
+    if (this.groupBy === 'category') {
+      return groups.sort((a, b) => this.categoryRank(b.name) - this.categoryRank(a.name) || a.name.localeCompare(b.name));
+    }
     return groups.sort(
       (a, b) => b.total + b.open - (a.total + a.open) || a.name.localeCompare(b.name)
     );
+  }
+
+  private categoryName(row: ManagementDueReportRowDto): string {
+    const name = (row.category || '').trim();
+    return name || 'Uncategorized';
+  }
+
+  private categoryRank(name: string): number {
+    if (name === 'Uncategorized') {
+      return Number.NEGATIVE_INFINITY;
+    }
+    const match = this.categories.find((category) => category.name === name);
+    return match?.sortOrder ?? 0;
   }
 
   private toPeriod(rows: ManagementDueReportRowDto[]): PeriodView {
@@ -305,8 +362,9 @@ export class ManagementDueReportsComponent implements OnChanges {
       : iso;
     const cadence = row.recurring ? 'Recurring' : 'Once';
     const state = row.settled ? (row.side === 'PAYABLE' ? 'Paid' : 'Received') : 'Open';
-    const category = row.category ? `${row.category} · ` : '';
-    return `${when} · ${category}${cadence} · ${state}`;
+    const detail = this.groupBy === 'category' ? row.counterparty : (row.category || '').trim();
+    const middle = detail ? `${detail} · ` : '';
+    return `${when} · ${middle}${cadence} · ${state}`;
   }
 
   private rowDate(row: ManagementDueReportRowDto): string {

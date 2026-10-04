@@ -108,9 +108,6 @@
                                 [class.cal-chip--settled]="item.settled"
                                 [class.cal-chip--open]="!item.settled"
                               >
-                                @if (item.category) {
-                                  <span class="cal-chip-cat">{{ item.category }}</span>
-                                }
                                 <span class="cal-chip-name">{{ item.counterparty }}</span>
                                 <span class="cal-chip-amt">{{ calendarAmount(item) }}</span>
                               </span>
@@ -164,9 +161,6 @@
                       <strong>{{ row.counterparty }}</strong>
                       <span class="due-row-meta">
                         {{ row.side === 'PAYABLE' ? 'Payable' : 'Receivable' }}
-                        @if (row.category) {
-                          · {{ row.category }}
-                        }
                         ·
                         {{ row.recurring ? 'Recurring' : 'This month only' }}
                         ·
@@ -324,6 +318,7 @@
         [revision]="reportRevision"
         [salesView]="salesView"
         [salesRows]="salesReportRows"
+        [categories]="dueCategories"
         (selectDate)="onReportSelect($event)"
       />
     } @placeholder {
