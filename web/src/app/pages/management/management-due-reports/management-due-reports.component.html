@@ -68,6 +68,7 @@
     </div>
 
     @if (scope === 'year' && monthLines.length) {
+      <div class="rpt-months-wrap">
       <table class="rpt-months">
         <caption class="sr-only">{{ year }} paid and received by month</caption>
         <thead>
@@ -89,6 +90,7 @@
           }
         </tbody>
       </table>
+      </div>
     }
 
     @if (!paidGroups.length && !receivedGroups.length) {
