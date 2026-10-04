@@ -47,12 +47,7 @@
 }
 
 .due-in {
-  color: #166534;
-}
-
-.due-total:has(.due-in) {
-  background: #dcfce7;
-  border-color: #86efac;
+  color: #15803d;
 }
 
 .due-layout {
@@ -253,8 +248,6 @@
   min-width: 0;
   font-size: 0.72rem;
   line-height: 1.2;
-  border-radius: 4px;
-  padding: 0.04rem 0.2rem;
 }
 
 .cal-chip-name {
@@ -274,9 +267,8 @@
   color: #b91c1c;
 }
 
-.cal-chip--in.cal-chip--open {
-  color: #166534;
-  background: #bbf7d0;
+.cal-chip--in {
+  color: #15803d;
 }
 
 .cal-chip--settled {
@@ -286,6 +278,10 @@
   .cal-chip-amt {
     text-decoration: line-through;
   }
+}
+
+.cal-chip--in.cal-chip--settled {
+  color: #15803d;
 }
 
 .cal-day-net {
@@ -319,11 +315,11 @@
 
 .due-row--in {
   border-left: 3px solid #16a34a;
-  background: #dcfce7;
-}
 
-.due-row--in.due-row--settled {
-  background: #f0fdf4;
+  strong,
+  .due-row-amt {
+    color: #15803d;
+  }
 }
 
 .due-row--settled {
@@ -333,6 +329,15 @@
   .due-row-amt {
     text-decoration: line-through;
     color: #64748b;
+  }
+}
+
+.due-row--in.due-row--settled {
+  background: transparent;
+
+  strong,
+  .due-row-amt {
+    color: #15803d;
   }
 }
 
