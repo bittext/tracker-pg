@@ -6,6 +6,7 @@
     <p class="muted">
       <strong>{{ insightsTabs.trends }}</strong>: weight and consistency trends, streaks, month calendar, and day detail.
       <strong>{{ insightsTabs.tasksAndNow }}</strong>: full task listing and the Now roadmap.
+      <strong>{{ insightsTabs.management }}</strong>: a plain reading of Due, the calendar, accounts, subscriptions, auto payments, documents, and travel.
       <strong>{{ insightsTabs.banking }}</strong>: banking money-flow summaries.
       <strong>{{ insightsTabs.search }}</strong>: journal entries by date, tags, and keywords. For dated notes, use
       <a routerLink="/life/management">Management</a> → <strong>Calendar</strong>.
@@ -30,6 +31,7 @@
       class="reports-tab-group"
       [dynamicHeight]="true"
       [(selectedIndex)]="reportsTabIndex"
+      (selectedIndexChange)="onReportsTab($event)"
     >
       @if (showExerciseTab) {
         <mat-tab [label]="insightsTabs.trends">
@@ -119,6 +121,12 @@
               </div>
             </mat-tab>
           </mat-tab-group>
+        </mat-tab>
+      }
+
+      @if (showManagementTab) {
+        <mat-tab [label]="insightsTabs.management">
+          <app-management-insights-panel />
         </mat-tab>
       }
 

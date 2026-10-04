@@ -165,8 +165,8 @@ export class ManagementInsightsPanelComponent {
       },
       error: () => {
         this.loading = false;
-        this.failed = ['Insights'];
-        this.snackBar.open('Insights could not be loaded.', 'Dismiss', { duration: 4000 });
+        this.failed = ['Management'];
+        this.snackBar.open('The Management report could not be loaded.', 'Dismiss', { duration: 4000 });
       },
     });
   }
@@ -268,7 +268,7 @@ export class ManagementInsightsPanelComponent {
   }
 
   private topicTitle(topic: InsightTopic): string {
-    return this.topics.find((item) => item.id === topic)?.label ?? 'Insights';
+    return this.topics.find((item) => item.id === topic)?.label ?? 'Management';
   }
 
   private buildSections(bundle: InsightBundle): InsightSection[] {

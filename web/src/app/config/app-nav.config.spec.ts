@@ -24,9 +24,13 @@ describe('app-nav.config', () => {
     expect(labels.length).toBe(9);
   });
 
-  it('Insights tabs do not reuse Life primary labels', () => {
+  it('Insights tabs do not reuse Life primary labels except the Management report', () => {
     const lifeLabels = new Set(LIFE_PRIMARY_NAV.map((e) => e.label));
     for (const tab of INSIGHTS_TAB_NAV) {
+      if (tab.id === 'management-library') {
+        expect(tab.label).toBe('Management');
+        continue;
+      }
       expect(lifeLabels.has(tab.label)).withContext(`tab ${tab.id}`).toBeFalse();
     }
   });

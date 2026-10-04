@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, Input, OnInit, inject } from '@angular/core';
+import { Component, Input, OnInit, inject, viewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -34,6 +34,7 @@ import { ReportsExerciseComponent } from './reports-exercise/reports-exercise.co
 import { ReportsFinanceBankingComponent } from './reports-finance-banking/reports-finance-banking.component';
 import { ReportsFinanceRobinhoodComponent } from './reports-finance-robinhood/reports-finance-robinhood.component';
 import { ReportsManagementNowPanelComponent } from './reports-management-now-panel/reports-management-now-panel.component';
+import { ManagementInsightsPanelComponent } from '../management/management-insights-panel/management-insights-panel.component';
 import { INSIGHTS_TAB_LABELS } from '../../config/app-nav.config';
 
 export type ReportsSection = 'all' | 'life' | 'markets';
@@ -60,6 +61,7 @@ export type ReportsFocus = 'exercise' | 'management' | 'journal' | 'banking';
     ReportsFinanceBankingComponent,
     ReportsFinanceRobinhoodComponent,
     ReportsManagementNowPanelComponent,
+    ManagementInsightsPanelComponent,
   ],
   templateUrl: './reports.component.html',
   styleUrl: './reports.component.scss',
@@ -72,6 +74,7 @@ export class ReportsComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
 
   readonly insightsTabs = INSIGHTS_TAB_LABELS;
+  private readonly managementReport = viewChild(ManagementInsightsPanelComponent);
 
   @Input() section: ReportsSection = 'all';
   @Input() focus: ReportsFocus | null = null;
@@ -144,6 +147,23 @@ export class ReportsComponent implements OnInit {
 
   get showMarketsOnly(): boolean {
     return this.section === 'markets';
+  }
+
+  onReportsTab(index: number): void {
+    if (index === this.managementReportTabIndex) {
+      this.managementReport()?.reload();
+    }
+  }
+
+  private get managementReportTabIndex(): number {
+    let index = 0;
+    if (this.showExerciseTab) {
+      index += 1;
+    }
+    if (this.showManagementTab) {
+      index += 1;
+    }
+    return index;
   }
 
   get pageTitle(): string {

@@ -231,6 +231,12 @@ export const INSIGHTS_TAB_NAV: NavEntry[] = [
     ariaLabel: 'Insights — task reports and Now roadmap',
   },
   {
+    id: 'management-library',
+    label: 'Management',
+    shell: 'insights-tab',
+    ariaLabel: 'Insights — management library report',
+  },
+  {
     id: 'banking',
     label: 'Banking',
     shell: 'insights-tab',
@@ -272,6 +278,12 @@ export const APP_NAV_REGISTRY: NavEntry[] = [
 /** Life primary labels that Insights tabs must not reuse exactly. */
 const LIFE_PRIMARY_LABELS = new Set(LIFE_PRIMARY_NAV.map((e) => e.label));
 
+/**
+ * The Management report sits under Insights and shares the Life sidebar word on purpose.
+ * Its aria label distinguishes the report from the Management page.
+ */
+const INSIGHTS_LIFE_LABEL_ALLOWLIST = new Set(['management-library']);
+
 /** Cross-shell duplicates allowed when path matches (e.g. Settings → /life/settings). */
 const CROSS_SHELL_DUPLICATE_ALLOWLIST = new Set(['Settings']);
 
@@ -309,7 +321,7 @@ export function validateAppNavRegistry(entries: NavEntry[] = APP_NAV_REGISTRY): 
   }
 
   for (const tab of INSIGHTS_TAB_NAV) {
-    if (LIFE_PRIMARY_LABELS.has(tab.label)) {
+    if (LIFE_PRIMARY_LABELS.has(tab.label) && !INSIGHTS_LIFE_LABEL_ALLOWLIST.has(tab.id)) {
       issues.push({
         code: 'insights-collides-with-life',
         message: `Insights tab "${tab.label}" duplicates a Life primary nav label`,
@@ -352,8 +364,9 @@ export function assertAppNavRegistryValid(entries: NavEntry[] = APP_NAV_REGISTRY
 export const INSIGHTS_TAB_LABELS = {
   trends: INSIGHTS_TAB_NAV[0].label,
   tasksAndNow: INSIGHTS_TAB_NAV[1].label,
-  banking: INSIGHTS_TAB_NAV[2].label,
-  search: INSIGHTS_TAB_NAV[3].label,
+  management: INSIGHTS_TAB_NAV[2].label,
+  banking: INSIGHTS_TAB_NAV[3].label,
+  search: INSIGHTS_TAB_NAV[4].label,
 } as const;
 
 export const ADMIN_TAB_LABELS = {
