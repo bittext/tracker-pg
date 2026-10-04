@@ -72,6 +72,9 @@ export class ManagementDueReportsComponent implements OnChanges {
   @Input({ required: true }) year = 0;
   @Input({ required: true }) month = 0;
   @Input() revision = 0;
+  /** Off keeps bill rows. With bills adds sale days. Sales only keeps sale days. */
+  @Input() salesView: 'off' | 'with' | 'only' = 'off';
+  @Input() salesRows: ManagementDueReportRowDto[] = [];
   @Output() readonly selectDate = new EventEmitter<string>();
 
   report: ManagementDueReportDto | null = null;
@@ -93,7 +96,7 @@ export class ManagementDueReportsComponent implements OnChanges {
 
   get filteredRows(): ManagementDueReportRowDto[] {
     const q = this.query.trim().toLowerCase();
-    return (this.report?.rows ?? []).filter((row) => {
+    return this.sourceRows.filter((row) => {
       if (this.scope === 'month' && (row.year !== this.year || row.month !== this.month)) {
         return false;
       }
@@ -208,6 +211,14 @@ export class ManagementDueReportsComponent implements OnChanges {
     this.sideFilter = '';
     this.statusFilter = '';
     this.cadenceFilter = '';
+  }
+
+  private get sourceRows(): ManagementDueReportRowDto[] {
+    const bills = this.salesView === 'only' ? [] : (this.report?.rows ?? []);
+    if (this.salesView === 'off') {
+      return bills;
+    }
+    return [...bills, ...this.salesRows];
   }
 
   private load(): void {

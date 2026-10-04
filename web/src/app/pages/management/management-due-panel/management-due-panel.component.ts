@@ -14,6 +14,7 @@ import { RobinhoodExecutedTradeDto } from '../../../models/finance.models';
 import {
   ManagementDueDayDto,
   ManagementDueItemWriteBody,
+  ManagementDueReportRowDto,
   ManagementDueMonthDto,
   ManagementDueOccurrenceDto,
   ManagementDueSide,
@@ -76,6 +77,8 @@ export class ManagementDuePanelComponent implements OnInit {
   /** Off keeps the calendar as bills only. With bills adds sale days. Sales only hides bills. */
   salesView: SalesView = 'off';
   private salesByDate = new Map<string, ManagementDueOccurrenceDto>();
+  /** Settled Robinhood (Sales) rows for the loaded year. Reports include these when sales are on. */
+  salesReportRows: ManagementDueReportRowDto[] = [];
   private salesYearLoaded: number | null = null;
   private salesYearLoading: number | null = null;
 
@@ -166,6 +169,26 @@ export class ManagementDuePanelComponent implements OnInit {
 
   isSale(row: ManagementDueOccurrenceDto): boolean {
     return row.amountSource === 'market-sale';
+  }
+
+  get summaryPaid(): number {
+    return this.summaryAmount('PAYABLE', this.month);
+  }
+
+  get summaryReceived(): number {
+    return this.summaryAmount('RECEIVABLE', this.month);
+  }
+
+  get summaryNet(): number {
+    return Math.round((this.summaryReceived - this.summaryPaid) * 100) / 100;
+  }
+
+  get summaryYearPaid(): number {
+    return this.summaryAmount('PAYABLE', null);
+  }
+
+  get summaryYearReceived(): number {
+    return this.summaryAmount('RECEIVABLE', null);
   }
 
   selectDay(iso: string): void {
@@ -438,6 +461,7 @@ export class ManagementDuePanelComponent implements OnInit {
           return;
         }
         this.salesByDate = this.salesForYear(report?.trades ?? []);
+        this.salesReportRows = this.toSalesReportRows(this.salesByDate);
         this.salesYearLoaded = year;
       },
       error: (err) => {
@@ -495,6 +519,57 @@ export class ManagementDuePanelComponent implements OnInit {
       });
     }
     return out;
+  }
+
+  /** Bill totals, plus sale days when that view is on. Sales only drops the bills. */
+  private summaryAmount(side: ManagementDueSide, month: number | null): number {
+    const bill =
+      this.salesView === 'only'
+        ? 0
+        : Number(
+            (month == null
+              ? side === 'PAYABLE'
+                ? this.monthData?.yearPaidTotal
+                : this.monthData?.yearReceivedTotal
+              : side === 'PAYABLE'
+                ? this.monthData?.paidTotal
+                : this.monthData?.receivedTotal) || 0
+          );
+    if (this.salesView === 'off') {
+      return bill;
+    }
+    const prefix =
+      month == null ? `${this.year}-` : `${this.year}-${String(month).padStart(2, '0')}-`;
+    let sales = 0;
+    for (const [date, row] of this.salesByDate) {
+      if (date.startsWith(prefix) && row.side === side) {
+        sales += Number(row.displayAmount || 0);
+      }
+    }
+    return Math.round((bill + sales) * 100) / 100;
+  }
+
+  private toSalesReportRows(byDate: Map<string, ManagementDueOccurrenceDto>): ManagementDueReportRowDto[] {
+    const rows: ManagementDueReportRowDto[] = [];
+    for (const [date, sale] of byDate) {
+      const year = Number(date.slice(0, 4));
+      const month = Number(date.slice(5, 7));
+      rows.push({
+        itemId: sale.itemId,
+        occurrenceId: null,
+        year,
+        month,
+        date,
+        side: sale.side,
+        counterparty: sale.counterparty,
+        recurring: false,
+        notes: sale.notes || '',
+        settled: true,
+        amount: sale.displayAmount,
+        amountSource: 'market-sale',
+      });
+    }
+    return rows;
   }
 
   private centralIsoDate(iso: string): string | null {

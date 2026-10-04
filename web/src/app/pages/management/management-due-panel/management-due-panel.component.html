@@ -11,23 +11,23 @@
     <div class="due-totals" aria-label="Paid and received totals">
       <div class="due-total">
         <span class="due-total-label">{{ calendarTitle }} paid</span>
-        <strong class="due-total-value due-out">{{ money(monthData?.paidTotal) }}</strong>
+        <strong class="due-total-value due-out">{{ money(summaryPaid) }}</strong>
       </div>
       <div class="due-total">
         <span class="due-total-label">Received</span>
-        <strong class="due-total-value due-in">{{ money(monthData?.receivedTotal) }}</strong>
+        <strong class="due-total-value due-in">{{ money(summaryReceived) }}</strong>
       </div>
       <div class="due-total">
         <span class="due-total-label">Net</span>
-        <strong class="due-total-value">{{ money(monthData?.netTotal) }}</strong>
+        <strong class="due-total-value">{{ money(summaryNet) }}</strong>
       </div>
       <div class="due-total due-total--year">
         <span class="due-total-label">{{ year }} paid</span>
-        <strong class="due-total-value due-out">{{ money(monthData?.yearPaidTotal) }}</strong>
+        <strong class="due-total-value due-out">{{ money(summaryYearPaid) }}</strong>
       </div>
       <div class="due-total due-total--year">
         <span class="due-total-label">{{ year }} received</span>
-        <strong class="due-total-value due-in">{{ money(monthData?.yearReceivedTotal) }}</strong>
+        <strong class="due-total-value due-in">{{ money(summaryYearReceived) }}</strong>
       </div>
     </div>
 
@@ -62,7 +62,7 @@
                 <mat-button-toggle value="with">With bills</mat-button-toggle>
                 <mat-button-toggle value="only">Sales only</mat-button-toggle>
               </mat-button-toggle-group>
-              <span class="muted due-sales-note">From Sep 1, 2026. Not in paid, received, or reports.</span>
+              <span class="muted due-sales-note">From Sep 1, 2026. With bills adds these to paid, received, and reports. Sales only uses just these.</span>
             </div>
             <p class="due-legend" aria-label="Calendar legend">
               <span class="due-legend-item due-legend-item--out">Unpaid</span>
@@ -307,6 +307,8 @@
         [year]="year"
         [month]="month"
         [revision]="reportRevision"
+        [salesView]="salesView"
+        [salesRows]="salesReportRows"
         (selectDate)="onReportSelect($event)"
       />
     } @placeholder {
