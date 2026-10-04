@@ -25,7 +25,6 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -109,8 +108,9 @@ public class ManagementDueService {
                     entry.getKey(), payableCount, receivableCount, payableTotal, receivableTotal, List.copyOf(dayItems)));
         }
 
-        Totals monthTotals = totalsFor(yearOcc, month);
-        Totals yearTotals = totalsFor(yearOcc, null);
+        Map<String, ManagementDueOccurrence> occByKey = indexOccurrences(yearOcc);
+        Totals monthTotals = totalsFor(items, occByKey, year, month);
+        Totals yearTotals = totalsFor(items, occByKey, year, null);
         return new ManagementDueMonthDto(
                 year,
                 month,
@@ -141,7 +141,6 @@ public class ManagementDueService {
         }
 
         List<ManagementDueReportDto.Row> rows = new ArrayList<>();
-        Set<String> seen = new HashSet<>();
         for (int m = 1; m <= 12; m++) {
             YearMonth ym = YearMonth.of(year, m);
             for (ManagementDueItem item : items) {
@@ -157,38 +156,9 @@ public class ManagementDueService {
                 if (date == null || !YearMonth.from(date).equals(ym)) {
                     continue;
                 }
-                String key = occKey(item.getId(), year, m);
-                ManagementDueOccurrence occ = occByItemYm.get(key);
+                ManagementDueOccurrence occ = occByItemYm.get(occKey(item.getId(), year, m));
                 rows.add(toReportRow(toOccurrenceDto(item, date, occ, history), year, m));
-                seen.add(key);
             }
-        }
-        for (ManagementDueOccurrence occ : allOcc) {
-            if (!occ.isSettled() || occ.getItem() == null || occ.getItem().getId() == null) {
-                continue;
-            }
-            ManagementDueItem item = occ.getItem();
-            String key = occKey(item.getId(), occ.getYear(), occ.getMonth());
-            if (!seen.add(key)) {
-                continue;
-            }
-            LocalDate date = occurrenceOn(item, occ.getYear(), occ.getMonth());
-            if (date == null) {
-                date = YearMonth.of(occ.getYear(), occ.getMonth()).atDay(1);
-            }
-            rows.add(new ManagementDueReportDto.Row(
-                    item.getId(),
-                    occ.getId(),
-                    occ.getYear(),
-                    occ.getMonth(),
-                    date,
-                    item.getSide() == null ? "PAYABLE" : item.getSide().name(),
-                    item.getCounterparty() == null ? "" : item.getCounterparty(),
-                    item.isRecurring(),
-                    item.getNotes() == null ? "" : item.getNotes(),
-                    true,
-                    occ.getSettledAmount(),
-                    "settled"));
         }
         return ManagementDueReportSupport.build(year, month, rows);
     }
@@ -205,7 +175,6 @@ public class ManagementDueService {
                 occByItem.put(occ.getItem().getId(), occ);
             }
         }
-        Instant now = Instant.now();
         for (ManagementDueItem item : activeItems(owner)) {
             if (item.isRecurring()) {
                 continue;
@@ -218,7 +187,7 @@ public class ManagementDueService {
             if (occ != null && occ.isSettled()) {
                 continue;
             }
-            deactivate(item, now);
+            itemRepository.delete(item);
         }
         return month(year, month);
     }
@@ -249,6 +218,16 @@ public class ManagementDueService {
         item.setUpdatedAt(Instant.now());
         itemRepository.save(item);
         YearMonth focus = focusMonth(req);
+        if (item.getAmountOverride() != null) {
+            occurrenceRepository
+                    .findByItem_IdAndYearAndMonth(item.getId(), focus.getYear(), focus.getMonthValue())
+                    .filter(ManagementDueOccurrence::isSettled)
+                    .ifPresent(occ -> {
+                        occ.setSettledAmount(item.getAmountOverride());
+                        occ.setSettledAt(Instant.now());
+                        occurrenceRepository.save(occ);
+                    });
+        }
         return month(focus.getYear(), focus.getMonthValue());
     }
 
@@ -446,12 +425,6 @@ public class ManagementDueService {
                 owner, ManagementDesk.LIFE);
     }
 
-    private void deactivate(ManagementDueItem item, Instant now) {
-        item.setActive(false);
-        item.setUpdatedAt(now);
-        itemRepository.save(item);
-    }
-
     private static ManagementDueReportDto.Row toReportRow(ManagementDueOccurrenceDto dto, int year, int month) {
         return new ManagementDueReportDto.Row(
                 dto.itemId(),
@@ -509,27 +482,55 @@ public class ManagementDueService {
                 txn.getInstitution().getInstitutionType().getName());
     }
 
-    private Totals totalsFor(List<ManagementDueOccurrence> yearOcc, Integer monthOrNull) {
+    private Map<String, ManagementDueOccurrence> indexOccurrences(List<ManagementDueOccurrence> occurrences) {
+        Map<String, ManagementDueOccurrence> occByKey = new HashMap<>();
+        for (ManagementDueOccurrence occ : occurrences) {
+            if (occ.getItem() != null && occ.getItem().getId() != null) {
+                occByKey.put(occKey(occ.getItem().getId(), occ.getYear(), occ.getMonth()), occ);
+            }
+        }
+        return occByKey;
+    }
+
+    /** Paid and received totals follow the rows the calendar shows for that month. */
+    private Totals totalsFor(
+            List<ManagementDueItem> items,
+            Map<String, ManagementDueOccurrence> occByKey,
+            int year,
+            Integer monthOrNull) {
         BigDecimal paid = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
         BigDecimal received = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-        for (ManagementDueOccurrence occ : yearOcc) {
-            if (!occ.isSettled()) {
-                continue;
-            }
-            if (monthOrNull != null && occ.getMonth() != monthOrNull) {
-                continue;
-            }
-            ManagementDueItem item = occ.getItem();
-            if (item == null || item.getSide() == null) {
-                continue;
-            }
-            BigDecimal amt = occ.getSettledAmount() == null
-                    ? BigDecimal.ZERO
-                    : occ.getSettledAmount();
-            if (item.getSide() == ManagementDueSide.PAYABLE) {
-                paid = paid.add(amt);
-            } else {
-                received = received.add(amt);
+        YearMonth today = YearMonth.from(todayInOwnerZone());
+        int from = monthOrNull == null ? 1 : monthOrNull;
+        int to = monthOrNull == null ? 12 : monthOrNull;
+        for (int m = from; m <= to; m++) {
+            YearMonth ym = YearMonth.of(year, m);
+            for (ManagementDueItem item : items) {
+                if (item.getSide() == null) {
+                    continue;
+                }
+                if (!ManagementDueCalendarSupport.appearsInMonth(
+                        item.isRecurring(),
+                        item.getStartsOn(),
+                        item.getOneOffDate(),
+                        ym,
+                        today)) {
+                    continue;
+                }
+                LocalDate date = occurrenceOn(item, year, m);
+                if (date == null || !YearMonth.from(date).equals(ym)) {
+                    continue;
+                }
+                ManagementDueOccurrence occ = occByKey.get(occKey(item.getId(), year, m));
+                if (occ == null || !occ.isSettled()) {
+                    continue;
+                }
+                BigDecimal amt = occ.getSettledAmount() == null ? BigDecimal.ZERO : occ.getSettledAmount();
+                if (item.getSide() == ManagementDueSide.PAYABLE) {
+                    paid = paid.add(amt);
+                } else {
+                    received = received.add(amt);
+                }
             }
         }
         return new Totals(paid, received);
