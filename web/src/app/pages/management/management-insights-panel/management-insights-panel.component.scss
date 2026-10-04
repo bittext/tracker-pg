@@ -22,7 +22,49 @@
   flex-wrap: wrap;
   gap: 0.45rem 0.6rem;
   align-items: center;
-  margin-bottom: 0.75rem;
+  margin: 0.85rem 0 0.65rem;
+}
+
+.insight-search {
+  flex: 1 1 16rem;
+  max-width: 24rem;
+}
+
+.insight-variants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.7rem;
+  align-items: center;
+  margin-bottom: 0.7rem;
+}
+
+.insight-areas {
+  margin-top: 0.35rem;
+}
+
+.insight-group {
+  margin: 0.85rem 0;
+}
+
+.insight-group header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.insight-group ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.insight-group li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.28rem 0;
+  border-bottom: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
 }
 
 .insight-year {

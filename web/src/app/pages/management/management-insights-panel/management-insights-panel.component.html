@@ -1,144 +1,311 @@
 <div class="tab-panel insight-panel">
   <h2 id="insight-heading" class="subsection-title">Management</h2>
   <p class="muted insight-intro">
-    A plain reading of what is entered for Due, the calendar, accounts, subscriptions, auto payments, documents, and
-    travel. Pick a year, an area, and a form. Print it, or download the same reading as text or a spreadsheet.
-    Account passwords and authenticator keys stay off every form.
+    Each area has its own report. Change the range, grouping, and filters, then pull a fresh copy, print it, or download
+    it. Account passwords and authenticator keys stay off every report. Entries are still edited on
+    <a routerLink="/life/management">Management</a>.
   </p>
 
-  <div class="insight-toolbar">
-    <div class="insight-year" role="group" aria-label="Report year">
-      <button mat-icon-button type="button" (click)="shiftYear(-1)" aria-label="Previous year">
-        <mat-icon>chevron_left</mat-icon>
-      </button>
-      <span class="insight-year-label">{{ year }}</span>
-      <button mat-icon-button type="button" (click)="shiftYear(1)" aria-label="Next year">
-        <mat-icon>chevron_right</mat-icon>
-      </button>
-    </div>
-    <button mat-stroked-button type="button" (click)="reload()" [disabled]="loading">Refresh</button>
-    <button mat-stroked-button type="button" (click)="printReport()" [disabled]="loading || !sections.length">Print</button>
-    <button mat-stroked-button type="button" (click)="downloadText()" [disabled]="loading || !sections.length">Text</button>
-    <button mat-stroked-button type="button" (click)="downloadCsv()" [disabled]="loading || !sections.length">CSV</button>
-  </div>
+  <mat-tab-group animationDuration="180ms" class="insight-areas" (selectedIndexChange)="onArea($event)">
+    <mat-tab label="Documents">
+      <ng-template matTabContent>
+        <div class="insight-toolbar">
+          <div class="insight-year" role="group" aria-label="Year">
+            <button mat-icon-button type="button" (click)="shiftYear(-1)" aria-label="Previous year"><mat-icon>chevron_left</mat-icon></button>
+            <span class="insight-year-label">{{ year }}</span>
+            <button mat-icon-button type="button" (click)="shiftYear(1)" aria-label="Next year"><mat-icon>chevron_right</mat-icon></button>
+          </div>
+          <mat-form-field appearance="outline" class="insight-search">
+            <mat-label>Search name, type, or file</mat-label>
+            <input matInput [(ngModel)]="query" name="docReportQ" autocomplete="off" />
+          </mat-form-field>
+          <button mat-stroked-button type="button" (click)="pull('documents')">Pull</button>
+          <button mat-stroked-button type="button" (click)="printSheet('documents')">Print</button>
+          <button mat-stroked-button type="button" (click)="downloadText('documents')">Text</button>
+          <button mat-stroked-button type="button" (click)="download('documents')">CSV</button>
+        </div>
+        <div class="insight-variants">
+          <mat-button-toggle-group [(ngModel)]="documentScope" name="docScope" aria-label="Document range">
+            <mat-button-toggle value="year">{{ year }}</mat-button-toggle>
+            <mat-button-toggle value="all">All years</mat-button-toggle>
+          </mat-button-toggle-group>
+          <mat-button-toggle-group [(ngModel)]="documentGroup" name="docGroup" aria-label="Group documents">
+            <mat-button-toggle value="type">Type</mat-button-toggle>
+            <mat-button-toggle value="month">Month added</mat-button-toggle>
+          </mat-button-toggle-group>
+          <mat-button-toggle-group [(ngModel)]="shape" name="docShape" aria-label="Report form">
+            <mat-button-toggle value="summary">Summary</mat-button-toggle>
+            <mat-button-toggle value="ledger">Ledger</mat-button-toggle>
+            <mat-button-toggle value="detail">Detail</mat-button-toggle>
+          </mat-button-toggle-group>
+        </div>
+        <ng-container *ngTemplateOutlet="reportBody; context: { $implicit: 'documents' }" />
+      </ng-template>
+    </mat-tab>
 
-  <div class="insight-chips" role="group" aria-label="Area">
-    @for (item of topics; track item.id) {
-      <button type="button" class="insight-chip" [class.insight-chip--on]="topic === item.id" (click)="setTopic(item.id)">
-        {{ item.label }}
-      </button>
-    }
-  </div>
+    <mat-tab label="Calendar">
+      <ng-template matTabContent>
+        <div class="insight-toolbar">
+          <div class="insight-year" role="group" aria-label="Period">
+            <button mat-icon-button type="button" (click)="calendarScope === 'month' ? shiftMonth(-1) : shiftYear(-1)" aria-label="Previous period"><mat-icon>chevron_left</mat-icon></button>
+            <span class="insight-year-label">{{ calendarScope === 'month' ? monthLabel() : year }}</span>
+            <button mat-icon-button type="button" (click)="calendarScope === 'month' ? shiftMonth(1) : shiftYear(1)" aria-label="Next period"><mat-icon>chevron_right</mat-icon></button>
+          </div>
+          <mat-form-field appearance="outline" class="insight-search">
+            <mat-label>Search type, title, or details</mat-label>
+            <input matInput [(ngModel)]="query" name="calReportQ" autocomplete="off" />
+          </mat-form-field>
+          <button mat-stroked-button type="button" (click)="pull('calendar')">Pull</button>
+          <button mat-stroked-button type="button" (click)="printSheet('calendar')">Print</button>
+          <button mat-stroked-button type="button" (click)="downloadText('calendar')">Text</button>
+          <button mat-stroked-button type="button" (click)="download('calendar')">CSV</button>
+        </div>
+        <div class="insight-variants">
+          <mat-button-toggle-group [(ngModel)]="calendarScope" name="calScope" aria-label="Calendar range">
+            <mat-button-toggle value="month">This month</mat-button-toggle>
+            <mat-button-toggle value="year">{{ year }}</mat-button-toggle>
+          </mat-button-toggle-group>
+          <mat-button-toggle-group [(ngModel)]="calendarGroup" name="calGroup" aria-label="Group calendar">
+            <mat-button-toggle value="type">Type</mat-button-toggle>
+            <mat-button-toggle value="month">Month</mat-button-toggle>
+          </mat-button-toggle-group>
+          <mat-button-toggle-group [(ngModel)]="shape" name="calShape" aria-label="Report form">
+            <mat-button-toggle value="summary">Summary</mat-button-toggle>
+            <mat-button-toggle value="ledger">Ledger</mat-button-toggle>
+            <mat-button-toggle value="detail">Detail</mat-button-toggle>
+          </mat-button-toggle-group>
+        </div>
+        <div class="insight-chips" role="group" aria-label="Calendar type">
+          <button type="button" class="insight-chip" [class.insight-chip--on]="calendarType === ''" (click)="calendarType = ''">All types</button>
+          @for (label of calendarTypes(); track label) {
+            <button type="button" class="insight-chip" [class.insight-chip--on]="calendarType === label" (click)="calendarType = calendarType === label ? '' : label">{{ label }}</button>
+          }
+        </div>
+        <ng-container *ngTemplateOutlet="reportBody; context: { $implicit: 'calendar' }" />
+      </ng-template>
+    </mat-tab>
 
-  <div class="insight-chips" role="group" aria-label="Report form">
-    @for (item of forms; track item.id) {
-      <button type="button" class="insight-chip" [class.insight-chip--on]="form === item.id" (click)="setForm(item.id)">
-        {{ item.label }}
-      </button>
-    }
-    @if (form === 'grouped') {
-      <span class="muted insight-form-hint">{{ groupHint }}</span>
-    }
-  </div>
+    <mat-tab label="Due">
+      <ng-template matTabContent>
+        <div class="insight-toolbar">
+          <div class="insight-year" role="group" aria-label="Due month">
+            <button mat-icon-button type="button" (click)="shiftMonth(-1)" aria-label="Previous month"><mat-icon>chevron_left</mat-icon></button>
+            <span class="insight-year-label">{{ monthLabel() }}</span>
+            <button mat-icon-button type="button" (click)="shiftMonth(1)" aria-label="Next month"><mat-icon>chevron_right</mat-icon></button>
+          </div>
+          <button mat-stroked-button type="button" (click)="pull('due')">Pull</button>
+          <button mat-stroked-button type="button" (click)="printDue(dueReport)">Print</button>
+          <button mat-stroked-button type="button" (click)="downloadDueText(dueReport)">Text</button>
+          <button mat-stroked-button type="button" (click)="downloadDue(dueReport)">CSV</button>
+        </div>
+        <div class="insight-variants">
+          <mat-button-toggle-group [ngModel]="salesView" (ngModelChange)="setSales($event)" name="dueSales" aria-label="Robinhood sales">
+            <mat-button-toggle value="off">Bills</mat-button-toggle>
+            <mat-button-toggle value="with">Bills and sales</mat-button-toggle>
+            <mat-button-toggle value="only">Sales only</mat-button-toggle>
+          </mat-button-toggle-group>
+          <mat-button-toggle-group [ngModel]="showOpenings ? 'on' : 'off'" (ngModelChange)="setOpenings($event === 'on')" name="dueOpenings" aria-label="Opening balances">
+            <mat-button-toggle value="off">Openings off</mat-button-toggle>
+            <mat-button-toggle value="on">Openings</mat-button-toggle>
+          </mat-button-toggle-group>
+        </div>
+        <p class="muted insight-form-hint">
+          Same paid and received books as Management → Due. This page adds sales, opening balances, and a download of the
+          rows that match the filters below.
+        </p>
+        <app-management-due-reports
+          #dueReport
+          [year]="year"
+          [month]="month"
+          [revision]="dueRevision"
+          [salesView]="salesView"
+          [salesRows]="salesReportRows"
+          [categories]="dueCategories"
+          [showOpenings]="showOpenings"
+          [openingMonths]="openingReportMonths"
+        />
+      </ng-template>
+    </mat-tab>
 
-  @if (loading && !sections.length) {
-    <p class="muted">Reading what is entered…</p>
-  } @else if (failed.length) {
-    <p class="insight-warn">{{ failed.join(', ') }} could not be read. The rest of the report is still here.</p>
-  }
+    <mat-tab label="Account">
+      <ng-template matTabContent>
+        <div class="insight-toolbar">
+          <mat-form-field appearance="outline" class="insight-search">
+            <mat-label>Search folder, item, username, or website</mat-label>
+            <input matInput [(ngModel)]="query" name="acctReportQ" autocomplete="off" />
+          </mat-form-field>
+          <button mat-stroked-button type="button" (click)="pull('accounts')">Pull</button>
+          <button mat-stroked-button type="button" (click)="printSheet('accounts')">Print</button>
+          <button mat-stroked-button type="button" (click)="downloadText('accounts')">Text</button>
+          <button mat-stroked-button type="button" (click)="download('accounts')">CSV</button>
+        </div>
+        <div class="insight-variants">
+          <mat-button-toggle-group [(ngModel)]="shape" name="acctShape" aria-label="Report form">
+            <mat-button-toggle value="summary">Summary</mat-button-toggle>
+            <mat-button-toggle value="ledger">Ledger</mat-button-toggle>
+            <mat-button-toggle value="detail">Detail</mat-button-toggle>
+          </mat-button-toggle-group>
+        </div>
+        <div class="insight-chips" role="group" aria-label="Account filters">
+          <button type="button" class="insight-chip" [class.insight-chip--on]="accountFilter === 'site'" (click)="accountFilter = accountFilter === 'site' ? '' : 'site'">Has a website</button>
+          <button type="button" class="insight-chip" [class.insight-chip--on]="accountFilter === 'password'" (click)="accountFilter = accountFilter === 'password' ? '' : 'password'">Password stored</button>
+          <button type="button" class="insight-chip" [class.insight-chip--on]="accountFilter === 'key'" (click)="accountFilter = accountFilter === 'key' ? '' : 'key'">Authenticator stored</button>
+        </div>
+        <ng-container *ngTemplateOutlet="reportBody; context: { $implicit: 'accounts' }" />
+      </ng-template>
+    </mat-tab>
 
-  @if (sections.length) {
-    <article class="insight-report" aria-labelledby="insight-report-title">
-      <h3 id="insight-report-title" class="insight-report-title">{{ reportTitle }}</h3>
-      @if (form === 'brief') {
-        @for (section of activeSections; track section.title) {
-          <section class="insight-block">
-            @if (topic === 'overview') {
-              <h4>{{ section.title }}</h4>
-            }
-            <div class="insight-stats">
-              @for (stat of section.stats; track stat.label) {
-                <div class="insight-stat">
-                  <span class="insight-stat-value">{{ stat.value }}</span>
-                  <span class="insight-stat-label">{{ stat.label }}</span>
-                </div>
-              }
-            </div>
-            @for (paragraph of section.paragraphs; track paragraph) {
-              <p>{{ paragraph }}</p>
-            }
-          </section>
+    <mat-tab label="Subscriptions">
+      <ng-template matTabContent>
+        <div class="insight-toolbar">
+          <div class="insight-year" role="group" aria-label="Renewal period">
+            <button mat-icon-button type="button" (click)="subscriptionScope === 'month' ? shiftMonth(-1) : shiftYear(-1)" aria-label="Previous period"><mat-icon>chevron_left</mat-icon></button>
+            <span class="insight-year-label">{{ subscriptionScope === 'month' ? monthLabel() : year }}</span>
+            <button mat-icon-button type="button" (click)="subscriptionScope === 'month' ? shiftMonth(1) : shiftYear(1)" aria-label="Next period"><mat-icon>chevron_right</mat-icon></button>
+          </div>
+          <mat-form-field appearance="outline" class="insight-search">
+            <mat-label>Search name, vendor, or plan</mat-label>
+            <input matInput [(ngModel)]="query" name="subReportQ" autocomplete="off" />
+          </mat-form-field>
+          <button mat-stroked-button type="button" (click)="pull('subscriptions')">Pull</button>
+          <button mat-stroked-button type="button" (click)="printSheet('subscriptions')">Print</button>
+          <button mat-stroked-button type="button" (click)="downloadText('subscriptions')">Text</button>
+          <button mat-stroked-button type="button" (click)="download('subscriptions')">CSV</button>
+        </div>
+        <div class="insight-variants">
+          <mat-button-toggle-group [(ngModel)]="subscriptionScope" name="subScope" aria-label="Renewal range">
+            <mat-button-toggle value="all">All plans</mat-button-toggle>
+            <mat-button-toggle value="month">Renewing this month</mat-button-toggle>
+            <mat-button-toggle value="year">Renewing in {{ year }}</mat-button-toggle>
+          </mat-button-toggle-group>
+          <mat-button-toggle-group [(ngModel)]="subscriptionGroup" name="subGroup" aria-label="Group subscriptions">
+            <mat-button-toggle value="status">Status</mat-button-toggle>
+            <mat-button-toggle value="cycle">Cycle</mat-button-toggle>
+            <mat-button-toggle value="category">Category</mat-button-toggle>
+          </mat-button-toggle-group>
+          <mat-button-toggle-group [(ngModel)]="shape" name="subShape" aria-label="Report form">
+            <mat-button-toggle value="summary">Summary</mat-button-toggle>
+            <mat-button-toggle value="ledger">Ledger</mat-button-toggle>
+            <mat-button-toggle value="detail">Detail</mat-button-toggle>
+          </mat-button-toggle-group>
+        </div>
+        <div class="insight-chips" role="group" aria-label="Subscription status">
+          <button type="button" class="insight-chip" [class.insight-chip--on]="subscriptionStatus === 'ACTIVE'" (click)="subscriptionStatus = subscriptionStatus === 'ACTIVE' ? '' : 'ACTIVE'">Active</button>
+          <button type="button" class="insight-chip" [class.insight-chip--on]="subscriptionStatus === 'TRIAL'" (click)="subscriptionStatus = subscriptionStatus === 'TRIAL' ? '' : 'TRIAL'">Trial</button>
+          <button type="button" class="insight-chip" [class.insight-chip--on]="subscriptionStatus === 'CANCELLED'" (click)="subscriptionStatus = subscriptionStatus === 'CANCELLED' ? '' : 'CANCELLED'">Cancelled</button>
+          <button type="button" class="insight-chip" [class.insight-chip--on]="subscriptionStatus === 'EXPIRED'" (click)="subscriptionStatus = subscriptionStatus === 'EXPIRED' ? '' : 'EXPIRED'">Expired</button>
+        </div>
+        <ng-container *ngTemplateOutlet="reportBody; context: { $implicit: 'subscriptions' }" />
+      </ng-template>
+    </mat-tab>
+
+    <mat-tab label="Auto Payments">
+      <ng-template matTabContent>
+        <div class="insight-toolbar">
+          <div class="insight-year" role="group" aria-label="Debit month">
+            <button mat-icon-button type="button" (click)="shiftMonth(-1)" aria-label="Previous month"><mat-icon>chevron_left</mat-icon></button>
+            <span class="insight-year-label">{{ monthLabel() }}</span>
+            <button mat-icon-button type="button" (click)="shiftMonth(1)" aria-label="Next month"><mat-icon>chevron_right</mat-icon></button>
+          </div>
+          <mat-form-field appearance="outline" class="insight-search">
+            <mat-label>Search name, payee, or account</mat-label>
+            <input matInput [(ngModel)]="query" name="apReportQ" autocomplete="off" />
+          </mat-form-field>
+          <button mat-stroked-button type="button" (click)="pull('autopay')">Pull</button>
+          <button mat-stroked-button type="button" (click)="printSheet('autopay')">Print</button>
+          <button mat-stroked-button type="button" (click)="downloadText('autopay')">Text</button>
+          <button mat-stroked-button type="button" (click)="download('autopay')">CSV</button>
+        </div>
+        <div class="insight-variants">
+          <mat-button-toggle-group [(ngModel)]="autopayScope" name="apScope" aria-label="Debit range">
+            <mat-button-toggle value="all">All enrolled</mat-button-toggle>
+            <mat-button-toggle value="month">Debiting this month</mat-button-toggle>
+          </mat-button-toggle-group>
+          <mat-button-toggle-group [(ngModel)]="autopayGroup" name="apGroup" aria-label="Group auto payments">
+            <mat-button-toggle value="status">Status</mat-button-toggle>
+            <mat-button-toggle value="frequency">Frequency</mat-button-toggle>
+            <mat-button-toggle value="funding">Funding account</mat-button-toggle>
+            <mat-button-toggle value="method">Method</mat-button-toggle>
+          </mat-button-toggle-group>
+          <mat-button-toggle-group [(ngModel)]="shape" name="apShape" aria-label="Report form">
+            <mat-button-toggle value="summary">Summary</mat-button-toggle>
+            <mat-button-toggle value="ledger">Ledger</mat-button-toggle>
+            <mat-button-toggle value="detail">Detail</mat-button-toggle>
+          </mat-button-toggle-group>
+        </div>
+        <div class="insight-chips" role="group" aria-label="Auto payment status">
+          <button type="button" class="insight-chip" [class.insight-chip--on]="autopayStatus === 'ACTIVE'" (click)="autopayStatus = autopayStatus === 'ACTIVE' ? '' : 'ACTIVE'">Active</button>
+          <button type="button" class="insight-chip" [class.insight-chip--on]="autopayStatus === 'PAUSED'" (click)="autopayStatus = autopayStatus === 'PAUSED' ? '' : 'PAUSED'">Paused</button>
+          <button type="button" class="insight-chip" [class.insight-chip--on]="autopayStatus === 'CANCELLED'" (click)="autopayStatus = autopayStatus === 'CANCELLED' ? '' : 'CANCELLED'">Cancelled</button>
+        </div>
+        <ng-container *ngTemplateOutlet="reportBody; context: { $implicit: 'autopay' }" />
+      </ng-template>
+    </mat-tab>
+  </mat-tab-group>
+
+  <ng-template #reportBody let-area>
+    @if (loadingArea === area) {
+      <p class="muted">Pulling the report…</p>
+    } @else if (errorArea === area) {
+      <p class="insight-warn">This report could not be pulled.</p>
+    } @else if (sheet(area); as view) {
+      <div class="insight-stats">
+        @for (stat of view.stats; track stat.label) {
+          <div class="insight-stat">
+            <span class="insight-stat-value">{{ stat.value }}</span>
+            <span class="insight-stat-label">{{ stat.label }}</span>
+          </div>
         }
-      } @else if (form === 'list') {
-        @if (topic === 'overview') {
+      </div>
+      @if (shape === 'summary') {
+        @for (paragraph of view.paragraphs; track paragraph) {
+          <p>{{ paragraph }}</p>
+        }
+      } @else if (shape === 'detail') {
+        @if (!view.rows.length) {
+          <p class="muted">Nothing matches this report.</p>
+        } @else {
           <div class="insight-table-wrap">
             <table class="insight-table">
               <thead>
                 <tr>
-                  <th>Area</th>
-                  <th>On file</th>
-                  <th>In short</th>
+                  @for (column of view.columns; track column) {
+                    <th>{{ column }}</th>
+                  }
                 </tr>
               </thead>
               <tbody>
-                @for (section of activeSections; track section.title) {
+                @for (row of view.rows; track $index) {
                   <tr>
-                    <td>{{ section.title }}</td>
-                    <td>{{ section.stats[0].value }}</td>
-                    <td>{{ section.paragraphs[0] }}</td>
+                    @for (cell of row; track $index) {
+                      <td>{{ cell }}</td>
+                    }
                   </tr>
                 }
               </tbody>
             </table>
           </div>
-        } @else {
-          @for (section of activeSections; track section.title) {
-            @if (!section.rows.length) {
-              <p class="muted">Nothing is entered for this reading.</p>
-            } @else {
-              <div class="insight-table-wrap">
-                <table class="insight-table">
-                  <thead>
-                    <tr>
-                      @for (column of section.columns; track column) {
-                        <th>{{ column }}</th>
-                      }
-                    </tr>
-                  </thead>
-                  <tbody>
-                    @for (row of section.rows; track $index) {
-                      <tr>
-                        @for (cell of row; track $index) {
-                          <td>{{ cell }}</td>
-                        }
-                      </tr>
-                    }
-                  </tbody>
-                </table>
-              </div>
-            }
-          }
         }
+      } @else if (!view.groups.length) {
+        <p class="muted">Nothing matches this report.</p>
       } @else {
-        @for (section of activeSections; track section.title) {
-          <section class="insight-block">
-            @if (topic === 'overview') {
-              <h4>{{ section.title }}</h4>
-            }
-            @if (!section.groups.length) {
-              <p class="muted">Nothing is entered to group.</p>
-            }
-            @for (group of section.groups; track group.title) {
-              <h4 class="insight-group-title">{{ group.title }}</h4>
-              <ul class="insight-lines">
-                @for (line of group.lines; track line) {
-                  <li>{{ line }}</li>
-                }
-              </ul>
-            }
-          </section>
+        @for (group of view.groups; track group.title) {
+          <article class="insight-group">
+            <header>
+              <strong>{{ group.title }}</strong>
+              <span>{{ group.total }}</span>
+            </header>
+            <ul>
+              @for (line of group.lines; track line.label) {
+                <li>
+                  <span>{{ line.label }}</span>
+                  <span>{{ line.value }}</span>
+                </li>
+              }
+            </ul>
+          </article>
         }
       }
-    </article>
-  }
+    }
+  </ng-template>
 </div>
