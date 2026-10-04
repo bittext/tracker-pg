@@ -86,6 +86,9 @@ public class ManagementDueService {
                 continue;
             }
             ManagementDueOccurrence occ = occByItem.get(item.getId());
+            if (skipped(occ)) {
+                continue;
+            }
             byDay.computeIfAbsent(date, ignored -> new ArrayList<>())
                     .add(toOccurrenceDto(item, date, occ, history, categories));
         }
@@ -166,6 +169,9 @@ public class ManagementDueService {
                     continue;
                 }
                 ManagementDueOccurrence occ = occByItemYm.get(occKey(item.getId(), year, m));
+                if (skipped(occ)) {
+                    continue;
+                }
                 rows.add(toReportRow(toOccurrenceDto(item, date, occ, history, categories), year, m));
             }
         }
@@ -247,7 +253,34 @@ public class ManagementDueService {
         ManagementDueItem item = itemRepository
                 .findByIdAndOwnerUserId(id, owner)
                 .orElseThrow(() -> new NotFoundException("Due item not found: " + id));
-        itemRepository.delete(item);
+        YearMonth ym = YearMonth.of(year, month);
+        if (!ManagementDueCalendarSupport.appearsInMonth(
+                item.isRecurring(),
+                item.getStartsOn(),
+                item.getOneOffDate(),
+                ym,
+                YearMonth.from(todayInOwnerZone()))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "That due is not on this month");
+        }
+        if (!item.isRecurring()) {
+            itemRepository.delete(item);
+            return month(year, month);
+        }
+        ManagementDueOccurrence occ = occurrenceRepository
+                .findByItem_IdAndYearAndMonth(id, year, month)
+                .orElseGet(() -> {
+                    ManagementDueOccurrence created = new ManagementDueOccurrence();
+                    created.setItem(item);
+                    created.setOwnerUserId(owner);
+                    created.setYear(year);
+                    created.setMonth(month);
+                    return created;
+                });
+        occ.setSkipped(true);
+        occ.setSettled(false);
+        occ.setSettledAmount(null);
+        occ.setSettledAt(null);
+        occurrenceRepository.save(occ);
         return month(year, month);
     }
 
@@ -514,6 +547,10 @@ public class ManagementDueService {
         return new History(rows, ManagementDueTransferClassifier.internalTransferIds(views));
     }
 
+    private static boolean skipped(ManagementDueOccurrence occ) {
+        return occ != null && occ.isSkipped();
+    }
+
     private static boolean isBankingAccountTxn(BankingTransaction txn) {
         if (txn.getInstitution() == null || txn.getInstitution().getInstitutionType() == null) {
             return false;
@@ -562,7 +599,7 @@ public class ManagementDueService {
                     continue;
                 }
                 ManagementDueOccurrence occ = occByKey.get(occKey(item.getId(), year, m));
-                if (occ == null || !occ.isSettled()) {
+                if (skipped(occ) || occ == null || !occ.isSettled()) {
                     continue;
                 }
                 BigDecimal amt = occ.getSettledAmount() == null ? BigDecimal.ZERO : occ.getSettledAmount();

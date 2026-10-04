@@ -249,6 +249,7 @@
     } @else if (errorArea === area) {
       <p class="insight-warn">This report could not be pulled.</p>
     } @else if (sheet(area); as view) {
+      <div class="insight-sheet">
       <div class="insight-stats">
         @for (stat of view.stats; track stat.label) {
           <div class="insight-stat">
@@ -295,17 +296,18 @@
               <strong>{{ group.title }}</strong>
               <span>{{ group.total }}</span>
             </header>
-            <ul>
+              <ul>
               @for (line of group.lines; track line.label) {
                 <li>
-                  <span>{{ line.label }}</span>
-                  <span>{{ line.value }}</span>
+                  <span class="insight-line-label">{{ line.label }}</span>
+                  <span class="insight-line-value">{{ line.value }}</span>
                 </li>
               }
             </ul>
           </article>
         }
       }
+      </div>
     }
   </ng-template>
 </div>

@@ -45,6 +45,10 @@ public class ManagementDueOccurrence {
     @Column(nullable = false)
     private boolean settled;
 
+    /** When true, this item is hidden for this year and month only. */
+    @Column(nullable = false)
+    private boolean skipped;
+
     @Column(name = "settled_amount", precision = 19, scale = 2)
     private BigDecimal settledAmount;
 

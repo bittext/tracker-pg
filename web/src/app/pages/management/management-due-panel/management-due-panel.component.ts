@@ -334,7 +334,14 @@ export class ManagementDuePanelComponent implements OnInit {
   }
 
   deleteItem(row: ManagementDueOccurrenceDto): void {
-    if (typeof window !== 'undefined' && !window.confirm(`Remove “${row.counterparty}”?`)) {
+    const label = new Date(this.year, this.month - 1, 1).toLocaleDateString(undefined, {
+      month: 'long',
+      year: 'numeric',
+    });
+    const message = row.recurring
+      ? `Remove “${row.counterparty}” from ${label} only? It stays on the other months.`
+      : `Remove “${row.counterparty}” from ${label}?`;
+    if (typeof window !== 'undefined' && !window.confirm(message)) {
       return;
     }
     this.saving = true;
