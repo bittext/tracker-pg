@@ -278,5 +278,12 @@
         </mat-card>
       </section>
     </div>
+
+    <app-management-due-reports
+      [year]="year"
+      [month]="month"
+      [revision]="reportRevision"
+      (selectDate)="onReportSelect($event)"
+    />
   </section>
 </div>

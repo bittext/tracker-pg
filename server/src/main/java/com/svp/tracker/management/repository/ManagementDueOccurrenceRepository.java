@@ -19,4 +19,12 @@ public interface ManagementDueOccurrenceRepository extends JpaRepository<Managem
             @Param("ownerId") long ownerId, @Param("year") int year);
 
     Optional<ManagementDueOccurrence> findByItem_IdAndYearAndMonth(long itemId, int year, int month);
+
+    @Query(
+            """
+            SELECT o FROM ManagementDueOccurrence o
+            JOIN FETCH o.item
+            WHERE o.ownerUserId = :ownerId
+            """)
+    List<ManagementDueOccurrence> findByOwnerWithItem(@Param("ownerId") long ownerId);
 }

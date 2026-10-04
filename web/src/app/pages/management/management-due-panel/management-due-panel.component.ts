@@ -19,6 +19,7 @@ import {
 } from '../../../models/management.models';
 import { ManagementApiService } from '../../../services/management-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
+import { ManagementDueReportsComponent } from '../management-due-reports/management-due-reports.component';
 
 interface DueCalCell {
   type: 'pad' | 'day';
@@ -42,6 +43,7 @@ interface DueCalCell {
     MatInputModule,
     MatSelectModule,
     MatSnackBarModule,
+    ManagementDueReportsComponent,
   ],
   templateUrl: './management-due-panel.component.html',
   styleUrl: './management-due-panel.component.scss',
@@ -57,6 +59,7 @@ export class ManagementDuePanelComponent implements OnInit {
   selectedIso = '';
   monthData: ManagementDueMonthDto | null = null;
   calRows: DueCalCell[][] = [];
+  reportRevision = 0;
   loading = false;
   saving = false;
   editingItemId: number | null = null;
@@ -115,6 +118,15 @@ export class ManagementDuePanelComponent implements OnInit {
       this.loadMonth(this.year + 1, 1);
     } else {
       this.loadMonth(this.year, this.month + 1);
+    }
+  }
+
+  onReportSelect(iso: string): void {
+    const year = Number(iso.slice(0, 4));
+    const month = Number(iso.slice(5, 7));
+    this.selectedIso = iso;
+    if (year && month && (year !== this.year || month !== this.month)) {
+      this.loadMonth(year, month);
     }
   }
 
@@ -361,6 +373,7 @@ export class ManagementDuePanelComponent implements OnInit {
     this.year = month.year;
     this.month = month.month;
     this.monthData = month;
+    this.reportRevision += 1;
     this.ensureSelectedInMonth();
     this.rebuildCalendar();
   }

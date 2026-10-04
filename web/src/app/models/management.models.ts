@@ -472,6 +472,79 @@ export interface ManagementDueSettleBody {
   settledAmount?: number | null;
 }
 
+export interface ManagementDueReportPeriodDto {
+  paid: number;
+  received: number;
+  net: number;
+  openPayable: number;
+  openReceivable: number;
+  openPayableCount: number;
+  openReceivableCount: number;
+  settledCount: number;
+  firstSettledOn: string | null;
+  biggestOutName: string | null;
+  biggestOutAmount: number | null;
+  biggestInName: string | null;
+  biggestInAmount: number | null;
+}
+
+export interface ManagementDueReportMonthBarDto {
+  year: number;
+  month: number;
+  paid: number;
+  received: number;
+  net: number;
+  openPayable: number;
+  openReceivable: number;
+  settledCount: number;
+  openCount: number;
+}
+
+export interface ManagementDueReportDayDto {
+  date: string;
+  paid: number;
+  received: number;
+  net: number;
+  itemCount: number;
+}
+
+export interface ManagementDueReportRowDto {
+  itemId: number;
+  occurrenceId: number | null;
+  year: number;
+  month: number;
+  date: string;
+  side: ManagementDueSide;
+  counterparty: string;
+  recurring: boolean;
+  notes: string;
+  settled: boolean;
+  amount: number | null;
+  amountSource: string;
+}
+
+export interface ManagementDueReportWhoDto {
+  counterparty: string;
+  side: ManagementDueSide;
+  paid: number;
+  received: number;
+  openAmount: number;
+  count: number;
+  lastDate: string | null;
+}
+
+export interface ManagementDueReportDto {
+  year: number;
+  month: number;
+  lifetime: ManagementDueReportPeriodDto;
+  yearTotals: ManagementDueReportPeriodDto;
+  monthTotals: ManagementDueReportPeriodDto;
+  months: ManagementDueReportMonthBarDto[];
+  days: ManagementDueReportDayDto[];
+  rows: ManagementDueReportRowDto[];
+  who: ManagementDueReportWhoDto[];
+}
+
 export type ManagementSubscriptionStatus = 'ACTIVE' | 'TRIAL' | 'CANCELLED' | 'EXPIRED';
 export type ManagementSubscriptionBillingCycle = 'WEEKLY' | 'MONTHLY' | 'ANNUAL' | 'OTHER';
 

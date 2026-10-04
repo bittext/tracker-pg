@@ -1,0 +1,16 @@
+meta {
+  name: Due Reports
+  type: http
+  seq: 15
+}
+
+get {
+  url: {{baseUrl}}/api/management/due/reports
+  body: none
+  auth: inherit
+}
+
+params:query {
+  year: 2026
+  month: 10
+}

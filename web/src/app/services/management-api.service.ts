@@ -38,6 +38,7 @@ import {
   ManagementWorkLogEntryWriteBody,
   ManagementDueItemWriteBody,
   ManagementDueMonthDto,
+  ManagementDueReportDto,
   ManagementDueSettleBody,
   ManagementAutoPaymentDto,
   ManagementAutoPaymentWriteBody,
@@ -565,6 +566,12 @@ export class ManagementApiService {
 
   dueMonth(year: number, month: number) {
     return this.http.get<ManagementDueMonthDto>(`${this.root}/due/month`, {
+      params: { year: String(year), month: String(month) },
+    });
+  }
+
+  dueReports(year: number, month: number) {
+    return this.http.get<ManagementDueReportDto>(`${this.root}/due/reports`, {
       params: { year: String(year), month: String(month) },
     });
   }

@@ -11,6 +11,7 @@ import com.svp.tracker.management.domain.ManagementDueSide;
 import com.svp.tracker.management.dto.ManagementDueItemWriteRequest;
 import com.svp.tracker.management.dto.ManagementDueMonthDto;
 import com.svp.tracker.management.dto.ManagementDueOccurrenceDto;
+import com.svp.tracker.management.dto.ManagementDueReportDto;
 import com.svp.tracker.management.dto.ManagementDueSettleRequest;
 import com.svp.tracker.management.dto.ManagementDueSuggestionDto;
 import com.svp.tracker.management.repository.ManagementDueItemRepository;
@@ -24,6 +25,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -120,6 +122,75 @@ public class ManagementDueService {
                 yearTotals.received.subtract(yearTotals.paid),
                 days,
                 suggestions(items, history, ym));
+    }
+
+    @Transactional(readOnly = true)
+    public ManagementDueReportDto reports(int year, int month) {
+        requireYearMonth(year, month);
+        long owner = currentUser.requireUserId();
+        List<ManagementDueItem> items = activeItems(owner);
+        List<ManagementDueOccurrence> allOcc = occurrenceRepository.findByOwnerWithItem(owner);
+        History history = loadHistory(owner);
+        YearMonth today = YearMonth.from(todayInOwnerZone());
+
+        Map<String, ManagementDueOccurrence> occByItemYm = new HashMap<>();
+        for (ManagementDueOccurrence occ : allOcc) {
+            if (occ.getItem() != null && occ.getItem().getId() != null) {
+                occByItemYm.put(occKey(occ.getItem().getId(), occ.getYear(), occ.getMonth()), occ);
+            }
+        }
+
+        List<ManagementDueReportDto.Row> rows = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        for (int m = 1; m <= 12; m++) {
+            YearMonth ym = YearMonth.of(year, m);
+            for (ManagementDueItem item : items) {
+                if (!ManagementDueCalendarSupport.appearsInMonth(
+                        item.isRecurring(),
+                        item.getStartsOn(),
+                        item.getOneOffDate(),
+                        ym,
+                        today)) {
+                    continue;
+                }
+                LocalDate date = occurrenceOn(item, year, m);
+                if (date == null || !YearMonth.from(date).equals(ym)) {
+                    continue;
+                }
+                String key = occKey(item.getId(), year, m);
+                ManagementDueOccurrence occ = occByItemYm.get(key);
+                rows.add(toReportRow(toOccurrenceDto(item, date, occ, history), year, m));
+                seen.add(key);
+            }
+        }
+        for (ManagementDueOccurrence occ : allOcc) {
+            if (!occ.isSettled() || occ.getItem() == null || occ.getItem().getId() == null) {
+                continue;
+            }
+            ManagementDueItem item = occ.getItem();
+            String key = occKey(item.getId(), occ.getYear(), occ.getMonth());
+            if (!seen.add(key)) {
+                continue;
+            }
+            LocalDate date = occurrenceOn(item, occ.getYear(), occ.getMonth());
+            if (date == null) {
+                date = YearMonth.of(occ.getYear(), occ.getMonth()).atDay(1);
+            }
+            rows.add(new ManagementDueReportDto.Row(
+                    item.getId(),
+                    occ.getId(),
+                    occ.getYear(),
+                    occ.getMonth(),
+                    date,
+                    item.getSide() == null ? "PAYABLE" : item.getSide().name(),
+                    item.getCounterparty() == null ? "" : item.getCounterparty(),
+                    item.isRecurring(),
+                    item.getNotes() == null ? "" : item.getNotes(),
+                    true,
+                    occ.getSettledAmount(),
+                    "settled"));
+        }
+        return ManagementDueReportSupport.build(year, month, rows);
     }
 
     @Transactional
@@ -379,6 +450,26 @@ public class ManagementDueService {
         item.setActive(false);
         item.setUpdatedAt(now);
         itemRepository.save(item);
+    }
+
+    private static ManagementDueReportDto.Row toReportRow(ManagementDueOccurrenceDto dto, int year, int month) {
+        return new ManagementDueReportDto.Row(
+                dto.itemId(),
+                dto.occurrenceId(),
+                year,
+                month,
+                dto.occurrenceDate(),
+                dto.side(),
+                dto.counterparty(),
+                dto.recurring(),
+                dto.notes() == null ? "" : dto.notes(),
+                dto.settled(),
+                dto.displayAmount(),
+                dto.amountSource());
+    }
+
+    private static String occKey(long itemId, int year, int month) {
+        return itemId + ":" + year + ":" + month;
     }
 
     private static LocalDate occurrenceOn(ManagementDueItem item, int year, int month) {

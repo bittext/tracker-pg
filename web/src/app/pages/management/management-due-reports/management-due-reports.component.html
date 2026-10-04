@@ -1,0 +1,238 @@
+<section class="rpt" aria-labelledby="due-reports-heading">
+  <h2 id="due-reports-heading" class="subsection-title">Reports</h2>
+  <p class="muted rpt-intro">
+    Same payables and receivables as the calendar. Settled amounts are what actually moved. Open rows are still due.
+    Search and the chips filter every view.
+  </p>
+
+  <div class="rpt-toolbar">
+    <mat-form-field appearance="outline" class="rpt-search">
+      <mat-label>Search business or notes</mat-label>
+      <input matInput name="dueReportQ" [(ngModel)]="query" autocomplete="off" />
+      <mat-icon matPrefix>search</mat-icon>
+    </mat-form-field>
+    <mat-button-toggle-group [(ngModel)]="scope" name="dueReportScope" aria-label="Range">
+      <mat-button-toggle value="month">Month</mat-button-toggle>
+      <mat-button-toggle value="year">Year</mat-button-toggle>
+      <mat-button-toggle value="lifetime">Till date</mat-button-toggle>
+    </mat-button-toggle-group>
+    <mat-button-toggle-group [(ngModel)]="view" name="dueReportView" aria-label="Report format">
+      <mat-button-toggle value="summary">Summary</mat-button-toggle>
+      <mat-button-toggle value="tree">Tree</mat-button-toggle>
+      <mat-button-toggle value="calendar">Calendar</mat-button-toggle>
+      <mat-button-toggle value="who">Who</mat-button-toggle>
+    </mat-button-toggle-group>
+  </div>
+
+  <div class="rpt-chips" role="group" aria-label="Types">
+    <button type="button" class="rpt-chip" [class.rpt-chip--on]="sideFilter === 'PAYABLE'" (click)="sideFilter = sideFilter === 'PAYABLE' ? '' : 'PAYABLE'">
+      Paid
+    </button>
+    <button type="button" class="rpt-chip rpt-chip--in" [class.rpt-chip--on]="sideFilter === 'RECEIVABLE'" (click)="sideFilter = sideFilter === 'RECEIVABLE' ? '' : 'RECEIVABLE'">
+      Received
+    </button>
+    <button type="button" class="rpt-chip" [class.rpt-chip--on]="statusFilter === 'settled'" (click)="statusFilter = statusFilter === 'settled' ? '' : 'settled'">
+      Settled
+    </button>
+    <button type="button" class="rpt-chip" [class.rpt-chip--on]="statusFilter === 'open'" (click)="statusFilter = statusFilter === 'open' ? '' : 'open'">
+      Open
+    </button>
+    <button type="button" class="rpt-chip" [class.rpt-chip--on]="cadenceFilter === 'recurring'" (click)="cadenceFilter = cadenceFilter === 'recurring' ? '' : 'recurring'">
+      Recurring
+    </button>
+    <button type="button" class="rpt-chip" [class.rpt-chip--on]="cadenceFilter === 'once'" (click)="cadenceFilter = cadenceFilter === 'once' ? '' : 'once'">
+      One-time
+    </button>
+    @if (hasFilters) {
+      <button type="button" class="rpt-chip rpt-chip--clear" (click)="clearFilters()">Clear</button>
+    }
+  </div>
+
+  @if (loading && !report) {
+    <p class="muted">Loading reports…</p>
+  } @else {
+    @if (view === 'summary') {
+      <p class="rpt-sentence">{{ summarySentence }}</p>
+      <div class="rpt-stats" aria-label="Paid and received totals">
+        <div class="rpt-stat">
+          <span class="rpt-stat-label">{{ scopeLabel }} paid</span>
+          <strong class="rpt-stat-value due-out">{{ money(period.paid) }}</strong>
+        </div>
+        <div class="rpt-stat">
+          <span class="rpt-stat-label">Received</span>
+          <strong class="rpt-stat-value due-in">{{ money(period.received) }}</strong>
+        </div>
+        <div class="rpt-stat">
+          <span class="rpt-stat-label">Net</span>
+          <strong class="rpt-stat-value">{{ signed(period.net) }}</strong>
+        </div>
+        <div class="rpt-stat">
+          <span class="rpt-stat-label">Still open</span>
+          <strong class="rpt-stat-value">{{ period.openPayableCount + period.openReceivableCount }}</strong>
+          <span class="rpt-stat-sub">
+            <span class="due-out">{{ money(period.openPayable) }}</span>
+            ·
+            <span class="due-in">{{ money(period.openReceivable) }}</span>
+          </span>
+        </div>
+      </div>
+      <div class="rpt-strip" aria-label="{{ year }} settled by month">
+        @for (bar of monthBars; track bar.month) {
+          <div class="rpt-strip-col" [class.rpt-strip-col--current]="bar.current">
+            <div class="rpt-strip-bars">
+              <span class="rpt-strip-bar rpt-strip-bar--in" [style.height.%]="bar.receivedPct" [title]="'Received ' + money(bar.received)"></span>
+              <span class="rpt-strip-bar rpt-strip-bar--out" [style.height.%]="bar.paidPct" [title]="'Paid ' + money(bar.paid)"></span>
+            </div>
+            <span class="rpt-strip-label">{{ bar.label }}</span>
+          </div>
+        }
+      </div>
+    }
+
+    @if (view === 'tree') {
+      <div class="rpt-tree-toolbar">
+        <mat-button-toggle-group [(ngModel)]="treeMode" name="dueReportTree" aria-label="Tree grouping">
+          <mat-button-toggle value="type">By type</mat-button-toggle>
+          <mat-button-toggle value="time">By time</mat-button-toggle>
+        </mat-button-toggle-group>
+      </div>
+      @if (!tree.length) {
+        <p class="muted">No rows in this tree.</p>
+      } @else {
+        <ul class="rpt-tree">
+          @for (node of tree; track node.key) {
+            <li>
+              <details class="rpt-node" open>
+                <summary>
+                  <span [class.due-out]="node.tone === 'out'" [class.due-in]="node.tone === 'in'">{{ node.label }}</span>
+                  <span class="rpt-node-meta">{{ node.count }} · {{ signed(node.amount) }}</span>
+                </summary>
+                @if (node.children.length) {
+                  <ul>
+                    @for (child of node.children; track child.key) {
+                      <li>
+                        <details class="rpt-node" open>
+                          <summary>
+                            <span [class.due-out]="child.tone === 'out'" [class.due-in]="child.tone === 'in'">{{ child.label }}</span>
+                            <span class="rpt-node-meta">{{ child.count }} · {{ signed(child.amount) }}</span>
+                          </summary>
+                          <ul class="rpt-leaves">
+                            @for (leaf of child.leaves; track leaf.name + leaf.date) {
+                              <li>
+                                <button type="button" class="rpt-leaf" (click)="openLeaf(leaf)">
+                                  <span [class.due-out]="leaf.side === 'PAYABLE'" [class.due-in]="leaf.side === 'RECEIVABLE'" [class.rpt-leaf--settled]="leaf.settled">
+                                    {{ leaf.name }}
+                                  </span>
+                                  <span>{{ signed(leaf.amount) }}</span>
+                                </button>
+                              </li>
+                            }
+                          </ul>
+                        </details>
+                      </li>
+                    }
+                  </ul>
+                } @else {
+                  <ul class="rpt-leaves">
+                    @for (leaf of node.leaves; track leaf.name + leaf.date) {
+                      <li>
+                        <button type="button" class="rpt-leaf" (click)="openLeaf(leaf)">
+                          <span [class.due-out]="leaf.side === 'PAYABLE'" [class.due-in]="leaf.side === 'RECEIVABLE'" [class.rpt-leaf--settled]="leaf.settled">
+                            {{ leaf.name }}
+                          </span>
+                          <span>{{ signed(leaf.amount) }}</span>
+                        </button>
+                      </li>
+                    }
+                  </ul>
+                }
+              </details>
+            </li>
+          }
+        </ul>
+      }
+    }
+
+    @if (view === 'calendar') {
+      <p class="muted rpt-cal-note">{{ year }} — green days brought money in, red days went out. Click a day to open it above.</p>
+      <div class="rpt-year">
+        @for (cal of heatMonths; track cal.month) {
+          <section class="rpt-mini" [class.rpt-mini--current]="cal.month === month">
+            <h3>{{ cal.title }}</h3>
+            <div class="rpt-mini-weekdays">
+              @for (wd of weekDays; track $index) {
+                <span>{{ wd }}</span>
+              }
+            </div>
+            @for (week of cal.weeks; track $index) {
+              <div class="rpt-mini-week">
+                @for (cell of week; track cell.iso || $index) {
+                  @if (cell.type === 'pad') {
+                    <span class="rpt-heat-pad"></span>
+                  } @else if (cell.count) {
+                    <button
+                      type="button"
+                      class="rpt-heat-day"
+                      [ngClass]="heatTone(cell)"
+                      [title]="cell.iso + ' net ' + signed(cell.net)"
+                      (click)="openDay(cell.iso)"
+                    >
+                      {{ cell.label }}
+                    </button>
+                  } @else {
+                    <span class="rpt-heat-day rpt-heat-day--empty">{{ cell.label }}</span>
+                  }
+                }
+              </div>
+            }
+          </section>
+        }
+      </div>
+    }
+
+    @if (view === 'who') {
+      <div class="rpt-who">
+        <section>
+          <h3 class="due-out">Who you paid</h3>
+          @if (!whoPaid.length) {
+            <p class="muted">No payables in this view.</p>
+          } @else {
+            <ul>
+              @for (row of whoPaid; track row.counterparty) {
+                <li>
+                  <button type="button" class="rpt-who-row" (click)="openDay(row.lastDate || undefined)">
+                    <span>
+                      <strong>{{ row.counterparty }}</strong>
+                      <span class="rpt-who-meta">{{ row.count }} · {{ whoShare(row, 'PAYABLE') }}</span>
+                    </span>
+                    <span class="due-out">{{ money(row.paid + row.openAmount) }}</span>
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </section>
+        <section>
+          <h3 class="due-in">Who paid you</h3>
+          @if (!whoReceived.length) {
+            <p class="muted">No receivables in this view.</p>
+          } @else {
+            <ul>
+              @for (row of whoReceived; track row.counterparty) {
+                <li>
+                  <button type="button" class="rpt-who-row" (click)="openDay(row.lastDate || undefined)">
+                    <span>
+                      <strong>{{ row.counterparty }}</strong>
+                      <span class="rpt-who-meta">{{ row.count }} · {{ whoShare(row, 'RECEIVABLE') }}</span>
+                    </span>
+                    <span class="due-in">{{ money(row.received + row.openAmount) }}</span>
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </section>
+      </div>
+    }
+  }
+</section>

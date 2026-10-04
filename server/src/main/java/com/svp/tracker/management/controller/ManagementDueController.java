@@ -2,6 +2,7 @@ package com.svp.tracker.management.controller;
 
 import com.svp.tracker.management.dto.ManagementDueItemWriteRequest;
 import com.svp.tracker.management.dto.ManagementDueMonthDto;
+import com.svp.tracker.management.dto.ManagementDueReportDto;
 import com.svp.tracker.management.dto.ManagementDueSettleRequest;
 import com.svp.tracker.management.service.ManagementDueService;
 import jakarta.validation.Valid;
@@ -28,6 +29,11 @@ public class ManagementDueController {
     @GetMapping("/month")
     public ManagementDueMonthDto month(@RequestParam int year, @RequestParam int month) {
         return service.month(year, month);
+    }
+
+    @GetMapping("/reports")
+    public ManagementDueReportDto reports(@RequestParam int year, @RequestParam int month) {
+        return service.reports(year, month);
     }
 
     @PostMapping("/clear-later")
