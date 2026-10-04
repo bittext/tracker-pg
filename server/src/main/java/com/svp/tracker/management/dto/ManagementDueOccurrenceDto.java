@@ -18,4 +18,7 @@ public record ManagementDueOccurrenceDto(
         String amountSource,
         String notes,
         boolean settled,
-        BigDecimal settledAmount) {}
+        BigDecimal settledAmount,
+        Long categoryId,
+        String category,
+        Integer categorySort) {}

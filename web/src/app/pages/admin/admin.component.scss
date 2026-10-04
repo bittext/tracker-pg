@@ -279,6 +279,15 @@
   }
 }
 
+td input[name^='dueCatEdit'] {
+  width: min(100%, 22rem);
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.16));
+  border-radius: 8px;
+  background: var(--app-surface, #fff);
+  font: inherit;
+}
+
 .github-env-hint {
   margin: 0.35rem 0 0.65rem;
   padding: 0.65rem 0.85rem;

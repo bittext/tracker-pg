@@ -36,6 +36,7 @@ import {
   ManagementWorkLogCalendarDto,
   ManagementWorkLogEntryDto,
   ManagementWorkLogEntryWriteBody,
+  ManagementDueCategoryDto,
   ManagementDueItemWriteBody,
   ManagementDueMonthDto,
   ManagementDueReportDto,
@@ -561,6 +562,28 @@ export class ManagementApiService {
     return this.http.post<ManagementRecordingDetailDto>(`${this.recordingsRoot}/summarize`, {
       path,
       force,
+    });
+  }
+
+  listDueCategories() {
+    return this.http.get<ManagementDueCategoryDto[]>(`${this.root}/due/categories`);
+  }
+
+  createDueCategory(name: string) {
+    return this.http.post<ManagementDueCategoryDto>(`${this.root}/due/categories`, { name });
+  }
+
+  renameDueCategory(id: number, name: string) {
+    return this.http.put<ManagementDueCategoryDto>(`${this.root}/due/categories/${id}`, { name });
+  }
+
+  deleteDueCategory(id: number) {
+    return this.http.delete<void>(`${this.root}/due/categories/${id}`);
+  }
+
+  moveDueCategory(id: number, direction: 'up' | 'down') {
+    return this.http.post<ManagementDueCategoryDto[]>(`${this.root}/due/categories/${id}/move`, null, {
+      params: { direction },
     });
   }
 

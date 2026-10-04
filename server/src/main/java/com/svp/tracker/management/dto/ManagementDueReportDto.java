@@ -56,7 +56,8 @@ public record ManagementDueReportDto(
             String notes,
             boolean settled,
             BigDecimal amount,
-            String amountSource) {}
+            String amountSource,
+            String category) {}
 
     public record Who(
             String counterparty,

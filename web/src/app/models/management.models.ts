@@ -399,6 +399,12 @@ export interface ManagementRecordingReprocessDto {
   clearedCount: number;
 }
 
+export interface ManagementDueCategoryDto {
+  id: number;
+  name: string;
+  sortOrder: number;
+}
+
 export type ManagementDueSide = 'PAYABLE' | 'RECEIVABLE';
 
 export interface ManagementDueOccurrenceDto {
@@ -417,6 +423,9 @@ export interface ManagementDueOccurrenceDto {
   notes: string;
   settled: boolean;
   settledAmount: number | null;
+  categoryId: number | null;
+  category: string | null;
+  categorySort: number | null;
 }
 
 export type ManagementDueSuggestionKind = 'MONTHLY' | 'BIG_DEBIT' | string;
@@ -463,6 +472,7 @@ export interface ManagementDueItemWriteBody {
   notes?: string | null;
   startYear?: number | null;
   startMonth?: number | null;
+  categoryId?: number | null;
 }
 
 export interface ManagementDueSettleBody {
@@ -521,6 +531,7 @@ export interface ManagementDueReportRowDto {
   settled: boolean;
   amount: number | null;
   amountSource: string;
+  category: string | null;
 }
 
 export interface ManagementDueReportWhoDto {

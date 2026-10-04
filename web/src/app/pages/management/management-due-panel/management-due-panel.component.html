@@ -108,6 +108,9 @@
                                 [class.cal-chip--settled]="item.settled"
                                 [class.cal-chip--open]="!item.settled"
                               >
+                                @if (item.category) {
+                                  <span class="cal-chip-cat">{{ item.category }}</span>
+                                }
                                 <span class="cal-chip-name">{{ item.counterparty }}</span>
                                 <span class="cal-chip-amt">{{ calendarAmount(item) }}</span>
                               </span>
@@ -161,6 +164,9 @@
                       <strong>{{ row.counterparty }}</strong>
                       <span class="due-row-meta">
                         {{ row.side === 'PAYABLE' ? 'Payable' : 'Receivable' }}
+                        @if (row.category) {
+                          · {{ row.category }}
+                        }
                         ·
                         {{ row.recurring ? 'Recurring' : 'This month only' }}
                         ·
@@ -205,6 +211,15 @@
                   <mat-select [(ngModel)]="draft.side" name="dueSide">
                     <mat-option value="PAYABLE">Payable — I owe</mat-option>
                     <mat-option value="RECEIVABLE">Receivable — owed to me</mat-option>
+                  </mat-select>
+                </mat-form-field>
+                <mat-form-field appearance="outline">
+                  <mat-label>Subcategory</mat-label>
+                  <mat-select [(ngModel)]="draft.categoryId" name="dueCat">
+                    <mat-option [value]="null">None</mat-option>
+                    @for (cat of dueCategories; track cat.id) {
+                      <mat-option [value]="cat.id">{{ cat.name }}</mat-option>
+                    }
                   </mat-select>
                 </mat-form-field>
                 <mat-form-field appearance="outline">

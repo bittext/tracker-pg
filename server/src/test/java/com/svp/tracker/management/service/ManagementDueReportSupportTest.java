@@ -84,7 +84,8 @@ class ManagementDueReportSupportTest {
                 "",
                 settled,
                 money(amount),
-                settled ? "settled" : "override");
+                settled ? "settled" : "override",
+                "");
     }
 
     private static BigDecimal money(String raw) {

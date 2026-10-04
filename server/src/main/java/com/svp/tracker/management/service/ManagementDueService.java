@@ -5,6 +5,7 @@ import com.svp.tracker.finance.domain.BankingTransaction;
 import com.svp.tracker.finance.repository.BankingTransactionRepository;
 import com.svp.tracker.fitness.exception.NotFoundException;
 import com.svp.tracker.management.domain.ManagementDesk;
+import com.svp.tracker.management.domain.ManagementDueCategory;
 import com.svp.tracker.management.domain.ManagementDueItem;
 import com.svp.tracker.management.domain.ManagementDueOccurrence;
 import com.svp.tracker.management.domain.ManagementDueSide;
@@ -14,6 +15,7 @@ import com.svp.tracker.management.dto.ManagementDueOccurrenceDto;
 import com.svp.tracker.management.dto.ManagementDueReportDto;
 import com.svp.tracker.management.dto.ManagementDueSettleRequest;
 import com.svp.tracker.management.dto.ManagementDueSuggestionDto;
+import com.svp.tracker.management.repository.ManagementDueCategoryRepository;
 import com.svp.tracker.management.repository.ManagementDueItemRepository;
 import com.svp.tracker.management.repository.ManagementDueOccurrenceRepository;
 import java.math.BigDecimal;
@@ -45,6 +47,7 @@ public class ManagementDueService {
 
     private final ManagementDueItemRepository itemRepository;
     private final ManagementDueOccurrenceRepository occurrenceRepository;
+    private final ManagementDueCategoryRepository categoryRepository;
     private final BankingTransactionRepository bankingTransactionRepository;
     private final CurrentUserService currentUser;
 
@@ -55,6 +58,7 @@ public class ManagementDueService {
         List<ManagementDueItem> items = activeItems(owner);
         List<ManagementDueOccurrence> yearOcc = occurrenceRepository.findByOwnerAndYearWithItem(owner, year);
         History history = loadHistory(owner);
+        Map<Long, ManagementDueCategory> categories = categoriesFor(owner);
 
         Map<Long, ManagementDueOccurrence> occByItem = new HashMap<>();
         for (ManagementDueOccurrence occ : yearOcc) {
@@ -82,13 +86,17 @@ public class ManagementDueService {
                 continue;
             }
             ManagementDueOccurrence occ = occByItem.get(item.getId());
-            byDay.computeIfAbsent(date, ignored -> new ArrayList<>()).add(toOccurrenceDto(item, date, occ, history));
+            byDay.computeIfAbsent(date, ignored -> new ArrayList<>())
+                    .add(toOccurrenceDto(item, date, occ, history, categories));
         }
 
         List<ManagementDueMonthDto.Day> days = new ArrayList<>();
         for (Map.Entry<LocalDate, List<ManagementDueOccurrenceDto>> entry : byDay.entrySet()) {
             List<ManagementDueOccurrenceDto> dayItems = entry.getValue();
-            dayItems.sort(Comparator.comparing(ManagementDueOccurrenceDto::side)
+            dayItems.sort(Comparator.comparingInt(
+                            (ManagementDueOccurrenceDto row) ->
+                                    row.categorySort() == null ? Integer.MIN_VALUE : row.categorySort())
+                    .reversed()
                     .thenComparing(ManagementDueOccurrenceDto::counterparty, String.CASE_INSENSITIVE_ORDER));
             int payableCount = 0;
             int receivableCount = 0;
@@ -131,6 +139,7 @@ public class ManagementDueService {
         List<ManagementDueItem> items = activeItems(owner);
         List<ManagementDueOccurrence> allOcc = occurrenceRepository.findByOwnerWithItem(owner);
         History history = loadHistory(owner);
+        Map<Long, ManagementDueCategory> categories = categoriesFor(owner);
         YearMonth today = YearMonth.from(todayInOwnerZone());
 
         Map<String, ManagementDueOccurrence> occByItemYm = new HashMap<>();
@@ -157,7 +166,7 @@ public class ManagementDueService {
                     continue;
                 }
                 ManagementDueOccurrence occ = occByItemYm.get(occKey(item.getId(), year, m));
-                rows.add(toReportRow(toOccurrenceDto(item, date, occ, history), year, m));
+                rows.add(toReportRow(toOccurrenceDto(item, date, occ, history, categories), year, m));
             }
         }
         return ManagementDueReportSupport.build(year, month, rows);
@@ -309,6 +318,7 @@ public class ManagementDueService {
         item.setRecurring(recurring);
         item.setAmountOverride(scale(req.amountOverride()));
         item.setNotes(req.notes() == null ? "" : req.notes().trim());
+        item.setCategoryId(resolveCategoryId(item.getOwnerUserId(), req.categoryId()));
         item.setActive(true);
         if (setStart) {
             if (req.startYear() != null && req.startMonth() != null) {
@@ -340,8 +350,32 @@ public class ManagementDueService {
         return YearMonth.of(year, month);
     }
 
+    private Long resolveCategoryId(Long ownerUserId, Long categoryId) {
+        if (categoryId == null) {
+            return null;
+        }
+        return categoryRepository
+                .findByIdAndOwnerUserId(categoryId, ownerUserId)
+                .map(ManagementDueCategory::getId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown subcategory"));
+    }
+
+    private Map<Long, ManagementDueCategory> categoriesFor(long owner) {
+        Map<Long, ManagementDueCategory> map = new HashMap<>();
+        for (ManagementDueCategory category : categoryRepository.findByOwnerUserIdOrderBySortOrderDescNameAsc(owner)) {
+            if (category.getId() != null) {
+                map.put(category.getId(), category);
+            }
+        }
+        return map;
+    }
+
     private ManagementDueOccurrenceDto toOccurrenceDto(
-            ManagementDueItem item, LocalDate date, ManagementDueOccurrence occ, History history) {
+            ManagementDueItem item,
+            LocalDate date,
+            ManagementDueOccurrence occ,
+            History history,
+            Map<Long, ManagementDueCategory> categories) {
         BigDecimal estimated = estimate(item, history);
         BigDecimal override = item.getAmountOverride();
         String source;
@@ -359,6 +393,8 @@ public class ManagementDueService {
             display = null;
             source = "none";
         }
+        ManagementDueCategory category =
+                item.getCategoryId() == null ? null : categories.get(item.getCategoryId());
         return new ManagementDueOccurrenceDto(
                 item.getId(),
                 occ == null ? null : occ.getId(),
@@ -374,7 +410,10 @@ public class ManagementDueService {
                 source,
                 item.getNotes(),
                 occ != null && occ.isSettled(),
-                occ == null ? null : occ.getSettledAmount());
+                occ == null ? null : occ.getSettledAmount(),
+                category == null ? null : category.getId(),
+                category == null ? null : category.getName(),
+                category == null ? null : category.getSortOrder());
     }
 
     private BigDecimal displayAmount(ManagementDueItem item, History history) {
@@ -438,7 +477,8 @@ public class ManagementDueService {
                 dto.notes() == null ? "" : dto.notes(),
                 dto.settled(),
                 dto.displayAmount(),
-                dto.amountSource());
+                dto.amountSource(),
+                dto.category() == null ? "" : dto.category());
     }
 
     private static String occKey(long itemId, int year, int month) {

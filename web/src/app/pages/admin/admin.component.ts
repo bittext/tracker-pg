@@ -23,6 +23,7 @@ import { JournalTagDefDto } from '../../models/journal.models';
 import {
   ManagementCalendarType,
   ManagementCalendarTypeWriteBody,
+  ManagementDueCategoryDto,
   ManagementNowCardType,
   ManagementNowCardTypeWriteBody,
   ManagementTaskCategory,
@@ -137,6 +138,10 @@ export class AdminComponent implements OnInit {
     colorHex: string;
     sortIndex: string;
   } = { slug: '', label: '', badge: '', colorHex: '#6366f1', sortIndex: '' };
+
+  dueCategories: ManagementDueCategoryDto[] = [];
+  dueCategoryColumns = ['dueCatName', 'dueCatActions'];
+  newDueCategoryName = '';
 
   calendarTypes: ManagementCalendarType[] = [];
   calendarTypeColumns = ['calCode', 'calLabel', 'calSort', 'calActions'];
@@ -435,6 +440,14 @@ export class AdminComponent implements OnInit {
       },
       error: (e) => this.err('Could not load Now card types', e),
     });
+    this.managementApi.listDueCategories().subscribe({
+      next: (rows) => {
+        this.dueCategories = [...rows].sort(
+          (a, b) => b.sortOrder - a.sortOrder || a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+        );
+      },
+      error: (e) => this.err('Could not load Due subcategories', e),
+    });
     this.managementApi.listCalendarTypes().subscribe({
       next: (rows) => {
         this.calendarTypes = [...rows].sort((a, b) => {
@@ -446,6 +459,61 @@ export class AdminComponent implements OnInit {
         });
       },
       error: (e) => this.err('Could not load calendar types', e),
+    });
+  }
+
+  addDueCategory(): void {
+    const name = (this.newDueCategoryName || '').trim();
+    if (!name) {
+      return;
+    }
+    this.managementApi.createDueCategory(name).subscribe({
+      next: () => {
+        this.newDueCategoryName = '';
+        this.reloadManagement();
+        this.snackBar.open('Subcategory added', undefined, { duration: 2500 });
+      },
+      error: (e) => this.err('Could not add subcategory', e),
+    });
+  }
+
+  renameDueCategory(row: ManagementDueCategoryDto, event: FocusEvent): void {
+    const input = event.target as HTMLInputElement | null;
+    const name = (input?.value || '').trim();
+    if (!name) {
+      if (input) {
+        input.value = row.name;
+      }
+      return;
+    }
+    if (name === row.name) {
+      return;
+    }
+    this.managementApi.renameDueCategory(row.id, name).subscribe({
+      next: () => {
+        this.reloadManagement();
+        this.snackBar.open('Subcategory renamed', undefined, { duration: 2500 });
+      },
+      error: (e) => this.err('Could not rename subcategory', e),
+    });
+  }
+
+  moveDueCategory(row: ManagementDueCategoryDto, direction: 'up' | 'down'): void {
+    this.managementApi.moveDueCategory(row.id, direction).subscribe({
+      next: (rows) => {
+        this.dueCategories = rows;
+      },
+      error: (e) => this.err('Could not reorder subcategory', e),
+    });
+  }
+
+  deleteDueCategory(row: ManagementDueCategoryDto): void {
+    this.managementApi.deleteDueCategory(row.id).subscribe({
+      next: () => {
+        this.reloadManagement();
+        this.snackBar.open(`Removed subcategory “${row.name}”`, undefined, { duration: 2500 });
+      },
+      error: (e) => this.err('Could not delete subcategory', e),
     });
   }
 

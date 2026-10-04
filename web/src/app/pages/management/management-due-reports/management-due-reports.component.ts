@@ -121,7 +121,7 @@ export class ManagementDueReportsComponent implements OnChanges {
       if (!q) {
         return true;
       }
-      return `${row.counterparty} ${row.notes}`.toLowerCase().includes(q);
+      return `${row.counterparty} ${row.category || ''} ${row.notes}`.toLowerCase().includes(q);
     });
   }
 
@@ -305,7 +305,8 @@ export class ManagementDueReportsComponent implements OnChanges {
       : iso;
     const cadence = row.recurring ? 'Recurring' : 'Once';
     const state = row.settled ? (row.side === 'PAYABLE' ? 'Paid' : 'Received') : 'Open';
-    return `${when} · ${cadence} · ${state}`;
+    const category = row.category ? `${row.category} · ` : '';
+    return `${when} · ${category}${cadence} · ${state}`;
   }
 
   private rowDate(row: ManagementDueReportRowDto): string {

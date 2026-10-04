@@ -12,6 +12,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { RobinhoodExecutedTradeDto } from '../../../models/finance.models';
 import {
+  ManagementDueCategoryDto,
   ManagementDueDayDto,
   ManagementDueItemWriteBody,
   ManagementDueReportRowDto,
@@ -76,6 +77,7 @@ export class ManagementDuePanelComponent implements OnInit {
   editingItemId: number | null = null;
   /** Off keeps the calendar as bills only. With bills adds sale days. Sales only hides bills. */
   salesView: SalesView = 'off';
+  dueCategories: ManagementDueCategoryDto[] = [];
   private salesByDate = new Map<string, ManagementDueOccurrenceDto>();
   /** Settled Robinhood (Sales) rows for the loaded year. Reports include these when sales are on. */
   salesReportRows: ManagementDueReportRowDto[] = [];
@@ -90,7 +92,19 @@ export class ManagementDuePanelComponent implements OnInit {
     const today = this.todayIso();
     this.selectedIso = today;
     this.rebuildCalendar();
+    this.loadCategories();
     this.refreshAll();
+  }
+
+  private loadCategories(): void {
+    this.api.listDueCategories().subscribe({
+      next: (rows) => {
+        this.dueCategories = [...rows].sort((a, b) => b.sortOrder - a.sortOrder || a.name.localeCompare(b.name));
+      },
+      error: () => {
+        this.dueCategories = [];
+      },
+    });
   }
 
   refreshAll(): void {
@@ -213,6 +227,7 @@ export class ManagementDuePanelComponent implements OnInit {
     this.draft = {
       side: row.side,
       counterparty: row.counterparty,
+      categoryId: row.categoryId,
       recurring: row.recurring,
       dayOfMonth: row.dayOfMonth ?? Number(row.occurrenceDate.slice(8, 10)),
       oneOffDate: row.oneOffDate ?? row.occurrenceDate,
@@ -243,6 +258,7 @@ export class ManagementDuePanelComponent implements OnInit {
       notes: this.draft.notes.trim(),
       startYear: this.year,
       startMonth: this.month,
+      categoryId: this.draft.categoryId,
     };
     this.saving = true;
     const wasUpdate = this.editingItemId != null;
@@ -273,6 +289,7 @@ export class ManagementDuePanelComponent implements OnInit {
     this.draft = {
       side: row.side,
       counterparty: row.counterparty,
+      categoryId: null,
       recurring: monthly,
       dayOfMonth: day,
       oneOffDate: oneOff,
@@ -516,6 +533,9 @@ export class ManagementDuePanelComponent implements OnInit {
         notes: row.symbols.length ? `Sold ${row.symbols.join(', ')}` : 'Sale',
         settled: true,
         settledAmount: amount,
+        categoryId: null,
+        category: null,
+        categorySort: null,
       });
     }
     return out;
@@ -567,6 +587,7 @@ export class ManagementDuePanelComponent implements OnInit {
         settled: true,
         amount: sale.displayAmount,
         amountSource: 'market-sale',
+        category: null,
       });
     }
     return rows;
@@ -640,6 +661,7 @@ export class ManagementDuePanelComponent implements OnInit {
     return {
       side: 'PAYABLE' as ManagementDueSide,
       counterparty: '',
+      categoryId: null as number | null,
       recurring: true,
       dayOfMonth: Number(iso.slice(8, 10)) || 1,
       oneOffDate: iso,

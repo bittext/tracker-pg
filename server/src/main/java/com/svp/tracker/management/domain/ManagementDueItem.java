@@ -42,6 +42,9 @@ public class ManagementDueItem {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String counterparty = "";
 
+    @Column(name = "category_id")
+    private Long categoryId;
+
     @Column(nullable = false)
     private boolean recurring;
 
