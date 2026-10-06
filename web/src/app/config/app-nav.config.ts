@@ -180,6 +180,15 @@ export const MARKETS_PRIMARY_NAV: NavEntry[] = [
     exact: true,
   },
   {
+    id: 'predict',
+    label: 'Predict',
+    path: '/markets/predict',
+    icon: 'thumbs_up_down',
+    shell: 'markets-primary',
+    exact: true,
+    ariaLabel: 'Robinhood Predict — event contracts, kept separate from Research Predicts',
+  },
+  {
     id: 'alerts',
     label: 'Alerts',
     path: '/markets/alerts',

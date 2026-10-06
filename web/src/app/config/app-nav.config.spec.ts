@@ -18,10 +18,10 @@ describe('app-nav.config', () => {
     expect(labels.length).toBe(9);
   });
 
-  it('Markets primary nav has 9 unique labels', () => {
+  it('Markets primary nav has 10 unique labels', () => {
     const labels = MARKETS_PRIMARY_NAV.map((e) => e.label);
     expect(new Set(labels).size).toBe(labels.length);
-    expect(labels.length).toBe(9);
+    expect(labels.length).toBe(10);
   });
 
   it('Insights tabs do not reuse Life primary labels except the Management report', () => {

@@ -19,6 +19,7 @@ import { LifeWorkComponent } from './pages/life-work/life-work.component';
 import { ManagementComponent } from './pages/management/management.component';
 import { MarketsOverviewComponent } from './pages/markets/markets-overview/markets-overview.component';
 import { MarketsJourneyComponent } from './pages/markets/markets-journey/markets-journey.component';
+import { MarketsPredictComponent } from './pages/markets/markets-predict/markets-predict.component';
 import { MarketsTradeInterestComponent } from './pages/markets/markets-trade-interest/markets-trade-interest.component';
 import { TrackerNotesComponent } from './pages/tracker-notes/tracker-notes.component';
 import { ReportsComponent } from './pages/reports/reports.component';
@@ -110,6 +111,7 @@ export const routes: Routes = [
         component: FinanceComponent,
         data: { workspace: 'trading', tradingSection: 'history' },
       },
+      { path: 'predict', component: MarketsPredictComponent },
       {
         path: 'alerts',
         component: FinanceComponent,

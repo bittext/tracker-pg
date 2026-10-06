@@ -136,6 +136,14 @@ public class AdminCronJobBuiltinCatalog {
                 "predicts.auto-seed",
                 3_600_000L,
                 90_000L));
+        jobs.add(fixedDelay(
+                "markets.rh-predict.sync",
+                "Robinhood Predict refresh",
+                "Pulls Robinhood Predict (event contract) closes and open mark. Separate from community Predicts.",
+                "Markets",
+                "markets.rh-predict.sync",
+                1_800_000L,
+                180_000L));
         return jobs;
     }
 

@@ -14,6 +14,7 @@ Endpoints
 - POST /v1/financials     → {access_token, symbol, limit?}
 - POST /v1/realized-pnl   → {access_token, start_date, end_date, suffixes?}
 - POST /v1/ytd-check      → {access_token, year, as_of?} Individual ••••3370 broker YTD
+- POST /v1/predict-markets → {access_token} Robinhood Predict event-contract closes
 - POST /v1/banking/sync   → {access_token, transaction_limit?}
 - POST /v1/banking/refresh-token → {refresh_token, client_id?}
 - POST /v1/crypto/sync     → {api_key, private_key_base64}
@@ -53,9 +54,15 @@ try:
 except ImportError:
     _run_ytd_check = None
 
+try:
+    from predict_markets_service import run_predict_markets as _run_predict_markets
+except ImportError:
+    _run_predict_markets = None
+
 run_financials: Callable[..., dict[str, Any]] | None = _run_financials
 run_realized_pnl: Callable[..., dict[str, Any]] | None = _run_realized_pnl
 run_ytd_check: Callable[..., dict[str, Any]] | None = _run_ytd_check
+run_predict_markets: Callable[..., dict[str, Any]] | None = _run_predict_markets
 
 LOGGER = logging.getLogger("robinhood-agent-svc")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s :: %(message)s")
@@ -65,6 +72,8 @@ if run_realized_pnl is None:
     LOGGER.error("realized_pnl_service missing; /v1/realized-pnl disabled, other endpoints stay up")
 if run_ytd_check is None:
     LOGGER.error("ytd_check_service missing; /v1/ytd-check disabled, other endpoints stay up")
+if run_predict_markets is None:
+    LOGGER.error("predict_markets_service missing; /v1/predict-markets disabled, other endpoints stay up")
 
 app = FastAPI(title="robinhood-agent-svc", version="2.0.0")
 
@@ -118,6 +127,10 @@ class YtdCheckRequest(BaseModel):
     access_token: str = Field(min_length=10)
     year: int = Field(ge=2000, le=2100)
     as_of: str | None = None
+
+
+class PredictMarketsRequest(BaseModel):
+    access_token: str = Field(min_length=10)
 
 
 class BankingSyncRequest(BaseModel):
@@ -291,6 +304,21 @@ def ytd_check(body: YtdCheckRequest) -> dict[str, Any]:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     except Exception as exc:  # noqa: BLE001
         LOGGER.exception("ytd-check failed")
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/v1/predict-markets")
+def predict_markets(body: PredictMarketsRequest) -> dict[str, Any]:
+    if run_predict_markets is None:
+        raise HTTPException(status_code=503, detail="predict_markets_service is not installed in this image")
+    try:
+        return run_predict_markets(body.access_token)
+    except PermissionError as exc:
+        raise HTTPException(status_code=401, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:  # noqa: BLE001
+        LOGGER.exception("predict-markets failed")
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 

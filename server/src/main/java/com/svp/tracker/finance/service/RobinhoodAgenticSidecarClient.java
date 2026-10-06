@@ -121,6 +121,17 @@ public class RobinhoodAgenticSidecarClient {
                 body);
     }
 
+    public JsonNode fetchPredictMarkets(String accessToken) {
+        requireConfigured();
+        ObjectNode body = objectMapper.createObjectNode();
+        body.put("access_token", accessToken);
+        return postToBase(
+                stripTrailingSlash(props.serviceBaseUrl()),
+                Math.min(300_000, Math.max(props.serviceTimeoutMs(), 180_000)),
+                "/v1/predict-markets",
+                body);
+    }
+
     public JsonNode fetchYtdCheck(String accessToken, int year, String asOf) {
         requireConfigured();
         ObjectNode body = objectMapper.createObjectNode();

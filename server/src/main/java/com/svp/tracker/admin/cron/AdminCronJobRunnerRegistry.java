@@ -16,6 +16,7 @@ import com.svp.tracker.finance.service.RobinhoodAgenticSyncScheduler;
 import com.svp.tracker.finance.service.RobinhoodRhCryptoAutoTradeScheduler;
 import com.svp.tracker.finance.service.RobinhoodRhCryptoSnapshotScheduler;
 import com.svp.tracker.finance.service.FinanceTaxDeskSnapshotScheduler;
+import com.svp.tracker.finance.service.RhPredictService;
 import com.svp.tracker.finance.service.RobinhoodRhDailySnapshotScheduler;
 import com.svp.tracker.finance.service.YahooBatchQuoteService;
 import java.util.Collection;
@@ -45,6 +46,7 @@ public class AdminCronJobRunnerRegistry {
             PredictsBaselineService predictsBaselineService,
             PredictsService predictsService,
             BankingPlaidService bankingPlaidService,
+            RhPredictService rhPredictService,
             RobinhoodRhDailyTrackerProperties rhDailyTrackerProps,
             RobinhoodRhCryptoTrackerProperties rhCryptoTrackerProps,
             RobinhoodRhCryptoAutoTradeProperties rhCryptoAutoTradeProps,
@@ -147,6 +149,12 @@ public class AdminCronJobRunnerRegistry {
                 "Saves Plaid balances each morning for institutions with daily sync turned on.",
                 "Finance",
                 bankingPlaidService::captureDailyBalances));
+        register(new AdminCronJobRunnerDefinition(
+                "markets.rh-predict.sync",
+                "Robinhood Predict refresh",
+                "Pulls Robinhood Predict (event contract) closes and open mark. Separate from community Predicts.",
+                "Markets",
+                rhPredictService::syncAllConnections));
     }
 
     private void register(AdminCronJobRunnerDefinition runner) {

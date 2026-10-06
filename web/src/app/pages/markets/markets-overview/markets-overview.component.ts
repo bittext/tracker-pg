@@ -53,6 +53,15 @@ import { MarketsRoadmapSummaryComponent } from '../markets-roadmap-summary/marke
           <a mat-stroked-button routerLink="/markets/analytics">View analytics</a>
         </mat-card-actions>
       </mat-card>
+      <mat-card appearance="outlined" class="kpi-card">
+        <mat-card-header>
+          <mat-card-title>Predict</mat-card-title>
+          <mat-card-subtitle>Robinhood event contracts, not community Predicts</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-actions>
+          <a mat-stroked-button routerLink="/markets/predict">Open Predict</a>
+        </mat-card-actions>
+      </mat-card>
     </div>
 
     <section class="markets-overview-panel" aria-labelledby="rh-track-heading">

@@ -100,6 +100,12 @@ public class RobinhoodAgenticTokenService {
         return withFreshToken(conn, token -> sidecarClient.fetchRealizedPnl(token, startDate, endDate, suffixes));
     }
 
+    /** Sidecar Robinhood Predict (event contracts) — same isolation as {@link #syncAllAccounts}. */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public JsonNode fetchPredictMarkets(RobinhoodAgenticConnection conn) {
+        return withFreshToken(conn, sidecarClient::fetchPredictMarkets);
+    }
+
     /** Sidecar Individual YTD check — same isolation as {@link #syncAllAccounts}. */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public JsonNode fetchYtdCheck(RobinhoodAgenticConnection conn, int year, String asOf) {
