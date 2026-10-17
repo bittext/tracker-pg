@@ -2,6 +2,7 @@ package com.svp.tracker.finance.service;
 
 import com.plaid.client.ApiClient;
 import com.plaid.client.model.AccountBase;
+import com.plaid.client.model.AccountType;
 import com.plaid.client.model.AccountsGetRequest;
 import com.plaid.client.model.AccountsGetResponse;
 import com.plaid.client.model.CountryCode;
@@ -594,6 +595,76 @@ public class BankingPlaidService {
      */
     private List<Transaction> fetchAllTransactions(
             String accessToken, LocalDate start, LocalDate end, List<String> accountIds) {
+        List<String> filter = accountIds == null
+                ? List.of()
+                : accountIds.stream().filter(s -> s != null && !s.isBlank()).map(String::trim).toList();
+        if (filter.size() == 1) {
+            String accountId = filter.get(0);
+            AccountBase account = findAuthorizedPlaidAccount(accessToken, accountId);
+            if (account != null && transactionsProductUnsupported(account)) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "Plaid does not include bank transactions for this "
+                                + account.getType().name().toLowerCase(Locale.ROOT)
+                                + " account. Daily balances can still be saved.");
+            }
+            if (account == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "This institution's saved Plaid account is no longer on the connection. "
+                                + "Use Reconnect bank login and leave the account selected.");
+            }
+        }
+        try {
+            return fetchAllTransactionsRetryingMutation(accessToken, start, end, filter);
+        } catch (ResponseStatusException e) {
+            if (!isInvalidAccountId(e) || filter.size() != 1) {
+                throw e;
+            }
+            log.info("Plaid rejected the account filter on transactions/sync; reading all accounts and keeping this one");
+            return keepAccount(fetchAllTransactionsRetryingMutation(accessToken, start, end, List.of()), filter.get(0));
+        }
+    }
+
+    /** Drops other accounts on a shared Item so they are not imported into this institution. */
+    private static List<Transaction> keepAccount(List<Transaction> all, String accountId) {
+        List<Transaction> matched = new ArrayList<>();
+        for (Transaction t : all) {
+            if (accountId.equals(t.getAccountId())) {
+                matched.add(t);
+            }
+        }
+        if (!matched.isEmpty() || all.isEmpty()) {
+            return matched;
+        }
+        throw new ResponseStatusException(
+                HttpStatus.CONFLICT,
+                "Plaid does not have permission to read transactions for this account. "
+                        + "Use Reconnect bank login and leave the account selected.");
+    }
+
+    private static boolean transactionsProductUnsupported(AccountBase account) {
+        AccountType type = account.getType();
+        return type == AccountType.INVESTMENT || type == AccountType.BROKERAGE;
+    }
+
+    private AccountBase findAuthorizedPlaidAccount(String accessToken, String accountId) {
+        AccountsGetRequest request = new AccountsGetRequest()
+                .clientId(plaidProps.clientId())
+                .secret(plaidProps.secret())
+                .accessToken(accessToken);
+        AccountsGetResponse response = execute(plaidApi().accountsGet(request));
+        List<AccountBase> accounts = response.getAccounts() == null ? List.of() : response.getAccounts();
+        for (AccountBase account : accounts) {
+            if (accountId.equals(plaidAccountIdOrNull(account))) {
+                return account;
+            }
+        }
+        return null;
+    }
+
+    private List<Transaction> fetchAllTransactionsRetryingMutation(
+            String accessToken, LocalDate start, LocalDate end, List<String> accountIds) {
         for (int attempt = 0; ; attempt++) {
             try {
                 return fetchAllTransactionsOnce(accessToken, start, end, accountIds);
@@ -749,6 +820,11 @@ public class BankingPlaidService {
         return reason != null && reason.contains("TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION");
     }
 
+    private static boolean isInvalidAccountId(ResponseStatusException e) {
+        String reason = e.getReason();
+        return reason != null && reason.contains("INVALID_ACCOUNT_ID");
+    }
+
     private static <T> T execute(retrofit2.Call<T> call) {
         try {
             Response<T> resp = call.execute();
@@ -774,6 +850,12 @@ public class BankingPlaidService {
                             HttpStatus.CONFLICT,
                             "Plaid updated transactions while this sync was reading them. "
                                     + "Run Sync from Plaid again. TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION");
+                }
+                if (err.contains("INVALID_ACCOUNT_ID")) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Plaid does not have permission to read transactions for this account. "
+                                    + "Use Reconnect bank login and leave the account selected. INVALID_ACCOUNT_ID");
                 }
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Plaid API error: " + err);
             }
