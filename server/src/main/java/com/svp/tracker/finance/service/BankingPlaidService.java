@@ -83,6 +83,8 @@ public class BankingPlaidService {
     /** Plaid allows up to 730 days on the first /transactions/sync for an Item. */
     private static final int PLAID_SYNC_MAX_DAYS = 730;
     private static final int PLAID_SYNC_MAX_PAGES = 200;
+    /** Plaid asks callers to restart /transactions/sync from the last stored cursor when data changes mid-page. */
+    private static final int PLAID_SYNC_MUTATION_RETRIES = 3;
     private static final DateTimeFormatter FILE_TS = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss", Locale.ROOT);
     private static final ZoneId CHICAGO = ZoneId.of("America/Chicago");
     private static final LocalDate OPENING_START = LocalDate.of(2026, 9, 1);
@@ -586,8 +588,34 @@ public class BankingPlaidService {
     /**
      * Uses Plaid's recommended {@code /transactions/sync} endpoint (with date filter client-side). Legacy
      * {@code /transactions/get} often returns empty for newly linked Items or misses history without {@code days_requested}.
+     *
+     * <p>This app does not store a sync cursor, so each run starts at the beginning. If Plaid mutates transactions
+     * while pages are in flight, the partial pages are discarded and the read starts over.
      */
     private List<Transaction> fetchAllTransactions(
+            String accessToken, LocalDate start, LocalDate end, List<String> accountIds) {
+        for (int attempt = 0; ; attempt++) {
+            try {
+                return fetchAllTransactionsOnce(accessToken, start, end, accountIds);
+            } catch (ResponseStatusException e) {
+                if (!isTransactionsSyncMutation(e) || attempt >= PLAID_SYNC_MUTATION_RETRIES) {
+                    throw e;
+                }
+                log.info(
+                        "Plaid transactions/sync changed during pagination; restarting from the beginning (attempt {}/{})",
+                        attempt + 1,
+                        PLAID_SYNC_MUTATION_RETRIES);
+                try {
+                    Thread.sleep(500L * (attempt + 1));
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw e;
+                }
+            }
+        }
+    }
+
+    private List<Transaction> fetchAllTransactionsOnce(
             String accessToken, LocalDate start, LocalDate end, List<String> accountIds) {
         Map<String, Transaction> byId = new LinkedHashMap<>();
         String cursor = null;
@@ -716,6 +744,11 @@ public class BankingPlaidService {
         return reason != null && reason.contains("ITEM_LOGIN_REQUIRED");
     }
 
+    private static boolean isTransactionsSyncMutation(ResponseStatusException e) {
+        String reason = e.getReason();
+        return reason != null && reason.contains("TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION");
+    }
+
     private static <T> T execute(retrofit2.Call<T> call) {
         try {
             Response<T> resp = call.execute();
@@ -735,6 +768,12 @@ public class BankingPlaidService {
                             "Your bank login changed (credentials, MFA, or a required action). "
                                     + "Use Reconnect bank login to restore this Plaid connection, then sync again. "
                                     + "ITEM_LOGIN_REQUIRED");
+                }
+                if (err.contains("TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION")) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Plaid updated transactions while this sync was reading them. "
+                                    + "Run Sync from Plaid again. TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION");
                 }
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Plaid API error: " + err);
             }
