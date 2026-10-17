@@ -6,6 +6,10 @@ import com.plaid.client.model.AccountType;
 import com.plaid.client.model.AccountsGetRequest;
 import com.plaid.client.model.AccountsGetResponse;
 import com.plaid.client.model.CountryCode;
+import com.plaid.client.model.InvestmentTransaction;
+import com.plaid.client.model.InvestmentsTransactionsGetRequest;
+import com.plaid.client.model.InvestmentsTransactionsGetRequestOptions;
+import com.plaid.client.model.InvestmentsTransactionsGetResponse;
 import com.plaid.client.model.InstitutionsGetByIdRequest;
 import com.plaid.client.model.InstitutionsGetByIdResponse;
 import com.plaid.client.model.Item;
@@ -16,6 +20,7 @@ import com.plaid.client.model.LinkTokenCreateRequestUser;
 import com.plaid.client.model.LinkTokenCreateResponse;
 import com.plaid.client.model.LinkTokenTransactions;
 import com.plaid.client.model.Products;
+import com.plaid.client.model.Security;
 import com.plaid.client.model.Transaction;
 import com.plaid.client.model.TransactionsSyncRequest;
 import com.plaid.client.model.TransactionsSyncRequestOptions;
@@ -345,7 +350,11 @@ public class BankingPlaidService {
         if (updateMode) {
             // Update mode repairs ITEM_LOGIN_REQUIRED on the existing Item. The stored access_token stays valid
             // after the user finishes Link, so the public_token must not be exchanged.
-            req.accessToken(requirePlainAccessToken(existing.get()));
+            BankingPlaidItem linked = existing.get();
+            req.accessToken(requirePlainAccessToken(linked));
+            if (shouldRequestInvestmentsConsent(linked)) {
+                req.additionalConsentedProducts(List.of(Products.INVESTMENTS));
+            }
         } else {
             req.products(List.of(Products.TRANSACTIONS))
                     // Request max history at Link; sync cannot extend this after the Item is initialized (Plaid API rule).
@@ -519,12 +528,29 @@ public class BankingPlaidService {
             absDir = root.resolve(subdir).resolve(Long.toString(uid)).resolve(Long.toString(inst.getId())).toString();
         }
 
-        List<Transaction> fetched =
-                fetchAllTransactions(requirePlainAccessToken(link), start, end, effectiveAccountFilter);
+        String accessToken = requirePlainAccessToken(link);
+        AccountBase investmentAccount = investmentAccount(accessToken, effectiveAccountFilter);
+        List<PlaidOfxRow> ofxRows = new ArrayList<>();
+        int fetchedCount;
+        if (investmentAccount != null) {
+            InvestmentPull investmentTransactions =
+                    fetchInvestmentTransactions(accessToken, start, end, investmentAccount.getAccountId());
+            fetchedCount = investmentTransactions.transactions().size();
+            for (InvestmentTransaction transaction : investmentTransactions.transactions()) {
+                ofxRows.add(toOfxRow(transaction, investmentTransactions.securities()));
+            }
+        } else {
+            List<Transaction> fetched = fetchAllTransactions(accessToken, start, end, effectiveAccountFilter);
+            fetchedCount = fetched.size();
+            for (Transaction t : fetched) {
+                ofxRows.add(toOfxRow(t));
+            }
+        }
 
-        if (fetched.isEmpty()) {
-            String msg =
-                    "Plaid returned no transactions between "
+        if (fetchedCount == 0) {
+            String msg = investmentAccount != null
+                    ? "Plaid returned no investment transactions between " + start + " and " + end + "."
+                    : "Plaid returned no transactions between "
                             + start
                             + " and "
                             + end
@@ -532,18 +558,13 @@ public class BankingPlaidService {
             BankingImportResultDto emptyResult = new BankingImportResultDto(true, false, null, msg);
             return new BankingPlaidSyncResponseDto(0, 0, "", absDir, emptyResult);
         }
-
-        List<PlaidOfxRow> ofxRows = new ArrayList<>();
-        for (Transaction t : fetched) {
-            ofxRows.add(toOfxRow(t));
-        }
         byte[] qfx = BankingPlaidOfxWriter.toQfxBytes(inst.getName(), ofxRows);
         String filename =
                 "plaid_" + inst.getId() + "_" + FILE_TS.format(java.time.LocalDateTime.now()) + ".qfx";
 
         String extraNote = "Plaid: fetched "
-                + fetched.size()
-                + " transaction(s); OFX rows written="
+                + fetchedCount
+                + (investmentAccount != null ? " investment transaction(s); OFX rows written=" : " transaction(s); OFX rows written=")
                 + ofxRows.size()
                 + "; item="
                 + maskItemId(link.getItemId())
@@ -555,7 +576,7 @@ public class BankingPlaidService {
                 importResult.file() != null ? importResult.file().storedRelativePath() : "";
 
         return new BankingPlaidSyncResponseDto(
-                fetched.size(), ofxRows.size(), relative, absDir, importResult);
+                fetchedCount, ofxRows.size(), relative, absDir, importResult);
     }
 
     private PlaidOfxRow toOfxRow(Transaction t) {
@@ -583,6 +604,155 @@ public class BankingPlaidService {
         return new PlaidOfxRow(d, trnAmt, name, memo.toString().trim(), fit);
     }
 
+    private record InvestmentPull(List<InvestmentTransaction> transactions, Map<String, Security> securities) {}
+
+    private AccountBase investmentAccount(String accessToken, List<String> accountIds) {
+        if (accountIds == null || accountIds.size() != 1) {
+            return null;
+        }
+        AccountBase account = findAuthorizedPlaidAccount(accessToken, accountIds.get(0));
+        if (account == null || !transactionsProductUnsupported(account)) {
+            return null;
+        }
+        return account;
+    }
+
+    /**
+     * Brokerage and retirement accounts are not on {@code /transactions/sync}. Plaid returns their buys, sells,
+     * dividends, and cash movements from {@code /investments/transactions/get}.
+     */
+    private InvestmentPull fetchInvestmentTransactions(
+            String accessToken, LocalDate start, LocalDate end, String accountId) {
+        try {
+            List<InvestmentTransaction> transactions = new ArrayList<>();
+            Map<String, Security> securities = new HashMap<>();
+            LocalDate chunkStart = start;
+            while (!chunkStart.isAfter(end)) {
+                LocalDate chunkEnd = chunkStart.plusMonths(23).minusDays(1);
+                if (chunkEnd.isAfter(end)) {
+                    chunkEnd = end;
+                }
+                int offset = 0;
+                int total = Integer.MAX_VALUE;
+                for (int page = 0; page < PLAID_SYNC_MAX_PAGES && offset < total; page++) {
+                    InvestmentsTransactionsGetRequestOptions options = new InvestmentsTransactionsGetRequestOptions()
+                            .accountIds(List.of(accountId))
+                            .count(PLAID_PAGE)
+                            .offset(offset);
+                    InvestmentsTransactionsGetRequest request = new InvestmentsTransactionsGetRequest()
+                            .clientId(plaidProps.clientId())
+                            .secret(plaidProps.secret())
+                            .accessToken(accessToken)
+                            .startDate(chunkStart)
+                            .endDate(chunkEnd)
+                            .options(options);
+                    InvestmentsTransactionsGetResponse body = execute(plaidApi().investmentsTransactionsGet(request));
+                    if (body.getSecurities() != null) {
+                        for (Security security : body.getSecurities()) {
+                            if (security.getSecurityId() != null && !security.getSecurityId().isBlank()) {
+                                securities.put(security.getSecurityId(), security);
+                            }
+                        }
+                    }
+                    List<InvestmentTransaction> batch = body.getInvestmentTransactions() == null
+                            ? List.of()
+                            : body.getInvestmentTransactions();
+                    transactions.addAll(batch);
+                    total = body.getTotalInvestmentTransactions() == null
+                            ? offset + batch.size()
+                            : body.getTotalInvestmentTransactions();
+                    if (batch.isEmpty()) {
+                        break;
+                    }
+                    offset += batch.size();
+                }
+                chunkStart = chunkEnd.plusDays(1);
+            }
+            return new InvestmentPull(transactions, securities);
+        } catch (ResponseStatusException e) {
+            throw investmentsSyncFailure(e);
+        }
+    }
+
+    private static ResponseStatusException investmentsSyncFailure(ResponseStatusException e) {
+        String reason = e.getReason() == null ? "" : e.getReason();
+        if (reason.contains("PRODUCT_NOT_READY")) {
+            return new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Plaid is still loading investment transactions for this account. Wait 30–90 seconds, then sync again.");
+        }
+        if (reason.contains("ADDITIONAL_CONSENT_REQUIRED")
+                || reason.contains("INVALID_PRODUCT")
+                || reason.contains("ACCESS_NOT_GRANTED")
+                || reason.contains("PRODUCT_NOT_ENABLED")) {
+            return new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "This investment account needs Investments access in Plaid. Use Reconnect bank login, accept investments access, then sync again.");
+        }
+        return e;
+    }
+
+    private PlaidOfxRow toOfxRow(InvestmentTransaction transaction, Map<String, Security> securities) {
+        LocalDate date = transaction.getDate() == null ? LocalDate.now() : transaction.getDate();
+        double plaidAmount = transaction.getAmount() == null ? 0d : transaction.getAmount();
+        BigDecimal trnAmt = BigDecimal.valueOf(plaidAmount).negate();
+        Security security = transaction.getSecurityId() == null ? null : securities.get(transaction.getSecurityId());
+        String ticker = security == null || security.getTickerSymbol() == null ? "" : security.getTickerSymbol().trim();
+        String securityName = security == null || security.getName() == null ? "" : security.getName().trim();
+        String name = firstNonBlank(transaction.getName(), securityName, ticker.isBlank() ? "Investment" : ticker);
+        StringBuilder memo = new StringBuilder();
+        if (transaction.getSubtype() != null) {
+            memo.append(transaction.getSubtype().name().toLowerCase(Locale.ROOT).replace('_', ' '));
+        } else if (transaction.getType() != null) {
+            memo.append(transaction.getType().name().toLowerCase(Locale.ROOT).replace('_', ' '));
+        }
+        if (!ticker.isBlank()) {
+            if (!memo.isEmpty()) {
+                memo.append(" · ");
+            }
+            memo.append(ticker);
+        }
+        if (transaction.getQuantity() != null && transaction.getQuantity() != 0d) {
+            if (!memo.isEmpty()) {
+                memo.append(" · ");
+            }
+            memo.append("qty ")
+                    .append(BigDecimal.valueOf(transaction.getQuantity()).stripTrailingZeros().toPlainString());
+        }
+        String fit = transaction.getInvestmentTransactionId() == null
+                ? "inv-" + transaction.hashCode()
+                : transaction.getInvestmentTransactionId();
+        return new PlaidOfxRow(date, trnAmt, name, memo.toString().trim(), fit);
+    }
+
+    private boolean shouldRequestInvestmentsConsent(BankingPlaidItem item) {
+        try {
+            String saved = blankToNull(item.getPlaidAccountId());
+            for (AccountBase account : listAuthorizedAccounts(requirePlainAccessToken(item))) {
+                if (!transactionsProductUnsupported(account)) {
+                    continue;
+                }
+                if (saved == null || saved.equals(plaidAccountIdOrNull(account))) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (ResponseStatusException e) {
+            String reason = e.getReason() == null ? "" : e.getReason();
+            if (reason.contains("ITEM_LOGIN_REQUIRED")) {
+                return summaryLooksLikeInvestment(item);
+            }
+            throw e;
+        }
+    }
+
+    private static boolean summaryLooksLikeInvestment(BankingPlaidItem item) {
+        String text = item.getConnectionSummary() == null
+                ? ""
+                : item.getConnectionSummary().toLowerCase(Locale.ROOT);
+        return text.contains("(investment)") || text.contains("(brokerage)");
+    }
+
     private static String firstNonBlank(String a, String b, String fallback) {
         if (a != null && !a.isBlank()) {
             return a.trim();
@@ -608,13 +778,6 @@ public class BankingPlaidService {
         if (filter.size() == 1) {
             String accountId = filter.get(0);
             AccountBase account = findAuthorizedPlaidAccount(accessToken, accountId);
-            if (account != null && transactionsProductUnsupported(account)) {
-                throw new ResponseStatusException(
-                        HttpStatus.CONFLICT,
-                        "Plaid does not include bank transactions for this "
-                                + account.getType().name().toLowerCase(Locale.ROOT)
-                                + " account. Daily balances can still be saved.");
-            }
             if (account == null) {
                 log.info("Stored Plaid account is not on this Item; reading transactions without an account filter");
                 return keepAccount(
