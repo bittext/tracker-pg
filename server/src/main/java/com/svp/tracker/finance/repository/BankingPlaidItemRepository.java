@@ -12,6 +12,8 @@ public interface BankingPlaidItemRepository extends JpaRepository<BankingPlaidIt
 
     Optional<BankingPlaidItem> findByOwnerUserIdAndInstitution_Id(long ownerUserId, long institutionId);
 
+    List<BankingPlaidItem> findAllByOwnerUserIdAndItemId(long ownerUserId, String itemId);
+
     @Query("select b.id from BankingPlaidItem b where b.dailyBalanceSync = true")
     List<Long> findIdsByDailyBalanceSyncTrue();
 

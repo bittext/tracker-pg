@@ -59,12 +59,17 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Objects;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -87,6 +92,7 @@ public class BankingPlaidService {
     /** Plaid asks callers to restart /transactions/sync from the last stored cursor when data changes mid-page. */
     private static final int PLAID_SYNC_MUTATION_RETRIES = 3;
     private static final DateTimeFormatter FILE_TS = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss", Locale.ROOT);
+    private static final Pattern ACCOUNT_MASK = Pattern.compile("…(\\d{2,4})");
     private static final ZoneId CHICAGO = ZoneId.of("America/Chicago");
     private static final LocalDate OPENING_START = LocalDate.of(2026, 9, 1);
 
@@ -497,11 +503,12 @@ public class BankingPlaidService {
         List<String> accountFilter =
                 req.accountIds() == null ? List.of() : req.accountIds().stream().filter(Objects::nonNull).toList();
         List<String> effectiveAccountFilter =
-                accountFilter.stream().filter(s -> !s.isBlank()).toList();
-        if (effectiveAccountFilter.isEmpty()
-                && link.getPlaidAccountId() != null
-                && !link.getPlaidAccountId().isBlank()) {
-            effectiveAccountFilter = List.of(link.getPlaidAccountId().trim());
+                accountFilter.stream().filter(s -> s != null && !s.isBlank()).map(String::trim).toList();
+        if (effectiveAccountFilter.isEmpty()) {
+            String accountId = resolveStoredAccountId(link, inst);
+            if (accountId != null && !accountId.isBlank()) {
+                effectiveAccountFilter = List.of(accountId);
+            }
         }
 
         String subdir = plaidProps.outputSubdirectory();
@@ -609,10 +616,9 @@ public class BankingPlaidService {
                                 + " account. Daily balances can still be saved.");
             }
             if (account == null) {
-                throw new ResponseStatusException(
-                        HttpStatus.CONFLICT,
-                        "This institution's saved Plaid account is no longer on the connection. "
-                                + "Use Reconnect bank login and leave the account selected.");
+                log.info("Stored Plaid account is not on this Item; reading transactions without an account filter");
+                return keepAccount(
+                        fetchAllTransactionsRetryingMutation(accessToken, start, end, List.of()), accountId);
             }
         }
         try {
@@ -648,19 +654,161 @@ public class BankingPlaidService {
         return type == AccountType.INVESTMENT || type == AccountType.BROKERAGE;
     }
 
-    private AccountBase findAuthorizedPlaidAccount(String accessToken, String accountId) {
-        AccountsGetRequest request = new AccountsGetRequest()
-                .clientId(plaidProps.clientId())
-                .secret(plaidProps.secret())
-                .accessToken(accessToken);
-        AccountsGetResponse response = execute(plaidApi().accountsGet(request));
-        List<AccountBase> accounts = response.getAccounts() == null ? List.of() : response.getAccounts();
+    /**
+     * The id saved at link time can disappear after a bank login even though the same account is still on the Item.
+     * Reconnect does not exchange a new token, so sync has to adopt the account Plaid returns now.
+     */
+    private String resolveStoredAccountId(BankingPlaidItem link, BankingInstitution inst) {
+        String accessToken = requirePlainAccessToken(link);
+        List<AccountBase> accounts = listAuthorizedAccounts(accessToken);
+        String saved = blankToNull(link.getPlaidAccountId());
+        if (saved != null && containsAccount(accounts, saved)) {
+            return saved;
+        }
+        AccountBase match = chooseReplacementAccount(link, inst, accounts);
+        if (match == null) {
+            if (accounts.isEmpty()) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "Plaid returned no accounts for this connection. Use Reconnect bank login and leave the account selected.");
+            }
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "Plaid replaced the saved account, and this connection now has more than one account ("
+                            + accountLabels(accounts)
+                            + "). Use Reconnect bank login and leave this account selected.");
+        }
+        String newId = plaidAccountIdOrNull(match);
+        link.setPlaidAccountId(newId);
+        link.setConnectionSummary(encodeConnectionLines(List.of(accountSummaryLine(match))));
+        link.setUpdatedAt(Instant.now());
+        plaidItemRepository.save(link);
+        log.info(
+                "Rebound Plaid account user={} institution={} hadSavedId={}",
+                link.getOwnerUserId(),
+                inst.getId(),
+                saved != null);
+        return newId;
+    }
+
+    private AccountBase chooseReplacementAccount(
+            BankingPlaidItem link, BankingInstitution inst, List<AccountBase> accounts) {
+        if (accounts.isEmpty()) {
+            return null;
+        }
+        Set<String> masks = masksIn(link.getConnectionSummary(), inst.getName());
+        if (masks.size() == 1) {
+            String mask = masks.iterator().next();
+            List<AccountBase> byMask = accounts.stream()
+                    .filter(account -> mask.equals(normalizeMask(account.getMask())))
+                    .toList();
+            if (byMask.size() == 1) {
+                return byMask.get(0);
+            }
+        }
+        if (accounts.size() == 1) {
+            return accounts.get(0);
+        }
+        Set<String> claimed = new HashSet<>();
+        for (BankingPlaidItem sibling :
+                plaidItemRepository.findAllByOwnerUserIdAndItemId(link.getOwnerUserId(), link.getItemId())) {
+            if (sibling.getId() != null && sibling.getId().equals(link.getId())) {
+                continue;
+            }
+            String siblingAccountId = blankToNull(sibling.getPlaidAccountId());
+            if (siblingAccountId != null && containsAccount(accounts, siblingAccountId)) {
+                claimed.add(siblingAccountId);
+            }
+        }
+        List<AccountBase> open = accounts.stream()
+                .filter(account -> !claimed.contains(plaidAccountIdOrNull(account)))
+                .toList();
+        if (open.size() == 1) {
+            return open.get(0);
+        }
+        String haystack = ((inst.getName() == null ? "" : inst.getName())
+                        + " "
+                        + (link.getConnectionSummary() == null ? "" : link.getConnectionSummary()))
+                .toLowerCase(Locale.ROOT);
+        List<AccountBase> named = new ArrayList<>();
+        for (AccountBase account : open.isEmpty() ? accounts : open) {
+            String name = plaidFirstNonBlankName(account.getOfficialName(), account.getName())
+                    .toLowerCase(Locale.ROOT);
+            if (name.length() >= 4 && haystack.contains(name)) {
+                named.add(account);
+            }
+        }
+        if (named.size() == 1) {
+            return named.get(0);
+        }
+        return null;
+    }
+
+    private static boolean containsAccount(List<AccountBase> accounts, String accountId) {
         for (AccountBase account : accounts) {
+            if (accountId.equals(plaidAccountIdOrNull(account))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String accountLabels(List<AccountBase> accounts) {
+        List<String> labels = new ArrayList<>();
+        for (AccountBase account : accounts) {
+            labels.add(accountSummaryLine(account));
+        }
+        return String.join(", ", labels);
+    }
+
+    private static Set<String> masksIn(String... labels) {
+        Set<String> masks = new LinkedHashSet<>();
+        if (labels == null) {
+            return masks;
+        }
+        for (String label : labels) {
+            if (label == null || label.isBlank()) {
+                continue;
+            }
+            Matcher matcher = ACCOUNT_MASK.matcher(label);
+            while (matcher.find()) {
+                masks.add(matcher.group(1));
+            }
+        }
+        return masks;
+    }
+
+    private static String normalizeMask(String mask) {
+        if (mask == null) {
+            return null;
+        }
+        String trimmed = mask.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private static String blankToNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
+    }
+
+    private AccountBase findAuthorizedPlaidAccount(String accessToken, String accountId) {
+        for (AccountBase account : listAuthorizedAccounts(accessToken)) {
             if (accountId.equals(plaidAccountIdOrNull(account))) {
                 return account;
             }
         }
         return null;
+    }
+
+    private List<AccountBase> listAuthorizedAccounts(String accessToken) {
+        AccountsGetRequest request = new AccountsGetRequest()
+                .clientId(plaidProps.clientId())
+                .secret(plaidProps.secret())
+                .accessToken(accessToken);
+        AccountsGetResponse response = execute(plaidApi().accountsGet(request));
+        return response.getAccounts() == null ? List.of() : response.getAccounts();
     }
 
     private List<Transaction> fetchAllTransactionsRetryingMutation(
