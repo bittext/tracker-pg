@@ -239,6 +239,11 @@ public class BankingPlaidService {
         AccountsGetResponse response;
         try {
             response = execute(plaidApi().accountsGet(rq));
+        } catch (ResponseStatusException e) {
+            if (isItemLoginRequired(e)) {
+                throw e;
+            }
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Plaid could not return balances");
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Plaid could not return balances");
         }
@@ -318,23 +323,32 @@ public class BankingPlaidService {
         // Omit user.phoneNumber: prefilling can trigger failed verify-SMS flows in Link (bad UX / placeholder bugs).
         LinkTokenCreateRequestUser user =
                 new LinkTokenCreateRequestUser().clientUserId("tracker-" + uid + "-inst-" + inst.getId());
+        Optional<BankingPlaidItem> existing =
+                plaidItemRepository.findByOwnerUserIdAndInstitution_Id(uid, inst.getId());
+        boolean updateMode = existing.isPresent();
         LinkTokenCreateRequest req = new LinkTokenCreateRequest()
                 .clientId(plaidProps.clientId())
                 .secret(plaidProps.secret())
                 .clientName(ApplicationBranding.SHORT_NAME)
                 .language("en")
                 .countryCodes(List.of(CountryCode.US))
-                .user(user)
-                .products(List.of(Products.TRANSACTIONS))
-                // Request max history at Link; sync cannot extend this after the Item is initialized (Plaid API rule).
-                .transactions(new LinkTokenTransactions().daysRequested(PLAID_SYNC_MAX_DAYS));
+                .user(user);
+        if (updateMode) {
+            // Update mode repairs ITEM_LOGIN_REQUIRED on the existing Item. The stored access_token stays valid
+            // after the user finishes Link, so the public_token must not be exchanged.
+            req.accessToken(requirePlainAccessToken(existing.get()));
+        } else {
+            req.products(List.of(Products.TRANSACTIONS))
+                    // Request max history at Link; sync cannot extend this after the Item is initialized (Plaid API rule).
+                    .transactions(new LinkTokenTransactions().daysRequested(PLAID_SYNC_MAX_DAYS));
+        }
 
         LinkTokenCreateResponse body = execute(plaidApi().linkTokenCreate(req));
         if (body.getLinkToken() == null || body.getLinkToken().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Plaid returned an empty link_token");
         }
         String exp = body.getExpiration() != null ? body.getExpiration().toString() : "";
-        return new BankingPlaidLinkTokenResponseDto(body.getLinkToken(), exp);
+        return new BankingPlaidLinkTokenResponseDto(body.getLinkToken(), exp, updateMode);
     }
 
     @Transactional
@@ -697,6 +711,11 @@ public class BankingPlaidService {
         return plaidApi;
     }
 
+    private static boolean isItemLoginRequired(ResponseStatusException e) {
+        String reason = e.getReason();
+        return reason != null && reason.contains("ITEM_LOGIN_REQUIRED");
+    }
+
     private static <T> T execute(retrofit2.Call<T> call) {
         try {
             Response<T> resp = call.execute();
@@ -709,6 +728,13 @@ public class BankingPlaidService {
                                     + "format on your profile or MFA phone (e.g. +15551234567), or remove an invalid "
                                     + "stored phone and try again. Details: "
                                     + err);
+                }
+                if (err.contains("ITEM_LOGIN_REQUIRED")) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Your bank login changed (credentials, MFA, or a required action). "
+                                    + "Use Reconnect bank login to restore this Plaid connection, then sync again. "
+                                    + "ITEM_LOGIN_REQUIRED");
                 }
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Plaid API error: " + err);
             }

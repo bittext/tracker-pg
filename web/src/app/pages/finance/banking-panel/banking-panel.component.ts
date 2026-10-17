@@ -127,6 +127,9 @@ export class BankingPanelComponent implements OnInit {
   /** Checkbox before first Link when acknowledgment not yet recorded. */
   plaidPrivacyCheckboxAck = false;
   plaidUnlinkBusy = false;
+  /** Set when Plaid returns ITEM_LOGIN_REQUIRED for the institution currently shown. */
+  plaidLoginRequired = false;
+  private plaidStatusInstitutionId: number | null = null;
 
   /** Admin imports: broader listing than ledger period. */
   importsHistoryFromYear = new Date().getFullYear() - 5;
@@ -657,6 +660,13 @@ export class BankingPanelComponent implements OnInit {
     return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
   }
 
+  plaidConnectLabel(): string {
+    if (this.plaidLoginRequired || this.plaidStatus?.linked) {
+      return 'Reconnect bank login';
+    }
+    return 'Connect with Plaid';
+  }
+
   unlinkPlaid(): void {
     const id = this.plaidTargetInstitutionId();
     if (id == null || !this.plaidStatus?.linked) {
@@ -672,6 +682,7 @@ export class BankingPanelComponent implements OnInit {
     this.api.bankingPlaidUnlink(id).subscribe({
       next: () => {
         this.plaidUnlinkBusy = false;
+        this.plaidLoginRequired = false;
         this.snackBar.open('Plaid disconnected for this institution.', undefined, { duration: 5000 });
         this.refreshPlaidStatus();
       },
@@ -738,9 +749,16 @@ export class BankingPanelComponent implements OnInit {
       },
       error: (err) => {
         this.dailyBalanceBusy = false;
-        this.snackBar.open(formatHttpErrorDetail(err) || 'Could not update daily balance sync', undefined, {
-          duration: 4000,
-        });
+        const detail = formatHttpErrorDetail(err);
+        if (this.notePlaidLoginRequired(detail)) {
+          this.snackBar.open('Your bank needs a fresh login. Use Reconnect bank login, then try again.', 'Reconnect', {
+            duration: 12000,
+          }).onAction().subscribe(() => void this.openPlaidLink());
+        } else {
+          this.snackBar.open(detail || 'Could not update daily balance sync', undefined, {
+            duration: 4000,
+          });
+        }
         this.refreshPlaidStatus();
       },
     });
@@ -748,6 +766,10 @@ export class BankingPanelComponent implements OnInit {
 
   refreshPlaidStatus(): void {
     const id = this.plaidTargetInstitutionId();
+    if (id !== this.plaidStatusInstitutionId) {
+      this.plaidLoginRequired = false;
+      this.plaidStatusInstitutionId = id;
+    }
     if (id == null) {
       this.plaidStatus = null;
       return;
@@ -763,6 +785,15 @@ export class BankingPanelComponent implements OnInit {
         this.plaidStatusLoading = false;
       },
     });
+  }
+
+  private notePlaidLoginRequired(detail: string): boolean {
+    if (!/ITEM_LOGIN_REQUIRED/i.test(detail)) {
+      return false;
+    }
+    this.plaidLoginRequired = true;
+    this.plaidStatusInstitutionId = this.plaidTargetInstitutionId();
+    return true;
   }
 
   private plaidTargetInstitutionId(): number | null {
@@ -806,11 +837,18 @@ export class BankingPanelComponent implements OnInit {
       if (!window.Plaid) {
         throw new Error('Plaid global missing after script load');
       }
-      const { linkToken } = await firstValueFrom(this.api.bankingPlaidLinkToken(inst));
+      const tokenResp = await firstValueFrom(this.api.bankingPlaidLinkToken(inst));
       const handler = window.Plaid.create({
-        token: linkToken,
+        token: tokenResp.linkToken,
         onSuccess: (publicToken) => {
           this.ngZone.run(() => {
+            if (tokenResp.updateMode) {
+              this.plaidLinkOpening = false;
+              this.plaidLoginRequired = false;
+              this.snackBar.open('Bank login restored. You can sync from Plaid again.', undefined, { duration: 7000 });
+              this.refreshPlaidStatus();
+              return;
+            }
             this.api.bankingPlaidExchange(inst, publicToken).subscribe({
               next: (ex) => {
                 this.plaidLinkOpening = false;
@@ -849,8 +887,9 @@ export class BankingPanelComponent implements OnInit {
       handler.open();
     } catch (e) {
       this.plaidLinkOpening = false;
-      const msg = e instanceof Error ? e.message : String(e);
-      this.snackBar.open(`Plaid Link could not start — ${msg}`, undefined, { duration: 8000 });
+      const detail = formatHttpErrorDetail(e);
+      this.notePlaidLoginRequired(detail);
+      this.snackBar.open(`Plaid Link could not start — ${detail}`, undefined, { duration: 8000 });
     }
   }
 
@@ -928,6 +967,7 @@ export class BankingPanelComponent implements OnInit {
       .subscribe({
         next: (r) => {
           this.plaidSyncBusy = false;
+          this.plaidLoginRequired = false;
           const f = r.importResult.file;
           const parts = [
             `Plaid: ${r.transactionsFetchedFromPlaid} transaction(s)`,
@@ -946,7 +986,14 @@ export class BankingPanelComponent implements OnInit {
         },
         error: (e) => {
           this.plaidSyncBusy = false;
-          this.snackBar.open(`Plaid sync failed — ${formatHttpErrorDetail(e)}`, undefined, { duration: 8000 });
+          const detail = formatHttpErrorDetail(e);
+          if (this.notePlaidLoginRequired(detail)) {
+            this.snackBar.open('Your bank needs a fresh login. Use Reconnect bank login, then sync again.', 'Reconnect', {
+              duration: 12000,
+            }).onAction().subscribe(() => void this.openPlaidLink());
+            return;
+          }
+          this.snackBar.open(`Plaid sync failed — ${detail}`, undefined, { duration: 8000 });
         },
       });
   }

@@ -1825,6 +1825,8 @@ export interface BankingImportResultDto {
 export interface BankingPlaidLinkTokenResponseDto {
   linkToken: string;
   expiration: string;
+  /** True when this token opens Plaid Link in update mode for an existing Item. Do not exchange the public token. */
+  updateMode?: boolean;
 }
 
 export interface BankingPlaidStatusDto {

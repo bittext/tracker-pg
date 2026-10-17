@@ -146,6 +146,16 @@
   margin: 0 0 0.75rem;
 }
 
+.banking-plaid-login-required {
+  margin: 0 0 0.75rem;
+  max-width: 48rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.4rem;
+  background: color-mix(in srgb, var(--mat-sys-error, #b3261e) 12%, transparent);
+  color: var(--mat-sys-on-error-container, #410e0b);
+  font-size: 0.9rem;
+}
+
 .banking-plaid-accounts {
   margin: 0 0 0.75rem;
   padding-left: 1.25rem;

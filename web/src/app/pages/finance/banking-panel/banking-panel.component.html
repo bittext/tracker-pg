@@ -205,7 +205,8 @@
       <p class="muted banking-plaid-intro">
         <strong>Connect with Plaid</strong> opens Plaid Link in this browser. After linking, <strong>Sync from Plaid</strong>
         downloads transactions for the date range, writes a QFX file under the server’s
-        <code>plaid/</code> subdirectory, and imports rows (skipping duplicates already in the ledger). Configure
+        <code>plaid/</code> subdirectory, and imports rows (skipping duplicates already in the ledger). If the bank
+        asks you to sign in again, <strong>Reconnect bank login</strong> restores the existing connection. Configure
         <code>TRACKER_PLAID_*</code>, optional <code>TRACKER_PLAID_ACCESS_TOKEN_ENCRYPTION_KEY</code> (at-rest token sealing),
         and <code>TRACKER_BANKING_IMPORT_DIRECTORY</code> on the API.
       </p>
@@ -257,6 +258,12 @@
             }
           </ul>
         }
+        @if (plaidLoginRequired) {
+          <p class="banking-plaid-login-required">
+            This bank connection needs a fresh login. Credentials, MFA, or a required action changed at the bank.
+            Use <strong>Reconnect bank login</strong>, then sync again.
+          </p>
+        }
         <div class="banking-toolbar wrap">
           <button
             mat-stroked-button
@@ -265,8 +272,8 @@
             (click)="openPlaidLink()"
             [disabled]="plaidLinkOpening || institutionsLoading || (plaidStatus && !plaidStatus.plaidConfigured)"
           >
-            <mat-icon>link</mat-icon>
-            Connect with Plaid
+            <mat-icon>{{ plaidStatus?.linked ? 'lock_reset' : 'link' }}</mat-icon>
+            {{ plaidConnectLabel() }}
           </button>
           <button
             mat-stroked-button
@@ -484,6 +491,7 @@
           Pull new transactions for the selected institution and date range (same dedupe rules as uploads). To connect a
           bank, use <strong>Admin → Finance → Banking</strong> → Connect with Plaid after acknowledging the
           <a routerLink="/privacy" fragment="plaid-financial-data">Financial data &amp; Plaid</a> privacy section.
+          If sync says a login is required, use <strong>Reconnect bank login</strong> here.
         </p>
         <div class="banking-toolbar wrap">
           <mat-form-field appearance="outline" class="banking-field grow">
@@ -520,6 +528,11 @@
               <li>{{ line }}</li>
             }
           </ul>
+        }
+        @if (plaidLoginRequired) {
+          <p class="banking-plaid-login-required">
+            This bank connection needs a fresh login. Use <strong>Reconnect bank login</strong>, then sync again.
+          </p>
         }
         @if (plaidStatus?.linked) {
           <div class="banking-plaid-daily">
@@ -568,6 +581,18 @@
             <mat-icon>sync</mat-icon>
             Sync from Plaid
           </button>
+          @if (plaidStatus?.linked) {
+            <button
+              mat-stroked-button
+              color="primary"
+              type="button"
+              (click)="openPlaidLink()"
+              [disabled]="plaidLinkOpening || (plaidStatus && !plaidStatus.plaidConfigured)"
+            >
+              <mat-icon>lock_reset</mat-icon>
+              Reconnect bank login
+            </button>
+          }
           <button
             mat-stroked-button
             color="warn"
