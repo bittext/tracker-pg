@@ -350,11 +350,7 @@ public class BankingPlaidService {
         if (updateMode) {
             // Update mode repairs ITEM_LOGIN_REQUIRED on the existing Item. The stored access_token stays valid
             // after the user finishes Link, so the public_token must not be exchanged.
-            BankingPlaidItem linked = existing.get();
-            req.accessToken(requirePlainAccessToken(linked));
-            if (shouldRequestInvestmentsConsent(linked)) {
-                req.additionalConsentedProducts(List.of(Products.INVESTMENTS));
-            }
+            req.accessToken(requirePlainAccessToken(existing.get()));
         } else {
             req.products(List.of(Products.TRANSACTIONS))
                     // Request max history at Link; sync cannot extend this after the Item is initialized (Plaid API rule).
@@ -681,13 +677,17 @@ public class BankingPlaidService {
                     HttpStatus.CONFLICT,
                     "Plaid is still loading investment transactions for this account. Wait 30–90 seconds, then sync again.");
         }
+        if (reason.contains("INVALID_PRODUCT") || reason.contains("not enabled for investments")) {
+            return new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "This Plaid account is not enabled for investment transactions. Daily balances can still be saved.");
+        }
         if (reason.contains("ADDITIONAL_CONSENT_REQUIRED")
-                || reason.contains("INVALID_PRODUCT")
                 || reason.contains("ACCESS_NOT_GRANTED")
                 || reason.contains("PRODUCT_NOT_ENABLED")) {
             return new ResponseStatusException(
                     HttpStatus.CONFLICT,
-                    "This investment account needs Investments access in Plaid. Use Reconnect bank login, accept investments access, then sync again.");
+                    "Plaid has not granted investment transactions for this account. Daily balances can still be saved.");
         }
         return e;
     }
@@ -723,34 +723,6 @@ public class BankingPlaidService {
                 ? "inv-" + transaction.hashCode()
                 : transaction.getInvestmentTransactionId();
         return new PlaidOfxRow(date, trnAmt, name, memo.toString().trim(), fit);
-    }
-
-    private boolean shouldRequestInvestmentsConsent(BankingPlaidItem item) {
-        try {
-            String saved = blankToNull(item.getPlaidAccountId());
-            for (AccountBase account : listAuthorizedAccounts(requirePlainAccessToken(item))) {
-                if (!transactionsProductUnsupported(account)) {
-                    continue;
-                }
-                if (saved == null || saved.equals(plaidAccountIdOrNull(account))) {
-                    return true;
-                }
-            }
-            return false;
-        } catch (ResponseStatusException e) {
-            String reason = e.getReason() == null ? "" : e.getReason();
-            if (reason.contains("ITEM_LOGIN_REQUIRED")) {
-                return summaryLooksLikeInvestment(item);
-            }
-            throw e;
-        }
-    }
-
-    private static boolean summaryLooksLikeInvestment(BankingPlaidItem item) {
-        String text = item.getConnectionSummary() == null
-                ? ""
-                : item.getConnectionSummary().toLowerCase(Locale.ROOT);
-        return text.contains("(investment)") || text.contains("(brokerage)");
     }
 
     private static String firstNonBlank(String a, String b, String fallback) {
