@@ -2,9 +2,15 @@
   <header class="pred__head">
     <div>
       <h1 class="pred__title">Predict</h1>
-      <p class="muted pred__lead">
-        Robinhood prediction markets only. Invested is what a close implies you paid (contracts × exit, minus P&amp;L).
-        Payback is the cash from that exit. Community sentiment stays on Research → Predicts.
+      <p class="pred__meta">
+        @if (accounts.length) {
+          <span>{{ accounts.join(' · ') }}</span>
+        }
+        @if (desk?.lastSyncedAt) {
+          <span>Pulled {{ desk!.lastSyncedAt | date: 'MMM d, y, h:mm a' }}</span>
+        } @else if (desk) {
+          <span>Not pulled yet</span>
+        }
       </p>
     </div>
     <button mat-flat-button color="primary" type="button" (click)="refresh()" [disabled]="refreshing || loading">
@@ -22,74 +28,83 @@
       <p class="pred__warn" role="status">{{ desk.warnings.join(' ') }}</p>
     }
 
-    @if (accounts.length) {
-      <p class="pred__account">Account {{ accounts.join(' · ') }}</p>
-    }
+    <div class="pred__summary">
+      <section class="pred__book" [class.pred__book--gain]="scopedTotals.returned > 0" [class.pred__book--loss]="scopedTotals.returned < 0" aria-label="Closed Predict results">
+        @if (activeYear; as year) {
+          <div class="pred__period-head" aria-label="Return period">
+            <label class="pred__year-pick">
+              Year
+              <select [ngModel]="year.year" (ngModelChange)="selectYear($event)">
+                @for (option of years; track option.year) {
+                  <option [ngValue]="option.year">{{ option.year }}</option>
+                }
+              </select>
+            </label>
+            <label class="pred__year-pick">
+              Month
+              <select [ngModel]="selectedMonth ?? -1" (ngModelChange)="selectMonth($event)">
+                <option [ngValue]="-1">All months</option>
+                @for (month of year.months; track month.key) {
+                  <option [ngValue]="month.month">{{ month.label }}</option>
+                }
+              </select>
+            </label>
+            <label class="pred__year-pick">
+              Time period
+              <select [(ngModel)]="periodGrain">
+                @for (grain of periodGrains; track grain.id) {
+                  <option [value]="grain.id">{{ grain.label }}</option>
+                }
+              </select>
+            </label>
+          </div>
+        }
 
-    @if (activeYear; as year) {
-      <div class="pred__period-head" aria-label="Return period">
-        <label class="pred__year-pick">
-          Year
-          <select [ngModel]="year.year" (ngModelChange)="selectYear($event)">
-            @for (option of years; track option.year) {
-              <option [ngValue]="option.year">{{ option.year }}</option>
-            }
-          </select>
-        </label>
-        <label class="pred__year-pick">
-          Month
-          <select [ngModel]="selectedMonth ?? -1" (ngModelChange)="selectMonth($event)">
-            <option [ngValue]="-1">All months</option>
-            @for (month of year.months; track month.key) {
-              <option [ngValue]="month.month">{{ month.label }}</option>
-            }
-          </select>
-        </label>
-        <label class="pred__year-pick">
-          Time period
-          <select [(ngModel)]="periodGrain">
-            @for (grain of periodGrains; track grain.id) {
-              <option [value]="grain.id">{{ grain.label }}</option>
-            }
-          </select>
-        </label>
-      </div>
-    }
+        <p class="pred__eyebrow">Return@if (scopeLabel) { · {{ scopeLabel }} }</p>
+        <p class="pred__hero" [class]="moneyClass(scopedTotals.returned)">
+          {{ scopedTotals.returned | currency: 'USD' : 'symbol' : '1.2-2' }}
+        </p>
+        <p class="pred__rate">
+          @if (returnRate != null) {
+            {{ returnRate | percent: '1.1-1' }} of cash put in
+          }
+          · {{ scopedTotals.closes }} {{ scopedTotals.closes === 1 ? 'close' : 'closes' }}
+          @if (upCount || downCount) {
+            · {{ upCount }} up · {{ downCount }} down
+          }
+        </p>
 
-    <section class="pred__kpis" aria-label="Predict totals">
-      <article class="pred__kpi">
-        <h2>Invested</h2>
-        <p>{{ scopedTotals.invested | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
-      </article>
-      <article class="pred__kpi">
-        <h2>Payback</h2>
-        <p>{{ scopedTotals.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
-      </article>
-      <article class="pred__kpi">
-        <h2>Return</h2>
-        <p [class]="moneyClass(scopedTotals.returned)">{{ scopedTotals.returned | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
-      </article>
-      <article class="pred__kpi">
-        <h2>Open mark</h2>
-        <p [class]="moneyClass(desk.openValue)">{{ desk.openValue == null ? '—' : (desk.openValue | currency: 'USD' : 'symbol' : '1.2-2') }}</p>
-      </article>
-      <article class="pred__kpi">
-        <h2>Return (7 days)</h2>
-        <p [class]="moneyClass(desk.realizedWeek)">{{ desk.realizedWeek | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
-      </article>
-    </section>
+        <div class="pred__flow">
+          <div>
+            <p class="pred__eyebrow">Invested</p>
+            <p class="pred__flow-value">{{ scopedTotals.invested | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
+            <p class="pred__caption">Cash a close implies you paid</p>
+          </div>
+          <div>
+            <p class="pred__eyebrow">Payback</p>
+            <p class="pred__flow-value">{{ scopedTotals.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
+            <p class="pred__caption">Cash received at the exit</p>
+          </div>
+        </div>
+      </section>
 
-    <p class="muted pred__sync">
-      @if (desk.lastSyncedAt) {
-        Last pull {{ desk.lastSyncedAt | date: 'MMM d, y, h:mm a' }}.
-      } @else {
-        Not pulled yet — refresh to start monitoring.
-      }
-    </p>
+      <aside class="pred__side" aria-label="Open book and recent return">
+        <article class="pred__tile">
+          <h2>Open mark</h2>
+          <p [class]="moneyClass(desk.openValue)">{{ desk.openValue == null ? '—' : (desk.openValue | currency: 'USD' : 'symbol' : '1.2-2') }}</p>
+          <span>Value of contracts still open</span>
+        </article>
+        <article class="pred__tile">
+          <h2>Return, 7 days</h2>
+          <p [class]="moneyClass(desk.realizedWeek)">{{ desk.realizedWeek | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
+          <span>Realized this week, whole book</span>
+        </article>
+      </aside>
+    </div>
 
-    @if (activeYear) {
+    @if (periodRows.length > 1) {
       <section class="pred__periods" aria-label="Predict returns by period">
-        <h2 class="pred__section-title">Returns</h2>
+        <h2 class="pred__section-title">{{ scopeLabel }} by {{ periodGrain }}</h2>
         <div class="pred__list">
           <table class="pred__period-table">
             <thead>
@@ -118,8 +133,8 @@
     }
 
     <section class="pred__list" aria-label="Closed Predict contracts">
-      <h2 class="pred__section-title">Closes</h2>
-      <table mat-table [dataSource]="desk.closes" class="pred__table">
+      <h2 class="pred__section-title">Closes@if (scopeLabel) { · {{ scopeLabel }} }</h2>
+      <table mat-table [dataSource]="scopedCloses" class="pred__table">
         <ng-container matColumnDef="closedAt">
           <th mat-header-cell *matHeaderCellDef>Closed</th>
           <td mat-cell *matCellDef="let row">{{ row.closedAt | date: 'MMM d, y, h:mm a' }}</td>
@@ -149,8 +164,8 @@
         <tr mat-header-row *matHeaderRowDef="columns"></tr>
         <tr mat-row *matRowDef="let row; columns: columns"></tr>
       </table>
-      @if (!desk.closes.length) {
-        <p class="muted pred__empty">No Predict closes stored yet.</p>
+      @if (!scopedCloses.length) {
+        <p class="muted pred__empty">No Predict closes in this period.</p>
       }
     </section>
   }

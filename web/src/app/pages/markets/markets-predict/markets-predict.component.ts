@@ -131,6 +131,50 @@ export class MarketsPredictComponent implements OnInit {
     return this.scopedMonths[0] ?? { closes: 0, invested: 0, payback: 0, returned: 0 };
   }
 
+  get scopeLabel(): string {
+    const year = this.activeYear;
+    if (!year) {
+      return '';
+    }
+    if (this.selectedMonth == null) {
+      return String(year.year);
+    }
+    const month = year.months.find((row) => row.month === this.selectedMonth);
+    return month ? `${month.label} ${year.year}` : String(year.year);
+  }
+
+  /** Share of cash put in that came back as profit or loss. */
+  get returnRate(): number | null {
+    const invested = this.scopedTotals.invested;
+    if (!invested) {
+      return null;
+    }
+    return this.scopedTotals.returned / invested;
+  }
+
+  get scopedCloses(): RhPredictCloseDto[] {
+    const year = this.activeYear;
+    const closes = this.desk?.closes ?? [];
+    if (!year) {
+      return closes;
+    }
+    return closes.filter((row) => {
+      const closed = new Date(row.closedAt);
+      if (Number.isNaN(closed.getTime()) || closed.getFullYear() !== year.year) {
+        return false;
+      }
+      return this.selectedMonth == null || closed.getMonth() === this.selectedMonth;
+    });
+  }
+
+  get upCount(): number {
+    return this.scopedCloses.filter((row) => row.realized > 0).length;
+  }
+
+  get downCount(): number {
+    return this.scopedCloses.filter((row) => row.realized < 0).length;
+  }
+
   get periodRows(): { key: string; label: string; level: string; totals: PredictPeriodTotals }[] {
     const year = this.activeYear;
     if (!year) {
