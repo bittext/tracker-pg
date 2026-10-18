@@ -4,8 +4,7 @@
       <h1 class="pred__title">Predict</h1>
       <p class="muted pred__lead">
         Robinhood prediction markets only. Invested is what a close implies you paid (contracts × exit, minus P&amp;L).
-        Payback is the cash from that exit. Robinhood does not send the market name, so set the predict on each row.
-        Community sentiment stays on Research → Predicts.
+        Payback is the cash from that exit. Community sentiment stays on Research → Predicts.
       </p>
     </div>
     <button mat-flat-button color="primary" type="button" (click)="refresh()" [disabled]="refreshing || loading">
@@ -155,9 +154,6 @@
 
     <section class="pred__list" aria-label="Closed Predict contracts">
       <h2 class="pred__section-title">Closes</h2>
-      @if (unnamedCount) {
-        <p class="muted pred__sync">{{ unnamedCount }} close{{ unnamedCount === 1 ? '' : 's' }} still need a predict name.</p>
-      }
       <table mat-table [dataSource]="desk.closes" class="pred__table">
         <ng-container matColumnDef="closedAt">
           <th mat-header-cell *matHeaderCellDef>Closed</th>
@@ -183,28 +179,6 @@
           <th mat-header-cell *matHeaderCellDef>Return</th>
           <td mat-cell *matCellDef="let row" [class]="moneyClass(row.realized)">
             {{ row.realized | currency: 'USD' : 'symbol' : '1.2-2' }}
-          </td>
-        </ng-container>
-        <ng-container matColumnDef="label">
-          <th mat-header-cell *matHeaderCellDef>Predict</th>
-          <td mat-cell *matCellDef="let row">
-            <div class="pred__label-row">
-              <input
-                class="pred__label"
-                [(ngModel)]="draftLabels[row.id]"
-                [name]="'predLabel' + row.id"
-                placeholder="Which predict was this?"
-                (keydown.enter)="saveLabel(row)"
-              />
-              <button
-                mat-stroked-button
-                type="button"
-                (click)="saveLabel(row)"
-                [disabled]="!labelDirty(row) || savingLabelIds.has(row.id)"
-              >
-                Save
-              </button>
-            </div>
           </td>
         </ng-container>
         <tr mat-header-row *matHeaderRowDef="columns"></tr>

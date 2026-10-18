@@ -172,21 +172,6 @@
   color: var(--app-text-muted, #64748b);
 }
 
-.pred__label-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  align-items: center;
-}
-
-.pred__label {
-  width: min(16rem, 100%);
-  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.16));
-  border-radius: 6px;
-  padding: 0.35rem 0.5rem;
-  font: inherit;
-}
-
 .gain {
   color: #15803d;
 }

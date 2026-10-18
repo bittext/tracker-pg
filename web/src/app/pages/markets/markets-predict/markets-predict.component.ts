@@ -36,13 +36,11 @@ export class MarketsPredictComponent implements OnInit {
   private readonly api = inject(RhPredictApiService);
   private readonly snackBar = inject(MatSnackBar);
 
-  readonly columns = ['closedAt', 'label', 'quantity', 'price', 'invested', 'payback', 'realized'] as const;
+  readonly columns = ['closedAt', 'quantity', 'price', 'invested', 'payback', 'realized'] as const;
 
   desk: RhPredictDeskDto | null = null;
   loading = false;
   refreshing = false;
-  draftLabels: Record<number, string> = {};
-  savingLabelIds = new Set<number>();
   selectedYear: number | null = null;
   monthsOpen = false;
   selectedMonthKey: string | null = null;
@@ -136,45 +134,12 @@ export class MarketsPredictComponent implements OnInit {
     return labels;
   }
 
-  get unnamedCount(): number {
-    return (this.desk?.closes ?? []).filter((row) => !(row.label ?? '').trim()).length;
-  }
-
   invested(row: RhPredictCloseDto): number {
     return predictInvested(row);
   }
 
   payback(row: RhPredictCloseDto): number {
     return predictPayback(row);
-  }
-
-  labelDirty(row: RhPredictCloseDto): boolean {
-    return (this.draftLabels[row.id] ?? '').trim() !== (row.label ?? '').trim();
-  }
-
-  saveLabel(row: RhPredictCloseDto): void {
-    const label = (this.draftLabels[row.id] ?? '').trim();
-    if (!this.labelDirty(row) || this.savingLabelIds.has(row.id)) {
-      return;
-    }
-    this.savingLabelIds.add(row.id);
-    this.api.rename(row.id, label).subscribe({
-      next: (updated) => {
-        this.savingLabelIds.delete(row.id);
-        if (!this.desk) {
-          return;
-        }
-        this.desk = {
-          ...this.desk,
-          closes: this.desk.closes.map((item) => (item.id === updated.id ? updated : item)),
-        };
-        this.draftLabels[updated.id] = updated.label ?? '';
-      },
-      error: (err) => {
-        this.savingLabelIds.delete(row.id);
-        this.toastError(err);
-      },
-    });
   }
 
   moneyClass(value: number | null | undefined): string {
@@ -190,10 +155,6 @@ export class MarketsPredictComponent implements OnInit {
 
   private apply(desk: RhPredictDeskDto): void {
     this.desk = desk;
-    this.draftLabels = {};
-    for (const row of desk.closes) {
-      this.draftLabels[row.id] = row.label ?? '';
-    }
   }
 
   private toastError(err: unknown): void {
