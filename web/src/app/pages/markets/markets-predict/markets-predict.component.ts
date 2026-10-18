@@ -24,9 +24,8 @@ interface PredictReturnChart {
   padR: number;
   line: string;
   zeroY: number;
-  points: { id: number; x: number; y: number; up: boolean; title: string }[];
+  points: { id: number; x: number; y: number; up: boolean; amount: string; date: string; time: string; title: string }[];
   yLabels: { y: number; text: string }[];
-  xLabels: { x: number; text: string }[];
 }
 
 @Component({
@@ -204,12 +203,13 @@ export class MarketsPredictComponent implements OnInit {
     if (!rows.length) {
       return null;
     }
-    const width = 760;
-    const height = 220;
+    const slot = 84;
     const padL = 68;
-    const padR = 16;
-    const padT = 16;
-    const padB = 32;
+    const padR = 28;
+    const padT = 28;
+    const padB = 40;
+    const width = padL + rows.length * slot + padR;
+    const height = 248;
     let running = 0;
     const steps = rows.map((row) => {
       running += row.realized;
@@ -218,20 +218,23 @@ export class MarketsPredictComponent implements OnInit {
     const min = Math.min(0, ...steps.map((step) => step.running));
     const max = Math.max(0, ...steps.map((step) => step.running));
     const span = max - min || 1;
-    const innerW = width - padL - padR;
     const innerH = height - padT - padB;
-    const xAt = (index: number) => padL + (steps.length === 1 ? innerW / 2 : (index / (steps.length - 1)) * innerW);
+    const xAt = (index: number) => padL + slot / 2 + index * slot;
     const yAt = (value: number) => padT + ((max - value) / span) * innerH;
     const points = steps.map((step, index) => {
       const when = new Date(step.row.closedAt);
-      const whenLabel = Number.isNaN(when.getTime())
-        ? ''
-        : when.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+      const valid = !Number.isNaN(when.getTime());
+      const whenLabel = valid
+        ? when.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+        : '';
       return {
         id: step.row.id,
         x: xAt(index),
         y: yAt(step.running),
         up: step.row.realized >= 0,
+        amount: this.signedUsd(step.row.realized),
+        date: valid ? when.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '',
+        time: valid ? when.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '',
         title: `${whenLabel}\nThis close ${this.usd(step.row.realized)}\nRunning ${this.usd(step.running)}`,
       };
     });
@@ -243,14 +246,6 @@ export class MarketsPredictComponent implements OnInit {
       }
       yLabels.push({ y, text: this.axisUsd(value) });
     }
-    const xIndexes = steps.length === 1 ? [0] : [0, Math.floor((steps.length - 1) / 2), steps.length - 1];
-    const xLabels = [...new Set(xIndexes)].map((index) => {
-      const when = new Date(steps[index].row.closedAt);
-      const text = Number.isNaN(when.getTime())
-        ? ''
-        : when.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      return { x: xAt(index), text };
-    });
     return {
       width,
       height,
@@ -260,7 +255,6 @@ export class MarketsPredictComponent implements OnInit {
       zeroY: yAt(0),
       points,
       yLabels,
-      xLabels,
     };
   }
 
@@ -337,6 +331,21 @@ export class MarketsPredictComponent implements OnInit {
       return 'loss';
     }
     return '';
+  }
+
+  private signedUsd(value: number): string {
+    const abs = Math.abs(value);
+    const body =
+      abs >= 100
+        ? abs.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 })
+        : abs.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+    if (value > 0) {
+      return `+${body}`;
+    }
+    if (value < 0) {
+      return `-${body}`;
+    }
+    return body;
   }
 
   private usd(value: number): string {

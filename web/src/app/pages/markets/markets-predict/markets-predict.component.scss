@@ -179,11 +179,31 @@
   padding: 0.15rem 0 0.2rem;
 }
 
+.pred__chart-scroll {
+  overflow-x: auto;
+}
+
 .pred__chart-svg {
   display: block;
-  width: 100%;
-  height: auto;
-  overflow: visible;
+  max-width: none;
+}
+
+.pred__mark {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.pred__mark--up {
+  fill: #15803d;
+}
+
+.pred__mark--down {
+  fill: #b91c1c;
+}
+
+.pred__tick {
+  fill: var(--app-text-muted, #64748b);
+  font-size: 10px;
 }
 
 .pred__grid {
