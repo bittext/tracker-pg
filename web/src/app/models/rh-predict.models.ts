@@ -12,6 +12,7 @@ export interface RhPredictCloseDto {
 export interface RhPredictDeskDto {
   lastSyncedAt: string | null;
   openValue: number | null;
+  openCost: number | null;
   realizedAll: number;
   realizedWeek: number;
   closeCount: number;

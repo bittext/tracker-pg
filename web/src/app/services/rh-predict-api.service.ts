@@ -18,4 +18,8 @@ export class RhPredictApiService {
   rename(id: number, label: string) {
     return this.http.put<RhPredictCloseDto>(`${this.root}/closes/${id}`, { label });
   }
+
+  setOpenCost(amount: number | null) {
+    return this.http.put<RhPredictDeskDto>(`${this.root}/open-cost`, { amount });
+  }
 }

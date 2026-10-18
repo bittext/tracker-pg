@@ -32,6 +32,10 @@ public class RhPredictSnapshot {
     @Column(name = "open_value", precision = 19, scale = 6)
     private BigDecimal openValue;
 
+    /** Cash put into contracts that are still open. */
+    @Column(name = "open_cost", precision = 19, scale = 6)
+    private BigDecimal openCost;
+
     @Column(name = "realized_all", nullable = false, precision = 19, scale = 6)
     private BigDecimal realizedAll = BigDecimal.ZERO;
 

@@ -92,7 +92,25 @@
         <article class="pred__tile">
           <h2>Open mark</h2>
           <p [class]="moneyClass(desk.openValue)">{{ desk.openValue == null ? '—' : (desk.openValue | currency: 'USD' : 'symbol' : '1.2-2') }}</p>
-          <span>Value of contracts still open</span>
+          <label class="pred__putin">
+            Put in
+            <input
+              type="number"
+              inputmode="decimal"
+              step="0.01"
+              name="openCost"
+              [(ngModel)]="openCostDraft"
+              (change)="saveOpenCost()"
+              [disabled]="savingOpenCost"
+              aria-label="Cash put into open contracts"
+            />
+          </label>
+          <p class="pred__diff">
+            Difference
+            <span [class]="moneyClass(openDifference)">
+              {{ openDifference == null ? '—' : (openDifference | currency: 'USD' : 'symbol' : '1.2-2') }}
+            </span>
+          </p>
         </article>
         <article class="pred__tile">
           <h2>Return, 7 days</h2>

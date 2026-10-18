@@ -48,6 +48,8 @@ export class MarketsPredictComponent implements OnInit {
   desk: RhPredictDeskDto | null = null;
   loading = false;
   refreshing = false;
+  openCostDraft = '';
+  savingOpenCost = false;
   selectedYear: number | null = null;
   /** Null means every month in the selected year. */
   selectedMonth: number | null = null;
@@ -175,6 +177,26 @@ export class MarketsPredictComponent implements OnInit {
     return this.scopedCloses.filter((row) => row.realized < 0).length;
   }
 
+  /** Cash recorded against the contracts still open. */
+  get openCost(): number | null {
+    const raw = this.openCostDraft.trim();
+    if (!raw) {
+      return null;
+    }
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : null;
+  }
+
+  /** Open mark minus the cash put into those contracts. */
+  get openDifference(): number | null {
+    const mark = this.desk?.openValue;
+    const cost = this.openCost;
+    if (mark == null || cost == null) {
+      return null;
+    }
+    return mark - cost;
+  }
+
   get periodRows(): { key: string; label: string; level: string; totals: PredictPeriodTotals }[] {
     const year = this.activeYear;
     if (!year) {
@@ -237,8 +259,34 @@ export class MarketsPredictComponent implements OnInit {
     return '';
   }
 
+  saveOpenCost(): void {
+    if (!this.desk || this.savingOpenCost) {
+      return;
+    }
+    const next = this.openCost;
+    const current = this.desk.openCost;
+    if (next == null && current == null) {
+      return;
+    }
+    if (next != null && current != null && Math.abs(next - current) < 0.000001) {
+      return;
+    }
+    this.savingOpenCost = true;
+    this.api.setOpenCost(next).subscribe({
+      next: (desk) => {
+        this.apply(desk);
+        this.savingOpenCost = false;
+      },
+      error: (err) => {
+        this.savingOpenCost = false;
+        this.toastError(err);
+      },
+    });
+  }
+
   private apply(desk: RhPredictDeskDto): void {
     this.desk = desk;
+    this.openCostDraft = desk.openCost == null ? '' : String(desk.openCost);
   }
 
   private toastError(err: unknown): void {

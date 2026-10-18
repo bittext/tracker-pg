@@ -7,6 +7,7 @@ import java.util.List;
 public record RhPredictDeskDto(
         Instant lastSyncedAt,
         BigDecimal openValue,
+        BigDecimal openCost,
         BigDecimal realizedAll,
         BigDecimal realizedWeek,
         int closeCount,

@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from predict_markets_service import is_event_trade, parse_event_closes, parse_open_value
+from predict_markets_service import is_event_trade, parse_event_closes, parse_open_cost, parse_open_value
 
 
 def test_is_event_trade_blank_symbol_and_side() -> None:
@@ -46,3 +46,8 @@ def test_parse_event_closes_skips_equities() -> None:
 
 def test_parse_open_value() -> None:
     assert parse_open_value({"data": {"event_contracts_value": "0.66"}}) == Decimal("0.66")
+
+
+def test_parse_open_cost() -> None:
+    assert parse_open_cost({"data": {"event_contracts_cost": "12.50"}}) == Decimal("12.50")
+    assert parse_open_cost({"data": {"event_contracts_value": "0.66"}}) is None

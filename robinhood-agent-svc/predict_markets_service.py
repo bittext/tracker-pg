@@ -76,11 +76,25 @@ def parse_open_value(payload: Any) -> Decimal | None:
     return _decimal(data.get("event_contracts_value"))
 
 
+def parse_open_cost(payload: Any) -> Decimal | None:
+    """Cash put into open event contracts, when the portfolio names it."""
+    data = payload.get("data") if isinstance(payload, dict) and isinstance(payload.get("data"), dict) else payload
+    if not isinstance(data, dict):
+        return None
+    for key in ("event_contracts_cost", "event_contracts_cost_basis", "event_contracts_invested"):
+        value = _decimal(data.get(key))
+        if value is not None:
+            return value
+    return None
+
+
 def run_predict_markets(access_token: str) -> dict[str, Any]:
     warnings: list[str] = []
     accounts_out: list[dict[str, Any]] = []
     open_total = Decimal("0")
+    cost_total = Decimal("0")
     saw_open = False
+    saw_cost = False
     from mcp_client import RobinhoodMcpClient
     from mcp_tool_utils import extract_accounts, list_tool_names, parse_tool_payload
 
@@ -90,10 +104,10 @@ def run_predict_markets(access_token: str) -> dict[str, Any]:
         tools = list_tool_names(client.list_tools())
         if ACCOUNTS_TOOL not in tools:
             warnings.append("get_accounts unavailable")
-            return _result(accounts_out, open_total if saw_open else None, warnings)
+            return _result(accounts_out, open_total if saw_open else None, cost_total if saw_cost else None, warnings)
         if TRADES_TOOL not in tools:
             warnings.append("get_pnl_trade_history unavailable")
-            return _result(accounts_out, open_total if saw_open else None, warnings)
+            return _result(accounts_out, open_total if saw_open else None, cost_total if saw_cost else None, warnings)
 
         listed = extract_accounts(client.call_tool(ACCOUNTS_TOOL, {}))
         targets: list[tuple[str, str, str]] = []
@@ -131,12 +145,17 @@ def run_predict_markets(access_token: str) -> dict[str, Any]:
                     break
 
             open_value = None
+            open_cost = None
             if PORTFOLIO_TOOL in tools:
                 portfolio = parse_tool_payload(client.call_tool(PORTFOLIO_TOOL, {"account_number": number}))
                 open_value = parse_open_value(portfolio)
+                open_cost = parse_open_cost(portfolio)
                 if open_value is not None:
                     open_total += open_value
                     saw_open = True
+                if open_cost is not None:
+                    cost_total += open_cost
+                    saw_cost = True
 
             realized = Decimal("0")
             for row in closes:
@@ -148,6 +167,7 @@ def run_predict_markets(access_token: str) -> dict[str, Any]:
                     "suffix": suffix,
                     "label": label,
                     "open_value": str(open_value) if open_value is not None else None,
+                    "open_cost": str(open_cost) if open_cost is not None else None,
                     "realized_all": str(realized),
                     "closes": closes,
                 }
@@ -160,16 +180,23 @@ def run_predict_markets(access_token: str) -> dict[str, Any]:
             client.close_session()
         except Exception:  # noqa: BLE001
             pass
-    return _result(accounts_out, open_total if saw_open else None, warnings)
+    return _result(
+        accounts_out,
+        open_total if saw_open else None,
+        cost_total if saw_cost else None,
+        warnings,
+    )
 
 
 def _result(
     accounts: list[dict[str, Any]],
     open_value: Decimal | None,
+    open_cost: Decimal | None,
     warnings: list[str],
 ) -> dict[str, Any]:
     return {
         "open_value": str(open_value) if open_value is not None else None,
+        "open_cost": str(open_cost) if open_cost is not None else None,
         "accounts": accounts,
         "warnings": warnings,
     }

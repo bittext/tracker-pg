@@ -3,6 +3,7 @@ package com.svp.tracker.finance.controller;
 import com.svp.tracker.finance.dto.RhPredictCloseDto;
 import com.svp.tracker.finance.dto.RhPredictCloseLabelRequest;
 import com.svp.tracker.finance.dto.RhPredictDeskDto;
+import com.svp.tracker.finance.dto.RhPredictOpenCostRequest;
 import com.svp.tracker.finance.service.RhPredictService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +32,11 @@ public class RhPredictController {
     public RhPredictDeskDto refresh() {
         log.info("POST /api/markets/predict/refresh");
         return predictService.refreshForCurrentUser();
+    }
+
+    @PutMapping("/open-cost")
+    public RhPredictDeskDto setOpenCost(@RequestBody RhPredictOpenCostRequest body) {
+        return predictService.setOpenCost(body == null ? null : body.amount());
     }
 
     @PutMapping("/closes/{id}")

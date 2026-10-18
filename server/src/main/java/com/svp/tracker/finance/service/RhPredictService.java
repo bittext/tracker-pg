@@ -57,6 +57,25 @@ public class RhPredictService {
     }
 
     @Transactional
+    public RhPredictDeskDto setOpenCost(BigDecimal amount) {
+        long uid = currentUser.requireUserId();
+        Instant now = Instant.now();
+        RhPredictSnapshot snap = snapshotRepository.findByOwnerUserId(uid).orElseGet(RhPredictSnapshot::new);
+        if (snap.getId() == null) {
+            snap.setOwnerUserId(uid);
+            snap.setCreatedAt(now);
+            snap.setLastSyncedAt(now);
+            snap.setRealizedAll(BigDecimal.ZERO);
+            snap.setRealizedWeek(BigDecimal.ZERO);
+            snap.setCloseCount(0);
+        }
+        snap.setOpenCost(amount == null ? null : amount.setScale(6, RoundingMode.HALF_UP));
+        snap.setUpdatedAt(now);
+        snapshotRepository.save(snap);
+        return loadOwner(uid);
+    }
+
+    @Transactional
     public RhPredictCloseDto renameClose(long id, RhPredictCloseLabelRequest body) {
         long uid = currentUser.requireUserId();
         RhPredictClose row = closeRepository
@@ -150,6 +169,10 @@ public class RhPredictService {
         }
         snap.setLastSyncedAt(now);
         snap.setOpenValue(decimal(root, "open_value"));
+        BigDecimal reportedCost = decimal(root, "open_cost");
+        if (reportedCost != null) {
+            snap.setOpenCost(reportedCost);
+        }
         snap.setRealizedAll(realizedAll.setScale(6, RoundingMode.HALF_UP));
         snap.setRealizedWeek(realizedWeek.setScale(6, RoundingMode.HALF_UP));
         snap.setCloseCount(stored.size());
@@ -193,7 +216,7 @@ public class RhPredictService {
                 .toList();
         if (snap == null) {
             return new RhPredictDeskDto(
-                    null, null, BigDecimal.ZERO, BigDecimal.ZERO, closes.size(), List.of(), closes);
+                    null, null, null, BigDecimal.ZERO, BigDecimal.ZERO, closes.size(), List.of(), closes);
         }
         List<String> warnings = new ArrayList<>();
         if (snap.getWarnings() != null && !snap.getWarnings().isBlank()) {
@@ -202,6 +225,7 @@ public class RhPredictService {
         return new RhPredictDeskDto(
                 snap.getLastSyncedAt(),
                 snap.getOpenValue(),
+                snap.getOpenCost(),
                 nz(snap.getRealizedAll()),
                 nz(snap.getRealizedWeek()),
                 snap.getCloseCount(),
