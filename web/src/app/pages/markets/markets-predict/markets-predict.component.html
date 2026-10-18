@@ -104,6 +104,48 @@
       </aside>
     </div>
 
+    @if (returnChart; as chart) {
+      <section class="pred__chart" aria-label="Running return at each close">
+        <h2 class="pred__section-title">Return at each close@if (scopeLabel) { · {{ scopeLabel }} }</h2>
+        <p class="pred__caption">The line is the running return. Each dot is one close.</p>
+        <svg
+          class="pred__chart-svg"
+          [attr.viewBox]="'0 0 ' + chart.width + ' ' + chart.height"
+          role="img"
+          [attr.aria-label]="'Running return for ' + (scopeLabel || 'these closes')"
+        >
+          @for (label of chart.yLabels; track label.text + label.y) {
+            <line
+              class="pred__grid"
+              [attr.x1]="chart.padL"
+              [attr.x2]="chart.width - chart.padR"
+              [attr.y1]="label.y"
+              [attr.y2]="label.y"
+            />
+            <text class="pred__axis" [attr.x]="chart.padL - 8" [attr.y]="label.y + 4">{{ label.text }}</text>
+          }
+          <line
+            class="pred__zero"
+            [attr.x1]="chart.padL"
+            [attr.x2]="chart.width - chart.padR"
+            [attr.y1]="chart.zeroY"
+            [attr.y2]="chart.zeroY"
+          />
+          <path class="pred__line" [attr.d]="chart.line" />
+          @for (point of chart.points; track point.id) {
+            <circle [attr.cx]="point.x" [attr.cy]="point.y" r="4" [class]="point.up ? 'pred__dot pred__dot--up' : 'pred__dot pred__dot--down'">
+              <title>{{ point.title }}</title>
+            </circle>
+          }
+          @for (label of chart.xLabels; track label.text + label.x) {
+            <text class="pred__axis pred__axis-x" [attr.x]="label.x" [attr.y]="chart.height - 8" text-anchor="middle">
+              {{ label.text }}
+            </text>
+          }
+        </svg>
+      </section>
+    }
+
     @if (periodRows.length) {
       <section class="pred__periods" aria-label="Predict returns by period">
         <h2 class="pred__section-title">{{ breakdownTitle }}</h2>

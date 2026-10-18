@@ -17,6 +17,18 @@ import {
   rollupPredictCloses,
 } from './rh-predict-rollups';
 
+interface PredictReturnChart {
+  width: number;
+  height: number;
+  padL: number;
+  padR: number;
+  line: string;
+  zeroY: number;
+  points: { id: number; x: number; y: number; up: boolean; title: string }[];
+  yLabels: { y: number; text: string }[];
+  xLabels: { x: number; text: string }[];
+}
+
 @Component({
   selector: 'app-markets-predict',
   standalone: true,
@@ -186,6 +198,72 @@ export class MarketsPredictComponent implements OnInit {
     });
   }
 
+  /** Running return after each close, oldest first, for the selected year and month. */
+  get returnChart(): PredictReturnChart | null {
+    const rows = [...this.scopedCloses].reverse();
+    if (!rows.length) {
+      return null;
+    }
+    const width = 760;
+    const height = 220;
+    const padL = 68;
+    const padR = 16;
+    const padT = 16;
+    const padB = 32;
+    let running = 0;
+    const steps = rows.map((row) => {
+      running += row.realized;
+      return { row, running };
+    });
+    const min = Math.min(0, ...steps.map((step) => step.running));
+    const max = Math.max(0, ...steps.map((step) => step.running));
+    const span = max - min || 1;
+    const innerW = width - padL - padR;
+    const innerH = height - padT - padB;
+    const xAt = (index: number) => padL + (steps.length === 1 ? innerW / 2 : (index / (steps.length - 1)) * innerW);
+    const yAt = (value: number) => padT + ((max - value) / span) * innerH;
+    const points = steps.map((step, index) => {
+      const when = new Date(step.row.closedAt);
+      const whenLabel = Number.isNaN(when.getTime())
+        ? ''
+        : when.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+      return {
+        id: step.row.id,
+        x: xAt(index),
+        y: yAt(step.running),
+        up: step.row.realized >= 0,
+        title: `${whenLabel}\nThis close ${this.usd(step.row.realized)}\nRunning ${this.usd(step.running)}`,
+      };
+    });
+    const yLabels: { y: number; text: string }[] = [];
+    for (const value of [max, 0, min]) {
+      const y = yAt(value);
+      if (yLabels.some((label) => Math.abs(label.y - y) < 14)) {
+        continue;
+      }
+      yLabels.push({ y, text: this.axisUsd(value) });
+    }
+    const xIndexes = steps.length === 1 ? [0] : [0, Math.floor((steps.length - 1) / 2), steps.length - 1];
+    const xLabels = [...new Set(xIndexes)].map((index) => {
+      const when = new Date(steps[index].row.closedAt);
+      const text = Number.isNaN(when.getTime())
+        ? ''
+        : when.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return { x: xAt(index), text };
+    });
+    return {
+      width,
+      height,
+      padL,
+      padR,
+      line: points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' '),
+      zeroY: yAt(0),
+      points,
+      yLabels,
+      xLabels,
+    };
+  }
+
   get upCount(): number {
     return this.scopedCloses.filter((row) => row.realized > 0).length;
   }
@@ -259,6 +337,19 @@ export class MarketsPredictComponent implements OnInit {
       return 'loss';
     }
     return '';
+  }
+
+  private usd(value: number): string {
+    return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+  }
+
+  private axisUsd(value: number): string {
+    const abs = Math.abs(value);
+    const sign = value < 0 ? '-' : '';
+    if (abs >= 1000) {
+      return `${sign}$${(abs / 1000).toFixed(abs >= 10000 ? 0 : 1)}k`;
+    }
+    return `${sign}$${Math.round(abs)}`;
   }
 
   private apply(desk: RhPredictDeskDto): void {

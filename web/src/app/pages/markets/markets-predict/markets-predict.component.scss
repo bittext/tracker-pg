@@ -175,6 +175,54 @@
   font-size: 0.82rem;
 }
 
+.pred__chart {
+  padding: 0.15rem 0 0.2rem;
+}
+
+.pred__chart-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.pred__grid {
+  stroke: var(--app-border, rgba(15, 23, 42, 0.08));
+  stroke-width: 1;
+}
+
+.pred__zero {
+  stroke: var(--app-text-muted, #64748b);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.pred__line {
+  fill: none;
+  stroke: #334155;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.pred__dot--up {
+  fill: #15803d;
+}
+
+.pred__dot--down {
+  fill: #b91c1c;
+}
+
+.pred__axis {
+  fill: var(--app-text-muted, #64748b);
+  font-size: 11px;
+  text-anchor: end;
+}
+
+.pred__axis-x {
+  text-anchor: middle;
+}
+
 .pred__list {
   overflow-x: auto;
 }
