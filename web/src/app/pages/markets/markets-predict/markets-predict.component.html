@@ -26,18 +26,48 @@
       <p class="pred__account">Account {{ accounts.join(' · ') }}</p>
     }
 
+    @if (activeYear; as year) {
+      <div class="pred__period-head" aria-label="Return period">
+        <label class="pred__year-pick">
+          Year
+          <select [ngModel]="year.year" (ngModelChange)="selectYear($event)">
+            @for (option of years; track option.year) {
+              <option [ngValue]="option.year">{{ option.year }}</option>
+            }
+          </select>
+        </label>
+        <label class="pred__year-pick">
+          Month
+          <select [ngModel]="selectedMonth ?? -1" (ngModelChange)="selectMonth($event)">
+            <option [ngValue]="-1">All months</option>
+            @for (month of year.months; track month.key) {
+              <option [ngValue]="month.month">{{ month.label }}</option>
+            }
+          </select>
+        </label>
+        <label class="pred__year-pick">
+          Time period
+          <select [(ngModel)]="periodGrain">
+            @for (grain of periodGrains; track grain.id) {
+              <option [value]="grain.id">{{ grain.label }}</option>
+            }
+          </select>
+        </label>
+      </div>
+    }
+
     <section class="pred__kpis" aria-label="Predict totals">
       <article class="pred__kpi">
         <h2>Invested</h2>
-        <p>{{ closedTotals.invested | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
+        <p>{{ scopedTotals.invested | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
       </article>
       <article class="pred__kpi">
         <h2>Payback</h2>
-        <p>{{ closedTotals.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
+        <p>{{ scopedTotals.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
       </article>
       <article class="pred__kpi">
         <h2>Return</h2>
-        <p [class]="moneyClass(closedTotals.returned)">{{ closedTotals.returned | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
+        <p [class]="moneyClass(scopedTotals.returned)">{{ scopedTotals.returned | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
       </article>
       <article class="pred__kpi">
         <h2>Open mark</h2>
@@ -57,21 +87,9 @@
       }
     </p>
 
-    @if (activeYear; as year) {
+    @if (activeYear) {
       <section class="pred__periods" aria-label="Predict returns by period">
-        <div class="pred__period-head">
-          <h2 class="pred__section-title">Returns</h2>
-          @if (years.length > 1) {
-            <label class="pred__year-pick">
-              Year
-              <select [ngModel]="year.year" (ngModelChange)="selectYear($event)">
-                @for (option of years; track option.year) {
-                  <option [ngValue]="option.year">{{ option.year }}</option>
-                }
-              </select>
-            </label>
-          }
-        </div>
+        <h2 class="pred__section-title">Returns</h2>
         <div class="pred__list">
           <table class="pred__period-table">
             <thead>
@@ -84,67 +102,14 @@
               </tr>
             </thead>
             <tbody>
-              <tr class="pred__year">
-                <th scope="row">
-                  <button type="button" class="pred__period-btn" (click)="toggleMonths()" [attr.aria-expanded]="monthsOpen">
-                    {{ year.year }}
-                  </button>
-                </th>
-                <td>{{ year.closes }}</td>
-                <td>{{ year.invested | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
-                <td>{{ year.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
-                <td [class]="moneyClass(year.returned)">{{ year.returned | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
-              </tr>
-              @if (monthsOpen) {
-                @for (month of year.months; track month.key) {
-                  <tr class="pred__month">
-                    <th scope="row">
-                      <button
-                        type="button"
-                        class="pred__period-btn"
-                        (click)="toggleMonth(month.key)"
-                        [attr.aria-expanded]="selectedMonthKey === month.key"
-                      >
-                        {{ month.label }}
-                      </button>
-                    </th>
-                    <td>{{ month.closes }}</td>
-                    <td>{{ month.invested | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
-                    <td>{{ month.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
-                    <td [class]="moneyClass(month.returned)">{{ month.returned | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
-                  </tr>
-                  @if (selectedMonthKey === month.key) {
-                    @for (day of month.days; track day.key) {
-                      <tr class="pred__day">
-                        <th scope="row">
-                          <button
-                            type="button"
-                            class="pred__period-btn"
-                            (click)="toggleDay(day.key)"
-                            [attr.aria-expanded]="selectedDayKey === day.key"
-                          >
-                            {{ day.label }}
-                          </button>
-                        </th>
-                        <td>{{ day.closes }}</td>
-                        <td>{{ day.invested | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
-                        <td>{{ day.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
-                        <td [class]="moneyClass(day.returned)">{{ day.returned | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
-                      </tr>
-                      @if (selectedDayKey === day.key) {
-                        @for (hour of day.hours; track hour.key) {
-                          <tr class="pred__hour">
-                            <th scope="row">{{ hour.label }}</th>
-                            <td>{{ hour.closes }}</td>
-                            <td>{{ hour.invested | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
-                            <td>{{ hour.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
-                            <td [class]="moneyClass(hour.returned)">{{ hour.returned | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
-                          </tr>
-                        }
-                      }
-                    }
-                  }
-                }
+              @for (row of periodRows; track row.key) {
+                <tr [class]="'pred__' + row.level">
+                  <th scope="row">{{ row.label }}</th>
+                  <td>{{ row.totals.closes }}</td>
+                  <td>{{ row.totals.invested | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                  <td>{{ row.totals.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                  <td [class]="moneyClass(row.totals.returned)">{{ row.totals.returned | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                </tr>
               }
             </tbody>
           </table>

@@ -30,6 +30,8 @@ export interface PredictDayRollup extends PredictPeriodTotals {
 
 export interface PredictMonthRollup extends PredictPeriodTotals {
   key: string;
+  /** Calendar month, 0 = January. */
+  month: number;
   label: string;
   days: PredictDayRollup[];
 }
@@ -90,6 +92,7 @@ function rollupMonth(year: number, month: number, days: DayBucket): PredictMonth
     .map(([day, hours]) => rollupDay(year, month, day, hours));
   return {
     key: `${year}-${month}`,
+    month,
     label: new Date(year, month, 1).toLocaleString('en-US', { month: 'long' }),
     days: dayRollups,
     ...sumPredictCloses(flattenHours(days)),

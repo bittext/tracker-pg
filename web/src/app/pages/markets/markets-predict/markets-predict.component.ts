@@ -12,9 +12,9 @@ import { formatHttpErrorDetail } from '../../../util/http-error';
 import {
   predictInvested,
   predictPayback,
+  PredictPeriodTotals,
   PredictYearRollup,
   rollupPredictCloses,
-  sumPredictCloses,
 } from './rh-predict-rollups';
 
 @Component({
@@ -38,13 +38,20 @@ export class MarketsPredictComponent implements OnInit {
 
   readonly columns = ['closedAt', 'quantity', 'price', 'invested', 'payback', 'realized'] as const;
 
+  readonly periodGrains = [
+    { id: 'year', label: 'Year' },
+    { id: 'month', label: 'Month' },
+    { id: 'day', label: 'Day' },
+    { id: 'hour', label: 'Hour' },
+  ] as const;
+
   desk: RhPredictDeskDto | null = null;
   loading = false;
   refreshing = false;
   selectedYear: number | null = null;
-  monthsOpen = false;
-  selectedMonthKey: string | null = null;
-  selectedDayKey: string | null = null;
+  /** Null means every month in the selected year. */
+  selectedMonth: number | null = null;
+  periodGrain: 'year' | 'month' | 'day' | 'hour' = 'year';
 
   ngOnInit(): void {
     this.load();
@@ -94,30 +101,63 @@ export class MarketsPredictComponent implements OnInit {
 
   selectYear(year: number): void {
     this.selectedYear = Number(year);
-    this.monthsOpen = false;
-    this.selectedMonthKey = null;
-    this.selectedDayKey = null;
+    this.selectedMonth = null;
   }
 
-  toggleMonths(): void {
-    this.monthsOpen = !this.monthsOpen;
-    if (!this.monthsOpen) {
-      this.selectedMonthKey = null;
-      this.selectedDayKey = null;
+  selectMonth(month: number): void {
+    const value = Number(month);
+    this.selectedMonth = Number.isFinite(value) && value >= 0 ? value : null;
+  }
+
+  get scopedMonths() {
+    const year = this.activeYear;
+    if (!year) {
+      return [];
     }
+    if (this.selectedMonth == null) {
+      return year.months;
+    }
+    return year.months.filter((month) => month.month === this.selectedMonth);
   }
 
-  toggleMonth(key: string): void {
-    this.selectedMonthKey = this.selectedMonthKey === key ? null : key;
-    this.selectedDayKey = null;
+  get scopedTotals(): PredictPeriodTotals {
+    const year = this.activeYear;
+    if (!year) {
+      return { closes: 0, invested: 0, payback: 0, returned: 0 };
+    }
+    if (this.selectedMonth == null) {
+      return year;
+    }
+    return this.scopedMonths[0] ?? { closes: 0, invested: 0, payback: 0, returned: 0 };
   }
 
-  toggleDay(key: string): void {
-    this.selectedDayKey = this.selectedDayKey === key ? null : key;
-  }
-
-  get closedTotals() {
-    return sumPredictCloses(this.desk?.closes ?? []);
+  get periodRows(): { key: string; label: string; level: string; totals: PredictPeriodTotals }[] {
+    const year = this.activeYear;
+    if (!year) {
+      return [];
+    }
+    const months = this.scopedMonths;
+    if (this.periodGrain === 'year' && this.selectedMonth == null) {
+      return [{ key: String(year.year), label: String(year.year), level: 'year', totals: year }];
+    }
+    if (this.periodGrain === 'year' || this.periodGrain === 'month') {
+      return months.map((month) => ({ key: month.key, label: month.label, level: 'month', totals: month }));
+    }
+    if (this.periodGrain === 'day') {
+      return months.flatMap((month) =>
+        month.days.map((day) => ({ key: day.key, label: day.label, level: 'day', totals: day })),
+      );
+    }
+    return months.flatMap((month) =>
+      month.days.flatMap((day) =>
+        day.hours.map((hour) => ({
+          key: hour.key,
+          label: `${day.label}, ${hour.label}`,
+          level: 'hour',
+          totals: hour,
+        })),
+      ),
+    );
   }
 
   get accounts(): string[] {
