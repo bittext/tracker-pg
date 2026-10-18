@@ -3,8 +3,9 @@
     <div>
       <h1 class="pred__title">Predict</h1>
       <p class="muted pred__lead">
-        Robinhood prediction markets only — event-contract closes and the open mark. Community sentiment stays on
-        Research → Predicts.
+        Robinhood prediction markets only. Invested is what a close implies you paid (contracts × exit, minus P&amp;L).
+        Payback is the cash from that exit. Robinhood does not send the market name, so set the predict on each row.
+        Community sentiment stays on Research → Predicts.
       </p>
     </div>
     <button mat-flat-button color="primary" type="button" (click)="refresh()" [disabled]="refreshing || loading">
@@ -24,20 +25,24 @@
 
     <section class="pred__kpis" aria-label="Predict totals">
       <article class="pred__kpi">
+        <h2>Invested</h2>
+        <p>{{ closedTotals.invested | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
+      </article>
+      <article class="pred__kpi">
+        <h2>Payback</h2>
+        <p>{{ closedTotals.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
+      </article>
+      <article class="pred__kpi">
+        <h2>Return</h2>
+        <p [class]="moneyClass(closedTotals.returned)">{{ closedTotals.returned | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
+      </article>
+      <article class="pred__kpi">
         <h2>Open mark</h2>
         <p [class]="moneyClass(desk.openValue)">{{ desk.openValue == null ? '—' : (desk.openValue | currency: 'USD' : 'symbol' : '1.2-2') }}</p>
       </article>
       <article class="pred__kpi">
-        <h2>Realized (all)</h2>
-        <p [class]="moneyClass(desk.realizedAll)">{{ desk.realizedAll | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
-      </article>
-      <article class="pred__kpi">
-        <h2>Realized (7 days)</h2>
+        <h2>Return (7 days)</h2>
         <p [class]="moneyClass(desk.realizedWeek)">{{ desk.realizedWeek | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
-      </article>
-      <article class="pred__kpi">
-        <h2>Closes</h2>
-        <p>{{ desk.closeCount }}</p>
       </article>
     </section>
 
@@ -49,7 +54,50 @@
       }
     </p>
 
+    @if (years.length) {
+      <section class="pred__periods" aria-label="Predict by year and month">
+        <h2 class="pred__section-title">By year and month</h2>
+        <div class="pred__list">
+          <table class="pred__period-table">
+            <thead>
+              <tr>
+                <th scope="col">Period</th>
+                <th scope="col">Closes</th>
+                <th scope="col">Invested</th>
+                <th scope="col">Payback</th>
+                <th scope="col">Return</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (year of years; track year.year) {
+                <tr class="pred__year">
+                  <th scope="row">{{ year.year }}</th>
+                  <td>{{ year.closes }}</td>
+                  <td>{{ year.invested | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                  <td>{{ year.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                  <td [class]="moneyClass(year.returned)">{{ year.returned | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                </tr>
+                @for (month of year.months; track month.key) {
+                  <tr>
+                    <th scope="row">{{ month.label }}</th>
+                    <td>{{ month.closes }}</td>
+                    <td>{{ month.invested | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                    <td>{{ month.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                    <td [class]="moneyClass(month.returned)">{{ month.returned | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                  </tr>
+                }
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    }
+
     <section class="pred__list" aria-label="Closed Predict contracts">
+      <h2 class="pred__section-title">Closes</h2>
+      @if (unnamedCount) {
+        <p class="muted pred__sync">{{ unnamedCount }} close{{ unnamedCount === 1 ? '' : 's' }} still need a predict name.</p>
+      }
       <table mat-table [dataSource]="desk.closes" class="pred__table">
         <ng-container matColumnDef="closedAt">
           <th mat-header-cell *matHeaderCellDef>Closed</th>
@@ -67,22 +115,40 @@
           <th mat-header-cell *matHeaderCellDef>Exit</th>
           <td mat-cell *matCellDef="let row">{{ row.price | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
         </ng-container>
+        <ng-container matColumnDef="invested">
+          <th mat-header-cell *matHeaderCellDef>Invested</th>
+          <td mat-cell *matCellDef="let row">{{ invested(row) | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="payback">
+          <th mat-header-cell *matHeaderCellDef>Payback</th>
+          <td mat-cell *matCellDef="let row">{{ payback(row) | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+        </ng-container>
         <ng-container matColumnDef="realized">
-          <th mat-header-cell *matHeaderCellDef>P&amp;L</th>
+          <th mat-header-cell *matHeaderCellDef>Return</th>
           <td mat-cell *matCellDef="let row" [class]="moneyClass(row.realized)">
             {{ row.realized | currency: 'USD' : 'symbol' : '1.2-2' }}
           </td>
         </ng-container>
         <ng-container matColumnDef="label">
-          <th mat-header-cell *matHeaderCellDef>Market</th>
+          <th mat-header-cell *matHeaderCellDef>Predict</th>
           <td mat-cell *matCellDef="let row">
-            <input
-              class="pred__label"
-              [(ngModel)]="draftLabels[row.id]"
-              [name]="'predLabel' + row.id"
-              placeholder="Name this market"
-              (blur)="saveLabel(row)"
-            />
+            <div class="pred__label-row">
+              <input
+                class="pred__label"
+                [(ngModel)]="draftLabels[row.id]"
+                [name]="'predLabel' + row.id"
+                placeholder="Which predict was this?"
+                (keydown.enter)="saveLabel(row)"
+              />
+              <button
+                mat-stroked-button
+                type="button"
+                (click)="saveLabel(row)"
+                [disabled]="!labelDirty(row) || savingLabelIds.has(row.id)"
+              >
+                Save
+              </button>
+            </div>
           </td>
         </ng-container>
         <tr mat-header-row *matHeaderRowDef="columns"></tr>

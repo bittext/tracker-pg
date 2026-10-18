@@ -9,6 +9,13 @@ import { MatTableModule } from '@angular/material/table';
 import { RhPredictCloseDto, RhPredictDeskDto } from '../../../models/rh-predict.models';
 import { RhPredictApiService } from '../../../services/rh-predict-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
+import {
+  predictInvested,
+  predictPayback,
+  PredictYearRollup,
+  rollupPredictCloses,
+  sumPredictCloses,
+} from './rh-predict-rollups';
 
 @Component({
   selector: 'app-markets-predict',
@@ -29,12 +36,13 @@ export class MarketsPredictComponent implements OnInit {
   private readonly api = inject(RhPredictApiService);
   private readonly snackBar = inject(MatSnackBar);
 
-  readonly columns = ['closedAt', 'account', 'quantity', 'price', 'realized', 'label'] as const;
+  readonly columns = ['closedAt', 'label', 'account', 'quantity', 'price', 'invested', 'payback', 'realized'] as const;
 
   desk: RhPredictDeskDto | null = null;
   loading = false;
   refreshing = false;
   draftLabels: Record<number, string> = {};
+  savingLabelIds = new Set<number>();
 
   ngOnInit(): void {
     this.load();
@@ -69,13 +77,39 @@ export class MarketsPredictComponent implements OnInit {
     });
   }
 
+  get years(): PredictYearRollup[] {
+    return rollupPredictCloses(this.desk?.closes ?? []);
+  }
+
+  get closedTotals() {
+    return sumPredictCloses(this.desk?.closes ?? []);
+  }
+
+  get unnamedCount(): number {
+    return (this.desk?.closes ?? []).filter((row) => !(row.label ?? '').trim()).length;
+  }
+
+  invested(row: RhPredictCloseDto): number {
+    return predictInvested(row);
+  }
+
+  payback(row: RhPredictCloseDto): number {
+    return predictPayback(row);
+  }
+
+  labelDirty(row: RhPredictCloseDto): boolean {
+    return (this.draftLabels[row.id] ?? '').trim() !== (row.label ?? '').trim();
+  }
+
   saveLabel(row: RhPredictCloseDto): void {
     const label = (this.draftLabels[row.id] ?? '').trim();
-    if (label === (row.label ?? '').trim()) {
+    if (!this.labelDirty(row) || this.savingLabelIds.has(row.id)) {
       return;
     }
+    this.savingLabelIds.add(row.id);
     this.api.rename(row.id, label).subscribe({
       next: (updated) => {
+        this.savingLabelIds.delete(row.id);
         if (!this.desk) {
           return;
         }
@@ -85,7 +119,10 @@ export class MarketsPredictComponent implements OnInit {
         };
         this.draftLabels[updated.id] = updated.label ?? '';
       },
-      error: (err) => this.toastError(err),
+      error: (err) => {
+        this.savingLabelIds.delete(row.id);
+        this.toastError(err);
+      },
     });
   }
 

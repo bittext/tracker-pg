@@ -74,6 +74,49 @@
   width: 100%;
 }
 
+.pred__section-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 650;
+}
+
+.pred__period-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.pred__period-table th,
+.pred__period-table td {
+  padding: 0.45rem 0.65rem;
+  text-align: right;
+  border-bottom: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+}
+
+.pred__period-table th:first-child,
+.pred__period-table td:first-child,
+.pred__period-table th[scope='row'] {
+  text-align: left;
+}
+
+.pred__year th,
+.pred__year td {
+  font-weight: 650;
+  background: color-mix(in srgb, var(--app-text-muted, #64748b) 8%, transparent);
+}
+
+.pred__period-table tbody tr:not(.pred__year) th {
+  padding-left: 1.4rem;
+  font-weight: 500;
+}
+
+.pred__label-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
+
 .pred__label {
   width: min(16rem, 100%);
   border: 1px solid var(--app-border, rgba(15, 23, 42, 0.16));
