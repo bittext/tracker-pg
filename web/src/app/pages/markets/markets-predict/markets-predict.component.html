@@ -23,6 +23,10 @@
       <p class="pred__warn" role="status">{{ desk.warnings.join(' ') }}</p>
     }
 
+    @if (accounts.length) {
+      <p class="pred__account">Account {{ accounts.join(' · ') }}</p>
+    }
+
     <section class="pred__kpis" aria-label="Predict totals">
       <article class="pred__kpi">
         <h2>Invested</h2>
@@ -55,8 +59,8 @@
     </p>
 
     @if (years.length) {
-      <section class="pred__periods" aria-label="Predict by year and month">
-        <h2 class="pred__section-title">By year and month</h2>
+      <section class="pred__periods" aria-label="Predict by year, month, date, and hour">
+        <h2 class="pred__section-title">By year, month, date, and hour</h2>
         <div class="pred__list">
           <table class="pred__period-table">
             <thead>
@@ -78,13 +82,31 @@
                   <td [class]="moneyClass(year.returned)">{{ year.returned | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
                 </tr>
                 @for (month of year.months; track month.key) {
-                  <tr>
+                  <tr class="pred__month">
                     <th scope="row">{{ month.label }}</th>
                     <td>{{ month.closes }}</td>
                     <td>{{ month.invested | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
                     <td>{{ month.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
                     <td [class]="moneyClass(month.returned)">{{ month.returned | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
                   </tr>
+                  @for (day of month.days; track day.key) {
+                    <tr class="pred__day">
+                      <th scope="row">{{ day.label }}</th>
+                      <td>{{ day.closes }}</td>
+                      <td>{{ day.invested | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                      <td>{{ day.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                      <td [class]="moneyClass(day.returned)">{{ day.returned | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                    </tr>
+                    @for (hour of day.hours; track hour.key) {
+                      <tr class="pred__hour">
+                        <th scope="row">{{ hour.label }}</th>
+                        <td>{{ hour.closes }}</td>
+                        <td>{{ hour.invested | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                        <td>{{ hour.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                        <td [class]="moneyClass(hour.returned)">{{ hour.returned | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                      </tr>
+                    }
+                  }
                 }
               }
             </tbody>
@@ -102,10 +124,6 @@
         <ng-container matColumnDef="closedAt">
           <th mat-header-cell *matHeaderCellDef>Closed</th>
           <td mat-cell *matCellDef="let row">{{ row.closedAt | date: 'MMM d, y, h:mm a' }}</td>
-        </ng-container>
-        <ng-container matColumnDef="account">
-          <th mat-header-cell *matHeaderCellDef>Account</th>
-          <td mat-cell *matCellDef="let row">{{ row.accountLabel }} ••••{{ row.accountSuffix }}</td>
         </ng-container>
         <ng-container matColumnDef="quantity">
           <th mat-header-cell *matHeaderCellDef>Contracts</th>

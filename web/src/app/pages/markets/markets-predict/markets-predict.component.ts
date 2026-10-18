@@ -36,7 +36,7 @@ export class MarketsPredictComponent implements OnInit {
   private readonly api = inject(RhPredictApiService);
   private readonly snackBar = inject(MatSnackBar);
 
-  readonly columns = ['closedAt', 'label', 'account', 'quantity', 'price', 'invested', 'payback', 'realized'] as const;
+  readonly columns = ['closedAt', 'label', 'quantity', 'price', 'invested', 'payback', 'realized'] as const;
 
   desk: RhPredictDeskDto | null = null;
   loading = false;
@@ -83,6 +83,20 @@ export class MarketsPredictComponent implements OnInit {
 
   get closedTotals() {
     return sumPredictCloses(this.desk?.closes ?? []);
+  }
+
+  get accounts(): string[] {
+    const seen = new Set<string>();
+    const labels: string[] = [];
+    for (const row of this.desk?.closes ?? []) {
+      const label = `${row.accountLabel} ••••${row.accountSuffix}`;
+      if (seen.has(label)) {
+        continue;
+      }
+      seen.add(label);
+      labels.push(label);
+    }
+    return labels;
   }
 
   get unnamedCount(): number {

@@ -21,6 +21,12 @@
   letter-spacing: -0.02em;
 }
 
+.pred__account {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
 .pred__lead,
 .pred__sync,
 .pred__empty {
@@ -105,9 +111,20 @@
   background: color-mix(in srgb, var(--app-text-muted, #64748b) 8%, transparent);
 }
 
-.pred__period-table tbody tr:not(.pred__year) th {
+.pred__month th {
   padding-left: 1.4rem;
+  font-weight: 600;
+}
+
+.pred__day th {
+  padding-left: 2.4rem;
   font-weight: 500;
+}
+
+.pred__hour th {
+  padding-left: 3.4rem;
+  font-weight: 450;
+  color: var(--app-text-muted, #64748b);
 }
 
 .pred__label-row {
