@@ -43,6 +43,10 @@ export class MarketsPredictComponent implements OnInit {
   refreshing = false;
   draftLabels: Record<number, string> = {};
   savingLabelIds = new Set<number>();
+  selectedYear: number | null = null;
+  monthsOpen = false;
+  selectedMonthKey: string | null = null;
+  selectedDayKey: string | null = null;
 
   ngOnInit(): void {
     this.load();
@@ -79,6 +83,39 @@ export class MarketsPredictComponent implements OnInit {
 
   get years(): PredictYearRollup[] {
     return rollupPredictCloses(this.desk?.closes ?? []);
+  }
+
+  get activeYear(): PredictYearRollup | null {
+    const years = this.years;
+    if (!years.length) {
+      return null;
+    }
+    const wanted = this.selectedYear ?? new Date().getFullYear();
+    return years.find((year) => year.year === wanted) ?? years[0];
+  }
+
+  selectYear(year: number): void {
+    this.selectedYear = Number(year);
+    this.monthsOpen = false;
+    this.selectedMonthKey = null;
+    this.selectedDayKey = null;
+  }
+
+  toggleMonths(): void {
+    this.monthsOpen = !this.monthsOpen;
+    if (!this.monthsOpen) {
+      this.selectedMonthKey = null;
+      this.selectedDayKey = null;
+    }
+  }
+
+  toggleMonth(key: string): void {
+    this.selectedMonthKey = this.selectedMonthKey === key ? null : key;
+    this.selectedDayKey = null;
+  }
+
+  toggleDay(key: string): void {
+    this.selectedDayKey = this.selectedDayKey === key ? null : key;
   }
 
   get closedTotals() {
