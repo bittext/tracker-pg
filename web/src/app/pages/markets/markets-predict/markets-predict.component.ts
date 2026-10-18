@@ -39,8 +39,6 @@ export class MarketsPredictComponent implements OnInit {
   readonly columns = ['closedAt', 'quantity', 'price', 'invested', 'payback', 'realized'] as const;
 
   readonly periodGrains = [
-    { id: 'year', label: 'Year' },
-    { id: 'month', label: 'Month' },
     { id: 'day', label: 'Day' },
     { id: 'hour', label: 'Hour' },
   ] as const;
@@ -48,12 +46,10 @@ export class MarketsPredictComponent implements OnInit {
   desk: RhPredictDeskDto | null = null;
   loading = false;
   refreshing = false;
-  openCostDraft = '';
-  savingOpenCost = false;
-  selectedYear: number | null = null;
-  /** Null means every month in the selected year. */
-  selectedMonth: number | null = null;
-  periodGrain: 'year' | 'month' | 'day' | 'hour' = 'year';
+  selectedYear: number | null = new Date().getFullYear();
+  /** Null keeps the year summary. "all" lists every month. A number is that month. */
+  selectedMonth: number | 'all' | null = null;
+  periodGrain: 'day' | 'hour' | null = null;
 
   ngOnInit(): void {
     this.load();
@@ -89,7 +85,12 @@ export class MarketsPredictComponent implements OnInit {
   }
 
   get years(): PredictYearRollup[] {
-    return rollupPredictCloses(this.desk?.closes ?? []);
+    const rolled = rollupPredictCloses(this.desk?.closes ?? []);
+    const current = new Date().getFullYear();
+    if (rolled.some((year) => year.year === current)) {
+      return rolled;
+    }
+    return [{ year: current, months: [], closes: 0, invested: 0, payback: 0, returned: 0 }, ...rolled];
   }
 
   get activeYear(): PredictYearRollup | null {
@@ -106,7 +107,15 @@ export class MarketsPredictComponent implements OnInit {
     this.selectedMonth = null;
   }
 
-  selectMonth(month: number): void {
+  selectMonth(month: number | 'all' | 'blank'): void {
+    if (month === 'all') {
+      this.selectedMonth = 'all';
+      return;
+    }
+    if (month === 'blank') {
+      this.selectedMonth = null;
+      return;
+    }
     const value = Number(month);
     this.selectedMonth = Number.isFinite(value) && value >= 0 ? value : null;
   }
@@ -116,7 +125,7 @@ export class MarketsPredictComponent implements OnInit {
     if (!year) {
       return [];
     }
-    if (this.selectedMonth == null) {
+    if (typeof this.selectedMonth !== 'number') {
       return year.months;
     }
     return year.months.filter((month) => month.month === this.selectedMonth);
@@ -127,7 +136,7 @@ export class MarketsPredictComponent implements OnInit {
     if (!year) {
       return { closes: 0, invested: 0, payback: 0, returned: 0 };
     }
-    if (this.selectedMonth == null) {
+    if (typeof this.selectedMonth !== 'number') {
       return year;
     }
     return this.scopedMonths[0] ?? { closes: 0, invested: 0, payback: 0, returned: 0 };
@@ -138,11 +147,19 @@ export class MarketsPredictComponent implements OnInit {
     if (!year) {
       return '';
     }
-    if (this.selectedMonth == null) {
+    if (typeof this.selectedMonth !== 'number') {
       return String(year.year);
     }
     const month = year.months.find((row) => row.month === this.selectedMonth);
     return month ? `${month.label} ${year.year}` : String(year.year);
+  }
+
+  get breakdownTitle(): string {
+    const scope = this.scopeLabel;
+    if (this.periodGrain === 'day' || this.periodGrain === 'hour') {
+      return `${scope} by ${this.periodGrain}`;
+    }
+    return `${scope} by month`;
   }
 
   /** Share of cash put in that came back as profit or loss. */
@@ -165,7 +182,7 @@ export class MarketsPredictComponent implements OnInit {
       if (Number.isNaN(closed.getTime()) || closed.getFullYear() !== year.year) {
         return false;
       }
-      return this.selectedMonth == null || closed.getMonth() === this.selectedMonth;
+      return typeof this.selectedMonth !== 'number' || closed.getMonth() === this.selectedMonth;
     });
   }
 
@@ -177,38 +194,23 @@ export class MarketsPredictComponent implements OnInit {
     return this.scopedCloses.filter((row) => row.realized < 0).length;
   }
 
-  /** Cash recorded against the contracts still open. */
-  get openCost(): number | null {
-    const raw = this.openCostDraft.trim();
-    if (!raw) {
-      return null;
-    }
-    const value = Number(raw);
-    return Number.isFinite(value) ? value : null;
-  }
-
-  /** Open mark minus the cash put into those contracts. */
-  get openDifference(): number | null {
-    const mark = this.desk?.openValue;
-    const cost = this.openCost;
-    if (mark == null || cost == null) {
-      return null;
-    }
-    return mark - cost;
-  }
-
   get periodRows(): { key: string; label: string; level: string; totals: PredictPeriodTotals }[] {
     const year = this.activeYear;
     if (!year) {
       return [];
     }
+    if (this.periodGrain == null) {
+      if (this.selectedMonth !== 'all') {
+        return [];
+      }
+      return year.months.map((month) => ({
+        key: month.key,
+        label: month.label,
+        level: 'month',
+        totals: month,
+      }));
+    }
     const months = this.scopedMonths;
-    if (this.periodGrain === 'year' && this.selectedMonth == null) {
-      return [{ key: String(year.year), label: String(year.year), level: 'year', totals: year }];
-    }
-    if (this.periodGrain === 'year' || this.periodGrain === 'month') {
-      return months.map((month) => ({ key: month.key, label: month.label, level: 'month', totals: month }));
-    }
     if (this.periodGrain === 'day') {
       return months.flatMap((month) =>
         month.days.map((day) => ({ key: day.key, label: day.label, level: 'day', totals: day })),
@@ -259,34 +261,8 @@ export class MarketsPredictComponent implements OnInit {
     return '';
   }
 
-  saveOpenCost(): void {
-    if (!this.desk || this.savingOpenCost) {
-      return;
-    }
-    const next = this.openCost;
-    const current = this.desk.openCost;
-    if (next == null && current == null) {
-      return;
-    }
-    if (next != null && current != null && Math.abs(next - current) < 0.000001) {
-      return;
-    }
-    this.savingOpenCost = true;
-    this.api.setOpenCost(next).subscribe({
-      next: (desk) => {
-        this.apply(desk);
-        this.savingOpenCost = false;
-      },
-      error: (err) => {
-        this.savingOpenCost = false;
-        this.toastError(err);
-      },
-    });
-  }
-
   private apply(desk: RhPredictDeskDto): void {
     this.desk = desk;
-    this.openCostDraft = desk.openCost == null ? '' : String(desk.openCost);
   }
 
   private toastError(err: unknown): void {

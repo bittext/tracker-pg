@@ -42,8 +42,9 @@
             </label>
             <label class="pred__year-pick">
               Month
-              <select [ngModel]="selectedMonth ?? -1" (ngModelChange)="selectMonth($event)">
-                <option [ngValue]="-1">All months</option>
+              <select [ngModel]="selectedMonth ?? 'blank'" (ngModelChange)="selectMonth($event)">
+                <option ngValue="blank"></option>
+                <option ngValue="all">All months</option>
                 @for (month of year.months; track month.key) {
                   <option [ngValue]="month.month">{{ month.label }}</option>
                 }
@@ -52,8 +53,9 @@
             <label class="pred__year-pick">
               Time period
               <select [(ngModel)]="periodGrain">
+                <option [ngValue]="null"></option>
                 @for (grain of periodGrains; track grain.id) {
-                  <option [value]="grain.id">{{ grain.label }}</option>
+                  <option [ngValue]="grain.id">{{ grain.label }}</option>
                 }
               </select>
             </label>
@@ -92,25 +94,7 @@
         <article class="pred__tile">
           <h2>Open mark</h2>
           <p [class]="moneyClass(desk.openValue)">{{ desk.openValue == null ? '—' : (desk.openValue | currency: 'USD' : 'symbol' : '1.2-2') }}</p>
-          <label class="pred__putin">
-            Put in
-            <input
-              type="number"
-              inputmode="decimal"
-              step="0.01"
-              name="openCost"
-              [(ngModel)]="openCostDraft"
-              (change)="saveOpenCost()"
-              [disabled]="savingOpenCost"
-              aria-label="Cash put into open contracts"
-            />
-          </label>
-          <p class="pred__diff">
-            Difference
-            <span [class]="moneyClass(openDifference)">
-              {{ openDifference == null ? '—' : (openDifference | currency: 'USD' : 'symbol' : '1.2-2') }}
-            </span>
-          </p>
+          <span>Value of contracts still open</span>
         </article>
         <article class="pred__tile">
           <h2>Return, 7 days</h2>
@@ -120,9 +104,9 @@
       </aside>
     </div>
 
-    @if (periodRows.length > 1) {
+    @if (periodRows.length) {
       <section class="pred__periods" aria-label="Predict returns by period">
-        <h2 class="pred__section-title">{{ scopeLabel }} by {{ periodGrain }}</h2>
+        <h2 class="pred__section-title">{{ breakdownTitle }}</h2>
         <div class="pred__list">
           <table class="pred__period-table">
             <thead>
