@@ -64,10 +64,10 @@
                   <td>{{ row.startPrice | number: '1.2-2' }}</td>
                   <td>{{ row.endPrice | number: '1.2-2' }}</td>
                   <td [class.btc__up]="(row.startGap ?? 0) > 0" [class.btc__down]="(row.startGap ?? 0) < 0">
-                    {{ row.startGap | number: '+1.2-2' }}
+                    {{ signed(row.startGap) }}
                   </td>
                   <td [class.btc__up]="(row.endGap ?? 0) > 0" [class.btc__down]="(row.endGap ?? 0) < 0">
-                    {{ row.endGap | number: '+1.2-2' }}
+                    {{ signed(row.endGap) }}
                   </td>
                   <td [class.btc__up]="row.aboveTarget === true" [class.btc__down]="row.aboveTarget === false">
                     @if (row.aboveTarget === true) {

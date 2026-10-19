@@ -28,6 +28,23 @@ export class MarketsPredictBtcComponent implements OnInit {
     this.load();
   }
 
+  signed(value: number | null): string {
+    if (value == null) {
+      return '—';
+    }
+    const text = Math.abs(value).toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    if (value > 0) {
+      return `+${text}`;
+    }
+    if (value < 0) {
+      return `−${text}`;
+    }
+    return text;
+  }
+
   load(): void {
     this.loading = true;
     this.api.btc15(this.date).subscribe({
