@@ -1,0 +1,91 @@
+<div class="btc">
+  <header class="btc__head">
+    <div>
+      <a class="btc__back" routerLink="/markets/predict">Predict</a>
+      <h1 class="btc__title">BTC 15 min</h1>
+      <p class="btc__meta">
+        Target is the stated price for the window. BTC at start is the Coinbase print when the window opened.
+        BTC at end is the settlement print. A close is positive when that end print is at or above the target.
+      </p>
+    </div>
+    <label class="btc__date">
+      Day
+      <input type="date" [(ngModel)]="date" (change)="load()" />
+    </label>
+  </header>
+
+  @if (loading) {
+    <mat-progress-bar mode="indeterminate" />
+  }
+
+  @if (desk) {
+    <section class="btc__hero">
+      <p class="btc__kicker">Above target · {{ desk.date }}</p>
+      <p class="btc__rate">
+        @if (desk.aboveRate != null) {
+          {{ desk.aboveRate | percent: '1.0-1' }}
+        } @else {
+          —
+        }
+      </p>
+      <p class="btc__meta">{{ desk.above }} of {{ desk.settled }} settled windows closed at or above the target</p>
+    </section>
+
+    @for (hour of desk.hours; track hour.label) {
+      <section class="btc__hour">
+        <header class="btc__hour-head">
+          <h2>{{ hour.label }}</h2>
+          <p>
+            @if (hour.aboveRate != null) {
+              {{ hour.above }} of {{ hour.settled }} · {{ hour.aboveRate | percent: '1.0-0' }}
+            } @else {
+              Still open
+            }
+          </p>
+        </header>
+        <div class="btc__scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Window</th>
+                <th>Target</th>
+                <th>BTC at start</th>
+                <th>BTC at end</th>
+                <th>Start vs target</th>
+                <th>End vs target</th>
+                <th>Above target</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of hour.windows; track row.ticker) {
+                <tr>
+                  <td>{{ row.label }}</td>
+                  <td>{{ row.target | number: '1.2-2' }}</td>
+                  <td>{{ row.startPrice | number: '1.2-2' }}</td>
+                  <td>{{ row.endPrice | number: '1.2-2' }}</td>
+                  <td [class.btc__up]="(row.startGap ?? 0) > 0" [class.btc__down]="(row.startGap ?? 0) < 0">
+                    {{ row.startGap | number: '+1.2-2' }}
+                  </td>
+                  <td [class.btc__up]="(row.endGap ?? 0) > 0" [class.btc__down]="(row.endGap ?? 0) < 0">
+                    {{ row.endGap | number: '+1.2-2' }}
+                  </td>
+                  <td [class.btc__up]="row.aboveTarget === true" [class.btc__down]="row.aboveTarget === false">
+                    @if (row.aboveTarget === true) {
+                      Yes
+                    } @else if (row.aboveTarget === false) {
+                      No
+                    } @else {
+                      Open
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </section>
+    } @empty {
+      <p class="btc__meta">No BTC 15-minute windows for this day.</p>
+    }
+  }
+</div>

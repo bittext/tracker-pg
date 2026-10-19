@@ -13,10 +13,13 @@
         }
       </p>
     </div>
-    <button mat-flat-button color="primary" type="button" (click)="refresh()" [disabled]="refreshing || loading">
-      <mat-icon>sync</mat-icon>
-      Refresh from Robinhood
-    </button>
+    <div class="pred__actions">
+      <a mat-stroked-button routerLink="/markets/predict/btc-15">BTC 15 min</a>
+      <button mat-flat-button color="primary" type="button" (click)="refresh()" [disabled]="refreshing || loading">
+        <mat-icon>sync</mat-icon>
+        Refresh from Robinhood
+      </button>
+    </div>
   </header>
 
   @if (loading || refreshing) {

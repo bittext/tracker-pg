@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
+import { RouterLink } from '@angular/router';
 import { RhPredictCloseDto, RhPredictDeskDto } from '../../../models/rh-predict.models';
 import { RhPredictApiService } from '../../../services/rh-predict-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
@@ -39,6 +40,7 @@ interface PredictReturnChart {
     MatProgressBarModule,
     MatSnackBarModule,
     MatTableModule,
+    RouterLink,
   ],
   templateUrl: './markets-predict.component.html',
   styleUrl: './markets-predict.component.scss',
