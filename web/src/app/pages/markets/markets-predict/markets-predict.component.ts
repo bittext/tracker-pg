@@ -320,6 +320,14 @@ export class MarketsPredictComponent implements OnInit {
     return predictInvested(row);
   }
 
+  /** Return as a share of cash put in. Null when nothing was invested. */
+  share(returned: number, invested: number): number | null {
+    if (!invested) {
+      return null;
+    }
+    return returned / invested;
+  }
+
   payback(row: RhPredictCloseDto): number {
     return predictPayback(row);
   }

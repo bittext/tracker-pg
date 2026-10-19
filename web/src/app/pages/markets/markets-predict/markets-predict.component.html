@@ -174,7 +174,12 @@
                   <td>{{ row.totals.closes }}</td>
                   <td>{{ row.totals.invested | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
                   <td>{{ row.totals.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
-                  <td [class]="moneyClass(row.totals.returned)">{{ row.totals.returned | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                  <td [class]="moneyClass(row.totals.returned)">
+                    {{ row.totals.returned | currency: 'USD' : 'symbol' : '1.2-2' }}
+                    @if (share(row.totals.returned, row.totals.invested); as rate) {
+                      <span class="pred__pct">{{ rate | percent: '1.1-1' }}</span>
+                    }
+                  </td>
                 </tr>
               }
             </tbody>
@@ -210,6 +215,9 @@
           <th mat-header-cell *matHeaderCellDef>Return</th>
           <td mat-cell *matCellDef="let row" [class]="moneyClass(row.realized)">
             {{ row.realized | currency: 'USD' : 'symbol' : '1.2-2' }}
+            @if (share(row.realized, invested(row)); as rate) {
+              <span class="pred__pct">{{ rate | percent: '1.1-1' }}</span>
+            }
           </td>
         </ng-container>
         <tr mat-header-row *matHeaderRowDef="columns"></tr>
