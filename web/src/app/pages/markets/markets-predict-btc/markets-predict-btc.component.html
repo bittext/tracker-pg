@@ -44,7 +44,7 @@
           </p>
         </header>
         <div class="btc__scroll">
-          <table>
+          <table class="btc__table">
             <thead>
               <tr>
                 <th>Window</th>
@@ -69,13 +69,13 @@
                   <td [class.btc__up]="(row.endGap ?? 0) > 0" [class.btc__down]="(row.endGap ?? 0) < 0">
                     {{ signed(row.endGap) }}
                   </td>
-                  <td [class.btc__up]="row.aboveTarget === true" [class.btc__down]="row.aboveTarget === false">
+                  <td>
                     @if (row.aboveTarget === true) {
-                      Yes
+                      <span class="btc__pill btc__pill--up">Yes</span>
                     } @else if (row.aboveTarget === false) {
-                      No
+                      <span class="btc__pill btc__pill--down">No</span>
                     } @else {
-                      Open
+                      <span class="btc__pill">Open</span>
                     }
                   </td>
                 </tr>

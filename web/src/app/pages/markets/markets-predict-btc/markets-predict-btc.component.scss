@@ -52,7 +52,10 @@
 }
 
 .btc__hero {
-  padding: 0.2rem 0 0.4rem;
+  padding: 1rem 1.15rem 1.05rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
+  border-radius: 14px;
+  background: var(--app-surface, #fff);
 }
 
 .btc__kicker {
@@ -73,7 +76,10 @@
 .btc__hour {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  overflow: hidden;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.14));
+  border-radius: 14px;
+  background: var(--app-surface, #fff);
 }
 
 .btc__hour-head {
@@ -81,6 +87,9 @@
   justify-content: space-between;
   gap: 1rem;
   align-items: baseline;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
+  background: color-mix(in srgb, var(--app-text-muted, #64748b) 7%, var(--app-surface, #fff));
 }
 
 .btc__hour-head h2 {
@@ -92,42 +101,77 @@
   margin: 0;
   color: var(--app-text-muted, #64748b);
   font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .btc__scroll {
   overflow-x: auto;
 }
 
-table {
+.btc__table {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
   font-variant-numeric: tabular-nums;
 }
 
-th,
-td {
-  padding: 0.45rem 0.6rem;
+.btc__table th,
+.btc__table td {
+  padding: 0.55rem 0.75rem;
   text-align: right;
-  border-bottom: 1px solid #e2e8f0;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.16));
   white-space: nowrap;
 }
 
-th:first-child,
-td:first-child {
+.btc__table th:first-child,
+.btc__table td:first-child {
   text-align: left;
 }
 
-th {
-  font-size: 0.75rem;
-  font-weight: 600;
+.btc__table thead th {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--app-text-muted, #64748b);
+  background: var(--app-surface-muted, #f8fafc);
+}
+
+.btc__table tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--app-text-muted, #64748b) 4%, var(--app-surface, #fff));
 }
 
 .btc__up {
   color: #15803d;
+  font-weight: 650;
 }
 
 .btc__down {
   color: #b91c1c;
+  font-weight: 650;
+}
+
+.btc__pill {
+  display: inline-block;
+  min-width: 2.6rem;
+  padding: 0.12rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.16));
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-align: center;
+  color: var(--app-text-muted, #64748b);
+}
+
+.btc__pill--up {
+  color: #15803d;
+  border-color: color-mix(in srgb, #15803d 35%, transparent);
+  background: color-mix(in srgb, #15803d 10%, transparent);
+}
+
+.btc__pill--down {
+  color: #b91c1c;
+  border-color: color-mix(in srgb, #b91c1c 35%, transparent);
+  background: color-mix(in srgb, #b91c1c 10%, transparent);
 }
