@@ -214,7 +214,11 @@ fi
 if [[ "$rebuild_web" -eq 1 ]]; then
   docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" up -d --no-deps --force-recreate web
 fi
-docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" up -d --no-deps --remove-orphans api web
+if ! docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" up -d --no-deps --remove-orphans api web; then
+  echo "---- api logs ----" >&2
+  docker compose "${compose_project[@]}" "${compose_files[@]}" --env-file "$env_file" logs api --tail 150 >&2 || true
+  exit 1
+fi
 
 wait_for_api_healthy() {
   local max_attempts="${1:-60}"

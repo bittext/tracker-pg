@@ -53,7 +53,7 @@ public class RhPredictNoteService {
     private final RhPredictCloseRepository closeRepository;
     private final RhDailyTrackerOpenAiClient openAi;
     private final RobinhoodRhDailyTrackerProperties props;
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
 
     public RhPredictNotesDeskDto load() {
         long uid = currentUser.requireUserId();
