@@ -1,0 +1,147 @@
+<div class="streak">
+  <header class="streak__head">
+    <div>
+      <a class="streak__back" routerLink="/markets/predict/btc-15">BTC 15 min</a>
+      <h1 class="streak__title">{{ locked ? 'BTC 15 min streaks' : 'Contract streaks' }}</h1>
+      <p class="streak__meta">
+        A miss is a 15-minute window that closed below the target. A run is misses in a row.
+        One miss standing alone is not a run.
+      </p>
+    </div>
+    @if (!locked) {
+      <a mat-stroked-button routerLink="/markets/predict/btc-15/streaks">BTC only</a>
+    } @else {
+      <a mat-stroked-button routerLink="/markets/predict/streaks">Any contract</a>
+    }
+  </header>
+
+  <section class="streak__controls">
+    @if (!locked) {
+      <div class="streak__series">
+        @for (choice of choices; track choice.id) {
+          <button type="button" [class.streak__chip--on]="series === choice.id" (click)="pickSeries(choice.id)">
+            {{ choice.label }}
+          </button>
+        }
+        <label>
+          Ticker
+          <input [(ngModel)]="series" (change)="pickSeries(series)" />
+        </label>
+      </div>
+    }
+    <div class="streak__presets">
+      <button type="button" [class.streak__chip--on]="preset === 'today'" (click)="choose('today')">Today</button>
+      <button type="button" [class.streak__chip--on]="preset === 'yesterday'" (click)="choose('yesterday')">Yesterday</button>
+      <button type="button" [class.streak__chip--on]="preset === 'week'" (click)="choose('week')">Last 7 days</button>
+      <label>
+        From
+        <input type="date" [(ngModel)]="from" (change)="onRangeChange()" />
+      </label>
+      <label>
+        To
+        <input type="date" [(ngModel)]="to" (change)="onRangeChange()" />
+      </label>
+    </div>
+  </section>
+
+  @if (loading) {
+    <mat-progress-bar mode="indeterminate" />
+  }
+
+  @if (desk) {
+    <section class="streak__verdict" [class]="'streak__verdict--' + desk.pattern">
+      <p class="streak__kicker">{{ desk.title }} · {{ desk.from }} to {{ desk.to }}</p>
+      <h2>{{ desk.headline }}</h2>
+      @for (note of desk.notes; track note) {
+        <p>{{ note }}</p>
+      }
+    </section>
+
+    <section class="streak__metrics">
+      <article>
+        <p>Below target</p>
+        <strong>{{ desk.belowRate == null ? '—' : (desk.belowRate | percent: '1.0-0') }}</strong>
+        <span>{{ desk.below }} of {{ desk.windows }}</span>
+      </article>
+      <article>
+        <p>Next window also missed</p>
+        <strong>{{ desk.followRate == null ? '—' : (desk.followRate | percent: '1.0-0') }}</strong>
+        <span>{{ desk.followed }} times</span>
+      </article>
+      <article>
+        <p>Consecutive runs</p>
+        <strong>{{ desk.consecutiveRuns }}</strong>
+        <span>{{ desk.singles }} single misses</span>
+      </article>
+      <article>
+        <p>Longest run</p>
+        <strong>{{ desk.longest || '—' }}</strong>
+        <span>{{ desk.longest === 1 ? 'window' : 'windows' }}</span>
+      </article>
+    </section>
+
+    <section class="streak__card">
+      <h2>How long the runs were</h2>
+      <div class="streak__bars">
+        @for (bar of lengths(desk); track bar.length) {
+          <div class="streak__bar">
+            <span>{{ bar.length }}{{ bar.length === 7 ? '+' : '' }}</span>
+            <div>
+              <i [style.width]="bar.count ? barWidth(bar.count, desk) : '0'"></i>
+            </div>
+            <strong>{{ bar.count }}</strong>
+          </div>
+        }
+      </div>
+    </section>
+
+    <section class="streak__card">
+      <h2>Each day</h2>
+      <div class="streak__days">
+        @for (day of desk.days; track day.date) {
+          <article>
+            <header>
+              <h3>{{ day.label }}</h3>
+              <p>{{ day.consecutiveRuns }} {{ day.consecutiveRuns === 1 ? 'run' : 'runs' }}</p>
+            </header>
+            <p class="streak__day-line">
+              {{ day.below }} of {{ day.windows }} below target
+              · {{ day.followed }} followed by another miss
+              · {{ day.singles }} single {{ day.singles === 1 ? 'miss' : 'misses' }}
+            </p>
+            <div class="streak__pills">
+              @for (pill of dayPills(day); track pill.length) {
+                <span>{{ pill.length === 7 ? '7+' : pill.length }} in a row × {{ pill.count }}</span>
+              }
+              @if (!dayPills(day).length) {
+                <span class="streak__quiet">No run longer than one window</span>
+              }
+            </div>
+          </article>
+        }
+      </div>
+    </section>
+
+    <section class="streak__card">
+      <h2>When each run happened</h2>
+      <p class="streak__meta">Times are Central. A run of 3 means three misses in a row, so a miss was followed by a miss twice.</p>
+      @for (day of desk.days; track day.date) {
+        @if (runsOn(day.date).length) {
+          <h3 class="streak__day-title">{{ day.label }}</h3>
+          <ul>
+            @for (run of runsOn(day.date); track run.fromLabel + run.length) {
+              <li>
+                <strong>{{ run.length }} in a row</strong>
+                <span>{{ run.fromLabel }}–{{ run.toLabel }}</span>
+                <em>{{ run.followed }} {{ run.followed === 1 ? 'follow-on miss' : 'follow-on misses' }}</em>
+              </li>
+            }
+          </ul>
+        }
+      }
+      @if (!desk.runs.length) {
+        <p class="streak__meta">No consecutive misses in this range.</p>
+      }
+    </section>
+  }
+</div>

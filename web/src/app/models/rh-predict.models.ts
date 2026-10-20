@@ -38,6 +38,58 @@ export interface Btc15DeskDto {
   hours: Btc15HourDto[];
 }
 
+export interface Btc15StreakRunDto {
+  date: string;
+  dayLabel: string;
+  length: number;
+  followed: number;
+  fromLabel: string;
+  toLabel: string;
+}
+
+export interface Btc15StreakDayDto {
+  date: string;
+  label: string;
+  windows: number;
+  below: number;
+  followed: number;
+  consecutiveRuns: number;
+  singles: number;
+  run2: number;
+  run3: number;
+  run4: number;
+  run5: number;
+  run6: number;
+  run7: number;
+}
+
+export interface Btc15StreakDeskDto {
+  series: string;
+  title: string;
+  from: string;
+  to: string;
+  windows: number;
+  below: number;
+  above: number;
+  followed: number;
+  consecutiveRuns: number;
+  singles: number;
+  run2: number;
+  run3: number;
+  run4: number;
+  run5: number;
+  run6: number;
+  run7: number;
+  longest: number;
+  belowRate: number | null;
+  followRate: number | null;
+  pattern: 'coin-flip' | 'bunched' | 'reverses' | 'empty' | string;
+  headline: string;
+  notes: string[];
+  days: Btc15StreakDayDto[];
+  runs: Btc15StreakRunDto[];
+}
+
 export interface RhPredictDeskDto {
   lastSyncedAt: string | null;
   openValue: number | null;

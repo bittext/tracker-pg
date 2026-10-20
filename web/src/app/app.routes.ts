@@ -21,6 +21,7 @@ import { MarketsOverviewComponent } from './pages/markets/markets-overview/marke
 import { MarketsJourneyComponent } from './pages/markets/markets-journey/markets-journey.component';
 import { MarketsPredictComponent } from './pages/markets/markets-predict/markets-predict.component';
 import { MarketsPredictBtcComponent } from './pages/markets/markets-predict-btc/markets-predict-btc.component';
+import { MarketsPredictStreaksComponent } from './pages/markets/markets-predict-streaks/markets-predict-streaks.component';
 import { MarketsTradeInterestComponent } from './pages/markets/markets-trade-interest/markets-trade-interest.component';
 import { TrackerNotesComponent } from './pages/tracker-notes/tracker-notes.component';
 import { ReportsComponent } from './pages/reports/reports.component';
@@ -114,6 +115,12 @@ export const routes: Routes = [
       },
       { path: 'predict', component: MarketsPredictComponent },
       { path: 'predict/btc-15', component: MarketsPredictBtcComponent },
+      {
+        path: 'predict/btc-15/streaks',
+        component: MarketsPredictStreaksComponent,
+        data: { series: 'KXBTC15M', locked: true },
+      },
+      { path: 'predict/streaks', component: MarketsPredictStreaksComponent },
       {
         path: 'alerts',
         component: FinanceComponent,

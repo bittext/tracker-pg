@@ -4,10 +4,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.svp.tracker.finance.dto.Btc15DeskDto;
 import com.svp.tracker.finance.dto.Btc15HourDto;
+import com.svp.tracker.finance.dto.Btc15StreakDayDto;
+import com.svp.tracker.finance.dto.Btc15StreakDeskDto;
+import com.svp.tracker.finance.dto.Btc15StreakRunDto;
 import com.svp.tracker.finance.dto.Btc15WindowDto;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -15,6 +19,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -37,6 +42,7 @@ public class Btc15Service {
     private static final DateTimeFormatter HOUR = DateTimeFormatter.ofPattern("h a", Locale.US);
     private static final DateTimeFormatter CLOCK = DateTimeFormatter.ofPattern("h:mm", Locale.US);
     private static final DateTimeFormatter CLOCK_MERIDIEM = DateTimeFormatter.ofPattern("h:mm a", Locale.US);
+    private static final DateTimeFormatter DAY_LABEL = DateTimeFormatter.ofPattern("EEE MMM d", Locale.US);
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final HttpClient httpClient = HttpClient.newBuilder()
@@ -150,13 +156,267 @@ public class Btc15Service {
         return BigDecimal.valueOf(candle[0]).setScale(2, RoundingMode.HALF_UP);
     }
 
+    public Btc15StreakDeskDto streaks(String seriesRaw, LocalDate from, LocalDate to) {
+        String series = seriesOrDefault(seriesRaw);
+        LocalDate end = to == null ? LocalDate.now(CENTRAL) : to;
+        LocalDate start = from == null ? end.minusDays(6) : from;
+        if (start.isAfter(end)) {
+            LocalDate swap = start;
+            start = end;
+            end = swap;
+        }
+        if (ChronoUnit.DAYS.between(start, end) > 30) {
+            start = end.minusDays(30);
+        }
+        List<SettledWindow> windows = settledWindows(series, start, end);
+        List<int[]> runs = new ArrayList<>();
+        int current = 0;
+        int runStart = 0;
+        int noWithNext = 0;
+        int noThenNo = 0;
+        for (int i = 0; i < windows.size(); i++) {
+            boolean miss = !windows.get(i).above;
+            if (i + 1 < windows.size() && miss) {
+                noWithNext++;
+                if (!windows.get(i + 1).above) {
+                    noThenNo++;
+                }
+            }
+            if (miss) {
+                if (current == 0) {
+                    runStart = i;
+                }
+                current++;
+            } else if (current > 0) {
+                runs.add(new int[] {current, runStart, i - 1});
+                current = 0;
+            }
+        }
+        if (current > 0) {
+            runs.add(new int[] {current, runStart, windows.size() - 1});
+        }
+        return streakDesk(series, start, end, windows, runs, noWithNext, noThenNo);
+    }
+
+    private Btc15StreakDeskDto streakDesk(
+            String series,
+            LocalDate start,
+            LocalDate end,
+            List<SettledWindow> windows,
+            List<int[]> runs,
+            int noWithNext,
+            int noThenNo) {
+        Map<LocalDate, int[]> days = new LinkedHashMap<>();
+        for (LocalDate day = start; !day.isAfter(end); day = day.plusDays(1)) {
+            days.put(day, new int[11]);
+        }
+        int below = 0;
+        for (SettledWindow window : windows) {
+            int[] bucket = days.computeIfAbsent(window.start.atZone(CENTRAL).toLocalDate(), key -> new int[11]);
+            bucket[0]++;
+            if (!window.above) {
+                bucket[1]++;
+                below++;
+            }
+        }
+        int consecutive = 0;
+        int singles = 0;
+        int[] lengths = new int[8];
+        int longest = 0;
+        List<Btc15StreakRunDto> runDtos = new ArrayList<>();
+        for (int[] run : runs) {
+            int length = run[0];
+            longest = Math.max(longest, length);
+            LocalDate day = windows.get(run[1]).start.atZone(CENTRAL).toLocalDate();
+            int[] bucket = days.computeIfAbsent(day, key -> new int[11]);
+            if (length == 1) {
+                singles++;
+                bucket[3]++;
+            } else {
+                consecutive++;
+                bucket[2]++;
+                int slot = Math.min(length, 7);
+                lengths[slot]++;
+                bucket[slot + 2]++;
+            }
+            if (length > 1) {
+                SettledWindow first = windows.get(run[1]);
+                SettledWindow last = windows.get(run[2]);
+                runDtos.add(new Btc15StreakRunDto(
+                        day,
+                        DAY_LABEL.format(day),
+                        length,
+                        length - 1,
+                        CLOCK.format(first.start.atZone(CENTRAL)),
+                        CLOCK_MERIDIEM.format(last.end.atZone(CENTRAL))));
+            }
+        }
+        for (int i = 0; i + 1 < windows.size(); i++) {
+            if (!windows.get(i).above && !windows.get(i + 1).above) {
+                days.computeIfAbsent(windows.get(i).start.atZone(CENTRAL).toLocalDate(), key -> new int[11])[10]++;
+            }
+        }
+        List<Btc15StreakDayDto> dayDtos = new ArrayList<>();
+        for (Map.Entry<LocalDate, int[]> entry : days.entrySet()) {
+            int[] bucket = entry.getValue();
+            dayDtos.add(new Btc15StreakDayDto(
+                    entry.getKey(),
+                    DAY_LABEL.format(entry.getKey()),
+                    bucket[0],
+                    bucket[1],
+                    bucket[10],
+                    bucket[2],
+                    bucket[3],
+                    bucket[4],
+                    bucket[5],
+                    bucket[6],
+                    bucket[7],
+                    bucket[8],
+                    bucket[9]));
+        }
+        int windowsCount = windows.size();
+        PatternRead pattern = pattern(windowsCount, below, noWithNext, noThenNo, longest);
+        return new Btc15StreakDeskDto(
+                series,
+                seriesTitle(series),
+                start,
+                end,
+                windowsCount,
+                below,
+                windowsCount - below,
+                noThenNo,
+                consecutive,
+                singles,
+                lengths[2],
+                lengths[3],
+                lengths[4],
+                lengths[5],
+                lengths[6],
+                lengths[7],
+                longest,
+                rate(below, windowsCount),
+                rate(noThenNo, noWithNext),
+                pattern.pattern,
+                pattern.headline,
+                pattern.notes,
+                dayDtos,
+                runDtos);
+    }
+
+    private List<SettledWindow> settledWindows(String series, LocalDate start, LocalDate end) {
+        List<JsonNode> markets = fetchMarkets(
+                series,
+                start.atStartOfDay(CENTRAL).toInstant(),
+                end.plusDays(1).atStartOfDay(CENTRAL).toInstant(),
+                20,
+                true);
+        List<SettledWindow> windows = new ArrayList<>();
+        for (JsonNode market : markets) {
+            Instant open = instant(market.path("open_time").asText(""));
+            Instant close = instant(market.path("close_time").asText(""));
+            Boolean above = aboveTarget(market.path("result").asText(""), decimal(market.get("expiration_value")), decimal(market.get("floor_strike")));
+            if (open == null || close == null || above == null) {
+                continue;
+            }
+            windows.add(new SettledWindow(open, close, above));
+        }
+        windows.sort(Comparator.comparing(SettledWindow::start));
+        return windows;
+    }
+
+    private static PatternRead pattern(int windows, int below, int noWithNext, int noThenNo, int longest) {
+        if (windows == 0) {
+            return new PatternRead("empty", "No settled windows in this range", List.of(
+                    "Pick a date that already has a settlement, or widen the range."));
+        }
+        double miss = below / (double) windows;
+        List<String> notes = new ArrayList<>();
+        notes.add(String.format(
+                Locale.US,
+                "%d of %d windows closed below the target, %.0f%%.",
+                below,
+                windows,
+                miss * 100));
+        String pattern = "coin-flip";
+        String headline = "Misses look like a coin flip";
+        if (noWithNext > 0) {
+            double follow = noThenNo / (double) noWithNext;
+            double gap = follow - miss;
+            if (gap >= 0.06) {
+                pattern = "bunched";
+                headline = "Misses bunch together";
+                notes.add(String.format(
+                        Locale.US,
+                        "After a miss, the next window also missed %.0f%% of the time, %.0f points above the overall miss rate.",
+                        follow * 100,
+                        gap * 100));
+            } else if (gap <= -0.06) {
+                pattern = "reverses";
+                headline = "A miss usually flips the next window";
+                notes.add(String.format(
+                        Locale.US,
+                        "After a miss, the next window also missed %.0f%% of the time, %.0f points below the overall miss rate.",
+                        follow * 100,
+                        Math.abs(gap) * 100));
+            } else {
+                notes.add(String.format(
+                        Locale.US,
+                        "After a miss, the next window also missed %.0f%% of the time. That sits next to the overall miss rate.",
+                        follow * 100));
+            }
+        }
+        double expected = Math.log(Math.max(windows, 2)) / Math.log(1.0 / Math.max(miss, 0.05));
+        if (longest > expected + 4) {
+            notes.add(String.format(
+                    Locale.US,
+                    "The longest run was %d windows. A coin flip over %d windows usually tops out nearer %.0f.",
+                    longest,
+                    windows,
+                    expected));
+        } else if (longest > 0) {
+            notes.add(String.format(
+                    Locale.US,
+                    "The longest run was %d windows. Over %d windows, a run of that length is ordinary.",
+                    longest,
+                    windows));
+        }
+        return new PatternRead(pattern, headline, notes);
+    }
+
+    private static String seriesOrDefault(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return "KXBTC15M";
+        }
+        String series = raw.trim().toUpperCase(Locale.ROOT);
+        if (!series.matches("[A-Z0-9]{2,32}")) {
+            throw new IllegalArgumentException("Series ticker must be letters and digits.");
+        }
+        return series;
+    }
+
+    private static String seriesTitle(String series) {
+        return switch (series) {
+            case "KXBTC15M" -> "BTC 15 min";
+            case "KXETH15M" -> "ETH 15 min";
+            default -> series;
+        };
+    }
+
     private List<JsonNode> fetchMarkets(Instant from, Instant to) {
+        return fetchMarkets("KXBTC15M", from, to, 8, false);
+    }
+
+    private List<JsonNode> fetchMarkets(String series, Instant from, Instant to, int maxPages, boolean settledOnly) {
         List<JsonNode> matched = new ArrayList<>();
         String cursor = "";
-        for (int page = 0; page < 8; page++) {
-            String url = "https://api.elections.kalshi.com/trade-api/v2/markets?series_ticker=KXBTC15M&limit=200";
+        for (int page = 0; page < maxPages; page++) {
+            String url = "https://api.elections.kalshi.com/trade-api/v2/markets?limit=200&series_ticker="
+                    + URLEncoder.encode(series, StandardCharsets.UTF_8);
+            if (settledOnly) {
+                url += "&status=settled";
+            }
             if (!cursor.isBlank()) {
-                url += "&cursor=" + cursor;
+                url += "&cursor=" + URLEncoder.encode(cursor, StandardCharsets.UTF_8);
             }
             JsonNode root = getJson(url);
             JsonNode markets = root.path("markets");
@@ -262,4 +522,8 @@ public class Btc15Service {
             return null;
         }
     }
+
+    private record SettledWindow(Instant start, Instant end, boolean above) {}
+
+    private record PatternRead(String pattern, String headline, List<String> notes) {}
 }

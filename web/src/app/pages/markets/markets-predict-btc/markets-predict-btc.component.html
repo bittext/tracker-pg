@@ -8,10 +8,13 @@
         BTC at end is the settlement print. A close is positive when that end print is at or above the target.
       </p>
     </div>
-    <label class="btc__date">
-      Day
-      <input type="date" [(ngModel)]="date" (change)="load()" />
-    </label>
+    <div class="btc__tools">
+      <a mat-stroked-button routerLink="/markets/predict/btc-15/streaks">Miss streaks</a>
+      <label class="btc__date">
+        Day
+        <input type="date" [(ngModel)]="date" (change)="load()" />
+      </label>
+    </div>
   </header>
 
   @if (loading) {

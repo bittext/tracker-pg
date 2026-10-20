@@ -1,6 +1,7 @@
 package com.svp.tracker.finance.controller;
 
 import com.svp.tracker.finance.dto.Btc15DeskDto;
+import com.svp.tracker.finance.dto.Btc15StreakDeskDto;
 import com.svp.tracker.finance.dto.RhPredictCloseDto;
 import com.svp.tracker.finance.dto.RhPredictCloseLabelRequest;
 import com.svp.tracker.finance.dto.RhPredictDeskDto;
@@ -36,6 +37,14 @@ public class RhPredictController {
     @GetMapping("/btc-15")
     public Btc15DeskDto btc15(@RequestParam(name = "date", required = false) LocalDate date) {
         return btc15Service.load(date);
+    }
+
+    @GetMapping("/streaks")
+    public Btc15StreakDeskDto streaks(
+            @RequestParam(name = "series", required = false) String series,
+            @RequestParam(name = "from", required = false) LocalDate from,
+            @RequestParam(name = "to", required = false) LocalDate to) {
+        return btc15Service.streaks(series, from, to);
     }
 
     @PostMapping("/refresh")
