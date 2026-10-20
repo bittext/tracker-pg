@@ -214,7 +214,10 @@
       }
       @if (feedback) {
         <article class="pred__feedback">
-          <p class="pred__kicker">Feedback · {{ feedback.updatedAt | date: 'MMM d, h:mm a' }}</p>
+          <div class="pred__feedback-head">
+            <p class="pred__kicker">Feedback · {{ feedback.updatedAt | date: 'MMM d, h:mm a' }}</p>
+            <button type="button" (click)="removeFeedback()" [disabled]="clearingFeedback">Remove</button>
+          </div>
           <h3>{{ feedback.headline }}</h3>
           <ul>
             @for (point of feedback.points; track point) {

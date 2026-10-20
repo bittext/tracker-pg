@@ -64,6 +64,7 @@ export class MarketsPredictComponent implements OnInit {
   feedback: RhPredictFeedbackDto | null = null;
   savingNote = false;
   asking = false;
+  clearingFeedback = false;
   selectedYear: number | null = new Date().getFullYear();
   /** Null keeps the year summary. "all" lists every month. A number is that month. */
   selectedMonth: number | 'all' | null = null;
@@ -384,6 +385,20 @@ export class MarketsPredictComponent implements OnInit {
       },
       error: (err) => {
         this.asking = false;
+        this.toastError(err);
+      },
+    });
+  }
+
+  removeFeedback(): void {
+    this.clearingFeedback = true;
+    this.api.clearFeedback().subscribe({
+      next: (desk) => {
+        this.applyNotes(desk);
+        this.clearingFeedback = false;
+      },
+      error: (err) => {
+        this.clearingFeedback = false;
         this.toastError(err);
       },
     });

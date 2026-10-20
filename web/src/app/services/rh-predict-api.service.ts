@@ -46,4 +46,8 @@ export class RhPredictApiService {
   noteFeedback() {
     return this.http.post<RhPredictNotesDeskDto>(`${this.root}/notes/feedback`, {});
   }
+
+  clearFeedback() {
+    return this.http.delete<RhPredictNotesDeskDto>(`${this.root}/notes/feedback`);
+  }
 }

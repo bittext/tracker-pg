@@ -87,4 +87,9 @@ public class RhPredictController {
     public RhPredictNotesDeskDto noteFeedback() {
         return noteService.feedback();
     }
+
+    @DeleteMapping("/notes/feedback")
+    public RhPredictNotesDeskDto clearNoteFeedback() {
+        return noteService.clearFeedback();
+    }
 }

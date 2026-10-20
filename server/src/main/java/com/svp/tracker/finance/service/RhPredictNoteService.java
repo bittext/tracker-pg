@@ -118,6 +118,13 @@ public class RhPredictNoteService {
         return desk(uid);
     }
 
+    @Transactional
+    public RhPredictNotesDeskDto clearFeedback() {
+        long uid = currentUser.requireUserId();
+        feedbackRepository.findByOwnerUserId(uid).ifPresent(feedbackRepository::delete);
+        return desk(uid);
+    }
+
     private RhPredictNotesDeskDto desk(long uid) {
         List<RhPredictNoteDto> notes = noteRepository.findByOwnerUserIdOrderByCreatedAtDescIdDesc(uid).stream()
                 .map(row -> new RhPredictNoteDto(row.getId(), row.getBody(), row.getCreatedAt()))
