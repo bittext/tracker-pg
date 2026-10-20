@@ -188,6 +188,57 @@
       </section>
     }
 
+    <section class="pred__notes" aria-label="Analysis notes">
+      <div class="pred__notes-head">
+        <div>
+          <h2 class="pred__section-title">Analysis notes</h2>
+          <p class="pred__meta">Write what you noticed. Feedback reads the notes against the closed book.</p>
+        </div>
+        <button mat-stroked-button type="button" (click)="askFeedback()" [disabled]="asking || !notes.length">
+          Get feedback
+        </button>
+      </div>
+      <textarea
+        [(ngModel)]="draft"
+        rows="4"
+        maxlength="4000"
+        placeholder="After three misses the next window has been closing above target."
+      ></textarea>
+      <div class="pred__note-actions">
+        <button mat-flat-button color="primary" type="button" (click)="saveNote()" [disabled]="savingNote || !draft.trim()">
+          Save note
+        </button>
+      </div>
+      @if (asking) {
+        <mat-progress-bar mode="indeterminate" />
+      }
+      @if (feedback) {
+        <article class="pred__feedback">
+          <p class="pred__kicker">Feedback · {{ feedback.updatedAt | date: 'MMM d, h:mm a' }}</p>
+          <h3>{{ feedback.headline }}</h3>
+          <ul>
+            @for (point of feedback.points; track point) {
+              <li>{{ point }}</li>
+            }
+          </ul>
+          @if (feedback.watch) {
+            <p><strong>Check next.</strong> {{ feedback.watch }}</p>
+          }
+        </article>
+      }
+      @if (notes.length) {
+        <ul class="pred__note-list">
+          @for (note of notes; track note.id) {
+            <li>
+              <time>{{ note.createdAt | date: 'MMM d, h:mm a' }}</time>
+              <p>{{ note.body }}</p>
+              <button type="button" (click)="removeNote(note.id)">Remove</button>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+
     <section class="pred__list" aria-label="Closed Predict contracts">
       <h2 class="pred__section-title">Closes@if (scopeLabel) { · {{ scopeLabel }} }</h2>
       <table mat-table [dataSource]="scopedCloses" class="pred__table">

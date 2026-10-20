@@ -9,4 +9,8 @@ public record Btc15DeskDto(
         int settled,
         int above,
         BigDecimal aboveRate,
-        List<Btc15HourDto> hours) {}
+        List<Btc15HourDto> hours,
+        int sharpUp,
+        int sharpDown,
+        BigDecimal sharpThreshold,
+        List<Btc15SharpDto> sharps) {}

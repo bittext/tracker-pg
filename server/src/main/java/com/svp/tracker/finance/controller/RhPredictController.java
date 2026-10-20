@@ -5,12 +5,16 @@ import com.svp.tracker.finance.dto.Btc15StreakDeskDto;
 import com.svp.tracker.finance.dto.RhPredictCloseDto;
 import com.svp.tracker.finance.dto.RhPredictCloseLabelRequest;
 import com.svp.tracker.finance.dto.RhPredictDeskDto;
+import com.svp.tracker.finance.dto.RhPredictNoteWriteRequest;
+import com.svp.tracker.finance.dto.RhPredictNotesDeskDto;
 import com.svp.tracker.finance.dto.RhPredictOpenCostRequest;
 import com.svp.tracker.finance.service.Btc15Service;
+import com.svp.tracker.finance.service.RhPredictNoteService;
 import com.svp.tracker.finance.service.RhPredictService;
 import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -28,6 +32,7 @@ public class RhPredictController {
 
     private final RhPredictService predictService;
     private final Btc15Service btc15Service;
+    private final RhPredictNoteService noteService;
 
     @GetMapping
     public RhPredictDeskDto load() {
@@ -61,5 +66,25 @@ public class RhPredictController {
     @PutMapping("/closes/{id}")
     public RhPredictCloseDto rename(@PathVariable long id, @RequestBody RhPredictCloseLabelRequest body) {
         return predictService.renameClose(id, body);
+    }
+
+    @GetMapping("/notes")
+    public RhPredictNotesDeskDto notes() {
+        return noteService.load();
+    }
+
+    @PostMapping("/notes")
+    public RhPredictNotesDeskDto addNote(@RequestBody RhPredictNoteWriteRequest body) {
+        return noteService.add(body == null ? null : body.body());
+    }
+
+    @DeleteMapping("/notes/{id}")
+    public RhPredictNotesDeskDto deleteNote(@PathVariable long id) {
+        return noteService.delete(id);
+    }
+
+    @PostMapping("/notes/feedback")
+    public RhPredictNotesDeskDto noteFeedback() {
+        return noteService.feedback();
     }
 }

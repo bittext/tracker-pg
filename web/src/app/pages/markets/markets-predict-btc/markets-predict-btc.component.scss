@@ -74,10 +74,53 @@
 }
 
 .btc__rate {
-  margin: 0.15rem 0 0;
+  margin: 0.2rem 0 0;
   font-size: 2rem;
-  font-weight: 680;
+  font-weight: 700;
   letter-spacing: -0.03em;
+}
+
+.btc__sharp {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem 1.15rem 0.4rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
+  border-radius: 14px;
+  background: var(--app-surface, #fff);
+}
+
+.btc__sharp-count {
+  margin: 0.2rem 0 0;
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.btc__sharp ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.btc__sharp li {
+  display: grid;
+  grid-template-columns: 8.5rem 7rem 1fr;
+  gap: 0.75rem;
+  padding: 0.45rem 0;
+  border-top: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+  font-variant-numeric: tabular-nums;
+}
+
+.btc__sharp em {
+  color: var(--app-text-muted, #64748b);
+  font-style: normal;
+}
+
+@media (max-width: 700px) {
+  .btc__sharp li {
+    grid-template-columns: 1fr;
+    gap: 0.1rem;
+  }
 }
 
 .btc__hour {

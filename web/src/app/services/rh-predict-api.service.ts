@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Btc15DeskDto, Btc15StreakDeskDto, RhPredictCloseDto, RhPredictDeskDto } from '../models/rh-predict.models';
+import { Btc15DeskDto, Btc15StreakDeskDto, RhPredictCloseDto, RhPredictDeskDto, RhPredictNotesDeskDto } from '../models/rh-predict.models';
 
 @Injectable({ providedIn: 'root' })
 export class RhPredictApiService {
@@ -29,5 +29,21 @@ export class RhPredictApiService {
 
   setOpenCost(amount: number | null) {
     return this.http.put<RhPredictDeskDto>(`${this.root}/open-cost`, { amount });
+  }
+
+  notes() {
+    return this.http.get<RhPredictNotesDeskDto>(`${this.root}/notes`);
+  }
+
+  addNote(body: string) {
+    return this.http.post<RhPredictNotesDeskDto>(`${this.root}/notes`, { body });
+  }
+
+  deleteNote(id: number) {
+    return this.http.delete<RhPredictNotesDeskDto>(`${this.root}/notes/${id}`);
+  }
+
+  noteFeedback() {
+    return this.http.post<RhPredictNotesDeskDto>(`${this.root}/notes/feedback`, {});
   }
 }

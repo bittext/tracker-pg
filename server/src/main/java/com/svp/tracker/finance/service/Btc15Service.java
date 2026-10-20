@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.svp.tracker.finance.dto.Btc15DeskDto;
 import com.svp.tracker.finance.dto.Btc15HourDto;
+import com.svp.tracker.finance.dto.Btc15SharpDto;
 import com.svp.tracker.finance.dto.Btc15StreakDayDto;
 import com.svp.tracker.finance.dto.Btc15StreakDeskDto;
 import com.svp.tracker.finance.dto.Btc15StreakRunDto;
@@ -43,6 +44,8 @@ public class Btc15Service {
     private static final DateTimeFormatter CLOCK = DateTimeFormatter.ofPattern("h:mm", Locale.US);
     private static final DateTimeFormatter CLOCK_MERIDIEM = DateTimeFormatter.ofPattern("h:mm a", Locale.US);
     private static final DateTimeFormatter DAY_LABEL = DateTimeFormatter.ofPattern("EEE MMM d", Locale.US);
+    /** A last-5-minute move of this many dollars counts as a sharp turn. */
+    private static final BigDecimal SHARP_MOVE = new BigDecimal("75");
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final HttpClient httpClient = HttpClient.newBuilder()
@@ -88,7 +91,73 @@ public class Btc15Service {
             above += hourAbove;
             hours.add(new Btc15HourDto(entry.getKey(), hourSettled, hourAbove, rate(hourAbove, hourSettled), entry.getValue()));
         }
-        return new Btc15DeskDto(day, settled, above, rate(above, settled), hours);
+        List<Btc15SharpDto> sharps = sharpTurns(candles, from, to.toInstant());
+        int sharpUp = 0;
+        int sharpDown = 0;
+        for (Btc15SharpDto sharp : sharps) {
+            if ("up".equals(sharp.direction())) {
+                sharpUp++;
+            } else {
+                sharpDown++;
+            }
+        }
+        return new Btc15DeskDto(day, settled, above, rate(above, settled), hours, sharpUp, sharpDown, SHARP_MOVE, sharps);
+    }
+
+    /**
+     * Last five minutes of each clock 15-minute window. A sharp turn is a move of at least $75 in those five minutes.
+     */
+    private List<Btc15SharpDto> sharpTurns(Map<Long, double[]> candles, ZonedDateTime from, Instant dayEnd) {
+        List<Btc15SharpDto> sharps = new ArrayList<>();
+        Instant now = Instant.now();
+        Instant limit = dayEnd.isBefore(now) ? dayEnd : now;
+        for (ZonedDateTime start = from; start.toInstant().isBefore(limit); start = start.plusMinutes(15)) {
+            Instant open = start.toInstant();
+            Instant mark = open.plus(Duration.ofMinutes(10));
+            Instant close = open.plus(Duration.ofMinutes(15));
+            if (mark.isAfter(limit)) {
+                break;
+            }
+            BigDecimal atOpen = candleOpen(candles, open);
+            BigDecimal atMark = candleOpen(candles, mark);
+            BigDecimal atClose = close.isAfter(limit) ? latestClose(candles, mark, limit) : candleOpen(candles, close);
+            if (atClose == null) {
+                atClose = candleClose(candles, close.minus(Duration.ofMinutes(1)));
+            }
+            if (atOpen == null || atMark == null || atClose == null) {
+                continue;
+            }
+            BigDecimal firstTen = atMark.subtract(atOpen).setScale(2, RoundingMode.HALF_UP);
+            BigDecimal lastFive = atClose.subtract(atMark).setScale(2, RoundingMode.HALF_UP);
+            if (lastFive.abs().compareTo(SHARP_MOVE) < 0) {
+                continue;
+            }
+            boolean up = lastFive.signum() > 0;
+            boolean reversed = firstTen.signum() != 0 && firstTen.signum() != lastFive.signum();
+            String label = CLOCK.format(start) + "–" + CLOCK_MERIDIEM.format(start.plusMinutes(15));
+            sharps.add(new Btc15SharpDto(label, up ? "up" : "down", lastFive, firstTen, reversed));
+        }
+        return sharps;
+    }
+
+    private BigDecimal candleClose(Map<Long, double[]> candles, Instant at) {
+        long minute = at.getEpochSecond() / 60 * 60;
+        double[] candle = candles.get(minute);
+        if (candle == null || candle.length < 2) {
+            return null;
+        }
+        return BigDecimal.valueOf(candle[1]).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal latestClose(Map<Long, double[]> candles, Instant from, Instant to) {
+        BigDecimal close = null;
+        for (long minute = from.getEpochSecond() / 60 * 60; minute <= to.getEpochSecond(); minute += 60) {
+            double[] candle = candles.get(minute);
+            if (candle != null && candle.length >= 2) {
+                close = BigDecimal.valueOf(candle[1]).setScale(2, RoundingMode.HALF_UP);
+            }
+        }
+        return close;
     }
 
     private Btc15WindowDto toWindow(JsonNode market, Map<Long, double[]> candles) {

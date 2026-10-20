@@ -7,7 +7,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { RouterLink } from '@angular/router';
-import { RhPredictCloseDto, RhPredictDeskDto } from '../../../models/rh-predict.models';
+import { RhPredictCloseDto, RhPredictDeskDto, RhPredictFeedbackDto, RhPredictNoteDto, RhPredictNotesDeskDto } from '../../../models/rh-predict.models';
 import { RhPredictApiService } from '../../../services/rh-predict-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
 import {
@@ -59,6 +59,11 @@ export class MarketsPredictComponent implements OnInit {
   desk: RhPredictDeskDto | null = null;
   loading = false;
   refreshing = false;
+  draft = '';
+  notes: RhPredictNoteDto[] = [];
+  feedback: RhPredictFeedbackDto | null = null;
+  savingNote = false;
+  asking = false;
   selectedYear: number | null = new Date().getFullYear();
   /** Null keeps the year summary. "all" lists every month. A number is that month. */
   selectedMonth: number | 'all' | null = null;
@@ -66,6 +71,7 @@ export class MarketsPredictComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
+    this.loadNotes();
   }
 
   load(): void {
@@ -341,6 +347,58 @@ export class MarketsPredictComponent implements OnInit {
       return 'loss';
     }
     return '';
+  }
+
+  saveNote(): void {
+    const body = this.draft.trim();
+    if (!body) {
+      return;
+    }
+    this.savingNote = true;
+    this.api.addNote(body).subscribe({
+      next: (desk) => {
+        this.applyNotes(desk);
+        this.draft = '';
+        this.savingNote = false;
+      },
+      error: (err) => {
+        this.savingNote = false;
+        this.toastError(err);
+      },
+    });
+  }
+
+  removeNote(id: number): void {
+    this.api.deleteNote(id).subscribe({
+      next: (desk) => this.applyNotes(desk),
+      error: (err) => this.toastError(err),
+    });
+  }
+
+  askFeedback(): void {
+    this.asking = true;
+    this.api.noteFeedback().subscribe({
+      next: (desk) => {
+        this.applyNotes(desk);
+        this.asking = false;
+      },
+      error: (err) => {
+        this.asking = false;
+        this.toastError(err);
+      },
+    });
+  }
+
+  private loadNotes(): void {
+    this.api.notes().subscribe({
+      next: (desk) => this.applyNotes(desk),
+      error: (err) => this.toastError(err),
+    });
+  }
+
+  private applyNotes(desk: RhPredictNotesDeskDto): void {
+    this.notes = desk.notes ?? [];
+    this.feedback = desk.feedback;
   }
 
   private signedUsd(value: number): string {

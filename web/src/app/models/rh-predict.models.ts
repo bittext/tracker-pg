@@ -30,12 +30,24 @@ export interface Btc15HourDto {
   windows: Btc15WindowDto[];
 }
 
+export interface Btc15SharpDto {
+  label: string;
+  direction: 'up' | 'down' | string;
+  lastFive: number;
+  firstTen: number;
+  reversed: boolean;
+}
+
 export interface Btc15DeskDto {
   date: string;
   settled: number;
   above: number;
   aboveRate: number | null;
   hours: Btc15HourDto[];
+  sharpUp: number;
+  sharpDown: number;
+  sharpThreshold: number;
+  sharps: Btc15SharpDto[];
 }
 
 export interface Btc15StreakRunDto {
@@ -88,6 +100,24 @@ export interface Btc15StreakDeskDto {
   notes: string[];
   days: Btc15StreakDayDto[];
   runs: Btc15StreakRunDto[];
+}
+
+export interface RhPredictNoteDto {
+  id: number;
+  body: string;
+  createdAt: string;
+}
+
+export interface RhPredictFeedbackDto {
+  headline: string;
+  points: string[];
+  watch: string;
+  updatedAt: string;
+}
+
+export interface RhPredictNotesDeskDto {
+  notes: RhPredictNoteDto[];
+  feedback: RhPredictFeedbackDto | null;
 }
 
 export interface RhPredictDeskDto {

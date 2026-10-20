@@ -34,6 +34,30 @@
       <p class="btc__meta">{{ desk.above }} of {{ desk.settled }} settled windows closed at or above the target</p>
     </section>
 
+    <section class="btc__sharp">
+      <div>
+        <p class="btc__kicker">Last 5 minutes of each 15-minute window</p>
+        <p class="btc__sharp-count">{{ desk.sharpUp + desk.sharpDown }} sharp turns</p>
+        <p class="btc__meta">
+          {{ desk.sharpUp }} up · {{ desk.sharpDown }} down. A sharp turn is a move of
+          ${{ desk.sharpThreshold | number: '1.0-0' }} or more in those five minutes.
+        </p>
+      </div>
+      @if (desk.sharps.length) {
+        <ul>
+          @for (turn of desk.sharps; track turn.label) {
+            <li [class.btc__up]="turn.direction === 'up'" [class.btc__down]="turn.direction === 'down'">
+              <strong>{{ turn.label }}</strong>
+              <span>{{ turn.direction === 'up' ? 'Up' : 'Down' }} {{ signed(turn.lastFive) }}</span>
+              <em>{{ turn.reversed ? 'Reversed the prior 10 minutes' : 'Continued the prior 10 minutes' }}</em>
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="btc__meta">No sharp turn in the last 5 minutes of a window on this day.</p>
+      }
+    </section>
+
     @for (hour of desk.hours; track hour.label) {
       <section class="btc__hour">
         <header class="btc__hour-head">
