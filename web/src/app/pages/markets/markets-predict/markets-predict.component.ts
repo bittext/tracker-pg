@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -45,9 +45,13 @@ interface PredictReturnChart {
   templateUrl: './markets-predict.component.html',
   styleUrl: './markets-predict.component.scss',
 })
-export class MarketsPredictComponent implements OnInit {
+export class MarketsPredictComponent implements OnInit, OnDestroy {
   private readonly api = inject(RhPredictApiService);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly refreshEveryMs = 30_000;
+  private refreshTimer: ReturnType<typeof setInterval> | null = null;
+  /** In-flight Robinhood pull; not bound to UI so quiet refreshes stay invisible. */
+  private refreshInFlight = false;
 
   readonly columns = ['closedAt', 'quantity', 'price', 'invested', 'payback', 'realized'] as const;
 
@@ -58,6 +62,7 @@ export class MarketsPredictComponent implements OnInit {
 
   desk: RhPredictDeskDto | null = null;
   loading = false;
+  /** Manual refresh only — drives the progress bar and button disable. */
   refreshing = false;
   draft = '';
   notes: RhPredictNoteDto[] = [];
@@ -73,6 +78,14 @@ export class MarketsPredictComponent implements OnInit {
   ngOnInit(): void {
     this.load();
     this.loadNotes();
+    this.refreshTimer = setInterval(() => this.refresh(true), this.refreshEveryMs);
+  }
+
+  ngOnDestroy(): void {
+    if (this.refreshTimer != null) {
+      clearInterval(this.refreshTimer);
+      this.refreshTimer = null;
+    }
   }
 
   load(): void {
@@ -89,17 +102,32 @@ export class MarketsPredictComponent implements OnInit {
     });
   }
 
-  refresh(): void {
-    this.refreshing = true;
+  refresh(quiet = false): void {
+    if (this.refreshInFlight || this.loading) {
+      return;
+    }
+    if (quiet && typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      return;
+    }
+    this.refreshInFlight = true;
+    if (!quiet) {
+      this.refreshing = true;
+    }
     this.api.refresh().subscribe({
       next: (desk) => {
-        this.apply(desk);
+        this.applyQuiet(desk, quiet);
+        this.refreshInFlight = false;
         this.refreshing = false;
-        this.snackBar.open('Predict book updated from Robinhood.', 'Dismiss', { duration: 3000 });
+        if (!quiet) {
+          this.snackBar.open('Predict book updated from Robinhood.', 'Dismiss', { duration: 3000 });
+        }
       },
       error: (err) => {
+        this.refreshInFlight = false;
         this.refreshing = false;
-        this.toastError(err);
+        if (!quiet) {
+          this.toastError(err);
+        }
       },
     });
   }
@@ -446,6 +474,20 @@ export class MarketsPredictComponent implements OnInit {
 
   private apply(desk: RhPredictDeskDto): void {
     this.desk = desk;
+  }
+
+  /** Patch numbers in place on quiet refresh so layout/scroll stay put. */
+  private applyQuiet(desk: RhPredictDeskDto, quiet: boolean): void {
+    if (!quiet || this.desk == null) {
+      this.desk = desk;
+      return;
+    }
+    const current = this.desk;
+    current.openValue = desk.openValue;
+    current.realizedWeek = desk.realizedWeek;
+    // Leave lastSyncedAt alone so the header does not tick every auto-pull.
+    current.warnings = desk.warnings ?? [];
+    current.closes = desk.closes ?? [];
   }
 
   private toastError(err: unknown): void {
