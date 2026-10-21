@@ -61,16 +61,23 @@
         </div>
         <div>
           <p class="pred__eyebrow">Open mark</p>
-          <p class="pred__live-gap" [class]="moneyClass(desk?.openValue)">
+          <p class="pred__live-gap" [class]="moneyClass(unrealizedPnl ?? desk?.openValue)">
             {{ desk?.openValue == null ? '—' : (desk!.openValue | currency: 'USD' : 'symbol' : '1.2-2') }}
           </p>
-          <p class="pred__caption" [class]="openMarkTrendClass">
-            @if (openMarkTrend === 'up' && openMarkDelta != null) {
-              Principal up {{ openMarkDelta | currency: 'USD' : 'symbol' : '1.2-2' }}
+          <p class="pred__caption" [class]="unrealizedPnl != null ? moneyClass(unrealizedPnl) : openMarkTrendClass">
+            @if (unrealizedPnl != null) {
+              Live P&amp;L {{ unrealizedPnl | currency: 'USD' : 'symbol' : '1.2-2' }}
+              @if (openMarkTrend === 'up' && openMarkDelta != null) {
+                · mark up {{ openMarkDelta | currency: 'USD' : 'symbol' : '1.2-2' }}
+              } @else if (openMarkTrend === 'down' && openMarkDelta != null) {
+                · mark down {{ openMarkDelta | currency: 'USD' : 'symbol' : '1.2-2' }}
+              }
+            } @else if (openMarkTrend === 'up' && openMarkDelta != null) {
+              Mark up {{ openMarkDelta | currency: 'USD' : 'symbol' : '1.2-2' }}
             } @else if (openMarkTrend === 'down' && openMarkDelta != null) {
-              Principal down {{ openMarkDelta | currency: 'USD' : 'symbol' : '1.2-2' }}
+              Mark down {{ openMarkDelta | currency: 'USD' : 'symbol' : '1.2-2' }}
             } @else {
-              Principal trend waits on the next pull
+              Waiting for open cost / next pull
             }
           </p>
         </div>
@@ -117,30 +124,41 @@
           </div>
         }
 
-        <p class="pred__eyebrow">Return@if (scopeLabel) { · {{ scopeLabel }} }</p>
-        <p class="pred__hero" [class]="moneyClass(scopedTotals.returned)">
-          {{ scopedTotals.returned | currency: 'USD' : 'symbol' : '1.2-2' }}
+        <p class="pred__eyebrow">
+          Return@if (scopeLabel) { · {{ scopeLabel }} }
+          @if (includeLiveOpen) {
+            · live
+          }
+        </p>
+        <p class="pred__hero" [class]="moneyClass(displayTotals.returned)">
+          {{ displayTotals.returned | currency: 'USD' : 'symbol' : '1.2-2' }}
         </p>
         <p class="pred__rate">
           @if (returnRate != null) {
             {{ returnRate | percent: '1.1-1' }} of cash put in
           }
-          · {{ scopedTotals.closes }} {{ scopedTotals.closes === 1 ? 'close' : 'closes' }}
+          · {{ displayTotals.closes }} {{ displayTotals.closes === 1 ? 'close' : 'closes' }}
           @if (upCount || downCount) {
             · {{ upCount }} up · {{ downCount }} down
           }
+          @if (includeLiveOpen && unrealizedPnl != null) {
+            · open {{ unrealizedPnl | currency: 'USD' : 'symbol' : '1.2-2' }}
+          }
         </p>
+        @if (includeLiveOpen) {
+          <p class="pred__caption">Includes open mark now; switches to settled closes when Robinhood posts them.</p>
+        }
 
         <div class="pred__flow">
           <div class="pred__flow-col">
             <p class="pred__eyebrow">Invested</p>
-            <p class="pred__flow-value">{{ scopedTotals.invested | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
-            <p class="pred__caption">Cash a close implies you paid</p>
+            <p class="pred__flow-value">{{ displayTotals.invested | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
+            <p class="pred__caption">{{ includeLiveOpen ? 'Settled cash in plus open cost' : 'Cash a close implies you paid' }}</p>
           </div>
           <div class="pred__flow-col">
             <p class="pred__eyebrow">Payback</p>
-            <p class="pred__flow-value">{{ scopedTotals.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
-            <p class="pred__caption">Cash received at the exit</p>
+            <p class="pred__flow-value">{{ displayTotals.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
+            <p class="pred__caption">{{ includeLiveOpen ? 'Settled exits plus open mark' : 'Cash received at the exit' }}</p>
           </div>
         </div>
       </section>
@@ -148,13 +166,19 @@
       <aside class="pred__side" aria-label="Open book and recent return">
         <article class="pred__tile">
           <h2>Open mark</h2>
-          <p [class]="moneyClass(desk.openValue)">{{ desk.openValue == null ? '—' : (desk.openValue | currency: 'USD' : 'symbol' : '1.2-2') }}</p>
-          <span>Value of contracts still open</span>
+          <p [class]="moneyClass(unrealizedPnl ?? 0)">{{ desk.openValue == null ? '—' : (desk.openValue | currency: 'USD' : 'symbol' : '1.2-2') }}</p>
+          @if (unrealizedPnl != null) {
+            <span [class]="moneyClass(unrealizedPnl)">
+              Live {{ unrealizedPnl | currency: 'USD' : 'symbol' : '1.2-2' }} vs cost
+            </span>
+          } @else {
+            <span>Value of contracts still open</span>
+          }
         </article>
         <article class="pred__tile">
           <h2>Return, 7 days</h2>
-          <p [class]="moneyClass(desk.realizedWeek)">{{ desk.realizedWeek | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
-          <span>Realized this week, whole book</span>
+          <p [class]="moneyClass(displayWeekReturn)">{{ displayWeekReturn | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
+          <span>{{ includeLiveOpen ? 'Week closes plus live open' : 'Realized this week, whole book' }}</span>
         </article>
       </aside>
     </div>

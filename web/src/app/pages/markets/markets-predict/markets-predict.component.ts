@@ -55,8 +55,8 @@ interface PredictReturnChart {
 export class MarketsPredictComponent implements OnInit, OnDestroy {
   private readonly api = inject(RhPredictApiService);
   private readonly snackBar = inject(MatSnackBar);
-  private readonly refreshEveryMs = 15_000;
-  private readonly liveEveryMs = 15_000;
+  private readonly refreshEveryMs = 5_000;
+  private readonly liveEveryMs = 5_000;
   private refreshTimer: ReturnType<typeof setInterval> | null = null;
   private liveTimer: ReturnType<typeof setInterval> | null = null;
   private clockTimer: ReturnType<typeof setInterval> | null = null;
@@ -67,6 +67,8 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   private priorLiveGap: number | null = null;
   private priorOpenValue: number | null = null;
   private gapFlashClear: ReturnType<typeof setTimeout> | null = null;
+  /** Fallback cost when Robinhood does not report open_cost — first live mark while open. */
+  private estimatedOpenCost: number | null = null;
 
   readonly columns = ['closedAt', 'quantity', 'price', 'invested', 'payback', 'realized'] as const;
 
@@ -299,6 +301,65 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     return this.scopedMonths[0] ?? { closes: 0, invested: 0, payback: 0, returned: 0 };
   }
 
+  /** Settled closes only — used when live open should not mix into a past period. */
+  get settledTotals(): PredictPeriodTotals {
+    return this.scopedTotals;
+  }
+
+  /** Fold live open mark into the current period so return moves before settlement. */
+  get includeLiveOpen(): boolean {
+    const now = new Date();
+    if (this.activeYear?.year !== now.getFullYear()) {
+      return false;
+    }
+    if (typeof this.selectedMonth === 'number' && this.selectedMonth !== now.getMonth()) {
+      return false;
+    }
+    return this.openCostBasis != null && this.desk?.openValue != null && this.desk.openValue > 0;
+  }
+
+  get openCostBasis(): number | null {
+    const reported = this.desk?.openCost;
+    if (reported != null) {
+      return reported;
+    }
+    return this.estimatedOpenCost;
+  }
+
+  /** Mark minus cost while contracts are still open. */
+  get unrealizedPnl(): number | null {
+    const mark = this.desk?.openValue;
+    const cost = this.openCostBasis;
+    if (mark == null || cost == null) {
+      return null;
+    }
+    return mark - cost;
+  }
+
+  /** Settled return plus live unrealized for the current scope. */
+  get displayTotals(): PredictPeriodTotals {
+    const base = this.settledTotals;
+    if (!this.includeLiveOpen) {
+      return base;
+    }
+    const mark = this.desk!.openValue!;
+    const cost = this.openCostBasis!;
+    return {
+      closes: base.closes,
+      invested: base.invested + cost,
+      payback: base.payback + mark,
+      returned: base.returned + (mark - cost),
+    };
+  }
+
+  get displayWeekReturn(): number {
+    const week = this.desk?.realizedWeek ?? 0;
+    if (!this.includeLiveOpen || this.unrealizedPnl == null) {
+      return week;
+    }
+    return week + this.unrealizedPnl;
+  }
+
   get scopeLabel(): string {
     const year = this.activeYear;
     if (!year) {
@@ -319,13 +380,13 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     return `${scope} by month`;
   }
 
-  /** Share of cash put in that came back as profit or loss. */
+  /** Share of cash put in that came back as profit or loss (includes live open when shown). */
   get returnRate(): number | null {
-    const invested = this.scopedTotals.invested;
+    const invested = this.displayTotals.invested;
     if (!invested) {
       return null;
     }
-    return this.scopedTotals.returned / invested;
+    return this.displayTotals.returned / invested;
   }
 
   get scopedCloses(): RhPredictCloseDto[] {
@@ -637,6 +698,7 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   }
 
   private apply(desk: RhPredictDeskDto): void {
+    this.syncEstimatedOpenCost(desk.openValue, desk.openCost);
     if (desk.openValue != null) {
       this.priorOpenValue = desk.openValue;
     }
@@ -652,6 +714,7 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     const current = this.desk;
     const priorCloses = current.closeCount;
     this.noteOpenMarkTrend(desk.openValue);
+    this.syncEstimatedOpenCost(desk.openValue, desk.openCost);
     current.openValue = desk.openValue;
     current.openCost = desk.openCost;
     current.realizedWeek = desk.realizedWeek;
@@ -662,6 +725,21 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     current.closes = desk.closes ?? [];
     if (quiet && desk.closeCount > priorCloses) {
       this.snackBar.open('Settlement landed — returns updated.', 'Dismiss', { duration: 3500 });
+    }
+  }
+
+  /** Keep a session cost so live return can move before Robinhood posts open_cost / closes. */
+  private syncEstimatedOpenCost(mark: number | null | undefined, reported: number | null | undefined): void {
+    if (reported != null) {
+      this.estimatedOpenCost = null;
+      return;
+    }
+    if (mark == null || mark <= 0) {
+      this.estimatedOpenCost = null;
+      return;
+    }
+    if (this.estimatedOpenCost == null) {
+      this.estimatedOpenCost = mark;
     }
   }
 
