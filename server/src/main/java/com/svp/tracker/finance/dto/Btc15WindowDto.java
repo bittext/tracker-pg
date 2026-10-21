@@ -19,4 +19,9 @@ public record Btc15WindowDto(
         BigDecimal currentGap,
         /** Provisional above/below from the live print; null once settled. */
         Boolean liveAbove,
+        /**
+         * open = in the live 15-minute slot; awaiting = slot ended, Kalshi not finalized;
+         * upcoming = not started; settled = Kalshi result/expiration present.
+         */
+        String status,
         boolean unsettled) {}

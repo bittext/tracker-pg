@@ -169,9 +169,28 @@ public class Btc15Service {
         }
         BigDecimal startPrice = candleOpen(candles, start);
         String result = market.path("result").asText("");
+        String marketStatus = market.path("status").asText("").trim().toLowerCase(Locale.ROOT);
         BigDecimal expiration = decimal(market.get("expiration_value"));
         boolean hasKalshiResult = "yes".equalsIgnoreCase(result) || "no".equalsIgnoreCase(result);
-        boolean settled = hasKalshiResult || expiration != null;
+        boolean settled = hasKalshiResult
+                || expiration != null
+                || marketStatus.equals("finalized")
+                || marketStatus.equals("determined")
+                || marketStatus.equals("settled");
+
+        Instant now = Instant.now();
+        String phase;
+        if (settled) {
+            phase = "settled";
+        } else if (now.isBefore(start)) {
+            phase = "upcoming";
+        } else if (now.isBefore(end)) {
+            phase = "open";
+        } else {
+            phase = "awaiting";
+        }
+        // Only the live or just-ended slot is "unsettled" — not future windows.
+        boolean unsettled = phase.equals("open") || phase.equals("awaiting");
 
         BigDecimal endPrice = expiration;
         Boolean above = null;
@@ -184,8 +203,7 @@ public class Btc15Service {
         BigDecimal currentPrice = null;
         BigDecimal currentGap = null;
         Boolean liveAbove = null;
-        if (!settled) {
-            Instant now = Instant.now();
+        if (unsettled) {
             Instant liveTo = now.isBefore(end) ? now : end;
             currentPrice = latestClose(candles, start, liveTo);
             if (currentPrice == null) {
@@ -217,7 +235,8 @@ public class Btc15Service {
                 currentPrice,
                 currentGap,
                 liveAbove,
-                !settled);
+                phase,
+                unsettled);
     }
 
     private static BigDecimal gap(BigDecimal price, BigDecimal target) {

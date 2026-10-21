@@ -31,15 +31,13 @@
         [class.btc__flash-down]="rowFlash(live.ticker) === 'btc__flash-down'"
         aria-label="Current unsettled window"
       >
-        <div class="btc__live-badge">Unsettled</div>
+        <div class="btc__live-badge">{{ live.status === 'awaiting' ? 'Unsettled · awaiting' : 'Unsettled · live' }}</div>
         <div class="btc__live-main">
           <div>
-            <p class="btc__kicker">{{ live.label }} · Central</p>
+            <p class="btc__kicker">15-minute window · Central</p>
+            <p class="btc__period">{{ periodLabel || live.label }}</p>
             <p class="btc__countdown">{{ countdownLabel }}</p>
-            <p class="btc__meta">
-              Window {{ live.windowStart | date: 'h:mm a' : 'America/Chicago' }}
-              – {{ live.windowEnd | date: 'h:mm a' : 'America/Chicago' }}
-            </p>
+            <p class="btc__meta">Countdown to the end of this period</p>
           </div>
           <div class="btc__live-mark">
             <p class="btc__kicker">Live vs target</p>
@@ -160,10 +158,16 @@
                     }
                   </td>
                   <td>
-                    @if (row.aboveTarget === true) {
-                      <span class="btc__pill btc__pill--up">Settled yes</span>
-                    } @else if (row.aboveTarget === false) {
-                      <span class="btc__pill btc__pill--down">Settled no</span>
+                    @if (row.status === 'settled' || row.aboveTarget != null) {
+                      @if (row.aboveTarget === true) {
+                        <span class="btc__pill btc__pill--up">Settled yes</span>
+                      } @else if (row.aboveTarget === false) {
+                        <span class="btc__pill btc__pill--down">Settled no</span>
+                      } @else {
+                        <span class="btc__pill">Settled</span>
+                      }
+                    } @else if (row.status === 'upcoming') {
+                      <span class="btc__pill">Upcoming</span>
                     } @else {
                       <span class="btc__pill btc__pill--open">Unsettled</span>
                       @if (row.liveAbove === true) {

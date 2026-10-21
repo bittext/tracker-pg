@@ -57,10 +57,18 @@ export class MarketsPredictBtcComponent implements OnInit, OnDestroy {
     const windows = this.allWindows();
     const now = this.nowMs;
     return (
-      windows.find((row) => row.unsettled && new Date(row.windowStart).getTime() <= now && now < new Date(row.windowEnd).getTime()) ??
-      windows.find((row) => row.unsettled) ??
+      windows.find((row) => row.status === 'open' || (row.unsettled && inWindow(row, now))) ??
+      windows.find((row) => row.status === 'awaiting' || (row.unsettled && now >= new Date(row.windowEnd).getTime())) ??
       null
     );
+  }
+
+  get periodLabel(): string {
+    const row = this.activeWindow;
+    if (!row) {
+      return '';
+    }
+    return `${formatClock(row.windowStart)} – ${formatClock(row.windowEnd)} CT`;
   }
 
   get countdownLabel(): string {
@@ -242,6 +250,22 @@ function todayCentral(): string {
     month: '2-digit',
     day: '2-digit',
   }).format(new Date());
+}
+
+function inWindow(row: Btc15WindowDto, now: number): boolean {
+  return new Date(row.windowStart).getTime() <= now && now < new Date(row.windowEnd).getTime();
+}
+
+function formatClock(iso: string): string {
+  const when = new Date(iso);
+  if (Number.isNaN(when.getTime())) {
+    return '';
+  }
+  return when.toLocaleTimeString('en-US', {
+    timeZone: 'America/Chicago',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
 function formatRemain(ms: number): string {

@@ -26,6 +26,8 @@ export interface Btc15WindowDto {
   currentGap: number | null;
   /** Provisional above/below from the live print. */
   liveAbove: boolean | null;
+  /** open | awaiting | upcoming | settled */
+  status: string;
   unsettled: boolean;
 }
 

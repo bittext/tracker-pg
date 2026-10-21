@@ -7,7 +7,14 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { RouterLink } from '@angular/router';
-import { RhPredictCloseDto, RhPredictDeskDto, RhPredictFeedbackDto, RhPredictNoteDto, RhPredictNotesDeskDto } from '../../../models/rh-predict.models';
+import {
+  Btc15WindowDto,
+  RhPredictCloseDto,
+  RhPredictDeskDto,
+  RhPredictFeedbackDto,
+  RhPredictNoteDto,
+  RhPredictNotesDeskDto,
+} from '../../../models/rh-predict.models';
 import { RhPredictApiService } from '../../../services/rh-predict-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
 import {
@@ -49,9 +56,14 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   private readonly api = inject(RhPredictApiService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly refreshEveryMs = 30_000;
+  private readonly liveEveryMs = 15_000;
   private refreshTimer: ReturnType<typeof setInterval> | null = null;
+  private liveTimer: ReturnType<typeof setInterval> | null = null;
+  private clockTimer: ReturnType<typeof setInterval> | null = null;
   /** In-flight Robinhood pull; not bound to UI so quiet refreshes stay invisible. */
   private refreshInFlight = false;
+  private liveInFlight = false;
+  private liveWindows: Btc15WindowDto[] = [];
 
   readonly columns = ['closedAt', 'quantity', 'price', 'invested', 'payback', 'realized'] as const;
 
@@ -74,11 +86,17 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   /** Null keeps the year summary. "all" lists every month. A number is that month. */
   selectedMonth: number | 'all' | null = null;
   periodGrain: 'day' | 'hour' | null = null;
+  nowMs = Date.now();
 
   ngOnInit(): void {
     this.load();
     this.loadNotes();
+    this.loadLiveWindow();
     this.refreshTimer = setInterval(() => this.refresh(true), this.refreshEveryMs);
+    this.liveTimer = setInterval(() => this.loadLiveWindow(), this.liveEveryMs);
+    this.clockTimer = setInterval(() => {
+      this.nowMs = Date.now();
+    }, 250);
   }
 
   ngOnDestroy(): void {
@@ -86,6 +104,61 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
       clearInterval(this.refreshTimer);
       this.refreshTimer = null;
     }
+    if (this.liveTimer != null) {
+      clearInterval(this.liveTimer);
+      this.liveTimer = null;
+    }
+    if (this.clockTimer != null) {
+      clearInterval(this.clockTimer);
+      this.clockTimer = null;
+    }
+  }
+
+  /** True when Robinhood still shows open contract mark. */
+  get hasOpenBook(): boolean {
+    const mark = this.desk?.openValue;
+    return mark != null && mark > 0;
+  }
+
+  get liveWindow(): Btc15WindowDto | null {
+    const now = this.nowMs;
+    return (
+      this.liveWindows.find((row) => row.status === 'open' || (row.unsettled && inLiveWindow(row, now))) ??
+      this.liveWindows.find((row) => row.status === 'awaiting' || (row.unsettled && now >= new Date(row.windowEnd).getTime())) ??
+      null
+    );
+  }
+
+  get livePeriodLabel(): string {
+    const row = this.liveWindow;
+    if (!row) {
+      return '';
+    }
+    return `${formatLiveClock(row.windowStart)} – ${formatLiveClock(row.windowEnd)} CT`;
+  }
+
+  get liveCountdown(): string {
+    const row = this.liveWindow;
+    if (!row) {
+      return '';
+    }
+    const end = new Date(row.windowEnd).getTime();
+    const start = new Date(row.windowStart).getTime();
+    if (this.nowMs < start) {
+      return `Opens in ${formatLiveRemain(start - this.nowMs)}`;
+    }
+    if (this.nowMs >= end) {
+      return 'Awaiting settlement';
+    }
+    return formatLiveRemain(end - this.nowMs);
+  }
+
+  get liveMovePct(): number | null {
+    const row = this.liveWindow;
+    if (row?.currentGap == null || row.target == null || !row.target) {
+      return null;
+    }
+    return row.currentGap / row.target;
   }
 
   load(): void {
@@ -458,6 +531,30 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     });
   }
 
+  private loadLiveWindow(): void {
+    if (this.liveInFlight) {
+      return;
+    }
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      return;
+    }
+    this.liveInFlight = true;
+    const priorOpen = new Set(this.liveWindows.filter((row) => row.unsettled).map((row) => row.ticker));
+    this.api.btc15(todayCentral()).subscribe({
+      next: (desk) => {
+        this.liveWindows = desk.hours.flatMap((hour) => hour.windows);
+        this.liveInFlight = false;
+        const settled = this.liveWindows.filter((row) => priorOpen.has(row.ticker) && !row.unsettled);
+        if (settled.length) {
+          this.refresh(true);
+        }
+      },
+      error: () => {
+        this.liveInFlight = false;
+      },
+    });
+  }
+
   private applyNotes(desk: RhPredictNotesDeskDto): void {
     this.notes = desk.notes ?? [];
     this.feedback = desk.feedback;
@@ -519,4 +616,36 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   private toastError(err: unknown): void {
     this.snackBar.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 6000 });
   }
+}
+
+function todayCentral(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Chicago',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
+function inLiveWindow(row: Btc15WindowDto, now: number): boolean {
+  return new Date(row.windowStart).getTime() <= now && now < new Date(row.windowEnd).getTime();
+}
+
+function formatLiveClock(iso: string): string {
+  const when = new Date(iso);
+  if (Number.isNaN(when.getTime())) {
+    return '';
+  }
+  return when.toLocaleTimeString('en-US', {
+    timeZone: 'America/Chicago',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function formatLiveRemain(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const minutes = Math.floor(total / 60);
+  const seconds = total % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
