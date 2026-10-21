@@ -106,12 +106,12 @@
         </p>
 
         <div class="pred__flow">
-          <div>
+          <div class="pred__flow-col">
             <p class="pred__eyebrow">Invested</p>
             <p class="pred__flow-value">{{ scopedTotals.invested | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
             <p class="pred__caption">Cash a close implies you paid</p>
           </div>
-          <div>
+          <div class="pred__flow-col">
             <p class="pred__eyebrow">Payback</p>
             <p class="pred__flow-value">{{ scopedTotals.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
             <p class="pred__caption">Cash received at the exit</p>
