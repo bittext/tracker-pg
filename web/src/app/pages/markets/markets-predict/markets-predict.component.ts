@@ -114,12 +114,6 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** True when Robinhood still shows open contract mark. */
-  get hasOpenBook(): boolean {
-    const mark = this.desk?.openValue;
-    return mark != null && mark > 0;
-  }
-
   get liveWindow(): Btc15WindowDto | null {
     const now = this.nowMs;
     return (
@@ -290,25 +284,6 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
       return null;
     }
     return this.scopedTotals.returned / invested;
-  }
-
-  /** Unrealized on the open book; null when mark or cost is missing. */
-  get unsettledPnl(): number | null {
-    const mark = this.desk?.openValue;
-    const cost = this.desk?.openCost;
-    if (mark == null || cost == null) {
-      return null;
-    }
-    return mark - cost;
-  }
-
-  get unsettledPnlRate(): number | null {
-    const cost = this.desk?.openCost;
-    const pnl = this.unsettledPnl;
-    if (pnl == null || cost == null || !cost) {
-      return null;
-    }
-    return pnl / cost;
   }
 
   get scopedCloses(): RhPredictCloseDto[] {

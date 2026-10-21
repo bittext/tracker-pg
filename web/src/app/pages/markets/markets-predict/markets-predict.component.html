@@ -125,33 +125,10 @@
       </section>
 
       <aside class="pred__side" aria-label="Open book and recent return">
-        <article
-          class="pred__tile"
-          [class.pred__tile--unsettled]="hasOpenBook"
-          [class.pred__tile--gain]="hasOpenBook && (unsettledPnl ?? 0) > 0"
-          [class.pred__tile--loss]="hasOpenBook && (unsettledPnl ?? 0) < 0"
-        >
-          @if (hasOpenBook) {
-            <p class="pred__unsettled-badge">Unsettled</p>
-          }
+        <article class="pred__tile">
           <h2>Open mark</h2>
           <p [class]="moneyClass(desk.openValue)">{{ desk.openValue == null ? '—' : (desk.openValue | currency: 'USD' : 'symbol' : '1.2-2') }}</p>
-          @if (hasOpenBook) {
-            <span>Not in the return chart until settlement</span>
-            @if (unsettledPnl != null) {
-              <p class="pred__unsettled-pnl" [class]="moneyClass(unsettledPnl)">
-                {{ unsettledPnl | currency: 'USD' : 'symbol' : '1.2-2' }}
-                @if (unsettledPnlRate != null) {
-                  <em>{{ unsettledPnlRate | percent: '1.1-1' }}</em>
-                }
-              </p>
-              <span>Gain / loss vs open cost {{ desk.openCost | currency: 'USD' : 'symbol' : '1.2-2' }}</span>
-            } @else {
-              <span>Set open cost to see unrealized %</span>
-            }
-          } @else {
-            <span>No open contracts right now</span>
-          }
+          <span>Value of contracts still open</span>
         </article>
         <article class="pred__tile">
           <h2>Return, 7 days</h2>
