@@ -13,4 +13,10 @@ public record Btc15WindowDto(
         BigDecimal endPrice,
         BigDecimal startGap,
         BigDecimal endGap,
-        Boolean aboveTarget) {}
+        Boolean aboveTarget,
+        /** Latest Coinbase print while the window is still unsettled; null once settled. */
+        BigDecimal currentPrice,
+        BigDecimal currentGap,
+        /** Provisional above/below from the live print; null once settled. */
+        Boolean liveAbove,
+        boolean unsettled) {}

@@ -219,6 +219,25 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     return this.scopedTotals.returned / invested;
   }
 
+  /** Unrealized on the open book; null when mark or cost is missing. */
+  get unsettledPnl(): number | null {
+    const mark = this.desk?.openValue;
+    const cost = this.desk?.openCost;
+    if (mark == null || cost == null) {
+      return null;
+    }
+    return mark - cost;
+  }
+
+  get unsettledPnlRate(): number | null {
+    const cost = this.desk?.openCost;
+    const pnl = this.unsettledPnl;
+    if (pnl == null || cost == null || !cost) {
+      return null;
+    }
+    return pnl / cost;
+  }
+
   get scopedCloses(): RhPredictCloseDto[] {
     const year = this.activeYear;
     const closes = this.desk?.closes ?? [];
@@ -483,11 +502,18 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
       return;
     }
     const current = this.desk;
+    const priorCloses = current.closeCount;
     current.openValue = desk.openValue;
+    current.openCost = desk.openCost;
     current.realizedWeek = desk.realizedWeek;
+    current.realizedAll = desk.realizedAll;
+    current.closeCount = desk.closeCount;
     // Leave lastSyncedAt alone so the header does not tick every auto-pull.
     current.warnings = desk.warnings ?? [];
     current.closes = desk.closes ?? [];
+    if (quiet && desk.closeCount > priorCloses) {
+      this.snackBar.open('Settlement landed — returns updated.', 'Dismiss', { duration: 3500 });
+    }
   }
 
   private toastError(err: unknown): void {

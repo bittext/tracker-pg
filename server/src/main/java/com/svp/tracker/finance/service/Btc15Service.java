@@ -168,11 +168,38 @@ public class Btc15Service {
             return null;
         }
         BigDecimal startPrice = candleOpen(candles, start);
-        BigDecimal endPrice = decimal(market.get("expiration_value"));
-        if (endPrice == null) {
-            endPrice = candleOpen(candles, end);
+        String result = market.path("result").asText("");
+        BigDecimal expiration = decimal(market.get("expiration_value"));
+        boolean hasKalshiResult = "yes".equalsIgnoreCase(result) || "no".equalsIgnoreCase(result);
+        boolean settled = hasKalshiResult || expiration != null;
+
+        BigDecimal endPrice = expiration;
+        Boolean above = null;
+        if (hasKalshiResult) {
+            above = "yes".equalsIgnoreCase(result);
+        } else if (expiration != null) {
+            above = expiration.compareTo(target) >= 0;
         }
-        Boolean above = aboveTarget(market.path("result").asText(""), endPrice, target);
+
+        BigDecimal currentPrice = null;
+        BigDecimal currentGap = null;
+        Boolean liveAbove = null;
+        if (!settled) {
+            Instant now = Instant.now();
+            Instant liveTo = now.isBefore(end) ? now : end;
+            currentPrice = latestClose(candles, start, liveTo);
+            if (currentPrice == null) {
+                currentPrice = candleClose(candles, liveTo);
+            }
+            if (currentPrice == null) {
+                currentPrice = startPrice;
+            }
+            currentGap = gap(currentPrice, target);
+            if (currentPrice != null) {
+                liveAbove = currentPrice.compareTo(target) >= 0;
+            }
+        }
+
         ZonedDateTime startLocal = start.atZone(CENTRAL);
         ZonedDateTime endLocal = end.atZone(CENTRAL);
         String label = CLOCK.format(startLocal) + "–" + CLOCK_MERIDIEM.format(endLocal);
@@ -186,9 +213,21 @@ public class Btc15Service {
                 endPrice,
                 gap(startPrice, target),
                 gap(endPrice, target),
-                above);
+                above,
+                currentPrice,
+                currentGap,
+                liveAbove,
+                !settled);
     }
 
+    private static BigDecimal gap(BigDecimal price, BigDecimal target) {
+        if (price == null || target == null) {
+            return null;
+        }
+        return price.subtract(target).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /** Settled outcome only: Kalshi yes/no, else expiration vs target. */
     private static Boolean aboveTarget(String result, BigDecimal endPrice, BigDecimal target) {
         if ("yes".equalsIgnoreCase(result)) {
             return true;
@@ -200,13 +239,6 @@ public class Btc15Service {
             return null;
         }
         return endPrice.compareTo(target) >= 0;
-    }
-
-    private static BigDecimal gap(BigDecimal price, BigDecimal target) {
-        if (price == null || target == null) {
-            return null;
-        }
-        return price.subtract(target).setScale(2, RoundingMode.HALF_UP);
     }
 
     private static BigDecimal rate(int above, int settled) {

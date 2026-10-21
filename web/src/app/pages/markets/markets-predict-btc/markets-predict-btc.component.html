@@ -4,15 +4,15 @@
       <a class="btc__back" routerLink="/markets/predict">Predict</a>
       <h1 class="btc__title">BTC 15 min</h1>
       <p class="btc__meta">
-        Target is the stated price for the window. BTC at start is the Coinbase print when the window opened.
-        BTC at end is the settlement print. A close is positive when that end print is at or above the target.
+        Target is the stated price for the window. Live prints are Coinbase while the window is open.
+        Settled closes use Kalshi’s expiration print. Unsettled rows are marked and are not counted in the rate above.
       </p>
     </div>
     <div class="btc__tools">
       <a mat-stroked-button routerLink="/markets/predict/btc-15/streaks">Miss streaks</a>
       <label class="btc__date">
         Day
-        <input type="date" [(ngModel)]="date" (change)="load()" />
+        <input type="date" [(ngModel)]="date" (change)="load(false)" />
       </label>
     </div>
   </header>
@@ -22,8 +22,53 @@
   }
 
   @if (desk) {
+    @if (activeWindow; as live) {
+      <section
+        class="btc__live"
+        [class.btc__live--up]="live.liveAbove === true"
+        [class.btc__live--down]="live.liveAbove === false"
+        [class.btc__flash-up]="rowFlash(live.ticker) === 'btc__flash-up'"
+        [class.btc__flash-down]="rowFlash(live.ticker) === 'btc__flash-down'"
+        aria-label="Current unsettled window"
+      >
+        <div class="btc__live-badge">Unsettled</div>
+        <div class="btc__live-main">
+          <div>
+            <p class="btc__kicker">{{ live.label }} · Central</p>
+            <p class="btc__countdown">{{ countdownLabel }}</p>
+            <p class="btc__meta">
+              Window {{ live.windowStart | date: 'h:mm a' : 'America/Chicago' }}
+              – {{ live.windowEnd | date: 'h:mm a' : 'America/Chicago' }}
+            </p>
+          </div>
+          <div class="btc__live-mark">
+            <p class="btc__kicker">Live vs target</p>
+            <p class="btc__live-gap" [class]="gapClass(live.currentGap)">{{ signed(live.currentGap) }}</p>
+            <p class="btc__meta">
+              @if (liveMovePct != null) {
+                <span [class]="gapClass(live.currentGap)">{{ liveMovePct | percent: '1.2-2' }}</span>
+                of target
+                ·
+              }
+              BTC {{ live.currentPrice | number: '1.2-2' }}
+              · target {{ live.target | number: '1.2-2' }}
+            </p>
+            <p class="btc__lean">
+              @if (live.liveAbove === true) {
+                Leaning <strong class="btc__up">above</strong> (not settled)
+              } @else if (live.liveAbove === false) {
+                Leaning <strong class="btc__down">below</strong> (not settled)
+              } @else {
+                Waiting for a live print
+              }
+            </p>
+          </div>
+        </div>
+      </section>
+    }
+
     <section class="btc__hero">
-      <p class="btc__kicker">Above target · {{ desk.date }}</p>
+      <p class="btc__kicker">Above target · {{ desk.date }} · settled only</p>
       <p class="btc__rate">
         @if (desk.aboveRate != null) {
           {{ desk.aboveRate | percent: '1.0-1' }}
@@ -77,32 +122,55 @@
                 <th>Window</th>
                 <th>Target</th>
                 <th>BTC at start</th>
-                <th>BTC at end</th>
+                <th>BTC now / end</th>
                 <th>Start vs target</th>
-                <th>End vs target</th>
-                <th>Above target</th>
+                <th>Live / end vs target</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>
               @for (row of hour.windows; track row.ticker) {
-                <tr>
-                  <td>{{ row.label }}</td>
+                <tr
+                  [class.btc__row--unsettled]="row.unsettled"
+                  [class.btc__row--active]="activeWindow?.ticker === row.ticker"
+                  [class.btc__flash-up]="rowFlash(row.ticker) === 'btc__flash-up'"
+                  [class.btc__flash-down]="rowFlash(row.ticker) === 'btc__flash-down'"
+                >
+                  <td>
+                    {{ row.label }}
+                    @if (activeWindow?.ticker === row.ticker) {
+                      <span class="btc__clock">{{ countdownLabel }}</span>
+                    }
+                  </td>
                   <td>{{ row.target | number: '1.2-2' }}</td>
                   <td>{{ row.startPrice | number: '1.2-2' }}</td>
-                  <td>{{ row.endPrice | number: '1.2-2' }}</td>
-                  <td [class.btc__up]="(row.startGap ?? 0) > 0" [class.btc__down]="(row.startGap ?? 0) < 0">
-                    {{ signed(row.startGap) }}
+                  <td>
+                    {{ displayEndPrice(row) | number: '1.2-2' }}
+                    @if (row.unsettled) {
+                      <span class="btc__hint">live</span>
+                    }
                   </td>
-                  <td [class.btc__up]="(row.endGap ?? 0) > 0" [class.btc__down]="(row.endGap ?? 0) < 0">
-                    {{ signed(row.endGap) }}
+                  <td [class]="gapClass(row.startGap)">{{ signed(row.startGap) }}</td>
+                  <td [class]="gapClass(displayEndGap(row))">
+                    {{ signed(displayEndGap(row)) }}
+                    @if (row.unsettled && row.target) {
+                      <span class="btc__hint" [class]="gapClass(row.currentGap)">
+                        {{ (row.currentGap ?? 0) / row.target | percent: '1.2-2' }}
+                      </span>
+                    }
                   </td>
                   <td>
                     @if (row.aboveTarget === true) {
-                      <span class="btc__pill btc__pill--up">Yes</span>
+                      <span class="btc__pill btc__pill--up">Settled yes</span>
                     } @else if (row.aboveTarget === false) {
-                      <span class="btc__pill btc__pill--down">No</span>
+                      <span class="btc__pill btc__pill--down">Settled no</span>
                     } @else {
-                      <span class="btc__pill">Open</span>
+                      <span class="btc__pill btc__pill--open">Unsettled</span>
+                      @if (row.liveAbove === true) {
+                        <span class="btc__hint btc__up">leaning above</span>
+                      } @else if (row.liveAbove === false) {
+                        <span class="btc__hint btc__down">leaning below</span>
+                      }
                     }
                   </td>
                 </tr>

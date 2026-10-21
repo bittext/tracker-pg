@@ -19,7 +19,14 @@ export interface Btc15WindowDto {
   endPrice: number | null;
   startGap: number | null;
   endGap: number | null;
+  /** Settled Kalshi outcome only; null while unsettled. */
   aboveTarget: boolean | null;
+  /** Live Coinbase print while unsettled. */
+  currentPrice: number | null;
+  currentGap: number | null;
+  /** Provisional above/below from the live print. */
+  liveAbove: boolean | null;
+  unsettled: boolean;
 }
 
 export interface Btc15HourDto {
