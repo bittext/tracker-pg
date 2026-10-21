@@ -27,7 +27,11 @@
   }
 
   @if (liveWindow; as live) {
-    <section class="pred__live" aria-label="Current BTC 15-minute window">
+    <section
+      class="pred__live"
+      [class]="liveLeanClass + ' ' + liveSlideClass"
+      aria-label="Current BTC 15-minute window"
+    >
       <div class="pred__live-badge">{{ live.status === 'awaiting' ? 'Unsettled · awaiting' : 'Unsettled · live' }}</div>
       <div class="pred__live-grid">
         <div>
@@ -42,10 +46,32 @@
             {{ live.currentGap == null ? '—' : (live.currentGap > 0 ? '+' : '') + (live.currentGap | number: '1.2-2') }}
           </p>
           <p class="pred__caption">
-            @if (liveMovePct != null) {
-              {{ liveMovePct | percent: '1.2-2' }} of target ·
+            @if (live.liveAbove === true) {
+              Sliding <span class="gain">above</span>
+            } @else if (live.liveAbove === false) {
+              Sliding <span class="loss">below</span>
+            } @else {
+              Waiting for a print
             }
-            BTC {{ live.currentPrice | number: '1.2-2' }} · target {{ live.target | number: '1.2-2' }}
+            @if (liveMovePct != null) {
+              · {{ liveMovePct | percent: '1.2-2' }} of target
+            }
+          </p>
+          <p class="pred__caption">BTC {{ live.currentPrice | number: '1.2-2' }} · target {{ live.target | number: '1.2-2' }}</p>
+        </div>
+        <div>
+          <p class="pred__eyebrow">Open mark</p>
+          <p class="pred__live-gap" [class]="moneyClass(desk?.openValue)">
+            {{ desk?.openValue == null ? '—' : (desk!.openValue | currency: 'USD' : 'symbol' : '1.2-2') }}
+          </p>
+          <p class="pred__caption" [class]="openMarkTrendClass">
+            @if (openMarkTrend === 'up' && openMarkDelta != null) {
+              Principal up {{ openMarkDelta | currency: 'USD' : 'symbol' : '1.2-2' }}
+            } @else if (openMarkTrend === 'down' && openMarkDelta != null) {
+              Principal down {{ openMarkDelta | currency: 'USD' : 'symbol' : '1.2-2' }}
+            } @else {
+              Principal trend waits on the next pull
+            }
           </p>
         </div>
       </div>

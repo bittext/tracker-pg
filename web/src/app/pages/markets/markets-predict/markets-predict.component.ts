@@ -55,8 +55,8 @@ interface PredictReturnChart {
 export class MarketsPredictComponent implements OnInit, OnDestroy {
   private readonly api = inject(RhPredictApiService);
   private readonly snackBar = inject(MatSnackBar);
-  private readonly refreshEveryMs = 10_000;
-  private readonly liveEveryMs = 5_000;
+  private readonly refreshEveryMs = 15_000;
+  private readonly liveEveryMs = 15_000;
   private refreshTimer: ReturnType<typeof setInterval> | null = null;
   private liveTimer: ReturnType<typeof setInterval> | null = null;
   private clockTimer: ReturnType<typeof setInterval> | null = null;
@@ -64,6 +64,9 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   private refreshInFlight = false;
   private liveInFlight = false;
   private liveWindows: Btc15WindowDto[] = [];
+  private priorLiveGap: number | null = null;
+  private priorOpenValue: number | null = null;
+  private gapFlashClear: ReturnType<typeof setTimeout> | null = null;
 
   readonly columns = ['closedAt', 'quantity', 'price', 'invested', 'payback', 'realized'] as const;
 
@@ -87,6 +90,11 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   selectedMonth: number | 'all' | null = null;
   periodGrain: 'day' | 'hour' | null = null;
   nowMs = Date.now();
+  /** Brief flash when the live gap slides. */
+  gapSlide: 'up' | 'down' | null = null;
+  /** Open-mark principal trend across quiet Robinhood pulls. */
+  openMarkTrend: 'up' | 'down' | null = null;
+  openMarkDelta: number | null = null;
 
   ngOnInit(): void {
     this.load();
@@ -112,6 +120,40 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
       clearInterval(this.clockTimer);
       this.clockTimer = null;
     }
+    if (this.gapFlashClear != null) {
+      clearTimeout(this.gapFlashClear);
+    }
+  }
+
+  get liveLeanClass(): string {
+    const live = this.liveWindow;
+    if (live?.liveAbove === true) {
+      return 'pred__live--up';
+    }
+    if (live?.liveAbove === false) {
+      return 'pred__live--down';
+    }
+    return '';
+  }
+
+  get liveSlideClass(): string {
+    if (this.gapSlide === 'up') {
+      return 'pred__live--slide-up';
+    }
+    if (this.gapSlide === 'down') {
+      return 'pred__live--slide-down';
+    }
+    return '';
+  }
+
+  get openMarkTrendClass(): string {
+    if (this.openMarkTrend === 'up') {
+      return 'gain';
+    }
+    if (this.openMarkTrend === 'down') {
+      return 'loss';
+    }
+    return '';
   }
 
   get liveWindow(): Btc15WindowDto | null {
@@ -518,6 +560,7 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     this.api.btc15(todayCentral()).subscribe({
       next: (desk) => {
         this.liveWindows = desk.hours.flatMap((hour) => hour.windows);
+        this.noteGapSlide();
         this.liveInFlight = false;
         const settled = this.liveWindows.filter((row) => priorOpen.has(row.ticker) && !row.unsettled);
         if (settled.length) {
@@ -528,6 +571,36 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
         this.liveInFlight = false;
       },
     });
+  }
+
+  private noteGapSlide(): void {
+    const gap = this.liveWindow?.currentGap ?? null;
+    const prior = this.priorLiveGap;
+    this.priorLiveGap = gap;
+    if (prior == null || gap == null || gap === prior) {
+      return;
+    }
+    this.gapSlide = gap > prior ? 'up' : 'down';
+    if (this.gapFlashClear != null) {
+      clearTimeout(this.gapFlashClear);
+    }
+    this.gapFlashClear = setTimeout(() => {
+      this.gapSlide = null;
+      this.gapFlashClear = null;
+    }, 900);
+  }
+
+  private noteOpenMarkTrend(next: number | null | undefined): void {
+    if (next == null) {
+      return;
+    }
+    const prior = this.priorOpenValue;
+    this.priorOpenValue = next;
+    if (prior == null || next === prior) {
+      return;
+    }
+    this.openMarkDelta = next - prior;
+    this.openMarkTrend = next > prior ? 'up' : 'down';
   }
 
   private applyNotes(desk: RhPredictNotesDeskDto): void {
@@ -564,17 +637,21 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   }
 
   private apply(desk: RhPredictDeskDto): void {
+    if (desk.openValue != null) {
+      this.priorOpenValue = desk.openValue;
+    }
     this.desk = desk;
   }
 
   /** Patch numbers in place on quiet refresh so layout/scroll stay put. */
   private applyQuiet(desk: RhPredictDeskDto, quiet: boolean): void {
     if (!quiet || this.desk == null) {
-      this.desk = desk;
+      this.apply(desk);
       return;
     }
     const current = this.desk;
     const priorCloses = current.closeCount;
+    this.noteOpenMarkTrend(desk.openValue);
     current.openValue = desk.openValue;
     current.openCost = desk.openCost;
     current.realizedWeek = desk.realizedWeek;
