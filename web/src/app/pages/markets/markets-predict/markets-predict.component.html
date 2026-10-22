@@ -26,58 +26,92 @@
     <mat-progress-bar mode="indeterminate" />
   }
 
-  @if (showFundedLiveStrip) {
+  @if (showLiveStrip) {
     @if (liveWindow; as live) {
       <section
-        class="pred__live pred__live--staked"
+        class="pred__live"
+        [class.pred__live--staked]="hasWindowStake"
         [class.pred__live--up]="live.liveAbove === true"
         [class.pred__live--down]="live.liveAbove === false"
         [class.pred__live--slide-up]="gapSlide === 'up'"
         [class.pred__live--slide-down]="gapSlide === 'down'"
-        aria-label="Funded BTC 15-minute window"
+        aria-label="Current BTC 15-minute window"
       >
         <div class="pred__live-badge">
-          Funded window · {{ live.status === 'awaiting' ? 'awaiting settle' : 'live' }}
+          @if (hasWindowStake) {
+            Funded · {{ live.status === 'awaiting' ? 'awaiting settle' : 'live' }}
+          } @else {
+            {{ live.status === 'awaiting' ? 'Unsettled · awaiting' : 'Unsettled · live' }}
+          }
         </div>
         <div class="pred__live-grid">
           <div>
             <p class="pred__eyebrow">15-minute window · Central</p>
             <p class="pred__live-period">{{ livePeriodLabel || live.label }}</p>
             <p class="pred__live-count">{{ liveCountdown }}</p>
-            <p class="pred__caption">Timer for this period while open principal is unsettled</p>
+            <p class="pred__caption">Countdown to the end of this period</p>
           </div>
           <div>
             <p class="pred__eyebrow">Live vs target</p>
-            <p class="pred__live-gap" [class]="moneyClass(live.currentGap)">
-              {{ live.currentGap == null ? '—' : (live.currentGap > 0 ? '+' : '') + (live.currentGap | number: '1.2-2') }}
+            <p class="pred__live-gap" [class]="moneyClass(live.currentGap)">{{ signedGap(live.currentGap) }}</p>
+            <p class="pred__caption">
+              @if (liveMovePct != null) {
+                <span [class]="moneyClass(live.currentGap)">{{ liveMovePct | percent: '1.2-2' }}</span>
+                of target
+              }
+            </p>
+            <p class="pred__caption">
+              BTC {{ live.currentPrice | number: '1.2-2' }}
+              · target {{ live.target | number: '1.2-2' }}
             </p>
             <p class="pred__caption">
               @if (live.liveAbove === true) {
-                Sliding <span class="gain">above</span>
+                Leaning <span class="gain">above</span>
               } @else if (live.liveAbove === false) {
-                Sliding <span class="loss">below</span>
+                Leaning <span class="loss">below</span>
               } @else {
-                Waiting for a print
-              }
-              @if (liveMovePct != null) {
-                · {{ liveMovePct | percent: '1.2-2' }} of target
+                Waiting for a live print
               }
             </p>
-            <p class="pred__caption">BTC {{ live.currentPrice | number: '1.2-2' }} · target {{ live.target | number: '1.2-2' }}</p>
           </div>
           <div>
-            <p class="pred__eyebrow">Invested this window</p>
-            <p class="pred__live-gap">
-              {{ (windowPrincipal ?? openCostBasis ?? desk!.openValue) | currency: 'USD' : 'symbol' : '1.2-2' }}
-            </p>
-            <p class="pred__caption" [class]="moneyClass(windowUnrealized ?? unrealizedPnl)">
-              Mark {{ desk!.openValue | currency: 'USD' : 'symbol' : '1.2-2' }}
-              @if (windowUnrealized != null) {
-                · live {{ windowUnrealized | currency: 'USD' : 'symbol' : '1.2-2' }}
-              } @else if (unrealizedPnl != null) {
-                · live {{ unrealizedPnl | currency: 'USD' : 'symbol' : '1.2-2' }}
+            <p class="pred__eyebrow">Your selection · this window</p>
+            @if (liveWindowSettle; as settle) {
+              <p class="pred__live-gap" [class]="moneyClass(settle.returned)">
+                {{ settle.returned | currency: 'USD' : 'symbol' : '1.2-2' }}
+              </p>
+              <p class="pred__caption">
+                Invested {{ settle.invested | currency: 'USD' : 'symbol' : '1.2-2' }}
+                · payback {{ settle.payback | currency: 'USD' : 'symbol' : '1.2-2' }}
+              </p>
+              <p class="pred__caption">
+                {{ settle.closes }} {{ settle.closes === 1 ? 'RH close' : 'RH closes' }} matched
+                @if (share(settle.returned, settle.invested); as rate) {
+                  · {{ rate | percent: '1.1-1' }}
+                }
+              </p>
+            } @else if (hasWindowStake) {
+              <p class="pred__live-gap">
+                {{ (windowPrincipal ?? openCostBasis ?? desk!.openValue) | currency: 'USD' : 'symbol' : '1.2-2' }}
+              </p>
+              <p class="pred__caption" [class]="moneyClass(windowUnrealized ?? unrealizedPnl)">
+                Mark {{ desk!.openValue | currency: 'USD' : 'symbol' : '1.2-2' }}
+                @if (windowUnrealized != null) {
+                  · live {{ windowUnrealized | currency: 'USD' : 'symbol' : '1.2-2' }}
+                } @else if (unrealizedPnl != null) {
+                  · live {{ unrealizedPnl | currency: 'USD' : 'symbol' : '1.2-2' }}
+                }
+              </p>
+              <p class="pred__caption">Open principal on this window — settle posts after Kalshi closes</p>
+            } @else {
+              <p class="pred__live-gap pred__live-gap--empty">—</p>
+              <p class="pred__caption">No Robinhood close matched to this window yet</p>
+              @if (currentBelowRun > 0 && liveBelowTarget) {
+                <p class="pred__caption">
+                  In a <span class="loss">{{ currentBelowRun }}</span>-window below run
+                </p>
               }
-            </p>
+            }
           </div>
         </div>
       </section>
@@ -228,7 +262,7 @@
     @if (returnChart; as chart) {
       <section class="pred__chart" aria-label="Running return at each close">
         <h2 class="pred__section-title">Return at each close@if (scopeLabel) { · {{ scopeLabel }} }</h2>
-        <p class="pred__caption">Each close shows its return and the time. The line is the running total.</p>
+        <p class="pred__caption">Top: this close, then running total. The line is the running return.</p>
         <div class="pred__chart-scroll">
         <svg
           class="pred__chart-svg"
@@ -257,8 +291,16 @@
           />
           <path class="pred__line" [attr.d]="chart.line" />
           @for (point of chart.points; track point.id) {
-            <text [attr.x]="point.x" y="16" text-anchor="middle" [class]="point.up ? 'pred__mark pred__mark--up' : 'pred__mark pred__mark--down'">
+            <text [attr.x]="point.x" y="14" text-anchor="middle" [class]="point.up ? 'pred__mark pred__mark--up' : 'pred__mark pred__mark--down'">
               {{ point.amount }}
+            </text>
+            <text
+              [attr.x]="point.x"
+              y="28"
+              text-anchor="middle"
+              [class]="point.runningUp ? 'pred__mark pred__mark--run pred__mark--up' : 'pred__mark pred__mark--run pred__mark--down'"
+            >
+              {{ point.running }}
             </text>
             <circle [attr.cx]="point.x" [attr.cy]="point.y" r="4" [class]="point.up ? 'pred__dot pred__dot--up' : 'pred__dot pred__dot--down'">
               <title>{{ point.title }}</title>
@@ -274,34 +316,39 @@
     @if (periodRows.length) {
       <section class="pred__periods" aria-label="Predict returns by period">
         <h2 class="pred__section-title">{{ breakdownTitle }}</h2>
-        <div class="pred__list">
-          <table class="pred__period-table">
-            <thead>
-              <tr>
-                <th scope="col">Period</th>
-                <th scope="col">Closes</th>
-                <th scope="col">Invested</th>
-                <th scope="col">Payback</th>
-                <th scope="col">Return</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (row of periodRows; track row.key) {
-                <tr [class]="'pred__' + row.level">
-                  <th scope="row">{{ row.label }}</th>
-                  <td>{{ row.totals.closes }}</td>
-                  <td>{{ row.totals.invested | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
-                  <td>{{ row.totals.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
-                  <td [class]="moneyClass(row.totals.returned)">
-                    {{ row.totals.returned | currency: 'USD' : 'symbol' : '1.2-2' }}
-                    @if (share(row.totals.returned, row.totals.invested); as rate) {
-                      <span class="pred__pct">{{ rate | percent: '1.1-1' }}</span>
-                    }
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
+        <div class="pred__period-grid" role="table">
+          <div class="pred__period-grid-head" role="row">
+            <span role="columnheader">Period</span>
+            <span role="columnheader">Closes</span>
+            <span role="columnheader">Invested</span>
+            <span role="columnheader">Payback</span>
+            <span role="columnheader">Return</span>
+          </div>
+          @for (row of periodRows; track row.key) {
+            <div
+              class="pred__period-grid-row"
+              [class.pred__period-grid-row--month]="row.level === 'month'"
+              [class.pred__period-grid-row--day]="row.level === 'day'"
+              [class.pred__period-grid-row--hour]="row.level === 'hour'"
+              [class.pred__period-grid-row--active]="selectedDate != null && row.key === selectedDayRowKey"
+              [class.pred__period-grid-row--pick]="row.level === 'day'"
+              role="row"
+              (click)="onPeriodRowActivate(row.level, row.key)"
+              (keydown.enter)="onPeriodRowActivate(row.level, row.key)"
+              [attr.tabindex]="row.level === 'day' ? 0 : null"
+            >
+              <span class="pred__period-label" role="rowheader">{{ row.label }}</span>
+              <span role="cell">{{ row.totals.closes }}</span>
+              <span role="cell">{{ row.totals.invested | currency: 'USD' : 'symbol' : '1.2-2' }}</span>
+              <span role="cell">{{ row.totals.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</span>
+              <span class="pred__period-return" role="cell" [class]="moneyClass(row.totals.returned)">
+                {{ row.totals.returned | currency: 'USD' : 'symbol' : '1.2-2' }}
+                @if (share(row.totals.returned, row.totals.invested); as rate) {
+                  <span class="pred__pct">{{ rate | percent: '1.1-1' }}</span>
+                }
+              </span>
+            </div>
+          }
         </div>
       </section>
     }

@@ -26,6 +26,13 @@ import {
   rollupPredictCloses,
 } from './rh-predict-rollups';
 
+interface WindowSettle {
+  closes: number;
+  invested: number;
+  payback: number;
+  returned: number;
+}
+
 interface PredictReturnChart {
   width: number;
   height: number;
@@ -33,7 +40,18 @@ interface PredictReturnChart {
   padR: number;
   line: string;
   zeroY: number;
-  points: { id: number; x: number; y: number; up: boolean; amount: string; date: string; time: string; title: string }[];
+  points: {
+    id: number;
+    x: number;
+    y: number;
+    up: boolean;
+    runningUp: boolean;
+    amount: string;
+    running: string;
+    date: string;
+    time: string;
+    title: string;
+  }[];
   yLabels: { y: number; text: string }[];
 }
 
@@ -225,9 +243,9 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     return this.activeStake != null && this.desk?.openValue != null && this.desk.openValue > 0;
   }
 
-  /** Only show the live 15-minute strip when you still have open Predict principal. */
-  get showFundedLiveStrip(): boolean {
-    return this.liveWindow != null && this.desk?.openValue != null && this.desk.openValue > 0;
+  /** Same live BTC 15 strip as the BTC page — any unsettled window, funded or not. */
+  get showLiveStrip(): boolean {
+    return this.liveWindow != null;
   }
 
   get windowPrincipal(): number | null {
@@ -240,6 +258,92 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
       return null;
     }
     return this.desk.openValue - this.activeStake.principal;
+  }
+
+  /** RH closes matched onto the current live window. */
+  get liveWindowSettle(): WindowSettle | null {
+    const live = this.liveWindow;
+    if (!live || !this.desk?.closes?.length) {
+      return null;
+    }
+    let settle: WindowSettle | null = null;
+    for (const close of this.desk.closes) {
+      const when = new Date(close.closedAt).getTime();
+      if (Number.isNaN(when)) {
+        continue;
+      }
+      if (!closeMatchesWindow(when, live)) {
+        continue;
+      }
+      const invested = predictInvested(close);
+      const payback = predictPayback(close);
+      if (!settle) {
+        settle = { closes: 0, invested: 0, payback: 0, returned: 0 };
+      }
+      settle.closes += 1;
+      settle.invested += invested;
+      settle.payback += payback;
+      settle.returned += close.realized;
+    }
+    return settle;
+  }
+
+  get liveBelowTarget(): boolean {
+    const live = this.liveWindow;
+    if (!live) {
+      return false;
+    }
+    if (live.liveAbove === false) {
+      return true;
+    }
+    if (live.liveAbove === true) {
+      return false;
+    }
+    return (live.currentGap ?? 0) < 0;
+  }
+
+  /** Length of the current consecutive below-target run ending at the live window. */
+  get currentBelowRun(): number {
+    const windows = [...this.liveWindows].sort(
+      (a, b) => new Date(a.windowStart).getTime() - new Date(b.windowStart).getTime(),
+    );
+    let run = 0;
+    for (const row of windows) {
+      const below =
+        row.aboveTarget === false ||
+        (row.unsettled &&
+          (row.liveAbove === false || (row.liveAbove == null && (row.currentGap ?? 0) < 0))) ||
+        (!row.unsettled && row.aboveTarget == null && (row.endGap ?? 0) < 0);
+      const above =
+        row.aboveTarget === true ||
+        (row.unsettled && row.liveAbove === true) ||
+        (!row.unsettled && row.aboveTarget == null && (row.endGap ?? 0) > 0);
+      if (below) {
+        run += 1;
+      } else if (row.unsettled && row.liveAbove == null && row.currentGap == null) {
+        /* no print yet — keep run */
+      } else if (above || !row.unsettled) {
+        run = 0;
+      }
+    }
+    return run;
+  }
+
+  signedGap(value: number | null | undefined): string {
+    if (value == null) {
+      return '—';
+    }
+    const text = Math.abs(value).toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+    if (value > 0) {
+      return `+${text}`;
+    }
+    if (value < 0) {
+      return `−${text}`;
+    }
+    return text;
   }
 
   load(): void {
@@ -345,11 +449,30 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     this.selectedDate = null;
   }
 
+  /** Rollup day key (`year-monthIndex-day`) for the selected Central date. */
+  get selectedDayRowKey(): string | null {
+    return this.selectedDate ? dayKeyFromIso(this.selectedDate) : null;
+  }
+
   get selectedDaily(): RhPredictDailyDto | null {
     if (!this.selectedDate) {
       return null;
     }
     return this.dailyDays.find((row) => row.date === this.selectedDate) ?? null;
+  }
+
+  /** Tap a day row in the breakdown to focus that Central calendar day. */
+  onPeriodRowActivate(level: string, key: string): void {
+    if (level !== 'day') {
+      return;
+    }
+    const parts = key.split('-').map(Number);
+    if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) {
+      return;
+    }
+    const [year, month, day] = parts;
+    const iso = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    this.selectDaily(iso);
   }
 
   get todayCentralDate(): string {
@@ -509,13 +632,13 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     if (!rows.length) {
       return null;
     }
-    const slot = 84;
+    const slot = 92;
     const padL = 68;
     const padR = 28;
-    const padT = 28;
+    const padT = 44;
     const padB = 40;
     const width = padL + rows.length * slot + padR;
-    const height = 248;
+    const height = 264;
     let running = 0;
     const steps = rows.map((row) => {
       running += row.realized;
@@ -538,7 +661,9 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
         x: xAt(index),
         y: yAt(step.running),
         up: step.row.realized >= 0,
+        runningUp: step.running >= 0,
         amount: this.signedUsd(step.row.realized),
+        running: this.signedUsd(step.running),
         date: valid ? when.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '',
         time: valid ? when.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '',
         title: `${whenLabel}\nThis close ${this.usd(step.row.realized)}\nRunning ${this.usd(step.running)}`,
@@ -992,6 +1117,17 @@ function writeWindowStake(stake: WindowStake | null): void {
 
 function inLiveWindow(row: Btc15WindowDto, now: number): boolean {
   return new Date(row.windowStart).getTime() <= now && now < new Date(row.windowEnd).getTime();
+}
+
+/** Match a Robinhood close onto one Kalshi 15-minute window. */
+function closeMatchesWindow(closedAt: number, window: Btc15WindowDto): boolean {
+  const start = new Date(window.windowStart).getTime();
+  const end = new Date(window.windowEnd).getTime();
+  if (Number.isNaN(start) || Number.isNaN(end)) {
+    return false;
+  }
+  const graceMs = 15 * 60_000;
+  return closedAt >= start && closedAt < end + graceMs;
 }
 
 function formatLiveClock(iso: string): string {
