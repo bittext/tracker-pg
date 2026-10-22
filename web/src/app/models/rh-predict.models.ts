@@ -139,3 +139,16 @@ export interface RhPredictDeskDto {
   warnings: string[];
   closes: RhPredictCloseDto[];
 }
+
+/** One Central calendar day's frozen (or live today) Predict performance. */
+export interface RhPredictDailyDto {
+  date: string;
+  capturedAt: string;
+  closes: number;
+  invested: number;
+  payback: number;
+  returned: number;
+  openValue: number | null;
+  openCost: number | null;
+  official: boolean;
+}

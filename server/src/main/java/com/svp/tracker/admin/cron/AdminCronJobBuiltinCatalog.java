@@ -144,6 +144,14 @@ public class AdminCronJobBuiltinCatalog {
                 "markets.rh-predict.sync",
                 1_800_000L,
                 180_000L));
+        jobs.add(cron(
+                "markets.rh-predict.daily-snapshot",
+                "Robinhood Predict daily snapshot",
+                "Freezes each Central calendar day's Predict invested/payback/return and open mark at 9:10 PM CT.",
+                "Markets",
+                "markets.rh-predict.daily-snapshot",
+                "0 10 21 * * *",
+                "America/Chicago"));
         return jobs;
     }
 

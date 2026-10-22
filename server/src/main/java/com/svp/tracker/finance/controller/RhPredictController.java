@@ -4,6 +4,7 @@ import com.svp.tracker.finance.dto.Btc15DeskDto;
 import com.svp.tracker.finance.dto.Btc15StreakDeskDto;
 import com.svp.tracker.finance.dto.RhPredictCloseDto;
 import com.svp.tracker.finance.dto.RhPredictCloseLabelRequest;
+import com.svp.tracker.finance.dto.RhPredictDailyDto;
 import com.svp.tracker.finance.dto.RhPredictDeskDto;
 import com.svp.tracker.finance.dto.RhPredictNoteWriteRequest;
 import com.svp.tracker.finance.dto.RhPredictNotesDeskDto;
@@ -12,6 +13,7 @@ import com.svp.tracker.finance.service.Btc15Service;
 import com.svp.tracker.finance.service.RhPredictNoteService;
 import com.svp.tracker.finance.service.RhPredictService;
 import java.time.LocalDate;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -37,6 +39,12 @@ public class RhPredictController {
     @GetMapping
     public RhPredictDeskDto load() {
         return predictService.loadForCurrentUser();
+    }
+
+    /** End-of-day (and live today) Central day cards for scrolling previous performance. */
+    @GetMapping("/daily")
+    public List<RhPredictDailyDto> daily() {
+        return predictService.listDailyForCurrentUser();
     }
 
     @GetMapping("/btc-15")

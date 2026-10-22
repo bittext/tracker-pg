@@ -89,6 +89,49 @@
       <p class="pred__warn" role="status">{{ desk.warnings.join(' ') }}</p>
     }
 
+    @if (dailyDays.length) {
+      <section class="pred__days" aria-label="Daily Predict snapshots">
+        <div class="pred__days-head">
+          <div>
+            <h2 class="pred__section-title">Day by day</h2>
+            <p class="pred__caption">
+              End-of-day snapshots at 9:10 PM CT. Scroll to compare prior days; tap one to focus the book.
+            </p>
+          </div>
+          @if (selectedDate) {
+            <button type="button" class="pred__days-clear" (click)="clearDaily()">All days</button>
+          }
+        </div>
+        <div class="pred__days-scroll" role="list">
+          @for (day of dailyDays; track day.date) {
+            <button
+              type="button"
+              class="pred__day"
+              role="listitem"
+              [class.pred__day--active]="selectedDate === day.date"
+              [class.pred__day--today]="day.date === todayCentralDate"
+              (click)="selectDaily(day.date)"
+            >
+              <span class="pred__day-label">
+                {{ day.date === todayCentralDate ? 'Today' : dayStripLabel(day.date) }}
+              </span>
+              <span class="pred__day-return" [class]="moneyClass(day.returned)">
+                {{ day.returned | currency: 'USD' : 'symbol' : '1.2-2' }}
+              </span>
+              <span class="pred__day-meta">
+                {{ day.closes }} {{ day.closes === 1 ? 'close' : 'closes' }}
+                @if (day.official) {
+                  · EOD
+                } @else if (day.date === todayCentralDate) {
+                  · live
+                }
+              </span>
+            </button>
+          }
+        </div>
+      </section>
+    }
+
     <div class="pred__summary">
       <section class="pred__book" aria-label="Closed Predict results">
         @if (activeYear; as year) {

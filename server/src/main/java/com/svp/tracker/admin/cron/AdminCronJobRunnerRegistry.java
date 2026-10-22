@@ -155,6 +155,12 @@ public class AdminCronJobRunnerRegistry {
                 "Pulls Robinhood Predict (event contract) closes and open mark. Separate from community Predicts.",
                 "Markets",
                 rhPredictService::syncAllConnections));
+        register(new AdminCronJobRunnerDefinition(
+                "markets.rh-predict.daily-snapshot",
+                "Robinhood Predict daily snapshot",
+                "Freezes each Central calendar day's Predict performance at end of day.",
+                "Markets",
+                rhPredictService::captureDailySnapshots));
     }
 
     private void register(AdminCronJobRunnerDefinition runner) {

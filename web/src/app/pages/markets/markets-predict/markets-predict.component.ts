@@ -10,6 +10,7 @@ import { RouterLink } from '@angular/router';
 import {
   Btc15WindowDto,
   RhPredictCloseDto,
+  RhPredictDailyDto,
   RhPredictDeskDto,
   RhPredictFeedbackDto,
   RhPredictNoteDto,
@@ -104,6 +105,9 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   selectedMonth: number | 'all' | null = null;
   /** Always start on day breakdown for the current year. */
   periodGrain: 'day' | 'hour' | null = 'day';
+  /** Central YYYY-MM-DD when reviewing one day's snapshot; null = whole selected month/year. */
+  selectedDate: string | null = null;
+  dailyDays: RhPredictDailyDto[] = [];
   nowMs = Date.now();
   /** Brief flash when the live gap slides. */
   gapSlide: 'up' | 'down' | null = null;
@@ -116,6 +120,7 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.activeStake = readWindowStake();
     this.load();
+    this.loadDaily();
     this.loadNotes();
     this.loadLiveWindow();
     this.refreshTimer = setInterval(() => this.refresh(true), this.refreshEveryMs);
@@ -302,9 +307,11 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   selectYear(year: number): void {
     this.selectedYear = Number(year);
     this.selectedMonth = null;
+    this.selectedDate = null;
   }
 
   selectMonth(month: number | 'all' | 'blank'): void {
+    this.selectedDate = null;
     if (month === 'all') {
       this.selectedMonth = 'all';
       return;
@@ -315,6 +322,42 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     }
     const value = Number(month);
     this.selectedMonth = Number.isFinite(value) && value >= 0 ? value : null;
+  }
+
+  /** Focus the book on one Central calendar day from the day strip. */
+  selectDaily(date: string): void {
+    if (this.selectedDate === date) {
+      this.selectedDate = null;
+      return;
+    }
+    this.selectedDate = date;
+    const parts = date.split('-').map(Number);
+    if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) {
+      return;
+    }
+    const [year, month] = parts;
+    this.selectedYear = year;
+    this.selectedMonth = month - 1;
+    this.periodGrain = 'day';
+  }
+
+  clearDaily(): void {
+    this.selectedDate = null;
+  }
+
+  get selectedDaily(): RhPredictDailyDto | null {
+    if (!this.selectedDate) {
+      return null;
+    }
+    return this.dailyDays.find((row) => row.date === this.selectedDate) ?? null;
+  }
+
+  get todayCentralDate(): string {
+    return todayCentral();
+  }
+
+  dayStripLabel(isoDate: string): string {
+    return formatCentralDayLabel(isoDate);
   }
 
   get scopedMonths() {
@@ -329,6 +372,15 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   }
 
   get scopedTotals(): PredictPeriodTotals {
+    const daily = this.selectedDaily;
+    if (daily) {
+      return {
+        closes: daily.closes,
+        invested: daily.invested,
+        payback: daily.payback,
+        returned: daily.returned,
+      };
+    }
     const year = this.activeYear;
     if (!year) {
       return { closes: 0, invested: 0, payback: 0, returned: 0 };
@@ -346,6 +398,9 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
 
   /** Fold live open mark into the current period so return moves before settlement. */
   get includeLiveOpen(): boolean {
+    if (this.selectedDate != null && this.selectedDate !== this.todayCentralDate) {
+      return false;
+    }
     const now = new Date();
     if (this.activeYear?.year !== now.getFullYear()) {
       return false;
@@ -399,6 +454,9 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   }
 
   get scopeLabel(): string {
+    if (this.selectedDate) {
+      return formatCentralDayLabel(this.selectedDate);
+    }
     const year = this.activeYear;
     if (!year) {
       return '';
@@ -428,8 +486,11 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   }
 
   get scopedCloses(): RhPredictCloseDto[] {
-    const year = this.activeYear;
     const closes = this.desk?.closes ?? [];
+    if (this.selectedDate) {
+      return closes.filter((row) => centralDateKey(row.closedAt) === this.selectedDate);
+    }
+    const year = this.activeYear;
     if (!year) {
       return closes;
     }
@@ -515,6 +576,23 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     const year = this.activeYear;
     if (!year) {
       return [];
+    }
+    if (this.selectedDate) {
+      const day = this.scopedMonths
+        .flatMap((month) => month.days)
+        .find((row) => row.key === dayKeyFromIso(this.selectedDate!));
+      if (!day) {
+        return [];
+      }
+      if (this.periodGrain === 'hour') {
+        return day.hours.map((hour) => ({
+          key: hour.key,
+          label: hour.label,
+          level: 'hour',
+          totals: hour,
+        }));
+      }
+      return [{ key: day.key, label: day.label, level: 'day', totals: day }];
     }
     if (this.periodGrain == null) {
       if (this.selectedMonth !== 'all') {
@@ -644,6 +722,17 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     this.api.notes().subscribe({
       next: (desk) => this.applyNotes(desk),
       error: (err) => this.toastError(err),
+    });
+  }
+
+  private loadDaily(): void {
+    this.api.daily().subscribe({
+      next: (days) => {
+        this.dailyDays = days ?? [];
+      },
+      error: () => {
+        /* Day strip is additive; desk still works without it. */
+      },
     });
   }
 
@@ -785,6 +874,7 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     }
     this.desk = desk;
     this.syncWindowStake();
+    this.loadDaily();
   }
 
   /** Patch numbers in place on quiet refresh so layout/scroll stay put. */
@@ -808,6 +898,7 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     this.syncWindowStake();
     if (quiet && desk.closeCount > priorCloses) {
       this.snackBar.open('Settlement landed — returns updated.', 'Dismiss', { duration: 3500 });
+      this.loadDaily();
     }
   }
 
@@ -838,6 +929,37 @@ function todayCentral(): string {
     month: '2-digit',
     day: '2-digit',
   }).format(new Date());
+}
+
+function centralDateKey(iso: string): string {
+  const when = new Date(iso);
+  if (Number.isNaN(when.getTime())) {
+    return '';
+  }
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Chicago',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(when);
+}
+
+function formatCentralDayLabel(isoDate: string): string {
+  const when = new Date(`${isoDate}T12:00:00`);
+  if (Number.isNaN(when.getTime())) {
+    return isoDate;
+  }
+  return when.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+/** Match PredictDayRollup.key from an ISO date (YYYY-MM-DD). */
+function dayKeyFromIso(isoDate: string): string {
+  const parts = isoDate.split('-').map(Number);
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) {
+    return isoDate;
+  }
+  const [year, month, day] = parts;
+  return `${year}-${month - 1}-${day}`;
 }
 
 function readWindowStake(): WindowStake | null {

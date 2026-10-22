@@ -4,21 +4,28 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.RobinhoodAgenticProperties;
 import com.svp.tracker.finance.domain.RhPredictClose;
+import com.svp.tracker.finance.domain.RhPredictDaily;
 import com.svp.tracker.finance.domain.RhPredictSnapshot;
 import com.svp.tracker.finance.domain.RobinhoodAgenticConnection;
 import com.svp.tracker.finance.dto.RhPredictCloseDto;
 import com.svp.tracker.finance.dto.RhPredictCloseLabelRequest;
+import com.svp.tracker.finance.dto.RhPredictDailyDto;
 import com.svp.tracker.finance.dto.RhPredictDeskDto;
 import com.svp.tracker.finance.repository.RhPredictCloseRepository;
+import com.svp.tracker.finance.repository.RhPredictDailyRepository;
 import com.svp.tracker.finance.repository.RhPredictSnapshotRepository;
 import com.svp.tracker.finance.repository.RobinhoodAgenticConnectionRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -34,12 +41,16 @@ import org.springframework.web.server.ResponseStatusException;
 @Slf4j
 public class RhPredictService {
 
+    private static final ZoneId CENTRAL = ZoneId.of("America/Chicago");
+    private static final int DAILY_LOOKBACK_DAYS = 90;
+
     private final CurrentUserService currentUser;
     private final RobinhoodAgenticProperties agenticProps;
     private final RobinhoodAgenticConnectionRepository connectionRepository;
     private final RobinhoodAgenticTokenService tokenService;
     private final RhPredictSnapshotRepository snapshotRepository;
     private final RhPredictCloseRepository closeRepository;
+    private final RhPredictDailyRepository dailyRepository;
 
     public RhPredictDeskDto loadForCurrentUser() {
         long uid = currentUser.requireUserId();
@@ -99,6 +110,216 @@ public class RhPredictService {
             } catch (Exception e) {
                 log.warn("Robinhood Predict sync failed for user {}: {}", conn.getOwnerUserId(), e.toString());
             }
+        }
+    }
+
+    /**
+     * Admin cron (9:10 PM Central): sync then freeze each owner's Central calendar day —
+     * settled invested/payback/return plus open mark at capture.
+     */
+    public void captureDailySnapshots() {
+        LocalDate asOf = LocalDate.now(CENTRAL);
+        List<RobinhoodAgenticConnection> connections = connectionRepository.findAll();
+        if (connections.isEmpty()) {
+            log.debug("Predict daily snapshot: no Agentic connections");
+            return;
+        }
+        for (RobinhoodAgenticConnection conn : connections) {
+            long owner = conn.getOwnerUserId();
+            try {
+                if (agenticProps.serviceConfigured()) {
+                    syncOwner(owner);
+                }
+                captureDailyForOwner(owner, asOf, true);
+                backfillDerivedDays(owner, asOf.minusDays(DAILY_LOOKBACK_DAYS), asOf.minusDays(1));
+                log.info("Predict daily snapshot ok for user {} on {}", owner, asOf);
+            } catch (Exception e) {
+                log.warn("Predict daily snapshot failed for user {}: {}", owner, e.toString());
+            }
+        }
+    }
+
+    /** Day strip for the Predict page — official EOD rows plus derived days from closes. */
+    @Transactional
+    public List<RhPredictDailyDto> listDailyForCurrentUser() {
+        long uid = currentUser.requireUserId();
+        LocalDate today = LocalDate.now(CENTRAL);
+        LocalDate from = today.minusDays(DAILY_LOOKBACK_DAYS);
+        backfillDerivedDays(uid, from, today.minusDays(1));
+        upsertLiveToday(uid, today);
+        return dailyRepository.findByOwnerUserIdAndSnapshotDateBetweenOrderBySnapshotDateDesc(uid, from, today).stream()
+                .map(this::toDailyDto)
+                .toList();
+    }
+
+    @Transactional
+    public void captureDailyForOwner(long owner, LocalDate asOf, boolean official) {
+        DayTotals totals = totalsForCentralDay(owner, asOf);
+        RhPredictSnapshot live = snapshotRepository.findByOwnerUserId(owner).orElse(null);
+        Instant now = Instant.now();
+        RhPredictDaily row = dailyRepository
+                .findByOwnerUserIdAndSnapshotDate(owner, asOf)
+                .orElseGet(RhPredictDaily::new);
+        if (row.getId() == null) {
+            row.setOwnerUserId(owner);
+            row.setSnapshotDate(asOf);
+            row.setCreatedAt(now);
+        } else if (row.isOfficial() && !official) {
+            // Keep a frozen EOD row; only refresh non-open fields from later derived passes.
+            row.setCloses(totals.closes);
+            row.setInvested(totals.invested);
+            row.setPayback(totals.payback);
+            row.setReturned(totals.returned);
+            row.setUpdatedAt(now);
+            dailyRepository.save(row);
+            return;
+        }
+        row.setCapturedAt(now);
+        row.setCloses(totals.closes);
+        row.setInvested(totals.invested);
+        row.setPayback(totals.payback);
+        row.setReturned(totals.returned);
+        if (official) {
+            row.setOpenValue(live == null ? null : live.getOpenValue());
+            row.setOpenCost(live == null ? null : live.getOpenCost());
+            row.setOfficial(true);
+        } else if (!row.isOfficial()) {
+            row.setOpenValue(null);
+            row.setOpenCost(null);
+            row.setOfficial(false);
+        }
+        row.setUpdatedAt(now);
+        dailyRepository.save(row);
+    }
+
+    private void upsertLiveToday(long owner, LocalDate today) {
+        DayTotals totals = totalsForCentralDay(owner, today);
+        RhPredictSnapshot live = snapshotRepository.findByOwnerUserId(owner).orElse(null);
+        Instant now = Instant.now();
+        RhPredictDaily row = dailyRepository
+                .findByOwnerUserIdAndSnapshotDate(owner, today)
+                .orElseGet(RhPredictDaily::new);
+        if (row.getId() == null) {
+            row.setOwnerUserId(owner);
+            row.setSnapshotDate(today);
+            row.setCreatedAt(now);
+            row.setOfficial(false);
+        }
+        if (row.isOfficial()) {
+            // After EOD, still refresh settled totals if more closes land late.
+            row.setCloses(totals.closes);
+            row.setInvested(totals.invested);
+            row.setPayback(totals.payback);
+            row.setReturned(totals.returned);
+            row.setUpdatedAt(now);
+            dailyRepository.save(row);
+            return;
+        }
+        row.setCapturedAt(now);
+        row.setCloses(totals.closes);
+        row.setInvested(totals.invested);
+        row.setPayback(totals.payback);
+        row.setReturned(totals.returned);
+        row.setOpenValue(live == null ? null : live.getOpenValue());
+        row.setOpenCost(live == null ? null : live.getOpenCost());
+        row.setOfficial(false);
+        row.setUpdatedAt(now);
+        dailyRepository.save(row);
+    }
+
+    private void backfillDerivedDays(long owner, LocalDate from, LocalDate to) {
+        if (to.isBefore(from)) {
+            return;
+        }
+        Map<LocalDate, DayTotals> byDay = new TreeMap<>();
+        for (RhPredictClose row : closeRepository.findByOwnerUserIdOrderByClosedAtDescIdDesc(owner)) {
+            if (row.getClosedAt() == null) {
+                continue;
+            }
+            LocalDate day = row.getClosedAt().atZone(CENTRAL).toLocalDate();
+            if (day.isBefore(from) || day.isAfter(to)) {
+                continue;
+            }
+            byDay.merge(day, dayTotalsFromClose(row), DayTotals::plus);
+        }
+        Instant now = Instant.now();
+        for (Map.Entry<LocalDate, DayTotals> entry : byDay.entrySet()) {
+            RhPredictDaily existing = dailyRepository
+                    .findByOwnerUserIdAndSnapshotDate(owner, entry.getKey())
+                    .orElse(null);
+            if (existing != null && existing.isOfficial()) {
+                existing.setCloses(entry.getValue().closes);
+                existing.setInvested(entry.getValue().invested);
+                existing.setPayback(entry.getValue().payback);
+                existing.setReturned(entry.getValue().returned);
+                existing.setUpdatedAt(now);
+                dailyRepository.save(existing);
+                continue;
+            }
+            DayTotals totals = entry.getValue();
+            RhPredictDaily row = existing != null ? existing : new RhPredictDaily();
+            if (row.getId() == null) {
+                row.setOwnerUserId(owner);
+                row.setSnapshotDate(entry.getKey());
+                row.setCreatedAt(now);
+                row.setOfficial(false);
+                row.setOpenValue(null);
+                row.setOpenCost(null);
+            }
+            row.setCapturedAt(now);
+            row.setCloses(totals.closes);
+            row.setInvested(totals.invested);
+            row.setPayback(totals.payback);
+            row.setReturned(totals.returned);
+            row.setUpdatedAt(now);
+            dailyRepository.save(row);
+        }
+    }
+
+    private DayTotals totalsForCentralDay(long owner, LocalDate asOf) {
+        DayTotals totals = DayTotals.EMPTY;
+        for (RhPredictClose row : closeRepository.findByOwnerUserIdOrderByClosedAtDescIdDesc(owner)) {
+            if (row.getClosedAt() == null) {
+                continue;
+            }
+            LocalDate day = row.getClosedAt().atZone(CENTRAL).toLocalDate();
+            if (!day.equals(asOf)) {
+                continue;
+            }
+            totals = totals.plus(dayTotalsFromClose(row));
+        }
+        return totals;
+    }
+
+    private static DayTotals dayTotalsFromClose(RhPredictClose row) {
+        BigDecimal payback = nz(row.getQuantity()).multiply(nz(row.getPrice()));
+        BigDecimal realized = nz(row.getRealized());
+        BigDecimal invested = payback.subtract(realized);
+        return new DayTotals(1, invested, payback, realized);
+    }
+
+    private RhPredictDailyDto toDailyDto(RhPredictDaily row) {
+        return new RhPredictDailyDto(
+                row.getSnapshotDate(),
+                row.getCapturedAt(),
+                row.getCloses(),
+                nz(row.getInvested()),
+                nz(row.getPayback()),
+                nz(row.getReturned()),
+                row.getOpenValue(),
+                row.getOpenCost(),
+                row.isOfficial());
+    }
+
+    private record DayTotals(int closes, BigDecimal invested, BigDecimal payback, BigDecimal returned) {
+        static final DayTotals EMPTY = new DayTotals(0, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
+
+        DayTotals plus(DayTotals other) {
+            return new DayTotals(
+                    closes + other.closes,
+                    invested.add(other.invested).setScale(6, RoundingMode.HALF_UP),
+                    payback.add(other.payback).setScale(6, RoundingMode.HALF_UP),
+                    returned.add(other.returned).setScale(6, RoundingMode.HALF_UP));
         }
     }
 

@@ -1,6 +1,13 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Btc15DeskDto, Btc15StreakDeskDto, RhPredictCloseDto, RhPredictDeskDto, RhPredictNotesDeskDto } from '../models/rh-predict.models';
+import {
+  Btc15DeskDto,
+  Btc15StreakDeskDto,
+  RhPredictCloseDto,
+  RhPredictDailyDto,
+  RhPredictDeskDto,
+  RhPredictNotesDeskDto,
+} from '../models/rh-predict.models';
 
 @Injectable({ providedIn: 'root' })
 export class RhPredictApiService {
@@ -9,6 +16,10 @@ export class RhPredictApiService {
 
   load() {
     return this.http.get<RhPredictDeskDto>(this.root);
+  }
+
+  daily() {
+    return this.http.get<RhPredictDailyDto[]>(`${this.root}/daily`);
   }
 
   btc15(date: string) {

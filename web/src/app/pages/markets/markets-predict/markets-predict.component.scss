@@ -151,6 +151,91 @@
   letter-spacing: -0.03em;
 }
 
+.pred__days {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.pred__days-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.pred__days-clear {
+  border: 0;
+  background: transparent;
+  color: var(--app-text-muted, #64748b);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 650;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.pred__days-scroll {
+  display: flex;
+  gap: 0.65rem;
+  overflow-x: auto;
+  padding: 0.15rem 0.1rem 0.45rem;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+.pred__day {
+  flex: 0 0 auto;
+  width: 8.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  align-items: flex-start;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.14));
+  border-radius: 12px;
+  background: var(--app-surface, #fff);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  scroll-snap-align: start;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.pred__day:hover {
+  border-color: color-mix(in srgb, #2563eb 35%, var(--app-border, rgba(15, 23, 42, 0.14)));
+}
+
+.pred__day--active {
+  border-color: color-mix(in srgb, #2563eb 55%, var(--app-border, rgba(15, 23, 42, 0.14)));
+  background: color-mix(in srgb, #2563eb 8%, var(--app-surface, #fff));
+}
+
+.pred__day--today:not(.pred__day--active) {
+  border-color: color-mix(in srgb, #0f766e 40%, var(--app-border, rgba(15, 23, 42, 0.14)));
+}
+
+.pred__day-label {
+  font-size: 0.78rem;
+  font-weight: 650;
+  color: var(--app-text-muted, #64748b);
+}
+
+.pred__day-return {
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.pred__day-meta {
+  font-size: 0.72rem;
+  color: var(--app-text-muted, #64748b);
+}
+
 .pred__summary {
   display: grid;
   grid-template-columns: minmax(0, 1.7fr) minmax(14rem, 0.8fr);
