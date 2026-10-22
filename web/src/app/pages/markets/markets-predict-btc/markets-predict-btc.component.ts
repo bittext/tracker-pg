@@ -45,6 +45,7 @@ export class MarketsPredictBtcComponent implements OnInit, OnDestroy {
   gapFlash = new Map<string, 'up' | 'down'>();
 
   ngOnInit(): void {
+    this.date = todayCentral();
     this.load(false);
     this.clockTimer = setInterval(() => {
       this.nowMs = Date.now();
@@ -74,6 +75,14 @@ export class MarketsPredictBtcComponent implements OnInit, OnDestroy {
     );
   }
 
+  get periodLabel(): string {
+    const row = this.activeWindow;
+    if (!row) {
+      return '';
+    }
+    return `${formatClock(row.windowStart)} – ${formatClock(row.windowEnd)} CT`;
+  }
+
   get countdownLabel(): string {
     const row = this.activeWindow;
     if (!row) {
@@ -88,6 +97,93 @@ export class MarketsPredictBtcComponent implements OnInit, OnDestroy {
       return 'Awaiting settlement';
     }
     return formatRemain(end - this.nowMs);
+  }
+
+  get liveMovePct(): number | null {
+    const row = this.activeWindow;
+    if (row?.currentGap == null || row.target == null || !row.target) {
+      return null;
+    }
+    return row.currentGap / row.target;
+  }
+
+  /** Settled + live below-target runs for the selected Central day. */
+  get belowStreaks(): {
+    below: number;
+    settled: number;
+    current: number;
+    longest: number;
+    runs: { length: number; from: string; to: string }[];
+  } | null {
+    const windows = this.allWindows();
+    if (!windows.length) {
+      return null;
+    }
+    let below = 0;
+    let settled = 0;
+    let run = 0;
+    let longest = 0;
+    let current = 0;
+    let runStart: Btc15WindowDto | null = null;
+    let runEnd: Btc15WindowDto | null = null;
+    const runs: { length: number; from: string; to: string }[] = [];
+    const ordered = [...windows].sort(
+      (a, b) => new Date(a.windowStart).getTime() - new Date(b.windowStart).getTime(),
+    );
+    const closeRun = () => {
+      if (run > 0 && runStart && runEnd) {
+        runs.push({ length: run, from: runStart.label, to: runEnd.label });
+      }
+      run = 0;
+      runStart = null;
+      runEnd = null;
+      current = 0;
+    };
+    for (const row of ordered) {
+      const miss = this.isBelowTarget(row);
+      if (row.aboveTarget != null || (!row.unsettled && row.endGap != null)) {
+        settled += 1;
+      }
+      if (miss) {
+        below += 1;
+        if (run === 0) {
+          runStart = row;
+        }
+        runEnd = row;
+        run += 1;
+        longest = Math.max(longest, run);
+        current = run;
+      } else if (row.unsettled && row.liveAbove == null && row.currentGap == null) {
+        // Open with no print yet — do not break or extend the run.
+        current = run;
+      } else {
+        closeRun();
+      }
+    }
+    if (run > 0 && runStart && runEnd) {
+      runs.push({ length: run, from: runStart.label, to: runEnd.label });
+    }
+    return { below, settled, current, longest, runs: runs.filter((r) => r.length >= 2).reverse() };
+  }
+
+  /** True when the window finished (or is leaning) below target. */
+  isBelowTarget(row: Btc15WindowDto): boolean {
+    if (row.aboveTarget === false) {
+      return true;
+    }
+    if (row.aboveTarget === true) {
+      return false;
+    }
+    if (row.unsettled) {
+      if (row.liveAbove === false) {
+        return true;
+      }
+      if (row.liveAbove === true) {
+        return false;
+      }
+      return (row.currentGap ?? 0) < 0;
+    }
+    return (row.endGap ?? 0) < 0;
   }
 
   signed(value: number | null): string {
@@ -319,6 +415,18 @@ function centralDay(iso: string): string {
 
 function inWindow(row: Btc15WindowDto, now: number): boolean {
   return new Date(row.windowStart).getTime() <= now && now < new Date(row.windowEnd).getTime();
+}
+
+function formatClock(iso: string): string {
+  const when = new Date(iso);
+  if (Number.isNaN(when.getTime())) {
+    return '';
+  }
+  return when.toLocaleTimeString('en-US', {
+    timeZone: 'America/Chicago',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
 function formatRemain(ms: number): string {

@@ -21,6 +21,71 @@
   }
 
   @if (desk) {
+    @if (activeWindow; as live) {
+      <section
+        class="btc__live"
+        [class.btc__live--up]="live.liveAbove === true"
+        [class.btc__live--down]="live.liveAbove === false"
+        [class.btc__flash-up]="rowFlash(live.ticker) === 'btc__flash-up'"
+        [class.btc__flash-down]="rowFlash(live.ticker) === 'btc__flash-down'"
+        aria-label="Current unsettled window"
+      >
+        <div class="btc__live-badge">{{ live.status === 'awaiting' ? 'Unsettled · awaiting' : 'Unsettled · live' }}</div>
+        <div class="btc__live-main">
+          <div>
+            <p class="btc__kicker">15-minute window · Central</p>
+            <p class="btc__period">{{ periodLabel || live.label }}</p>
+            <p class="btc__countdown">{{ countdownLabel }}</p>
+            <p class="btc__meta">Countdown to the end of this period</p>
+          </div>
+          <div class="btc__live-mark">
+            <p class="btc__kicker">Live vs target</p>
+            <p class="btc__live-gap" [class]="gapClass(live.currentGap)">{{ signed(live.currentGap) }}</p>
+            <p class="btc__meta">
+              @if (liveMovePct != null) {
+                <span [class]="gapClass(live.currentGap)">{{ liveMovePct | percent: '1.2-2' }}</span>
+                of target
+                ·
+              }
+              BTC {{ live.currentPrice | number: '1.2-2' }}
+              · target {{ live.target | number: '1.2-2' }}
+            </p>
+            <p class="btc__lean">
+              @if (live.liveAbove === true) {
+                Leaning <strong class="btc__up">above</strong> (not settled)
+              } @else if (live.liveAbove === false) {
+                Leaning <strong class="btc__down">below</strong> (not settled)
+              } @else {
+                Waiting for a live print
+              }
+            </p>
+          </div>
+        </div>
+      </section>
+    }
+
+    @if (belowStreaks; as streaks) {
+      <section class="btc__streaks" aria-label="Consecutive below-target windows">
+        <p class="btc__kicker">Consecutive below target · {{ desk.date }}</p>
+        <p class="btc__streak-line">
+          @if (streaks.current > 0) {
+            Current run <strong class="btc__down">{{ streaks.current }}</strong>
+            · longest {{ streaks.longest }}
+          } @else {
+            No active below run · longest {{ streaks.longest || 0 }}
+          }
+          · {{ streaks.below }} below of {{ streaks.settled }} settled
+        </p>
+        @if (streaks.runs.length) {
+          <p class="btc__meta">
+            @for (run of streaks.runs; track run.from + run.to; let last = $last) {
+              <span>{{ run.length }}× {{ run.from }}–{{ run.to }}</span>@if (!last) { · }
+            }
+          </p>
+        }
+      </section>
+    }
+
     @for (hour of desk.hours; track hour.label) {
       <section class="btc__hour">
         <header class="btc__hour-head">
@@ -50,6 +115,7 @@
               @for (row of hour.windows; track row.ticker) {
                 <tr
                   [class.btc__row--unsettled]="row.unsettled"
+                  [class.btc__row--below]="isBelowTarget(row)"
                   [class.btc__row--active]="activeWindow?.ticker === row.ticker"
                   [class.btc__flash-up]="rowFlash(row.ticker) === 'btc__flash-up'"
                   [class.btc__flash-down]="rowFlash(row.ticker) === 'btc__flash-down'"
