@@ -132,7 +132,6 @@
                 <th>Start vs target</th>
                 <th>Live / end vs target</th>
                 <th>Your settle</th>
-                <th>Status</th>
               </tr>
             </thead>
             <tbody>
@@ -181,26 +180,6 @@
                       <span class="btc__hint">No RH close matched</span>
                     } @else {
                       <span class="btc__hint">—</span>
-                    }
-                  </td>
-                  <td>
-                    @if (row.status === 'settled' || row.aboveTarget != null) {
-                      @if (row.aboveTarget === true) {
-                        <span class="btc__pill btc__pill--up">Settled yes</span>
-                      } @else if (row.aboveTarget === false) {
-                        <span class="btc__pill btc__pill--down">Settled no</span>
-                      } @else {
-                        <span class="btc__pill">Settled</span>
-                      }
-                    } @else if (row.status === 'upcoming') {
-                      <span class="btc__pill">Upcoming</span>
-                    } @else {
-                      <span class="btc__pill btc__pill--open">Unsettled</span>
-                      @if (row.liveAbove === true) {
-                        <span class="btc__hint btc__up">leaning above</span>
-                      } @else if (row.liveAbove === false) {
-                        <span class="btc__hint btc__down">leaning below</span>
-                      }
                     }
                   </td>
                 </tr>
