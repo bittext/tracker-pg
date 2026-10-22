@@ -75,6 +75,14 @@
         }
       </p>
       <p class="btc__meta">{{ desk.above }} of {{ desk.settled }} settled windows closed at or above the target</p>
+      @if (daySettledInvested || daySettledReturn) {
+        <p class="btc__meta">
+          Your settles today:
+          invested {{ daySettledInvested | currency: 'USD' : 'symbol' : '1.2-2' }}
+          · return
+          <span [class]="moneyClass(daySettledReturn)">{{ daySettledReturn | currency: 'USD' : 'symbol' : '1.2-2' }}</span>
+        </p>
+      }
     </section>
 
     <section class="btc__sharp">
@@ -123,6 +131,7 @@
                 <th>BTC now / end</th>
                 <th>Start vs target</th>
                 <th>Live / end vs target</th>
+                <th>Your settle</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -155,6 +164,23 @@
                       <span class="btc__hint" [class]="gapClass(row.currentGap)">
                         {{ (row.currentGap ?? 0) / row.target | percent: '1.2-2' }}
                       </span>
+                    }
+                  </td>
+                  <td>
+                    @if (settleFor(row); as settle) {
+                      <span [class]="moneyClass(settle.returned)">
+                        {{ settle.returned | currency: 'USD' : 'symbol' : '1.2-2' }}
+                      </span>
+                      <span class="btc__hint">
+                        invested {{ settle.invested | currency: 'USD' : 'symbol' : '1.2-2' }}
+                        @if (settle.closes > 1) {
+                          · {{ settle.closes }} closes
+                        }
+                      </span>
+                    } @else if (row.status === 'settled' || row.aboveTarget != null) {
+                      <span class="btc__hint">No RH close matched</span>
+                    } @else {
+                      <span class="btc__hint">—</span>
                     }
                   </td>
                   <td>

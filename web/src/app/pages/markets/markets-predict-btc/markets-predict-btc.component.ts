@@ -5,9 +5,17 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { RouterLink } from '@angular/router';
-import { Btc15DeskDto, Btc15WindowDto } from '../../../models/rh-predict.models';
+import { Btc15DeskDto, Btc15WindowDto, RhPredictCloseDto } from '../../../models/rh-predict.models';
 import { RhPredictApiService } from '../../../services/rh-predict-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
+import { predictInvested, predictPayback } from '../markets-predict/rh-predict-rollups';
+
+export interface WindowSettle {
+  closes: number;
+  invested: number;
+  payback: number;
+  returned: number;
+}
 
 @Component({
   selector: 'app-markets-predict-btc',
@@ -25,6 +33,9 @@ export class MarketsPredictBtcComponent implements OnInit, OnDestroy {
   private pollInFlight = false;
   private previousGaps = new Map<string, number | null>();
   private flashClearTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private closes: RhPredictCloseDto[] = [];
+  /** Robinhood settles keyed by Kalshi window ticker. */
+  private settlesByTicker = new Map<string, WindowSettle>();
 
   loading = false;
   desk: Btc15DeskDto | null = null;
@@ -32,6 +43,8 @@ export class MarketsPredictBtcComponent implements OnInit, OnDestroy {
   nowMs = Date.now();
   /** Brief flash class per ticker when the live gap moves. */
   gapFlash = new Map<string, 'up' | 'down'>();
+  daySettledReturn = 0;
+  daySettledInvested = 0;
 
   ngOnInit(): void {
     this.load(false);
@@ -138,6 +151,17 @@ export class MarketsPredictBtcComponent implements OnInit, OnDestroy {
     return row.unsettled ? row.currentGap : row.endGap;
   }
 
+  settleFor(row: Btc15WindowDto): WindowSettle | null {
+    return this.settlesByTicker.get(row.ticker) ?? null;
+  }
+
+  moneyClass(value: number | null | undefined): string {
+    if (value == null || value === 0) {
+      return '';
+    }
+    return value > 0 ? 'btc__up' : 'btc__down';
+  }
+
   load(quiet = false): void {
     if (!quiet) {
       this.loading = true;
@@ -152,8 +176,10 @@ export class MarketsPredictBtcComponent implements OnInit, OnDestroy {
         this.noteGapFlashes(desk);
         const settledNow = this.newlySettled(priorOpen, desk);
         this.desk = desk;
+        this.rebuildSettles();
         this.loading = false;
         this.pollInFlight = false;
+        this.loadCloses(quiet);
         if (settledNow.length) {
           this.onWindowsSettled(settledNow);
         }
@@ -166,6 +192,59 @@ export class MarketsPredictBtcComponent implements OnInit, OnDestroy {
         }
       },
     });
+  }
+
+  private loadCloses(quiet: boolean): void {
+    this.api.load().subscribe({
+      next: (desk) => {
+        this.closes = desk.closes ?? [];
+        this.rebuildSettles();
+      },
+      error: (err) => {
+        if (!quiet) {
+          this.snack.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 6000 });
+        }
+      },
+    });
+  }
+
+  private rebuildSettles(): void {
+    this.settlesByTicker.clear();
+    this.daySettledReturn = 0;
+    this.daySettledInvested = 0;
+    const windows = this.allWindows();
+    if (!windows.length || !this.closes.length) {
+      return;
+    }
+    const day = this.desk?.date ?? this.date;
+    for (const close of this.closes) {
+      const when = new Date(close.closedAt).getTime();
+      if (Number.isNaN(when)) {
+        continue;
+      }
+      if (centralDay(close.closedAt) !== day) {
+        continue;
+      }
+      const window = windowForClose(when, windows);
+      if (!window) {
+        continue;
+      }
+      const invested = predictInvested(close);
+      const payback = predictPayback(close);
+      const prior = this.settlesByTicker.get(window.ticker) ?? {
+        closes: 0,
+        invested: 0,
+        payback: 0,
+        returned: 0,
+      };
+      prior.closes += 1;
+      prior.invested += invested;
+      prior.payback += payback;
+      prior.returned += close.realized;
+      this.settlesByTicker.set(window.ticker, prior);
+      this.daySettledReturn += close.realized;
+      this.daySettledInvested += invested;
+    }
   }
 
   private pollQuiet(): void {
@@ -205,7 +284,11 @@ export class MarketsPredictBtcComponent implements OnInit, OnDestroy {
     const labels = rows.map((row) => row.label).join(', ');
     this.snack.open(`Settled ${labels}. Refreshing Predict returns…`, 'Dismiss', { duration: 4000 });
     this.api.refresh().subscribe({
-      next: () => this.snack.open('Predict book updated from Robinhood.', 'Dismiss', { duration: 3000 }),
+      next: (desk) => {
+        this.closes = desk.closes ?? [];
+        this.rebuildSettles();
+        this.snack.open('Predict book updated from Robinhood.', 'Dismiss', { duration: 3000 });
+      },
       error: () => {
         /* quiet — BTC page already has the settled print */
       },
@@ -244,12 +327,16 @@ export class MarketsPredictBtcComponent implements OnInit, OnDestroy {
 }
 
 function todayCentral(): string {
+  return centralDay(new Date().toISOString());
+}
+
+function centralDay(iso: string): string {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Chicago',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  }).format(new Date());
+  }).format(new Date(iso));
 }
 
 function inWindow(row: Btc15WindowDto, now: number): boolean {
@@ -273,4 +360,28 @@ function formatRemain(ms: number): string {
   const minutes = Math.floor(total / 60);
   const seconds = total % 60;
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+/** Map a Robinhood event close onto the 15-minute window it most likely settled. */
+function windowForClose(closedAt: number, windows: Btc15WindowDto[]): Btc15WindowDto | null {
+  const graceMs = 15 * 60_000;
+  let best: Btc15WindowDto | null = null;
+  let bestScore = Number.POSITIVE_INFINITY;
+  for (const window of windows) {
+    const start = new Date(window.windowStart).getTime();
+    const end = new Date(window.windowEnd).getTime();
+    if (Number.isNaN(start) || Number.isNaN(end)) {
+      continue;
+    }
+    if (closedAt < start || closedAt >= end + graceMs) {
+      continue;
+    }
+    // Prefer settlement just after the window end over a mid-window exit score.
+    const score = closedAt >= end ? closedAt - end : end - closedAt + 1_000_000;
+    if (score < bestScore) {
+      bestScore = score;
+      best = window;
+    }
+  }
+  return best;
 }
