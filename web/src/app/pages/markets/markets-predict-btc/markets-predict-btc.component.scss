@@ -101,12 +101,18 @@
 
 .btc__live-main {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(12rem, 1fr);
-  gap: 1rem;
-  align-items: end;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem 1.25rem;
+  align-items: start;
 }
 
-@media (max-width: 700px) {
+@media (max-width: 900px) {
+  .btc__live-main {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 600px) {
   .btc__live-main {
     grid-template-columns: 1fr;
   }
@@ -133,6 +139,16 @@
   font-weight: 740;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.03em;
+}
+
+.btc__live-gap--empty {
+  color: var(--app-text-muted, #64748b);
+  font-weight: 650;
+}
+
+.btc__live .btc__meta {
+  margin-top: 0.25rem;
+  max-width: none;
 }
 
 .btc__lean {

@@ -38,27 +38,56 @@
             <p class="btc__countdown">{{ countdownLabel }}</p>
             <p class="btc__meta">Countdown to the end of this period</p>
           </div>
-          <div class="btc__live-mark">
+          <div>
             <p class="btc__kicker">Live vs target</p>
             <p class="btc__live-gap" [class]="gapClass(live.currentGap)">{{ signed(live.currentGap) }}</p>
             <p class="btc__meta">
               @if (liveMovePct != null) {
                 <span [class]="gapClass(live.currentGap)">{{ liveMovePct | percent: '1.2-2' }}</span>
                 of target
-                ·
               }
+            </p>
+            <p class="btc__meta">
               BTC {{ live.currentPrice | number: '1.2-2' }}
               · target {{ live.target | number: '1.2-2' }}
             </p>
             <p class="btc__lean">
               @if (live.liveAbove === true) {
-                Leaning <strong class="btc__up">above</strong> (not settled)
+                Leaning <strong class="btc__up">above</strong>
               } @else if (live.liveAbove === false) {
-                Leaning <strong class="btc__down">below</strong> (not settled)
+                Leaning <strong class="btc__down">below</strong>
               } @else {
                 Waiting for a live print
               }
             </p>
+          </div>
+          <div>
+            <p class="btc__kicker">Your selection · this window</p>
+            @if (settleFor(live); as settle) {
+              <p class="btc__live-gap" [class]="moneyClass(settle.returned)">
+                {{ settle.returned | currency: 'USD' : 'symbol' : '1.2-2' }}
+              </p>
+              <p class="btc__meta">
+                Invested {{ settle.invested | currency: 'USD' : 'symbol' : '1.2-2' }}
+                · payback {{ settle.payback | currency: 'USD' : 'symbol' : '1.2-2' }}
+              </p>
+              <p class="btc__meta">
+                {{ settle.closes }} {{ settle.closes === 1 ? 'RH close' : 'RH closes' }} matched
+                @if (share(settle.returned, settle.invested); as rate) {
+                  · {{ rate | percent: '1.1-1' }}
+                }
+              </p>
+            } @else {
+              <p class="btc__live-gap btc__live-gap--empty">—</p>
+              <p class="btc__meta">No Robinhood close matched to this window yet</p>
+              @if (belowStreaks; as streaks) {
+                @if (streaks.current > 0 && isBelowTarget(live)) {
+                  <p class="btc__lean">
+                    In a <strong class="btc__down">{{ streaks.current }}</strong>-window below run
+                  </p>
+                }
+              }
+            }
           </div>
         </div>
       </section>

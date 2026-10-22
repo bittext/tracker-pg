@@ -240,6 +240,13 @@ export class MarketsPredictBtcComponent implements OnInit, OnDestroy {
     return value > 0 ? 'btc__up' : 'btc__down';
   }
 
+  share(returned: number, invested: number): number | null {
+    if (!invested) {
+      return null;
+    }
+    return returned / invested;
+  }
+
   load(quiet = false): void {
     if (!quiet) {
       this.loading = true;
