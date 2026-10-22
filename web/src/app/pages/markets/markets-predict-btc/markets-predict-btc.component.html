@@ -4,8 +4,7 @@
       <a class="btc__back" routerLink="/markets/predict">Predict</a>
       <h1 class="btc__title">BTC 15 min</h1>
       <p class="btc__meta">
-        Target is the stated price for the window. Live prints are Coinbase while the window is open.
-        Settled closes use Kalshi’s expiration print. Unsettled rows are marked and are not counted in the rate above.
+        Four 15-minute windows per hour. Live prints are Coinbase while open; settled ends use Kalshi.
       </p>
     </div>
     <div class="btc__tools">
@@ -22,93 +21,6 @@
   }
 
   @if (desk) {
-    @if (activeWindow; as live) {
-      <section
-        class="btc__live"
-        [class.btc__live--up]="live.liveAbove === true"
-        [class.btc__live--down]="live.liveAbove === false"
-        [class.btc__flash-up]="rowFlash(live.ticker) === 'btc__flash-up'"
-        [class.btc__flash-down]="rowFlash(live.ticker) === 'btc__flash-down'"
-        aria-label="Current unsettled window"
-      >
-        <div class="btc__live-badge">{{ live.status === 'awaiting' ? 'Unsettled · awaiting' : 'Unsettled · live' }}</div>
-        <div class="btc__live-main">
-          <div>
-            <p class="btc__kicker">15-minute window · Central</p>
-            <p class="btc__period">{{ periodLabel || live.label }}</p>
-            <p class="btc__countdown">{{ countdownLabel }}</p>
-            <p class="btc__meta">Countdown to the end of this period</p>
-          </div>
-          <div class="btc__live-mark">
-            <p class="btc__kicker">Live vs target</p>
-            <p class="btc__live-gap" [class]="gapClass(live.currentGap)">{{ signed(live.currentGap) }}</p>
-            <p class="btc__meta">
-              @if (liveMovePct != null) {
-                <span [class]="gapClass(live.currentGap)">{{ liveMovePct | percent: '1.2-2' }}</span>
-                of target
-                ·
-              }
-              BTC {{ live.currentPrice | number: '1.2-2' }}
-              · target {{ live.target | number: '1.2-2' }}
-            </p>
-            <p class="btc__lean">
-              @if (live.liveAbove === true) {
-                Leaning <strong class="btc__up">above</strong> (not settled)
-              } @else if (live.liveAbove === false) {
-                Leaning <strong class="btc__down">below</strong> (not settled)
-              } @else {
-                Waiting for a live print
-              }
-            </p>
-          </div>
-        </div>
-      </section>
-    }
-
-    <section class="btc__hero">
-      <p class="btc__kicker">Above target · {{ desk.date }} · settled only</p>
-      <p class="btc__rate">
-        @if (desk.aboveRate != null) {
-          {{ desk.aboveRate | percent: '1.0-1' }}
-        } @else {
-          —
-        }
-      </p>
-      <p class="btc__meta">{{ desk.above }} of {{ desk.settled }} settled windows closed at or above the target</p>
-      @if (daySettledInvested || daySettledReturn) {
-        <p class="btc__meta">
-          Your settles today:
-          invested {{ daySettledInvested | currency: 'USD' : 'symbol' : '1.2-2' }}
-          · return
-          <span [class]="moneyClass(daySettledReturn)">{{ daySettledReturn | currency: 'USD' : 'symbol' : '1.2-2' }}</span>
-        </p>
-      }
-    </section>
-
-    <section class="btc__sharp">
-      <div>
-        <p class="btc__kicker">Last 5 minutes of each 15-minute window</p>
-        <p class="btc__sharp-count">{{ desk.sharpUp + desk.sharpDown }} sharp turns</p>
-        <p class="btc__meta">
-          {{ desk.sharpUp }} up · {{ desk.sharpDown }} down. A sharp turn is a move of
-          ${{ desk.sharpThreshold | number: '1.0-0' }} or more in those five minutes.
-        </p>
-      </div>
-      @if (desk.sharps.length) {
-        <ul>
-          @for (turn of desk.sharps; track turn.label) {
-            <li [class.btc__up]="turn.direction === 'up'" [class.btc__down]="turn.direction === 'down'">
-              <strong>{{ turn.label }}</strong>
-              <span>{{ turn.direction === 'up' ? 'Up' : 'Down' }} {{ signed(turn.lastFive) }}</span>
-              <em>{{ turn.reversed ? 'Reversed the prior 10 minutes' : 'Continued the prior 10 minutes' }}</em>
-            </li>
-          }
-        </ul>
-      } @else {
-        <p class="btc__meta">No sharp turn in the last 5 minutes of a window on this day.</p>
-      }
-    </section>
-
     @for (hour of desk.hours; track hour.label) {
       <section class="btc__hour">
         <header class="btc__hour-head">

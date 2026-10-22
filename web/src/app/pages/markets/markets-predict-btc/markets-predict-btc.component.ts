@@ -43,8 +43,6 @@ export class MarketsPredictBtcComponent implements OnInit, OnDestroy {
   nowMs = Date.now();
   /** Brief flash class per ticker when the live gap moves. */
   gapFlash = new Map<string, 'up' | 'down'>();
-  daySettledReturn = 0;
-  daySettledInvested = 0;
 
   ngOnInit(): void {
     this.load(false);
@@ -76,14 +74,6 @@ export class MarketsPredictBtcComponent implements OnInit, OnDestroy {
     );
   }
 
-  get periodLabel(): string {
-    const row = this.activeWindow;
-    if (!row) {
-      return '';
-    }
-    return `${formatClock(row.windowStart)} – ${formatClock(row.windowEnd)} CT`;
-  }
-
   get countdownLabel(): string {
     const row = this.activeWindow;
     if (!row) {
@@ -98,14 +88,6 @@ export class MarketsPredictBtcComponent implements OnInit, OnDestroy {
       return 'Awaiting settlement';
     }
     return formatRemain(end - this.nowMs);
-  }
-
-  get liveMovePct(): number | null {
-    const row = this.activeWindow;
-    if (row?.currentGap == null || row.target == null || !row.target) {
-      return null;
-    }
-    return row.currentGap / row.target;
   }
 
   signed(value: number | null): string {
@@ -210,8 +192,6 @@ export class MarketsPredictBtcComponent implements OnInit, OnDestroy {
 
   private rebuildSettles(): void {
     this.settlesByTicker.clear();
-    this.daySettledReturn = 0;
-    this.daySettledInvested = 0;
     const windows = this.allWindows();
     if (!windows.length || !this.closes.length) {
       return;
@@ -242,8 +222,6 @@ export class MarketsPredictBtcComponent implements OnInit, OnDestroy {
       prior.payback += payback;
       prior.returned += close.realized;
       this.settlesByTicker.set(window.ticker, prior);
-      this.daySettledReturn += close.realized;
-      this.daySettledInvested += invested;
     }
   }
 
@@ -341,18 +319,6 @@ function centralDay(iso: string): string {
 
 function inWindow(row: Btc15WindowDto, now: number): boolean {
   return new Date(row.windowStart).getTime() <= now && now < new Date(row.windowEnd).getTime();
-}
-
-function formatClock(iso: string): string {
-  const when = new Date(iso);
-  if (Number.isNaN(when.getTime())) {
-    return '';
-  }
-  return when.toLocaleTimeString('en-US', {
-    timeZone: 'America/Chicago',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
 }
 
 function formatRemain(ms: number): string {
