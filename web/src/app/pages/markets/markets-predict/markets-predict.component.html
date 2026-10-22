@@ -26,78 +26,62 @@
     <mat-progress-bar mode="indeterminate" />
   }
 
-  @if (liveWindow; as live) {
-    <section
-      class="pred__live"
-      [class]="liveLeanClass + ' ' + liveSlideClass"
-      [class.pred__live--staked]="hasWindowStake"
-      aria-label="Current BTC 15-minute window"
-    >
-      <div class="pred__live-badge">
-        @if (hasWindowStake) {
+  @if (showFundedLiveStrip) {
+    @if (liveWindow; as live) {
+      <section
+        class="pred__live pred__live--staked"
+        [class.pred__live--up]="live.liveAbove === true"
+        [class.pred__live--down]="live.liveAbove === false"
+        [class.pred__live--slide-up]="gapSlide === 'up'"
+        [class.pred__live--slide-down]="gapSlide === 'down'"
+        aria-label="Funded BTC 15-minute window"
+      >
+        <div class="pred__live-badge">
           Funded window · {{ live.status === 'awaiting' ? 'awaiting settle' : 'live' }}
-        } @else {
-          {{ live.status === 'awaiting' ? 'Unsettled · awaiting' : 'Unsettled · live' }}
-        }
-      </div>
-      <div class="pred__live-grid">
-        <div>
-          <p class="pred__eyebrow">15-minute window · Central</p>
-          <p class="pred__live-period">{{ livePeriodLabel || live.label }}</p>
-          <p class="pred__live-count">{{ liveCountdown }}</p>
-          <p class="pred__caption">
-            @if (hasWindowStake) {
-              New period timer with this window’s invested principal
-            } @else {
-              Countdown to the end of this period
-            }
-          </p>
         </div>
-        <div>
-          <p class="pred__eyebrow">Live vs target</p>
-          <p class="pred__live-gap" [class]="moneyClass(live.currentGap)">
-            {{ live.currentGap == null ? '—' : (live.currentGap > 0 ? '+' : '') + (live.currentGap | number: '1.2-2') }}
-          </p>
-          <p class="pred__caption">
-            @if (live.liveAbove === true) {
-              Sliding <span class="gain">above</span>
-            } @else if (live.liveAbove === false) {
-              Sliding <span class="loss">below</span>
-            } @else {
-              Waiting for a print
-            }
-            @if (liveMovePct != null) {
-              · {{ liveMovePct | percent: '1.2-2' }} of target
-            }
-          </p>
-          <p class="pred__caption">BTC {{ live.currentPrice | number: '1.2-2' }} · target {{ live.target | number: '1.2-2' }}</p>
-        </div>
-        <div>
-          @if (hasWindowStake && windowPrincipal != null) {
+        <div class="pred__live-grid">
+          <div>
+            <p class="pred__eyebrow">15-minute window · Central</p>
+            <p class="pred__live-period">{{ livePeriodLabel || live.label }}</p>
+            <p class="pred__live-count">{{ liveCountdown }}</p>
+            <p class="pred__caption">Timer for this period while open principal is unsettled</p>
+          </div>
+          <div>
+            <p class="pred__eyebrow">Live vs target</p>
+            <p class="pred__live-gap" [class]="moneyClass(live.currentGap)">
+              {{ live.currentGap == null ? '—' : (live.currentGap > 0 ? '+' : '') + (live.currentGap | number: '1.2-2') }}
+            </p>
+            <p class="pred__caption">
+              @if (live.liveAbove === true) {
+                Sliding <span class="gain">above</span>
+              } @else if (live.liveAbove === false) {
+                Sliding <span class="loss">below</span>
+              } @else {
+                Waiting for a print
+              }
+              @if (liveMovePct != null) {
+                · {{ liveMovePct | percent: '1.2-2' }} of target
+              }
+            </p>
+            <p class="pred__caption">BTC {{ live.currentPrice | number: '1.2-2' }} · target {{ live.target | number: '1.2-2' }}</p>
+          </div>
+          <div>
             <p class="pred__eyebrow">Invested this window</p>
-            <p class="pred__live-gap">{{ windowPrincipal | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
-            <p class="pred__caption" [class]="moneyClass(windowUnrealized)">
+            <p class="pred__live-gap">
+              {{ (windowPrincipal ?? openCostBasis ?? desk!.openValue) | currency: 'USD' : 'symbol' : '1.2-2' }}
+            </p>
+            <p class="pred__caption" [class]="moneyClass(windowUnrealized ?? unrealizedPnl)">
               Mark {{ desk!.openValue | currency: 'USD' : 'symbol' : '1.2-2' }}
               @if (windowUnrealized != null) {
                 · live {{ windowUnrealized | currency: 'USD' : 'symbol' : '1.2-2' }}
+              } @else if (unrealizedPnl != null) {
+                · live {{ unrealizedPnl | currency: 'USD' : 'symbol' : '1.2-2' }}
               }
             </p>
-          } @else {
-            <p class="pred__eyebrow">Open mark</p>
-            <p class="pred__live-gap" [class]="moneyClass(unrealizedPnl ?? desk?.openValue)">
-              {{ desk?.openValue == null ? '—' : (desk!.openValue | currency: 'USD' : 'symbol' : '1.2-2') }}
-            </p>
-            <p class="pred__caption" [class]="unrealizedPnl != null ? moneyClass(unrealizedPnl) : openMarkTrendClass">
-              @if (unrealizedPnl != null) {
-                Live P&amp;L {{ unrealizedPnl | currency: 'USD' : 'symbol' : '1.2-2' }}
-              } @else {
-                No open principal on this period yet
-              }
-            </p>
-          }
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    }
   }
 
   @if (desk) {

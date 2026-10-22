@@ -102,7 +102,8 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   selectedYear: number | null = new Date().getFullYear();
   /** Null keeps the year summary. "all" lists every month. A number is that month. */
   selectedMonth: number | 'all' | null = null;
-  periodGrain: 'day' | 'hour' | null = null;
+  /** Always start on day breakdown for the current year. */
+  periodGrain: 'day' | 'hour' | null = 'day';
   nowMs = Date.now();
   /** Brief flash when the live gap slides. */
   gapSlide: 'up' | 'down' | null = null;
@@ -217,6 +218,11 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   /** True when this strip is a funded window timer (open principal on the current period). */
   get hasWindowStake(): boolean {
     return this.activeStake != null && this.desk?.openValue != null && this.desk.openValue > 0;
+  }
+
+  /** Only show the live 15-minute strip when you still have open Predict principal. */
+  get showFundedLiveStrip(): boolean {
+    return this.liveWindow != null && this.desk?.openValue != null && this.desk.openValue > 0;
   }
 
   get windowPrincipal(): number | null {
