@@ -36,6 +36,18 @@ interface PredictReturnChart {
   yLabels: { y: number; text: string }[];
 }
 
+/** Open funding bound to one 15-minute Kalshi window. */
+interface WindowStake {
+  ticker: string;
+  windowStart: string;
+  windowEnd: string;
+  label: string;
+  principal: number;
+  markAtBind: number;
+}
+
+const WINDOW_STAKE_KEY = 'predict-window-stake-v1';
+
 @Component({
   selector: 'app-markets-predict',
   standalone: true,
@@ -97,8 +109,11 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   /** Open-mark principal trend across quiet Robinhood pulls. */
   openMarkTrend: 'up' | 'down' | null = null;
   openMarkDelta: number | null = null;
+  /** Invested principal tied to the current 15-minute window when funding is open. */
+  activeStake: WindowStake | null = null;
 
   ngOnInit(): void {
+    this.activeStake = readWindowStake();
     this.load();
     this.loadNotes();
     this.loadLiveWindow();
@@ -197,6 +212,23 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
       return null;
     }
     return row.currentGap / row.target;
+  }
+
+  /** True when this strip is a funded window timer (open principal on the current period). */
+  get hasWindowStake(): boolean {
+    return this.activeStake != null && this.desk?.openValue != null && this.desk.openValue > 0;
+  }
+
+  get windowPrincipal(): number | null {
+    return this.activeStake?.principal ?? null;
+  }
+
+  /** Mark vs the principal locked when this 15-minute window was funded. */
+  get windowUnrealized(): number | null {
+    if (!this.activeStake || this.desk?.openValue == null) {
+      return null;
+    }
+    return this.desk.openValue - this.activeStake.principal;
   }
 
   load(): void {
@@ -622,6 +654,7 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
       next: (desk) => {
         this.liveWindows = desk.hours.flatMap((hour) => hour.windows);
         this.noteGapSlide();
+        this.syncWindowStake();
         this.liveInFlight = false;
         const settled = this.liveWindows.filter((row) => priorOpen.has(row.ticker) && !row.unsettled);
         if (settled.length) {
@@ -632,6 +665,48 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
         this.liveInFlight = false;
       },
     });
+  }
+
+  /**
+   * When a new 15-minute period begins and open funding is still on the book,
+   * bind that invested principal to this window and restart the countdown UI around it.
+   */
+  private syncWindowStake(): void {
+    const live = this.liveWindow;
+    const mark = this.desk?.openValue;
+    const principal = this.openCostBasis ?? mark;
+
+    if (mark == null || mark <= 0 || principal == null || principal <= 0) {
+      if (mark == null || mark <= 0) {
+        this.activeStake = null;
+        writeWindowStake(null);
+      }
+      return;
+    }
+
+    if (!live) {
+      return;
+    }
+
+    const prior = this.activeStake;
+    if (prior == null || prior.ticker !== live.ticker) {
+      this.activeStake = {
+        ticker: live.ticker,
+        windowStart: live.windowStart,
+        windowEnd: live.windowEnd,
+        label: live.label,
+        principal,
+        markAtBind: mark,
+      };
+      writeWindowStake(this.activeStake);
+      return;
+    }
+
+    // Same window: raise principal if more cash was put in.
+    if (principal > prior.principal + 0.005) {
+      this.activeStake = { ...prior, principal, markAtBind: mark };
+      writeWindowStake(this.activeStake);
+    }
   }
 
   private noteGapSlide(): void {
@@ -703,6 +778,7 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
       this.priorOpenValue = desk.openValue;
     }
     this.desk = desk;
+    this.syncWindowStake();
   }
 
   /** Patch numbers in place on quiet refresh so layout/scroll stay put. */
@@ -723,6 +799,7 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     // Leave lastSyncedAt alone so the header does not tick every auto-pull.
     current.warnings = desk.warnings ?? [];
     current.closes = desk.closes ?? [];
+    this.syncWindowStake();
     if (quiet && desk.closeCount > priorCloses) {
       this.snackBar.open('Settlement landed — returns updated.', 'Dismiss', { duration: 3500 });
     }
@@ -755,6 +832,34 @@ function todayCentral(): string {
     month: '2-digit',
     day: '2-digit',
   }).format(new Date());
+}
+
+function readWindowStake(): WindowStake | null {
+  try {
+    const raw = sessionStorage.getItem(WINDOW_STAKE_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as WindowStake;
+    if (!parsed?.ticker || !parsed.windowEnd || !(parsed.principal > 0)) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeWindowStake(stake: WindowStake | null): void {
+  try {
+    if (stake == null) {
+      sessionStorage.removeItem(WINDOW_STAKE_KEY);
+      return;
+    }
+    sessionStorage.setItem(WINDOW_STAKE_KEY, JSON.stringify(stake));
+  } catch {
+    /* ignore quota / private mode */
+  }
 }
 
 function inLiveWindow(row: Btc15WindowDto, now: number): boolean {
