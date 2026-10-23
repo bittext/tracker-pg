@@ -129,6 +129,8 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   nowMs = Date.now();
   /** Brief flash when the live gap slides. */
   gapSlide: 'up' | 'down' | null = null;
+  /** When the contract value on screen was read from Robinhood. */
+  contractValueAsOf: string | null = null;
   /** Open-mark principal trend across quiet Robinhood pulls. */
   openMarkTrend: 'up' | 'down' | null = null;
   openMarkDelta: number | null = null;
@@ -971,6 +973,7 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     if (desk.openValue != null) {
       this.priorOpenValue = desk.openValue;
     }
+    this.noteContractValueAsOf(desk);
     this.desk = desk;
     this.syncWindowStake();
     this.loadDaily();
@@ -988,6 +991,7 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     this.syncEstimatedOpenCost(desk.openValue, desk.openCost);
     current.openValue = desk.openValue;
     current.openCost = desk.openCost;
+    this.noteContractValueAsOf(desk);
     current.realizedWeek = desk.realizedWeek;
     current.realizedAll = desk.realizedAll;
     current.closeCount = desk.closeCount;
@@ -999,6 +1003,11 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
       this.snackBar.open('Settlement landed — returns updated.', 'Dismiss', { duration: 3500 });
       this.loadDaily();
     }
+  }
+
+  /** Contract value is the Predict event-contract balance. Stamp each Robinhood read. */
+  private noteContractValueAsOf(desk: RhPredictDeskDto): void {
+    this.contractValueAsOf = desk.lastSyncedAt ?? new Date().toISOString();
   }
 
   /** Keep a session cost so live return can move before Robinhood posts open_cost / closes. */

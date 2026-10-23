@@ -233,14 +233,19 @@
 
       <aside class="pred__side" aria-label="Open book and recent return">
         <article class="pred__tile">
-          <h2>Open mark</h2>
+          <h2>Contract value</h2>
           <p [class]="moneyClass(unrealizedPnl ?? 0)">{{ desk.openValue == null ? '—' : (desk.openValue | currency: 'USD' : 'symbol' : '1.2-2') }}</p>
+          <span>
+            @if (contractValueAsOf) {
+              Predict balance as of {{ contractValueAsOf | date: 'MMM d, h:mm:ss a' : 'America/Chicago' }} CT
+            } @else {
+              Predict balance
+            }
+          </span>
           @if (unrealizedPnl != null) {
             <span [class]="moneyClass(unrealizedPnl)">
               Live {{ unrealizedPnl | currency: 'USD' : 'symbol' : '1.2-2' }} vs cost
             </span>
-          } @else {
-            <span>Value of contracts still open</span>
           }
         </article>
         <article class="pred__tile">
