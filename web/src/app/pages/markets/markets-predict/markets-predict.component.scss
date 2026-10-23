@@ -117,12 +117,12 @@
 
 .pred__live-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 0.9fr) repeat(3, minmax(0, 1fr));
   gap: 1rem 1.25rem;
   align-items: start;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
   .pred__live-grid {
     grid-template-columns: 1fr 1fr;
   }

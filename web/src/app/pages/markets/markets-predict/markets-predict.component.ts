@@ -1,4 +1,5 @@
 import { CommonModule } from '@angular/common';
+import { forkJoin } from 'rxjs';
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -88,6 +89,7 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   private refreshInFlight = false;
   private liveInFlight = false;
   private liveWindows: Btc15WindowDto[] = [];
+  private ethWindows: Btc15WindowDto[] = [];
   private priorLiveGap: number | null = null;
   private priorOpenValue: number | null = null;
   private gapFlashClear: ReturnType<typeof setTimeout> | null = null;
@@ -193,16 +195,15 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   }
 
   get liveWindow(): Btc15WindowDto | null {
-    const now = this.nowMs;
-    return (
-      this.liveWindows.find((row) => row.status === 'open' || (row.unsettled && inLiveWindow(row, now))) ??
-      this.liveWindows.find((row) => row.status === 'awaiting' || (row.unsettled && now >= new Date(row.windowEnd).getTime())) ??
-      null
-    );
+    return activeQuarter(this.liveWindows, this.nowMs);
+  }
+
+  get ethLiveWindow(): Btc15WindowDto | null {
+    return activeQuarter(this.ethWindows, this.nowMs);
   }
 
   get livePeriodLabel(): string {
-    const row = this.liveWindow;
+    const row = this.liveWindow ?? this.ethLiveWindow;
     if (!row) {
       return '';
     }
@@ -210,7 +211,7 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   }
 
   get liveCountdown(): string {
-    const row = this.liveWindow;
+    const row = this.liveWindow ?? this.ethLiveWindow;
     if (!row) {
       return '';
     }
@@ -226,11 +227,11 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   }
 
   get liveMovePct(): number | null {
-    const row = this.liveWindow;
-    if (row?.currentGap == null || row.target == null || !row.target) {
-      return null;
-    }
-    return row.currentGap / row.target;
+    return moveShare(this.liveWindow);
+  }
+
+  get ethMovePct(): number | null {
+    return moveShare(this.ethLiveWindow);
   }
 
   /** True when this strip is a funded window timer (open principal on the current period). */
@@ -238,9 +239,9 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     return this.activeStake != null && this.desk?.openValue != null && this.desk.openValue > 0;
   }
 
-  /** Same live BTC 15 strip as the BTC page — any unsettled window, funded or not. */
+  /** Live strip while either the BTC or ETH 15-minute window is still open. */
   get showLiveStrip(): boolean {
-    return this.liveWindow != null;
+    return this.liveWindow != null || this.ethLiveWindow != null;
   }
 
   get windowPrincipal(): number | null {
@@ -811,9 +812,11 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     }
     this.liveInFlight = true;
     const priorOpen = new Set(this.liveWindows.filter((row) => row.unsettled).map((row) => row.ticker));
-    this.api.btc15(todayCentral()).subscribe({
-      next: (desk) => {
-        this.liveWindows = desk.hours.flatMap((hour) => hour.windows);
+    const day = todayCentral();
+    forkJoin({ btc: this.api.btc15(day), eth: this.api.eth15(day) }).subscribe({
+      next: ({ btc, eth }) => {
+        this.liveWindows = btc.hours.flatMap((hour) => hour.windows);
+        this.ethWindows = eth.hours.flatMap((hour) => hour.windows);
         this.noteGapSlide();
         this.syncWindowStake();
         this.liveInFlight = false;
@@ -1061,6 +1064,21 @@ function writeWindowStake(stake: WindowStake | null): void {
   } catch {
     /* ignore quota / private mode */
   }
+}
+
+function activeQuarter(windows: Btc15WindowDto[], now: number): Btc15WindowDto | null {
+  return (
+    windows.find((row) => row.status === 'open' || (row.unsettled && inLiveWindow(row, now))) ??
+    windows.find((row) => row.status === 'awaiting' || (row.unsettled && now >= new Date(row.windowEnd).getTime())) ??
+    null
+  );
+}
+
+function moveShare(row: Btc15WindowDto | null): number | null {
+  if (row?.currentGap == null || row.target == null || !row.target) {
+    return null;
+  }
+  return row.currentGap / row.target;
 }
 
 function inLiveWindow(row: Btc15WindowDto, now: number): boolean {
