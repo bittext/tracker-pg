@@ -76,7 +76,20 @@
           </div>
           <div>
             <p class="pred__eyebrow">Your selection · this window</p>
-            @if (liveWindowSettle; as settle) {
+            @if (liveBook; as book) {
+              <p class="pred__live-gap">
+                {{ book.principal | currency: 'USD' : 'symbol' : '1.2-2' }}
+              </p>
+              <p class="pred__caption" [class]="moneyClass(book.pnl)">
+                {{ book.pnl | currency: 'USD' : 'symbol' : '1.2-2' }}
+                @if (share(book.pnl, book.principal); as rate) {
+                  · {{ rate | percent: '1.1-1' }}
+                }
+              </p>
+              <p class="pred__caption">
+                Running principal · mark {{ book.mark | currency: 'USD' : 'symbol' : '1.2-2' }}
+              </p>
+            } @else if (liveWindowSettle; as settle) {
               <p class="pred__live-gap" [class]="moneyClass(settle.returned)">
                 {{ settle.returned | currency: 'USD' : 'symbol' : '1.2-2' }}
               </p>
@@ -90,19 +103,6 @@
                   · {{ rate | percent: '1.1-1' }}
                 }
               </p>
-            } @else if (hasWindowStake) {
-              <p class="pred__live-gap">
-                {{ (windowPrincipal ?? openCostBasis ?? desk!.openValue) | currency: 'USD' : 'symbol' : '1.2-2' }}
-              </p>
-              <p class="pred__caption" [class]="moneyClass(windowUnrealized ?? unrealizedPnl)">
-                Mark {{ desk!.openValue | currency: 'USD' : 'symbol' : '1.2-2' }}
-                @if (windowUnrealized != null) {
-                  · live {{ windowUnrealized | currency: 'USD' : 'symbol' : '1.2-2' }}
-                } @else if (unrealizedPnl != null) {
-                  · live {{ unrealizedPnl | currency: 'USD' : 'symbol' : '1.2-2' }}
-                }
-              </p>
-              <p class="pred__caption">Open principal on this window — settle posts after Kalshi closes</p>
             } @else {
               <p class="pred__live-gap pred__live-gap--empty">—</p>
               <p class="pred__caption">No Robinhood close matched to this window yet</p>
@@ -202,9 +202,6 @@
 
         <p class="pred__eyebrow">
           Return@if (scopeLabel) { · {{ scopeLabel }} }
-          @if (includeLiveOpen) {
-            · live
-          }
         </p>
         <p class="pred__hero" [class]="moneyClass(displayTotals.returned)">
           {{ displayTotals.returned | currency: 'USD' : 'symbol' : '1.2-2' }}
@@ -217,24 +214,19 @@
           @if (upCount || downCount) {
             · {{ upCount }} up · {{ downCount }} down
           }
-          @if (includeLiveOpen && unrealizedPnl != null) {
-            · open {{ unrealizedPnl | currency: 'USD' : 'symbol' : '1.2-2' }}
-          }
         </p>
-        @if (includeLiveOpen) {
-          <p class="pred__caption">Includes open mark now; switches to settled closes when Robinhood posts them.</p>
-        }
+        <p class="pred__caption">Settled closes only. Open contracts stay in the open mark until Robinhood posts them.</p>
 
         <div class="pred__flow">
           <div class="pred__flow-col">
             <p class="pred__eyebrow">Invested</p>
             <p class="pred__flow-value">{{ displayTotals.invested | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
-            <p class="pred__caption">{{ includeLiveOpen ? 'Settled cash in plus open cost' : 'Cash a close implies you paid' }}</p>
+            <p class="pred__caption">Cash a close implies you paid</p>
           </div>
           <div class="pred__flow-col">
             <p class="pred__eyebrow">Payback</p>
             <p class="pred__flow-value">{{ displayTotals.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
-            <p class="pred__caption">{{ includeLiveOpen ? 'Settled exits plus open mark' : 'Cash received at the exit' }}</p>
+            <p class="pred__caption">Cash received at the exit</p>
           </div>
         </div>
       </section>
@@ -254,7 +246,7 @@
         <article class="pred__tile">
           <h2>Return, 7 days</h2>
           <p [class]="moneyClass(displayWeekReturn)">{{ displayWeekReturn | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
-          <span>{{ includeLiveOpen ? 'Week closes plus live open' : 'Realized this week, whole book' }}</span>
+          <span>Realized this week, whole book</span>
         </article>
       </aside>
     </div>

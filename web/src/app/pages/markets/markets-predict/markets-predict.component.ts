@@ -252,15 +252,7 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     return this.activeStake?.principal ?? null;
   }
 
-  /** Mark vs the principal locked when this 15-minute window was funded. */
-  get windowUnrealized(): number | null {
-    if (!this.activeStake || this.desk?.openValue == null) {
-      return null;
-    }
-    return this.desk.openValue - this.activeStake.principal;
-  }
-
-  /** RH closes matched onto the current live window. */
+  /** RH closes matched onto the current live window. Shown after the open book is flat. */
   get liveWindowSettle(): WindowSettle | null {
     const live = this.liveWindow;
     if (!live || !this.desk?.closes?.length) {
@@ -514,25 +506,6 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     return this.scopedMonths[0] ?? { closes: 0, invested: 0, payback: 0, returned: 0 };
   }
 
-  /** Settled closes only — used when live open should not mix into a past period. */
-  get settledTotals(): PredictPeriodTotals {
-    return this.scopedTotals;
-  }
-
-  /** Fold live open mark into the current period so return moves before settlement. */
-  get includeLiveOpen(): boolean {
-    if (this.selectedDate != null && this.selectedDate !== this.todayCentralDate) {
-      return false;
-    }
-    const now = new Date();
-    if (this.activeYear?.year !== now.getFullYear()) {
-      return false;
-    }
-    if (typeof this.selectedMonth === 'number' && this.selectedMonth !== now.getMonth()) {
-      return false;
-    }
-    return this.openCostBasis != null && this.desk?.openValue != null && this.desk.openValue > 0;
-  }
 
   get openCostBasis(): number | null {
     const reported = this.desk?.openCost;
@@ -552,28 +525,29 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     return mark - cost;
   }
 
-  /** Settled return plus live unrealized for the current scope. */
-  get displayTotals(): PredictPeriodTotals {
-    const base = this.settledTotals;
-    if (!this.includeLiveOpen) {
-      return base;
+  /**
+   * Cash still in open contracts, and the live profit or loss against that amount.
+   * A matched close is a past result and is not shown while this book is open.
+   */
+  get liveBook(): { principal: number; mark: number; pnl: number } | null {
+    const mark = this.desk?.openValue;
+    if (mark == null || mark <= 0) {
+      return null;
     }
-    const mark = this.desk!.openValue!;
-    const cost = this.openCostBasis!;
-    return {
-      closes: base.closes,
-      invested: base.invested + cost,
-      payback: base.payback + mark,
-      returned: base.returned + (mark - cost),
-    };
+    const principal = this.openCostBasis ?? this.windowPrincipal;
+    if (principal == null || principal <= 0) {
+      return null;
+    }
+    return { principal, mark, pnl: mark - principal };
+  }
+
+  /** Settled return for the current scope. The live open mark stays on its own tile until Robinhood posts the close. */
+  get displayTotals(): PredictPeriodTotals {
+    return this.scopedTotals;
   }
 
   get displayWeekReturn(): number {
-    const week = this.desk?.realizedWeek ?? 0;
-    if (!this.includeLiveOpen || this.unrealizedPnl == null) {
-      return week;
-    }
-    return week + this.unrealizedPnl;
+    return this.desk?.realizedWeek ?? 0;
   }
 
   get scopeLabel(): string {
@@ -599,7 +573,7 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     return `${scope} by month`;
   }
 
-  /** Share of cash put in that came back as profit or loss (includes live open when shown). */
+  /** Share of settled cash put in that came back as profit or loss. */
   get returnRate(): number | null {
     const invested = this.displayTotals.invested;
     if (!invested) {
