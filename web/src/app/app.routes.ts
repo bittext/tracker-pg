@@ -114,11 +114,17 @@ export const routes: Routes = [
         data: { workspace: 'trading', tradingSection: 'history' },
       },
       { path: 'predict', component: MarketsPredictComponent },
-      { path: 'predict/btc-15', component: MarketsPredictBtcComponent },
+      { path: 'predict/btc-15', component: MarketsPredictBtcComponent, data: { asset: 'BTC' } },
+      { path: 'predict/eth-15', component: MarketsPredictBtcComponent, data: { asset: 'ETH' } },
       {
         path: 'predict/btc-15/streaks',
         component: MarketsPredictStreaksComponent,
         data: { series: 'KXBTC15M', locked: true },
+      },
+      {
+        path: 'predict/eth-15/streaks',
+        component: MarketsPredictStreaksComponent,
+        data: { series: 'KXETH15M', locked: true },
       },
       { path: 'predict/streaks', component: MarketsPredictStreaksComponent },
       {

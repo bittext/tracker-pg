@@ -23,7 +23,15 @@ export class RhPredictApiService {
   }
 
   btc15(date: string) {
-    return this.http.get<Btc15DeskDto>(`${this.root}/btc-15`, { params: { date } });
+    return this.quarter15('btc-15', date);
+  }
+
+  eth15(date: string) {
+    return this.quarter15('eth-15', date);
+  }
+
+  private quarter15(path: 'btc-15' | 'eth-15', date: string) {
+    return this.http.get<Btc15DeskDto>(`${this.root}/${path}`, { params: { date } });
   }
 
   streaks(series: string, from: string, to: string) {

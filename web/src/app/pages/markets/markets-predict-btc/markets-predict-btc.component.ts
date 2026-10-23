@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Btc15DeskDto, Btc15WindowDto, RhPredictCloseDto } from '../../../models/rh-predict.models';
 import { RhPredictApiService } from '../../../services/rh-predict-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
@@ -27,6 +27,7 @@ export interface WindowSettle {
 export class MarketsPredictBtcComponent implements OnInit, OnDestroy {
   private readonly api = inject(RhPredictApiService);
   private readonly snack = inject(MatSnackBar);
+  private readonly route = inject(ActivatedRoute);
   private readonly pollEveryMs = 5_000;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private clockTimer: ReturnType<typeof setInterval> | null = null;
@@ -38,6 +39,9 @@ export class MarketsPredictBtcComponent implements OnInit, OnDestroy {
   private settlesByTicker = new Map<string, WindowSettle>();
 
   loading = false;
+  asset: 'BTC' | 'ETH' = 'BTC';
+  /** Open event-contract value. Shown only while a predict investment is active. */
+  openValue: number | null = null;
   desk: Btc15DeskDto | null = null;
   date = todayCentral();
   nowMs = Date.now();
@@ -45,6 +49,7 @@ export class MarketsPredictBtcComponent implements OnInit, OnDestroy {
   gapFlash = new Map<string, 'up' | 'down'>();
 
   ngOnInit(): void {
+    this.asset = this.route.snapshot.data['asset'] === 'ETH' ? 'ETH' : 'BTC';
     this.date = todayCentral();
     this.load(false);
     this.clockTimer = setInterval(() => {
@@ -63,6 +68,18 @@ export class MarketsPredictBtcComponent implements OnInit, OnDestroy {
     for (const timer of this.flashClearTimers.values()) {
       clearTimeout(timer);
     }
+  }
+
+  get streaksLink(): string {
+    return this.asset === 'ETH' ? '/markets/predict/eth-15/streaks' : '/markets/predict/btc-15/streaks';
+  }
+
+  get siblingLink(): string {
+    return this.asset === 'ETH' ? '/markets/predict/btc-15' : '/markets/predict/eth-15';
+  }
+
+  get siblingLabel(): string {
+    return this.asset === 'ETH' ? 'BTC 15 min' : 'ETH 15 min';
   }
 
   get activeWindow(): Btc15WindowDto | null {
@@ -256,7 +273,8 @@ export class MarketsPredictBtcComponent implements OnInit, OnDestroy {
     }
     this.pollInFlight = true;
     const priorOpen = this.openTickers();
-    this.api.btc15(this.date).subscribe({
+    const desk$ = this.asset === 'ETH' ? this.api.eth15(this.date) : this.api.btc15(this.date);
+    desk$.subscribe({
       next: (desk) => {
         this.noteGapFlashes(desk);
         const settledNow = this.newlySettled(priorOpen, desk);
@@ -283,6 +301,7 @@ export class MarketsPredictBtcComponent implements OnInit, OnDestroy {
     this.api.load().subscribe({
       next: (desk) => {
         this.closes = desk.closes ?? [];
+        this.openValue = desk.openValue;
         this.rebuildSettles();
       },
       error: (err) => {

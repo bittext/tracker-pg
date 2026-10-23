@@ -26,13 +26,6 @@ import {
   rollupPredictCloses,
 } from './rh-predict-rollups';
 
-interface WindowSettle {
-  closes: number;
-  invested: number;
-  payback: number;
-  returned: number;
-}
-
 interface PredictReturnChart {
   width: number;
   height: number;
@@ -252,34 +245,6 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
 
   get windowPrincipal(): number | null {
     return this.activeStake?.principal ?? null;
-  }
-
-  /** RH closes matched onto the current live window. Shown after the open book is flat. */
-  get liveWindowSettle(): WindowSettle | null {
-    const live = this.liveWindow;
-    if (!live || !this.desk?.closes?.length) {
-      return null;
-    }
-    let settle: WindowSettle | null = null;
-    for (const close of this.desk.closes) {
-      const when = new Date(close.closedAt).getTime();
-      if (Number.isNaN(when)) {
-        continue;
-      }
-      if (!closeMatchesWindow(when, live)) {
-        continue;
-      }
-      const invested = predictInvested(close);
-      const payback = predictPayback(close);
-      if (!settle) {
-        settle = { closes: 0, invested: 0, payback: 0, returned: 0 };
-      }
-      settle.closes += 1;
-      settle.invested += invested;
-      settle.payback += payback;
-      settle.returned += close.realized;
-    }
-    return settle;
   }
 
   get liveBelowTarget(): boolean {
@@ -1100,17 +1065,6 @@ function writeWindowStake(stake: WindowStake | null): void {
 
 function inLiveWindow(row: Btc15WindowDto, now: number): boolean {
   return new Date(row.windowStart).getTime() <= now && now < new Date(row.windowEnd).getTime();
-}
-
-/** Match a Robinhood close onto one Kalshi 15-minute window. */
-function closeMatchesWindow(closedAt: number, window: Btc15WindowDto): boolean {
-  const start = new Date(window.windowStart).getTime();
-  const end = new Date(window.windowEnd).getTime();
-  if (Number.isNaN(start) || Number.isNaN(end)) {
-    return false;
-  }
-  const graceMs = 15 * 60_000;
-  return closedAt >= start && closedAt < end + graceMs;
 }
 
 function formatLiveClock(iso: string): string {

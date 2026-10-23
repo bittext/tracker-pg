@@ -2,13 +2,14 @@
   <header class="btc__head">
     <div>
       <a class="btc__back" routerLink="/markets/predict">Predict</a>
-      <h1 class="btc__title">BTC 15 min</h1>
+      <h1 class="btc__title">{{ asset }} 15 min</h1>
       <p class="btc__meta">
         Four 15-minute windows per hour. Live prints are Coinbase while open; settled ends use Kalshi.
       </p>
     </div>
     <div class="btc__tools">
-      <a mat-stroked-button routerLink="/markets/predict/btc-15/streaks">Miss streaks</a>
+      <a mat-stroked-button [routerLink]="siblingLink">{{ siblingLabel }}</a>
+      <a mat-stroked-button [routerLink]="streaksLink">Miss streaks</a>
       <label class="btc__date">
         Day
         <input type="date" [(ngModel)]="date" (change)="load(false)" />
@@ -48,7 +49,7 @@
               }
             </p>
             <p class="btc__meta">
-              BTC {{ live.currentPrice | number: '1.2-2' }}
+              {{ asset }} {{ live.currentPrice | number: '1.2-2' }}
               · target {{ live.target | number: '1.2-2' }}
             </p>
             <p class="btc__lean">
@@ -63,23 +64,12 @@
           </div>
           <div>
             <p class="btc__kicker">Your selection · this window</p>
-            @if (settleFor(live); as settle) {
-              <p class="btc__live-gap" [class]="moneyClass(settle.returned)">
-                {{ settle.returned | currency: 'USD' : 'symbol' : '1.2-2' }}
-              </p>
-              <p class="btc__meta">
-                Invested {{ settle.invested | currency: 'USD' : 'symbol' : '1.2-2' }}
-                · payback {{ settle.payback | currency: 'USD' : 'symbol' : '1.2-2' }}
-              </p>
-              <p class="btc__meta">
-                {{ settle.closes }} {{ settle.closes === 1 ? 'RH close' : 'RH closes' }} matched
-                @if (share(settle.returned, settle.invested); as rate) {
-                  · {{ rate | percent: '1.1-1' }}
-                }
-              </p>
+            @if (openValue != null && openValue > 0) {
+              <p class="btc__live-gap">{{ openValue | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
+              <p class="btc__meta">Open prediction-market value during this period</p>
             } @else {
               <p class="btc__live-gap btc__live-gap--empty">—</p>
-              <p class="btc__meta">No Robinhood close matched to this window yet</p>
+              <p class="btc__meta">No active investment in this 15-minute period</p>
               @if (belowStreaks; as streaks) {
                 @if (streaks.current > 0 && isBelowTarget(live)) {
                   <p class="btc__lean">
@@ -133,8 +123,8 @@
               <tr>
                 <th>Window</th>
                 <th>Target</th>
-                <th>BTC at start</th>
-                <th>BTC now / end</th>
+                <th>{{ asset }} at start</th>
+                <th>{{ asset }} now / end</th>
                 <th>Start vs target</th>
                 <th>Live / end vs target</th>
                 <th>Your settle</th>
@@ -196,7 +186,7 @@
         </div>
       </section>
     } @empty {
-      <p class="btc__meta">No BTC 15-minute windows for this day.</p>
+      <p class="btc__meta">No {{ asset }} 15-minute windows for this day.</p>
     }
   }
 </div>

@@ -24,6 +24,8 @@ export class MarketsPredictStreaksComponent implements OnInit {
   locked = false;
   loading = false;
   series = 'KXBTC15M';
+  backLink = '/markets/predict/btc-15';
+  backLabel = 'BTC 15 min';
   from = '';
   to = '';
   preset: 'today' | 'yesterday' | 'week' | 'custom' = 'week';
@@ -39,6 +41,10 @@ export class MarketsPredictStreaksComponent implements OnInit {
     const series = data['series'];
     if (typeof series === 'string' && series) {
       this.series = series;
+    }
+    if (this.series === 'KXETH15M') {
+      this.backLink = '/markets/predict/eth-15';
+      this.backLabel = 'ETH 15 min';
     }
     this.choose('week');
   }

@@ -1,8 +1,8 @@
 <div class="streak">
   <header class="streak__head">
     <div>
-      <a class="streak__back" routerLink="/markets/predict/btc-15">BTC 15 min</a>
-      <h1 class="streak__title">{{ locked ? 'BTC 15 min streaks' : 'Contract streaks' }}</h1>
+      <a class="streak__back" [routerLink]="backLink">{{ backLabel }}</a>
+      <h1 class="streak__title">{{ locked ? backLabel + ' streaks' : 'Contract streaks' }}</h1>
       <p class="streak__meta">
         A miss is a 15-minute window that closed below the target. A run is misses in a row.
         One miss standing alone is not a run.

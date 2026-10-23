@@ -54,11 +54,16 @@ public class Btc15Service {
             .build();
 
     public Btc15DeskDto load(LocalDate date) {
+        return load(date, "KXBTC15M", "BTC-USD");
+    }
+
+    /** Kalshi 15-minute series with Coinbase prints. BTC uses KXBTC15M / BTC-USD; ETH uses KXETH15M / ETH-USD. */
+    public Btc15DeskDto load(LocalDate date, String series, String coinbaseProduct) {
         LocalDate day = date == null ? LocalDate.now(CENTRAL) : date;
         ZonedDateTime from = day.atStartOfDay(CENTRAL);
         ZonedDateTime to = day.plusDays(1).atStartOfDay(CENTRAL);
-        List<JsonNode> markets = fetchMarkets(from.toInstant(), to.toInstant());
-        Map<Long, double[]> candles = fetchCandles(from.toInstant(), to.toInstant());
+        List<JsonNode> markets = fetchMarkets(series, from.toInstant(), to.toInstant(), 8, false);
+        Map<Long, double[]> candles = fetchCandles(coinbaseProduct, from.toInstant(), to.toInstant());
         List<Btc15WindowDto> windows = new ArrayList<>();
         for (JsonNode market : markets) {
             Btc15WindowDto window = toWindow(market, candles);
@@ -522,10 +527,6 @@ public class Btc15Service {
         };
     }
 
-    private List<JsonNode> fetchMarkets(Instant from, Instant to) {
-        return fetchMarkets("KXBTC15M", from, to, 8, false);
-    }
-
     private List<JsonNode> fetchMarkets(String series, Instant from, Instant to, int maxPages, boolean settledOnly) {
         List<JsonNode> matched = new ArrayList<>();
         String cursor = "";
@@ -566,7 +567,7 @@ public class Btc15Service {
         return matched;
     }
 
-    private Map<Long, double[]> fetchCandles(Instant from, Instant to) {
+    private Map<Long, double[]> fetchCandles(String product, Instant from, Instant to) {
         Map<Long, double[]> candles = new HashMap<>();
         Instant cursor = from.minus(Duration.ofMinutes(1));
         Instant end = to.plus(Duration.ofMinutes(2));
@@ -579,7 +580,7 @@ public class Btc15Service {
             if (next.isAfter(end)) {
                 next = end;
             }
-            String url = "https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=60&start="
+            String url = "https://api.exchange.coinbase.com/products/" + product + "/candles?granularity=60&start="
                     + cursor + "&end=" + next;
             JsonNode root = getJson(url);
             if (root.isArray()) {

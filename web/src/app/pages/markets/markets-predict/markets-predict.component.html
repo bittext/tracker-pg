@@ -15,6 +15,7 @@
     </div>
     <div class="pred__actions">
       <a mat-stroked-button routerLink="/markets/predict/btc-15">BTC 15 min</a>
+      <a mat-stroked-button routerLink="/markets/predict/eth-15">ETH 15 min</a>
       <button mat-flat-button color="primary" type="button" (click)="refresh()" [disabled]="refreshing || loading">
         <mat-icon>sync</mat-icon>
         Refresh from Robinhood
@@ -89,23 +90,9 @@
               <p class="pred__caption">
                 Running principal · mark {{ book.mark | currency: 'USD' : 'symbol' : '1.2-2' }}
               </p>
-            } @else if (liveWindowSettle; as settle) {
-              <p class="pred__live-gap" [class]="moneyClass(settle.returned)">
-                {{ settle.returned | currency: 'USD' : 'symbol' : '1.2-2' }}
-              </p>
-              <p class="pred__caption">
-                Invested {{ settle.invested | currency: 'USD' : 'symbol' : '1.2-2' }}
-                · payback {{ settle.payback | currency: 'USD' : 'symbol' : '1.2-2' }}
-              </p>
-              <p class="pred__caption">
-                {{ settle.closes }} {{ settle.closes === 1 ? 'RH close' : 'RH closes' }} matched
-                @if (share(settle.returned, settle.invested); as rate) {
-                  · {{ rate | percent: '1.1-1' }}
-                }
-              </p>
             } @else {
               <p class="pred__live-gap pred__live-gap--empty">—</p>
-              <p class="pred__caption">No Robinhood close matched to this window yet</p>
+              <p class="pred__caption">No active investment in this 15-minute period</p>
               @if (currentBelowRun > 0 && liveBelowTarget) {
                 <p class="pred__caption">
                   In a <span class="loss">{{ currentBelowRun }}</span>-window below run
