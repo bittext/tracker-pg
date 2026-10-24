@@ -90,6 +90,8 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   private liveInFlight = false;
   private liveWindows: Btc15WindowDto[] = [];
   private ethWindows: Btc15WindowDto[] = [];
+  private dogeWindows: Btc15WindowDto[] = [];
+  private solWindows: Btc15WindowDto[] = [];
   private priorLiveGap: number | null = null;
   private priorOpenValue: number | null = null;
   private gapFlashClear: ReturnType<typeof setTimeout> | null = null;
@@ -202,8 +204,25 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     return activeQuarter(this.ethWindows, this.nowMs);
   }
 
+  get dogeLiveWindow(): Btc15WindowDto | null {
+    return activeQuarter(this.dogeWindows, this.nowMs);
+  }
+
+  get solLiveWindow(): Btc15WindowDto | null {
+    return activeQuarter(this.solWindows, this.nowMs);
+  }
+
+  get liveQuotes(): { label: string; row: Btc15WindowDto | null; pct: number | null }[] {
+    return [
+      { label: 'BTC', row: this.liveWindow, pct: moveShare(this.liveWindow) },
+      { label: 'ETH', row: this.ethLiveWindow, pct: moveShare(this.ethLiveWindow) },
+      { label: 'DOGE', row: this.dogeLiveWindow, pct: moveShare(this.dogeLiveWindow) },
+      { label: 'SOL', row: this.solLiveWindow, pct: moveShare(this.solLiveWindow) },
+    ];
+  }
+
   get livePeriodLabel(): string {
-    const row = this.liveWindow ?? this.ethLiveWindow;
+    const row = this.liveWindow ?? this.ethLiveWindow ?? this.dogeLiveWindow ?? this.solLiveWindow;
     if (!row) {
       return '';
     }
@@ -211,7 +230,7 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   }
 
   get liveCountdown(): string {
-    const row = this.liveWindow ?? this.ethLiveWindow;
+    const row = this.liveWindow ?? this.ethLiveWindow ?? this.dogeLiveWindow ?? this.solLiveWindow;
     if (!row) {
       return '';
     }
@@ -226,22 +245,14 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     return formatLiveRemain(end - this.nowMs);
   }
 
-  get liveMovePct(): number | null {
-    return moveShare(this.liveWindow);
-  }
-
-  get ethMovePct(): number | null {
-    return moveShare(this.ethLiveWindow);
-  }
-
   /** True when this strip is a funded window timer (open principal on the current period). */
   get hasWindowStake(): boolean {
     return this.activeStake != null && this.desk?.openValue != null && this.desk.openValue > 0;
   }
 
-  /** Live strip while either the BTC or ETH 15-minute window is still open. */
+  /** Live strip while any of the 15-minute windows is still open. */
   get showLiveStrip(): boolean {
-    return this.liveWindow != null || this.ethLiveWindow != null;
+    return this.liveQuotes.some((quote) => quote.row != null);
   }
 
   get windowPrincipal(): number | null {
@@ -813,10 +824,17 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     this.liveInFlight = true;
     const priorOpen = new Set(this.liveWindows.filter((row) => row.unsettled).map((row) => row.ticker));
     const day = todayCentral();
-    forkJoin({ btc: this.api.btc15(day), eth: this.api.eth15(day) }).subscribe({
-      next: ({ btc, eth }) => {
+    forkJoin({
+      btc: this.api.btc15(day),
+      eth: this.api.eth15(day),
+      doge: this.api.doge15(day),
+      sol: this.api.sol15(day),
+    }).subscribe({
+      next: ({ btc, eth, doge, sol }) => {
         this.liveWindows = btc.hours.flatMap((hour) => hour.windows);
         this.ethWindows = eth.hours.flatMap((hour) => hour.windows);
+        this.dogeWindows = doge.hours.flatMap((hour) => hour.windows);
+        this.solWindows = sol.hours.flatMap((hour) => hour.windows);
         this.noteGapSlide();
         this.syncWindowStake();
         this.liveInFlight = false;

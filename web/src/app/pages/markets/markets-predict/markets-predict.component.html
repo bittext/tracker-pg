@@ -16,6 +16,8 @@
     <div class="pred__actions">
       <a mat-stroked-button routerLink="/markets/predict/btc-15">BTC 15 min</a>
       <a mat-stroked-button routerLink="/markets/predict/eth-15">ETH 15 min</a>
+      <a mat-stroked-button routerLink="/markets/predict/doge-15">DOGE 15 min</a>
+      <a mat-stroked-button routerLink="/markets/predict/sol-15">SOL 15 min</a>
       <button mat-flat-button color="primary" type="button" (click)="refresh()" [disabled]="refreshing || loading">
         <mat-icon>sync</mat-icon>
         Refresh from Robinhood
@@ -35,78 +37,52 @@
         [class.pred__live--down]="liveWindow?.liveAbove === false"
         [class.pred__live--slide-up]="gapSlide === 'up'"
         [class.pred__live--slide-down]="gapSlide === 'down'"
-        aria-label="Current BTC and ETH 15-minute windows"
+        aria-label="Current 15-minute windows"
       >
         <div class="pred__live-badge">
           @if (hasWindowStake) {
-            Funded · {{ (liveWindow ?? ethLiveWindow)?.status === 'awaiting' ? 'awaiting settle' : 'live' }}
+            Funded · {{ (liveWindow ?? ethLiveWindow ?? dogeLiveWindow ?? solLiveWindow)?.status === 'awaiting' ? 'awaiting settle' : 'live' }}
           } @else {
-            {{ (liveWindow ?? ethLiveWindow)?.status === 'awaiting' ? 'Unsettled · awaiting' : 'Unsettled · live' }}
+            {{ (liveWindow ?? ethLiveWindow ?? dogeLiveWindow ?? solLiveWindow)?.status === 'awaiting' ? 'Unsettled · awaiting' : 'Unsettled · live' }}
           }
         </div>
         <div class="pred__live-grid">
           <div>
             <p class="pred__eyebrow">15-minute window · Central</p>
-            <p class="pred__live-period">{{ livePeriodLabel || (liveWindow ?? ethLiveWindow)?.label }}</p>
+            <p class="pred__live-period">{{ livePeriodLabel || (liveWindow ?? ethLiveWindow ?? dogeLiveWindow ?? solLiveWindow)?.label }}</p>
             <p class="pred__live-count">{{ liveCountdown }}</p>
             <p class="pred__caption">Countdown to the end of this period</p>
           </div>
-          <div>
-            <p class="pred__eyebrow">BTC · live vs target</p>
-            @if (liveWindow; as live) {
-              <p class="pred__live-gap" [class]="moneyClass(live.currentGap)">{{ signedGap(live.currentGap) }}</p>
-              <p class="pred__caption">
-                @if (liveMovePct != null) {
-                  <span [class]="moneyClass(live.currentGap)">{{ liveMovePct | percent: '1.2-2' }}</span>
-                  of target
-                }
-              </p>
-              <p class="pred__caption">
-                BTC {{ live.currentPrice | number: '1.2-2' }}
-                · target {{ live.target | number: '1.2-2' }}
-              </p>
-              <p class="pred__caption">
-                @if (live.liveAbove === true) {
-                  Leaning <span class="gain">above</span>
-                } @else if (live.liveAbove === false) {
-                  Leaning <span class="loss">below</span>
-                } @else {
-                  Waiting for a live print
-                }
-              </p>
-            } @else {
-              <p class="pred__live-gap pred__live-gap--empty">—</p>
-              <p class="pred__caption">BTC window unavailable</p>
-            }
-          </div>
-          <div>
-            <p class="pred__eyebrow">ETH · live vs target</p>
-            @if (ethLiveWindow; as eth) {
-              <p class="pred__live-gap" [class]="moneyClass(eth.currentGap)">{{ signedGap(eth.currentGap) }}</p>
-              <p class="pred__caption">
-                @if (ethMovePct != null) {
-                  <span [class]="moneyClass(eth.currentGap)">{{ ethMovePct | percent: '1.2-2' }}</span>
-                  of target
-                }
-              </p>
-              <p class="pred__caption">
-                ETH {{ eth.currentPrice | number: '1.2-2' }}
-                · target {{ eth.target | number: '1.2-2' }}
-              </p>
-              <p class="pred__caption">
-                @if (eth.liveAbove === true) {
-                  Leaning <span class="gain">above</span>
-                } @else if (eth.liveAbove === false) {
-                  Leaning <span class="loss">below</span>
-                } @else {
-                  Waiting for a live print
-                }
-              </p>
-            } @else {
-              <p class="pred__live-gap pred__live-gap--empty">—</p>
-              <p class="pred__caption">ETH window unavailable</p>
-            }
-          </div>
+          @for (quote of liveQuotes; track quote.label) {
+            <div>
+              <p class="pred__eyebrow">{{ quote.label }} · live vs target</p>
+              @if (quote.row; as live) {
+                <p class="pred__live-gap" [class]="moneyClass(live.currentGap)">{{ signedGap(live.currentGap) }}</p>
+                <p class="pred__caption">
+                  @if (quote.pct != null) {
+                    <span [class]="moneyClass(live.currentGap)">{{ quote.pct | percent: '1.2-2' }}</span>
+                    of target
+                  }
+                </p>
+                <p class="pred__caption">
+                  {{ quote.label }} {{ live.currentPrice | number: '1.2-2' }}
+                  · target {{ live.target | number: '1.2-2' }}
+                </p>
+                <p class="pred__caption">
+                  @if (live.liveAbove === true) {
+                    Leaning <span class="gain">above</span>
+                  } @else if (live.liveAbove === false) {
+                    Leaning <span class="loss">below</span>
+                  } @else {
+                    Waiting for a live print
+                  }
+                </p>
+              } @else {
+                <p class="pred__live-gap pred__live-gap--empty">—</p>
+                <p class="pred__caption">{{ quote.label }} window unavailable</p>
+              }
+            </div>
+          }
           <div>
             <p class="pred__eyebrow">Your selection · this window</p>
             @if (liveBook; as book) {

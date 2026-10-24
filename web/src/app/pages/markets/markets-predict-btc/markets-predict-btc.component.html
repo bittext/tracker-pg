@@ -8,7 +8,9 @@
       </p>
     </div>
     <div class="btc__tools">
-      <a mat-stroked-button [routerLink]="siblingLink">{{ siblingLabel }}</a>
+      @for (peer of peers; track peer.path) {
+        <a mat-stroked-button [routerLink]="peer.path">{{ peer.label }}</a>
+      }
       <a mat-stroked-button [routerLink]="streaksLink">Miss streaks</a>
       <label class="btc__date">
         Day

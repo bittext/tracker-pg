@@ -33,6 +33,8 @@ export class MarketsPredictStreaksComponent implements OnInit {
   readonly choices = [
     { id: 'KXBTC15M', label: 'BTC 15 min' },
     { id: 'KXETH15M', label: 'ETH 15 min' },
+    { id: 'KXDOGE15M', label: 'DOGE 15 min' },
+    { id: 'KXSOL15M', label: 'SOL 15 min' },
   ];
 
   ngOnInit(): void {
@@ -42,9 +44,10 @@ export class MarketsPredictStreaksComponent implements OnInit {
     if (typeof series === 'string' && series) {
       this.series = series;
     }
-    if (this.series === 'KXETH15M') {
-      this.backLink = '/markets/predict/eth-15';
-      this.backLabel = 'ETH 15 min';
+    const home = quarterHome(this.series);
+    if (home) {
+      this.backLink = home.link;
+      this.backLabel = home.label;
     }
     this.choose('week');
   }
@@ -121,6 +124,21 @@ export class MarketsPredictStreaksComponent implements OnInit {
         this.snack.open(formatHttpErrorDetail(err), 'Dismiss', { duration: 6000 });
       },
     });
+  }
+}
+
+function quarterHome(series: string): { link: string; label: string } | null {
+  switch (series) {
+    case 'KXETH15M':
+      return { link: '/markets/predict/eth-15', label: 'ETH 15 min' };
+    case 'KXDOGE15M':
+      return { link: '/markets/predict/doge-15', label: 'DOGE 15 min' };
+    case 'KXSOL15M':
+      return { link: '/markets/predict/sol-15', label: 'SOL 15 min' };
+    case 'KXBTC15M':
+      return { link: '/markets/predict/btc-15', label: 'BTC 15 min' };
+    default:
+      return null;
   }
 }
 

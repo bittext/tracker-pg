@@ -57,6 +57,16 @@ public class RhPredictController {
         return btc15Service.load(date, "KXETH15M", "ETH-USD");
     }
 
+    @GetMapping("/doge-15")
+    public Btc15DeskDto doge15(@RequestParam(name = "date", required = false) LocalDate date) {
+        return btc15Service.load(date, "KXDOGE15M", "DOGE-USD");
+    }
+
+    @GetMapping("/sol-15")
+    public Btc15DeskDto sol15(@RequestParam(name = "date", required = false) LocalDate date) {
+        return btc15Service.load(date, "KXSOL15M", "SOL-USD");
+    }
+
     @GetMapping("/streaks")
     public Btc15StreakDeskDto streaks(
             @RequestParam(name = "series", required = false) String series,

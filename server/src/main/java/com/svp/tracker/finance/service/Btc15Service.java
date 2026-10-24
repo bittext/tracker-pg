@@ -523,6 +523,8 @@ public class Btc15Service {
         return switch (series) {
             case "KXBTC15M" -> "BTC 15 min";
             case "KXETH15M" -> "ETH 15 min";
+            case "KXDOGE15M" -> "DOGE 15 min";
+            case "KXSOL15M" -> "SOL 15 min";
             default -> series;
         };
     }

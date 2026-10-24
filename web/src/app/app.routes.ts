@@ -116,6 +116,8 @@ export const routes: Routes = [
       { path: 'predict', component: MarketsPredictComponent },
       { path: 'predict/btc-15', component: MarketsPredictBtcComponent, data: { asset: 'BTC' } },
       { path: 'predict/eth-15', component: MarketsPredictBtcComponent, data: { asset: 'ETH' } },
+      { path: 'predict/doge-15', component: MarketsPredictBtcComponent, data: { asset: 'DOGE' } },
+      { path: 'predict/sol-15', component: MarketsPredictBtcComponent, data: { asset: 'SOL' } },
       {
         path: 'predict/btc-15/streaks',
         component: MarketsPredictStreaksComponent,
@@ -125,6 +127,16 @@ export const routes: Routes = [
         path: 'predict/eth-15/streaks',
         component: MarketsPredictStreaksComponent,
         data: { series: 'KXETH15M', locked: true },
+      },
+      {
+        path: 'predict/doge-15/streaks',
+        component: MarketsPredictStreaksComponent,
+        data: { series: 'KXDOGE15M', locked: true },
+      },
+      {
+        path: 'predict/sol-15/streaks',
+        component: MarketsPredictStreaksComponent,
+        data: { series: 'KXSOL15M', locked: true },
       },
       { path: 'predict/streaks', component: MarketsPredictStreaksComponent },
       {
