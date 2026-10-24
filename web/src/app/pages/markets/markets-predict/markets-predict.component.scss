@@ -506,160 +506,145 @@
 .pred__periods {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
-.pred__periods .pred__section-title,
-.pred__periods .pred__caption {
-  margin: 0;
-}
-
-.pred__daylines {
+.pred__period-grid {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.35rem;
+  font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
 }
 
-.pred__dayline {
+.pred__period-grid-head,
+.pred__period-grid-row {
   display: grid;
-  grid-template-columns: 7.25rem minmax(0, 1fr) 8.75rem;
-  grid-template-areas:
-    'when track result'
-    'meta meta meta';
-  gap: 0.4rem 0.85rem;
-  align-items: center;
-  padding: 0.7rem 0.85rem 0.65rem;
+  grid-template-columns: minmax(7rem, 1.4fr) 4.5rem minmax(6.5rem, 1fr) minmax(6.5rem, 1fr) minmax(7.5rem, 1.1fr);
+  gap: 0.55rem 0.75rem;
+  align-items: baseline;
+  padding: 0.55rem 0.75rem;
+}
+
+.pred__period-grid-head {
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
+  color: var(--app-text-muted, #64748b);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pred__period-grid-head > span:not(:first-child),
+.pred__period-grid-row > span:not(:first-child) {
+  text-align: right;
+}
+
+.pred__period-grid-row {
   border: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--app-surface, #fff);
 }
 
-.pred__dayline--hour {
-  grid-template-columns: minmax(9.5rem, auto) minmax(0, 1fr) 8.75rem;
+.pred__period-grid-row--month {
+  font-weight: 650;
+  background: color-mix(in srgb, var(--app-text-muted, #64748b) 6%, var(--app-surface, #fff));
 }
 
-.pred__dayline--up {
-  background: color-mix(in srgb, #15803d 5%, var(--app-surface, #fff));
+.pred__period-grid-row--day .pred__period-label {
+  padding-left: 0.85rem;
+  font-weight: 600;
 }
 
-.pred__dayline--down {
-  background: color-mix(in srgb, #b91c1c 5%, var(--app-surface, #fff));
+.pred__period-grid-row--hour .pred__period-label {
+  padding-left: 1.7rem;
+  color: var(--app-text-muted, #64748b);
+  font-weight: 500;
 }
 
-.pred__dayline--pick {
+.pred__period-grid-row--pick {
   cursor: pointer;
 }
 
-.pred__dayline--pick:hover {
+.pred__period-grid-row--pick:hover {
   border-color: color-mix(in srgb, #2563eb 35%, var(--app-border, rgba(15, 23, 42, 0.1)));
 }
 
-.pred__dayline--active {
+.pred__period-grid-row--active {
   border-color: color-mix(in srgb, #2563eb 55%, var(--app-border, rgba(15, 23, 42, 0.1)));
   background: color-mix(in srgb, #2563eb 8%, var(--app-surface, #fff));
 }
 
-.pred__dayline-when {
-  grid-area: when;
-  display: flex;
-  flex-direction: column;
-  gap: 0.05rem;
-  min-width: 0;
+.pred__period-label {
+  text-align: left;
+  font-weight: 600;
 }
 
-.pred__dayline-dow {
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--app-text-muted, #64748b);
-}
-
-.pred__dayline-date {
-  font-weight: 680;
-  letter-spacing: -0.02em;
-}
-
-.pred__dayline-track {
-  grid-area: track;
-  position: relative;
-  height: 0.7rem;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--app-text-muted, #64748b) 10%, transparent);
-}
-
-.pred__dayline-zero {
-  position: absolute;
-  left: 50%;
-  top: -0.18rem;
-  bottom: -0.18rem;
-  width: 1px;
-  background: color-mix(in srgb, var(--app-text-muted, #64748b) 60%, transparent);
-}
-
-.pred__dayline-bar {
-  position: absolute;
-  top: 0;
-  height: 100%;
-  border-radius: 999px;
-  min-width: 3px;
-}
-
-.pred__dayline-bar--up {
-  left: 50%;
-  background: #15803d;
-}
-
-.pred__dayline-bar--down {
-  right: 50%;
-  background: #b91c1c;
-}
-
-.pred__dayline-result {
-  grid-area: result;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  line-height: 1.15;
-}
-
-.pred__dayline-amt {
-  font-size: 1.05rem;
-  font-weight: 720;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.02em;
-}
-
-.pred__dayline-pct {
-  font-size: 0.78rem;
+.pred__period-return {
   font-weight: 650;
-  font-variant-numeric: tabular-nums;
-}
-
-.pred__dayline-meta {
-  grid-area: meta;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.15rem 0.85rem;
-  margin: 0;
-  color: var(--app-text-muted, #64748b);
-  font-size: 0.78rem;
-  font-variant-numeric: tabular-nums;
-}
-
-.pred__dayline-meta span + span::before {
-  content: '·';
-  margin-right: 0.85rem;
 }
 
 @media (max-width: 700px) {
-  .pred__dayline,
-  .pred__dayline--hour {
-    grid-template-columns: 1fr auto;
-    grid-template-areas:
-      'when result'
-      'track track'
-      'meta meta';
+  .pred__period-grid-head {
+    display: none;
+  }
+
+  .pred__period-grid-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.35rem 0.75rem;
+  }
+
+  .pred__period-label {
+    grid-column: 1 / -1;
+    font-size: 1rem;
+  }
+
+  .pred__period-grid-row--day .pred__period-label,
+  .pred__period-grid-row--hour .pred__period-label {
+    padding-left: 0;
+  }
+
+  .pred__period-grid-row > span:nth-child(2)::before {
+    content: 'Closes ';
+    color: var(--app-text-muted, #64748b);
+    font-size: 0.72rem;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .pred__period-grid-row > span:nth-child(3)::before {
+    content: 'Invested ';
+    color: var(--app-text-muted, #64748b);
+    font-size: 0.72rem;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .pred__period-grid-row > span:nth-child(4)::before {
+    content: 'Payback ';
+    color: var(--app-text-muted, #64748b);
+    font-size: 0.72rem;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .pred__period-return {
+    grid-column: 1 / -1;
+    text-align: left;
+    font-size: 1.1rem;
+  }
+
+  .pred__period-return::before {
+    content: 'Return ';
+    color: var(--app-text-muted, #64748b);
+    font-size: 0.72rem;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
 }
 
