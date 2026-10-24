@@ -304,40 +304,60 @@
       </section>
     }
 
-    @if (periodRows.length) {
+    @if (periodView.length) {
       <section class="pred__periods" aria-label="Predict returns by period">
-        <h2 class="pred__section-title">{{ breakdownTitle }}</h2>
-        <div class="pred__period-grid" role="table">
-          <div class="pred__period-grid-head" role="row">
-            <span role="columnheader">Period</span>
-            <span role="columnheader">Closes</span>
-            <span role="columnheader">Invested</span>
-            <span role="columnheader">Payback</span>
-            <span role="columnheader">Return</span>
-          </div>
-          @for (row of periodRows; track row.key) {
+        <div>
+          <h2 class="pred__section-title">{{ breakdownTitle }}</h2>
+          <p class="pred__caption">
+            Green extends right of the line, red extends left. Bar length is the size of that
+            {{ periodGrain === 'hour' ? 'hour' : periodGrain === 'day' ? 'day' : 'month' }} against the largest one shown.
+            @if (periodGrain === 'day') {
+              Tap a day to focus the book.
+            }
+          </p>
+        </div>
+        <div class="pred__daylines" role="list">
+          @for (row of periodView; track row.key) {
             <div
-              class="pred__period-grid-row"
-              [class.pred__period-grid-row--month]="row.level === 'month'"
-              [class.pred__period-grid-row--day]="row.level === 'day'"
-              [class.pred__period-grid-row--hour]="row.level === 'hour'"
-              [class.pred__period-grid-row--active]="selectedDate != null && row.key === selectedDayRowKey"
-              [class.pred__period-grid-row--pick]="row.level === 'day'"
-              role="row"
+              class="pred__dayline"
+              [class.pred__dayline--up]="row.totals.returned > 0"
+              [class.pred__dayline--down]="row.totals.returned < 0"
+              [class.pred__dayline--hour]="row.level === 'hour'"
+              [class.pred__dayline--active]="selectedDate != null && row.key === selectedDayRowKey"
+              [class.pred__dayline--pick]="row.level === 'day'"
+              role="listitem"
               (click)="onPeriodRowActivate(row.level, row.key)"
               (keydown.enter)="onPeriodRowActivate(row.level, row.key)"
               [attr.tabindex]="row.level === 'day' ? 0 : null"
             >
-              <span class="pred__period-label" role="rowheader">{{ row.label }}</span>
-              <span role="cell">{{ row.totals.closes }}</span>
-              <span role="cell">{{ row.totals.invested | currency: 'USD' : 'symbol' : '1.2-2' }}</span>
-              <span role="cell">{{ row.totals.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</span>
-              <span class="pred__period-return" role="cell" [class]="moneyClass(row.totals.returned)">
-                {{ row.totals.returned | currency: 'USD' : 'symbol' : '1.2-2' }}
-                @if (share(row.totals.returned, row.totals.invested); as rate) {
-                  <span class="pred__pct">{{ rate | percent: '1.1-1' }}</span>
+              <div class="pred__dayline-when">
+                @if (row.weekday) {
+                  <span class="pred__dayline-dow">{{ row.weekday }}</span>
                 }
-              </span>
+                <span class="pred__dayline-date">{{ row.label }}</span>
+              </div>
+              <div class="pred__dayline-track" aria-hidden="true">
+                <span class="pred__dayline-zero"></span>
+                @if (row.totals.returned !== 0) {
+                  <span
+                    class="pred__dayline-bar"
+                    [class.pred__dayline-bar--up]="row.totals.returned > 0"
+                    [class.pred__dayline-bar--down]="row.totals.returned < 0"
+                    [style.width.%]="row.bar"
+                  ></span>
+                }
+              </div>
+              <div class="pred__dayline-result" [class]="moneyClass(row.totals.returned)">
+                <span class="pred__dayline-amt">{{ row.totals.returned | currency: 'USD' : 'symbol' : '1.2-2' }}</span>
+                @if (share(row.totals.returned, row.totals.invested); as rate) {
+                  <span class="pred__dayline-pct">{{ rate | percent: '1.1-1' }}</span>
+                }
+              </div>
+              <p class="pred__dayline-meta">
+                <span>{{ row.totals.closes }} {{ row.totals.closes === 1 ? 'close' : 'closes' }}</span>
+                <span>Invested {{ row.totals.invested | currency: 'USD' : 'symbol' : '1.2-2' }}</span>
+                <span>Payback {{ row.totals.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</span>
+              </p>
             </div>
           }
         </div>

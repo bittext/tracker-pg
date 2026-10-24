@@ -27,6 +27,16 @@ import {
   rollupPredictCloses,
 } from './rh-predict-rollups';
 
+interface PeriodViewRow {
+  key: string;
+  label: string;
+  level: string;
+  totals: PredictPeriodTotals;
+  weekday: string;
+  /** Width of the bar on one side of zero, as a percent of the track (0–50). */
+  bar: number;
+}
+
 interface PredictReturnChart {
   width: number;
   height: number;
@@ -650,6 +660,20 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     return this.scopedCloses.filter((row) => row.realized < 0).length;
   }
 
+  /** Day, hour, or month rows with a bar scaled to the largest return in view. */
+  get periodView(): PeriodViewRow[] {
+    const rows = this.periodRows;
+    let max = 0;
+    for (const row of rows) {
+      max = Math.max(max, Math.abs(row.totals.returned));
+    }
+    return rows.map((row) => ({
+      ...row,
+      weekday: row.level === 'day' ? weekdayFromDayKey(row.key) : '',
+      bar: max > 0 ? (Math.abs(row.totals.returned) / max) * 50 : 0,
+    }));
+  }
+
   get periodRows(): { key: string; label: string; level: string; totals: PredictPeriodTotals }[] {
     const year = this.activeYear;
     if (!year) {
@@ -1044,6 +1068,16 @@ function formatCentralDayLabel(isoDate: string): string {
     return isoDate;
   }
   return when.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+/** Short weekday for a rollup day key (`year-monthIndex-day`). */
+function weekdayFromDayKey(key: string): string {
+  const parts = key.split('-').map(Number);
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) {
+    return '';
+  }
+  const [year, month, day] = parts;
+  return new Date(year, month, day).toLocaleDateString('en-US', { weekday: 'short' });
 }
 
 /** Match PredictDayRollup.key from an ISO date (YYYY-MM-DD). */
