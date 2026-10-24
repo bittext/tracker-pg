@@ -389,10 +389,14 @@ public class RhPredictService {
             snap.setCreatedAt(now);
         }
         snap.setLastSyncedAt(now);
-        snap.setOpenValue(decimal(root, "open_value"));
-        BigDecimal reportedCost = decimal(root, "open_cost");
-        if (reportedCost != null) {
-            snap.setOpenCost(reportedCost);
+        BigDecimal openValue = decimal(root, "open_value");
+        snap.setOpenValue(openValue);
+        // A missing cost means Robinhood did not name one on this pull. Keeping the previous
+        // figure makes a settled book look like it is still invested (mark $48, cost $1,300).
+        if (openValue == null || openValue.signum() <= 0) {
+            snap.setOpenCost(null);
+        } else {
+            snap.setOpenCost(decimal(root, "open_cost"));
         }
         snap.setRealizedAll(realizedAll.setScale(6, RoundingMode.HALF_UP));
         snap.setRealizedWeek(realizedWeek.setScale(6, RoundingMode.HALF_UP));

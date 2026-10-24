@@ -95,8 +95,11 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   private priorLiveGap: number | null = null;
   private priorOpenValue: number | null = null;
   private gapFlashClear: ReturnType<typeof setTimeout> | null = null;
-  /** Fallback cost when Robinhood does not report open_cost — first live mark while open. */
+  /** Fallback cost when Robinhood does not report open_cost — mark when this window's book was anchored. */
   private estimatedOpenCost: number | null = null;
+  /** Close count and 15-minute ticker the fallback cost was anchored to. */
+  private estimateAnchorCloses = -1;
+  private estimateAnchorTicker: string | null = null;
 
   readonly columns = ['closedAt', 'quantity', 'price', 'invested', 'payback', 'realized'] as const;
 
@@ -505,8 +508,9 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Cash still in open contracts, and the live profit or loss against that amount.
-   * A matched close is a past result and is not shown while this book is open.
+   * Cash still in open contracts for the current 15-minute window, and the live
+   * profit or loss against that amount. A settled close is already in the return
+   * totals and is not kept as principal here.
    */
   get liveBook(): { principal: number; mark: number; pnl: number } | null {
     const mark = this.desk?.openValue;
@@ -854,6 +858,10 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
    * bind that invested principal to this window and restart the countdown UI around it.
    */
   private syncWindowStake(): void {
+    const desk = this.desk;
+    if (desk) {
+      this.syncEstimatedOpenCost(desk.openValue, desk.openCost, desk.closeCount);
+    }
     const live = this.liveWindow;
     const mark = this.desk?.openValue;
     const principal = this.openCostBasis ?? mark;
@@ -871,24 +879,22 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     }
 
     const prior = this.activeStake;
-    if (prior == null || prior.ticker !== live.ticker) {
-      this.activeStake = {
-        ticker: live.ticker,
-        windowStart: live.windowStart,
-        windowEnd: live.windowEnd,
-        label: live.label,
-        principal,
-        markAtBind: mark,
-      };
-      writeWindowStake(this.activeStake);
+    const changed =
+      prior == null ||
+      prior.ticker !== live.ticker ||
+      Math.abs(prior.principal - principal) > 0.005;
+    if (!changed) {
       return;
     }
-
-    // Same window: raise principal if more cash was put in.
-    if (principal > prior.principal + 0.005) {
-      this.activeStake = { ...prior, principal, markAtBind: mark };
-      writeWindowStake(this.activeStake);
-    }
+    this.activeStake = {
+      ticker: live.ticker,
+      windowStart: live.windowStart,
+      windowEnd: live.windowEnd,
+      label: live.label,
+      principal,
+      markAtBind: mark,
+    };
+    writeWindowStake(this.activeStake);
   }
 
   private noteGapSlide(): void {
@@ -955,7 +961,7 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   }
 
   private apply(desk: RhPredictDeskDto): void {
-    this.syncEstimatedOpenCost(desk.openValue, desk.openCost);
+    this.syncEstimatedOpenCost(desk.openValue, desk.openCost, desk.closeCount);
     if (desk.openValue != null) {
       this.priorOpenValue = desk.openValue;
     }
@@ -974,7 +980,7 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     const current = this.desk;
     const priorCloses = current.closeCount;
     this.noteOpenMarkTrend(desk.openValue);
-    this.syncEstimatedOpenCost(desk.openValue, desk.openCost);
+    this.syncEstimatedOpenCost(desk.openValue, desk.openCost, desk.closeCount);
     current.openValue = desk.openValue;
     current.openCost = desk.openCost;
     this.noteContractValueAsOf(desk);
@@ -996,18 +1002,33 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     this.contractValueAsOf = desk.lastSyncedAt ?? new Date().toISOString();
   }
 
-  /** Keep a session cost so live return can move before Robinhood posts open_cost / closes. */
-  private syncEstimatedOpenCost(mark: number | null | undefined, reported: number | null | undefined): void {
+  /**
+   * Cost of the contracts still open when Robinhood does not send one.
+   * Re-anchor when the 15-minute window changes or a close lands, so a settled
+   * position is not still treated as cash in this window.
+   */
+  private syncEstimatedOpenCost(
+    mark: number | null | undefined,
+    reported: number | null | undefined,
+    closeCount: number,
+  ): void {
     if (reported != null) {
       this.estimatedOpenCost = null;
       return;
     }
+    const ticker = this.liveWindow?.ticker ?? null;
     if (mark == null || mark <= 0) {
       this.estimatedOpenCost = null;
+      this.estimateAnchorCloses = closeCount;
+      this.estimateAnchorTicker = ticker;
       return;
     }
-    if (this.estimatedOpenCost == null) {
+    const windowChanged = ticker != null && ticker !== this.estimateAnchorTicker;
+    const settledSinceAnchor = this.estimateAnchorCloses >= 0 && closeCount > this.estimateAnchorCloses;
+    if (this.estimatedOpenCost == null || windowChanged || settledSinceAnchor) {
       this.estimatedOpenCost = mark;
+      this.estimateAnchorCloses = closeCount;
+      this.estimateAnchorTicker = ticker;
     }
   }
 
