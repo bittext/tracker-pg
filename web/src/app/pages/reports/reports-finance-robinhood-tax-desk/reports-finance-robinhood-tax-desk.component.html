@@ -141,9 +141,14 @@
           <dd>{{ wb.today.tradeCount }}</dd>
           <small>Realized {{ wb.today.realizedToday | currency }}</small>
         </div>
+        <div [class.desk__pos]="(wb.today.predictRealizedToday ?? 0) > 0" [class.desk__neg]="(wb.today.predictRealizedToday ?? 0) < 0">
+          <dt>Predict settled today</dt>
+          <dd>{{ (wb.today.predictRealizedToday ?? 0) | currency }}</dd>
+          <small>{{ wb.today.predictClosesToday ?? 0 }} close{{ (wb.today.predictClosesToday ?? 0) === 1 ? '' : 's' }}</small>
+        </div>
       </dl>
-      @if (usesBrokerYtd(wb) && (wb.robinhoodRealizedAccounts?.length || 0) > 0) {
-        <div class="desk__accts">
+      <div class="desk__accts">
+        @if (usesBrokerYtd(wb)) {
           @for (a of wb.robinhoodRealizedAccounts; track a.suffix) {
             <article>
               <span>{{ a.label }} ••••{{ a.suffix }}</span>
@@ -151,8 +156,17 @@
               <small>{{ a.closingTrades }} closing trade{{ a.closingTrades === 1 ? '' : 's' }}</small>
             </article>
           }
-        </div>
-      }
+        }
+        <article>
+          <span>Predict</span>
+          <strong [class.desk__pos]="(wb.predictRealizedYtd ?? 0) > 0" [class.desk__neg]="(wb.predictRealizedYtd ?? 0) < 0">
+            {{ (wb.predictRealizedYtd ?? 0) | currency }}
+          </strong>
+          <small>
+            {{ wb.predictCloseCount ?? 0 }} settled close{{ (wb.predictCloseCount ?? 0) === 1 ? '' : 's' }} this year
+          </small>
+        </article>
+      </div>
       <p class="desk__day-note">{{ realizedSourceNote(wb) }}</p>
       <div class="desk__day-trades">
         <h4>Trades on {{ wb.today.tradeDate | date: 'mediumDate' }}</h4>
@@ -196,8 +210,8 @@
         <h3>How taxable income is built</h3>
         <p class="muted">
           W-2 is last year’s pattern until you edit Annual. Closed-trade P/L prefers Robinhood’s
-          calendar YTD; the in-app FIFO tape is a footnote. Carryover comes from Settings (seeded from the
-          reviewed 2025 return).
+          calendar YTD; Predict closes are their own line and are added into the tax estimate. The in-app FIFO
+          tape is a footnote. Carryover comes from Settings (seeded from the reviewed 2025 return).
         </p>
         <div class="desk__sheet">
           <div class="desk__line">
@@ -216,6 +230,17 @@
             <span class="desk__name">{{ realizedLineLabel(wb) }}</span>
             <span class="desk__fig">{{ wb.realizedYtd | currency }}</span>
             <p class="desk__hint">{{ realizedSourceNote(wb) }}</p>
+          </div>
+          <div class="desk__line">
+            <span class="desk__op">+</span>
+            <span class="desk__name">Predict realized</span>
+            <span class="desk__fig">{{ (wb.predictRealizedYtd ?? 0) | currency }}</span>
+            <p class="desk__hint">
+              Settled event-contract closes through {{ wb.asOf | date: 'mediumDate' }},
+              {{ wb.predictCloseCount ?? 0 }} this year. Separate from the broker line. Open contracts stay out.
+              Today {{ (wb.today.predictRealizedToday ?? 0) | currency }}
+              across {{ wb.today.predictClosesToday ?? 0 }} close{{ (wb.today.predictClosesToday ?? 0) === 1 ? '' : 's' }}.
+            </p>
           </div>
           <div class="desk__line">
             <span class="desk__op">−</span>
@@ -417,6 +442,7 @@
           <div><span>W-2 projected</span><strong>{{ wb.wagesProjected | currency }}</strong></div>
           <div><span>External</span><strong>{{ wb.externalProjected | currency }}</strong></div>
           <div><span>{{ realizedKpiLabel(wb) }}</span><strong>{{ wb.realizedYtd | currency }}</strong></div>
+          <div><span>Predict realized</span><strong>{{ (wb.predictRealizedYtd ?? 0) | currency }}</strong></div>
           <div><span>Carryover applied</span><strong>{{ wb.capitalLossCarryoverApplied | currency }}</strong></div>
           <div><span>Taxable leftover gain</span><strong>{{ wb.netTaxableGain | currency }}</strong></div>
           <div><span>AGI</span><strong>{{ wb.agi | currency }}</strong></div>

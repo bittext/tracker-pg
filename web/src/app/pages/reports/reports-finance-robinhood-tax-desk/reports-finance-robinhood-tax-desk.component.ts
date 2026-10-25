@@ -329,8 +329,12 @@ export class ReportsFinanceRobinhoodTaxDeskComponent implements OnInit {
     return (wb.agi ?? 0) - (wb.wagesProjected ?? 0) - (wb.externalProjected ?? 0);
   }
 
+  tradingRealized(wb: FinanceTaxDeskWorkbookDto): number {
+    return (wb.realizedYtd ?? 0) + (wb.predictRealizedYtd ?? 0);
+  }
+
   ordinaryLossUsed(wb: FinanceTaxDeskWorkbookDto): number {
-    const net = (wb.realizedYtd ?? 0) - this.carryoverPool(wb);
+    const net = this.tradingRealized(wb) - this.carryoverPool(wb);
     if (net >= 0) {
       return 0;
     }
@@ -338,7 +342,7 @@ export class ReportsFinanceRobinhoodTaxDeskComponent implements OnInit {
   }
 
   unusedCarryover(wb: FinanceTaxDeskWorkbookDto): number {
-    const net = (wb.realizedYtd ?? 0) - this.carryoverPool(wb);
+    const net = this.tradingRealized(wb) - this.carryoverPool(wb);
     if (net >= 0) {
       return 0;
     }

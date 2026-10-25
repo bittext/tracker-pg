@@ -12,5 +12,17 @@ public record FinanceTaxDeskTodayDto(
         BigDecimal realizedToday,
         BigDecimal buyNotional,
         BigDecimal sellNotional,
-        List<FinanceTaxDeskTradeRowDto> trades) {}
+        List<FinanceTaxDeskTradeRowDto> trades,
+        BigDecimal predictRealizedToday,
+        Integer predictClosesToday) {
+
+    public FinanceTaxDeskTodayDto {
+        if (predictRealizedToday == null) {
+            predictRealizedToday = BigDecimal.ZERO;
+        }
+        if (predictClosesToday == null) {
+            predictClosesToday = 0;
+        }
+    }
+}
 

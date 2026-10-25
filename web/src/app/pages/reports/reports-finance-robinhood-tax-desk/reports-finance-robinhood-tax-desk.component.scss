@@ -874,9 +874,12 @@
 }
 
 @container taxdesk (min-width: 72rem) {
-  .desk__hero-metrics,
-  .desk__day-kpis {
+  .desk__hero-metrics {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .desk__day-kpis {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
   .desk__accts {

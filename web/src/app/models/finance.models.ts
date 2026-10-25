@@ -1643,6 +1643,9 @@ export interface FinanceTaxDeskWorkbookDto {
   realizedYtdSource?: string;
   fifoTapeRealizedYtd?: number;
   robinhoodRealizedAccounts?: FinanceTaxDeskRhAccountRealizedDto[];
+  /** Settled Predict closes for the tax year through this day. Separate from realizedYtd. */
+  predictRealizedYtd?: number;
+  predictCloseCount?: number;
 }
 
 export interface FinanceTaxDeskRhAccountRealizedDto {
@@ -1709,6 +1712,8 @@ export interface FinanceTaxDeskTodayDto {
   buyNotional: number;
   sellNotional: number;
   trades: FinanceTaxDeskTradeRowDto[];
+  predictRealizedToday?: number;
+  predictClosesToday?: number;
 }
 
 export interface FinanceTaxDeskTradeRowDto {

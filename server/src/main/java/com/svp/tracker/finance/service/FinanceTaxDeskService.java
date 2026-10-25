@@ -29,7 +29,9 @@ import com.svp.tracker.finance.repository.FinanceTax1040ReturnRepository;
 import com.svp.tracker.finance.repository.FinanceTaxDeskDailySnapshotRepository;
 import com.svp.tracker.finance.repository.FinanceTaxDeskIncomeItemRepository;
 import com.svp.tracker.finance.repository.FinanceTaxDeskPaymentRepository;
+import com.svp.tracker.finance.domain.RhPredictClose;
 import com.svp.tracker.finance.repository.FinanceTaxDeskSettingsRepository;
+import com.svp.tracker.finance.repository.RhPredictCloseRepository;
 import com.svp.tracker.finance.repository.RobinhoodAgenticConnectionRepository;
 import com.svp.tracker.finance.tax.Form1040ParsedSummary;
 import com.svp.tracker.finance.tax.Form1040TextParser;
@@ -86,6 +88,7 @@ public class FinanceTaxDeskService {
     private final RobinhoodExecutedTradesService executedTradesService;
     private final RobinhoodBrokerRealizedPnlService brokerRealizedPnlService;
     private final RobinhoodAgenticConnectionRepository connectionRepository;
+    private final RhPredictCloseRepository predictCloseRepository;
     private final JsonMapper jsonMapper;
 
     @Transactional
@@ -108,7 +111,7 @@ public class FinanceTaxDeskService {
         if (!live) {
             FinanceTaxDeskDailySnapshot stored =
                     snapshotRepository.findByOwnerUserIdAndTaxYearAndAsOfDate(owner, taxYear, asOf).orElse(null);
-            if (stored != null) {
+            if (stored != null && snapshotIncludesPredict(stored.getWorkbookJson())) {
                 FinanceTaxDeskWorkbookDto wb = readWorkbook(stored.getWorkbookJson());
                 return new FinanceTaxDeskPageDto(taxYear, asOf, false, wb, history(owner, taxYear));
             }
@@ -307,6 +310,9 @@ public class FinanceTaxDeskService {
             rhAccounts = broker.get().accounts();
         }
 
+        PredictTotals predict = predictTotals(owner, taxYear, asOf);
+        BigDecimal capitalForTax = realizedYtd.add(predict.ytd());
+
         List<FederalTaxDeskCalculator.Payment> calcPays = payments.stream()
                 .map(p -> new FederalTaxDeskCalculator.Payment(p.getPaidOn(), p.getAmount()))
                 .toList();
@@ -314,7 +320,7 @@ public class FinanceTaxDeskService {
                 settings.getFilingStatus(),
                 wages,
                 external,
-                realizedYtd,
+                capitalForTax,
                 settings.getShortTermLossCarryover(),
                 settings.getLongTermLossCarryover(),
                 settings.getChildTaxCredit(),
@@ -356,6 +362,7 @@ public class FinanceTaxDeskService {
                         : "Robinhood broker YTD was unavailable, so realized P&L is app FIFO from executed trades in Individual, Agentic, and Ammu through "
                                 + asOf.format(MDY) + ". Unmatched sells contribute $0 on that tape.",
                 "Trading gain is treated as short-term (ordinary brackets), matching active HOOD / MRVL / MRNA / option turnover.",
+                "Settled Predict event-contract closes are a separate capital line, added to the broker YTD for this estimate. Open contracts are not included.",
                 "2025 capital-loss carryover is applied before any 2026 gain is taxed. Unused 2025 bracket space does not carry.",
                 "NIIT is 3.8% of the lesser of net investment income or MAGI over $250,000 MFJ.",
                 "Withholding is treated as paid ratably across the four 1040-ES dates (Form 2210 regular method).",
@@ -366,6 +373,7 @@ public class FinanceTaxDeskService {
                 "These are estimated-tax working papers, not a CPA attest opinion, Form 1040, Form 2210, or e-file.",
                 "The IRS will use Forms W-2, 1099-B (with basis and wash-sale adjustments), 1099-NEC/INT/DIV, and the return as filed.",
                 "Robinhood YTD realized is a broker screen figure, not Form 1099-B. Wash sales, cost-basis adjustments, and year-end 1099-B can differ.",
+                "Predict is added on top of that broker figure. If a 1099-B already includes the same event contracts, do not count them twice.",
                 "The in-app 1040 PDF extract has misread line numbers as dollars on at least one upload; 2025 figures here were seeded from the reviewed return, not that extract.",
                 "More trades after " + asOf.format(MDY) + " change tax. Selling open MRNA (unrealized) is not in this number until closed.",
                 "Annualized-income installment method (Form 2210 AI) is not computed; it can reduce penalty when income is back-loaded.",
@@ -373,7 +381,7 @@ public class FinanceTaxDeskService {
                 "Q4 1040-ES is due 15 January " + (taxYear + 1) + ". The return is due mid-April " + (taxYear + 1) + ".");
 
         String narrative = buildNarrative(
-                settings, calc, asOf, taxYear, riskLevel, priorDelta, filings, sources, realizedSource);
+                settings, calc, asOf, taxYear, riskLevel, priorDelta, filings, sources, realizedSource, realizedYtd, predict);
 
         todayTrades.sort(Comparator.comparing(
                 FinanceTaxDeskTradeRowDto::executedAt, Comparator.nullsLast(Comparator.naturalOrder())));
@@ -385,7 +393,9 @@ public class FinanceTaxDeskService {
                 realizedToday,
                 buyNotional.setScale(2, RoundingMode.HALF_UP),
                 sellNotional.setScale(2, RoundingMode.HALF_UP),
-                todayTrades);
+                todayTrades,
+                predict.today(),
+                predict.todayCount());
 
         return new FinanceTaxDeskWorkbookDto(
                 taxYear,
@@ -436,8 +446,41 @@ public class FinanceTaxDeskService {
                 narrative,
                 realizedSource,
                 fifoTapeRealizedYtd,
-                rhAccounts);
+                rhAccounts,
+                predict.ytd(),
+                predict.ytdCount());
     }
+
+    /** Settled Predict closes whose Central close date falls in the tax year through asOf. */
+    private PredictTotals predictTotals(long owner, int taxYear, LocalDate asOf) {
+        LocalDate yearStart = LocalDate.of(taxYear, 1, 1);
+        BigDecimal ytd = BigDecimal.ZERO;
+        BigDecimal today = BigDecimal.ZERO;
+        int ytdCount = 0;
+        int todayCount = 0;
+        for (RhPredictClose row : predictCloseRepository.findByOwnerUserIdOrderByClosedAtDescIdDesc(owner)) {
+            if (row.getClosedAt() == null || row.getRealized() == null) {
+                continue;
+            }
+            LocalDate closed = row.getClosedAt().atZone(CENTRAL).toLocalDate();
+            if (closed.isBefore(yearStart) || closed.isAfter(asOf)) {
+                continue;
+            }
+            ytd = ytd.add(row.getRealized());
+            ytdCount++;
+            if (closed.equals(asOf)) {
+                today = today.add(row.getRealized());
+                todayCount++;
+            }
+        }
+        return new PredictTotals(
+                ytd.setScale(2, RoundingMode.HALF_UP),
+                ytdCount,
+                today.setScale(2, RoundingMode.HALF_UP),
+                todayCount);
+    }
+
+    private record PredictTotals(BigDecimal ytd, int ytdCount, BigDecimal today, int todayCount) {}
 
     private String buildNarrative(
             FinanceTaxDeskSettings settings,
@@ -448,7 +491,9 @@ public class FinanceTaxDeskService {
             BigDecimal priorDelta,
             List<FinanceTaxDeskFilingRefDto> filings,
             List<FinanceTaxDeskIrsSourceDto> sources,
-            String realizedSource) {
+            String realizedSource,
+            BigDecimal brokerOrFifoRealized,
+            PredictTotals predict) {
         String filingDay = calc.filingBalance().signum() > 0
                 ? "a balance due of " + money(calc.filingBalance())
                 : calc.filingBalance().signum() < 0
@@ -482,6 +527,13 @@ public class FinanceTaxDeskService {
                 .append("ROBINHOOD".equals(realizedSource)
                         ? "Robinhood calendar YTD realized (broker) "
                         : "App FIFO realized tape ")
+                .append(money(brokerOrFifoRealized))
+                .append(". Predict event-contract closes ")
+                .append(money(predict.ytd()))
+                .append(" across ")
+                .append(predict.ytdCount())
+                .append(predict.ytdCount() == 1 ? " close" : " closes")
+                .append(". Combined closed P/L ")
                 .append(money(calc.realizedCapital()))
                 .append(" after applying capital-loss carryover ")
                 .append(money(calc.carryoverApplied()))
@@ -871,6 +923,15 @@ public class FinanceTaxDeskService {
                 q.shortfall(),
                 q.suggestedPayment(),
                 q.status());
+    }
+
+    /** Snapshots taken before Predict was its own line are recomputed so the tax math includes it. */
+    private boolean snapshotIncludesPredict(String json) {
+        try {
+            return jsonMapper.readTree(json).has("predictRealizedYtd");
+        } catch (JacksonException ex) {
+            return false;
+        }
     }
 
     private FinanceTaxDeskWorkbookDto readWorkbook(String json) {

@@ -20,10 +20,19 @@ class FinanceTaxDeskWorkbookDtoTest {
         node.remove("realizedYtdSource");
         node.remove("fifoTapeRealizedYtd");
         node.remove("robinhoodRealizedAccounts");
+        node.remove("predictRealizedYtd");
+        node.remove("predictCloseCount");
+        ObjectNode today = (ObjectNode) node.get("today");
+        today.remove("predictRealizedToday");
+        today.remove("predictClosesToday");
         FinanceTaxDeskWorkbookDto read = mapper.readValue(node.toString(), FinanceTaxDeskWorkbookDto.class);
         assertEquals("FIFO_TAPE", read.realizedYtdSource());
         assertEquals(0, original.realizedYtd().compareTo(read.fifoTapeRealizedYtd()));
         assertTrue(read.robinhoodRealizedAccounts().isEmpty());
+        assertEquals(0, BigDecimal.ZERO.compareTo(read.predictRealizedYtd()));
+        assertEquals(0, read.predictCloseCount());
+        assertEquals(0, BigDecimal.ZERO.compareTo(read.today().predictRealizedToday()));
+        assertEquals(0, read.today().predictClosesToday());
     }
 
     private static FinanceTaxDeskWorkbookDto sample(String source) {
@@ -66,7 +75,7 @@ class FinanceTaxDeskWorkbookDtoTest {
                 List.of(),
                 List.of(),
                 List.of(),
-                new FinanceTaxDeskTodayDto(LocalDate.of(2026, 9, 16), 0, 0, z, z, z, List.of()),
+                new FinanceTaxDeskTodayDto(LocalDate.of(2026, 9, 16), 0, 0, z, z, z, List.of(), z, 0),
                 List.of(),
                 List.of(),
                 List.of(),
@@ -75,6 +84,8 @@ class FinanceTaxDeskWorkbookDtoTest {
                 source,
                 new BigDecimal("-21874.75"),
                 List.of(new FinanceTaxDeskRhAccountRealizedDto(
-                        "3370", "Individual", new BigDecimal("258511.27"), 12)));
+                        "3370", "Individual", new BigDecimal("258511.27"), 12)),
+                new BigDecimal("-7584.23"),
+                292);
     }
 }

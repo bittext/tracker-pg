@@ -51,7 +51,10 @@ public record FinanceTaxDeskWorkbookDto(
         String cpaNarrative,
         String realizedYtdSource,
         BigDecimal fifoTapeRealizedYtd,
-        List<FinanceTaxDeskRhAccountRealizedDto> robinhoodRealizedAccounts) {
+        List<FinanceTaxDeskRhAccountRealizedDto> robinhoodRealizedAccounts,
+        /** Settled Robinhood Predict closes for the tax year through this day. Not inside the broker YTD line. */
+        BigDecimal predictRealizedYtd,
+        Integer predictCloseCount) {
 
     public FinanceTaxDeskWorkbookDto {
         if (realizedYtdSource == null || realizedYtdSource.isBlank()) {
@@ -62,6 +65,12 @@ public record FinanceTaxDeskWorkbookDto(
         }
         if (robinhoodRealizedAccounts == null) {
             robinhoodRealizedAccounts = List.of();
+        }
+        if (predictRealizedYtd == null) {
+            predictRealizedYtd = BigDecimal.ZERO;
+        }
+        if (predictCloseCount == null) {
+            predictCloseCount = 0;
         }
     }
 }
