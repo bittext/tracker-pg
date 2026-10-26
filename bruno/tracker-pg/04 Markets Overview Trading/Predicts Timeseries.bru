@@ -5,11 +5,13 @@ meta {
 }
 
 get {
-  url: {{baseUrl}}/api/finance/predicts/{{symbol}}/timeseries?window=30
+  url: {{baseUrl}}/api/finance/predicts/{{symbol}}/timeseries?window=1h&source=all&days=7
   body: none
   auth: inherit
 }
 
 params:query {
-  window: 30
+  window: 1h
+  source: all
+  days: 7
 }

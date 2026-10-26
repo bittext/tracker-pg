@@ -1,0 +1,11 @@
+meta {
+  name: Cash IO Daily
+  type: http
+  seq: 27
+}
+
+get {
+  url: {{baseUrl}}/api/finance/robinhood/cash-io/daily?year={{year}}&accountSuffix={{accountSuffix}}
+  body: none
+  auth: inherit
+}

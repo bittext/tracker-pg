@@ -1,0 +1,20 @@
+meta {
+  name: Plaid Sync
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{baseUrl}}/api/finance/banking/plaid/sync
+  body: json
+  auth: inherit
+}
+
+body:json {
+{
+  "institutionId": {{institutionId}},
+  "startDate": "{{fromDate}}",
+  "endDate": "{{toDate}}"
+}
+
+}

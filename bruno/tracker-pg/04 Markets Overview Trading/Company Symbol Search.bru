@@ -1,0 +1,11 @@
+meta {
+  name: Company Symbol Search
+  type: http
+  seq: 34
+}
+
+get {
+  url: {{baseUrl}}/api/markets/company-financials/symbol-search?keywords={{symbol}}
+  body: none
+  auth: inherit
+}

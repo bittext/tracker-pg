@@ -41,8 +41,8 @@ Collection auth = Bearer `{{token}}`. Public login/MFA requests use `auth: none`
 | 01 Auth | Login, MFA, step-up, logout |
 | 02 Meta | `/api/version` |
 | 03 Me Member | Profile / onboarding |
-| 04 Markets Overview Trading | Screeners, Finviz, research, predicts |
-| 05 Robinhood Daily Tracker | Daily Tracker, crypto, agentic, performance |
+| 04 Markets Overview Trading | Screeners, Finviz, research, community Predicts, Robinhood Predict 15-minute desks |
+| 05 Robinhood Daily Tracker | Daily Tracker, margin, cash I/O, selective trades, crypto, agentic |
 | 06 Trading Journal | Journal tab |
 | 07 Tracker Notes | Tracker notes |
 | 08 Life Notes | Life notes |
@@ -50,5 +50,5 @@ Collection auth = Bearer `{{token}}`. Public login/MFA requests use `auth: none`
 | 10 Management | Tasks, notes, writeups, docs… |
 | 11 Report Calendar | Report calendar |
 | 12 Fitness | Exercise |
-| 13 Finance Banking Credit | Banking / credit / loans… |
+| 13 Finance Banking Credit | Banking, Plaid, credit, loans, 1040 returns, tax desk |
 | 14 Admin | Admin console |

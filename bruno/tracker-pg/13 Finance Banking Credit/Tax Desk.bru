@@ -1,0 +1,11 @@
+meta {
+  name: Tax Desk
+  type: http
+  seq: 15
+}
+
+get {
+  url: {{baseUrl}}/api/finance/tax/desk?year={{year}}
+  body: none
+  auth: inherit
+}

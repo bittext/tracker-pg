@@ -1,0 +1,11 @@
+meta {
+  name: Predicts Mentions
+  type: http
+  seq: 38
+}
+
+get {
+  url: {{baseUrl}}/api/markets/predicts/{{symbol}}/mentions?limit=25
+  body: none
+  auth: inherit
+}

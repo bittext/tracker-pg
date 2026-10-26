@@ -1,0 +1,11 @@
+meta {
+  name: Predict BTC 15
+  type: http
+  seq: 25
+}
+
+get {
+  url: {{baseUrl}}/api/markets/predict/btc-15?date={{snapshotDate}}
+  body: none
+  auth: inherit
+}

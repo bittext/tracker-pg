@@ -1,0 +1,11 @@
+meta {
+  name: Predict Daily
+  type: http
+  seq: 24
+}
+
+get {
+  url: {{baseUrl}}/api/markets/predict/daily
+  body: none
+  auth: inherit
+}

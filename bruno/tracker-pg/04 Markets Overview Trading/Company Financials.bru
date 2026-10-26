@@ -1,0 +1,11 @@
+meta {
+  name: Company Financials
+  type: http
+  seq: 33
+}
+
+get {
+  url: {{baseUrl}}/api/markets/company-financials/quarters?symbol={{symbol}}
+  body: none
+  auth: inherit
+}

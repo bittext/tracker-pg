@@ -1,0 +1,11 @@
+meta {
+  name: Tax Desk Snapshot
+  type: http
+  seq: 16
+}
+
+post {
+  url: {{baseUrl}}/api/finance/tax/desk/snapshot?year={{year}}
+  body: none
+  auth: inherit
+}

@@ -1,0 +1,11 @@
+meta {
+  name: Plaid Daily Balance
+  type: http
+  seq: 13
+}
+
+put {
+  url: {{baseUrl}}/api/finance/banking/plaid/daily-balance?institutionId={{institutionId}}&enabled=true
+  body: none
+  auth: inherit
+}

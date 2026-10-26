@@ -1,0 +1,11 @@
+meta {
+  name: Predict ETH 15
+  type: http
+  seq: 26
+}
+
+get {
+  url: {{baseUrl}}/api/markets/predict/eth-15?date={{snapshotDate}}
+  body: none
+  auth: inherit
+}

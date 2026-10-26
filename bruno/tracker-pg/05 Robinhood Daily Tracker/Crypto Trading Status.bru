@@ -1,0 +1,11 @@
+meta {
+  name: Crypto Trading Status
+  type: http
+  seq: 30
+}
+
+get {
+  url: {{baseUrl}}/api/markets/crypto-trading/status
+  body: none
+  auth: inherit
+}

@@ -1,0 +1,11 @@
+meta {
+  name: Period Balances
+  type: http
+  seq: 20
+}
+
+get {
+  url: {{baseUrl}}/api/finance/robinhood/daily-tracker/period-balances?year={{year}}
+  body: none
+  auth: inherit
+}

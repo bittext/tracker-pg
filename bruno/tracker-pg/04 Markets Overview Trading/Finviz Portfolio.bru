@@ -1,0 +1,11 @@
+meta {
+  name: Finviz Portfolio
+  type: http
+  seq: 42
+}
+
+get {
+  url: {{baseUrl}}/api/markets/finviz/portfolio?limit=25&force=false
+  body: none
+  auth: inherit
+}

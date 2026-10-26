@@ -1,0 +1,11 @@
+meta {
+  name: Predict SOL 15
+  type: http
+  seq: 28
+}
+
+get {
+  url: {{baseUrl}}/api/markets/predict/sol-15?date={{snapshotDate}}
+  body: none
+  auth: inherit
+}

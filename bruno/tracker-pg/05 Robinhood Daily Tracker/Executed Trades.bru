@@ -1,0 +1,11 @@
+meta {
+  name: Executed Trades
+  type: http
+  seq: 21
+}
+
+get {
+  url: {{baseUrl}}/api/finance/robinhood/executed-trades?year={{year}}
+  body: none
+  auth: inherit
+}

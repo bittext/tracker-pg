@@ -1,0 +1,11 @@
+meta {
+  name: Predicts Leaderboard
+  type: http
+  seq: 36
+}
+
+get {
+  url: {{baseUrl}}/api/markets/predicts/leaderboard?type=hot&limit=25
+  body: none
+  auth: inherit
+}

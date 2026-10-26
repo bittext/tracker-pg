@@ -1,0 +1,11 @@
+meta {
+  name: YTD Check
+  type: http
+  seq: 23
+}
+
+get {
+  url: {{baseUrl}}/api/finance/robinhood/ytd-check?year={{year}}
+  body: none
+  auth: inherit
+}

@@ -1,0 +1,11 @@
+meta {
+  name: Finviz Options
+  type: http
+  seq: 41
+}
+
+get {
+  url: {{baseUrl}}/api/markets/finviz/options?t={{symbol}}&limit=25&force=false
+  body: none
+  auth: inherit
+}

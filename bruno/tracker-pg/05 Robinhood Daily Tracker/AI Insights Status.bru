@@ -1,0 +1,11 @@
+meta {
+  name: AI Insights Status
+  type: http
+  seq: 24
+}
+
+get {
+  url: {{baseUrl}}/api/finance/robinhood/daily-tracker/ai-insights/status
+  body: none
+  auth: inherit
+}

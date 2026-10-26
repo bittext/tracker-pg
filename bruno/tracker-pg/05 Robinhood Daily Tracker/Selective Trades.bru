@@ -1,0 +1,11 @@
+meta {
+  name: Selective Trades
+  type: http
+  seq: 28
+}
+
+get {
+  url: {{baseUrl}}/api/markets/selective-trades?year={{year}}&month={{month}}
+  body: none
+  auth: inherit
+}

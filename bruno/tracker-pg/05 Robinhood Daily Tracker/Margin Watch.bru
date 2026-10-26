@@ -1,0 +1,11 @@
+meta {
+  name: Margin Watch
+  type: http
+  seq: 22
+}
+
+get {
+  url: {{baseUrl}}/api/finance/robinhood/margin-watch?year={{year}}&sync=false
+  body: none
+  auth: inherit
+}

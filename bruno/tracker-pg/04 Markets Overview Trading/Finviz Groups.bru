@@ -1,0 +1,11 @@
+meta {
+  name: Finviz Groups
+  type: http
+  seq: 39
+}
+
+get {
+  url: {{baseUrl}}/api/markets/finviz/groups?groupBy=sector&limit=25&force=false
+  body: none
+  auth: inherit
+}

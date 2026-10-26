@@ -1,0 +1,11 @@
+meta {
+  name: Predict DOGE 15
+  type: http
+  seq: 27
+}
+
+get {
+  url: {{baseUrl}}/api/markets/predict/doge-15?date={{snapshotDate}}
+  body: none
+  auth: inherit
+}

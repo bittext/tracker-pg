@@ -1,0 +1,11 @@
+meta {
+  name: Predict Streaks
+  type: http
+  seq: 29
+}
+
+get {
+  url: {{baseUrl}}/api/markets/predict/streaks?series=KXBTC15M&from={{fromDate}}&to={{toDate}}
+  body: none
+  auth: inherit
+}

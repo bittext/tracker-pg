@@ -1,0 +1,11 @@
+meta {
+  name: Cash IO
+  type: http
+  seq: 25
+}
+
+get {
+  url: {{baseUrl}}/api/finance/robinhood/cash-io?year={{year}}&month={{month}}&accountSuffix={{accountSuffix}}
+  body: none
+  auth: inherit
+}

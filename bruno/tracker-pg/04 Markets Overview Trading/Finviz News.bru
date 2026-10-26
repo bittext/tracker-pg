@@ -1,0 +1,11 @@
+meta {
+  name: Finviz News
+  type: http
+  seq: 40
+}
+
+get {
+  url: {{baseUrl}}/api/markets/finviz/news?limit=25&force=false
+  body: none
+  auth: inherit
+}
