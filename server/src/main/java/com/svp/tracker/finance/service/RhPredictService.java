@@ -3,6 +3,7 @@ package com.svp.tracker.finance.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.svp.tracker.auth.security.CurrentUserService;
 import com.svp.tracker.config.RobinhoodAgenticProperties;
+import com.svp.tracker.finance.domain.RhIndividualMarginPeek;
 import com.svp.tracker.finance.domain.RhPredictClose;
 import com.svp.tracker.finance.domain.RhPredictDaily;
 import com.svp.tracker.finance.domain.RhPredictSnapshot;
@@ -11,6 +12,7 @@ import com.svp.tracker.finance.dto.RhPredictCloseDto;
 import com.svp.tracker.finance.dto.RhPredictCloseLabelRequest;
 import com.svp.tracker.finance.dto.RhPredictDailyDto;
 import com.svp.tracker.finance.dto.RhPredictDeskDto;
+import com.svp.tracker.finance.repository.RhIndividualMarginPeekRepository;
 import com.svp.tracker.finance.repository.RhPredictCloseRepository;
 import com.svp.tracker.finance.repository.RhPredictDailyRepository;
 import com.svp.tracker.finance.repository.RhPredictSnapshotRepository;
@@ -51,6 +53,7 @@ public class RhPredictService {
     private final RhPredictSnapshotRepository snapshotRepository;
     private final RhPredictCloseRepository closeRepository;
     private final RhPredictDailyRepository dailyRepository;
+    private final RhIndividualMarginPeekRepository marginPeekRepository;
 
     public RhPredictDeskDto loadForCurrentUser() {
         long uid = currentUser.requireUserId();
@@ -439,9 +442,26 @@ public class RhPredictService {
         List<RhPredictCloseDto> closes = closeRepository.findByOwnerUserIdOrderByClosedAtDescIdDesc(owner).stream()
                 .map(this::toCloseDto)
                 .toList();
+        RhIndividualMarginPeek peek = marginPeekRepository
+                .findTopByOwnerUserIdAndAccountSuffixOrderByCapturedAtDesc(
+                        owner, RobinhoodIndividualMarginMath.ACCOUNT_SUFFIX)
+                .orElse(null);
+        BigDecimal buyingPower = peek == null || peek.getBuyingPower() == null
+                ? null
+                : peek.getBuyingPower().setScale(2, RoundingMode.HALF_UP);
+        Instant buyingPowerAsOf = peek == null ? null : peek.getCapturedAt();
         if (snap == null) {
             return new RhPredictDeskDto(
-                    null, null, null, BigDecimal.ZERO, BigDecimal.ZERO, closes.size(), List.of(), closes);
+                    null,
+                    null,
+                    null,
+                    BigDecimal.ZERO,
+                    BigDecimal.ZERO,
+                    closes.size(),
+                    List.of(),
+                    closes,
+                    buyingPower,
+                    buyingPowerAsOf);
         }
         List<String> warnings = new ArrayList<>();
         if (snap.getWarnings() != null && !snap.getWarnings().isBlank()) {
@@ -455,7 +475,9 @@ public class RhPredictService {
                 nz(snap.getRealizedWeek()),
                 snap.getCloseCount(),
                 warnings,
-                closes);
+                closes,
+                buyingPower,
+                buyingPowerAsOf);
     }
 
     private RhPredictCloseDto toCloseDto(RhPredictClose row) {

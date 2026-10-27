@@ -138,6 +138,9 @@ export interface RhPredictDeskDto {
   closeCount: number;
   warnings: string[];
   closes: RhPredictCloseDto[];
+  /** Latest individual ••••3370 buying power. Predict settles on this account. */
+  buyingPower: number | null;
+  buyingPowerAsOf: string | null;
 }
 
 /** One Central calendar day's frozen (or live today) Predict performance. */

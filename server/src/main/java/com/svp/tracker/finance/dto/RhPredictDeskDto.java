@@ -12,4 +12,7 @@ public record RhPredictDeskDto(
         BigDecimal realizedWeek,
         int closeCount,
         List<String> warnings,
-        List<RhPredictCloseDto> closes) {}
+        List<RhPredictCloseDto> closes,
+        /** Latest individual ••••3370 buying power. Predict event contracts settle on this account. */
+        BigDecimal buyingPower,
+        Instant buyingPowerAsOf) {}

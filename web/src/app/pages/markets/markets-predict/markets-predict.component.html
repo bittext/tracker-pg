@@ -225,7 +225,7 @@
         </div>
       </section>
 
-      <aside class="pred__side" aria-label="Open book and recent return">
+      <aside class="pred__side" aria-label="Open book and buying power">
         <article class="pred__tile">
           <h2>Contract value</h2>
           <p [class]="moneyClass(unrealizedPnl ?? 0)">{{ desk.openValue == null ? '—' : (desk.openValue | currency: 'USD' : 'symbol' : '1.2-2') }}</p>
@@ -243,9 +243,17 @@
           }
         </article>
         <article class="pred__tile">
-          <h2>Return, 7 days</h2>
-          <p [class]="moneyClass(displayWeekReturn)">{{ displayWeekReturn | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
-          <span>Realized this week, whole book</span>
+          <h2>Buying power</h2>
+          <p>{{ desk?.buyingPower == null ? '—' : (desk?.buyingPower | currency: 'USD' : 'symbol' : '1.2-2') }}</p>
+          <span>
+            Predict account ••••3370
+            @if (desk?.buyingPowerAsOf) {
+              · as of {{ desk?.buyingPowerAsOf | date: 'MMM d, h:mm a' : 'America/Chicago' }} CT
+            }
+          </span>
+          <span class="pred__tile-quiet" [class]="moneyClass(displayWeekReturn)">
+            7-day return {{ displayWeekReturn | currency: 'USD' : 'symbol' : '1.2-2' }}
+          </span>
         </article>
       </aside>
     </div>

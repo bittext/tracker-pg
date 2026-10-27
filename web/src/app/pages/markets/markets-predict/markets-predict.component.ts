@@ -529,6 +529,7 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     return this.scopedTotals;
   }
 
+  /** Rolling 168-hour settled return. Shown as a secondary line under buying power. */
   get displayWeekReturn(): number {
     return this.desk?.realizedWeek ?? 0;
   }
@@ -985,6 +986,8 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
     current.openCost = desk.openCost;
     this.noteContractValueAsOf(desk);
     current.realizedWeek = desk.realizedWeek;
+    current.buyingPower = desk.buyingPower;
+    current.buyingPowerAsOf = desk.buyingPowerAsOf;
     current.realizedAll = desk.realizedAll;
     current.closeCount = desk.closeCount;
     // Leave lastSyncedAt alone so the header does not tick every auto-pull.
