@@ -28,7 +28,7 @@ export class MarketsPredictBtcComponent implements OnInit, OnDestroy {
   private readonly api = inject(RhPredictApiService);
   private readonly snack = inject(MatSnackBar);
   private readonly route = inject(ActivatedRoute);
-  private readonly pollEveryMs = 5_000;
+  private readonly pollEveryMs = 2_000;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private clockTimer: ReturnType<typeof setInterval> | null = null;
   private pollInFlight = false;

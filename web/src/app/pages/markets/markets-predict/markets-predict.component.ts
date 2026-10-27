@@ -81,7 +81,7 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   private readonly api = inject(RhPredictApiService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly refreshEveryMs = 5_000;
-  private readonly liveEveryMs = 5_000;
+  private readonly liveEveryMs = 2_000;
   private refreshTimer: ReturnType<typeof setInterval> | null = null;
   private liveTimer: ReturnType<typeof setInterval> | null = null;
   private clockTimer: ReturnType<typeof setInterval> | null = null;
