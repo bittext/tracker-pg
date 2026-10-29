@@ -105,15 +105,15 @@ export function buildMonthWeightLbByDay(
     if (lb == null) {
       continue;
     }
-    // Keep the first log for a day if duplicates (API is newest-first; later overwrite = older).
+    // Keep the first hand-entered log for a day (API is newest-first).
     if (!map.has(on)) {
       map.set(on, lb);
     }
   }
 
-  if (map.size === 0 && calendarKgByDay) {
+  if (calendarKgByDay) {
     for (const [iso, kg] of Object.entries(calendarKgByDay)) {
-      if (!iso.startsWith(prefix)) {
+      if (!iso.startsWith(prefix) || map.has(iso)) {
         continue;
       }
       const n = Number(kg);

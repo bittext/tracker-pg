@@ -1,6 +1,8 @@
 package com.svp.tracker.fitness.service;
 
 import com.svp.tracker.auth.security.CurrentUserService;
+import com.svp.tracker.fitness.domain.AppleHealthWeight;
+import com.svp.tracker.fitness.domain.AppleHealthWorkout;
 import com.svp.tracker.fitness.domain.BodyWeightLog;
 import com.svp.tracker.fitness.domain.Exercise;
 import com.svp.tracker.fitness.domain.ExerciseDayLog;
@@ -11,6 +13,8 @@ import com.svp.tracker.fitness.dto.ExerciseMonthBreakdownDto;
 import com.svp.tracker.fitness.dto.MonthActivityCalendarDto;
 import com.svp.tracker.fitness.dto.MonthlyExerciseReportDto;
 import com.svp.tracker.fitness.exception.NotFoundException;
+import com.svp.tracker.fitness.repository.AppleHealthWeightRepository;
+import com.svp.tracker.fitness.repository.AppleHealthWorkoutRepository;
 import com.svp.tracker.fitness.repository.BodyWeightLogRepository;
 import com.svp.tracker.fitness.repository.ExerciseDayLogRepository;
 import com.svp.tracker.fitness.repository.ExerciseRepository;
@@ -39,6 +43,8 @@ public class FitnessService {
     private final ExerciseRepository exerciseRepository;
     private final ExerciseDayLogRepository exerciseDayLogRepository;
     private final BodyWeightLogRepository bodyWeightLogRepository;
+    private final AppleHealthWorkoutRepository appleWorkoutRepository;
+    private final AppleHealthWeightRepository appleWeightRepository;
     private final CurrentUserService currentUser;
 
     public List<Exercise> listExercises() {
@@ -197,6 +203,9 @@ public class FitnessService {
         bodyWeightLogRepository
                 .findFirstByOwnerUserIdAndLoggedOn(currentUser.requireUserId(), date)
                 .ifPresent(b -> dto.setBodyWeightKg(b.getWeightKg()));
+        if (dto.getBodyWeightKg() == null) {
+            appleWeightKg(currentUser.requireUserId(), date).ifPresent(dto::setBodyWeightKg);
+        }
         List<ExerciseDayBreakdownDto> rows = byExercise.values().stream()
                 .sorted(Comparator.comparing(a -> a.name))
                 .map(a -> new ExerciseDayBreakdownDto(a.exerciseId, a.name, a.logCount))
@@ -212,6 +221,14 @@ public class FitnessService {
             lines.add(new DailyExerciseLogLineDto(
                     l.getId(), ex.getId(), ex.getName(), l.getNotes(), l.getDurationMinutes()));
         }
+        List<AppleHealthWorkout> appleWorkouts =
+                appleWorkoutRepository.findByOwnerUserIdAndDayBetweenOrderByStartedAtDesc(
+                        currentUser.requireUserId(), date, date);
+        for (AppleHealthWorkout workout : appleWorkouts) {
+            lines.add(new DailyExerciseLogLineDto(
+                    null, null, workout.getActivity(), appleWorkoutNote(workout), workout.getDurationMinutes()));
+        }
+        dto.setTotalLogs(logs.size() + appleWorkouts.size());
         dto.setLogLines(lines);
         return dto;
     }
@@ -230,10 +247,13 @@ public class FitnessService {
         dto.setTotalLogs(logs.size());
         int distinctExerciseLogDays =
                 (int) logs.stream().map(ExerciseDayLog::getPerformedOn).distinct().count();
-        dto.setWorkoutDays(distinctExerciseLogDays);
         dto.setExerciseLogActiveDays(distinctExerciseLogDays);
         Map<Long, MonthAgg> byExercise = new HashMap<>();
+        Set<LocalDate> workoutDays = new HashSet<>();
         for (ExerciseDayLog l : logs) {
+            if (l.getPerformedOn() != null) {
+                workoutDays.add(l.getPerformedOn());
+            }
             Exercise ex = l.getExercise();
             if (ex == null || ex.getId() == null) {
                 continue;
@@ -242,12 +262,34 @@ public class FitnessService {
             agg.logCount++;
             agg.days.add(l.getPerformedOn());
         }
-        List<ExerciseMonthBreakdownDto> rows = byExercise.values().stream()
+        Map<String, MonthAgg> appleByActivity = new HashMap<>();
+        for (AppleHealthWorkout workout : appleWorkoutRepository.findByOwnerUserIdAndDayBetweenOrderByStartedAtDesc(
+                currentUser.requireUserId(), from, to)) {
+            if (workout.getDay() != null) {
+                workoutDays.add(workout.getDay());
+            }
+            String name = workout.getActivity() == null || workout.getActivity().isBlank()
+                    ? "Apple Health"
+                    : workout.getActivity();
+            MonthAgg agg = appleByActivity.computeIfAbsent(name, n -> new MonthAgg(null, n));
+            agg.logCount++;
+            if (workout.getDay() != null) {
+                agg.days.add(workout.getDay());
+            }
+        }
+        dto.setWorkoutDays(workoutDays.size());
+        int appleLogs = appleByActivity.values().stream().mapToInt(a -> a.logCount).sum();
+        dto.setTotalLogs(logs.size() + appleLogs);
+        List<ExerciseMonthBreakdownDto> rows = new ArrayList<>();
+        byExercise.values().stream()
                 .sorted(Comparator.comparing(a -> a.name))
-                .map(a -> new ExerciseMonthBreakdownDto(
-                        a.exerciseId, a.name, a.logCount, a.days.size()))
-                .toList();
-        dto.setExercises(new ArrayList<>(rows));
+                .map(a -> new ExerciseMonthBreakdownDto(a.exerciseId, a.name, a.logCount, a.days.size()))
+                .forEach(rows::add);
+        appleByActivity.values().stream()
+                .sorted(Comparator.comparing(a -> a.name))
+                .map(a -> new ExerciseMonthBreakdownDto(null, a.name + " · Apple Health", a.logCount, a.days.size()))
+                .forEach(rows::add);
+        dto.setExercises(rows);
         return dto;
     }
 
@@ -290,8 +332,60 @@ public class FitnessService {
             }
             weightByDay.put(row.getLoggedOn().toString(), row.getWeightKg());
         }
+        long owner = currentUser.requireUserId();
+        Set<String> active = new HashSet<>(dto.getActiveDays());
+        for (AppleHealthWorkout workout : appleWorkoutRepository.findByOwnerUserIdAndDayBetweenOrderByStartedAtDesc(
+                owner, from, to)) {
+            if (workout.getDay() == null) {
+                continue;
+            }
+            String key = workout.getDay().toString();
+            active.add(key);
+            int mins = Math.max(0, workout.getDurationMinutes());
+            exerciseDurationByDay.put(key, exerciseDurationByDay.getOrDefault(key, 0) + mins);
+        }
+        Set<String> weightDays = new HashSet<>(dto.getDaysWithWeightLogged());
+        for (AppleHealthWeight sample : appleWeightRepository.findByOwnerUserIdAndLoggedOnBetweenOrderByMeasuredAtDesc(
+                owner, from, to)) {
+            if (sample.getLoggedOn() == null || sample.getWeightLb() == null) {
+                continue;
+            }
+            String key = sample.getLoggedOn().toString();
+            weightDays.add(key);
+            weightByDay.putIfAbsent(key, sample.getWeightLb().divide(LB_PER_KG, 3, RoundingMode.HALF_UP));
+        }
+        List<String> activeDays = active.stream().sorted().toList();
+        dto.setActiveDays(activeDays);
+        dto.setDaysWithStrengthTraining(activeDays);
+        dto.setDaysWithWeightLogged(weightDays.stream().sorted().toList());
+        dto.setExerciseDurationMinutesByDay(exerciseDurationByDay);
         dto.setBodyWeightKgByDay(weightByDay);
         return dto;
+    }
+
+    /** Latest Apple Health weigh-in that day, in kilograms. Manual logs stay preferred. */
+    private java.util.Optional<BigDecimal> appleWeightKg(long owner, LocalDate date) {
+        return appleWeightRepository
+                .findByOwnerUserIdAndLoggedOnBetweenOrderByMeasuredAtDesc(owner, date, date)
+                .stream()
+                .map(AppleHealthWeight::getWeightLb)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .map(lb -> lb.divide(LB_PER_KG, 3, RoundingMode.HALF_UP));
+    }
+
+    private static String appleWorkoutNote(AppleHealthWorkout workout) {
+        StringBuilder note = new StringBuilder("Apple Health");
+        if (workout.getSourceName() != null && !workout.getSourceName().isBlank()) {
+            note.append(" · ").append(workout.getSourceName());
+        }
+        if (workout.getDistanceMiles() != null) {
+            note.append(" · ").append(workout.getDistanceMiles().stripTrailingZeros().toPlainString()).append(" mi");
+        }
+        if (workout.getEnergyKcal() != null) {
+            note.append(" · ").append(workout.getEnergyKcal().stripTrailingZeros().toPlainString()).append(" kcal");
+        }
+        return note.toString();
     }
 
     private void assertRowAccess(Long ownerUserId) {
