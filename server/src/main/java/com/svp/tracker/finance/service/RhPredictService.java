@@ -25,6 +25,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -377,6 +378,11 @@ public class RhPredictService {
             }
         }
         List<RhPredictClose> stored = closeRepository.findByOwnerUserIdOrderByClosedAtDescIdDesc(owner);
+        List<RhPredictClose> repeated = cumulativeSnapshots(stored);
+        if (!repeated.isEmpty()) {
+            closeRepository.deleteAll(repeated);
+            stored.removeAll(repeated);
+        }
         BigDecimal realizedAll = BigDecimal.ZERO;
         BigDecimal realizedWeek = BigDecimal.ZERO;
         Instant weekStart = now.minus(7, ChronoUnit.DAYS);
@@ -433,8 +439,62 @@ public class RhPredictService {
         row.setQuantity(quantity);
         row.setPrice(price);
         row.setRealized(realized);
+        String history = text(close, "label");
+        if (history != null && !history.isBlank() && (row.getLabel() == null || row.getLabel().isBlank())) {
+            row.setLabel(truncate(history, 240));
+        }
         row.setUpdatedAt(now);
         closeRepository.save(row);
+    }
+
+    /**
+     * Robinhood's history feed can repeat one sale as the filled size grows.
+     * A later row replaces an earlier one at the same price, with a larger quantity
+     * and about the same gain per contract, inside two minutes.
+     */
+    static List<RhPredictClose> cumulativeSnapshots(List<RhPredictClose> stored) {
+        List<RhPredictClose> ordered = stored.stream()
+                .filter(row -> row.getClosedAt() != null && row.getQuantity() != null && row.getPrice() != null)
+                .sorted(Comparator.comparing(RhPredictClose::getClosedAt).thenComparing(RhPredictClose::getId, Comparator.nullsLast(Long::compareTo)))
+                .toList();
+        List<RhPredictClose> drop = new ArrayList<>();
+        for (int i = 0; i < ordered.size(); i++) {
+            RhPredictClose earlier = ordered.get(i);
+            Instant limit = earlier.getClosedAt().plus(2, ChronoUnit.MINUTES);
+            for (int j = i + 1; j < ordered.size(); j++) {
+                RhPredictClose later = ordered.get(j);
+                if (later.getClosedAt().isAfter(limit)) {
+                    break;
+                }
+                if (supersedes(later, earlier)) {
+                    drop.add(earlier);
+                    break;
+                }
+            }
+        }
+        return drop;
+    }
+
+    private static boolean supersedes(RhPredictClose later, RhPredictClose earlier) {
+        if (later.getQuantity().compareTo(earlier.getQuantity()) <= 0) {
+            return false;
+        }
+        if (earlier.getQuantity().signum() == 0 || later.getQuantity().signum() == 0) {
+            return false;
+        }
+        if (later.getPrice().subtract(earlier.getPrice()).abs().compareTo(new BigDecimal("0.0001")) > 0) {
+            return false;
+        }
+        if (earlier.getRealized() != null
+                && later.getRealized() != null
+                && earlier.getRealized().signum() != 0
+                && later.getRealized().signum() != 0
+                && earlier.getRealized().signum() != later.getRealized().signum()) {
+            return false;
+        }
+        BigDecimal unitEarlier = nz(earlier.getRealized()).divide(earlier.getQuantity(), 6, RoundingMode.HALF_UP);
+        BigDecimal unitLater = nz(later.getRealized()).divide(later.getQuantity(), 6, RoundingMode.HALF_UP);
+        return unitLater.subtract(unitEarlier).abs().compareTo(new BigDecimal("0.02")) <= 0;
     }
 
     private RhPredictDeskDto loadOwner(long owner) {

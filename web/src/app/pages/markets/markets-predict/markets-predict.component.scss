@@ -495,6 +495,14 @@
   font-variant-numeric: tabular-nums;
 }
 
+.pred__close-label {
+  display: block;
+  margin-top: 0.15rem;
+  color: var(--app-ink-muted, rgba(0, 0, 0, 0.62));
+  font-size: 0.78rem;
+  font-variant-numeric: normal;
+}
+
 .pred__table .mat-column-quantity,
 .pred__table .mat-column-price,
 .pred__table .mat-column-invested,

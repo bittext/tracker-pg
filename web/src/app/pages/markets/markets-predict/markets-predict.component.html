@@ -209,7 +209,9 @@
             · {{ upCount }} up · {{ downCount }} down
           }
         </p>
-        <p class="pred__caption">Settled closes only. Open contracts stay in the open mark until Robinhood posts them.</p>
+        <p class="pred__caption">
+          Settled closes only, one row per Robinhood sale. A sale the feed repeats as the size grows is kept as the final fill.
+        </p>
 
         <div class="pred__flow">
           <div class="pred__flow-col">
@@ -411,7 +413,12 @@
       <table mat-table [dataSource]="scopedCloses" class="pred__table">
         <ng-container matColumnDef="closedAt">
           <th mat-header-cell *matHeaderCellDef>Closed</th>
-          <td mat-cell *matCellDef="let row">{{ row.closedAt | date: 'MMM d, y, h:mm a' }}</td>
+          <td mat-cell *matCellDef="let row">
+            {{ row.closedAt | date: 'MMM d, y, h:mm a' }}
+            @if (row.label) {
+              <span class="pred__close-label">{{ row.label }}</span>
+            }
+          </td>
         </ng-container>
         <ng-container matColumnDef="quantity">
           <th mat-header-cell *matHeaderCellDef>Contracts</th>

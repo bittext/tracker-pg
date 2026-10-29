@@ -7,6 +7,7 @@ and get_portfolio; event contracts currently arrive with a blank symbol/side.
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -58,15 +59,90 @@ def parse_event_closes(payload: Any) -> tuple[list[dict[str, Any]], str]:
         qty = _decimal(row.get("quantity"))
         price = _decimal(row.get("price"))
         realized = _decimal(row.get("realized_gain"))
-        out.append(
-            {
-                "timestamp": str(row.get("timestamp") or ""),
-                "quantity": str(qty) if qty is not None else "0",
-                "price": str(price) if price is not None else "0",
-                "realized": str(realized) if realized is not None else "0",
-            }
-        )
+        parsed = {
+            "timestamp": str(row.get("timestamp") or ""),
+            "quantity": str(qty) if qty is not None else "0",
+            "price": str(price) if price is not None else "0",
+            "realized": str(realized) if realized is not None else "0",
+        }
+        label = history_label(row)
+        if label:
+            parsed["label"] = label
+        out.append(parsed)
     return out, str(data.get("next_cursor") or "")
+
+
+def history_label(row: dict[str, Any]) -> str:
+    """Market name and side when the history row names them."""
+    name = ""
+    for key in ("description", "name", "title", "instrument", "symbol"):
+        value = str(row.get(key) or "").strip()
+        if value:
+            name = value
+            break
+    side = str(row.get("side") or "").strip()
+    parts = [part for part in (name, side) if part]
+    return " · ".join(parts)[:240]
+
+
+def collapse_cumulative_closes(closes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Keep one Robinhood sale when the feed repeats it as the filled size grows.
+
+    A later row replaces an earlier one when it has the same price, a larger
+    quantity, about the same gain per contract, and arrives within two minutes.
+    Separate fills at different prices stay.
+    """
+    ordered = sorted(enumerate(closes), key=lambda item: (str(item[1].get("timestamp") or ""), item[0]))
+    drop: set[int] = set()
+    for pos, (idx, earlier) in enumerate(ordered):
+        for _, later in ordered[pos + 1 :]:
+            if not _within_two_minutes(earlier.get("timestamp"), later.get("timestamp")):
+                break
+            if _supersedes(later, earlier):
+                drop.add(idx)
+                break
+    return [row for i, row in enumerate(closes) if i not in drop]
+
+
+def _within_two_minutes(earlier: Any, later: Any) -> bool:
+    start = _parse_time(earlier)
+    end = _parse_time(later)
+    if start is None or end is None:
+        return False
+    return timedelta(0) <= end - start <= timedelta(minutes=2)
+
+
+def _parse_time(value: Any) -> datetime | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _supersedes(later: dict[str, Any], earlier: dict[str, Any]) -> bool:
+    later_qty = _decimal(later.get("quantity"))
+    earlier_qty = _decimal(earlier.get("quantity"))
+    later_price = _decimal(later.get("price"))
+    earlier_price = _decimal(earlier.get("price"))
+    later_realized = _decimal(later.get("realized"))
+    earlier_realized = _decimal(earlier.get("realized"))
+    if None in (later_qty, earlier_qty, later_price, earlier_price, later_realized, earlier_realized):
+        return False
+    assert later_qty is not None and earlier_qty is not None
+    assert later_price is not None and earlier_price is not None
+    assert later_realized is not None and earlier_realized is not None
+    if later_qty <= earlier_qty or earlier_qty == 0 or later_qty == 0:
+        return False
+    if abs(later_price - earlier_price) > Decimal("0.0001"):
+        return False
+    if earlier_realized != 0 and later_realized != 0 and (later_realized > 0) != (earlier_realized > 0):
+        return False
+    unit_earlier = earlier_realized / earlier_qty
+    unit_later = later_realized / later_qty
+    return abs(unit_later - unit_earlier) <= Decimal("0.02")
 
 
 def parse_open_value(payload: Any) -> Decimal | None:
@@ -143,6 +219,7 @@ def run_predict_markets(access_token: str) -> dict[str, Any]:
                 closes.extend(page)
                 if not cursor:
                     break
+            closes = collapse_cumulative_closes(closes)
 
             open_value = None
             open_cost = None
