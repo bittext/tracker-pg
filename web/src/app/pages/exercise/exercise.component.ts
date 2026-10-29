@@ -19,7 +19,9 @@ interface ExCalCell {
   type: 'pad' | 'day';
   dateIso?: string;
   label?: string;
-  exercised?: boolean;
+  kind?: 'empty' | 'strength' | 'weight' | 'both';
+  weightLb?: number | null;
+  exerciseMinutes?: number;
   trackKey: string;
 }
 
@@ -237,10 +239,34 @@ export class ExerciseComponent implements OnInit {
     return streak;
   }
 
+  formatCalendarWeightLb(lb: number | null | undefined): string {
+    if (lb == null || !Number.isFinite(lb) || lb <= 0) {
+      return '—';
+    }
+    return `${lb.toFixed(1)} lb`;
+  }
+
+  formatCalendarExerciseMinutes(total: number | null | undefined): string {
+    if (total == null || !Number.isFinite(Number(total)) || Number(total) <= 0) {
+      return '—';
+    }
+    const mins = Math.floor(Number(total));
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    if (h > 0 && m > 0) {
+      return `${h}h ${String(m).padStart(2, '0')}m`;
+    }
+    if (h > 0) {
+      return `${h}h`;
+    }
+    return `${m}m`;
+  }
+
   calendarRows(): ExCalCell[][] {
     const y = this.calendarYear;
     const m = this.calendarMonth;
     const exercised = this.activityDays();
+    const weighed = this.weightDays();
     const last = new Date(y, m, 0).getDate();
     const firstDow = new Date(y, m - 1, 1).getDay();
     const flat: ExCalCell[] = [];
@@ -251,11 +277,24 @@ export class ExerciseComponent implements OnInit {
     }
     for (let d = 1; d <= last; d++) {
       const iso = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const weightLb = this.weightLbForDay(iso);
+      const hasS = exercised.has(iso);
+      const hasW = weighed.has(iso) || weightLb != null;
+      let kind: 'empty' | 'strength' | 'weight' | 'both' = 'empty';
+      if (hasS && hasW) {
+        kind = 'both';
+      } else if (hasS) {
+        kind = 'strength';
+      } else if (hasW) {
+        kind = 'weight';
+      }
       flat.push({
         type: 'day',
         dateIso: iso,
         label: String(d),
-        exercised: exercised.has(iso),
+        kind,
+        weightLb,
+        exerciseMinutes: this.minutesForDay(iso),
         trackKey: `d-${iso}`,
       });
     }
@@ -387,6 +426,61 @@ export class ExerciseComponent implements OnInit {
     this.snackBar.open(`${msg}: ${formatHttpErrorDetail(e)}`, 'Dismiss', { duration: 8000 });
   }
 
+  /** Manual weigh-ins plus Apple Health weights, limited to the visible month. */
+  private weightDays(): Set<string> {
+    const prefix = `${this.calendarYear}-${String(this.calendarMonth).padStart(2, '0')}-`;
+    const days = new Set<string>();
+    for (const iso of this.monthCal?.daysWithWeightLogged ?? []) {
+      if (iso.startsWith(prefix)) {
+        days.add(iso);
+      }
+    }
+    for (const row of this.bodyWeightLogs) {
+      const day = this.dayKey(row.loggedOn);
+      if (day.startsWith(prefix)) {
+        days.add(day);
+      }
+    }
+    for (const row of this.appleWeights) {
+      const day = this.dayKey(row.loggedOn);
+      if (day.startsWith(prefix)) {
+        days.add(day);
+      }
+    }
+    return days;
+  }
+
+  /** Hand-entered pounds win; otherwise Apple Health, then the month calendar. */
+  private weightLbForDay(iso: string): number | null {
+    const manual = this.bodyWeightLogs.find((row) => this.dayKey(row.loggedOn) === iso);
+    if (manual) {
+      const lb = this.displayBodyWeightLb(manual);
+      if (lb > 0) {
+        return lb;
+      }
+    }
+    const apple = this.appleWeights.find((row) => this.dayKey(row.loggedOn) === iso);
+    if (apple?.weightLb != null && apple.weightLb > 0) {
+      return apple.weightLb;
+    }
+    const kg = this.monthCal?.bodyWeightKgByDay?.[iso];
+    if (kg != null && Number.isFinite(Number(kg)) && Number(kg) > 0) {
+      return this.kgToLb(Number(kg));
+    }
+    return null;
+  }
+
+  private minutesForDay(iso: string): number {
+    const raw = this.monthCal?.exerciseDurationMinutesByDay?.[iso];
+    const server = Number.isFinite(Number(raw)) ? Math.max(0, Math.floor(Number(raw))) : 0;
+    if (server > 0) {
+      return server;
+    }
+    return this.appleWorkouts
+      .filter((row) => this.dayKey(row.day) === iso)
+      .reduce((sum, row) => sum + (row.durationMinutes || 0), 0);
+  }
+
   /** Manual logs plus Apple Health workouts, limited to the visible month. */
   private activityDays(): Set<string> {
     const prefix = `${this.calendarYear}-${String(this.calendarMonth).padStart(2, '0')}-`;
@@ -449,7 +543,7 @@ export class ExerciseComponent implements OnInit {
           'Dismiss',
           { duration: 6000 },
         );
-        this.reloadAppleHealth();
+        this.loadMonthCalendar();
       },
       error: (e) => {
         this.importingApple = false;
@@ -465,6 +559,7 @@ export class ExerciseComponent implements OnInit {
         this.appleWorkouts = [];
         this.appleWeights = [];
         this.appleSummary = { fileName: null, importedAt: null, workouts: 0, weights: 0 };
+        this.loadMonthCalendar();
       },
       error: (e) => this.err('Could not remove Apple Health data', e),
     });

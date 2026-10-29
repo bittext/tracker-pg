@@ -55,7 +55,7 @@
           <mat-icon>chevron_right</mat-icon>
         </button>
       </div>
-      <div class="calendar-shell" aria-label="Days exercised this month">
+      <div class="calendar-shell" aria-label="Weight and exercise this month">
         <div class="cal-weekdays" role="row">
           @for (wd of weekDays; track wd) {
             <span class="cal-weekday" role="columnheader">{{ wd }}</span>
@@ -70,27 +70,54 @@
                 <button
                   type="button"
                   class="cal-slot cal-day"
-                  [class.cal-day--exercised]="cell.exercised"
+                  [class.cal-day--strength]="cell.kind === 'strength'"
+                  [class.cal-day--weight]="cell.kind === 'weight'"
+                  [class.cal-day--both]="cell.kind === 'both'"
                   [class.cal-day--selected]="isCalDaySelected(cell.dateIso)"
                   [class.cal-day--today]="isCalDayToday(cell.dateIso)"
                   (click)="selectCalDay(cell)"
                   [attr.aria-label]="
                     (cell.dateIso || '') +
-                    (cell.exercised ? ', exercised' : ', no exercise') +
+                    ', weight ' +
+                    (cell.weightLb != null ? formatCalendarWeightLb(cell.weightLb) : 'none') +
+                    ', exercise time ' +
+                    formatCalendarExerciseMinutes(cell.exerciseMinutes) +
                     (isCalDaySelected(cell.dateIso) ? ', selected' : '')
                   "
                   [attr.aria-pressed]="isCalDaySelected(cell.dateIso)"
                 >
-                  <span class="cal-day-num">{{ cell.label }}</span>
+                  <span class="cal-day-main">
+                    <span class="cal-day-num">{{ cell.label }}</span>
+                    <span class="cal-day-summary">
+                      @if (cell.weightLb != null) {
+                        <span class="cal-day-summary-line">{{ formatCalendarWeightLb(cell.weightLb) }}</span>
+                      }
+                      @if ((cell.exerciseMinutes ?? 0) > 0) {
+                        <span class="cal-day-summary-line">{{
+                          formatCalendarExerciseMinutes(cell.exerciseMinutes)
+                        }}</span>
+                      }
+                    </span>
+                  </span>
                 </button>
               }
             }
           </div>
         }
       </div>
-      <div class="cal-legend muted">
-        <span class="cal-legend-swatch cal-legend-swatch--exercised" aria-hidden="true"></span>
-        Exercised or Apple Health
+      <div class="cal-legend muted" aria-label="Calendar colors">
+        <span class="cal-legend-item">
+          <span class="cal-legend-swatch cal-legend-swatch--strength" aria-hidden="true"></span>
+          Exercise
+        </span>
+        <span class="cal-legend-item">
+          <span class="cal-legend-swatch cal-legend-swatch--weight" aria-hidden="true"></span>
+          Weight
+        </span>
+        <span class="cal-legend-item">
+          <span class="cal-legend-swatch cal-legend-swatch--both" aria-hidden="true"></span>
+          Both
+        </span>
       </div>
     </div>
 
