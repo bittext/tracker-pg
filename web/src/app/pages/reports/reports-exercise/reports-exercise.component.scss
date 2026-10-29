@@ -413,15 +413,27 @@
 }
 
 .cal-day--strength {
-  background: var(--app-cal-strength, rgba(99, 102, 241, 0.14));
+  background: var(--app-cal-strength, rgba(74, 124, 89, 0.18));
+
+  &:hover {
+    background: rgba(74, 124, 89, 0.26);
+  }
 }
 
 .cal-day--weight {
-  background: var(--app-cal-weight, rgba(16, 185, 129, 0.14));
+  background: var(--app-cal-weight, rgba(91, 143, 185, 0.18));
+
+  &:hover {
+    background: rgba(91, 143, 185, 0.26);
+  }
 }
 
 .cal-day--both {
-  background: var(--app-cal-both, rgba(139, 92, 246, 0.16));
+  background: var(--app-cal-both, rgba(184, 146, 90, 0.2));
+
+  &:hover {
+    background: rgba(184, 146, 90, 0.28);
+  }
 }
 
 .cal-day--selected {
