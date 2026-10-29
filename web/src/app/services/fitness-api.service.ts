@@ -2,6 +2,10 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { environment } from '../../environments/environment';
 import {
+  AppleHealthImportResult,
+  AppleHealthSummary,
+  AppleHealthWeight,
+  AppleHealthWorkout,
   BodyWeightLog,
   DailyExerciseReportDto,
   Exercise,
@@ -92,5 +96,31 @@ export class FitnessApiService {
 
   toggleHabitStreak(habitKind: string, date: string) {
     return this.http.put<FitnessHabitStreakBoardDto>(`${this.root}/habit-streaks/${habitKind}/${date}`, {});
+  }
+
+  appleHealthSummary() {
+    return this.http.get<AppleHealthSummary>(`${this.root}/apple-health`);
+  }
+
+  importAppleHealth(file: File) {
+    const body = new FormData();
+    body.append('file', file);
+    return this.http.post<AppleHealthImportResult>(`${this.root}/apple-health`, body);
+  }
+
+  clearAppleHealth() {
+    return this.http.delete<void>(`${this.root}/apple-health`);
+  }
+
+  appleHealthWorkouts(from: string, to: string) {
+    return this.http.get<AppleHealthWorkout[]>(`${this.root}/apple-health/workouts`, {
+      params: { from, to },
+    });
+  }
+
+  appleHealthWeights(from: string, to: string) {
+    return this.http.get<AppleHealthWeight[]>(`${this.root}/apple-health/weights`, {
+      params: { from, to },
+    });
   }
 }

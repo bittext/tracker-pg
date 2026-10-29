@@ -107,3 +107,42 @@ export interface FitnessHabitStreakBoardDto {
   today: string;
   habits: FitnessHabitStreakHabitDto[];
 }
+
+/** GET /api/fitness/apple-health */
+export interface AppleHealthSummary {
+  fileName: string | null;
+  importedAt: string | null;
+  workouts: number;
+  weights: number;
+}
+
+/** POST /api/fitness/apple-health */
+export interface AppleHealthImportResult {
+  fileName: string;
+  importedAt: string;
+  workoutsAdded: number;
+  weightsAdded: number;
+  workoutsSkipped: number;
+  weightsSkipped: number;
+  truncated: boolean;
+}
+
+export interface AppleHealthWorkout {
+  id: number;
+  activity: string;
+  sourceName: string | null;
+  startedAt: string;
+  endedAt: string | null;
+  day: string;
+  durationMinutes: number;
+  distanceMiles: number | null;
+  energyKcal: number | null;
+}
+
+export interface AppleHealthWeight {
+  id: number;
+  loggedOn: string;
+  measuredAt: string;
+  weightLb: number;
+  sourceName: string | null;
+}

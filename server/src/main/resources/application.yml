@@ -5,9 +5,9 @@ spring:
     name: tracker-pg-server
   servlet:
     multipart:
-      # Recordings .m4a files can exceed Whisper's raw 25MB API limit; store up to 100MB and compress/split at transcribe.
-      max-file-size: ${TRACKER_MULTIPART_MAX_FILE_SIZE:100MB}
-      max-request-size: ${TRACKER_MULTIPART_MAX_REQUEST_SIZE:250MB}
+      # Recordings and Apple Health export.zip files. Override with TRACKER_MULTIPART_MAX_FILE_SIZE.
+      max-file-size: ${TRACKER_MULTIPART_MAX_FILE_SIZE:1024MB}
+      max-request-size: ${TRACKER_MULTIPART_MAX_REQUEST_SIZE:1024MB}
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/tracker}
     username: ${SPRING_DATASOURCE_USERNAME:tracker}

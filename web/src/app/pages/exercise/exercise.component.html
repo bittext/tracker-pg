@@ -3,7 +3,7 @@
     <p class="page-eyebrow">Life</p>
     <h1 class="page-title">Exercise</h1>
     <p class="muted">
-      Log workouts on the calendar, or mark 50 consecutive days for a short daily session and two hours of self-work.
+      Log workouts on the calendar, or bring in an Apple Health export. Weight and exercise notes stay next to the readings from that file.
     </p>
   </div>
 </div>
@@ -11,7 +11,31 @@
 <mat-tab-group class="ex-tabs" animationDuration="180ms" mat-stretch-tabs>
   <mat-tab label="Log">
     <div class="page-layout">
-  <section class="hero-band" aria-label="Month calendar and selected day">
+    <section class="apple-import" aria-label="Apple Health export">
+      <div>
+        <h2 class="apple-import-title">Apple Health</h2>
+        <p class="muted">
+          Export All Health Data from the Health app, then choose the zip or export.xml.
+          Workouts and weight show beside the entries you log here.
+        </p>
+        @if (appleSummary?.importedAt) {
+          <p class="muted apple-import-meta">
+            {{ appleSummary?.workouts }} workouts · {{ appleSummary?.weights }} weight readings
+            · {{ appleSummary?.fileName }}
+          </p>
+        }
+      </div>
+      <div class="apple-import-actions">
+        <label class="apple-file">
+          <input type="file" accept=".xml,.zip,application/xml,application/zip" (change)="onAppleFile($event)" [disabled]="importingApple" />
+          {{ importingApple ? 'Reading export…' : 'Choose export' }}
+        </label>
+        @if ((appleSummary?.workouts ?? 0) > 0 || (appleSummary?.weights ?? 0) > 0) {
+          <button mat-button type="button" (click)="clearAppleHealth()">Remove import</button>
+        }
+      </div>
+    </section>
+    <section class="hero-band" aria-label="Month calendar and selected day">
     <div class="hero-cal">
       <header class="hero-cal-head">
         <div>
@@ -66,7 +90,7 @@
       </div>
       <div class="cal-legend muted">
         <span class="cal-legend-swatch cal-legend-swatch--exercised" aria-hidden="true"></span>
-        Exercised
+        Exercised or Apple Health
       </div>
     </div>
 
@@ -81,6 +105,13 @@
           Rest or not logged yet
         }
       </p>
+      @if (appleWorkoutsForSelectedDay.length) {
+        <p class="hero-apple muted">
+          Apple Health · {{ appleMinutesForSelectedDay }} min
+          · {{ appleWorkoutsForSelectedDay.length }}
+          workout{{ appleWorkoutsForSelectedDay.length === 1 ? '' : 's' }}
+        </p>
+      }
 
       <div class="hero-stats">
         <div class="hero-stat">
@@ -89,10 +120,18 @@
             @if (selectedDayWeightLb != null) {
               {{ selectedDayWeightLb | number: '1.1-1' }}
               <span class="hero-stat-unit">lb</span>
+            } @else if (selectedDayAppleWeightLb != null) {
+              {{ selectedDayAppleWeightLb | number: '1.1-1' }}
+              <span class="hero-stat-unit">lb</span>
             } @else {
               —
             }
           </span>
+          @if (selectedDayWeightLb != null && selectedDayAppleWeightLb != null) {
+            <span class="hero-stat-apple muted">Apple Health {{ selectedDayAppleWeightLb | number: '1.1-1' }} lb</span>
+          } @else if (selectedDayWeightLb == null && selectedDayAppleWeightLb != null) {
+            <span class="hero-stat-apple muted">Apple Health</span>
+          }
         </div>
         <div class="hero-stat">
           <span class="hero-stat-label">Logs</span>
@@ -188,6 +227,29 @@
             }
           </div>
 
+          <h3 class="history-sub">Apple Health</h3>
+          <div class="table-wrap tight">
+            <table mat-table [dataSource]="appleWeightsForSelectedDay" class="mat-elevation-z1 full-width dense-table">
+              <ng-container matColumnDef="loggedOn">
+                <th mat-header-cell *matHeaderCellDef>Time</th>
+                <td mat-cell *matCellDef="let row">{{ row.measuredAt | date: 'h:mm a' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="weightLb">
+                <th mat-header-cell *matHeaderCellDef>lb</th>
+                <td mat-cell *matCellDef="let row">{{ row.weightLb | number: '1.1-1' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="source">
+                <th mat-header-cell *matHeaderCellDef>Source</th>
+                <td mat-cell *matCellDef="let row">{{ row.sourceName || '—' }}</td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="appleWeightColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: appleWeightColumns"></tr>
+            </table>
+            @if (!appleWeightsForSelectedDay.length) {
+              <p class="muted empty-hint">No Apple Health weight for this day.</p>
+            }
+          </div>
+
           <h3 class="history-sub">Earlier days</h3>
           <div class="table-wrap tight">
             <table mat-table [dataSource]="bwEarlier" class="mat-elevation-z1 full-width dense-table">
@@ -216,6 +278,29 @@
             </table>
             @if (!bwEarlier.length) {
               <p class="muted empty-hint">No earlier weight entries.</p>
+            }
+          </div>
+
+          <h3 class="history-sub">Apple Health, earlier days</h3>
+          <div class="table-wrap tight">
+            <table mat-table [dataSource]="appleWeightsEarlier" class="mat-elevation-z1 full-width dense-table">
+              <ng-container matColumnDef="loggedOn">
+                <th mat-header-cell *matHeaderCellDef>Date</th>
+                <td mat-cell *matCellDef="let row">{{ row.loggedOn | slice: 0 : 10 }}</td>
+              </ng-container>
+              <ng-container matColumnDef="weightLb">
+                <th mat-header-cell *matHeaderCellDef>lb</th>
+                <td mat-cell *matCellDef="let row">{{ row.weightLb | number: '1.1-1' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="source">
+                <th mat-header-cell *matHeaderCellDef>Source</th>
+                <td mat-cell *matCellDef="let row">{{ row.sourceName || '—' }}</td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="appleWeightColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: appleWeightColumns"></tr>
+            </table>
+            @if (!appleWeightsEarlier.length) {
+              <p class="muted empty-hint">No earlier Apple Health weight in this window.</p>
             }
           </div>
         </div>
@@ -313,6 +398,41 @@
             }
           </div>
 
+          <h3 class="history-sub">Apple Health</h3>
+          <div class="table-wrap tight">
+            <table mat-table [dataSource]="appleWorkoutsForSelectedDay" class="mat-elevation-z1 full-width dense-table">
+              <ng-container matColumnDef="when">
+                <th mat-header-cell *matHeaderCellDef>Time</th>
+                <td mat-cell *matCellDef="let row">{{ row.startedAt | date: 'h:mm a' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="activity">
+                <th mat-header-cell *matHeaderCellDef>Activity</th>
+                <td mat-cell *matCellDef="let row">{{ row.activity }}</td>
+              </ng-container>
+              <ng-container matColumnDef="duration">
+                <th mat-header-cell *matHeaderCellDef>Time</th>
+                <td mat-cell *matCellDef="let row">{{ formatDuration(row.durationMinutes) }}</td>
+              </ng-container>
+              <ng-container matColumnDef="distance">
+                <th mat-header-cell *matHeaderCellDef>Miles</th>
+                <td mat-cell *matCellDef="let row">{{ row.distanceMiles == null ? '—' : (row.distanceMiles | number: '1.1-2') }}</td>
+              </ng-container>
+              <ng-container matColumnDef="energy">
+                <th mat-header-cell *matHeaderCellDef>kcal</th>
+                <td mat-cell *matCellDef="let row">{{ row.energyKcal == null ? '—' : (row.energyKcal | number: '1.0-0') }}</td>
+              </ng-container>
+              <ng-container matColumnDef="source">
+                <th mat-header-cell *matHeaderCellDef>Source</th>
+                <td mat-cell *matCellDef="let row">{{ row.sourceName || '—' }}</td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="appleWorkoutColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: appleWorkoutColumns"></tr>
+            </table>
+            @if (!appleWorkoutsForSelectedDay.length) {
+              <p class="muted empty-hint">No Apple Health workout for this day.</p>
+            }
+          </div>
+
           <h3 class="history-sub">Earlier days</h3>
           <div class="table-wrap tight">
             <table mat-table [dataSource]="previousExerciseLogs" class="mat-elevation-z1 full-width dense-table">
@@ -345,6 +465,41 @@
             </table>
             @if (!previousExerciseLogs.length) {
               <p class="muted empty-hint">No earlier notes in this window.</p>
+            }
+          </div>
+
+          <h3 class="history-sub">Apple Health, earlier days</h3>
+          <div class="table-wrap tight">
+            <table mat-table [dataSource]="appleWorkoutsEarlier" class="mat-elevation-z1 full-width dense-table">
+              <ng-container matColumnDef="when">
+                <th mat-header-cell *matHeaderCellDef>When</th>
+                <td mat-cell *matCellDef="let row">{{ row.day | slice: 0 : 10 }} {{ row.startedAt | date: 'h:mm a' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="activity">
+                <th mat-header-cell *matHeaderCellDef>Activity</th>
+                <td mat-cell *matCellDef="let row">{{ row.activity }}</td>
+              </ng-container>
+              <ng-container matColumnDef="duration">
+                <th mat-header-cell *matHeaderCellDef>Time</th>
+                <td mat-cell *matCellDef="let row">{{ formatDuration(row.durationMinutes) }}</td>
+              </ng-container>
+              <ng-container matColumnDef="distance">
+                <th mat-header-cell *matHeaderCellDef>Miles</th>
+                <td mat-cell *matCellDef="let row">{{ row.distanceMiles == null ? '—' : (row.distanceMiles | number: '1.1-2') }}</td>
+              </ng-container>
+              <ng-container matColumnDef="energy">
+                <th mat-header-cell *matHeaderCellDef>kcal</th>
+                <td mat-cell *matCellDef="let row">{{ row.energyKcal == null ? '—' : (row.energyKcal | number: '1.0-0') }}</td>
+              </ng-container>
+              <ng-container matColumnDef="source">
+                <th mat-header-cell *matHeaderCellDef>Source</th>
+                <td mat-cell *matCellDef="let row">{{ row.sourceName || '—' }}</td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="appleWorkoutColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: appleWorkoutColumns"></tr>
+            </table>
+            @if (!appleWorkoutsEarlier.length) {
+              <p class="muted empty-hint">No earlier Apple Health workouts in this window.</p>
             }
           </div>
         </div>

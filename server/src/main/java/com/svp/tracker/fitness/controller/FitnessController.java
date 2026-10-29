@@ -3,6 +3,11 @@ package com.svp.tracker.fitness.controller;
 import com.svp.tracker.fitness.domain.BodyWeightLog;
 import com.svp.tracker.fitness.domain.Exercise;
 import com.svp.tracker.fitness.domain.ExerciseDayLog;
+import com.svp.tracker.fitness.dto.AppleHealthImportResultDto;
+import com.svp.tracker.fitness.dto.AppleHealthSummaryDto;
+import com.svp.tracker.fitness.dto.AppleHealthWeightDto;
+import com.svp.tracker.fitness.dto.AppleHealthWorkoutDto;
+import com.svp.tracker.fitness.service.AppleHealthService;
 import com.svp.tracker.fitness.service.FitnessService;
 import com.svp.tracker.fitness.dto.BodyWeightCreateRequest;
 import com.svp.tracker.fitness.dto.DailyExerciseReportDto;
@@ -17,6 +22,8 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -35,6 +42,7 @@ public class FitnessController {
 
     private final FitnessService fitnessService;
     private final FitnessHabitStreakService habitStreakService;
+    private final AppleHealthService appleHealthService;
 
     @GetMapping("/exercises")
     public List<Exercise> listExercises() {
@@ -142,5 +150,35 @@ public class FitnessController {
             @PathVariable String habitKind,
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return habitStreakService.toggle(habitKind, date);
+    }
+
+    @GetMapping("/apple-health")
+    public AppleHealthSummaryDto appleHealthSummary() {
+        return appleHealthService.summary();
+    }
+
+    @PostMapping(value = "/apple-health", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public AppleHealthImportResultDto importAppleHealth(@RequestParam("file") MultipartFile file) {
+        return appleHealthService.importExport(file);
+    }
+
+    @DeleteMapping("/apple-health")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void clearAppleHealth() {
+        appleHealthService.clear();
+    }
+
+    @GetMapping("/apple-health/workouts")
+    public List<AppleHealthWorkoutDto> appleHealthWorkouts(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return appleHealthService.workouts(from, to);
+    }
+
+    @GetMapping("/apple-health/weights")
+    public List<AppleHealthWeightDto> appleHealthWeights(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return appleHealthService.weights(from, to);
     }
 }

@@ -10,7 +10,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatTabsModule } from '@angular/material/tabs';
-import { BodyWeightLog, Exercise, ExerciseDayLog, MonthActivityCalendarDto } from '../../models/fitness.models';
+import { BodyWeightLog, AppleHealthSummary, AppleHealthWeight, AppleHealthWorkout, Exercise, ExerciseDayLog, MonthActivityCalendarDto } from '../../models/fitness.models';
 import { FitnessApiService } from '../../services/fitness-api.service';
 import { formatHttpErrorDetail } from '../../util/http-error';
 import { ExerciseHabitStreakComponent } from './exercise-habit-streak.component';
@@ -76,6 +76,13 @@ export class ExerciseComponent implements OnInit {
   /** Form: pounds only; POSTed as {@link BodyWeightLog.weightLb} → column {@code weight_lb}. */
   newBw = { weightLb: 0 as number, notes: '' };
 
+  appleSummary: AppleHealthSummary | null = null;
+  appleWorkouts: AppleHealthWorkout[] = [];
+  appleWeights: AppleHealthWeight[] = [];
+  importingApple = false;
+  readonly appleWorkoutColumns = ['when', 'activity', 'duration', 'distance', 'energy', 'source'];
+  readonly appleWeightColumns = ['loggedOn', 'weightLb', 'source'];
+
   private static readonly LB_PER_KG = 2.2046226218;
 
   /** Display kg from API as pounds. */
@@ -115,7 +122,7 @@ export class ExerciseComponent implements OnInit {
   }
 
   get exercisedDayCount(): number {
-    return this.monthCal?.activeDays?.length ?? this.monthCal?.daysWithStrengthTraining?.length ?? 0;
+    return this.activityDays().size;
   }
 
   get selectedDayLabel(): string {
@@ -131,11 +138,7 @@ export class ExerciseComponent implements OnInit {
   }
 
   get isSelectedDayExercised(): boolean {
-    const days = new Set([
-      ...(this.monthCal?.activeDays ?? []),
-      ...(this.monthCal?.daysWithStrengthTraining ?? []),
-    ]);
-    return days.has(this.logDay);
+    return this.activityDays().has(this.logDay);
   }
 
   get selectedDayWeightLb(): number | null {
@@ -145,6 +148,39 @@ export class ExerciseComponent implements OnInit {
     }
     const lb = this.displayBodyWeightLb(row);
     return lb > 0 ? lb : null;
+  }
+
+  get selectedDayAppleWeightLb(): number | null {
+    const row = this.appleWeightsForSelectedDay[0];
+    return row ? row.weightLb : null;
+  }
+
+  get appleWorkoutsForSelectedDay(): AppleHealthWorkout[] {
+    return this.appleWorkouts.filter((row) => this.dayKey(row.day) === this.logDay);
+  }
+
+  get appleWorkoutsEarlier(): AppleHealthWorkout[] {
+    const ws = this.historyWindowStart;
+    return this.appleWorkouts.filter((row) => {
+      const day = this.dayKey(row.day);
+      return day >= ws && day < this.logDay;
+    });
+  }
+
+  get appleWeightsForSelectedDay(): AppleHealthWeight[] {
+    return this.appleWeights.filter((row) => this.dayKey(row.loggedOn) === this.logDay);
+  }
+
+  get appleWeightsEarlier(): AppleHealthWeight[] {
+    const ws = this.historyWindowStart;
+    return this.appleWeights.filter((row) => {
+      const day = this.dayKey(row.loggedOn);
+      return day >= ws && day < this.logDay;
+    });
+  }
+
+  get appleMinutesForSelectedDay(): number {
+    return this.appleWorkoutsForSelectedDay.reduce((sum, row) => sum + (row.durationMinutes || 0), 0);
   }
 
   get selectedDayNotePreview(): string | null {
@@ -170,10 +206,7 @@ export class ExerciseComponent implements OnInit {
     if (through <= 0) {
       return 0;
     }
-    const exercised = new Set([
-      ...(this.monthCal?.activeDays ?? []),
-      ...(this.monthCal?.daysWithStrengthTraining ?? []),
-    ]);
+    const exercised = this.activityDays();
     let hit = 0;
     for (let d = 1; d <= through; d++) {
       const iso = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
@@ -185,10 +218,7 @@ export class ExerciseComponent implements OnInit {
   }
 
   get currentStreakDays(): number {
-    const exercised = new Set([
-      ...(this.monthCal?.activeDays ?? []),
-      ...(this.monthCal?.daysWithStrengthTraining ?? []),
-    ]);
+    const exercised = this.activityDays();
     let streak = 0;
     let cursor = this.logDay;
     // Walk backward from selected day while still in this calendar month.
@@ -210,10 +240,7 @@ export class ExerciseComponent implements OnInit {
   calendarRows(): ExCalCell[][] {
     const y = this.calendarYear;
     const m = this.calendarMonth;
-    const exercised = new Set([
-      ...(this.monthCal?.activeDays ?? []),
-      ...(this.monthCal?.daysWithStrengthTraining ?? []),
-    ]);
+    const exercised = this.activityDays();
     const last = new Date(y, m, 0).getDate();
     const firstDow = new Date(y, m - 1, 1).getDay();
     const flat: ExCalCell[] = [];
@@ -288,6 +315,7 @@ export class ExerciseComponent implements OnInit {
       next: (cal) => (this.monthCal = cal),
       error: (e) => this.err('Could not load month calendar', e),
     });
+    this.reloadAppleHealth();
   }
 
   private syncCalendarToLogDay(): void {
@@ -357,6 +385,89 @@ export class ExerciseComponent implements OnInit {
 
   private err(msg: string, e: unknown): void {
     this.snackBar.open(`${msg}: ${formatHttpErrorDetail(e)}`, 'Dismiss', { duration: 8000 });
+  }
+
+  /** Manual logs plus Apple Health workouts, limited to the visible month. */
+  private activityDays(): Set<string> {
+    const prefix = `${this.calendarYear}-${String(this.calendarMonth).padStart(2, '0')}-`;
+    const days = new Set<string>();
+    for (const iso of this.monthCal?.activeDays ?? []) {
+      if (iso.startsWith(prefix)) {
+        days.add(iso);
+      }
+    }
+    for (const iso of this.monthCal?.daysWithStrengthTraining ?? []) {
+      if (iso.startsWith(prefix)) {
+        days.add(iso);
+      }
+    }
+    for (const row of this.appleWorkouts) {
+      const day = this.dayKey(row.day);
+      if (day.startsWith(prefix)) {
+        days.add(day);
+      }
+    }
+    return days;
+  }
+
+  private reloadAppleHealth(): void {
+    const y = this.calendarYear;
+    const m = this.calendarMonth;
+    const monthStart = `${y}-${String(m).padStart(2, '0')}-01`;
+    const last = new Date(y, m, 0).getDate();
+    const monthEnd = `${y}-${String(m).padStart(2, '0')}-${String(last).padStart(2, '0')}`;
+    const from = this.historyWindowStart < monthStart ? this.historyWindowStart : monthStart;
+    const to = this.logDay > monthEnd ? this.logDay : monthEnd;
+    this.fitnessApi.appleHealthSummary().subscribe({
+      next: (summary) => (this.appleSummary = summary),
+      error: () => (this.appleSummary = null),
+    });
+    this.fitnessApi.appleHealthWorkouts(from, to).subscribe({
+      next: (rows) => (this.appleWorkouts = rows),
+      error: () => (this.appleWorkouts = []),
+    });
+    this.fitnessApi.appleHealthWeights(from, to).subscribe({
+      next: (rows) => (this.appleWeights = rows),
+      error: () => (this.appleWeights = []),
+    });
+  }
+
+  onAppleFile(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) {
+      return;
+    }
+    this.importingApple = true;
+    this.fitnessApi.importAppleHealth(file).subscribe({
+      next: (result) => {
+        this.importingApple = false;
+        input.value = '';
+        const extra = result.truncated ? ' The file was larger than the saved limit.' : '';
+        this.snackBar.open(
+          `Added ${result.workoutsAdded} workouts and ${result.weightsAdded} weight readings.${extra}`,
+          'Dismiss',
+          { duration: 6000 },
+        );
+        this.reloadAppleHealth();
+      },
+      error: (e) => {
+        this.importingApple = false;
+        input.value = '';
+        this.err('Could not read the Apple Health export', e);
+      },
+    });
+  }
+
+  clearAppleHealth(): void {
+    this.fitnessApi.clearAppleHealth().subscribe({
+      next: () => {
+        this.appleWorkouts = [];
+        this.appleWeights = [];
+        this.appleSummary = { fileName: null, importedAt: null, workouts: 0, weights: 0 };
+      },
+      error: (e) => this.err('Could not remove Apple Health data', e),
+    });
   }
 
   onLogDayChange(): void {
