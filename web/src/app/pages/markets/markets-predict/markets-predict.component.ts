@@ -20,7 +20,10 @@ import {
 import { RhPredictApiService } from '../../../services/rh-predict-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
 import {
+  predictFees,
+  predictGross,
   predictInvested,
+  predictNet,
   predictPayback,
   PredictPeriodTotals,
   PredictYearRollup,
@@ -101,7 +104,7 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
   private estimateAnchorCloses = -1;
   private estimateAnchorTicker: string | null = null;
 
-  readonly columns = ['closedAt', 'quantity', 'price', 'invested', 'payback', 'realized'] as const;
+  readonly columns = ['closedAt', 'quantity', 'price', 'invested', 'fees', 'realized', 'net'] as const;
 
   readonly periodGrains = [
     { id: 'day', label: 'Day' },
@@ -722,6 +725,31 @@ export class MarketsPredictComponent implements OnInit, OnDestroy {
 
   invested(row: RhPredictCloseDto): number {
     return predictInvested(row);
+  }
+
+  fees(row: RhPredictCloseDto): number {
+    return predictFees(row);
+  }
+
+  gross(row: RhPredictCloseDto): number {
+    return predictGross(row);
+  }
+
+  net(row: RhPredictCloseDto): number {
+    return predictNet(row);
+  }
+
+  /** Premium, fees, gross, and net for the closes listed in the current scope. */
+  get listedBook(): { premium: number; fees: number; gross: number; net: number } {
+    let premium = 0;
+    let fees = 0;
+    let gross = 0;
+    for (const row of this.scopedCloses) {
+      premium += predictInvested(row);
+      fees += predictFees(row);
+      gross += row.realized;
+    }
+    return { premium, fees, gross, net: gross - fees };
   }
 
   /** Return as a share of cash put in. Null when nothing was invested. */

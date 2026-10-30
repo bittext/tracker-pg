@@ -329,7 +329,7 @@
 
 .pred__flow {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0;
   margin-top: 1.1rem;
   padding-top: 0.95rem;
@@ -352,6 +352,18 @@
   font-weight: 680;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
+}
+
+@media (max-width: 800px) {
+  .pred__flow {
+    grid-template-columns: 1fr 1fr;
+    row-gap: 0.85rem;
+  }
+
+  .pred__flow-col:nth-child(odd) {
+    padding-left: 0;
+    border-left: 0;
+  }
 }
 
 .pred__side {
@@ -506,8 +518,9 @@
 .pred__table .mat-column-quantity,
 .pred__table .mat-column-price,
 .pred__table .mat-column-invested,
-.pred__table .mat-column-payback,
-.pred__table .mat-column-realized {
+.pred__table .mat-column-fees,
+.pred__table .mat-column-realized,
+.pred__table .mat-column-net {
   text-align: right;
 }
 

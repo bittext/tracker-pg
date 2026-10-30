@@ -10,6 +10,57 @@ export function predictInvested(row: Pick<RhPredictCloseDto, 'quantity' | 'price
   return predictPayback(row) - row.realized;
 }
 
+/** Round a dollar amount up to the next cent. Amounts already on a cent stay put. */
+function ceilCent(dollars: number): number {
+  if (!(dollars > 0)) {
+    return 0;
+  }
+  const cents = Math.round(dollars * 100 * 1e6) / 1e6;
+  return Math.ceil(cents - 1e-6) / 100;
+}
+
+/**
+ * One side of a Robinhood Gold event-contract fill: 5% × price × (1 − price),
+ * capped at 1¢ a contract, plus Kalshi's 1¢ exchange fee. Both round up to the cent.
+ */
+export function predictSideFee(price: number, contracts: number): number {
+  if (!(contracts > 0) || !(price > 0) || price >= 1) {
+    return 0;
+  }
+  const per = Math.min(0.01, 0.05 * price * (1 - price));
+  const cap = ceilCent(0.01 * contracts);
+  const robinhood = Math.min(ceilCent(per * contracts), cap);
+  return Math.round((robinhood + cap) * 100) / 100;
+}
+
+/**
+ * Fees Robinhood's return leaves out. A sale pays the buy and the sell.
+ * A contract that finishes at $0 or $1 pays the buy only.
+ */
+export function predictFees(row: Pick<RhPredictCloseDto, 'quantity' | 'price' | 'realized'>): number {
+  const contracts = row.quantity;
+  if (!(contracts > 0)) {
+    return 0;
+  }
+  const entry = predictInvested(row) / contracts;
+  let fees = predictSideFee(entry, contracts);
+  const exit = row.price;
+  if (exit > 0.01 && exit < 0.99) {
+    fees += predictSideFee(exit, contracts);
+  }
+  return Math.round(fees * 100) / 100;
+}
+
+/** Robinhood's reported return. It does not include the fees. */
+export function predictGross(row: Pick<RhPredictCloseDto, 'realized'>): number {
+  return row.realized;
+}
+
+/** Reported return after the Gold commission and the exchange fee. */
+export function predictNet(row: Pick<RhPredictCloseDto, 'quantity' | 'price' | 'realized'>): number {
+  return predictGross(row) - predictFees(row);
+}
+
 export interface PredictPeriodTotals {
   closes: number;
   invested: number;
