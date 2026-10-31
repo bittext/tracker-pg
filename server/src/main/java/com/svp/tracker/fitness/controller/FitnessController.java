@@ -168,6 +168,18 @@ public class FitnessController {
         appleHealthService.clear();
     }
 
+    @DeleteMapping("/apple-health/weights/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteAppleHealthWeight(@PathVariable long id) {
+        appleHealthService.deleteWeight(id);
+    }
+
+    @DeleteMapping("/apple-health/workouts/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteAppleHealthWorkout(@PathVariable long id) {
+        appleHealthService.deleteWorkout(id);
+    }
+
     @GetMapping("/apple-health/workouts")
     public List<AppleHealthWorkoutDto> appleHealthWorkouts(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,

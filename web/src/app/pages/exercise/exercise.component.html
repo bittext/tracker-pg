@@ -269,6 +269,14 @@
                 <th mat-header-cell *matHeaderCellDef>Source</th>
                 <td mat-cell *matCellDef="let row">{{ row.sourceName || '—' }}</td>
               </ng-container>
+              <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef></th>
+                <td mat-cell *matCellDef="let row">
+                  <button mat-icon-button type="button" color="warn" (click)="deleteAppleWeight(row.id)" aria-label="Delete weight reading">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </td>
+              </ng-container>
               <tr mat-header-row *matHeaderRowDef="appleWeightColumns"></tr>
               <tr mat-row *matRowDef="let row; columns: appleWeightColumns"></tr>
             </table>
@@ -322,6 +330,14 @@
               <ng-container matColumnDef="source">
                 <th mat-header-cell *matHeaderCellDef>Source</th>
                 <td mat-cell *matCellDef="let row">{{ row.sourceName || '—' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef></th>
+                <td mat-cell *matCellDef="let row">
+                  <button mat-icon-button type="button" color="warn" (click)="deleteAppleWeight(row.id)" aria-label="Delete weight reading">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </td>
               </ng-container>
               <tr mat-header-row *matHeaderRowDef="appleWeightColumns"></tr>
               <tr mat-row *matRowDef="let row; columns: appleWeightColumns"></tr>
@@ -452,6 +468,14 @@
                 <th mat-header-cell *matHeaderCellDef>Source</th>
                 <td mat-cell *matCellDef="let row">{{ row.sourceName || '—' }}</td>
               </ng-container>
+              <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef></th>
+                <td mat-cell *matCellDef="let row">
+                  <button mat-icon-button type="button" color="warn" (click)="deleteAppleWorkout(row.id)" aria-label="Delete workout">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </td>
+              </ng-container>
               <tr mat-header-row *matHeaderRowDef="appleWorkoutColumns"></tr>
               <tr mat-row *matRowDef="let row; columns: appleWorkoutColumns"></tr>
             </table>
@@ -521,6 +545,14 @@
               <ng-container matColumnDef="source">
                 <th mat-header-cell *matHeaderCellDef>Source</th>
                 <td mat-cell *matCellDef="let row">{{ row.sourceName || '—' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef></th>
+                <td mat-cell *matCellDef="let row">
+                  <button mat-icon-button type="button" color="warn" (click)="deleteAppleWorkout(row.id)" aria-label="Delete workout">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </td>
               </ng-container>
               <tr mat-header-row *matHeaderRowDef="appleWorkoutColumns"></tr>
               <tr mat-row *matRowDef="let row; columns: appleWorkoutColumns"></tr>

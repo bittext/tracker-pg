@@ -82,8 +82,8 @@ export class ExerciseComponent implements OnInit {
   appleWorkouts: AppleHealthWorkout[] = [];
   appleWeights: AppleHealthWeight[] = [];
   importingApple = false;
-  readonly appleWorkoutColumns = ['when', 'activity', 'duration', 'distance', 'energy', 'source'];
-  readonly appleWeightColumns = ['loggedOn', 'weightLb', 'source'];
+  readonly appleWorkoutColumns = ['when', 'activity', 'duration', 'distance', 'energy', 'source', 'actions'];
+  readonly appleWeightColumns = ['loggedOn', 'weightLb', 'source', 'actions'];
 
   private static readonly LB_PER_KG = 2.2046226218;
 
@@ -751,7 +751,34 @@ export class ExerciseComponent implements OnInit {
     this.fitnessApi.deleteBodyWeight(id).subscribe({
       next: () => {
         this.reloadBodyWeight();
+        this.loadMonthCalendar();
         this.snackBar.open('Deleted', undefined, { duration: 2000 });
+      },
+      error: (e) => this.err('Delete failed', e),
+    });
+  }
+
+  deleteAppleWeight(id: number | undefined): void {
+    if (id == null) {
+      return;
+    }
+    this.fitnessApi.deleteAppleHealthWeight(id).subscribe({
+      next: () => {
+        this.loadMonthCalendar();
+        this.snackBar.open('Removed', undefined, { duration: 2000 });
+      },
+      error: (e) => this.err('Delete failed', e),
+    });
+  }
+
+  deleteAppleWorkout(id: number | undefined): void {
+    if (id == null) {
+      return;
+    }
+    this.fitnessApi.deleteAppleHealthWorkout(id).subscribe({
+      next: () => {
+        this.loadMonthCalendar();
+        this.snackBar.open('Removed', undefined, { duration: 2000 });
       },
       error: (e) => this.err('Delete failed', e),
     });

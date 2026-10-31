@@ -112,6 +112,14 @@ export class FitnessApiService {
     return this.http.delete<void>(`${this.root}/apple-health`);
   }
 
+  deleteAppleHealthWeight(id: number) {
+    return this.http.delete<void>(`${this.root}/apple-health/weights/${id}`);
+  }
+
+  deleteAppleHealthWorkout(id: number) {
+    return this.http.delete<void>(`${this.root}/apple-health/workouts/${id}`);
+  }
+
   appleHealthWorkouts(from: string, to: string) {
     return this.http.get<AppleHealthWorkout[]>(`${this.root}/apple-health/workouts`, {
       params: { from, to },

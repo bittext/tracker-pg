@@ -8,6 +8,7 @@ import com.svp.tracker.fitness.dto.AppleHealthImportResultDto;
 import com.svp.tracker.fitness.dto.AppleHealthSummaryDto;
 import com.svp.tracker.fitness.dto.AppleHealthWeightDto;
 import com.svp.tracker.fitness.dto.AppleHealthWorkoutDto;
+import com.svp.tracker.fitness.exception.NotFoundException;
 import com.svp.tracker.fitness.repository.AppleHealthImportRepository;
 import com.svp.tracker.fitness.repository.AppleHealthWeightRepository;
 import com.svp.tracker.fitness.repository.AppleHealthWorkoutRepository;
@@ -173,6 +174,28 @@ public class AppleHealthService {
         workoutRepository.deleteByOwnerUserId(owner);
         weightRepository.deleteByOwnerUserId(owner);
         importRepository.deleteByOwnerUserId(owner);
+    }
+
+    @Transactional
+    public void deleteWeight(long id) {
+        AppleHealthWeight row = weightRepository
+                .findById(id)
+                .orElseThrow(() -> new NotFoundException("Weight reading not found"));
+        if (!row.getOwnerUserId().equals(currentUser.requireUserId())) {
+            throw new NotFoundException("Weight reading not found");
+        }
+        weightRepository.delete(row);
+    }
+
+    @Transactional
+    public void deleteWorkout(long id) {
+        AppleHealthWorkout row = workoutRepository
+                .findById(id)
+                .orElseThrow(() -> new NotFoundException("Workout not found"));
+        if (!row.getOwnerUserId().equals(currentUser.requireUserId())) {
+            throw new NotFoundException("Workout not found");
+        }
+        workoutRepository.delete(row);
     }
 
     private static String clip(String fileName) {
