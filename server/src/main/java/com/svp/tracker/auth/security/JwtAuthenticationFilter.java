@@ -3,6 +3,7 @@ package com.svp.tracker.auth.security;
 import com.svp.tracker.auth.domain.AppUser;
 import com.svp.tracker.auth.repository.AppUserRepository;
 import com.svp.tracker.auth.service.JwtTokenService;
+import com.svp.tracker.fitness.security.AppleHealthSyncAuthFilter;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -28,6 +29,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     public JwtAuthenticationFilter(JwtTokenService jwtTokenService, AppUserRepository appUserRepository) {
         this.jwtTokenService = jwtTokenService;
         this.appUserRepository = appUserRepository;
+    }
+
+    @Override
+    protected boolean shouldNotFilter(@NonNull HttpServletRequest request) {
+        return AppleHealthSyncAuthFilter.isSyncPost(request);
     }
 
     @Override

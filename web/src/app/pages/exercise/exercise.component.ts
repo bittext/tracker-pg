@@ -79,6 +79,13 @@ export class ExerciseComponent implements OnInit {
   newBw = { weightLb: 0 as number, notes: '' };
 
   appleSummary: AppleHealthSummary | null = null;
+
+  get syncUrl(): string {
+    if (typeof window === 'undefined') {
+      return '/api/fitness/apple-health/sync';
+    }
+    return `${window.location.origin}/api/fitness/apple-health/sync`;
+  }
   appleWorkouts: AppleHealthWorkout[] = [];
   appleWeights: AppleHealthWeight[] = [];
   importingApple = false;
@@ -558,7 +565,14 @@ export class ExerciseComponent implements OnInit {
       next: () => {
         this.appleWorkouts = [];
         this.appleWeights = [];
-        this.appleSummary = { fileName: null, importedAt: null, workouts: 0, weights: 0 };
+        this.appleSummary = {
+          fileName: null,
+          importedAt: null,
+          workouts: 0,
+          weights: 0,
+          syncReady: this.appleSummary?.syncReady,
+          syncToken: this.appleSummary?.syncToken,
+        };
         this.loadMonthCalendar();
       },
       error: (e) => this.err('Could not remove Apple Health data', e),

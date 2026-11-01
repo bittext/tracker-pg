@@ -29,6 +29,10 @@ spring:
 
 server:
   port: ${SERVER_PORT:9091}
+  tomcat:
+    # Health Auto Export posts JSON. The zip upload uses the multipart limit above.
+    max-http-form-post-size: ${TRACKER_MAX_HTTP_POST_SIZE:32MB}
+    max-swallow-size: ${TRACKER_MAX_HTTP_POST_SIZE:32MB}
   # Listen on all interfaces inside Docker / LAN (default is already 0.0.0.0).
   address: ${SERVER_ADDRESS:0.0.0.0}
   # Trust X-Forwarded-* from nginx and from Caddy (TLS termination) so redirects and security see https.
@@ -56,6 +60,11 @@ springdoc:
 
 # Finance JDBC targets the local Flyway table (unquoted identifiers fold to lowercase in PostgreSQL).
 tracker:
+  fitness:
+    # Health Auto Export posts JSON to /api/fitness/apple-health/sync with header api-key.
+    # Leave the token blank to keep the endpoint off. user-id is the account that owns the readings.
+    apple-health-sync-token: ${TRACKER_APPLE_HEALTH_SYNC_TOKEN:}
+    apple-health-sync-user-id: ${TRACKER_APPLE_HEALTH_SYNC_USER_ID:0}
   security:
     # Strict-Transport-Security: enable only when the app is served over HTTPS (direct TLS or trusted TLS proxy).
     hsts-enabled: ${TRACKER_SECURITY_HSTS:false}

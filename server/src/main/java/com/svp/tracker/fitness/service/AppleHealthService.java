@@ -1,6 +1,8 @@
 package com.svp.tracker.fitness.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.svp.tracker.auth.security.CurrentUserService;
+import com.svp.tracker.fitness.config.AppleHealthSyncProperties;
 import com.svp.tracker.fitness.domain.AppleHealthImport;
 import com.svp.tracker.fitness.domain.AppleHealthWeight;
 import com.svp.tracker.fitness.domain.AppleHealthWorkout;
@@ -33,6 +35,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class AppleHealthService {
 
     private final CurrentUserService currentUser;
+    private final AppleHealthSyncProperties syncProperties;
     private final AppleHealthWorkoutRepository workoutRepository;
     private final AppleHealthWeightRepository weightRepository;
     private final AppleHealthImportRepository importRepository;
@@ -53,16 +56,29 @@ public class AppleHealthService {
         return store(currentUser.requireUserId(), fileName, parsed);
     }
 
+    public AppleHealthImportResultDto syncAutoExport(JsonNode body) {
+        if (body == null || body.isNull() || !body.isObject()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Expected a Health Auto Export JSON body.");
+        }
+        return store(currentUser.requireUserId(), "Health Auto Export", AppleHealthExportParser.parseAutoExport(body));
+    }
+
     @Transactional
     public AppleHealthImportResultDto store(long owner, String fileName, Parsed parsed) {
         Set<String> knownWorkouts = new HashSet<>(workoutRepository.findFingerprintsByOwnerUserId(owner));
         Set<String> knownWeights = new HashSet<>(weightRepository.findFingerprintsByOwnerUserId(owner));
+        Set<Instant> workoutStarts = new HashSet<>(workoutRepository.findStartedAtByOwnerUserId(owner));
+        Set<Instant> weightTimes = new HashSet<>(weightRepository.findMeasuredAtByOwnerUserId(owner));
         int workoutsAdded = 0;
         int workoutsSkipped = 0;
         int weightsAdded = 0;
         int weightsSkipped = 0;
         List<AppleHealthWorkout> workoutBatch = new ArrayList<>();
         for (ParsedWorkout row : parsed.workouts()) {
+            if (row.startedAt() != null && !workoutStarts.add(row.startedAt())) {
+                workoutsSkipped++;
+                continue;
+            }
             if (!knownWorkouts.add(row.fingerprint())) {
                 workoutsSkipped++;
                 continue;
@@ -90,6 +106,10 @@ public class AppleHealthService {
         }
         List<AppleHealthWeight> weightBatch = new ArrayList<>();
         for (ParsedWeight row : parsed.weights()) {
+            if (row.measuredAt() != null && !weightTimes.add(row.measuredAt())) {
+                weightsSkipped++;
+                continue;
+            }
             if (!knownWeights.add(row.fingerprint())) {
                 weightsSkipped++;
                 continue;
@@ -133,11 +153,14 @@ public class AppleHealthService {
     public AppleHealthSummaryDto summary() {
         long owner = currentUser.requireUserId();
         AppleHealthImport latest = importRepository.findFirstByOwnerUserIdOrderByImportedAtDesc(owner).orElse(null);
+        boolean syncReady = syncProperties.enabled() && syncProperties.appleHealthSyncUserId().equals(owner);
         return new AppleHealthSummaryDto(
                 latest == null ? null : latest.getFileName(),
                 latest == null ? null : latest.getImportedAt(),
                 workoutRepository.countByOwnerUserId(owner),
-                weightRepository.countByOwnerUserId(owner));
+                weightRepository.countByOwnerUserId(owner),
+                syncReady,
+                syncReady ? syncProperties.appleHealthSyncToken() : null);
     }
 
     @Transactional(readOnly = true)

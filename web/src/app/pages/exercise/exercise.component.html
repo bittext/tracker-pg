@@ -35,6 +35,20 @@
         }
       </div>
     </section>
+    <section class="apple-sync" aria-label="Health Auto Export">
+      <h2 class="apple-import-title">Health Auto Export</h2>
+      <p class="muted">
+        On the iPhone, add two REST API automations: one for Health Metrics (body mass) and one for Workouts.
+        Format JSON, export version 2. Leave Summarize and route data off, so each weigh-in stays its own reading.
+      </p>
+      <p class="apple-sync-line"><span>URL</span> <code>{{ syncUrl }}</code></p>
+      <p class="apple-sync-line"><span>Header</span> <code>api-key</code></p>
+      @if (appleSummary?.syncToken) {
+        <p class="apple-sync-line"><span>Key</span> <code class="apple-sync-key">{{ appleSummary?.syncToken }}</code></p>
+      } @else {
+        <p class="muted apple-sync-wait">The sync key is not turned on for this login yet.</p>
+      }
+    </section>
     <section class="hero-band" aria-label="Month calendar and selected day">
     <div class="hero-cal">
       <header class="hero-cal-head">

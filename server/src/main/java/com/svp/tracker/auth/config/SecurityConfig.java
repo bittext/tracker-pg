@@ -2,10 +2,12 @@ package com.svp.tracker.auth.config;
 
 import com.svp.tracker.auth.security.JwtAuthenticationFilter;
 import com.svp.tracker.config.SecurityProperties;
+import com.svp.tracker.fitness.security.AppleHealthSyncAuthFilter;
 import com.svp.tracker.markets.security.MarketsAccessFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -30,6 +32,7 @@ public class SecurityConfig {
     SecurityFilterChain apiSecurity(
             HttpSecurity http,
             JwtAuthenticationFilter jwtAuthenticationFilter,
+            AppleHealthSyncAuthFilter appleHealthSyncAuthFilter,
             MarketsAccessFilter marketsAccessFilter)
             throws Exception {
         http.csrf(csrf -> csrf.disable())
@@ -77,9 +80,19 @@ public class SecurityConfig {
                             }
                             writeJson(response, HttpServletResponse.SC_FORBIDDEN, "{\"error\":\"forbidden\"}");
                         }))
+                .addFilterBefore(appleHealthSyncAuthFilter, JwtAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(marketsAccessFilter, JwtAuthenticationFilter.class);
         return http.build();
+    }
+
+    /** The sync filter is already in the security chain. Do not also register it as a servlet filter. */
+    @Bean
+    FilterRegistrationBean<AppleHealthSyncAuthFilter> appleHealthSyncAuthFilterRegistration(
+            AppleHealthSyncAuthFilter filter) {
+        FilterRegistrationBean<AppleHealthSyncAuthFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setEnabled(false);
+        return registration;
     }
 
     private static void writeJson(HttpServletResponse response, int status, String body) throws IOException {

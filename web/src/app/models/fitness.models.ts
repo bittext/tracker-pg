@@ -114,6 +114,8 @@ export interface AppleHealthSummary {
   importedAt: string | null;
   workouts: number;
   weights: number;
+  syncReady?: boolean;
+  syncToken?: string | null;
 }
 
 /** POST /api/fitness/apple-health */

@@ -206,6 +206,40 @@
   gap: 0.35rem;
 }
 
+.apple-sync {
+  margin: 0 0 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
+  border-radius: 14px;
+  background: var(--app-surface, #fff);
+}
+
+.apple-sync p {
+  margin: 0.35rem 0 0;
+}
+
+.apple-sync-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.65rem;
+  align-items: baseline;
+  font-size: 0.85rem;
+}
+
+.apple-sync-line span {
+  min-width: 3.5rem;
+  font-weight: 650;
+}
+
+.apple-sync code {
+  font-size: 0.82rem;
+  word-break: break-all;
+}
+
+.apple-sync-wait {
+  margin-top: 0.45rem !important;
+}
+
 .apple-file {
   display: inline-flex;
   align-items: center;

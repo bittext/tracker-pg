@@ -1,10 +1,12 @@
 package com.svp.tracker.fitness.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
@@ -49,6 +51,164 @@ public final class AppleHealthExportParser {
             throw new IllegalArgumentException("The zip does not contain export.xml.");
         }
         return parseXml(in);
+    }
+
+    /**
+     * Health Auto Export REST body: {@code { "data": { "metrics": [...], "workouts": [...] } }}.
+     * Keeps body-mass samples and workouts. Other metrics are ignored. One automation posts one kind.
+     */
+    public static Parsed parseAutoExport(JsonNode root) {
+        JsonNode data = root;
+        if (root != null && root.has("data") && root.get("data").isObject()) {
+            data = root.get("data");
+        }
+        List<ParsedWorkout> workouts = new ArrayList<>();
+        List<ParsedWeight> weights = new ArrayList<>();
+        boolean truncated = false;
+        if (data != null && data.has("metrics") && data.get("metrics").isArray()) {
+            for (JsonNode metric : data.get("metrics")) {
+                String name = text(metric, "name").toLowerCase(Locale.ROOT).replace(' ', '_');
+                if (!name.equals("body_mass") && !name.equals("weight")) {
+                    continue;
+                }
+                String units = text(metric, "units");
+                JsonNode points = metric.get("data");
+                if (points == null || !points.isArray()) {
+                    continue;
+                }
+                for (JsonNode point : points) {
+                    if (weights.size() >= MAX_WEIGHTS) {
+                        truncated = true;
+                        break;
+                    }
+                    ParsedWeight weight = readAutoWeight(point, units);
+                    if (weight != null) {
+                        weights.add(weight);
+                    }
+                }
+            }
+        }
+        if (data != null && data.has("workouts") && data.get("workouts").isArray()) {
+            for (JsonNode workout : data.get("workouts")) {
+                if (workouts.size() >= MAX_WORKOUTS) {
+                    truncated = true;
+                    break;
+                }
+                ParsedWorkout row = readAutoWorkout(workout);
+                if (row != null) {
+                    workouts.add(row);
+                }
+            }
+        }
+        return new Parsed(workouts, weights, truncated);
+    }
+
+    private static ParsedWeight readAutoWeight(JsonNode point, String metricUnits) {
+        if (point == null || !point.has("qty") || point.get("qty").isNull()) {
+            return null;
+        }
+        String units = text(point, "units");
+        if (units.isBlank()) {
+            units = metricUnits;
+        }
+        BigDecimal pounds = toPounds(point.get("qty").asText(), units);
+        OffsetDateTime when = parseTime(text(point, "date"));
+        if (pounds == null || when == null) {
+            return null;
+        }
+        String source = clip(text(point, "source"), 128);
+        if (source == null) {
+            source = "Health Auto Export";
+        }
+        String dateText = text(point, "date");
+        String fingerprint = fingerprint(BODY_MASS, source, dateText, dateText, point.get("qty").asText());
+        return new ParsedWeight(fingerprint, when.toLocalDate(), when.toInstant(), pounds, source);
+    }
+
+    private static ParsedWorkout readAutoWorkout(JsonNode workout) {
+        if (workout == null || !workout.isObject()) {
+            return null;
+        }
+        String name = text(workout, "name");
+        String startText = text(workout, "start");
+        OffsetDateTime start = parseTime(startText);
+        if (name.isBlank() || start == null) {
+            return null;
+        }
+        String endText = text(workout, "end");
+        OffsetDateTime end = parseTime(endText);
+        int minutes = 0;
+        if (workout.has("duration") && workout.get("duration").isNumber()) {
+            minutes = durationMinutes(workout.get("duration").asText(), "s");
+        }
+        if (minutes <= 0 && end != null) {
+            minutes = (int) Duration.between(start, end).toMinutes();
+        }
+        String source = workoutSource(workout);
+        String id = text(workout, "id");
+        String fingerprint = id.isBlank()
+                ? fingerprint("hae-workout", name, startText, endText, Integer.toString(minutes))
+                : fingerprint("hae-workout", id);
+        BigDecimal miles = toMiles(qtyText(workout, "distance"), unitsText(workout, "distance"));
+        BigDecimal kcal = energyKcal(workout);
+        String activity = name.startsWith("HKWorkoutActivityType") ? activityLabel(name) : clip(name, 80);
+        if (activity == null) {
+            activity = "Workout";
+        }
+        return new ParsedWorkout(
+                fingerprint, activity, source, start.toInstant(), end == null ? null : end.toInstant(), start.toLocalDate(), minutes, miles, kcal);
+    }
+
+    private static BigDecimal energyKcal(JsonNode workout) {
+        for (String field : List.of("activeEnergyBurned", "activeEnergy", "totalEnergy")) {
+            BigDecimal kcal = toKcal(qtyText(workout, field), unitsText(workout, field));
+            if (kcal != null) {
+                return kcal;
+            }
+        }
+        return null;
+    }
+
+    private static String workoutSource(JsonNode workout) {
+        JsonNode source = workout.get("source");
+        String name = "";
+        if (source != null && source.isObject()) {
+            name = text(source, "name");
+        } else if (source != null && source.isTextual()) {
+            name = source.asText("").trim();
+        }
+        String clipped = clip(name, 128);
+        return clipped == null ? "Health Auto Export" : clipped;
+    }
+
+    private static String qtyText(JsonNode node, String field) {
+        JsonNode value = node.get(field);
+        if (value == null || value.isNull()) {
+            return null;
+        }
+        if (value.isObject()) {
+            return value.path("qty").isMissingNode() || value.path("qty").isNull() ? null : value.path("qty").asText();
+        }
+        return value.asText();
+    }
+
+    private static String unitsText(JsonNode node, String field) {
+        JsonNode value = node.get(field);
+        if (value != null && value.isObject()) {
+            return value.path("units").asText("");
+        }
+        return "";
+    }
+
+    private static String text(JsonNode node, String field) {
+        if (node == null || !node.has(field) || node.get(field).isNull()) {
+            return "";
+        }
+        JsonNode value = node.get(field);
+        if (value.isTextual() || value.isNumber()) {
+            return value.asText("").trim();
+        }
+        return "";
     }
 
     static Parsed parseXml(InputStream in) throws Exception {

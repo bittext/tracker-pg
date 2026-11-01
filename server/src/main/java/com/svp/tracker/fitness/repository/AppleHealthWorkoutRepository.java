@@ -1,6 +1,7 @@
 package com.svp.tracker.fitness.repository;
 
 import com.svp.tracker.fitness.domain.AppleHealthWorkout;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -13,6 +14,9 @@ public interface AppleHealthWorkoutRepository extends JpaRepository<AppleHealthW
 
     @Query("select w.fingerprint from AppleHealthWorkout w where w.ownerUserId = :ownerUserId")
     List<String> findFingerprintsByOwnerUserId(long ownerUserId);
+
+    @Query("select w.startedAt from AppleHealthWorkout w where w.ownerUserId = :ownerUserId and w.startedAt is not null")
+    List<Instant> findStartedAtByOwnerUserId(long ownerUserId);
 
     long countByOwnerUserId(long ownerUserId);
 

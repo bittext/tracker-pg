@@ -15,6 +15,7 @@ import com.svp.tracker.fitness.dto.FitnessHabitStreakBoardDto;
 import com.svp.tracker.fitness.dto.MonthActivityCalendarDto;
 import com.svp.tracker.fitness.dto.MonthlyExerciseReportDto;
 import com.svp.tracker.fitness.service.FitnessHabitStreakService;
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
@@ -160,6 +161,11 @@ public class FitnessController {
     @PostMapping(value = "/apple-health", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public AppleHealthImportResultDto importAppleHealth(@RequestParam("file") MultipartFile file) {
         return appleHealthService.importExport(file);
+    }
+
+    @PostMapping(value = "/apple-health/sync", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public AppleHealthImportResultDto syncAppleHealth(@RequestBody JsonNode body) {
+        return appleHealthService.syncAutoExport(body);
     }
 
     @DeleteMapping("/apple-health")

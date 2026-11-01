@@ -12,6 +12,7 @@ import com.svp.tracker.config.JournalProperties;
 import com.svp.tracker.config.SecurityProperties;
 import com.svp.tracker.config.WebProperties;
 import com.svp.tracker.finance.predicts.config.FinancePredictsProperties;
+import com.svp.tracker.fitness.config.AppleHealthSyncProperties;
 import com.svp.tracker.management.config.ManagementAccountsProperties;
 import com.svp.tracker.management.config.ManagementRecordingsProperties;
 import org.springframework.boot.SpringApplication;
@@ -41,7 +42,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
     com.svp.tracker.config.RobinhoodAgenticAutoTradeProperties.class,
     com.svp.tracker.config.RobinhoodRhDailyTrackerProperties.class,
     com.svp.tracker.config.RobinhoodRhCryptoTrackerProperties.class,
-    com.svp.tracker.config.RobinhoodRhCryptoAutoTradeProperties.class
+    com.svp.tracker.config.RobinhoodRhCryptoAutoTradeProperties.class,
+    AppleHealthSyncProperties.class
 })
 public class TrackerApplication {
 
