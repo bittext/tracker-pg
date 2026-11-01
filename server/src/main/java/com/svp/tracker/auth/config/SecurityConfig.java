@@ -80,8 +80,8 @@ public class SecurityConfig {
                             }
                             writeJson(response, HttpServletResponse.SC_FORBIDDEN, "{\"error\":\"forbidden\"}");
                         }))
-                .addFilterBefore(appleHealthSyncAuthFilter, JwtAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(appleHealthSyncAuthFilter, JwtAuthenticationFilter.class)
                 .addFilterAfter(marketsAccessFilter, JwtAuthenticationFilter.class);
         return http.build();
     }
