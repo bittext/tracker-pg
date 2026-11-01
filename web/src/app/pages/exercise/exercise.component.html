@@ -47,12 +47,13 @@
         </p>
       </header>
       <div class="cal-toolbar">
-        <button mat-icon-button type="button" (click)="prevMonth()" aria-label="Previous month">
+        <button mat-stroked-button type="button" class="cal-nav-btn" (click)="prevMonth()" aria-label="Previous month">
           <mat-icon>chevron_left</mat-icon>
+          <span class="cal-nav-label">Previous</span>
         </button>
-        <span class="cal-title-spacer" aria-hidden="true"></span>
-        <button mat-icon-button type="button" (click)="nextMonth()" aria-label="Next month">
-          <mat-icon>chevron_right</mat-icon>
+        <button mat-stroked-button type="button" class="cal-nav-btn" (click)="nextMonth()" aria-label="Next month">
+          <span class="cal-nav-label">Next</span>
+          <mat-icon iconPositionEnd>chevron_right</mat-icon>
         </button>
       </div>
       <div class="calendar-shell" aria-label="Weight and exercise this month">

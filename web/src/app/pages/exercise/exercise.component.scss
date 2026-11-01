@@ -473,12 +473,33 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.35rem;
+  gap: 0.75rem;
   margin-bottom: 0.55rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--app-accent, #2563eb) 35%, var(--app-border, rgba(15, 23, 42, 0.12)));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--app-accent, #2563eb) 8%, var(--app-surface, #fff));
 }
 
-.cal-title-spacer {
-  flex: 1;
+.cal-nav-btn {
+  flex: 0 0 auto;
+  min-width: 7.25rem;
+}
+
+@media (max-width: 560px) {
+  .cal-toolbar {
+    gap: 0.4rem;
+    padding: 0.45rem;
+  }
+
+  .cal-nav-btn {
+    min-width: 2.75rem;
+    padding-inline: 0.35rem;
+  }
+
+  .cal-nav-label {
+    display: none;
+  }
 }
 
 .calendar-shell {
