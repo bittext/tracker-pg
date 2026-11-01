@@ -472,6 +472,13 @@
   grid-column: 1 / -1;
 }
 
+.due-form-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.25rem;
+  margin-top: 0.15rem;
+}
+
 .due-form-actions {
   display: flex;
   gap: 0.4rem;

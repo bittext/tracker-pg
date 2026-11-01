@@ -473,6 +473,7 @@ export interface ManagementDueItemWriteBody {
   startYear?: number | null;
   startMonth?: number | null;
   categoryId?: number | null;
+  settled?: boolean | null;
 }
 
 export interface ManagementDueSettleBody {

@@ -265,6 +265,7 @@ export class ManagementDuePanelComponent implements OnInit {
       oneOffDate: row.oneOffDate ?? row.occurrenceDate,
       amount: row.amountOverride == null ? '' : String(row.amountOverride),
       notes: row.notes || '',
+      settled: false,
     };
   }
 
@@ -280,6 +281,7 @@ export class ManagementDuePanelComponent implements OnInit {
       return;
     }
     const amount = this.parseAmount(this.draft.amount);
+    const wasUpdate = this.editingItemId != null;
     const body: ManagementDueItemWriteBody = {
       side: this.draft.side,
       counterparty,
@@ -291,9 +293,9 @@ export class ManagementDuePanelComponent implements OnInit {
       startYear: this.year,
       startMonth: this.month,
       categoryId: this.draft.categoryId,
+      settled: wasUpdate ? null : this.draft.settled,
     };
     this.saving = true;
-    const wasUpdate = this.editingItemId != null;
     const req = wasUpdate
       ? this.api.updateDueItem(this.editingItemId as number, body)
       : this.api.createDueItem(body);
@@ -802,7 +804,8 @@ export class ManagementDuePanelComponent implements OnInit {
       side: 'PAYABLE' as ManagementDueSide,
       counterparty: '',
       categoryId: null as number | null,
-      recurring: true,
+      recurring: false,
+      settled: false,
       dayOfMonth: Number(iso.slice(8, 10)) || 1,
       oneOffDate: iso,
       amount: '',

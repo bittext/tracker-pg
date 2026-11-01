@@ -220,6 +220,12 @@ public class ManagementDueService {
         item.setUpdatedAt(now);
         itemRepository.save(item);
         YearMonth focus = focusMonth(req);
+        if (Boolean.TRUE.equals(req.settled())) {
+            YearMonth settleOn = item.isRecurring() || item.getOneOffDate() == null
+                    ? focus
+                    : YearMonth.from(item.getOneOffDate());
+            markSettled(item, settleOn, owner);
+        }
         return month(focus.getYear(), focus.getMonthValue());
     }
 
@@ -360,6 +366,24 @@ public class ManagementDueService {
                 item.setStartsOn(fallbackStart != null ? fallbackStart : todayInOwnerZone().withDayOfMonth(1));
             }
         }
+    }
+
+    /** Marks the new item paid or received on the month it first appears. */
+    private void markSettled(ManagementDueItem item, YearMonth focus, long owner) {
+        ManagementDueOccurrence occ = new ManagementDueOccurrence();
+        occ.setItem(item);
+        occ.setOwnerUserId(owner);
+        occ.setYear(focus.getYear());
+        occ.setMonth(focus.getMonthValue());
+        occ.setSettled(true);
+        occ.setSkipped(false);
+        BigDecimal amount = displayAmount(item, loadHistory(owner));
+        if (amount == null) {
+            amount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+        occ.setSettledAmount(scale(amount));
+        occ.setSettledAt(Instant.now());
+        occurrenceRepository.save(occ);
     }
 
     private YearMonth focusMonth(ManagementDueItemWriteRequest req) {

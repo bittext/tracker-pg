@@ -17,4 +17,5 @@ public record ManagementDueItemWriteRequest(
         @Size(max = 4000) String notes,
         @Min(1970) @Max(9999) Integer startYear,
         @Min(1) @Max(12) Integer startMonth,
-        Long categoryId) {}
+        Long categoryId,
+        Boolean settled) {}

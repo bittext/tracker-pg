@@ -283,7 +283,14 @@
                   <input matInput [(ngModel)]="draft.notes" name="dueNotes" />
                 </mat-form-field>
               </div>
-              <mat-checkbox [(ngModel)]="draft.recurring" name="dueRecurring">Recurring every month</mat-checkbox>
+              <div class="due-form-flags">
+                <mat-checkbox [(ngModel)]="draft.recurring" name="dueRecurring">Recurring every month</mat-checkbox>
+                @if (!editingItemId) {
+                  <mat-checkbox [(ngModel)]="draft.settled" name="dueSettled">
+                    {{ draft.side === 'PAYABLE' ? 'Mark as paid' : 'Mark as received' }}
+                  </mat-checkbox>
+                }
+              </div>
               <div class="due-form-actions">
                 <button mat-flat-button color="primary" type="submit" [disabled]="saving">
                   {{ editingItemId ? 'Save' : 'Add' }}
