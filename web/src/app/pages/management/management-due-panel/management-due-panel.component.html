@@ -42,12 +42,14 @@
           </mat-card-header>
           <mat-card-content>
             <div class="cal-toolbar">
-              <button mat-icon-button type="button" (click)="prevMonth()" aria-label="Previous month">
+              <button mat-stroked-button type="button" class="cal-nav-btn" (click)="prevMonth()" aria-label="Previous month">
                 <mat-icon>chevron_left</mat-icon>
+                <span class="cal-nav-label">Previous</span>
               </button>
               <h3 class="cal-title">{{ calendarTitle }}</h3>
-              <button mat-icon-button type="button" (click)="nextMonth()" aria-label="Next month">
-                <mat-icon>chevron_right</mat-icon>
+              <button mat-stroked-button type="button" class="cal-nav-btn" (click)="nextMonth()" aria-label="Next month">
+                <span class="cal-nav-label">Next</span>
+                <mat-icon iconPositionEnd>chevron_right</mat-icon>
               </button>
             </div>
             <div class="due-sales-bar">

@@ -159,14 +159,45 @@
 .cal-toolbar {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  margin-bottom: 0.65rem;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--app-accent, #2563eb) 35%, var(--app-border, rgba(15, 23, 42, 0.12)));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--app-accent, #2563eb) 8%, var(--app-surface, #fff));
+}
+
+.cal-nav-btn {
+  flex: 0 0 auto;
+  min-width: 7.25rem;
+}
+
+@media (max-width: 560px) {
+  .cal-toolbar {
+    gap: 0.4rem;
+    padding: 0.45rem;
+  }
+
+  .cal-nav-btn {
+    min-width: 2.75rem;
+    padding-inline: 0.35rem;
+  }
+
+  .cal-nav-label {
+    display: none;
+  }
+
+  .cal-title {
+    font-size: 1.05rem;
+  }
 }
 
 .cal-title {
   margin: 0;
-  font-size: 1.05rem;
-  font-weight: 600;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   flex: 1;
   text-align: center;
 }
