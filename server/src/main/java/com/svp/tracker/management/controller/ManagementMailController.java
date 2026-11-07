@@ -65,6 +65,12 @@ public class ManagementMailController {
         return service.digest(id);
     }
 
+    @DeleteMapping("/digests/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteDigest(@PathVariable long id) {
+        service.deleteDigest(id);
+    }
+
     @PostMapping("/digests/run")
     public ManagementMailDigestDto run(@RequestParam(required = false) String slot) {
         return service.runCurrent(slot);

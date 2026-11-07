@@ -454,6 +454,10 @@ export class ManagementApiService {
     return this.http.get<ManagementMailDigestDto>(`${this.mailRoot}/digests/${id}`);
   }
 
+  deleteMailDigest(id: number) {
+    return this.http.delete<void>(`${this.mailRoot}/digests/${id}`);
+  }
+
   runMailDigest(slot?: ManagementMailSlot) {
     const params = slot ? { slot } : undefined;
     return this.http.post<ManagementMailDigestDto>(`${this.mailRoot}/digests/run`, {}, { params });

@@ -20,7 +20,14 @@
       <article class="mail-card">
         <header class="mail-card-head">
           <h3>{{ slot.label }}</h3>
-          <span class="muted">{{ slot.when }}</span>
+          <span class="mail-card-meta">
+            <span class="muted">{{ slot.when }}</span>
+            @if (digestFor(slot.id); as digest) {
+              <button mat-button type="button" color="warn" class="mail-remove" (click)="removeDigest(digest)">
+                Remove
+              </button>
+            }
+          </span>
         </header>
         @if (digestFor(slot.id); as digest) {
           <p class="mail-summary">{{ digest.summary }}</p>

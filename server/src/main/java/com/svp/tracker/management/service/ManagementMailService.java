@@ -137,6 +137,13 @@ public class ManagementMailService {
         return toDigest(row, messageRepository.findByDigestIdOrderByReceivedAtDesc(row.getId()));
     }
 
+    @Transactional
+    public void deleteDigest(long id) {
+        ManagementMailDigest row = ownedDigest(id);
+        messageRepository.deleteByDigestId(row.getId());
+        digestRepository.delete(row);
+    }
+
     public ManagementMailDigestDto runCurrent(String slotRaw) {
         ManagementMailSlot slot = ManagementMailSlot.fromParam(slotRaw);
         return run(currentUser.requireUserId(), slot);

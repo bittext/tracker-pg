@@ -37,8 +37,20 @@
   display: flex;
   justify-content: space-between;
   gap: 0.5rem;
-  align-items: baseline;
+  align-items: center;
   margin-bottom: 0.45rem;
+}
+
+.mail-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.mail-remove {
+  min-width: 0;
+  padding: 0 0.35rem;
+  line-height: 1.75rem;
 }
 
 .mail-card-head h3,

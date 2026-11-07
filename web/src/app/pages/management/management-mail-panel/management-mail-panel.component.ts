@@ -125,6 +125,23 @@ export class ManagementMailPanelComponent implements OnInit {
     });
   }
 
+  removeDigest(digest: ManagementMailDigestDto): void {
+    this.api.deleteMailDigest(digest.id).subscribe({
+      next: () => {
+        this.api.listMailDigests().subscribe({
+          next: (rows) => {
+            this.history = rows;
+            const stillHere = rows.some((row) => row.digestOn === this.shownDate);
+            this.shownDate = stillHere ? this.shownDate : (rows[0]?.digestOn ?? '');
+            this.loadDay(this.shownDate || undefined);
+          },
+          error: (e) => this.err('Could not refresh mail history', e),
+        });
+      },
+      error: (e) => this.err('Could not remove that summary', e),
+    });
+  }
+
   test(account: ManagementMailAccountDto): void {
     this.api.testMailAccount(account.id).subscribe({
       next: (result) => this.snackBar.open(result.detail, 'Dismiss', { duration: 6000 }),
