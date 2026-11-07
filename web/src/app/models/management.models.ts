@@ -653,3 +653,49 @@ export interface ManagementAutoPaymentWriteBody {
   website?: string;
   notes?: string;
 }
+
+export type ManagementMailProvider = 'GMAIL' | 'HOTMAIL' | 'YAHOO';
+export type ManagementMailSlot = 'MORNING' | 'MIDDAY' | 'EVENING';
+
+export interface ManagementMailAccountDto {
+  id: number;
+  provider: ManagementMailProvider;
+  emailAddress: string;
+  enabled: boolean;
+  secretSet: boolean;
+  updatedAt: string;
+}
+
+export interface ManagementMailAccountWriteBody {
+  provider: ManagementMailProvider;
+  emailAddress: string;
+  appPassword?: string;
+  enabled?: boolean;
+}
+
+export interface ManagementMailDigestMessageDto {
+  id: number;
+  provider: ManagementMailProvider;
+  mailbox: string;
+  from: string;
+  subject: string;
+  receivedAt: string | null;
+  snippet: string;
+}
+
+export interface ManagementMailDigestDto {
+  id: number;
+  digestOn: string;
+  slot: ManagementMailSlot;
+  slotLabel: string;
+  createdAt: string;
+  summary: string;
+  messageCount: number;
+  status: string;
+  messages: ManagementMailDigestMessageDto[];
+}
+
+export interface ManagementMailTestDto {
+  ok: boolean;
+  detail: string;
+}

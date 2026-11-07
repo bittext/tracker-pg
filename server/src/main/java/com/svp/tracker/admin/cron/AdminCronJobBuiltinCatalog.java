@@ -152,6 +152,30 @@ public class AdminCronJobBuiltinCatalog {
                 "markets.rh-predict.daily-snapshot",
                 "0 10 21 * * *",
                 "America/Chicago"));
+        jobs.add(cron(
+                "management.mail.morning",
+                "Mail morning digest",
+                "Reads Gmail, Hotmail, and Yahoo and saves the morning summary.",
+                "Management",
+                "management.mail.morning",
+                "0 0 7 * * *",
+                "America/Chicago"));
+        jobs.add(cron(
+                "management.mail.midday",
+                "Mail midday digest",
+                "Reads Gmail, Hotmail, and Yahoo and saves the midday summary.",
+                "Management",
+                "management.mail.midday",
+                "0 0 13 * * *",
+                "America/Chicago"));
+        jobs.add(cron(
+                "management.mail.evening",
+                "Mail evening digest",
+                "Reads Gmail, Hotmail, and Yahoo and saves the evening summary.",
+                "Management",
+                "management.mail.evening",
+                "0 0 19 * * *",
+                "America/Chicago"));
         return jobs;
     }
 

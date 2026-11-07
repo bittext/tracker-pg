@@ -38,6 +38,11 @@ import {
   ManagementWorkLogEntryWriteBody,
   ManagementDueCategoryDto,
   ManagementDueItemWriteBody,
+  ManagementMailAccountDto,
+  ManagementMailAccountWriteBody,
+  ManagementMailDigestDto,
+  ManagementMailSlot,
+  ManagementMailTestDto,
   ManagementDueMonthDto,
   ManagementDueReportDto,
   ManagementDueSettleBody,
@@ -416,6 +421,37 @@ export class ManagementApiService {
 
   deleteAutoPayment(id: number) {
     return this.http.delete<void>(`${this.autoPaymentsRoot}/${id}`);
+  }
+
+  private readonly mailRoot = `${this.root}/mail`;
+
+  listMailAccounts() {
+    return this.http.get<ManagementMailAccountDto[]>(`${this.mailRoot}/accounts`);
+  }
+
+  saveMailAccount(body: ManagementMailAccountWriteBody) {
+    return this.http.post<ManagementMailAccountDto>(`${this.mailRoot}/accounts`, body);
+  }
+
+  deleteMailAccount(id: number) {
+    return this.http.delete<void>(`${this.mailRoot}/accounts/${id}`);
+  }
+
+  testMailAccount(id: number) {
+    return this.http.post<ManagementMailTestDto>(`${this.mailRoot}/accounts/${id}/test`, {});
+  }
+
+  listMailDigests() {
+    return this.http.get<ManagementMailDigestDto[]>(`${this.mailRoot}/digests`);
+  }
+
+  getMailDigest(id: number) {
+    return this.http.get<ManagementMailDigestDto>(`${this.mailRoot}/digests/${id}`);
+  }
+
+  runMailDigest(slot?: ManagementMailSlot) {
+    const params = slot ? { slot } : undefined;
+    return this.http.post<ManagementMailDigestDto>(`${this.mailRoot}/digests/run`, {}, { params });
   }
 
   private readonly documentsRoot = `${this.root}/documents`;

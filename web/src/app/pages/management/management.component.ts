@@ -81,6 +81,7 @@ import { ManagementNowPanelComponent } from './management-now-panel/management-n
 import { ManagementDuePanelComponent } from './management-due-panel/management-due-panel.component';
 import { ManagementSubscriptionsPanelComponent } from './management-subscriptions-panel/management-subscriptions-panel.component';
 import { ManagementAutoPaymentsPanelComponent } from './management-auto-payments-panel/management-auto-payments-panel.component';
+import { ManagementMailPanelComponent } from './management-mail-panel/management-mail-panel.component';
 import {
   WriteupAttachmentPreviewDialogComponent,
   WriteupAttachmentPreviewData,
@@ -149,6 +150,7 @@ interface AccountEntry {
     ManagementDuePanelComponent,
     ManagementSubscriptionsPanelComponent,
     ManagementAutoPaymentsPanelComponent,
+    ManagementMailPanelComponent,
     WriteupMarkdownBodyComponent,
     DragDropModule,
   ],
@@ -264,8 +266,8 @@ export class ManagementComponent implements OnInit, OnDestroy {
 
   readonly accountTableColumns: string[] = ['folder', 'itemName', 'username', 'actions'];
 
-  /** Life: 0 Tasks, 1 Travel, 2 Documents, 3 Recordings, 4 Now, 5 Calendar, 6 Due, 7 Account, 8 Subscriptions, 9 Auto Payments, 10 Notes, 11 Write-up.
-   * Work: 0 Log, 1 Sierra, then the same from Documents (Due, Subscriptions, and Auto Payments omitted). */
+  /** Life: 0 Tasks, 1 Travel, 2 Documents, 3 Recordings, 4 Now, 5 Calendar, 6 Due, 7 Account, 8 Subscriptions, 9 Auto Payments, 10 Mail, 11 Notes, 12 Write-up.
+   * Work: 0 Log, 1 Sierra, then the same from Documents (Due, Subscriptions, Auto Payments, and Mail omitted). */
   private readonly MGMT_TAB_TRAVEL = 1;
   private readonly MGMT_TAB_DOCUMENTS = 2;
   private readonly MGMT_TAB_RECORDINGS = 3;
@@ -278,11 +280,14 @@ export class ManagementComponent implements OnInit, OnDestroy {
   private get mgmtTabAutoPayments(): number | null {
     return this.isWorkLayout ? null : 9;
   }
+  private get mgmtTabMail(): number | null {
+    return this.isWorkLayout ? null : 10;
+  }
   private get mgmtTabNotes(): number {
-    return this.isWorkLayout ? 7 : 10;
+    return this.isWorkLayout ? 7 : 11;
   }
   private get mgmtTabWriteup(): number {
-    return this.isWorkLayout ? 8 : 11;
+    return this.isWorkLayout ? 8 : 12;
   }
 
   private readonly travelPanel = viewChild(ManagementTravelPanelComponent);
@@ -291,6 +296,7 @@ export class ManagementComponent implements OnInit, OnDestroy {
   private readonly duePanel = viewChild(ManagementDuePanelComponent);
   private readonly subscriptionsPanel = viewChild(ManagementSubscriptionsPanelComponent);
   private readonly autoPaymentsPanel = viewChild(ManagementAutoPaymentsPanelComponent);
+  private readonly mailPanel = viewChild(ManagementMailPanelComponent);
 
   noteYear = new Date().getFullYear();
   /** When set, list is limited to that month; when null, all months in the year. Default: current month (1–12). */
@@ -1484,6 +1490,9 @@ export class ManagementComponent implements OnInit, OnDestroy {
     }
     if (this.mgmtTabAutoPayments != null && index === this.mgmtTabAutoPayments) {
       this.autoPaymentsPanel()?.refreshAll();
+    }
+    if (this.mgmtTabMail != null && index === this.mgmtTabMail) {
+      this.mailPanel()?.refreshAll();
     }
     if (index === this.mgmtTabNotes) {
       this.noteDraft.year = this.noteYear;

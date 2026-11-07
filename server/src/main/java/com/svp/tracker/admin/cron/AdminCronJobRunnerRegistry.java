@@ -19,6 +19,8 @@ import com.svp.tracker.finance.service.FinanceTaxDeskSnapshotScheduler;
 import com.svp.tracker.finance.service.RhPredictService;
 import com.svp.tracker.finance.service.RobinhoodRhDailySnapshotScheduler;
 import com.svp.tracker.finance.service.YahooBatchQuoteService;
+import com.svp.tracker.management.domain.ManagementMailSlot;
+import com.svp.tracker.management.service.ManagementMailService;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -47,6 +49,7 @@ public class AdminCronJobRunnerRegistry {
             PredictsService predictsService,
             BankingPlaidService bankingPlaidService,
             RhPredictService rhPredictService,
+            ManagementMailService managementMailService,
             RobinhoodRhDailyTrackerProperties rhDailyTrackerProps,
             RobinhoodRhCryptoTrackerProperties rhCryptoTrackerProps,
             RobinhoodRhCryptoAutoTradeProperties rhCryptoAutoTradeProps,
@@ -161,6 +164,24 @@ public class AdminCronJobRunnerRegistry {
                 "Freezes each Central calendar day's Predict performance at end of day.",
                 "Markets",
                 rhPredictService::captureDailySnapshots));
+        register(new AdminCronJobRunnerDefinition(
+                "management.mail.morning",
+                "Mail morning digest",
+                "Reads Gmail, Hotmail, and Yahoo and saves the morning summary.",
+                "Management",
+                () -> managementMailService.runScheduled(ManagementMailSlot.MORNING)));
+        register(new AdminCronJobRunnerDefinition(
+                "management.mail.midday",
+                "Mail midday digest",
+                "Reads Gmail, Hotmail, and Yahoo and saves the midday summary.",
+                "Management",
+                () -> managementMailService.runScheduled(ManagementMailSlot.MIDDAY)));
+        register(new AdminCronJobRunnerDefinition(
+                "management.mail.evening",
+                "Mail evening digest",
+                "Reads Gmail, Hotmail, and Yahoo and saves the evening summary.",
+                "Management",
+                () -> managementMailService.runScheduled(ManagementMailSlot.EVENING)));
     }
 
     private void register(AdminCronJobRunnerDefinition runner) {

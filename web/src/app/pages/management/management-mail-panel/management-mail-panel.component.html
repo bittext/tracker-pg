@@ -1,0 +1,83 @@
+<div class="tab-panel mail-panel">
+  <h2 class="subsection-title">Mail</h2>
+  <p class="muted">
+    Gmail, Hotmail, and Yahoo are read at 7:00 AM, 1:00 PM, and 7:00 PM Central. Each pass is kept here.
+    Use an app password for the mailbox, not the sign-in password.
+  </p>
+
+  <form class="mail-form" (ngSubmit)="save()">
+    <mat-form-field appearance="outline">
+      <mat-label>Mailbox</mat-label>
+      <mat-select [(ngModel)]="provider" name="mailProvider">
+        @for (item of providers; track item.id) {
+          <mat-option [value]="item.id">{{ item.label }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="mail-grow">
+      <mat-label>Address</mat-label>
+      <input matInput type="email" name="mailAddress" [(ngModel)]="emailAddress" autocomplete="off" required />
+    </mat-form-field>
+    <mat-form-field appearance="outline" class="mail-grow">
+      <mat-label>App password</mat-label>
+      <input matInput type="password" name="mailSecret" [(ngModel)]="appPassword" autocomplete="new-password" />
+    </mat-form-field>
+    <button mat-stroked-button type="submit" [disabled]="saving">Save mailbox</button>
+  </form>
+
+  @if (accounts.length) {
+    <ul class="mail-accounts">
+      @for (account of accounts; track account.id) {
+        <li>
+          <span>{{ providerLabel(account.provider) }} · {{ account.emailAddress }}</span>
+          <span class="mail-account-actions">
+            <button mat-button type="button" (click)="test(account)">Test</button>
+            <button mat-button type="button" color="warn" (click)="remove(account)">Remove</button>
+          </span>
+        </li>
+      }
+    </ul>
+  }
+
+  <div class="mail-run">
+    <button mat-stroked-button type="button" (click)="runNow()" [disabled]="running">
+      {{ running ? 'Reading mail…' : 'Summarize now' }}
+    </button>
+  </div>
+
+  @if (selected) {
+    <article class="mail-digest">
+      <h3>{{ selected.slotLabel }} · {{ selected.digestOn }}</h3>
+      <p class="mail-summary">{{ selected.summary }}</p>
+      @if (selected.messages.length) {
+        <ul class="mail-messages">
+          @for (message of selected.messages; track message.id) {
+            <li>
+              <strong>{{ message.subject || '(no subject)' }}</strong>
+              <span class="muted">{{ message.from }} · {{ providerLabel(message.provider) }}</span>
+              @if (message.snippet) {
+                <span>{{ message.snippet }}</span>
+              }
+            </li>
+          }
+        </ul>
+      }
+    </article>
+  }
+
+  <h3 class="mail-history-title">History</h3>
+  @if (!digests.length) {
+    <p class="muted">No summaries yet.</p>
+  } @else {
+    <ul class="mail-history">
+      @for (row of digests; track row.id) {
+        <li>
+          <button type="button" (click)="openDigest(row)" [class.mail-history--on]="selected?.id === row.id">
+            <span>{{ row.digestOn }} · {{ row.slotLabel }}</span>
+            <span class="muted">{{ row.messageCount }} messages</span>
+          </button>
+        </li>
+      }
+    </ul>
+  }
+</div>
