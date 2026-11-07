@@ -10,6 +10,7 @@ import {
   ManagementMailAccountDto,
   ManagementMailDigestDto,
   ManagementMailProvider,
+  ManagementMailSlot,
 } from '../../../models/management.models';
 import { ManagementApiService } from '../../../services/management-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
@@ -25,15 +26,11 @@ export class ManagementMailPanelComponent implements OnInit {
   private readonly api = inject(ManagementApiService);
   private readonly snackBar = inject(MatSnackBar);
 
-  accounts: ManagementMailAccountDto[] = [];
-  digests: ManagementMailDigestDto[] = [];
-  selected: ManagementMailDigestDto | null = null;
-  running = false;
-  saving = false;
-
-  provider: ManagementMailProvider = 'GMAIL';
-  emailAddress = '';
-  appPassword = '';
+  readonly slots: { id: ManagementMailSlot; label: string; when: string }[] = [
+    { id: 'MORNING', label: 'Morning', when: '7:00 AM' },
+    { id: 'MIDDAY', label: 'Midday', when: '1:00 PM' },
+    { id: 'EVENING', label: 'Evening', when: '7:00 PM' },
+  ];
 
   readonly providers: { id: ManagementMailProvider; label: string }[] = [
     { id: 'GMAIL', label: 'Gmail' },
@@ -41,27 +38,61 @@ export class ManagementMailPanelComponent implements OnInit {
     { id: 'YAHOO', label: 'Yahoo' },
   ];
 
+  accounts: ManagementMailAccountDto[] = [];
+  history: ManagementMailDigestDto[] = [];
+  shown: ManagementMailDigestDto[] = [];
+  shownDate = '';
+  running = false;
+  saving = false;
+  showSetup = false;
+
+  provider: ManagementMailProvider = 'GMAIL';
+  emailAddress = '';
+  appPassword = '';
+
   ngOnInit(): void {
     this.refreshAll();
   }
 
   refreshAll(): void {
     this.api.listMailAccounts().subscribe({
-      next: (rows) => (this.accounts = rows),
+      next: (rows) => {
+        this.accounts = rows;
+        if (rows.length === 0) {
+          this.showSetup = true;
+        }
+      },
       error: (e) => this.err('Could not load mailboxes', e),
     });
     this.api.listMailDigests().subscribe({
-      next: (rows) => {
-        this.digests = rows;
-        if (this.selected) {
-          const still = rows.find((row) => row.id === this.selected?.id);
-          if (!still) {
-            this.selected = null;
-          }
-        }
-      },
+      next: (rows) => (this.history = rows),
       error: (e) => this.err('Could not load mail history', e),
     });
+    this.loadDay(this.shownDate || undefined);
+  }
+
+  loadDay(on?: string): void {
+    this.api.mailDay(on).subscribe({
+      next: (rows) => {
+        this.shown = rows;
+        this.shownDate = rows[0]?.digestOn ?? on ?? '';
+      },
+      error: (e) => this.err('Could not load the mail summary', e),
+    });
+  }
+
+  digestFor(slot: ManagementMailSlot): ManagementMailDigestDto | undefined {
+    return this.shown.find((row) => row.slot === slot);
+  }
+
+  historyDates(): string[] {
+    const dates: string[] = [];
+    for (const row of this.history) {
+      if (!dates.includes(row.digestOn)) {
+        dates.push(row.digestOn);
+      }
+    }
+    return dates;
   }
 
   save(): void {
@@ -106,20 +137,14 @@ export class ManagementMailPanelComponent implements OnInit {
     this.api.runMailDigest().subscribe({
       next: (digest) => {
         this.running = false;
-        this.selected = digest;
-        this.refreshAll();
+        this.shownDate = digest.digestOn;
+        this.loadDay(digest.digestOn);
+        this.api.listMailDigests().subscribe({ next: (rows) => (this.history = rows) });
       },
       error: (e) => {
         this.running = false;
         this.err('Could not summarize mail', e);
       },
-    });
-  }
-
-  openDigest(row: ManagementMailDigestDto): void {
-    this.api.getMailDigest(row.id).subscribe({
-      next: (detail) => (this.selected = detail),
-      error: (e) => this.err('Could not open that summary', e),
     });
   }
 

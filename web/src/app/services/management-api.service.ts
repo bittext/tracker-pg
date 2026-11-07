@@ -445,6 +445,11 @@ export class ManagementApiService {
     return this.http.get<ManagementMailDigestDto[]>(`${this.mailRoot}/digests`);
   }
 
+  mailDay(on?: string) {
+    const params = on ? { on } : undefined;
+    return this.http.get<ManagementMailDigestDto[]>(`${this.mailRoot}/digests/day`, { params });
+  }
+
   getMailDigest(id: number) {
     return this.http.get<ManagementMailDigestDto>(`${this.mailRoot}/digests/${id}`);
   }

@@ -12,4 +12,6 @@ public interface ManagementMailDigestRepository extends JpaRepository<Management
     List<ManagementMailDigest> findTop60ByOwnerUserIdOrderByDigestOnDescCreatedAtDesc(long ownerUserId);
 
     Optional<ManagementMailDigest> findByOwnerUserIdAndDigestOnAndSlot(long ownerUserId, LocalDate digestOn, ManagementMailSlot slot);
+
+    List<ManagementMailDigest> findByOwnerUserIdAndDigestOn(long ownerUserId, LocalDate digestOn);
 }

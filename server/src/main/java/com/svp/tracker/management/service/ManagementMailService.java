@@ -104,6 +104,26 @@ public class ManagementMailService {
     }
 
     @Transactional(readOnly = true)
+    public List<ManagementMailDigestDto> day(LocalDate digestOn) {
+        long owner = currentUser.requireUserId();
+        LocalDate day = digestOn;
+        if (day == null) {
+            day = digestRepository.findTop60ByOwnerUserIdOrderByDigestOnDescCreatedAtDesc(owner).stream()
+                    .map(ManagementMailDigest::getDigestOn)
+                    .findFirst()
+                    .orElse(null);
+        }
+        if (day == null) {
+            return List.of();
+        }
+        LocalDate shown = day;
+        return digestRepository.findByOwnerUserIdAndDigestOn(owner, shown).stream()
+                .sorted(java.util.Comparator.comparingInt(row -> row.getSlot().ordinal()))
+                .map(row -> toDigest(row, messageRepository.findByDigestIdOrderByReceivedAtDesc(row.getId())))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<ManagementMailDigestDto> listDigests() {
         long owner = currentUser.requireUserId();
         return digestRepository.findTop60ByOwnerUserIdOrderByDigestOnDescCreatedAtDesc(owner).stream()
