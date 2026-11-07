@@ -144,6 +144,64 @@ public class ManagementMailService {
         digestRepository.delete(row);
     }
 
+    @Transactional
+    public void deleteMessage(long id) {
+        ManagementMailDigestMessage message = messageRepository
+                .findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Message not found"));
+        ManagementMailDigest digest = ownedDigest(message.getDigestId());
+        messageRepository.delete(message);
+        digest.setMessageCount(Math.max(0, digest.getMessageCount() - 1));
+        digest.setSummary(withoutMessage(digest.getSummary(), message.getSubject(), message.getSnippet()));
+        digestRepository.save(digest);
+    }
+
+    private static String withoutMessage(String summary, String subject, String snippet) {
+        if (summary == null || summary.isBlank()) {
+            return "";
+        }
+        String subjectKey = subject == null ? "" : subject.trim();
+        String snippetKey = snippet == null ? "" : snippet.trim();
+        if (snippetKey.length() > 80) {
+            snippetKey = snippetKey.substring(0, 80);
+        }
+        String[] lines = summary.split("\\R");
+        StringBuilder kept = new StringBuilder();
+        for (String line : lines) {
+            if (mentions(line, subjectKey) || mentions(line, snippetKey)) {
+                continue;
+            }
+            if (!kept.isEmpty()) {
+                kept.append('\n');
+            }
+            kept.append(line);
+        }
+        String result = kept.toString().trim();
+        if (result.equals(summary.trim())) {
+            result = dropSentences(summary, subjectKey, snippetKey);
+        }
+        return result.trim();
+    }
+
+    private static String dropSentences(String summary, String subjectKey, String snippetKey) {
+        String[] sentences = summary.split("(?<=[.!?])\\s+");
+        StringBuilder kept = new StringBuilder();
+        for (String sentence : sentences) {
+            if (mentions(sentence, subjectKey) || mentions(sentence, snippetKey)) {
+                continue;
+            }
+            if (!kept.isEmpty()) {
+                kept.append(' ');
+            }
+            kept.append(sentence.trim());
+        }
+        return kept.toString();
+    }
+
+    private static boolean mentions(String text, String key) {
+        return key.length() >= 8 && text.contains(key);
+    }
+
     public ManagementMailDigestDto runCurrent(String slotRaw) {
         ManagementMailSlot slot = ManagementMailSlot.fromParam(slotRaw);
         return run(currentUser.requireUserId(), slot);

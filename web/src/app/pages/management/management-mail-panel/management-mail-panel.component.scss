@@ -79,6 +79,17 @@
   margin-top: 0.65rem;
 }
 
+.mail-message-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.mail-message-head strong {
+  min-width: 0;
+}
+
 .mail-snippet {
   color: var(--app-text-muted, #475569);
   font-size: 0.85rem;

@@ -35,7 +35,18 @@
             <ul class="mail-messages">
               @for (message of digest.messages; track message.id) {
                 <li>
-                  <strong>{{ message.subject || '(no subject)' }}</strong>
+                  <span class="mail-message-head">
+                    <strong>{{ message.subject || '(no subject)' }}</strong>
+                    <button
+                      mat-button
+                      type="button"
+                      color="warn"
+                      class="mail-remove"
+                      (click)="removeMessage(message)"
+                    >
+                      Remove
+                    </button>
+                  </span>
                   <span class="muted">{{ message.from }} · {{ providerLabel(message.provider) }}</span>
                   @if (message.snippet) {
                     <span class="mail-snippet">{{ message.snippet }}</span>
