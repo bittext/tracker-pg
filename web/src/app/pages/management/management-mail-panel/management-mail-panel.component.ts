@@ -9,7 +9,6 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import {
   ManagementMailAccountDto,
   ManagementMailDigestDto,
-  ManagementMailDigestMessageDto,
   ManagementMailProvider,
   ManagementMailSlot,
 } from '../../../models/management.models';
@@ -123,13 +122,6 @@ export class ManagementMailPanelComponent implements OnInit {
     this.api.deleteMailAccount(account.id).subscribe({
       next: () => this.refreshAll(),
       error: (e) => this.err('Could not remove the mailbox', e),
-    });
-  }
-
-  removeMessage(message: ManagementMailDigestMessageDto): void {
-    this.api.deleteMailMessage(message.id).subscribe({
-      next: () => this.loadDay(this.shownDate || undefined),
-      error: (e) => this.err('Could not remove that message', e),
     });
   }
 
