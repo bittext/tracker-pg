@@ -54,6 +54,11 @@ public class ManagementMailController {
         return service.listDigests();
     }
 
+    @GetMapping("/digests/dates")
+    public List<LocalDate> digestDates() {
+        return service.digestDates();
+    }
+
     @GetMapping("/digests/day")
     public List<ManagementMailDigestDto> day(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate on) {

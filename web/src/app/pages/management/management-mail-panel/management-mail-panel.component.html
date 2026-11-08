@@ -30,7 +30,9 @@
           </span>
         </header>
         @if (digestFor(slot.id); as digest) {
-          <p class="mail-summary">{{ digest.summary }}</p>
+          @for (paragraph of summaryParagraphs(digest.summary); track $index) {
+            <p class="mail-summary">{{ paragraph }}</p>
+          }
         } @else {
           <p class="muted">No reading for this part of the day yet.</p>
         }
@@ -38,18 +40,56 @@
     }
   </section>
 
-  @if (historyDates().length > 1) {
-    <section class="mail-earlier" aria-label="Earlier readings">
-      <h3>Earlier</h3>
-      <div class="mail-dates">
-        @for (day of historyDates(); track day) {
-          <button type="button" class="mail-date" [class.mail-date--on]="day === shownDate" (click)="loadDay(day)">
-            {{ day }}
-          </button>
-        }
-      </div>
-    </section>
-  }
+  <section class="mail-cal" aria-label="Mail calendar">
+    <div class="mail-cal-toolbar">
+      <button mat-stroked-button type="button" class="mail-cal-nav" (click)="shiftCalendar(-1)" aria-label="Previous three months">
+        <mat-icon>chevron_left</mat-icon>
+        <span class="mail-cal-nav-label">Previous</span>
+      </button>
+      <h3 class="mail-cal-title">{{ calendarSpan() }}</h3>
+      <button mat-stroked-button type="button" class="mail-cal-nav" (click)="shiftCalendar(1)" aria-label="Next three months">
+        <span class="mail-cal-nav-label">Next</span>
+        <mat-icon iconPositionEnd>chevron_right</mat-icon>
+      </button>
+    </div>
+    <div class="mail-cal-months">
+      @for (month of calendarMonths(); track month.key) {
+        <section class="mail-cal-month" [attr.aria-label]="month.title">
+          <h4>{{ month.title }}</h4>
+          <div class="mail-cal-weekdays" aria-hidden="true">
+            @for (label of weekLabels; track $index) {
+              <span>{{ label }}</span>
+            }
+          </div>
+          @for (week of month.weeks; track $index) {
+            <div class="mail-cal-week">
+              @for (cell of week; track cell.iso) {
+                @if (cell.inMonth) {
+                  <button
+                    type="button"
+                    class="mail-cal-day"
+                    [class.mail-cal-day--has]="hasReading(cell.iso)"
+                    [class.mail-cal-day--on]="cell.iso === shownDate"
+                    [class.mail-cal-day--today]="isToday(cell.iso)"
+                    [attr.aria-pressed]="cell.iso === shownDate"
+                    [attr.aria-label]="month.title + ' ' + cell.label"
+                    (click)="loadDay(cell.iso)"
+                  >
+                    <span>{{ cell.label }}</span>
+                    @if (hasReading(cell.iso)) {
+                      <span class="mail-cal-dot"></span>
+                    }
+                  </button>
+                } @else {
+                  <span class="mail-cal-day mail-cal-day--out">{{ cell.label }}</span>
+                }
+              }
+            </div>
+          }
+        </section>
+      }
+    </div>
+  </section>
 
   <section class="mail-setup">
     <button type="button" class="mail-setup-toggle" (click)="showSetup = !showSetup">

@@ -53,8 +53,7 @@
   line-height: 1.75rem;
 }
 
-.mail-card-head h3,
-.mail-earlier h3 {
+.mail-card-head h3 {
   margin: 0;
   font-size: 1rem;
 }
@@ -65,18 +64,108 @@
   line-height: 1.45;
 }
 
-.mail-earlier {
-  margin-top: 1.1rem;
+.mail-summary + .mail-summary {
+  margin-top: 0.85rem;
 }
 
-.mail-dates {
+.mail-cal {
+  margin-top: 1.15rem;
+}
+
+.mail-cal-toolbar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-top: 0.45rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid color-mix(in srgb, var(--app-accent, #2563eb) 35%, var(--app-border, rgba(15, 23, 42, 0.12)));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--app-accent, #2563eb) 8%, var(--app-surface, #fff));
 }
 
-.mail-date,
+.mail-cal-nav {
+  flex: 0 0 auto;
+  min-width: 7.25rem;
+}
+
+.mail-cal-title {
+  margin: 0;
+  flex: 1;
+  text-align: center;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.mail-cal-months {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.mail-cal-month h4 {
+  margin: 0 0 0.4rem;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.mail-cal-weekdays,
+.mail-cal-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.mail-cal-weekdays span {
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--app-text-muted, #64748b);
+  padding-bottom: 0.2rem;
+}
+
+.mail-cal-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.1rem;
+  min-height: 2rem;
+  margin: 0.08rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.mail-cal-day--out {
+  color: var(--app-text-muted, #94a3b8);
+  opacity: 0.45;
+  cursor: default;
+}
+
+.mail-cal-day--has {
+  font-weight: 700;
+}
+
+.mail-cal-day--today {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--app-accent, #2563eb) 55%, transparent);
+}
+
+.mail-cal-day--on {
+  background: color-mix(in srgb, var(--app-accent, #2563eb) 16%, var(--app-surface, #fff));
+  color: var(--app-accent, #2563eb);
+}
+
+.mail-cal-dot {
+  width: 0.28rem;
+  height: 0.28rem;
+  border-radius: 999px;
+  background: var(--app-accent, #2563eb);
+}
+
 .mail-setup-toggle {
   border: 1px solid var(--app-border, rgba(15, 23, 42, 0.16));
   background: var(--app-surface, #fff);
@@ -84,12 +173,6 @@
   padding: 0.3rem 0.75rem;
   font: inherit;
   cursor: pointer;
-}
-
-.mail-date--on {
-  font-weight: 700;
-  border-color: color-mix(in srgb, var(--app-accent, #2563eb) 45%, var(--app-border, rgba(15, 23, 42, 0.16)));
-  background: color-mix(in srgb, var(--app-accent, #2563eb) 8%, var(--app-surface, #fff));
 }
 
 .mail-setup {
@@ -122,7 +205,23 @@
 }
 
 @media (max-width: 960px) {
-  .mail-board {
+  .mail-board,
+  .mail-cal-months {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .mail-cal-nav {
+    min-width: 2.75rem;
+    padding-inline: 0.35rem;
+  }
+
+  .mail-cal-nav-label {
+    display: none;
+  }
+
+  .mail-cal-title {
+    font-size: 1rem;
   }
 }

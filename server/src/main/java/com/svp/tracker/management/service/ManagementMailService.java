@@ -73,8 +73,9 @@ public class ManagementMailService {
             account.setEmailAddress(email);
             account.setCreatedAt(Instant.now());
         }
-        if (body.appPassword() != null && !body.appPassword().isBlank()) {
-            account.setSecretEnc(crypto.seal(body.appPassword().trim()));
+        String appPassword = appPassword(body.appPassword());
+        if (!appPassword.isEmpty()) {
+            account.setSecretEnc(crypto.seal(appPassword));
         } else if (account.getSecretEnc() == null || account.getSecretEnc().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Enter the app password for this mailbox.");
         }
@@ -91,7 +92,7 @@ public class ManagementMailService {
 
     public ManagementMailTestDto testAccount(long id) {
         ManagementMailAccount account = ownedAccount(id);
-        String secret = crypto.open(account.getSecretEnc());
+        String secret = appPassword(crypto.open(account.getSecretEnc()));
         Instant since = ZonedDateTime.now(ManagementMailSlot.ZONE).minusDays(1).toInstant();
         try {
             List<FetchedMessage> messages =
@@ -121,6 +122,11 @@ public class ManagementMailService {
                 .sorted(java.util.Comparator.comparingInt(row -> row.getSlot().ordinal()))
                 .map(row -> toDigest(row, messageRepository.findByDigestIdOrderByReceivedAtDesc(row.getId())))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<LocalDate> digestDates() {
+        return digestRepository.findDistinctDigestOnByOwnerUserIdOrderByDigestOnDesc(currentUser.requireUserId());
     }
 
     @Transactional(readOnly = true)
@@ -235,8 +241,8 @@ public class ManagementMailService {
     }
 
     private MailboxRead read(ManagementMailAccount account, Instant since) {
-        String secret = crypto.open(account.getSecretEnc());
-        if (secret == null || secret.isBlank()) {
+        String secret = appPassword(crypto.open(account.getSecretEnc()));
+        if (secret.isBlank()) {
             return new MailboxRead(account, List.of(), "No app password is saved.");
         }
         try {
@@ -256,11 +262,16 @@ public class ManagementMailService {
         }
         try {
             String written = openAi.completeText(
-                    "Summarize one person's mail for a single part of the day. Group by mailbox. "
-                            + "Name who wrote and what they are asking. Keep newsletters to one line. "
-                            + "Use only the messages given. Plain sentences, no bullet markdown headings.",
+                    "Write a short briefing of this person's mail, as if you were telling them what arrived. "
+                            + "Use two to four paragraphs, with a blank line between paragraphs. "
+                            + "Put security notices in one paragraph, money and bills in another, and the rest in another. "
+                            + "Speak to them as you. Name who wrote and the concrete fact: the amount, what changed, or what they should confirm. "
+                            + "Do not paste subjects, addresses, or quoted mail. "
+                            + "Fold newsletters, promotions, job alerts, and shopping ads into one closing sentence that says they were skipped. "
+                            + "If a mailbox could not be opened, say that in its own sentence. "
+                            + "Use only the messages given. Plain sentences. No bullets, headings, or markdown.",
                     extractive,
-                    700,
+                    900,
                     0.3);
             return written == null || written.isBlank() ? extractive : written.trim();
         } catch (Exception ex) {
@@ -411,6 +422,10 @@ public class ManagementMailService {
         } catch (IllegalArgumentException ex) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
         }
+    }
+
+    private static String appPassword(String raw) {
+        return raw == null ? "" : raw.replaceAll("\\s+", "");
     }
 
     private static String normalizeEmail(String raw) {

@@ -3,6 +3,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -18,7 +19,16 @@ import { formatHttpErrorDetail } from '../../../util/http-error';
 @Component({
   selector: 'app-management-mail-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatSnackBarModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    MatButtonModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatInputModule,
+    MatSelectModule,
+    MatSnackBarModule,
+  ],
   templateUrl: './management-mail-panel.component.html',
   styleUrl: './management-mail-panel.component.scss',
 })
@@ -38,10 +48,29 @@ export class ManagementMailPanelComponent implements OnInit {
     { id: 'YAHOO', label: 'Yahoo' },
   ];
 
+  private readonly monthNames = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+
+  readonly weekLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
   accounts: ManagementMailAccountDto[] = [];
-  history: ManagementMailDigestDto[] = [];
   shown: ManagementMailDigestDto[] = [];
   shownDate = '';
+  readingDates = new Set<string>();
+  private anchorYear = new Date().getFullYear();
+  private anchorMonth = Math.floor(new Date().getMonth() / 3) * 3;
   running = false;
   saving = false;
   showSetup = false;
@@ -64,11 +93,17 @@ export class ManagementMailPanelComponent implements OnInit {
       },
       error: (e) => this.err('Could not load mailboxes', e),
     });
-    this.api.listMailDigests().subscribe({
-      next: (rows) => (this.history = rows),
+    this.loadDates();
+    this.loadDay(this.shownDate || undefined);
+  }
+
+  loadDates(): void {
+    this.api.mailDigestDates().subscribe({
+      next: (rows) => {
+        this.readingDates = new Set(rows);
+      },
       error: (e) => this.err('Could not load mail history', e),
     });
-    this.loadDay(this.shownDate || undefined);
   }
 
   loadDay(on?: string): void {
@@ -76,6 +111,9 @@ export class ManagementMailPanelComponent implements OnInit {
       next: (rows) => {
         this.shown = rows;
         this.shownDate = rows[0]?.digestOn ?? on ?? '';
+        if (this.shownDate) {
+          this.revealDate(this.shownDate);
+        }
       },
       error: (e) => this.err('Could not load the mail summary', e),
     });
@@ -85,14 +123,36 @@ export class ManagementMailPanelComponent implements OnInit {
     return this.shown.find((row) => row.slot === slot);
   }
 
-  historyDates(): string[] {
-    const dates: string[] = [];
-    for (const row of this.history) {
-      if (!dates.includes(row.digestOn)) {
-        dates.push(row.digestOn);
-      }
-    }
-    return dates;
+  summaryParagraphs(summary: string): string[] {
+    const parts = (summary || '')
+      .split(/\n\s*\n/)
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0);
+    return parts.length ? parts : [summary];
+  }
+
+  calendarSpan(): string {
+    const endMonth = this.anchorMonth + 2;
+    return `${this.monthNames[this.anchorMonth]} – ${this.monthNames[endMonth]} ${this.anchorYear}`;
+  }
+
+  calendarMonths(): { key: string; title: string; weeks: { iso: string; label: string; inMonth: boolean }[][] }[] {
+    return [0, 1, 2].map((offset) => this.monthGrid(this.anchorYear, this.anchorMonth + offset));
+  }
+
+  shiftCalendar(direction: -1 | 1): void {
+    const index = this.anchorYear * 12 + this.anchorMonth + direction * 3;
+    this.anchorYear = Math.floor(index / 12);
+    this.anchorMonth = index - this.anchorYear * 12;
+  }
+
+  hasReading(iso: string): boolean {
+    return this.readingDates.has(iso);
+  }
+
+  isToday(iso: string): boolean {
+    const now = new Date();
+    return iso === this.formatIso(now.getFullYear(), now.getMonth() + 1, now.getDate());
   }
 
   save(): void {
@@ -128,15 +188,8 @@ export class ManagementMailPanelComponent implements OnInit {
   removeDigest(digest: ManagementMailDigestDto): void {
     this.api.deleteMailDigest(digest.id).subscribe({
       next: () => {
-        this.api.listMailDigests().subscribe({
-          next: (rows) => {
-            this.history = rows;
-            const stillHere = rows.some((row) => row.digestOn === this.shownDate);
-            this.shownDate = stillHere ? this.shownDate : (rows[0]?.digestOn ?? '');
-            this.loadDay(this.shownDate || undefined);
-          },
-          error: (e) => this.err('Could not refresh mail history', e),
-        });
+        this.loadDates();
+        this.loadDay(this.shownDate || undefined);
       },
       error: (e) => this.err('Could not remove that summary', e),
     });
@@ -155,8 +208,9 @@ export class ManagementMailPanelComponent implements OnInit {
       next: (digest) => {
         this.running = false;
         this.shownDate = digest.digestOn;
+        this.revealDate(digest.digestOn);
         this.loadDay(digest.digestOn);
-        this.api.listMailDigests().subscribe({ next: (rows) => (this.history = rows) });
+        this.loadDates();
       },
       error: (e) => {
         this.running = false;
@@ -167,6 +221,55 @@ export class ManagementMailPanelComponent implements OnInit {
 
   providerLabel(provider: string): string {
     return this.providers.find((item) => item.id === provider)?.label ?? provider;
+  }
+
+  private revealDate(iso: string): void {
+    const [year, month] = iso.split('-').map(Number);
+    const point = year * 12 + (month - 1);
+    const start = this.anchorYear * 12 + this.anchorMonth;
+    if (point < start || point >= start + 3) {
+      this.anchorYear = year;
+      this.anchorMonth = Math.floor((month - 1) / 3) * 3;
+    }
+  }
+
+  private monthGrid(year: number, month: number): {
+    key: string;
+    title: string;
+    weeks: { iso: string; label: string; inMonth: boolean }[][];
+  } {
+    const cursor = new Date(year, month, 1);
+    const gridYear = cursor.getFullYear();
+    const gridMonth = cursor.getMonth();
+    const firstWeekday = cursor.getDay();
+    const daysInMonth = new Date(gridYear, gridMonth + 1, 0).getDate();
+    const cells: { iso: string; label: string; inMonth: boolean }[] = [];
+    for (let pad = firstWeekday; pad > 0; pad -= 1) {
+      const day = new Date(gridYear, gridMonth, 1 - pad);
+      cells.push({ iso: this.formatIso(day.getFullYear(), day.getMonth() + 1, day.getDate()), label: String(day.getDate()), inMonth: false });
+    }
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      cells.push({ iso: this.formatIso(gridYear, gridMonth + 1, day), label: String(day), inMonth: true });
+    }
+    let extra = 1;
+    while (cells.length % 7 !== 0) {
+      const day = new Date(gridYear, gridMonth, daysInMonth + extra);
+      cells.push({ iso: this.formatIso(day.getFullYear(), day.getMonth() + 1, day.getDate()), label: String(day.getDate()), inMonth: false });
+      extra += 1;
+    }
+    const weeks = [];
+    for (let index = 0; index < cells.length; index += 7) {
+      weeks.push(cells.slice(index, index + 7));
+    }
+    return {
+      key: `${gridYear}-${gridMonth}`,
+      title: `${this.monthNames[gridMonth]} ${gridYear}`,
+      weeks,
+    };
+  }
+
+  private formatIso(year: number, month: number, day: number): string {
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   }
 
   private err(prefix: string, error: unknown): void {
