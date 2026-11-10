@@ -42,12 +42,12 @@
 
   <section class="mail-cal" aria-label="Mail calendar">
     <div class="mail-cal-toolbar">
-      <button mat-stroked-button type="button" class="mail-cal-nav" (click)="shiftCalendar(-1)" aria-label="Previous three months">
+      <button mat-stroked-button type="button" class="mail-cal-nav" (click)="shiftDay(-1)" aria-label="Previous day">
         <mat-icon>chevron_left</mat-icon>
         <span class="mail-cal-nav-label">Previous</span>
       </button>
       <h3 class="mail-cal-title">{{ calendarSpan() }}</h3>
-      <button mat-stroked-button type="button" class="mail-cal-nav" (click)="shiftCalendar(1)" aria-label="Next three months">
+      <button mat-stroked-button type="button" class="mail-cal-nav" (click)="shiftDay(1)" aria-label="Next day">
         <span class="mail-cal-nav-label">Next</span>
         <mat-icon iconPositionEnd>chevron_right</mat-icon>
       </button>

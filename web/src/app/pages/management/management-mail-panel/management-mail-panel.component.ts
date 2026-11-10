@@ -140,10 +140,12 @@ export class ManagementMailPanelComponent implements OnInit {
     return [0, 1, 2].map((offset) => this.monthGrid(this.anchorYear, this.anchorMonth + offset));
   }
 
-  shiftCalendar(direction: -1 | 1): void {
-    const index = this.anchorYear * 12 + this.anchorMonth + direction * 3;
-    this.anchorYear = Math.floor(index / 12);
-    this.anchorMonth = index - this.anchorYear * 12;
+  shiftDay(direction: -1 | 1): void {
+    const now = new Date();
+    const base = this.shownDate || this.formatIso(now.getFullYear(), now.getMonth() + 1, now.getDate());
+    const [year, month, day] = base.split('-').map(Number);
+    const next = new Date(year, month - 1, day + direction);
+    this.loadDay(this.formatIso(next.getFullYear(), next.getMonth() + 1, next.getDate()));
   }
 
   hasReading(iso: string): boolean {
