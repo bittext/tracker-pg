@@ -31,6 +31,15 @@ public enum ManagementMailSlot {
         };
     }
 
+    /** Where this digest's window stops. The next slot starts here, so the three passes cover all 24 hours. */
+    public ZonedDateTime windowEnd(LocalDate digestOn) {
+        return switch (this) {
+            case MORNING -> ZonedDateTime.of(digestOn, LocalTime.of(7, 0), ZONE);
+            case MIDDAY -> ZonedDateTime.of(digestOn, LocalTime.of(13, 0), ZONE);
+            case EVENING -> ZonedDateTime.of(digestOn, LocalTime.of(19, 0), ZONE);
+        };
+    }
+
     public static ManagementMailSlot fromParam(String raw) {
         if (raw == null || raw.isBlank()) {
             return forNow(ZonedDateTime.now(ZONE));

@@ -210,28 +210,33 @@ public class ManagementMailService {
 
     public ManagementMailDigestDto runCurrent(String slotRaw) {
         ManagementMailSlot slot = ManagementMailSlot.fromParam(slotRaw);
-        return run(currentUser.requireUserId(), slot);
+        return run(currentUser.requireUserId(), slot, false);
     }
 
     public void runScheduled(ManagementMailSlot slot) {
         for (Long owner : accountRepository.findEnabledOwnerIds()) {
             try {
-                run(owner, slot);
+                run(owner, slot, true);
             } catch (Exception ex) {
                 log.warn("Mail digest failed owner={} slot={}: {}", owner, slot, ex.toString());
             }
         }
     }
 
-    public ManagementMailDigestDto run(long owner, ManagementMailSlot slot) {
+    /**
+     * A scheduled pass reads exactly its own window (7 PM to 7 AM, 7 AM to 1 PM, 1 PM to 7 PM), so the three
+     * passes meet end to end. A manual pass reads from the window start up to now.
+     */
+    public ManagementMailDigestDto run(long owner, ManagementMailSlot slot, boolean scheduled) {
         ZonedDateTime now = ZonedDateTime.now(ManagementMailSlot.ZONE);
         LocalDate digestOn = now.toLocalDate();
         Instant since = slot.windowStart(digestOn).toInstant();
+        Instant until = scheduled ? slot.windowEnd(digestOn).toInstant() : null;
         List<ManagementMailAccount> accounts =
                 accountRepository.findByOwnerUserIdAndEnabledTrueOrderByProviderAscEmailAddressAsc(owner);
         List<MailboxRead> reads = new ArrayList<>();
         for (ManagementMailAccount account : accounts) {
-            reads.add(read(account, since));
+            reads.add(read(account, since, until));
         }
         String summary = summarize(slot, digestOn, reads);
         int count = reads.stream().mapToInt(read -> read.messages().size()).sum();
@@ -240,14 +245,14 @@ public class ManagementMailService {
         return self.getObject().saveDigest(owner, digestOn, slot, summary, count, status, reads);
     }
 
-    private MailboxRead read(ManagementMailAccount account, Instant since) {
+    private MailboxRead read(ManagementMailAccount account, Instant since, Instant until) {
         String secret = appPassword(crypto.open(account.getSecretEnc()));
         if (secret.isBlank()) {
             return new MailboxRead(account, List.of(), "No app password is saved.");
         }
         try {
             List<FetchedMessage> messages = ManagementMailInboxClient.fetchInbox(
-                    account.getProvider().imapHost(), account.getEmailAddress(), secret, since);
+                    account.getProvider().imapHost(), account.getEmailAddress(), secret, since, until);
             return new MailboxRead(account, messages, null);
         } catch (Exception ex) {
             log.warn("Mail read failed provider={}", account.getProvider());
@@ -267,7 +272,9 @@ public class ManagementMailService {
                             + "Put security notices in one paragraph, money and bills in another, and the rest in another. "
                             + "Speak to them as you. Name who wrote and the concrete fact: the amount, what changed, or what they should confirm. "
                             + "Do not paste subjects, addresses, or quoted mail. "
-                            + "Fold newsletters, promotions, job alerts, and shopping ads into one closing sentence that says they were skipped. "
+                            + "Always mention school, community, and family notices, sign-up or registration reminders, "
+                            + "deadlines, appointments, and deliveries, naming the program or event and its date. "
+                            + "Only fold marketing newsletters, promotions, job alerts, and shopping ads into one closing sentence that says they were skipped. "
                             + "If a mailbox could not be opened, say that in its own sentence. "
                             + "Use only the messages given. Plain sentences. No bullets, headings, or markdown.",
                     extractive,

@@ -37,9 +37,9 @@ export class ManagementMailPanelComponent implements OnInit {
   private readonly snackBar = inject(MatSnackBar);
 
   readonly slots: { id: ManagementMailSlot; label: string; when: string }[] = [
-    { id: 'MORNING', label: 'Morning', when: '7:00 AM' },
-    { id: 'MIDDAY', label: 'Midday', when: '1:00 PM' },
-    { id: 'EVENING', label: 'Evening', when: '7:00 PM' },
+    { id: 'MORNING', label: 'Morning', when: '7 PM – 7 AM' },
+    { id: 'MIDDAY', label: 'Midday', when: '7 AM – 1 PM' },
+    { id: 'EVENING', label: 'Evening', when: '1 PM – 7 PM' },
   ];
 
   readonly providers: { id: ManagementMailProvider; label: string }[] = [
@@ -62,6 +62,8 @@ export class ManagementMailPanelComponent implements OnInit {
     'November',
     'December',
   ];
+
+  private readonly weekdayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   readonly weekLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -131,9 +133,12 @@ export class ManagementMailPanelComponent implements OnInit {
     return parts.length ? parts : [summary];
   }
 
-  calendarSpan(): string {
-    const endMonth = this.anchorMonth + 2;
-    return `${this.monthNames[this.anchorMonth]} – ${this.monthNames[endMonth]} ${this.anchorYear}`;
+  dayTitle(): string {
+    const now = new Date();
+    const iso = this.shownDate || this.formatIso(now.getFullYear(), now.getMonth() + 1, now.getDate());
+    const [year, month, day] = iso.split('-').map(Number);
+    const weekday = new Date(year, month - 1, day).getDay();
+    return `${this.weekdayNames[weekday]}, ${this.monthNames[month - 1]} ${day}, ${year}`;
   }
 
   calendarMonths(): { key: string; title: string; weeks: { iso: string; label: string; inMonth: boolean }[][] }[] {
@@ -254,7 +259,8 @@ export class ManagementMailPanelComponent implements OnInit {
       cells.push({ iso: this.formatIso(gridYear, gridMonth + 1, day), label: String(day), inMonth: true });
     }
     let extra = 1;
-    while (cells.length % 7 !== 0) {
+    // Always six week rows so the calendar keeps one height from month to month.
+    while (cells.length < 42) {
       const day = new Date(gridYear, gridMonth, daysInMonth + extra);
       cells.push({ iso: this.formatIso(day.getFullYear(), day.getMonth() + 1, day.getDate()), label: String(day.getDate()), inMonth: false });
       extra += 1;

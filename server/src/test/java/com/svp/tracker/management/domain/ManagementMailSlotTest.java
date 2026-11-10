@@ -24,6 +24,17 @@ class ManagementMailSlotTest {
     }
 
     @Test
+    void windowsMeetEndToEndWithNoGapAndNoOverlap() {
+        LocalDate day = LocalDate.of(2026, 11, 7);
+        assertEquals(ManagementMailSlot.MORNING.windowEnd(day), ManagementMailSlot.MIDDAY.windowStart(day));
+        assertEquals(ManagementMailSlot.MIDDAY.windowEnd(day), ManagementMailSlot.EVENING.windowStart(day));
+        // Evening ends at 7 PM, where the next morning's window begins.
+        assertEquals(
+                ManagementMailSlot.EVENING.windowEnd(day),
+                ManagementMailSlot.MORNING.windowStart(day.plusDays(1)));
+    }
+
+    @Test
     void hourPicksTheSlot() {
         assertEquals(ManagementMailSlot.MORNING, ManagementMailSlot.forNow(at(8)));
         assertEquals(ManagementMailSlot.MIDDAY, ManagementMailSlot.forNow(at(13)));

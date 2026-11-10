@@ -2,18 +2,24 @@
   <header class="mail-head">
     <div>
       <h2 class="subsection-title">Mail</h2>
-      <p class="muted">
-        @if (shownDate) {
-          Reading for {{ shownDate }}. Morning, midday, and evening each stay on the page.
-        } @else {
-          Summaries land here after the mailboxes are read.
-        }
-      </p>
+      <p class="muted">Three readings a day meet end to end, so every hour lands in exactly one of them.</p>
     </div>
     <button mat-stroked-button type="button" (click)="runNow()" [disabled]="running">
       {{ running ? 'Reading mail…' : 'Read and summarize' }}
     </button>
   </header>
+
+  <div class="mail-cal-toolbar">
+    <button mat-stroked-button type="button" class="mail-cal-nav" (click)="shiftDay(-1)" aria-label="Previous day">
+      <mat-icon>chevron_left</mat-icon>
+      <span class="mail-cal-nav-label">Previous</span>
+    </button>
+    <h3 class="mail-cal-title">{{ dayTitle() }}</h3>
+    <button mat-stroked-button type="button" class="mail-cal-nav" (click)="shiftDay(1)" aria-label="Next day">
+      <span class="mail-cal-nav-label">Next</span>
+      <mat-icon iconPositionEnd>chevron_right</mat-icon>
+    </button>
+  </div>
 
   <section class="mail-board" aria-label="Mail summaries">
     @for (slot of slots; track slot.id) {
@@ -41,17 +47,6 @@
   </section>
 
   <section class="mail-cal" aria-label="Mail calendar">
-    <div class="mail-cal-toolbar">
-      <button mat-stroked-button type="button" class="mail-cal-nav" (click)="shiftDay(-1)" aria-label="Previous day">
-        <mat-icon>chevron_left</mat-icon>
-        <span class="mail-cal-nav-label">Previous</span>
-      </button>
-      <h3 class="mail-cal-title">{{ calendarSpan() }}</h3>
-      <button mat-stroked-button type="button" class="mail-cal-nav" (click)="shiftDay(1)" aria-label="Next day">
-        <span class="mail-cal-nav-label">Next</span>
-        <mat-icon iconPositionEnd>chevron_right</mat-icon>
-      </button>
-    </div>
     <div class="mail-cal-months">
       @for (month of calendarMonths(); track month.key) {
         <section class="mail-cal-month" [attr.aria-label]="month.title">

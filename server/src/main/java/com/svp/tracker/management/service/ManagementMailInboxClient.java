@@ -19,13 +19,19 @@ import java.util.Properties;
 /** Reads recent inbox messages over IMAP without marking them read. */
 public final class ManagementMailInboxClient {
 
-    static final int MAX_MESSAGES = 40;
+    static final int MAX_MESSAGES = 80;
 
     private ManagementMailInboxClient() {}
 
     public record FetchedMessage(String from, String subject, Instant receivedAt, String snippet) {}
 
     public static List<FetchedMessage> fetchInbox(String host, String email, String password, Instant since) throws Exception {
+        return fetchInbox(host, email, password, since, null);
+    }
+
+    /** Mail received at or after {@code since} and before {@code until} (open-ended when {@code until} is null). */
+    public static List<FetchedMessage> fetchInbox(
+            String host, String email, String password, Instant since, Instant until) throws Exception {
         Properties props = new Properties();
         props.put("mail.store.protocol", "imaps");
         props.put("mail.imaps.host", host);
@@ -47,7 +53,7 @@ public final class ManagementMailInboxClient {
                 List<Message> recent = new ArrayList<>();
                 for (Message message : found) {
                     Instant when = receivedAt(message);
-                    if (when != null && !when.isBefore(since)) {
+                    if (when != null && !when.isBefore(since) && (until == null || when.isBefore(until))) {
                         recent.add(message);
                     }
                 }
