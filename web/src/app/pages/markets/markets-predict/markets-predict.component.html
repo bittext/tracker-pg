@@ -337,7 +337,9 @@
             <span role="columnheader">Closes</span>
             <span role="columnheader">Invested</span>
             <span role="columnheader">Payback</span>
-            <span role="columnheader">Return</span>
+            <span role="columnheader">Gross</span>
+            <span role="columnheader">Fees</span>
+            <span role="columnheader">Net</span>
           </div>
           @for (row of periodRows; track row.key) {
             <div
@@ -360,6 +362,13 @@
                 {{ row.totals.returned | currency: 'USD' : 'symbol' : '1.2-2' }}
                 @if (share(row.totals.returned, row.totals.invested); as rate) {
                   <span class="pred__pct">{{ rate | percent: '1.1-1' }}</span>
+                }
+              </span>
+              <span role="cell">{{ (row.totals.fees ?? 0) | currency: 'USD' : 'symbol' : '1.2-2' }}</span>
+              <span class="pred__period-net" role="cell" [class]="moneyClass(row.totals.returned - (row.totals.fees ?? 0))">
+                {{ row.totals.returned - (row.totals.fees ?? 0) | currency: 'USD' : 'symbol' : '1.2-2' }}
+                @if (share(row.totals.returned - (row.totals.fees ?? 0), row.totals.invested); as netRate) {
+                  <span class="pred__pct">{{ netRate | percent: '1.1-1' }}</span>
                 }
               </span>
             </div>

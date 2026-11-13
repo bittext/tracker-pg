@@ -65,7 +65,10 @@ export interface PredictPeriodTotals {
   closes: number;
   invested: number;
   payback: number;
+  /** Robinhood's reported return, before fees. */
   returned: number;
+  /** Gold commission and exchange fee for these closes. Absent on stored daily snapshots. */
+  fees?: number;
 }
 
 export interface PredictHourRollup extends PredictPeriodTotals {
@@ -181,10 +184,12 @@ export function sumPredictCloses(closes: RhPredictCloseDto[]): PredictPeriodTota
   let invested = 0;
   let payback = 0;
   let returned = 0;
+  let fees = 0;
   for (const row of closes) {
     invested += predictInvested(row);
     payback += predictPayback(row);
     returned += row.realized;
+    fees += predictFees(row);
   }
-  return { closes: closes.length, invested, payback, returned };
+  return { closes: closes.length, invested, payback, returned, fees: Math.round(fees * 100) / 100 };
 }

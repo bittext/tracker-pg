@@ -547,7 +547,9 @@
 .pred__period-grid-head,
 .pred__period-grid-row {
   display: grid;
-  grid-template-columns: minmax(7rem, 1.4fr) 4.5rem minmax(6.5rem, 1fr) minmax(6.5rem, 1fr) minmax(7.5rem, 1.1fr);
+  grid-template-columns:
+    minmax(7rem, 1.4fr) 4.5rem minmax(6.5rem, 1fr) minmax(6.5rem, 1fr) minmax(7.5rem, 1.1fr) minmax(5.5rem, 0.8fr)
+    minmax(7.5rem, 1.1fr);
   gap: 0.55rem 0.75rem;
   align-items: baseline;
   padding: 0.55rem 0.75rem;
@@ -608,7 +610,8 @@
   font-weight: 600;
 }
 
-.pred__period-return {
+.pred__period-return,
+.pred__period-net {
   font-weight: 650;
 }
 
@@ -659,19 +662,33 @@
     text-transform: uppercase;
   }
 
-  .pred__period-return {
+  .pred__period-return,
+  .pred__period-net {
     grid-column: 1 / -1;
     text-align: left;
     font-size: 1.1rem;
   }
 
-  .pred__period-return::before {
-    content: 'Return ';
+  .pred__period-return::before,
+  .pred__period-net::before,
+  .pred__period-grid-row > span:nth-child(6)::before {
     color: var(--app-text-muted, #64748b);
     font-size: 0.72rem;
     font-weight: 650;
     letter-spacing: 0.04em;
     text-transform: uppercase;
+  }
+
+  .pred__period-return::before {
+    content: 'Gross ';
+  }
+
+  .pred__period-grid-row > span:nth-child(6)::before {
+    content: 'Fees ';
+  }
+
+  .pred__period-net::before {
+    content: 'Net ';
   }
 }
 
