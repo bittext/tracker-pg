@@ -1,0 +1,211 @@
+<div class="fresh">
+  <header class="fresh__head">
+    <div>
+      <a class="fresh__back" routerLink="/markets/predict">
+        <mat-icon>arrow_back</mat-icon>
+        Predict
+      </a>
+      <h1 class="fresh__title">Predict · Fresh start</h1>
+      <p class="fresh__meta">
+        <span>Started {{ startDate | date: 'EEE, MMM d, y, h:mm a' }} with {{ startAmount | currency: 'USD' : 'symbol' : '1.2-2' }}</span>
+        @if (desk?.lastSyncedAt) {
+          <span>Pulled {{ desk!.lastSyncedAt | date: 'MMM d, h:mm a' }}</span>
+        }
+      </p>
+    </div>
+    <button mat-flat-button color="primary" type="button" (click)="refresh()" [disabled]="refreshing || loading">
+      <mat-icon>sync</mat-icon>
+      Refresh from Robinhood
+    </button>
+  </header>
+
+  @if (loading || refreshing) {
+    <mat-progress-bar mode="indeterminate" />
+  }
+
+  <section class="fresh__hero" aria-label="Journey balance">
+    <div class="fresh__hero-col">
+      <p class="fresh__eyebrow">Start</p>
+      <p class="fresh__hero-value">{{ startAmount | currency: 'USD' : 'symbol' : '1.2-2' }}</p>
+      <p class="fresh__caption">Where the journey began</p>
+    </div>
+    <div class="fresh__hero-col">
+      <p class="fresh__eyebrow">Net since start</p>
+      <p class="fresh__hero-value" [class]="moneyClass(journey.net)">
+        {{ journey.net | currency: 'USD' : 'symbol' : '1.2-2' }}
+      </p>
+      <p class="fresh__caption">
+        @if (netOnStart != null) {
+          {{ netOnStart | percent: '1.1-1' }} of the start ·
+        }
+        {{ journey.closes }} {{ journey.closes === 1 ? 'close' : 'closes' }}
+      </p>
+    </div>
+    <div class="fresh__hero-col fresh__hero-col--now">
+      <p class="fresh__eyebrow">Balance now</p>
+      <p class="fresh__hero-value fresh__hero-value--big" [class]="moneyClass(balance - startAmount)">
+        {{ balance | currency: 'USD' : 'symbol' : '1.2-2' }}
+      </p>
+      <p class="fresh__caption">Start plus net, after the estimated fees</p>
+    </div>
+  </section>
+
+  <section class="fresh__periods" aria-label="Totals for the day, month, and year">
+    @for (period of periods; track period.id) {
+      <article class="fresh__card">
+        <header class="fresh__card-head">
+          <h2>{{ period.title }}</h2>
+          <span>{{ period.sub }}</span>
+        </header>
+        <dl class="fresh__rows">
+          <div>
+            <dt>Principal invested</dt>
+            <dd>{{ period.book.principal | currency: 'USD' : 'symbol' : '1.2-2' }}</dd>
+          </div>
+          <div>
+            <dt>Returned to you</dt>
+            <dd>{{ period.book.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</dd>
+          </div>
+          <div>
+            <dt>Gross return</dt>
+            <dd [class]="moneyClass(period.book.gross)">{{ period.book.gross | currency: 'USD' : 'symbol' : '1.2-2' }}</dd>
+          </div>
+          <div>
+            <dt>Fees</dt>
+            <dd>{{ period.book.fees | currency: 'USD' : 'symbol' : '1.2-2' }}</dd>
+          </div>
+          <div class="fresh__rows-net">
+            <dt>Net return</dt>
+            <dd [class]="moneyClass(period.book.net)">
+              {{ period.book.net | currency: 'USD' : 'symbol' : '1.2-2' }}
+              @if (netOnPrincipal(period.book); as rate) {
+                <span class="fresh__pct">{{ rate | percent: '1.1-1' }}</span>
+              }
+            </dd>
+          </div>
+        </dl>
+        <p class="fresh__card-foot">
+          {{ period.book.closes }} {{ period.book.closes === 1 ? 'close' : 'closes' }}
+          @if (period.book.closes) {
+            · {{ period.book.wins }} up · {{ period.book.losses }} down
+            @if (winRate(period.book); as win) {
+              · {{ win | percent: '1.0-0' }} won
+            }
+          }
+        </p>
+      </article>
+    }
+  </section>
+
+  <section class="fresh__total" aria-label="Whole journey">
+    <h2 class="fresh__section-title">Since the start</h2>
+    <dl class="fresh__total-row">
+      <div><dt>Principal invested</dt><dd>{{ journey.principal | currency: 'USD' : 'symbol' : '1.2-2' }}</dd></div>
+      <div><dt>Returned to you</dt><dd>{{ journey.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</dd></div>
+      <div><dt>Gross return</dt><dd [class]="moneyClass(journey.gross)">{{ journey.gross | currency: 'USD' : 'symbol' : '1.2-2' }}</dd></div>
+      <div><dt>Fees</dt><dd>{{ journey.fees | currency: 'USD' : 'symbol' : '1.2-2' }}</dd></div>
+      <div><dt>Net return</dt><dd [class]="moneyClass(journey.net)">{{ journey.net | currency: 'USD' : 'symbol' : '1.2-2' }}</dd></div>
+    </dl>
+  </section>
+
+  @if (!entries.length) {
+    <p class="fresh__empty">
+      No Predict closes since the start yet. Closes appear here after Robinhood settles them. Use Refresh from
+      Robinhood to pull the latest.
+    </p>
+  } @else {
+    <section class="fresh__days" aria-label="By day">
+      <h2 class="fresh__section-title">By day</h2>
+      <div class="fresh__table-scroll">
+        <table class="fresh__table">
+          <thead>
+            <tr>
+              <th>Day</th>
+              <th>Closes</th>
+              <th>Principal</th>
+              <th>Returned</th>
+              <th>Gross</th>
+              <th>Fees</th>
+              <th>Net</th>
+              <th>Balance</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (day of days; track day.day) {
+              <tr>
+                <th scope="row">{{ dayLabel(day.day) }}</th>
+                <td>{{ day.closes }}</td>
+                <td>{{ day.principal | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                <td>{{ day.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                <td [class]="moneyClass(day.gross)">{{ day.gross | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                <td>{{ day.fees | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                <td [class]="moneyClass(day.net)">{{ day.net | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                <td>{{ day.balance | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="fresh__closes" aria-label="Closes since the start">
+      <h2 class="fresh__section-title">Closes</h2>
+      <div class="fresh__table-scroll">
+        <table class="fresh__table">
+          <thead>
+            <tr>
+              <th>Closed</th>
+              <th>Contracts</th>
+              <th>Exit</th>
+              <th>Principal</th>
+              <th>Returned</th>
+              <th>Gross</th>
+              <th>Fees</th>
+              <th>Net</th>
+              <th>Balance</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of newestFirst; track item.row.id) {
+              <tr>
+                <th scope="row">
+                  {{ item.row.closedAt | date: 'MMM d, h:mm a' : 'America/Chicago' }}
+                  @if (item.row.label) {
+                    <span class="fresh__label">{{ item.row.label }}</span>
+                  }
+                </th>
+                <td>{{ item.row.quantity | number: '1.0-2' }}</td>
+                <td>{{ item.row.price | currency: 'USD' : 'symbol' : '1.2-4' }}</td>
+                <td>{{ item.principal | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                <td>{{ item.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                <td [class]="moneyClass(item.gross)">{{ item.gross | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                <td>{{ item.fees | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                <td [class]="moneyClass(item.net)">{{ item.net | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+                <td>{{ item.balance | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+
+  <details class="fresh__settings">
+    <summary>Start settings</summary>
+    <div class="fresh__settings-body">
+      <label>
+        Start amount
+        <input type="number" min="0" step="0.01" [(ngModel)]="startAmount" (change)="settingsChanged()" />
+      </label>
+      <label>
+        Count closes from
+        <input type="datetime-local" [(ngModel)]="startAt" (change)="settingsChanged()" />
+      </label>
+      <button mat-stroked-button type="button" (click)="resetSettings()">Reset to the original start</button>
+    </div>
+    <p class="fresh__caption">
+      Saved in this browser. Closes before the start time are left out. Fees are an estimate: the Robinhood Gold
+      commission plus the exchange fee, the same figure the Predict page uses.
+    </p>
+  </details>
+</div>

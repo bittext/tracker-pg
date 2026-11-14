@@ -20,6 +20,7 @@ import { ManagementComponent } from './pages/management/management.component';
 import { MarketsOverviewComponent } from './pages/markets/markets-overview/markets-overview.component';
 import { MarketsJourneyComponent } from './pages/markets/markets-journey/markets-journey.component';
 import { MarketsPredictComponent } from './pages/markets/markets-predict/markets-predict.component';
+import { MarketsPredictFreshComponent } from './pages/markets/markets-predict-fresh/markets-predict-fresh.component';
 import { MarketsPredictBtcComponent } from './pages/markets/markets-predict-btc/markets-predict-btc.component';
 import { MarketsPredictStreaksComponent } from './pages/markets/markets-predict-streaks/markets-predict-streaks.component';
 import { MarketsTradeInterestComponent } from './pages/markets/markets-trade-interest/markets-trade-interest.component';
@@ -114,6 +115,7 @@ export const routes: Routes = [
         data: { workspace: 'trading', tradingSection: 'history' },
       },
       { path: 'predict', component: MarketsPredictComponent },
+      { path: 'predict/fresh-start', component: MarketsPredictFreshComponent },
       { path: 'predict/btc-15', component: MarketsPredictBtcComponent, data: { asset: 'BTC' } },
       { path: 'predict/eth-15', component: MarketsPredictBtcComponent, data: { asset: 'ETH' } },
       { path: 'predict/doge-15', component: MarketsPredictBtcComponent, data: { asset: 'DOGE' } },
