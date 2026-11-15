@@ -12,9 +12,13 @@ export interface FreshClose {
   /** Central calendar day, YYYY-MM-DD. */
   day: string;
   principal: number;
+  /** Gross received: contracts times the exit price. */
   payback: number;
   gross: number;
   fees: number;
+  /** Net received: gross received less fees. */
+  netReceived: number;
+  /** Profit or loss: net received less the principal put in. */
   net: number;
   /** Journey balance right after this close. */
   balance: number;
@@ -26,9 +30,14 @@ export interface FreshBook {
   wins: number;
   losses: number;
   principal: number;
+  /** Gross received. */
   payback: number;
+  /** Robinhood's reported profit or loss, before fees. */
   gross: number;
   fees: number;
+  /** Net received: gross received less fees. */
+  netReceived: number;
+  /** Profit or loss after fees. */
   net: number;
 }
 
@@ -55,7 +64,7 @@ export function centralDay(iso: string | Date): string {
 }
 
 export function emptyBook(): FreshBook {
-  return { closes: 0, wins: 0, losses: 0, principal: 0, payback: 0, gross: 0, fees: 0, net: 0 };
+  return { closes: 0, wins: 0, losses: 0, principal: 0, payback: 0, gross: 0, fees: 0, netReceived: 0, net: 0 };
 }
 
 function cents(value: number): number {
@@ -77,6 +86,7 @@ export function sumBook(items: FreshClose[]): FreshBook {
   book.payback = cents(book.payback);
   book.gross = cents(book.gross);
   book.fees = cents(book.fees);
+  book.netReceived = cents(book.payback - book.fees);
   book.net = cents(book.gross - book.fees);
   return book;
 }
@@ -108,6 +118,7 @@ export function journeyCloses(
       payback: predictPayback(row),
       gross: row.realized,
       fees: predictFees(row),
+      netReceived: cents(predictPayback(row) - predictFees(row)),
       net,
       balance: cents(balance),
     };

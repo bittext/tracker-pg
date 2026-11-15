@@ -5,7 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { RhPredictDeskDto } from '../../../models/rh-predict.models';
 import { RhPredictApiService } from '../../../services/rh-predict-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
@@ -27,10 +27,21 @@ interface FreshPeriod {
   book: FreshBook;
 }
 
-/** Where the journey begins: the amount in the account and the moment from which closes count. */
-const START_AMOUNT = 100.7;
-const START_AT = '2026-11-14T16:50';
-const STORAGE_KEY = 'predict-fresh-v1';
+/** Where one journey begins: the amount available and the moment from which closes count. */
+export interface FreshStartConfig {
+  title: string;
+  amount: number;
+  /** Local date and time in the `datetime-local` format. */
+  startAt: string;
+  storageKey: string;
+}
+
+const DEFAULT_START: FreshStartConfig = {
+  title: 'Predict · Fresh start',
+  amount: 100.7,
+  startAt: '2026-11-14T16:50',
+  storageKey: 'predict-fresh-v1',
+};
 const POLL_MS = 60_000;
 
 @Component({
@@ -51,21 +62,26 @@ const POLL_MS = 60_000;
 export class MarketsPredictFreshComponent implements OnInit, OnDestroy {
   private readonly api = inject(RhPredictApiService);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly config: FreshStartConfig = {
+    ...DEFAULT_START,
+    ...(inject(ActivatedRoute).snapshot.data['freshStart'] as Partial<FreshStartConfig> | undefined),
+  };
   private timer: ReturnType<typeof setInterval> | null = null;
 
   desk: RhPredictDeskDto | null = null;
   loading = false;
   refreshing = false;
 
-  startAmount = START_AMOUNT;
+  readonly title = this.config.title;
+  startAmount = this.config.amount;
   /** Local date and time in the `datetime-local` format. */
-  startAt = START_AT;
+  startAt = this.config.startAt;
 
   entries: FreshClose[] = [];
   days: FreshDay[] = [];
   periods: FreshPeriod[] = [];
   journey: FreshBook = emptyBook();
-  balance = START_AMOUNT;
+  balance = this.config.amount;
 
   ngOnInit(): void {
     this.restore();
@@ -77,6 +93,11 @@ export class MarketsPredictFreshComponent implements OnInit, OnDestroy {
     if (this.timer) {
       clearInterval(this.timer);
     }
+  }
+
+  /** What Robinhood says is available on the Predict account right now. */
+  get available(): number | null {
+    return this.desk?.buyingPower ?? null;
   }
 
   get startDate(): Date {
@@ -132,12 +153,12 @@ export class MarketsPredictFreshComponent implements OnInit, OnDestroy {
   /** Save the start amount or time and rebuild every total. */
   settingsChanged(): void {
     const amount = Number(this.startAmount);
-    this.startAmount = Number.isFinite(amount) && amount >= 0 ? amount : START_AMOUNT;
+    this.startAmount = Number.isFinite(amount) && amount >= 0 ? amount : this.config.amount;
     if (Number.isNaN(this.startDate.getTime())) {
-      this.startAt = START_AT;
+      this.startAt = this.config.startAt;
     }
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ amount: this.startAmount, startAt: this.startAt }));
+      localStorage.setItem(this.config.storageKey, JSON.stringify({ amount: this.startAmount, startAt: this.startAt }));
     } catch {
       // Storage can be blocked; the page still works for this visit.
     }
@@ -145,8 +166,8 @@ export class MarketsPredictFreshComponent implements OnInit, OnDestroy {
   }
 
   resetSettings(): void {
-    this.startAmount = START_AMOUNT;
-    this.startAt = START_AT;
+    this.startAmount = this.config.amount;
+    this.startAt = this.config.startAt;
     this.settingsChanged();
   }
 
@@ -201,7 +222,7 @@ export class MarketsPredictFreshComponent implements OnInit, OnDestroy {
 
   private restore(): void {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(this.config.storageKey);
       if (!raw) {
         return;
       }

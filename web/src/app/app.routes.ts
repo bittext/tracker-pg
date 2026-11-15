@@ -116,6 +116,18 @@ export const routes: Routes = [
       },
       { path: 'predict', component: MarketsPredictComponent },
       { path: 'predict/fresh-start', component: MarketsPredictFreshComponent },
+      {
+        path: 'predict/restart',
+        component: MarketsPredictFreshComponent,
+        data: {
+          freshStart: {
+            title: 'Predict · New fresh start',
+            amount: 5027.25,
+            startAt: '2026-11-14T23:50',
+            storageKey: 'predict-restart-v1',
+          },
+        },
+      },
       { path: 'predict/btc-15', component: MarketsPredictBtcComponent, data: { asset: 'BTC' } },
       { path: 'predict/eth-15', component: MarketsPredictBtcComponent, data: { asset: 'ETH' } },
       { path: 'predict/doge-15', component: MarketsPredictBtcComponent, data: { asset: 'DOGE' } },

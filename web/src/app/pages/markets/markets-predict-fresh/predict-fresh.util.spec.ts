@@ -25,6 +25,8 @@ describe('predict fresh start', () => {
     expect(item.gross).toBe(40);
     expect(item.fees).toBeGreaterThan(0);
     expect(item.net).toBeCloseTo(item.gross - item.fees, 6);
+    expect(item.netReceived).toBeCloseTo(item.payback - item.fees, 6);
+    expect(item.netReceived - item.principal).toBeCloseTo(item.net, 6);
     expect(item.balance).toBeCloseTo(100.7 + item.net, 2);
   });
 
