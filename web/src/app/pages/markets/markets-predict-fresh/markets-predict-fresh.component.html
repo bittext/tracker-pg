@@ -138,7 +138,11 @@
           <tbody>
             @for (day of days; track day.day) {
               <tr>
-                <th scope="row">{{ dayLabel(day.day) }}</th>
+                <th scope="row">
+                  <ng-container
+                    *ngTemplateOutlet="noteCell; context: { key: dayKey(day.day), text: dayLabel(day.day) }"
+                  ></ng-container>
+                </th>
                 <td>{{ day.closes }}</td>
                 <td>{{ day.principal | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
                 <td>{{ day.payback | currency: 'USD' : 'symbol' : '1.2-2' }}</td>
@@ -174,7 +178,15 @@
             @for (item of newestFirst; track item.row.id) {
               <tr>
                 <th scope="row">
-                  {{ item.row.closedAt | date: 'MMM d, h:mm a' : 'America/Chicago' }}
+                  <ng-container
+                    *ngTemplateOutlet="
+                      noteCell;
+                      context: {
+                        key: closeKey(item.row.id),
+                        text: (item.row.closedAt | date: 'MMM d, h:mm a' : 'America/Chicago')
+                      }
+                    "
+                  ></ng-container>
                   @if (item.row.label) {
                     <span class="fresh__label">{{ item.row.label }}</span>
                   }
@@ -217,3 +229,40 @@
     <p class="fresh__caption">Saved in this browser. Closes before the start time are left out.</p>
   </details>
 </div>
+
+<!-- A row's first cell: its text, plus a note button. Hover the cell or the button to read the note. -->
+<ng-template #noteCell let-key="key" let-text="text">
+  <span class="fresh__cell">
+    <span [matTooltip]="notes[key]" [matTooltipDisabled]="!hasNote(key)" matTooltipShowDelay="150">{{ text }}</span>
+    <button
+      type="button"
+      class="fresh__note-btn"
+      [class.fresh__note-btn--set]="hasNote(key)"
+      [matTooltip]="noteTip(key)"
+      matTooltipShowDelay="150"
+      [attr.aria-label]="hasNote(key) ? 'Edit note: ' + notes[key] : 'Add a note'"
+      (click)="editNote(key)"
+    >
+      <mat-icon>{{ hasNote(key) ? 'sticky_note_2' : 'note_add' }}</mat-icon>
+    </button>
+  </span>
+  @if (editingKey === key) {
+    <span class="fresh__note-edit">
+      <input
+        class="fresh__note-input"
+        type="text"
+        placeholder="Brief note"
+        [maxlength]="noteMaxLength"
+        [(ngModel)]="noteDraft"
+        (keydown.enter)="saveNote()"
+        (keydown.escape)="cancelNote()"
+        aria-label="Note"
+      />
+      <button type="button" class="fresh__note-action" (click)="saveNote()">Save</button>
+      @if (hasNote(key)) {
+        <button type="button" class="fresh__note-action" (click)="clearNote()">Clear</button>
+      }
+      <button type="button" class="fresh__note-action" (click)="cancelNote()">Cancel</button>
+    </span>
+  }
+</ng-template>

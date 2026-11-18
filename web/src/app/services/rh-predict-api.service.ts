@@ -58,6 +58,16 @@ export class RhPredictApiService {
     return this.http.put<RhPredictDeskDto>(`${this.root}/open-cost`, { amount });
   }
 
+  /** Brief notes pinned to single rows of the fresh-start tables, by row key. */
+  rowNotes() {
+    return this.http.get<Record<string, string>>(`${this.root}/row-notes`);
+  }
+
+  /** Saves one row's note; a blank body removes it. Returns every row note. */
+  saveRowNote(key: string, body: string) {
+    return this.http.put<Record<string, string>>(`${this.root}/row-notes`, { key, body });
+  }
+
   notes() {
     return this.http.get<RhPredictNotesDeskDto>(`${this.root}/notes`);
   }

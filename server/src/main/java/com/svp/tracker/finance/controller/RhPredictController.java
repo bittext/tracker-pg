@@ -9,11 +9,14 @@ import com.svp.tracker.finance.dto.RhPredictDeskDto;
 import com.svp.tracker.finance.dto.RhPredictNoteWriteRequest;
 import com.svp.tracker.finance.dto.RhPredictNotesDeskDto;
 import com.svp.tracker.finance.dto.RhPredictOpenCostRequest;
+import com.svp.tracker.finance.dto.RhPredictRowNoteRequest;
 import com.svp.tracker.finance.service.Btc15Service;
 import com.svp.tracker.finance.service.RhPredictNoteService;
+import com.svp.tracker.finance.service.RhPredictRowNoteService;
 import com.svp.tracker.finance.service.RhPredictService;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -35,6 +38,7 @@ public class RhPredictController {
     private final RhPredictService predictService;
     private final Btc15Service btc15Service;
     private final RhPredictNoteService noteService;
+    private final RhPredictRowNoteService rowNoteService;
 
     @GetMapping
     public RhPredictDeskDto load() {
@@ -89,6 +93,17 @@ public class RhPredictController {
     @PutMapping("/closes/{id}")
     public RhPredictCloseDto rename(@PathVariable long id, @RequestBody RhPredictCloseLabelRequest body) {
         return predictService.renameClose(id, body);
+    }
+
+    /** Brief notes pinned to single rows of the fresh-start tables, by row key. */
+    @GetMapping("/row-notes")
+    public Map<String, String> rowNotes() {
+        return rowNoteService.load();
+    }
+
+    @PutMapping("/row-notes")
+    public Map<String, String> saveRowNote(@RequestBody RhPredictRowNoteRequest body) {
+        return rowNoteService.save(body == null ? null : body.key(), body == null ? null : body.body());
     }
 
     @GetMapping("/notes")

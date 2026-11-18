@@ -258,6 +258,88 @@
   white-space: normal;
 }
 
+.fresh__cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.fresh__note-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--app-text-muted, #64748b);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s;
+
+  mat-icon {
+    width: 1.05rem;
+    height: 1.05rem;
+    font-size: 1.05rem;
+  }
+
+  &:hover,
+  &:focus-visible {
+    background: color-mix(in srgb, #2563eb 10%, transparent);
+    color: #1d4ed8;
+  }
+}
+
+/* Add-note buttons show when the row is hovered or focused; rows that have a note always show theirs. */
+.fresh__table tr:hover .fresh__note-btn,
+.fresh__note-btn:focus-visible,
+.fresh__note-btn--set {
+  opacity: 1;
+}
+
+.fresh__note-btn--set {
+  color: #b45309;
+}
+
+.fresh__note-edit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  margin-top: 0.35rem;
+  font-weight: 500;
+}
+
+.fresh__note-input {
+  width: 15rem;
+  max-width: 100%;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.2));
+  border-radius: 8px;
+  background: var(--app-surface, #fff);
+  color: inherit;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.fresh__note-action {
+  padding: 0.2rem 0.5rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #1d4ed8;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    background: color-mix(in srgb, #2563eb 10%, transparent);
+  }
+}
+
 .fresh__settings {
   color: var(--app-text-muted, #64748b);
   font-size: 0.88rem;

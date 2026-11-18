@@ -1,10 +1,11 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit, inject } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { RhPredictDeskDto } from '../../../models/rh-predict.models';
 import { RhPredictApiService } from '../../../services/rh-predict-api.service';
@@ -43,6 +44,8 @@ const DEFAULT_START: FreshStartConfig = {
   storageKey: 'predict-fresh-v1',
 };
 const POLL_MS = 60_000;
+/** Notes are meant to be brief; this keeps the hover popup readable. */
+export const NOTE_MAX_LENGTH = 140;
 
 @Component({
   selector: 'app-markets-predict-fresh',
@@ -54,6 +57,7 @@ const POLL_MS = 60_000;
     MatIconModule,
     MatProgressBarModule,
     MatSnackBarModule,
+    MatTooltipModule,
     RouterLink,
   ],
   templateUrl: './markets-predict-fresh.component.html',
@@ -66,7 +70,15 @@ export class MarketsPredictFreshComponent implements OnInit, OnDestroy {
     ...DEFAULT_START,
     ...(inject(ActivatedRoute).snapshot.data['freshStart'] as Partial<FreshStartConfig> | undefined),
   };
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private timer: ReturnType<typeof setInterval> | null = null;
+
+  readonly noteMaxLength = NOTE_MAX_LENGTH;
+  /** Brief notes by row key (`<journey>:day:YYYY-MM-DD` or `<journey>:close:<id>`), saved on the server. */
+  notes: Record<string, string> = {};
+  /** The row whose note is being edited, if any. */
+  editingKey: string | null = null;
+  noteDraft = '';
 
   desk: RhPredictDeskDto | null = null;
   loading = false;
@@ -85,6 +97,7 @@ export class MarketsPredictFreshComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.restore();
+    this.loadNotes();
     this.load();
     this.timer = setInterval(() => this.load(true), POLL_MS);
   }
@@ -171,6 +184,64 @@ export class MarketsPredictFreshComponent implements OnInit, OnDestroy {
     this.settingsChanged();
   }
 
+  /** Each journey keeps its own notes, so the same calendar day can differ between them. */
+  dayKey(day: string): string {
+    return `${this.config.storageKey}:day:${day}`;
+  }
+
+  closeKey(id: string | number): string {
+    return `${this.config.storageKey}:close:${id}`;
+  }
+
+  hasNote(key: string): boolean {
+    return !!this.notes[key];
+  }
+
+  /** Text for the hover popup: the note, or a prompt to add one. */
+  noteTip(key: string): string {
+    return this.notes[key] || 'Add a note';
+  }
+
+  editNote(key: string): void {
+    this.editingKey = key;
+    this.noteDraft = this.notes[key] ?? '';
+    setTimeout(() => this.host.nativeElement.querySelector<HTMLInputElement>('.fresh__note-input')?.focus());
+  }
+
+  saveNote(): void {
+    if (this.editingKey === null) {
+      return;
+    }
+    const key = this.editingKey;
+    const text = this.noteDraft.trim().slice(0, NOTE_MAX_LENGTH);
+    const before = this.notes;
+    // Show the change at once; the server answer replaces it, and a failure puts it back.
+    const next = { ...before };
+    if (text) {
+      next[key] = text;
+    } else {
+      delete next[key];
+    }
+    this.notes = next;
+    this.editingKey = null;
+    this.api.saveRowNote(key, text).subscribe({
+      next: (saved) => (this.notes = saved),
+      error: (err) => {
+        this.notes = before;
+        this.toastError(err);
+      },
+    });
+  }
+
+  clearNote(): void {
+    this.noteDraft = '';
+    this.saveNote();
+  }
+
+  cancelNote(): void {
+    this.editingKey = null;
+  }
+
   moneyClass(value: number | null | undefined): string {
     const n = value ?? 0;
     if (n > 0.004) {
@@ -236,6 +307,13 @@ export class MarketsPredictFreshComponent implements OnInit, OnDestroy {
     } catch {
       // A bad saved value falls back to the defaults.
     }
+  }
+
+  private loadNotes(): void {
+    this.api.rowNotes().subscribe({
+      next: (notes) => (this.notes = notes),
+      error: (err) => this.toastError(err),
+    });
   }
 
   private toastError(err: unknown): void {
