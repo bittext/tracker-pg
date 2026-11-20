@@ -175,6 +175,12 @@
   font-weight: 680;
 }
 
+.fresh__count {
+  margin-left: 0.25rem;
+  color: var(--app-text-muted, #64748b);
+  font-weight: 600;
+}
+
 .fresh__total {
   padding: 0.9rem 1.1rem 1rem;
   border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));

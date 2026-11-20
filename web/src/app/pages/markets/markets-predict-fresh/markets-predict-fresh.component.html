@@ -120,7 +120,12 @@
     </p>
   } @else {
     <section class="fresh__days" aria-label="By day">
-      <h2 class="fresh__section-title">By day</h2>
+      <h2 class="fresh__section-title">
+        By day
+        <span class="fresh__count" [attr.aria-label]="days.length + (days.length === 1 ? ' day listed' : ' days listed')"
+          >({{ days.length }})</span
+        >
+      </h2>
       <div class="fresh__table-scroll">
         <table class="fresh__table">
           <thead>
