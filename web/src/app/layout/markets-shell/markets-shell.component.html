@@ -55,6 +55,15 @@
               <span class="app-release-hint__updated">Updated {{ releaseUpdatedLabel }}</span>
             }
           </span>
+          @for (item of quietNav; track item.id) {
+            <a
+              class="markets-quiet-link"
+              [routerLink]="item.path"
+              routerLinkActive="markets-quiet-link--active"
+              [attr.aria-label]="navAriaLabel(item)"
+              >{{ item.label }}</a
+            >
+          }
           <button
             mat-stroked-button
             type="button"
@@ -91,6 +100,15 @@
             <span class="app-release-hint__updated">Updated {{ releaseUpdatedLabel }}</span>
           }
         </span>
+        @for (item of quietNav; track item.id) {
+          <a
+            class="markets-quiet-link"
+            [routerLink]="item.path"
+            routerLinkActive="markets-quiet-link--active"
+            [attr.aria-label]="navAriaLabel(item)"
+            >{{ item.label }}</a
+          >
+        }
         <button
           mat-stroked-button
           type="button"

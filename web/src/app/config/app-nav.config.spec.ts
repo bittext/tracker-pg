@@ -4,6 +4,7 @@ import {
   INSIGHTS_TAB_NAV,
   LIFE_PRIMARY_NAV,
   MARKETS_PRIMARY_NAV,
+  MARKETS_QUIET_NAV,
   validateAppNavRegistry,
 } from './app-nav.config';
 
@@ -18,10 +19,16 @@ describe('app-nav.config', () => {
     expect(labels.length).toBe(9);
   });
 
-  it('Markets primary nav has 10 unique labels', () => {
+  it('Markets primary nav has 9 unique labels', () => {
     const labels = MARKETS_PRIMARY_NAV.map((e) => e.label);
     expect(new Set(labels).size).toBe(labels.length);
-    expect(labels.length).toBe(10);
+    expect(labels.length).toBe(9);
+  });
+
+  it('Predict is kept out of the Markets primary nav and offered as a quiet link', () => {
+    expect(MARKETS_PRIMARY_NAV.some((e) => e.id === 'predict')).toBeFalse();
+    const quiet = MARKETS_QUIET_NAV.find((e) => e.id === 'predict');
+    expect(quiet?.path).toBe('/markets/predict');
   });
 
   it('Insights tabs do not reuse Life primary labels except the Management report', () => {

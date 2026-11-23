@@ -180,15 +180,6 @@ export const MARKETS_PRIMARY_NAV: NavEntry[] = [
     exact: true,
   },
   {
-    id: 'predict',
-    label: 'Predict',
-    path: '/markets/predict',
-    icon: 'thumbs_up_down',
-    shell: 'markets-primary',
-    exact: true,
-    ariaLabel: 'Robinhood Predict — event contracts, kept separate from Research Predicts',
-  },
-  {
     id: 'alerts',
     label: 'Alerts',
     path: '/markets/alerts',
@@ -203,6 +194,20 @@ export const MARKETS_PRIMARY_NAV: NavEntry[] = [
     icon: 'analytics',
     shell: 'markets-primary',
     exact: true,
+  },
+];
+
+/**
+ * Markets destinations kept out of the sidebar and tabs on purpose. The shell shows them as small muted
+ * text links in the top header, beside the version label.
+ */
+export const MARKETS_QUIET_NAV: NavEntry[] = [
+  {
+    id: 'predict',
+    label: 'Predict',
+    path: '/markets/predict',
+    shell: 'markets-footer',
+    ariaLabel: 'Robinhood Predict — event contracts, kept separate from Research Predicts',
   },
 ];
 
@@ -279,6 +284,7 @@ export const APP_NAV_REGISTRY: NavEntry[] = [
   LIFE_SWITCH_NAV,
   ...LIFE_ADMIN_NAV,
   ...MARKETS_PRIMARY_NAV,
+  ...MARKETS_QUIET_NAV,
   ...MARKETS_FOOTER_NAV,
   ...INSIGHTS_TAB_NAV,
   ...ADMIN_TOP_TAB_NAV,

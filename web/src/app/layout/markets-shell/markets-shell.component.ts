@@ -8,7 +8,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { catchError, filter, of } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { APP_DISPLAY_NAME, APP_SHORT_NAME } from '../../app-branding';
-import { MARKETS_FOOTER_NAV, MARKETS_PRIMARY_NAV, NavEntry } from '../../config/app-nav.config';
+import { MARKETS_FOOTER_NAV, MARKETS_PRIMARY_NAV, MARKETS_QUIET_NAV, NavEntry } from '../../config/app-nav.config';
 import { ThemeSettingsComponent } from '../../components/theme-settings/theme-settings.component';
 import { MarketsNewsScanStripComponent } from '../markets-news-scan-strip/markets-news-scan-strip.component';
 import { MarketsRoadmapSummaryComponent } from '../../pages/markets/markets-roadmap-summary/markets-roadmap-summary.component';
@@ -51,6 +51,8 @@ export class MarketsShellComponent implements OnInit {
   readonly webReleaseVersion = WEB_RELEASE_VERSION;
   readonly primaryNav = MARKETS_PRIMARY_NAV;
   readonly footerNav = MARKETS_FOOTER_NAV;
+  /** Small muted links in the top header, for pages kept out of the main navigation. */
+  readonly quietNav = MARKETS_QUIET_NAV;
   apiRelease: ApiVersionPayload | null = null;
   showRoadmapStrip = true;
 

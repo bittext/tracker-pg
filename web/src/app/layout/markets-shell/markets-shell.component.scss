@@ -91,6 +91,26 @@
   background: rgba(16, 163, 127, 0.12);
 }
 
+/* Pages kept out of the main navigation: small, muted, but still a plain link. */
+.markets-quiet-link {
+  padding: 0.15rem 0.4rem;
+  border-radius: 6px;
+  color: var(--app-text-muted);
+  font-size: 0.8rem;
+  text-decoration: none;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--app-text);
+    text-decoration: underline;
+  }
+}
+
+.markets-quiet-link--active {
+  color: var(--app-text);
+  font-weight: 600;
+}
+
 .markets-classic-shell__user {
   font-size: 0.85rem;
   color: var(--app-text-muted);
