@@ -43,6 +43,13 @@ public class MarketsJourneyController {
         return service.create(body);
     }
 
+    /** Starts a new chapter today from a snapshot of every account. Title and milestone are optional. */
+    @PostMapping("/chapters")
+    @ResponseStatus(HttpStatus.CREATED)
+    public MarketsJourneyDto startChapter(@RequestBody(required = false) MarketsJourneyWriteRequest body) {
+        return service.startChapter(body);
+    }
+
     @PutMapping("/{id}")
     public MarketsJourneyDto update(@PathVariable long id, @RequestBody MarketsJourneyWriteRequest body) {
         return service.update(id, body);

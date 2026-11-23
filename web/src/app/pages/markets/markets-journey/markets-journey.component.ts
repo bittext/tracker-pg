@@ -237,6 +237,44 @@ export class MarketsJourneyComponent implements OnInit {
       });
   }
 
+  /** A fresh snapshot of every account becomes the starting point; the roadmap follows them from today. */
+  startChapter(): void {
+    if (
+      typeof window !== 'undefined' &&
+      !window.confirm(
+        'Start a new chapter today? This takes a snapshot of every account now and starts a $1,000,000 roadmap from it. Your earlier roadmaps stay as they are.',
+      )
+    ) {
+      return;
+    }
+    this.saving.set(true);
+    this.api.startChapter({ milestoneAmount: 1_000_000 }).subscribe({
+      next: (j) => {
+        this.saving.set(false);
+        this.snackBar.open(`Started “${j.title}”`, undefined, { duration: 3200 });
+        this.viewedAsOf.set(null);
+        this.selectJourney(j.id);
+        this.refreshList();
+      },
+      error: (e) => {
+        this.saving.set(false);
+        this.snackBar.open(`Could not start the chapter — ${formatHttpErrorDetail(e)}`, undefined, {
+          duration: 7000,
+        });
+      },
+    });
+  }
+
+  /** What the net has moved since the chapter's starting snapshot, or null for a roadmap without one. */
+  readonly sinceStart = computed(() => {
+    const j = this.journey();
+    const actual = this.displayActual();
+    if (j?.startAmount == null || actual == null) {
+      return null;
+    }
+    return actual - Number(j.startAmount);
+  });
+
   createNextMillion(): void {
     const list = this.journeys();
     const n = list.length + 1;

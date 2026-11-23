@@ -64,6 +64,47 @@ final class MarketsJourneyLiveNet {
         return out;
     }
 
+    /** Days on or after {@code start}; all days when {@code start} is null. */
+    static List<DayTotal> fromDay(List<DayTotal> daily, LocalDate start) {
+        if (daily == null) {
+            return List.of();
+        }
+        if (start == null) {
+            return daily;
+        }
+        return daily.stream().filter(day -> !day.date().isBefore(start)).toList();
+    }
+
+    /**
+     * The net across every account using each account's most recent capture (hourly, manual, or close).
+     * Takes one row per account; returns null when there is nothing to add up.
+     */
+    static DayTotal allAccountsNow(List<RhScheduledTotalRow> latestPerAccount) {
+        List<DayTotal> days = dailyTotals(latestPerAccount);
+        return days.isEmpty() ? null : days.get(days.size() - 1);
+    }
+
+    /**
+     * Note on the first entry of a chapter. It must not start with {@link #AUTO_NOTE_PREFIX}, or the live
+     * sync would treat the entry as its own and replace it.
+     */
+    static String chapterStartNote(DayTotal baseline, LocalDate startDate) {
+        StringBuilder text = new StringBuilder("Chapter start snapshot, ")
+                .append(startDate)
+                .append(". All ")
+                .append(baseline.accounts().size())
+                .append(" Robinhood Daily Tracker accounts, including Ammu's a/c: ");
+        boolean first = true;
+        for (AccountSlice slice : baseline.accounts()) {
+            if (!first) {
+                text.append("; ");
+            }
+            text.append(slice.label()).append(' ').append(String.format(Locale.US, "$%,.2f", slice.value()));
+            first = false;
+        }
+        return text.append('.').toString();
+    }
+
     /** Last close of each month, plus the latest day when it is not already a month-end. */
     static List<DayTotal> monthStations(List<DayTotal> daily) {
         if (daily == null || daily.isEmpty()) {

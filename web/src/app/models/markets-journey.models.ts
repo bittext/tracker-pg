@@ -52,6 +52,10 @@ export interface MarketsJourneyDto {
   title: string;
   milestoneAmount: number;
   sortOrder: number;
+  /** Day a chapter began (YYYY-MM-DD); null for a roadmap that follows the full Daily Tracker history. */
+  startDate?: string | null;
+  /** Net across every account in the snapshot the chapter started from. */
+  startAmount?: number | null;
   entryCount: number;
   latestActual: number | null;
   progressPct: number | null;

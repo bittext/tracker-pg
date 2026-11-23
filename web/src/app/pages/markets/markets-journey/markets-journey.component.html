@@ -9,6 +9,17 @@
       </p>
     </div>
     <div class="journey__head-actions">
+      <button
+        mat-flat-button
+        color="primary"
+        type="button"
+        (click)="startChapter()"
+        [disabled]="saving()"
+        matTooltip="Snapshot every account now and start a $1,000,000 roadmap from today"
+      >
+        <mat-icon>flag</mat-icon>
+        New chapter
+      </button>
       <button mat-stroked-button type="button" (click)="createNextMillion()" [disabled]="saving()">
         <mat-icon>add_road</mat-icon>
         Next million
@@ -40,6 +51,9 @@
               @if (j.progressPct != null) {
                 · {{ j.progressPct | number: '1.0-1' }}%
               }
+              @if (j.startDate) {
+                · since {{ j.startDate | date: 'MMM d' }}
+              }
             </span>
           </button>
         }
@@ -62,6 +76,20 @@
                   Save
                 </button>
               </div>
+
+              @if (j.startDate && j.startAmount != null) {
+                <p class="journey__chapter muted">
+                  Chapter started {{ j.startDate | date: 'MMM d, y' }} at
+                  {{ j.startAmount | currency: 'USD':'symbol':'1.0-0' }}, a snapshot of every account.
+                  @if (sinceStart(); as since) {
+                    Since then
+                    <strong [class.journey__chapter-up]="since > 0" [class.journey__chapter-down]="since < 0">{{
+                      since | currency: 'USD':'symbol':'1.0-0'
+                    }}</strong
+                    >.
+                  }
+                </p>
+              }
 
               <div class="journey__tab-body journey__tab-body--page">
                     <div class="journey__hero">

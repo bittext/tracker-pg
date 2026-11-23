@@ -10,6 +10,7 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -36,6 +37,14 @@ public class MarketsJourney {
 
     @Column(name = "sort_order", nullable = false)
     private int sortOrder;
+
+    /** Day a chapter began; null for journeys that follow the full Daily Tracker history. */
+    @Column(name = "start_date")
+    private LocalDate startDate;
+
+    /** Net across every account in the snapshot the chapter started from. */
+    @Column(name = "start_amount", precision = 18, scale = 2)
+    private BigDecimal startAmount;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();

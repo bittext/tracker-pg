@@ -30,6 +30,11 @@ export class MarketsJourneyApiService {
     return this.http.post<MarketsJourneyDto>(this.root, body ?? {});
   }
 
+  /** Starts a new chapter today from a fresh snapshot of every account. Title and milestone are optional. */
+  startChapter(body?: MarketsJourneyWriteRequest) {
+    return this.http.post<MarketsJourneyDto>(`${this.root}/chapters`, body ?? {});
+  }
+
   update(id: number, body: MarketsJourneyWriteRequest) {
     return this.http.put<MarketsJourneyDto>(`${this.root}/${id}`, body);
   }

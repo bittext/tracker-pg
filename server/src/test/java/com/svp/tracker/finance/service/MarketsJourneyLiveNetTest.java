@@ -2,6 +2,7 @@ package com.svp.tracker.finance.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.svp.tracker.finance.domain.MarketsJourneyEntry;
@@ -87,6 +88,56 @@ class MarketsJourneyLiveNetTest {
         manual.setActualAmount(new BigDecimal("100"));
         manual.setActualNote("Hand-entered Q3 close");
         assertFalse(MarketsJourneyLiveNet.isAutoManaged(manual));
+    }
+
+    @Test
+    void allAccountsNowAddsEachAccountsLatestEvenWhenTheirDatesDiffer() {
+        // One row per account, as the latest-capture query returns them; 2835 was last captured a day earlier.
+        MarketsJourneyLiveNet.DayTotal now = MarketsJourneyLiveNet.allAccountsNow(List.of(
+                row(LocalDate.of(2026, 11, 22), "3370", "400000"),
+                row(LocalDate.of(2026, 11, 22), "8696", "50000"),
+                row(LocalDate.of(2026, 11, 21), "2835", "10000.50")));
+
+        assertEquals(LocalDate.of(2026, 11, 22), now.date());
+        assertEquals(0, new BigDecimal("460000.50").compareTo(now.total()));
+        assertEquals(3, now.accounts().size());
+    }
+
+    @Test
+    void allAccountsNowIsNullWithoutSnapshots() {
+        assertNull(MarketsJourneyLiveNet.allAccountsNow(List.of()));
+        assertNull(MarketsJourneyLiveNet.allAccountsNow(null));
+    }
+
+    @Test
+    void fromDayKeepsOnlyTheChapterHistory() {
+        List<MarketsJourneyLiveNet.DayTotal> daily = MarketsJourneyLiveNet.dailyTotals(List.of(
+                row(LocalDate.of(2026, 11, 20), "3370", "390000"),
+                row(LocalDate.of(2026, 11, 22), "3370", "400000"),
+                row(LocalDate.of(2026, 11, 23), "3370", "401000")));
+
+        assertEquals(3, MarketsJourneyLiveNet.fromDay(daily, null).size());
+        List<MarketsJourneyLiveNet.DayTotal> chapter = MarketsJourneyLiveNet.fromDay(daily, LocalDate.of(2026, 11, 22));
+        assertEquals(2, chapter.size());
+        assertEquals(LocalDate.of(2026, 11, 22), chapter.get(0).date());
+        assertTrue(MarketsJourneyLiveNet.fromDay(daily, LocalDate.of(2026, 12, 1)).isEmpty());
+    }
+
+    @Test
+    void chapterStartNoteListsEveryAccountAndIsNotAutoManaged() {
+        MarketsJourneyLiveNet.DayTotal baseline = MarketsJourneyLiveNet.allAccountsNow(List.of(
+                row(LocalDate.of(2026, 11, 22), "3370", "400000"),
+                row(LocalDate.of(2026, 11, 22), "8696", "50000.25")));
+        String note = MarketsJourneyLiveNet.chapterStartNote(baseline, LocalDate.of(2026, 11, 22));
+
+        assertTrue(note.startsWith("Chapter start snapshot, 2026-11-22. All 2 "));
+        assertTrue(note.contains("$400,000.00"));
+        assertTrue(note.contains("$50,000.25"));
+
+        MarketsJourneyEntry first = new MarketsJourneyEntry();
+        first.setActualAmount(baseline.total());
+        first.setActualNote(note);
+        assertFalse(MarketsJourneyLiveNet.isAutoManaged(first));
     }
 
     private static RhScheduledTotalRow row(LocalDate date, String suffix, String value) {

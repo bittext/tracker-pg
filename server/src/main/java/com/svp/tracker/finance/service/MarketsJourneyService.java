@@ -18,6 +18,7 @@ import com.svp.tracker.finance.repository.RobinhoodRhDailySnapshotRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -25,6 +26,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,15 +34,20 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class MarketsJourneyService {
 
     public static final String DEFAULT_TITLE = "Road to my first million";
     public static final BigDecimal DEFAULT_MILESTONE = new BigDecimal("1000000");
+    public static final String CHAPTER_START_LABEL = "Chapter start";
+
+    private static final ZoneId CENTRAL = ZoneId.of("America/Chicago");
 
     private final CurrentUserService currentUser;
     private final MarketsJourneyRepository journeyRepository;
     private final MarketsJourneyEntryRepository entryRepository;
     private final RobinhoodRhDailySnapshotRepository snapshotRepository;
+    private final RobinhoodRhDailyTrackerService dailyTrackerService;
 
     @Transactional
     public List<MarketsJourneyDto> listForCurrentUser() {
@@ -51,12 +58,13 @@ public class MarketsJourneyService {
                 MarketsJourneyLiveNet.dailyTotals(snapshotRepository.findScheduledTotalsAsc(uid));
         List<MarketsJourneyDto> out = new ArrayList<>(rows.size());
         for (MarketsJourney j : rows) {
-            syncPrimaryLiveActuals(uid, j, daily);
+            List<MarketsJourneyLiveNet.DayTotal> own = dailyFor(j, daily);
+            syncLiveActuals(uid, j, own);
             out.add(toDto(
                     j,
                     entryRepository.findByJourneyIdAndOwnerUserIdOrderByPeriodDateAsc(j.getId(), uid),
                     false,
-                    daily,
+                    own,
                     null));
         }
         return out;
@@ -68,12 +76,13 @@ public class MarketsJourneyService {
         MarketsJourney j = requireOwned(uid, id);
         List<MarketsJourneyLiveNet.DayTotal> daily =
                 MarketsJourneyLiveNet.dailyTotals(snapshotRepository.findScheduledTotalsAsc(uid));
-        syncPrimaryLiveActuals(uid, j, daily);
+        List<MarketsJourneyLiveNet.DayTotal> own = dailyFor(j, daily);
+        syncLiveActuals(uid, j, own);
         return toDto(
                 j,
                 entryRepository.findByJourneyIdAndOwnerUserIdOrderByPeriodDateAsc(j.getId(), uid),
                 false,
-                daily,
+                own,
                 asOf);
     }
 
@@ -120,7 +129,62 @@ public class MarketsJourneyService {
                 j,
                 entryRepository.findByJourneyIdAndOwnerUserIdOrderByPeriodDateAsc(j.getId(), uid),
                 false,
-                daily,
+                dailyFor(j, daily),
+                null);
+    }
+
+    /**
+     * Starts a new roadmap chapter today: takes a snapshot of every Daily Tracker account, records the net as
+     * the starting point, and from then on follows the accounts from that day only. The earlier roadmaps are
+     * left as they are.
+     */
+    @Transactional
+    public MarketsJourneyDto startChapter(MarketsJourneyWriteRequest body) {
+        long uid = currentUser.requireUserId();
+        ensureDefaultJourney(uid);
+        boolean fresh = captureAllAccountsNow();
+        MarketsJourneyLiveNet.DayTotal baseline =
+                MarketsJourneyLiveNet.allAccountsNow(snapshotRepository.findLatestTotalsBySuffix(uid));
+        if (baseline == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.CONFLICT,
+                    "No account snapshot yet. Capture the Daily Tracker first, then start the chapter.");
+        }
+        LocalDate today = LocalDate.now(CENTRAL);
+        String title = body != null && body.title() != null && !body.title().isBlank()
+                ? normalizeTitle(body.title())
+                : defaultChapterTitle(journeyRepository.findByOwnerUserIdOrderBySortOrderAscIdAsc(uid).size() + 1);
+        if (journeyRepository.existsByOwnerUserIdAndTitleIgnoreCase(uid, title)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "A journey with that title already exists");
+        }
+        MarketsJourney j = new MarketsJourney();
+        j.setOwnerUserId(uid);
+        j.setTitle(title);
+        j.setMilestoneAmount(normalizeMilestone(body == null ? null : body.milestoneAmount()));
+        j.setSortOrder(body != null && body.sortOrder() != null ? body.sortOrder() : nextSort(uid));
+        j.setStartDate(today);
+        j.setStartAmount(baseline.total());
+        j = journeyRepository.save(j);
+
+        MarketsJourneyEntry first = new MarketsJourneyEntry();
+        first.setJourney(j);
+        first.setOwnerUserId(uid);
+        first.setPeriodDate(today);
+        first.setPeriodLabel(CHAPTER_START_LABEL);
+        first.setActualAmount(baseline.total());
+        first.setActualNote(MarketsJourneyLiveNet.chapterStartNote(baseline, today)
+                + (fresh ? "" : " Live capture was unavailable, so this uses the latest saved snapshots."));
+        entryRepository.save(first);
+
+        List<MarketsJourneyLiveNet.DayTotal> daily =
+                MarketsJourneyLiveNet.dailyTotals(snapshotRepository.findScheduledTotalsAsc(uid));
+        List<MarketsJourneyLiveNet.DayTotal> own = dailyFor(j, daily);
+        syncLiveActuals(uid, j, own);
+        return toDto(
+                j,
+                entryRepository.findByJourneyIdAndOwnerUserIdOrderByPeriodDateAsc(j.getId(), uid),
+                false,
+                own,
                 null);
     }
 
@@ -198,8 +262,32 @@ public class MarketsJourneyService {
                 + 1;
     }
 
-    private void syncPrimaryLiveActuals(long uid, MarketsJourney j, List<MarketsJourneyLiveNet.DayTotal> daily) {
-        if (!isPrimaryMillion(j) || daily == null || daily.isEmpty()) {
+    /** Takes a manual snapshot of every account; false when it could not be taken and cached data is used. */
+    private boolean captureAllAccountsNow() {
+        try {
+            return dailyTrackerService.captureNow(true).ok();
+        } catch (RuntimeException ex) {
+            log.warn("Roadmap chapter start: live capture failed, using the latest saved snapshots: {}", ex.toString());
+            return false;
+        }
+    }
+
+    private static String defaultChapterTitle(int number) {
+        return "Chapter " + number + " · Road to my million";
+    }
+
+    /** A chapter follows the accounts only from its start day; other journeys use the whole history. */
+    private static List<MarketsJourneyLiveNet.DayTotal> dailyFor(
+            MarketsJourney j, List<MarketsJourneyLiveNet.DayTotal> daily) {
+        return MarketsJourneyLiveNet.fromDay(daily, j == null ? null : j.getStartDate());
+    }
+
+    private boolean isLiveTracked(MarketsJourney j) {
+        return isPrimaryMillion(j) || (j != null && j.getStartDate() != null);
+    }
+
+    private void syncLiveActuals(long uid, MarketsJourney j, List<MarketsJourneyLiveNet.DayTotal> daily) {
+        if (!isLiveTracked(j) || daily == null || daily.isEmpty()) {
             return;
         }
         List<MarketsJourneyLiveNet.DayTotal> stations = MarketsJourneyLiveNet.monthStations(daily);
@@ -271,7 +359,7 @@ public class MarketsJourneyService {
 
     private MarketsJourneyLiveNetDto liveNetFor(
             MarketsJourney j, List<MarketsJourneyLiveNet.DayTotal> daily, LocalDate asOf) {
-        if (!isPrimaryMillion(j) || daily == null || daily.isEmpty()) {
+        if (!isLiveTracked(j) || daily == null || daily.isEmpty()) {
             return null;
         }
         int idx = MarketsJourneyLiveNet.indexOnOrBefore(daily, asOf);
@@ -384,6 +472,8 @@ public class MarketsJourneyService {
                 j.getTitle(),
                 j.getMilestoneAmount(),
                 j.getSortOrder(),
+                j.getStartDate(),
+                j.getStartAmount(),
                 entries.size(),
                 latestActual,
                 progressPct,
