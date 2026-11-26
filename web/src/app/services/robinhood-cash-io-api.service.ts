@@ -19,42 +19,7 @@ export class RobinhoodCashIoApiService {
     return this.http.get<RobinhoodCashIoAccountDto[]>(`${this.root}/accounts`);
   }
 
-  /** Names usable as an origin or receiving account: your accounts plus saved counterparties. */
-  parties() {
-    return this.http.get<string[]>(`${this.root}/parties`);
-  }
-
-  ledger(
-    year: number,
-    month?: number | null,
-    accountSuffix?: string | null,
-    origin?: string | null,
-    receiver?: string | null,
-  ) {
-    return this.http.get<RobinhoodCashIoLedgerDto>(this.root, {
-      params: this.periodParams(year, month, accountSuffix, origin, receiver),
-    });
-  }
-
-  calendar(
-    year: number,
-    month?: number | null,
-    accountSuffix?: string | null,
-    origin?: string | null,
-    receiver?: string | null,
-  ) {
-    return this.http.get<RobinhoodCashIoCalendarDto>(`${this.root}/calendar`, {
-      params: this.periodParams(year, month, accountSuffix, origin, receiver),
-    });
-  }
-
-  private periodParams(
-    year: number,
-    month?: number | null,
-    accountSuffix?: string | null,
-    origin?: string | null,
-    receiver?: string | null,
-  ): HttpParams {
+  ledger(year: number, month?: number | null, accountSuffix?: string | null) {
     let params = new HttpParams().set('year', year);
     if (month != null) {
       params = params.set('month', month);
@@ -62,13 +27,18 @@ export class RobinhoodCashIoApiService {
     if (accountSuffix) {
       params = params.set('accountSuffix', accountSuffix);
     }
-    if (origin) {
-      params = params.set('origin', origin);
+    return this.http.get<RobinhoodCashIoLedgerDto>(this.root, { params });
+  }
+
+  calendar(year: number, month?: number | null, accountSuffix?: string | null) {
+    let params = new HttpParams().set('year', year);
+    if (month != null) {
+      params = params.set('month', month);
     }
-    if (receiver) {
-      params = params.set('receiver', receiver);
+    if (accountSuffix) {
+      params = params.set('accountSuffix', accountSuffix);
     }
-    return params;
+    return this.http.get<RobinhoodCashIoCalendarDto>(`${this.root}/calendar`, { params });
   }
 
   ytd(year: number, accountSuffix = '3370') {

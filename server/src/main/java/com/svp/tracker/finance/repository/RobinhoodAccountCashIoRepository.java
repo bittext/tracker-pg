@@ -5,8 +5,6 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
 public interface RobinhoodAccountCashIoRepository extends JpaRepository<RobinhoodAccountCashIo, Long> {
 
@@ -21,11 +19,4 @@ public interface RobinhoodAccountCashIoRepository extends JpaRepository<Robinhoo
 
     List<RobinhoodAccountCashIo> findByOwnerUserIdAndAccountSuffixOrderByActivityDateAscIdAsc(
             long ownerUserId, String accountSuffix);
-
-    @Query("""
-            select distinct r.counterparty from RobinhoodAccountCashIo r
-            where r.ownerUserId = :ownerUserId and r.counterparty is not null
-            order by r.counterparty
-            """)
-    List<String> findDistinctCounterparties(@Param("ownerUserId") long ownerUserId);
 }

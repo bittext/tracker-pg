@@ -40,30 +40,20 @@ public class RobinhoodCashIoController {
         return cashIoService.listAccounts();
     }
 
-    /** Names that can be picked as an origin or receiving account: your accounts plus saved counterparties. */
-    @GetMapping("/parties")
-    public List<String> parties() {
-        return cashIoService.listParties();
-    }
-
     @GetMapping
     public RobinhoodCashIoLedgerDto ledger(
             @RequestParam int year,
             @RequestParam(required = false) Integer month,
-            @RequestParam(required = false) String accountSuffix,
-            @RequestParam(required = false) String origin,
-            @RequestParam(required = false) String receiver) {
-        return cashIoService.ledger(year, month, accountSuffix, origin, receiver);
+            @RequestParam(required = false) String accountSuffix) {
+        return cashIoService.ledger(year, month, accountSuffix);
     }
 
     @GetMapping("/calendar")
     public RobinhoodCashIoCalendarDto calendar(
             @RequestParam int year,
             @RequestParam(required = false) Integer month,
-            @RequestParam(required = false) String accountSuffix,
-            @RequestParam(required = false) String origin,
-            @RequestParam(required = false) String receiver) {
-        return cashIoService.calendar(year, month, accountSuffix, origin, receiver);
+            @RequestParam(required = false) String accountSuffix) {
+        return cashIoService.calendar(year, month, accountSuffix);
     }
 
     @GetMapping("/ytd")
