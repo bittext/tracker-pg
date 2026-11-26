@@ -2637,6 +2637,12 @@ export interface RobinhoodCashIoEntryDto {
   direction: 'IN' | 'OUT' | string;
   amount: number;
   note: string | null;
+  /** Other side of the move: source of an input, destination of an output. */
+  counterparty: string | null;
+  /** Account the money left (your account for an output, the counterparty for an input). */
+  origin: string | null;
+  /** Account the money arrived in (the counterparty for an output, your account for an input). */
+  receiver: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -2647,6 +2653,7 @@ export interface RobinhoodCashIoRequestDto {
   direction: 'IN' | 'OUT';
   amount: number;
   note?: string | null;
+  counterparty?: string | null;
 }
 
 export interface RobinhoodCashIoLedgerDto {

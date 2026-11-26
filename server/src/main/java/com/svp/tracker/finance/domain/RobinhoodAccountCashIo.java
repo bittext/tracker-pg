@@ -43,6 +43,10 @@ public class RobinhoodAccountCashIo {
     @Column(name = "note", columnDefinition = "TEXT")
     private String note;
 
+    /** The other side of the move: the source of an input, or the destination of an output. */
+    @Column(name = "counterparty", length = 120)
+    private String counterparty;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 

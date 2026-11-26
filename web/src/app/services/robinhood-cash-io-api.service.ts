@@ -19,18 +19,42 @@ export class RobinhoodCashIoApiService {
     return this.http.get<RobinhoodCashIoAccountDto[]>(`${this.root}/accounts`);
   }
 
-  ledger(year: number, month?: number | null, accountSuffix?: string | null) {
-    let params = new HttpParams().set('year', year);
-    if (month != null) {
-      params = params.set('month', month);
-    }
-    if (accountSuffix) {
-      params = params.set('accountSuffix', accountSuffix);
-    }
-    return this.http.get<RobinhoodCashIoLedgerDto>(this.root, { params });
+  /** Names usable as an origin or receiving account: your accounts plus saved counterparties. */
+  parties() {
+    return this.http.get<string[]>(`${this.root}/parties`);
   }
 
-  calendar(year: number, month?: number | null, accountSuffix?: string | null) {
+  ledger(
+    year: number,
+    month?: number | null,
+    accountSuffix?: string | null,
+    origin?: string | null,
+    receiver?: string | null,
+  ) {
+    return this.http.get<RobinhoodCashIoLedgerDto>(this.root, {
+      params: this.periodParams(year, month, accountSuffix, origin, receiver),
+    });
+  }
+
+  calendar(
+    year: number,
+    month?: number | null,
+    accountSuffix?: string | null,
+    origin?: string | null,
+    receiver?: string | null,
+  ) {
+    return this.http.get<RobinhoodCashIoCalendarDto>(`${this.root}/calendar`, {
+      params: this.periodParams(year, month, accountSuffix, origin, receiver),
+    });
+  }
+
+  private periodParams(
+    year: number,
+    month?: number | null,
+    accountSuffix?: string | null,
+    origin?: string | null,
+    receiver?: string | null,
+  ): HttpParams {
     let params = new HttpParams().set('year', year);
     if (month != null) {
       params = params.set('month', month);
@@ -38,7 +62,13 @@ export class RobinhoodCashIoApiService {
     if (accountSuffix) {
       params = params.set('accountSuffix', accountSuffix);
     }
-    return this.http.get<RobinhoodCashIoCalendarDto>(`${this.root}/calendar`, { params });
+    if (origin) {
+      params = params.set('origin', origin);
+    }
+    if (receiver) {
+      params = params.set('receiver', receiver);
+    }
+    return params;
   }
 
   ytd(year: number, accountSuffix = '3370') {

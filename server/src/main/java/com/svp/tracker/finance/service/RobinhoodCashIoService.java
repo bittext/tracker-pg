@@ -35,6 +35,7 @@ public class RobinhoodCashIoService {
 
     private static final String DIR_IN = "IN";
     private static final String DIR_OUT = "OUT";
+    private static final int MAX_PARTY_LENGTH = 120;
 
     private final CurrentUserService currentUser;
     private final RobinhoodAccountCashIoRepository repository;
@@ -49,12 +50,14 @@ public class RobinhoodCashIoService {
     }
 
     @Transactional(readOnly = true)
-    public RobinhoodCashIoLedgerDto ledger(int year, Integer month, String accountSuffix) {
+    public RobinhoodCashIoLedgerDto ledger(
+            int year, Integer month, String accountSuffix, String origin, String receiver) {
         long uid = currentUser.requireUserId();
         DateWindow window = resolveWindow(year, month);
         String suffix = normalizeOptionalSuffix(accountSuffix);
-        List<RobinhoodAccountCashIo> rows = loadRows(uid, suffix, window.from(), window.to());
         Map<String, String> labels = accountLabelMap(uid);
+        List<RobinhoodAccountCashIo> rows =
+                filterByParties(loadRows(uid, suffix, window.from(), window.to()), labels, origin, receiver);
         List<RobinhoodCashIoEntryDto> entries = rows.stream().map(r -> toEntryDto(r, labels)).toList();
         Totals totals = totals(rows);
         return new RobinhoodCashIoLedgerDto(
@@ -70,11 +73,13 @@ public class RobinhoodCashIoService {
     }
 
     @Transactional(readOnly = true)
-    public RobinhoodCashIoCalendarDto calendar(int year, Integer month, String accountSuffix) {
+    public RobinhoodCashIoCalendarDto calendar(
+            int year, Integer month, String accountSuffix, String origin, String receiver) {
         long uid = currentUser.requireUserId();
         DateWindow window = resolveWindow(year, month);
         String suffix = normalizeOptionalSuffix(accountSuffix);
-        List<RobinhoodAccountCashIo> rows = loadRows(uid, suffix, window.from(), window.to());
+        List<RobinhoodAccountCashIo> rows = filterByParties(
+                loadRows(uid, suffix, window.from(), window.to()), accountLabelMap(uid), origin, receiver);
         Map<LocalDate, MutableDay> byDay = new LinkedHashMap<>();
         for (RobinhoodAccountCashIo row : rows) {
             MutableDay day = byDay.computeIfAbsent(row.getActivityDate(), d -> new MutableDay());
@@ -102,6 +107,19 @@ public class RobinhoodCashIoService {
                 year, month, suffix, totals.in(), totals.out(), totals.net(), days);
     }
 
+    @Transactional(readOnly = true)
+    public List<String> listParties() {
+        long uid = currentUser.requireUserId();
+        LinkedHashMap<String, String> byKey = new LinkedHashMap<>();
+        for (String label : accountLabelMap(uid).values()) {
+            byKey.putIfAbsent(partyKey(label), label);
+        }
+        for (String name : repository.findDistinctCounterparties(uid)) {
+            byKey.putIfAbsent(partyKey(name), name);
+        }
+        return new ArrayList<>(byKey.values());
+    }
+
     @Transactional
     public RobinhoodCashIoEntryDto create(RobinhoodCashIoRequestDto body) {
         long uid = currentUser.requireUserId();
@@ -114,6 +132,7 @@ public class RobinhoodCashIoService {
         row.setDirection(req.direction());
         row.setAmount(req.amount());
         row.setNote(req.note());
+        row.setCounterparty(req.counterparty());
         row.setCreatedAt(now);
         row.setUpdatedAt(now);
         RobinhoodCashIoEntryDto saved = toEntryDto(repository.save(row), accountLabelMap(uid));
@@ -133,6 +152,7 @@ public class RobinhoodCashIoService {
         row.setDirection(req.direction());
         row.setAmount(req.amount());
         row.setNote(req.note());
+        row.setCounterparty(req.counterparty());
         row.setUpdatedAt(Instant.now());
         RobinhoodCashIoEntryDto saved = toEntryDto(repository.save(row), accountLabelMap(uid));
         cashIoDailyService.rebuildAfterLedgerChange(uid, req.suffix(), req.date());
@@ -183,7 +203,56 @@ public class RobinhoodCashIoService {
         if (note != null && note.isEmpty()) {
             note = null;
         }
-        return new ValidatedRequest(suffix, body.activityDate(), direction, scale(amount), note);
+        String counterparty = normalizeParty(body.counterparty());
+        if (counterparty != null && counterparty.length() > MAX_PARTY_LENGTH) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "counterparty must be at most " + MAX_PARTY_LENGTH + " characters");
+        }
+        return new ValidatedRequest(suffix, body.activityDate(), direction, scale(amount), note, counterparty);
+    }
+
+    /**
+     * Keeps rows whose origin and receiving account match the given names. A blank filter matches everything.
+     * For an output the origin is your own account and the receiver is the counterparty; for an input it is the
+     * other way around. A side that was never recorded matches no named filter.
+     */
+    static List<RobinhoodAccountCashIo> filterByParties(
+            List<RobinhoodAccountCashIo> rows, Map<String, String> accountLabels, String origin, String receiver) {
+        String wantOrigin = partyKey(origin);
+        String wantReceiver = partyKey(receiver);
+        if (wantOrigin == null && wantReceiver == null) {
+            return rows;
+        }
+        return rows.stream()
+                .filter(r -> wantOrigin == null || wantOrigin.equals(partyKey(originOf(r, accountLabels))))
+                .filter(r -> wantReceiver == null || wantReceiver.equals(partyKey(receiverOf(r, accountLabels))))
+                .toList();
+    }
+
+    static String originOf(RobinhoodAccountCashIo row, Map<String, String> accountLabels) {
+        return DIR_OUT.equals(row.getDirection()) ? ownLabel(row, accountLabels) : normalizeParty(row.getCounterparty());
+    }
+
+    static String receiverOf(RobinhoodAccountCashIo row, Map<String, String> accountLabels) {
+        return DIR_OUT.equals(row.getDirection()) ? normalizeParty(row.getCounterparty()) : ownLabel(row, accountLabels);
+    }
+
+    private static String ownLabel(RobinhoodAccountCashIo row, Map<String, String> accountLabels) {
+        return accountLabels.getOrDefault(row.getAccountSuffix(), "Account ••••" + row.getAccountSuffix());
+    }
+
+    private static String normalizeParty(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String s = raw.trim().replaceAll("\\s+", " ");
+        return s.isEmpty() ? null : s;
+    }
+
+    /** Case-insensitive comparison key; null for blank. */
+    private static String partyKey(String raw) {
+        String s = normalizeParty(raw);
+        return s == null ? null : s.toLowerCase(Locale.ROOT);
     }
 
     private static String normalizeDirection(String raw) {
@@ -285,6 +354,9 @@ public class RobinhoodCashIoService {
                 row.getDirection(),
                 scale(row.getAmount()),
                 row.getNote(),
+                normalizeParty(row.getCounterparty()),
+                originOf(row, labels),
+                receiverOf(row, labels),
                 row.getCreatedAt(),
                 row.getUpdatedAt());
     }
@@ -325,7 +397,12 @@ public class RobinhoodCashIoService {
     private record Totals(BigDecimal in, BigDecimal out, BigDecimal net) {}
 
     private record ValidatedRequest(
-            String suffix, LocalDate date, String direction, BigDecimal amount, String note) {}
+            String suffix,
+            LocalDate date,
+            String direction,
+            BigDecimal amount,
+            String note,
+            String counterparty) {}
 
     private static final class MutableDay {
         BigDecimal in = BigDecimal.ZERO;

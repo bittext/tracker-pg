@@ -146,10 +146,12 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
     { value: 11, label: 'November' },
     { value: 12, label: 'December' },
   ];
-  readonly displayedColumns = ['date', 'account', 'direction', 'amount', 'note', 'actions'] as const;
+  readonly displayedColumns = ['date', 'account', 'direction', 'route', 'amount', 'note', 'actions'] as const;
   readonly ytdSuffix = '3370';
 
   accounts: RobinhoodCashIoAccountDto[] = [];
+  /** Your accounts plus saved counterparties, offered as origin / receiving filters. */
+  parties: string[] = [];
   entries: RobinhoodCashIoEntryDto[] = [];
   calendarDays = new Map<string, RobinhoodCashIoCalendarDayDto>();
   ytd: RobinhoodCashIoYtdDto | null = null;
@@ -163,6 +165,8 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
   year = new Date().getFullYear();
   month = new Date().getMonth() + 1;
   accountSuffix = '';
+  originFilter = '';
+  receiverFilter = '';
   selectedDate: string | null = null;
 
   totalIn = 0;
@@ -186,6 +190,7 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
       },
       error: (err) => this.toastError(err),
     });
+    this.loadParties();
     this.refresh();
     merge(
       interval(45_000),
@@ -196,6 +201,23 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
         filter(() => !this.loading && !this.saving && !this.refreshInFlight),
       )
       .subscribe(() => this.refresh({ silent: true }));
+  }
+
+  get hasPartyFilter(): boolean {
+    return !!(this.originFilter || this.receiverFilter);
+  }
+
+  clearPartyFilters(): void {
+    this.originFilter = '';
+    this.receiverFilter = '';
+    this.onFiltersChange();
+  }
+
+  private loadParties(): void {
+    this.api.parties().subscribe({
+      next: (parties) => (this.parties = parties),
+      error: (err) => this.toastError(err),
+    });
   }
 
   get yearOptions(): number[] {
@@ -242,8 +264,8 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
     const prevTrack = this.selectedTrackDate;
     const trackSuffix = this.accountSuffix || this.ytdSuffix;
     forkJoin({
-      ledger: this.api.ledger(this.year, month, suffix),
-      calendar: this.api.calendar(this.year, month, suffix),
+      ledger: this.api.ledger(this.year, month, suffix, this.originFilter || null, this.receiverFilter || null),
+      calendar: this.api.calendar(this.year, month, suffix, this.originFilter || null, this.receiverFilter || null),
       ytd: this.api.ytd(ytdYear, this.ytdSuffix),
       daily: this.api.daily(this.year, trackSuffix),
     }).subscribe({
@@ -837,6 +859,7 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
       direction: entry.direction === 'OUT' ? 'OUT' : 'IN',
       amount: entry.amount,
       note: entry.note ?? '',
+      counterparty: entry.counterparty ?? '',
     };
     this.customSuffix = '';
   }
@@ -870,6 +893,7 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
       direction: this.form.direction,
       amount,
       note: this.form.note?.trim() || null,
+      counterparty: this.form.counterparty?.trim() || null,
     };
     this.saving = true;
     const req$ =
@@ -879,6 +903,7 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
       next: () => {
         this.saving = false;
         this.cancelEdit();
+        this.loadParties();
         this.refresh({ silent: true });
         this.snackBar.open(wasEdit ? 'Updated.' : 'Saved.', 'Dismiss', { duration: 2500 });
       },
@@ -911,6 +936,7 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
       direction: 'IN',
       amount: 0,
       note: '',
+      counterparty: '',
     };
   }
 
