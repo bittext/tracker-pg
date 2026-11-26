@@ -55,6 +55,30 @@
       </mat-select>
     </mat-form-field>
 
+    <mat-form-field appearance="outline" class="cio__party">
+      <mat-label>From (origin)</mat-label>
+      <mat-select [(ngModel)]="originFilter" name="cioOriginFilter" (selectionChange)="onFiltersChange()">
+        <mat-option value="">Any origin</mat-option>
+        @for (p of parties; track p) {
+          <mat-option [value]="p">{{ p }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="cio__party">
+      <mat-label>To (receiving)</mat-label>
+      <mat-select [(ngModel)]="receiverFilter" name="cioReceiverFilter" (selectionChange)="onFiltersChange()">
+        <mat-option value="">Any receiving account</mat-option>
+        @for (p of parties; track p) {
+          <mat-option [value]="p">{{ p }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+
+    @if (hasPartyFilter) {
+      <button mat-button type="button" (click)="clearPartyFilters()">Clear origin / receiving</button>
+    }
+
     <button mat-stroked-button type="button" (click)="refresh()" [disabled]="loading">
       <mat-icon>refresh</mat-icon>
       Refresh
@@ -398,31 +422,45 @@
   <section class="cio__form" aria-label="Add or edit entry">
     <h3 class="cio__form-title">{{ editingId != null ? 'Edit entry' : 'Add entry' }}</h3>
     <div class="cio__form-row">
-      <mat-form-field appearance="outline">
-        <mat-label>Account</mat-label>
-        <mat-select [(ngModel)]="form.accountSuffix" name="cioFormAccount" [disabled]="!!customSuffix">
-          @for (a of accounts; track a.suffix) {
-            <mat-option [value]="a.suffix">{{ a.label }}</mat-option>
+      <mat-form-field appearance="outline" class="cio__party">
+        <mat-label>From (money comes from)</mat-label>
+        <input
+          matInput
+          [(ngModel)]="fromText"
+          name="cioFormFrom"
+          maxlength="120"
+          autocomplete="off"
+          [matAutocomplete]="fromAuto"
+          placeholder="e.g. Chase checking, or Individual ••••3370"
+        />
+        <mat-autocomplete #fromAuto="matAutocomplete">
+          @for (p of partyOptions(fromText); track p) {
+            <mat-option [value]="p">{{ p }}</mat-option>
           }
-        </mat-select>
+        </mat-autocomplete>
       </mat-form-field>
 
-      <mat-form-field appearance="outline" class="cio__custom-suffix">
-        <mat-label>Or last 4 digits</mat-label>
-        <input matInput [(ngModel)]="customSuffix" name="cioCustomSuffix" maxlength="8" inputmode="numeric" />
+      <mat-form-field appearance="outline" class="cio__party">
+        <mat-label>To (money goes to)</mat-label>
+        <input
+          matInput
+          [(ngModel)]="toText"
+          name="cioFormTo"
+          maxlength="120"
+          autocomplete="off"
+          [matAutocomplete]="toAuto"
+          placeholder="e.g. Robinhood Coastal Banking ••••6310"
+        />
+        <mat-autocomplete #toAuto="matAutocomplete">
+          @for (p of partyOptions(toText); track p) {
+            <mat-option [value]="p">{{ p }}</mat-option>
+          }
+        </mat-autocomplete>
       </mat-form-field>
 
       <mat-form-field appearance="outline">
         <mat-label>Date</mat-label>
         <input matInput type="date" [(ngModel)]="form.activityDate" name="cioFormDate" />
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
-        <mat-label>Type</mat-label>
-        <mat-select [(ngModel)]="form.direction" name="cioFormDir">
-          <mat-option value="IN">Input (in)</mat-option>
-          <mat-option value="OUT">Output (out)</mat-option>
-        </mat-select>
       </mat-form-field>
 
       <mat-form-field appearance="outline">
@@ -435,6 +473,9 @@
         <input matInput [(ngModel)]="form.note" name="cioFormNote" />
       </mat-form-field>
     </div>
+    @if (routeSummary) {
+      <p class="muted cio__route-hint">Will record: {{ routeSummary }}</p>
+    }
     <div class="cio__form-actions">
       <button mat-flat-button color="primary" type="button" (click)="save()" [disabled]="saving">
         {{ editingId != null ? 'Update' : 'Add' }}
@@ -869,6 +910,10 @@
               {{ row.direction === 'OUT' ? 'Output' : 'Input' }}
             </span>
           </td>
+        </ng-container>
+        <ng-container matColumnDef="route">
+          <th mat-header-cell *matHeaderCellDef>From → To</th>
+          <td mat-cell *matCellDef="let row">{{ row.origin || '—' }} → {{ row.receiver || '—' }}</td>
         </ng-container>
         <ng-container matColumnDef="amount">
           <th mat-header-cell *matHeaderCellDef>Amount</th>

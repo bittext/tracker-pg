@@ -3,6 +3,7 @@ import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
@@ -11,7 +12,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { filter, forkJoin, fromEvent, interval, merge } from 'rxjs';
+import { Observable, filter, forkJoin, fromEvent, interval, merge } from 'rxjs';
 import {
   RobinhoodCashIoAccountDto,
   RobinhoodCashIoCalendarDayDto,
@@ -24,6 +25,7 @@ import {
 } from '../../../models/finance.models';
 import { RobinhoodCashIoApiService } from '../../../services/robinhood-cash-io-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
+import { accountLabelFor, describeRoute, planRoute } from './cash-io-route.util';
 
 type PeriodMode = 'month' | 'year';
 type ViewMode = 'list' | 'calendar' | 'picture' | 'track';
@@ -112,6 +114,7 @@ interface CalCell {
   imports: [
     CommonModule,
     FormsModule,
+    MatAutocompleteModule,
     MatButtonModule,
     MatButtonToggleModule,
     MatFormFieldModule,
@@ -146,10 +149,12 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
     { value: 11, label: 'November' },
     { value: 12, label: 'December' },
   ];
-  readonly displayedColumns = ['date', 'account', 'direction', 'amount', 'note', 'actions'] as const;
+  readonly displayedColumns = ['date', 'account', 'direction', 'route', 'amount', 'note', 'actions'] as const;
   readonly ytdSuffix = '3370';
 
   accounts: RobinhoodCashIoAccountDto[] = [];
+  /** Your accounts plus saved counterparties, offered as origin / receiving filters. */
+  parties: string[] = [];
   entries: RobinhoodCashIoEntryDto[] = [];
   calendarDays = new Map<string, RobinhoodCashIoCalendarDayDto>();
   ytd: RobinhoodCashIoYtdDto | null = null;
@@ -163,6 +168,8 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
   year = new Date().getFullYear();
   month = new Date().getMonth() + 1;
   accountSuffix = '';
+  originFilter = '';
+  receiverFilter = '';
   selectedDate: string | null = null;
 
   totalIn = 0;
@@ -174,18 +181,18 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
   editingId: number | null = null;
 
   form: RobinhoodCashIoRequestDto = this.emptyForm();
-  customSuffix = '';
+  /** Where the money comes from / goes to. One side must be one of your accounts. */
+  fromText = '';
+  toText = '';
 
   ngOnInit(): void {
     this.api.accounts().subscribe({
       next: (accounts) => {
         this.accounts = accounts;
-        if (!this.form.accountSuffix && accounts.length) {
-          this.form.accountSuffix = accounts[0].suffix;
-        }
       },
       error: (err) => this.toastError(err),
     });
+    this.loadParties();
     this.refresh();
     merge(
       interval(45_000),
@@ -196,6 +203,23 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
         filter(() => !this.loading && !this.saving && !this.refreshInFlight),
       )
       .subscribe(() => this.refresh({ silent: true }));
+  }
+
+  get hasPartyFilter(): boolean {
+    return !!(this.originFilter || this.receiverFilter);
+  }
+
+  clearPartyFilters(): void {
+    this.originFilter = '';
+    this.receiverFilter = '';
+    this.onFiltersChange();
+  }
+
+  private loadParties(): void {
+    this.api.parties().subscribe({
+      next: (parties) => (this.parties = parties),
+      error: (err) => this.toastError(err),
+    });
   }
 
   get yearOptions(): number[] {
@@ -242,8 +266,8 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
     const prevTrack = this.selectedTrackDate;
     const trackSuffix = this.accountSuffix || this.ytdSuffix;
     forkJoin({
-      ledger: this.api.ledger(this.year, month, suffix),
-      calendar: this.api.calendar(this.year, month, suffix),
+      ledger: this.api.ledger(this.year, month, suffix, this.originFilter || null, this.receiverFilter || null),
+      calendar: this.api.calendar(this.year, month, suffix, this.originFilter || null, this.receiverFilter || null),
       ytd: this.api.ytd(ytdYear, this.ytdSuffix),
       daily: this.api.daily(this.year, trackSuffix),
     }).subscribe({
@@ -702,9 +726,9 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
   prepareTodayEntry(direction: 'IN' | 'OUT'): void {
     this.cancelEdit();
     this.form.activityDate = this.isoToday();
-    this.form.direction = direction;
-    this.form.accountSuffix = this.ytdSuffix;
-    this.customSuffix = '';
+    const own = accountLabelFor(this.ytdSuffix, this.accounts);
+    this.fromText = direction === 'OUT' ? own : '';
+    this.toText = direction === 'IN' ? own : '';
     const n = new Date();
     this.year = n.getFullYear();
     this.month = n.getMonth() + 1;
@@ -837,24 +861,29 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
       direction: entry.direction === 'OUT' ? 'OUT' : 'IN',
       amount: entry.amount,
       note: entry.note ?? '',
+      counterparty: entry.counterparty ?? '',
     };
-    this.customSuffix = '';
+    this.fromText = entry.origin ?? '';
+    this.toText = entry.receiver ?? '';
+  }
+
+  partyOptions(text: string): string[] {
+    const q = text.trim().toLowerCase();
+    return q ? this.parties.filter((p) => p.toLowerCase().includes(q)) : this.parties;
+  }
+
+  get routeSummary(): string {
+    return describeRoute(this.fromText, this.toText, this.accounts);
   }
 
   cancelEdit(): void {
     this.editingId = null;
     this.form = this.emptyForm();
-    if (this.accounts.length && !this.form.accountSuffix) {
-      this.form.accountSuffix = this.accounts[0].suffix;
-    }
+    this.fromText = '';
+    this.toText = '';
   }
 
   save(): void {
-    const suffix = (this.customSuffix || this.form.accountSuffix || '').replace(/\D/g, '');
-    if (!suffix) {
-      this.snackBar.open('Pick or enter an account suffix.', 'Dismiss', { duration: 3500 });
-      return;
-    }
     if (!this.form.activityDate) {
       this.snackBar.open('Date is required.', 'Dismiss', { duration: 3500 });
       return;
@@ -864,21 +893,41 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
       this.snackBar.open('Amount must be greater than zero.', 'Dismiss', { duration: 3500 });
       return;
     }
-    const body: RobinhoodCashIoRequestDto = {
-      accountSuffix: suffix,
+    const plan = planRoute(this.fromText, this.toText, this.accounts);
+    if (!plan.ok) {
+      this.snackBar.open(plan.error, 'Dismiss', { duration: 4500 });
+      return;
+    }
+    if (this.editingId != null && plan.moves.length > 1) {
+      this.snackBar.open(
+        'An entry covers one of your accounts. Change one side to an outside account, or delete this entry and add the transfer again.',
+        'Dismiss',
+        { duration: 6000 },
+      );
+      return;
+    }
+    const bodies: RobinhoodCashIoRequestDto[] = plan.moves.map((m) => ({
+      accountSuffix: m.accountSuffix,
       activityDate: this.form.activityDate,
-      direction: this.form.direction,
+      direction: m.direction,
       amount,
       note: this.form.note?.trim() || null,
-    };
+      counterparty: m.counterparty,
+    }));
     this.saving = true;
-    const req$ =
-      this.editingId != null ? this.api.update(this.editingId, body) : this.api.create(body);
-    const wasEdit = this.editingId != null;
+    const editingId = this.editingId;
+    const req$: Observable<unknown> =
+      editingId != null
+        ? this.api.update(editingId, bodies[0])
+        : bodies.length === 1
+          ? this.api.create(bodies[0])
+          : forkJoin(bodies.map((b) => this.api.create(b)));
+    const wasEdit = editingId != null;
     req$.subscribe({
       next: () => {
         this.saving = false;
         this.cancelEdit();
+        this.loadParties();
         this.refresh({ silent: true });
         this.snackBar.open(wasEdit ? 'Updated.' : 'Saved.', 'Dismiss', { duration: 2500 });
       },
@@ -911,6 +960,7 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
       direction: 'IN',
       amount: 0,
       note: '',
+      counterparty: '',
     };
   }
 

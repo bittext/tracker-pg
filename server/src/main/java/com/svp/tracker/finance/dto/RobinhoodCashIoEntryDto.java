@@ -12,5 +12,8 @@ public record RobinhoodCashIoEntryDto(
         String direction,
         BigDecimal amount,
         String note,
+        String counterparty,
+        String origin,
+        String receiver,
         Instant createdAt,
         Instant updatedAt) {}

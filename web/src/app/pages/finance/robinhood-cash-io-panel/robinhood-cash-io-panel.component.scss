@@ -27,6 +27,17 @@
   min-width: 12rem;
 }
 
+.cio__route-hint {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+}
+
+.cio__party {
+  min-width: 14rem;
+  flex: 1 1 14rem;
+  max-width: 22rem;
+}
+
 .cio__totals {
   display: flex;
   flex-wrap: wrap;
@@ -427,10 +438,6 @@
   flex-wrap: wrap;
   gap: 0.55rem 0.65rem;
   align-items: flex-start;
-}
-
-.cio__custom-suffix {
-  width: 9rem;
 }
 
 .cio__note {
