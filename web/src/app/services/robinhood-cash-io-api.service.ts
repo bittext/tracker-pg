@@ -5,6 +5,8 @@ import {
   RobinhoodCashIoCalendarDto,
   RobinhoodCashIoDailyHistoryDto,
   RobinhoodCashIoEntryDto,
+  RobinhoodCashIoImportDto,
+  RobinhoodCashIoImportRequestDto,
   RobinhoodCashIoLedgerDto,
   RobinhoodCashIoRequestDto,
   RobinhoodCashIoYtdDto,
@@ -79,6 +81,16 @@ export class RobinhoodCashIoApiService {
   daily(year: number, accountSuffix = '3370') {
     const params = new HttpParams().set('year', year).set('accountSuffix', accountSuffix);
     return this.http.get<RobinhoodCashIoDailyHistoryDto>(`${this.root}/daily`, { params });
+  }
+
+  /** Shows what a Robinhood CSV would add, without saving anything. */
+  importPreview(body: RobinhoodCashIoImportRequestDto) {
+    return this.http.post<RobinhoodCashIoImportDto>(`${this.root}/import/preview`, body);
+  }
+
+  /** Adds the new transfers from a Robinhood CSV; rows already in the ledger are skipped. */
+  importRows(body: RobinhoodCashIoImportRequestDto) {
+    return this.http.post<RobinhoodCashIoImportDto>(`${this.root}/import`, body);
   }
 
   create(body: RobinhoodCashIoRequestDto) {

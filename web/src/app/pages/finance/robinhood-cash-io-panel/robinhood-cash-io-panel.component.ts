@@ -19,6 +19,7 @@ import {
   RobinhoodCashIoDailyDto,
   RobinhoodCashIoDailyHistoryDto,
   RobinhoodCashIoEntryDto,
+  RobinhoodCashIoImportDto,
   RobinhoodCashIoRequestDto,
   RobinhoodCashIoYtdDto,
   RobinhoodCashIoYtdEventDto,
@@ -184,6 +185,15 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
   /** Where the money comes from / goes to. One side must be one of your accounts. */
   fromText = '';
   toText = '';
+
+  // Import from Robinhood
+  importOpen = false;
+  importSuffix = this.ytdSuffix;
+  importDateMode: 'REQUESTED' | 'COMPLETED' = 'REQUESTED';
+  importFileName = '';
+  importCsv = '';
+  importResult: RobinhoodCashIoImportDto | null = null;
+  importBusy = false;
 
   ngOnInit(): void {
     this.api.accounts().subscribe({
@@ -865,6 +875,75 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
     };
     this.fromText = entry.origin ?? '';
     this.toText = entry.receiver ?? '';
+  }
+
+  async onImportFile(event: Event): Promise<void> {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    this.importResult = null;
+    if (!file) {
+      this.importFileName = '';
+      this.importCsv = '';
+      return;
+    }
+    this.importFileName = file.name;
+    this.importCsv = await file.text();
+    this.previewImport();
+  }
+
+  previewImport(): void {
+    if (!this.importCsv) {
+      this.snackBar.open('Choose a Robinhood CSV file first.', 'Dismiss', { duration: 3500 });
+      return;
+    }
+    this.importBusy = true;
+    this.api
+      .importPreview({ csv: this.importCsv, accountSuffix: this.importSuffix, dateMode: this.importDateMode })
+      .subscribe({
+        next: (result) => {
+          this.importResult = result;
+          this.importBusy = false;
+        },
+        error: (err) => {
+          this.importResult = null;
+          this.importBusy = false;
+          this.toastError(err);
+        },
+      });
+  }
+
+  onImportOptionsChange(): void {
+    if (this.importCsv) {
+      this.previewImport();
+    }
+  }
+
+  runImport(): void {
+    const preview = this.importResult;
+    if (!preview || preview.newCount === 0) {
+      return;
+    }
+    this.importBusy = true;
+    this.api
+      .importRows({ csv: this.importCsv, accountSuffix: this.importSuffix, dateMode: this.importDateMode })
+      .subscribe({
+        next: (result) => {
+          this.importBusy = false;
+          this.importResult = null;
+          this.importCsv = '';
+          this.importFileName = '';
+          this.loadParties();
+          this.refresh({ silent: true });
+          this.snackBar.open(
+            `Imported ${result.imported} ${result.imported === 1 ? 'entry' : 'entries'}.`,
+            'Dismiss',
+            { duration: 4000 },
+          );
+        },
+        error: (err) => {
+          this.importBusy = false;
+          this.toastError(err);
+        },
+      });
   }
 
   partyOptions(text: string): string[] {

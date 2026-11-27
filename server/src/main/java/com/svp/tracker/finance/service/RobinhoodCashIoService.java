@@ -280,7 +280,7 @@ public class RobinhoodCashIoService {
         return d;
     }
 
-    private static String normalizeRequiredSuffix(String raw) {
+    static String normalizeRequiredSuffix(String raw) {
         String s = normalizeOptionalSuffix(raw);
         if (s == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "accountSuffix is required");
@@ -304,7 +304,7 @@ public class RobinhoodCashIoService {
         return s.isEmpty() ? null : s;
     }
 
-    private Map<String, String> accountLabelMap(long uid) {
+    Map<String, String> accountLabelMap(long uid) {
         Map<String, String> map = new LinkedHashMap<>();
         for (RobinhoodCashIoAccountDto a : listAccountsFor(uid)) {
             map.put(a.suffix(), a.label());

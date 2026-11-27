@@ -2656,6 +2656,40 @@ export interface RobinhoodCashIoRequestDto {
   counterparty?: string | null;
 }
 
+export interface RobinhoodCashIoImportRequestDto {
+  csv: string;
+  accountSuffix: string;
+  dateMode: 'REQUESTED' | 'COMPLETED';
+}
+
+export interface RobinhoodCashIoImportRowDto {
+  date: string;
+  requestedDate: string;
+  completedDate: string;
+  direction: 'IN' | 'OUT' | string;
+  amount: number;
+  counterparty: string | null;
+  note: string | null;
+  status: 'NEW' | 'DUPLICATE' | string;
+}
+
+export interface RobinhoodCashIoImportSkippedDto {
+  source: string;
+  reason: string;
+}
+
+export interface RobinhoodCashIoImportDto {
+  format: 'ACTIVITY' | 'TRANSFERS' | string;
+  accountSuffix: string;
+  dateMode: string;
+  rows: RobinhoodCashIoImportRowDto[];
+  skipped: RobinhoodCashIoImportSkippedDto[];
+  newCount: number;
+  duplicateCount: number;
+  ignoredCount: number;
+  imported: number;
+}
+
 export interface RobinhoodCashIoLedgerDto {
   year: number;
   month: number | null;

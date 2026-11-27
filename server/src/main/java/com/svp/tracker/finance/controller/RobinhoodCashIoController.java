@@ -4,10 +4,13 @@ import com.svp.tracker.finance.dto.RobinhoodCashIoAccountDto;
 import com.svp.tracker.finance.dto.RobinhoodCashIoCalendarDto;
 import com.svp.tracker.finance.dto.RobinhoodCashIoDailyHistoryDto;
 import com.svp.tracker.finance.dto.RobinhoodCashIoEntryDto;
+import com.svp.tracker.finance.dto.RobinhoodCashIoImportDto;
+import com.svp.tracker.finance.dto.RobinhoodCashIoImportRequestDto;
 import com.svp.tracker.finance.dto.RobinhoodCashIoLedgerDto;
 import com.svp.tracker.finance.dto.RobinhoodCashIoRequestDto;
 import com.svp.tracker.finance.dto.RobinhoodCashIoYtdDto;
 import com.svp.tracker.finance.service.RobinhoodCashIoDailyService;
+import com.svp.tracker.finance.service.RobinhoodCashIoImportService;
 import com.svp.tracker.finance.service.RobinhoodCashIoService;
 import com.svp.tracker.finance.service.RobinhoodCashIoYtdService;
 import java.util.List;
@@ -34,6 +37,7 @@ public class RobinhoodCashIoController {
     private final RobinhoodCashIoService cashIoService;
     private final RobinhoodCashIoYtdService cashIoYtdService;
     private final RobinhoodCashIoDailyService cashIoDailyService;
+    private final RobinhoodCashIoImportService cashIoImportService;
 
     @GetMapping("/accounts")
     public List<RobinhoodCashIoAccountDto> accounts() {
@@ -78,6 +82,20 @@ public class RobinhoodCashIoController {
             @RequestParam(defaultValue = "2026") int year,
             @RequestParam(defaultValue = "3370") String accountSuffix) {
         return cashIoDailyService.history(year, accountSuffix);
+    }
+
+    /** Shows what importing a Robinhood CSV would add, without saving anything. */
+    @PostMapping("/import/preview")
+    public RobinhoodCashIoImportDto importPreview(@RequestBody RobinhoodCashIoImportRequestDto body) {
+        log.info("POST cash-io/import/preview suffix={}", body != null ? body.accountSuffix() : null);
+        return cashIoImportService.preview(body);
+    }
+
+    /** Adds the new transfers from a Robinhood CSV to the ledger; rows already there are skipped. */
+    @PostMapping("/import")
+    public RobinhoodCashIoImportDto importRows(@RequestBody RobinhoodCashIoImportRequestDto body) {
+        log.info("POST cash-io/import suffix={}", body != null ? body.accountSuffix() : null);
+        return cashIoImportService.importRows(body);
     }
 
     @PostMapping

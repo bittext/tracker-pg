@@ -27,6 +27,58 @@
   min-width: 12rem;
 }
 
+.cio__import {
+  margin: 0.75rem 0;
+}
+
+.cio__import-help {
+  margin: 0.5rem 0;
+  font-size: 0.85rem;
+}
+
+.cio__file {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1 1 14rem;
+  padding-bottom: 1.25rem;
+}
+
+.cio__import-summary {
+  margin: 0.5rem 0;
+}
+
+.cio__import-list {
+  max-height: 18rem;
+  overflow: auto;
+}
+
+.cio__import-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+
+  th,
+  td {
+    text-align: left;
+    padding: 0.3rem 0.6rem 0.3rem 0;
+    white-space: nowrap;
+  }
+}
+
+.cio__import-dup {
+  opacity: 0.55;
+}
+
+.cio__num {
+  text-align: right !important;
+}
+
+.cio__import-skipped {
+  margin: 0.5rem 0;
+  font-size: 0.85rem;
+}
+
 .cio__route-hint {
   margin: 0 0 0.5rem;
   font-size: 0.85rem;
