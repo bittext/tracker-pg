@@ -929,7 +929,7 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
 
   runImport(): void {
     const preview = this.importResult;
-    if (!preview || preview.newCount === 0) {
+    if (!preview || (preview.newCount === 0 && preview.removeCount === 0)) {
       return;
     }
     this.importBusy = true;
@@ -944,7 +944,8 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
           this.loadParties();
           this.refresh({ silent: true });
           this.snackBar.open(
-            `Imported ${result.imported} ${result.imported === 1 ? 'entry' : 'entries'}.`,
+            `Imported ${result.imported} ${result.imported === 1 ? 'entry' : 'entries'}` +
+              (result.removed ? ` and removed ${result.removed}.` : '.'),
             'Dismiss',
             { duration: 4000 },
           );

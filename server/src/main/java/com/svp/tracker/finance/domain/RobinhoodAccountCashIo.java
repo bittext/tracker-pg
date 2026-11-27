@@ -47,6 +47,10 @@ public class RobinhoodAccountCashIo {
     @Column(name = "counterparty", length = 120)
     private String counterparty;
 
+    /** True for rows added by a Robinhood history import; only these can be removed by a later import. */
+    @Column(name = "imported_from_robinhood", nullable = false)
+    private boolean importedFromRobinhood;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 

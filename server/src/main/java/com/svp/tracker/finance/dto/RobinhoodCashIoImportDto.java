@@ -11,13 +11,17 @@ public record RobinhoodCashIoImportDto(
         LocalDate periodFrom,
         LocalDate periodTo,
         List<Row> rows,
+        List<Row> removals,
         List<Skipped> skipped,
         int newCount,
         int duplicateCount,
+        int removeCount,
         int ignoredCount,
-        int imported) {
+        int imported,
+        int removed) {
 
-    /** One transfer found in the file. {@code status} is NEW or DUPLICATE (already in the ledger). */
+    /** One transfer found in the file. {@code status} is NEW, DUPLICATE (already in the ledger) or REMOVE
+     * (an entry added by an earlier import whose transfer has since failed, been rejected or expired). */
     public record Row(
             LocalDate date,
             LocalDate requestedDate,

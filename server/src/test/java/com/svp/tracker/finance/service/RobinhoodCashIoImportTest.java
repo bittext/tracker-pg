@@ -146,6 +146,62 @@ class RobinhoodCashIoImportTest {
     }
 
     @Test
+    void failedRejectedAndExpiredTransfersAreNotImportedButAreReportedAsVoided() {
+        String csv = TRANSFERS_HEADER
+                + "2026-11-01,2026-11-01,IN,Chase,150.00,Completed,3370\n"
+                + "2026-11-02,2026-11-02,IN,Chase,200.00,Failed,3370\n"
+                + "2026-11-03,2026-11-03,OUT,Chase,300.00,Rejected,3370\n"
+                + "2026-11-04,2026-11-04,OUT,Chase,400.00,Expired,3370\n"
+                + "2026-11-05,2026-11-05,IN,Chase,500.00,Pending,3370\n";
+        var result = RobinhoodCashIoCsvParser.parse(csv, null, KNOWN, ACCOUNTS);
+        assertEquals(2, result.rows().size());
+        assertEquals(new BigDecimal("500.00"), result.rows().get(1).amount());
+        assertEquals(3, result.voided().size());
+        assertEquals(3, result.skipped().size());
+    }
+
+    @Test
+    void predictTransfersAreIgnored() {
+        String csv = "requested_date,completed_date,direction,other_account,amount_usd,status,description,account\n"
+                + "2026-11-01,2026-11-01,OUT,Predict,100.00,Completed,Transfer from individual to Predict,3370\n"
+                + "2026-11-02,2026-11-02,IN,Chase,150.00,Completed,Deposit,3370\n";
+        var result = RobinhoodCashIoCsvParser.parse(csv, null, KNOWN, ACCOUNTS);
+        assertEquals(1, result.rows().size());
+        assertEquals(1, result.ignored());
+        var activity = RobinhoodCashIoCsvParser.parse(
+                HEADER + "10/1/2026,10/1/2026,10/1/2026,,Transfer to Predict,ACH,,,($100.00)\n"
+                        + "10/2/2026,10/2/2026,10/2/2026,,ACH Deposit,ACH,,,$150.00\n",
+                "3370",
+                KNOWN,
+                ACCOUNTS);
+        assertEquals(1, activity.rows().size());
+        assertEquals(1, activity.ignored());
+    }
+
+    @Test
+    void aCancelledActivityTransferIsReportedAsVoided() {
+        var result = RobinhoodCashIoCsvParser.parse(
+                HEADER + "10/1/2026,10/1/2026,10/1/2026,,ACH Deposit,ACH,,,$150.00\n"
+                        + "10/3/2026,10/3/2026,10/3/2026,,ACH CANCEL,ACH,,,($150.00)\n",
+                "3370",
+                KNOWN,
+                ACCOUNTS);
+        assertEquals(0, result.rows().size());
+        assertEquals(1, result.voided().size());
+        assertEquals(new BigDecimal("150.00"), result.voided().get(0).amount());
+    }
+
+    @Test
+    void onlyUnclaimedImportedEntriesCanBeRemoved() {
+        var gone = List.of(row("2026-11-02", "2026-11-02", "IN", "200.00"));
+        RobinhoodAccountCashIo imported = entry("2026-11-02", "IN", "200.00");
+        // an entry the voided row matches in amount and date is usable only when it is passed in (imported, unclaimed)
+        assertEquals(0, RobinhoodCashIoImportService.match(gone, java.util.Arrays.asList(imported), true, new java.util.HashSet<>())[0]);
+        // a hand-entered or already-claimed entry is passed as null and is never matched
+        assertEquals(-1, RobinhoodCashIoImportService.match(gone, java.util.Arrays.asList((RobinhoodAccountCashIo) null), true, new java.util.HashSet<>())[0]);
+    }
+
+    @Test
     void anAccountActivityFileNeedsOneAccount() {
         assertThrows(
                 ResponseStatusException.class,

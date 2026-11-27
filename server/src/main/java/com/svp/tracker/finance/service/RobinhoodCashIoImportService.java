@@ -13,6 +13,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.List;
 import java.util.Locale;
@@ -34,6 +35,7 @@ public class RobinhoodCashIoImportService {
     static final int DUPLICATE_WINDOW_DAYS = 7;
     private static final String STATUS_NEW = "NEW";
     private static final String STATUS_DUPLICATE = "DUPLICATE";
+    private static final String STATUS_REMOVE = "REMOVE";
     private static final int MAX_CSV_CHARS = 5_000_000;
 
     private final CurrentUserService currentUser;
@@ -74,32 +76,50 @@ public class RobinhoodCashIoImportService {
 
         // Everything follows the requested date; the period limits which requested dates are taken.
         int ignored = parsed.ignored();
-        List<RobinhoodCashIoCsvParser.Row> inPeriod = new ArrayList<>();
-        for (RobinhoodCashIoCsvParser.Row r : parsed.rows()) {
-            LocalDate d = r.requestedDate();
-            if ((periodFrom != null && d.isBefore(periodFrom)) || (periodTo != null && d.isAfter(periodTo))) {
-                ignored++;
-            } else {
-                inPeriod.add(r);
-            }
-        }
-        List<RobinhoodCashIoCsvParser.Row> sorted = new ArrayList<>(inPeriod);
-        sorted.sort(Comparator.comparing(RobinhoodCashIoCsvParser.Row::requestedDate));
+        List<RobinhoodCashIoCsvParser.Row> sorted = inPeriod(parsed.rows(), periodFrom, periodTo);
+        List<RobinhoodCashIoCsvParser.Row> voided = inPeriod(parsed.voided(), periodFrom, periodTo);
+        ignored += (parsed.rows().size() - sorted.size()) + (parsed.voided().size() - voided.size());
 
         Map<String, List<RobinhoodCashIoCsvParser.Row>> byAccount = new LinkedHashMap<>();
+        Map<String, List<RobinhoodCashIoCsvParser.Row>> voidedByAccount = new LinkedHashMap<>();
         for (RobinhoodCashIoCsvParser.Row r : sorted) {
             byAccount.computeIfAbsent(r.accountSuffix(), k -> new ArrayList<>()).add(r);
         }
+        for (RobinhoodCashIoCsvParser.Row r : voided) {
+            voidedByAccount.computeIfAbsent(r.accountSuffix(), k -> new ArrayList<>()).add(r);
+        }
+
         Map<RobinhoodCashIoCsvParser.Row, Boolean> freshByRow = new IdentityHashMap<>();
-        for (Map.Entry<String, List<RobinhoodCashIoCsvParser.Row>> e : byAccount.entrySet()) {
-            List<RobinhoodAccountCashIo> existing = existingAround(uid, e.getKey(), e.getValue());
-            List<Boolean> isNew = classify(e.getValue(), existing, true);
-            for (int i = 0; i < e.getValue().size(); i++) {
-                freshByRow.put(e.getValue().get(i), isNew.get(i));
+        Map<RobinhoodCashIoCsvParser.Row, RobinhoodAccountCashIo> removalByRow = new IdentityHashMap<>();
+        Set<String> accountsInFile = new LinkedHashSet<>(byAccount.keySet());
+        accountsInFile.addAll(voidedByAccount.keySet());
+        for (String account : accountsInFile) {
+            List<RobinhoodCashIoCsvParser.Row> rows = byAccount.getOrDefault(account, List.of());
+            List<RobinhoodCashIoCsvParser.Row> gone = voidedByAccount.getOrDefault(account, List.of());
+            List<RobinhoodCashIoCsvParser.Row> both = new ArrayList<>(rows);
+            both.addAll(gone);
+            List<RobinhoodAccountCashIo> existing = existingAround(uid, account, both);
+            Set<Integer> used = new HashSet<>();
+            int[] matches = match(rows, existing, true, used);
+            for (int i = 0; i < rows.size(); i++) {
+                freshByRow.put(rows.get(i), matches[i] < 0);
+            }
+            // A failed, rejected or expired transfer takes back the entry an earlier import added for it, but only
+            // an imported entry, and only one that no completed transfer in this file is using.
+            List<RobinhoodAccountCashIo> importedOnly = new ArrayList<>();
+            for (int i = 0; i < existing.size(); i++) {
+                importedOnly.add(used.contains(i) || !existing.get(i).isImportedFromRobinhood() ? null : existing.get(i));
+            }
+            int[] voidMatches = match(gone, importedOnly, true, new HashSet<>());
+            for (int i = 0; i < gone.size(); i++) {
+                if (voidMatches[i] >= 0) {
+                    removalByRow.put(gone.get(i), importedOnly.get(voidMatches[i]));
+                }
             }
         }
 
         List<RobinhoodCashIoImportDto.Row> out = new ArrayList<>();
+        List<RobinhoodCashIoImportDto.Row> removals = new ArrayList<>();
         Map<String, LocalDate> earliestByAccount = new LinkedHashMap<>();
         int newCount = 0;
         int dupCount = 0;
@@ -107,17 +127,7 @@ public class RobinhoodCashIoImportService {
         for (RobinhoodCashIoCsvParser.Row r : sorted) {
             boolean fresh = freshByRow.get(r);
             String account = r.accountSuffix();
-            out.add(new RobinhoodCashIoImportDto.Row(
-                    r.requestedDate(),
-                    r.requestedDate(),
-                    r.completedDate(),
-                    account,
-                    labels.getOrDefault(account, "••••" + account),
-                    r.direction(),
-                    r.amount(),
-                    r.counterparty(),
-                    r.note(),
-                    fresh ? STATUS_NEW : STATUS_DUPLICATE));
+            out.add(dtoRow(r, labels, fresh ? STATUS_NEW : STATUS_DUPLICATE));
             if (!fresh) {
                 dupCount++;
                 continue;
@@ -133,9 +143,23 @@ public class RobinhoodCashIoImportService {
                 row.setAmount(r.amount());
                 row.setNote(r.note());
                 row.setCounterparty(r.counterparty());
+                row.setImportedFromRobinhood(true);
                 row.setCreatedAt(now);
                 row.setUpdatedAt(now);
                 repository.save(row);
+            }
+        }
+        int removeCount = 0;
+        for (RobinhoodCashIoCsvParser.Row r : voided) {
+            RobinhoodAccountCashIo entry = removalByRow.get(r);
+            if (entry == null) {
+                continue;
+            }
+            removeCount++;
+            removals.add(dtoRow(r, labels, STATUS_REMOVE));
+            earliestByAccount.merge(entry.getAccountSuffix(), entry.getActivityDate(), (x, y) -> x.isBefore(y) ? x : y);
+            if (commit) {
+                repository.delete(entry);
             }
         }
         if (commit) {
@@ -150,11 +174,43 @@ public class RobinhoodCashIoImportService {
                 periodFrom,
                 periodTo,
                 out,
+                removals,
                 skipped,
                 newCount,
                 dupCount,
+                removeCount,
                 ignored,
-                commit ? newCount : 0);
+                commit ? newCount : 0,
+                commit ? removeCount : 0);
+    }
+
+    private static List<RobinhoodCashIoCsvParser.Row> inPeriod(
+            List<RobinhoodCashIoCsvParser.Row> rows, LocalDate from, LocalDate to) {
+        List<RobinhoodCashIoCsvParser.Row> kept = new ArrayList<>();
+        for (RobinhoodCashIoCsvParser.Row r : rows) {
+            LocalDate d = r.requestedDate();
+            if (!((from != null && d.isBefore(from)) || (to != null && d.isAfter(to)))) {
+                kept.add(r);
+            }
+        }
+        kept.sort(Comparator.comparing(RobinhoodCashIoCsvParser.Row::requestedDate));
+        return kept;
+    }
+
+    private static RobinhoodCashIoImportDto.Row dtoRow(
+            RobinhoodCashIoCsvParser.Row r, Map<String, String> labels, String status) {
+        String account = r.accountSuffix();
+        return new RobinhoodCashIoImportDto.Row(
+                r.requestedDate(),
+                r.requestedDate(),
+                r.completedDate(),
+                account,
+                labels.getOrDefault(account, "••••" + account),
+                r.direction(),
+                r.amount(),
+                r.counterparty(),
+                r.note(),
+                status);
     }
 
     /**
@@ -163,14 +219,32 @@ public class RobinhoodCashIoImportService {
      */
     static List<Boolean> classify(
             List<RobinhoodCashIoCsvParser.Row> rows, List<RobinhoodAccountCashIo> existing, boolean requested) {
-        Set<Integer> used = new HashSet<>();
+        int[] matches = match(rows, existing, requested, new HashSet<>());
         List<Boolean> result = new ArrayList<>();
-        for (RobinhoodCashIoCsvParser.Row r : rows) {
+        for (int m : matches) {
+            result.add(m < 0);
+        }
+        return result;
+    }
+
+    /**
+     * For each row, the index of the existing entry it matches (same direction and amount, within a week), or -1.
+     * Entries in {@code used} are skipped and every match is added to it. Null entries never match.
+     */
+    static int[] match(
+            List<RobinhoodCashIoCsvParser.Row> rows,
+            List<RobinhoodAccountCashIo> existing,
+            boolean requested,
+            Set<Integer> used) {
+        int[] result = new int[rows.size()];
+        for (int n = 0; n < rows.size(); n++) {
+            RobinhoodCashIoCsvParser.Row r = rows.get(n);
             int best = -1;
             long bestDistance = Long.MAX_VALUE;
             for (int i = 0; i < existing.size(); i++) {
                 RobinhoodAccountCashIo e = existing.get(i);
-                if (used.contains(i)
+                if (e == null
+                        || used.contains(i)
                         || !r.direction().equals(e.getDirection())
                         || r.amount().compareTo(e.getAmount()) != 0) {
                     continue;
@@ -185,10 +259,8 @@ public class RobinhoodCashIoImportService {
             }
             if (best >= 0) {
                 used.add(best);
-                result.add(Boolean.FALSE);
-            } else {
-                result.add(Boolean.TRUE);
             }
+            result[n] = best;
         }
         return result;
     }

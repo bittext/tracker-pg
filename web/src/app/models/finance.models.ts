@@ -2674,7 +2674,7 @@ export interface RobinhoodCashIoImportRowDto {
   amount: number;
   counterparty: string | null;
   note: string | null;
-  status: 'NEW' | 'DUPLICATE' | string;
+  status: 'NEW' | 'DUPLICATE' | 'REMOVE' | string;
 }
 
 export interface RobinhoodCashIoImportSkippedDto {
@@ -2688,11 +2688,15 @@ export interface RobinhoodCashIoImportDto {
   periodFrom: string | null;
   periodTo: string | null;
   rows: RobinhoodCashIoImportRowDto[];
+  /** Entries from an earlier import whose transfer has since failed, been rejected or expired. */
+  removals: RobinhoodCashIoImportRowDto[];
   skipped: RobinhoodCashIoImportSkippedDto[];
   newCount: number;
   duplicateCount: number;
+  removeCount: number;
   ignoredCount: number;
   imported: number;
+  removed: number;
 }
 
 export interface RobinhoodCashIoLedgerDto {

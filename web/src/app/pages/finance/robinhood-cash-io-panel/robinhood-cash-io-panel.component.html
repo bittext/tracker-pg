@@ -428,7 +428,8 @@
       <p class="muted cio__import-help">
         Use Robinhood's Account activity CSV (Account → Reports and statements), or a transfers history CSV with
         requested_date, completed_date, direction, other_account, amount_usd and status columns. Transfers already
-        in your ledger are recognized and never added twice. Trades, dividends and rewards are ignored.
+        in your ledger are recognized and never added twice. Trades, dividends and rewards are ignored. If a transfer
+        you imported earlier later shows as failed, rejected or expired, importing the file again removes it.
       </p>
       <div class="cio__form-row">
         <mat-form-field appearance="outline">
@@ -469,9 +470,13 @@
         <p class="cio__import-summary">
           <strong>{{ r.newCount }}</strong> new,
           <strong>{{ r.duplicateCount }}</strong> already in your ledger,
-          {{ r.skipped.length }} skipped, {{ r.ignoredCount }} other rows ignored.
+          @if (r.removeCount) {
+            <strong>{{ r.removeCount }}</strong> to remove (failed, rejected or expired),
+          }
+          {{ r.skipped.length }} skipped, {{ r.ignoredCount }} other rows ignored. Failed, rejected, expired and
+          Predict transfers are never imported.
         </p>
-        @if (r.rows.length) {
+        @if (r.rows.length || r.removals.length) {
           <div class="cio__import-list">
             <table class="cio__import-table">
               <thead>
@@ -485,6 +490,16 @@
                 </tr>
               </thead>
               <tbody>
+                @for (row of r.removals; track $index) {
+                  <tr class="cio__import-remove">
+                    <td>{{ row.date | date: 'mediumDate' }}</td>
+                    <td>{{ row.accountLabel }}</td>
+                    <td>{{ row.direction === 'OUT' ? 'Output' : 'Input' }}</td>
+                    <td>{{ row.counterparty || '—' }}</td>
+                    <td class="cio__num">{{ row.amount | currency }}</td>
+                    <td>Will remove (no longer valid)</td>
+                  </tr>
+                }
                 @for (row of r.rows; track $index) {
                   <tr [class.cio__import-dup]="row.status === 'DUPLICATE'">
                     <td>{{ row.date | date: 'mediumDate' }}</td>
@@ -515,9 +530,11 @@
             color="primary"
             type="button"
             (click)="runImport()"
-            [disabled]="importBusy || r.newCount === 0"
+            [disabled]="importBusy || (r.newCount === 0 && r.removeCount === 0)"
           >
-            Import {{ r.newCount }} new {{ r.newCount === 1 ? 'entry' : 'entries' }}
+            Import {{ r.newCount }} new {{ r.newCount === 1 ? 'entry' : 'entries' }}@if (r.removeCount) {
+              and remove {{ r.removeCount }}
+            }
           </button>
         </div>
       }

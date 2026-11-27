@@ -70,7 +70,26 @@ final class RobinhoodCashIoCsvParser {
 
     record Skipped(String source, String reason) {}
 
-    record Result(String format, List<Row> rows, List<Skipped> skipped, int ignored) {}
+    /** {@code voided} holds transfers Robinhood reports as failed, rejected, expired, cancelled or reversed. */
+    record Result(String format, List<Row> rows, List<Row> voided, List<Skipped> skipped, int ignored) {}
+
+    private static final java.util.Set<String> VOID_STATUSES = java.util.Set.of(
+            "failed", "failure", "rejected", "expired", "cancelled", "canceled", "declined", "denied", "reversed",
+            "returned", "voided", "error");
+
+    static boolean isVoidStatus(String status) {
+        return status != null && VOID_STATUSES.contains(status.trim().toLowerCase(Locale.ROOT));
+    }
+
+    /** Predict (event contract) money moves are not part of Inputs / Outputs. */
+    static boolean mentionsPredict(String... texts) {
+        for (String t : texts) {
+            if (t != null && t.toLowerCase(Locale.ROOT).contains("predict")) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     static Result parse(String csv, String accountSuffix, List<String> knownParties) {
         return parse(csv, accountSuffix, knownParties, java.util.Map.of());
@@ -139,6 +158,7 @@ final class RobinhoodCashIoCsvParser {
         int iAmt = header.indexOf("amount");
         List<Cand> cands = new ArrayList<>();
         List<Skipped> skipped = new ArrayList<>();
+        List<Row> voided = new ArrayList<>();
         int ignored = 0;
         int line = 1;
         for (List<String> r : body) {
@@ -150,6 +170,10 @@ final class RobinhoodCashIoCsvParser {
             }
             LocalDate act = parseDate(cell(r, iAct));
             String desc = cell(r, iDesc);
+            if (mentionsPredict(desc, cell(r, iCode))) {
+                ignored++;
+                continue;
+            }
             BigDecimal amt = parseMoney(cell(r, iAmt));
             Cand c = new Cand(line, act, parseDate(cell(r, iSettle)), code, desc, amt);
             if (act == null || amt == null) {
@@ -180,6 +204,7 @@ final class RobinhoodCashIoCsvParser {
                 skipped.add(new Skipped(c.source(), "A cancel with no matching transfer in this file"));
             } else {
                 original.removed = true;
+                voided.add(rowOf(original, accountSuffix, known));
                 skipped.add(new Skipped(original.source(), "Cancelled or reversed later"));
                 skipped.add(new Skipped(c.source(), "Cancels the transfer above"));
             }
@@ -207,23 +232,26 @@ final class RobinhoodCashIoCsvParser {
 
         List<Row> rows = new ArrayList<>();
         for (Cand c : cands) {
-            if (c.removed) {
-                continue;
+            if (!c.removed) {
+                rows.add(rowOf(c, accountSuffix, known));
             }
-            String direction = c.amount.signum() >= 0 ? "IN" : "OUT";
-            String party = counterpartyFor(c, accountSuffix);
-            String note = "Robinhood activity: " + c.desc.replace('\n', ' ').trim() + c.extraNote;
-            rows.add(new Row(
-                    c.activity,
-                    c.settle,
-                    direction,
-                    c.amount.abs().setScale(2, RoundingMode.HALF_UP),
-                    party == null ? null : resolveParty(party, known),
-                    note,
-                    c.source(),
-                    accountSuffix));
         }
-        return new Result(FORMAT_ACTIVITY, rows, skipped, ignored);
+        return new Result(FORMAT_ACTIVITY, rows, voided, skipped, ignored);
+    }
+
+    private static Row rowOf(Cand c, String accountSuffix, List<String> known) {
+        String direction = c.amount.signum() >= 0 ? "IN" : "OUT";
+        String party = counterpartyFor(c, accountSuffix);
+        String note = "Robinhood activity: " + c.desc.replace('\n', ' ').trim() + c.extraNote;
+        return new Row(
+                c.activity,
+                c.settle,
+                direction,
+                c.amount.abs().setScale(2, RoundingMode.HALF_UP),
+                party == null ? null : resolveParty(party, known),
+                note,
+                c.source(),
+                accountSuffix);
     }
 
     private static BigDecimal feeMismatch(Cand withdrawal, Cand fee) {
@@ -277,7 +305,9 @@ final class RobinhoodCashIoCsvParser {
         int iAmt = header.indexOf("amount_usd");
         int iStatus = header.indexOf("status");
         int iType = header.indexOf("transfer_type");
+        int iDesc = header.indexOf("description");
         List<Row> rows = new ArrayList<>();
+        List<Row> voided = new ArrayList<>();
         List<Skipped> skipped = new ArrayList<>();
         for (List<String> r : body) {
             LocalDate req = parseDate(cell(r, iReq));
@@ -287,8 +317,8 @@ final class RobinhoodCashIoCsvParser {
             String other = cell(r, iOther);
             String source = (req == null ? "?" : req.toString()) + " " + dir + " " + other + " " + (amt == null ? "" : amt);
             String status = iStatus >= 0 ? cell(r, iStatus) : "Completed";
-            if (!status.isEmpty() && !status.equalsIgnoreCase("completed")) {
-                skipped.add(new Skipped(source, "Status is " + status));
+            if (mentionsPredict(other, iType >= 0 ? cell(r, iType) : "", iDesc >= 0 ? cell(r, iDesc) : "")) {
+                ignored++;
                 continue;
             }
             if (req == null || amt == null || amt.signum() <= 0 || !(dir.equals("IN") || dir.equals("OUT"))) {
@@ -311,7 +341,7 @@ final class RobinhoodCashIoCsvParser {
             }
             String type = iType >= 0 ? cell(r, iType) : "";
             String note = "Robinhood history" + (type.isEmpty() ? "" : ": " + type);
-            rows.add(new Row(
+            Row row = new Row(
                     req,
                     done == null ? req : done,
                     dir,
@@ -319,9 +349,15 @@ final class RobinhoodCashIoCsvParser {
                     other.isEmpty() ? null : resolveParty(other, known),
                     note,
                     source,
-                    account));
+                    account);
+            if (isVoidStatus(status)) {
+                voided.add(row);
+                skipped.add(new Skipped(source, "Status is " + status + ", so it is not imported"));
+            } else {
+                rows.add(row);
+            }
         }
-        return new Result(FORMAT_TRANSFERS, rows, skipped, ignored);
+        return new Result(FORMAT_TRANSFERS, rows, voided, skipped, ignored);
     }
 
     private static int firstIndex(List<String> header, String... names) {
