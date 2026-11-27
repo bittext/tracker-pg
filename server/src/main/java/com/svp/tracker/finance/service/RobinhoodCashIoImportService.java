@@ -11,6 +11,9 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -55,31 +58,61 @@ public class RobinhoodCashIoImportService {
         if (body.csv().length() > MAX_CSV_CHARS) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "That file is too large to import.");
         }
+        LocalDate periodFrom = body.periodFrom();
+        LocalDate periodTo = body.periodTo();
+        if (periodFrom != null && periodTo != null && periodTo.isBefore(periodFrom)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The period ends before it starts.");
+        }
         long uid = currentUser.requireUserId();
-        String suffix = RobinhoodCashIoService.normalizeRequiredSuffix(body.accountSuffix());
-        boolean requested = !"COMPLETED".equalsIgnoreCase(body.dateMode() == null ? "" : body.dateMode().trim());
-        String dateMode = requested ? "REQUESTED" : "COMPLETED";
+        String raw = body.accountSuffix() == null ? "" : body.accountSuffix().trim();
+        boolean allAccounts = raw.isEmpty() || raw.equalsIgnoreCase("ALL");
+        String suffix = allAccounts ? null : RobinhoodCashIoService.normalizeRequiredSuffix(raw);
+        Map<String, String> labels = cashIoService.accountLabelMap(uid);
 
-        List<String> known = knownParties(uid);
-        RobinhoodCashIoCsvParser.Result parsed = RobinhoodCashIoCsvParser.parse(body.csv(), suffix, known);
+        RobinhoodCashIoCsvParser.Result parsed =
+                RobinhoodCashIoCsvParser.parse(body.csv(), suffix, knownParties(uid), labels);
 
-        List<RobinhoodCashIoCsvParser.Row> sorted = new ArrayList<>(parsed.rows());
-        sorted.sort(Comparator.comparing((RobinhoodCashIoCsvParser.Row r) -> r.dateFor(requested)));
-        List<RobinhoodAccountCashIo> existing = existingAround(uid, suffix, sorted);
-        List<Boolean> isNew = classify(sorted, existing, requested);
+        // Everything follows the requested date; the period limits which requested dates are taken.
+        int ignored = parsed.ignored();
+        List<RobinhoodCashIoCsvParser.Row> inPeriod = new ArrayList<>();
+        for (RobinhoodCashIoCsvParser.Row r : parsed.rows()) {
+            LocalDate d = r.requestedDate();
+            if ((periodFrom != null && d.isBefore(periodFrom)) || (periodTo != null && d.isAfter(periodTo))) {
+                ignored++;
+            } else {
+                inPeriod.add(r);
+            }
+        }
+        List<RobinhoodCashIoCsvParser.Row> sorted = new ArrayList<>(inPeriod);
+        sorted.sort(Comparator.comparing(RobinhoodCashIoCsvParser.Row::requestedDate));
+
+        Map<String, List<RobinhoodCashIoCsvParser.Row>> byAccount = new LinkedHashMap<>();
+        for (RobinhoodCashIoCsvParser.Row r : sorted) {
+            byAccount.computeIfAbsent(r.accountSuffix(), k -> new ArrayList<>()).add(r);
+        }
+        Map<RobinhoodCashIoCsvParser.Row, Boolean> freshByRow = new IdentityHashMap<>();
+        for (Map.Entry<String, List<RobinhoodCashIoCsvParser.Row>> e : byAccount.entrySet()) {
+            List<RobinhoodAccountCashIo> existing = existingAround(uid, e.getKey(), e.getValue());
+            List<Boolean> isNew = classify(e.getValue(), existing, true);
+            for (int i = 0; i < e.getValue().size(); i++) {
+                freshByRow.put(e.getValue().get(i), isNew.get(i));
+            }
+        }
 
         List<RobinhoodCashIoImportDto.Row> out = new ArrayList<>();
+        Map<String, LocalDate> earliestByAccount = new LinkedHashMap<>();
         int newCount = 0;
         int dupCount = 0;
         Instant now = Instant.now();
-        LocalDate earliest = null;
-        for (int i = 0; i < sorted.size(); i++) {
-            RobinhoodCashIoCsvParser.Row r = sorted.get(i);
-            boolean fresh = isNew.get(i);
+        for (RobinhoodCashIoCsvParser.Row r : sorted) {
+            boolean fresh = freshByRow.get(r);
+            String account = r.accountSuffix();
             out.add(new RobinhoodCashIoImportDto.Row(
-                    r.dateFor(requested),
+                    r.requestedDate(),
                     r.requestedDate(),
                     r.completedDate(),
+                    account,
+                    labels.getOrDefault(account, "••••" + account),
                     r.direction(),
                     r.amount(),
                     r.counterparty(),
@@ -90,15 +123,12 @@ public class RobinhoodCashIoImportService {
                 continue;
             }
             newCount++;
-            LocalDate date = r.dateFor(requested);
-            if (earliest == null || date.isBefore(earliest)) {
-                earliest = date;
-            }
+            earliestByAccount.merge(account, r.requestedDate(), (x, y) -> x.isBefore(y) ? x : y);
             if (commit) {
                 RobinhoodAccountCashIo row = new RobinhoodAccountCashIo();
                 row.setOwnerUserId(uid);
-                row.setAccountSuffix(suffix);
-                row.setActivityDate(date);
+                row.setAccountSuffix(account);
+                row.setActivityDate(r.requestedDate());
                 row.setDirection(r.direction());
                 row.setAmount(r.amount());
                 row.setNote(r.note());
@@ -108,8 +138,8 @@ public class RobinhoodCashIoImportService {
                 repository.save(row);
             }
         }
-        if (commit && earliest != null) {
-            cashIoDailyService.rebuildAfterLedgerChange(uid, suffix, earliest);
+        if (commit) {
+            earliestByAccount.forEach((account, date) -> cashIoDailyService.rebuildAfterLedgerChange(uid, account, date));
         }
         List<RobinhoodCashIoImportDto.Skipped> skipped = parsed.skipped().stream()
                 .map(s -> new RobinhoodCashIoImportDto.Skipped(s.source(), s.reason()))
@@ -117,12 +147,13 @@ public class RobinhoodCashIoImportService {
         return new RobinhoodCashIoImportDto(
                 parsed.format(),
                 suffix,
-                dateMode,
+                periodFrom,
+                periodTo,
                 out,
                 skipped,
                 newCount,
                 dupCount,
-                parsed.ignored(),
+                ignored,
                 commit ? newCount : 0);
     }
 

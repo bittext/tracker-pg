@@ -188,8 +188,9 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
 
   // Import from Robinhood
   importOpen = false;
-  importSuffix = this.ytdSuffix;
-  importDateMode: 'REQUESTED' | 'COMPLETED' = 'REQUESTED';
+  importSuffix = 'ALL';
+  importFrom = '';
+  importTo = '';
   importFileName = '';
   importCsv = '';
   importResult: RobinhoodCashIoImportDto | null = null;
@@ -897,7 +898,7 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
     }
     this.importBusy = true;
     this.api
-      .importPreview({ csv: this.importCsv, accountSuffix: this.importSuffix, dateMode: this.importDateMode })
+      .importPreview(this.importBody())
       .subscribe({
         next: (result) => {
           this.importResult = result;
@@ -909,6 +910,15 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
           this.toastError(err);
         },
       });
+  }
+
+  private importBody() {
+    return {
+      csv: this.importCsv,
+      accountSuffix: this.importSuffix,
+      periodFrom: this.importFrom || null,
+      periodTo: this.importTo || null,
+    };
   }
 
   onImportOptionsChange(): void {
@@ -924,7 +934,7 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
     }
     this.importBusy = true;
     this.api
-      .importRows({ csv: this.importCsv, accountSuffix: this.importSuffix, dateMode: this.importDateMode })
+      .importRows(this.importBody())
       .subscribe({
         next: (result) => {
           this.importBusy = false;

@@ -434,23 +434,33 @@
         <mat-form-field appearance="outline">
           <mat-label>Account</mat-label>
           <mat-select [(ngModel)]="importSuffix" name="cioImportAccount" (selectionChange)="onImportOptionsChange()">
+            <mat-option value="ALL">All accounts</mat-option>
             @for (a of accounts; track a.suffix) {
               <mat-option [value]="a.suffix">{{ a.label }}</mat-option>
             }
           </mat-select>
         </mat-form-field>
         <mat-form-field appearance="outline">
-          <mat-label>Date to record</mat-label>
-          <mat-select [(ngModel)]="importDateMode" name="cioImportDateMode" (selectionChange)="onImportOptionsChange()">
-            <mat-option value="REQUESTED">Date requested</mat-option>
-            <mat-option value="COMPLETED">Date completed</mat-option>
-          </mat-select>
+          <mat-label>Requested from</mat-label>
+          <input matInput type="date" [(ngModel)]="importFrom" name="cioImportFrom" (change)="onImportOptionsChange()" />
         </mat-form-field>
-        <label class="cio__file">
-          <input type="file" accept=".csv,text/csv" (change)="onImportFile($event)" />
+        <mat-form-field appearance="outline">
+          <mat-label>Requested to</mat-label>
+          <input matInput type="date" [(ngModel)]="importTo" name="cioImportTo" (change)="onImportOptionsChange()" />
+        </mat-form-field>
+        <div class="cio__file">
+          <button mat-stroked-button type="button" (click)="importFileInput.click()">
+            <mat-icon>attach_file</mat-icon>
+            Choose CSV file
+          </button>
+          <input #importFileInput class="cio__file-input" type="file" accept=".csv,text/csv" (change)="onImportFile($event)" />
           <span class="muted">{{ importFileName || 'No file chosen' }}</span>
-        </label>
+        </div>
       </div>
+      <p class="muted cio__import-help">
+        Every transfer is recorded on the date it was requested. Leave the dates empty to import the whole file. With
+        All accounts, each row needs an account column naming the account (for example Individual ••••3370).
+      </p>
 
       @if (importBusy && !importResult) {
         <p class="muted">Reading…</p>
@@ -466,7 +476,8 @@
             <table class="cio__import-table">
               <thead>
                 <tr>
-                  <th>Date</th>
+                  <th>Requested</th>
+                  <th>Account</th>
                   <th>Type</th>
                   <th>Other account</th>
                   <th class="cio__num">Amount</th>
@@ -477,6 +488,7 @@
                 @for (row of r.rows; track $index) {
                   <tr [class.cio__import-dup]="row.status === 'DUPLICATE'">
                     <td>{{ row.date | date: 'mediumDate' }}</td>
+                    <td>{{ row.accountLabel }}</td>
                     <td>{{ row.direction === 'OUT' ? 'Output' : 'Input' }}</td>
                     <td>{{ row.counterparty || '—' }}</td>
                     <td class="cio__num">{{ row.amount | currency }}</td>

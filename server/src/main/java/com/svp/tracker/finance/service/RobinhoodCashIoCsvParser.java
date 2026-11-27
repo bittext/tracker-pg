@@ -45,7 +45,23 @@ final class RobinhoodCashIoCsvParser {
             BigDecimal amount,
             String counterparty,
             String note,
-            String source) {
+            String source,
+            String accountSuffix) {
+
+        Row(
+                LocalDate requestedDate,
+                LocalDate completedDate,
+                String direction,
+                BigDecimal amount,
+                String counterparty,
+                String note,
+                String source) {
+            this(requestedDate, completedDate, direction, amount, counterparty, note, source, null);
+        }
+
+        Row withAccount(String suffix) {
+            return new Row(requestedDate, completedDate, direction, amount, counterparty, note, source, suffix);
+        }
 
         LocalDate dateFor(boolean requested) {
             return requested ? requestedDate : completedDate;
@@ -57,6 +73,15 @@ final class RobinhoodCashIoCsvParser {
     record Result(String format, List<Row> rows, List<Skipped> skipped, int ignored) {}
 
     static Result parse(String csv, String accountSuffix, List<String> knownParties) {
+        return parse(csv, accountSuffix, knownParties, java.util.Map.of());
+    }
+
+    /**
+     * @param accountSuffix the one account to import into, or null for every account named in the file
+     * @param accounts your accounts as suffix to label, used to read an account column
+     */
+    static Result parse(
+            String csv, String accountSuffix, List<String> knownParties, java.util.Map<String, String> accounts) {
         List<List<String>> table = readCsv(csv == null ? "" : csv);
         if (table.size() < 2) {
             throw bad("The file has no rows to import.");
@@ -67,10 +92,13 @@ final class RobinhoodCashIoCsvParser {
         List<String> header = table.get(0).stream().map(h -> h.trim().toLowerCase(Locale.ROOT)).toList();
         List<List<String>> body = table.subList(1, table.size());
         if (header.contains("trans code") && header.contains("activity date") && header.contains("amount")) {
+            if (accountSuffix == null) {
+                throw bad("An Account activity file covers a single account. Choose that account to import it.");
+            }
             return parseActivity(header, body, accountSuffix, knownParties);
         }
         if (header.contains("requested_date") && header.contains("direction") && header.contains("amount_usd")) {
-            return parseTransfers(header, body, knownParties);
+            return parseTransfers(header, body, accountSuffix, knownParties, accounts);
         }
         throw bad("This file isn't recognized. Use Robinhood's Account activity CSV, or a transfers history CSV with "
                 + "requested_date, completed_date, direction, other_account, amount_usd and status columns.");
@@ -192,7 +220,8 @@ final class RobinhoodCashIoCsvParser {
                     c.amount.abs().setScale(2, RoundingMode.HALF_UP),
                     party == null ? null : resolveParty(party, known),
                     note,
-                    c.source()));
+                    c.source(),
+                    accountSuffix));
         }
         return new Result(FORMAT_ACTIVITY, rows, skipped, ignored);
     }
@@ -233,7 +262,14 @@ final class RobinhoodCashIoCsvParser {
 
     // ---- Transfers history CSV ---------------------------------------------------------------------------------
 
-    private static Result parseTransfers(List<String> header, List<List<String>> body, List<String> known) {
+    private static Result parseTransfers(
+            List<String> header,
+            List<List<String>> body,
+            String accountSuffix,
+            List<String> known,
+            java.util.Map<String, String> accounts) {
+        int iAcct = firstIndex(header, "account", "account_number", "account_suffix");
+        int ignored = 0;
         int iReq = header.indexOf("requested_date");
         int iDone = header.indexOf("completed_date");
         int iDir = header.indexOf("direction");
@@ -259,6 +295,20 @@ final class RobinhoodCashIoCsvParser {
                 skipped.add(new Skipped(source, "Missing or invalid date, direction or amount"));
                 continue;
             }
+            String rowAccount = iAcct >= 0 ? resolveAccount(cell(r, iAcct), accounts) : null;
+            if (rowAccount == null && iAcct >= 0 && !cell(r, iAcct).isEmpty() && accountSuffix == null) {
+                skipped.add(new Skipped(source, "Account \"" + cell(r, iAcct) + "\" is not one of your accounts"));
+                continue;
+            }
+            if (rowAccount != null && accountSuffix != null && !rowAccount.equals(accountSuffix)) {
+                ignored++;
+                continue;
+            }
+            String account = rowAccount != null ? rowAccount : accountSuffix;
+            if (account == null) {
+                skipped.add(new Skipped(source, "No account on this row. Add an account column or choose one account"));
+                continue;
+            }
             String type = iType >= 0 ? cell(r, iType) : "";
             String note = "Robinhood history" + (type.isEmpty() ? "" : ": " + type);
             rows.add(new Row(
@@ -268,9 +318,42 @@ final class RobinhoodCashIoCsvParser {
                     amt.setScale(2, RoundingMode.HALF_UP),
                     other.isEmpty() ? null : resolveParty(other, known),
                     note,
-                    source));
+                    source,
+                    account));
         }
-        return new Result(FORMAT_TRANSFERS, rows, skipped, 0);
+        return new Result(FORMAT_TRANSFERS, rows, skipped, ignored);
+    }
+
+    private static int firstIndex(List<String> header, String... names) {
+        for (String n : names) {
+            int i = header.indexOf(n);
+            if (i >= 0) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    /** Finds which of your accounts a name such as "Individual ••••3370", "3370" or "Roth IRA" refers to. */
+    static String resolveAccount(String raw, java.util.Map<String, String> accounts) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String low = raw.trim().toLowerCase(Locale.ROOT);
+        String digits = raw.replaceAll("[^0-9]", "");
+        for (java.util.Map.Entry<String, String> a : accounts.entrySet()) {
+            String label = a.getValue() == null ? "" : a.getValue().toLowerCase(Locale.ROOT);
+            if (low.equals(label) || (digits.length() >= 3 && digits.endsWith(a.getKey()))) {
+                return a.getKey();
+            }
+        }
+        for (java.util.Map.Entry<String, String> a : accounts.entrySet()) {
+            String name = a.getValue() == null ? "" : a.getValue().replaceAll("\\s*•+\\s*\\d*\\s*$", "").trim().toLowerCase(Locale.ROOT);
+            if (digits.isEmpty() && !name.isEmpty() && low.equals(name)) {
+                return a.getKey();
+            }
+        }
+        return null;
     }
 
     // ---- Party names -------------------------------------------------------------------------------------------

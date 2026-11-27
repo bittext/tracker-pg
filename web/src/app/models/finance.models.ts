@@ -2658,14 +2658,18 @@ export interface RobinhoodCashIoRequestDto {
 
 export interface RobinhoodCashIoImportRequestDto {
   csv: string;
+  /** Blank or "ALL" imports every account named in the file. */
   accountSuffix: string;
-  dateMode: 'REQUESTED' | 'COMPLETED';
+  periodFrom?: string | null;
+  periodTo?: string | null;
 }
 
 export interface RobinhoodCashIoImportRowDto {
   date: string;
   requestedDate: string;
   completedDate: string;
+  accountSuffix: string;
+  accountLabel: string;
   direction: 'IN' | 'OUT' | string;
   amount: number;
   counterparty: string | null;
@@ -2680,8 +2684,9 @@ export interface RobinhoodCashIoImportSkippedDto {
 
 export interface RobinhoodCashIoImportDto {
   format: 'ACTIVITY' | 'TRANSFERS' | string;
-  accountSuffix: string;
-  dateMode: string;
+  accountSuffix: string | null;
+  periodFrom: string | null;
+  periodTo: string | null;
   rows: RobinhoodCashIoImportRowDto[];
   skipped: RobinhoodCashIoImportSkippedDto[];
   newCount: number;

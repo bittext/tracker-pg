@@ -113,6 +113,46 @@ class RobinhoodCashIoImportTest {
                 ResponseStatusException.class, () -> RobinhoodCashIoCsvParser.parse("only a header\n", "3370", KNOWN));
     }
 
+    private static final java.util.Map<String, String> ACCOUNTS =
+            java.util.Map.of("3370", "Individual ••••3370", "8696", "Roth IRA ••••8696");
+
+    private static final String TRANSFERS_HEADER =
+            "requested_date,completed_date,direction,other_account,amount_usd,status,account\n";
+
+    @Test
+    void allAccountsReadsTheAccountColumnAndSkipsWhatItCannotPlace() {
+        String csv = TRANSFERS_HEADER
+                + "2026-11-01,2026-11-06,IN,Chase Total Checking,150.00,Completed,Individual ••••3370\n"
+                + "2026-11-02,2026-11-03,OUT,Chase Total Checking,200.00,Completed,Roth IRA ••••8696\n"
+                + "2026-11-04,2026-11-05,IN,Chase Total Checking,300.00,Completed,Mystery ••••1111\n"
+                + "2026-11-05,2026-11-05,IN,Chase Total Checking,400.00,Completed,\n";
+        var result = RobinhoodCashIoCsvParser.parse(csv, null, KNOWN, ACCOUNTS);
+        assertEquals(2, result.rows().size());
+        assertEquals("3370", result.rows().get(0).accountSuffix());
+        assertEquals("8696", result.rows().get(1).accountSuffix());
+        assertEquals(2, result.skipped().size());
+    }
+
+    @Test
+    void oneAccountKeepsOnlyItsRowsAndFillsBlankAccounts() {
+        String csv = TRANSFERS_HEADER
+                + "2026-11-01,2026-11-06,IN,Chase,150.00,Completed,3370\n"
+                + "2026-11-02,2026-11-03,OUT,Chase,200.00,Completed,Roth IRA ••••8696\n"
+                + "2026-11-05,2026-11-05,IN,Chase,400.00,Completed,\n";
+        var result = RobinhoodCashIoCsvParser.parse(csv, "3370", KNOWN, ACCOUNTS);
+        assertEquals(2, result.rows().size());
+        assertEquals(1, result.ignored());
+        assertTrue(result.rows().stream().allMatch(r -> "3370".equals(r.accountSuffix())));
+    }
+
+    @Test
+    void anAccountActivityFileNeedsOneAccount() {
+        assertThrows(
+                ResponseStatusException.class,
+                () -> RobinhoodCashIoCsvParser.parse(
+                        HEADER + "10/1/2026,10/1/2026,10/1/2026,,ACH Deposit,ACH,,,$150.00\n", null, KNOWN, ACCOUNTS));
+    }
+
     @Test
     void duplicatesAreMatchedOnDirectionAmountAndNearbyDateAndConsumedOnce() {
         var rows = List.of(

@@ -4,11 +4,12 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
-/** What an import would add (preview) or did add (import) for one account. */
+/** What an import would add (preview) or did add (import). {@code accountSuffix} is null for all accounts. */
 public record RobinhoodCashIoImportDto(
         String format,
         String accountSuffix,
-        String dateMode,
+        LocalDate periodFrom,
+        LocalDate periodTo,
         List<Row> rows,
         List<Skipped> skipped,
         int newCount,
@@ -21,6 +22,8 @@ public record RobinhoodCashIoImportDto(
             LocalDate date,
             LocalDate requestedDate,
             LocalDate completedDate,
+            String accountSuffix,
+            String accountLabel,
             String direction,
             BigDecimal amount,
             String counterparty,
