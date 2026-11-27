@@ -622,6 +622,24 @@
 .cio__table {
   width: 100%;
   min-width: 40rem;
+
+  // Keep every entry on a single line; the list scrolls sideways if the screen is too narrow.
+  .mat-mdc-header-cell,
+  .mat-mdc-cell {
+    white-space: nowrap;
+    padding-right: 1rem;
+  }
+
+  .mat-column-note {
+    max-width: 16rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mat-column-actions {
+    width: 1%;
+    padding-right: 0.5rem;
+  }
 }
 
 .cio__pill {
