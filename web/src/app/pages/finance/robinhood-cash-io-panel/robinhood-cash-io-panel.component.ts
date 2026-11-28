@@ -929,7 +929,7 @@ export class RobinhoodCashIoPanelComponent implements OnInit {
 
   runImport(): void {
     const preview = this.importResult;
-    if (!preview || (preview.newCount === 0 && preview.removeCount === 0)) {
+    if (this.importBusy || !preview || (preview.newCount === 0 && preview.removeCount === 0)) {
       return;
     }
     this.importBusy = true;

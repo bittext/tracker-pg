@@ -34,6 +34,8 @@ import org.springframework.web.bind.annotation.RestController;
 @Slf4j
 public class RobinhoodCashIoController {
 
+    private static final Object IMPORT_LOCK = new Object();
+
     private final RobinhoodCashIoService cashIoService;
     private final RobinhoodCashIoYtdService cashIoYtdService;
     private final RobinhoodCashIoDailyService cashIoDailyService;
@@ -95,7 +97,11 @@ public class RobinhoodCashIoController {
     @PostMapping("/import")
     public RobinhoodCashIoImportDto importRows(@RequestBody RobinhoodCashIoImportRequestDto body) {
         log.info("POST cash-io/import suffix={}", body != null ? body.accountSuffix() : null);
-        return cashIoImportService.importRows(body);
+        // One import at a time: a second request (a double click, a retry) waits for the first to commit, then
+        // sees its entries and recognizes them as duplicates instead of adding them again.
+        synchronized (IMPORT_LOCK) {
+            return cashIoImportService.importRows(body);
+        }
     }
 
     @PostMapping
