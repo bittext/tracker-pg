@@ -1,6 +1,7 @@
 import { Component, effect, inject } from '@angular/core';
 import { MatTabsModule } from '@angular/material/tabs';
 import { ReportsFinanceRobinhoodAccountTrackerComponent } from '../reports-finance-robinhood-account-tracker/reports-finance-robinhood-account-tracker.component';
+import { ReportsFinanceRobinhoodMilestonesComponent } from '../reports-finance-robinhood-milestones/reports-finance-robinhood-milestones.component';
 import { ReportsFinanceRobinhoodPerformanceComponent } from '../reports-finance-robinhood-performance/reports-finance-robinhood-performance.component';
 import { ReportsFinanceRobinhoodDailyTrackerComponent } from '../reports-finance-robinhood-daily-tracker/reports-finance-robinhood-daily-tracker.component';
 import { ReportsFinanceRobinhoodExecutedTradesComponent } from '../reports-finance-robinhood-executed-trades/reports-finance-robinhood-executed-trades.component';
@@ -22,6 +23,7 @@ import { UiLayout } from '../../../models/ui-layout.models';
   imports: [
     MatTabsModule,
     ReportsFinanceRobinhoodPerformanceComponent,
+    ReportsFinanceRobinhoodMilestonesComponent,
     ReportsFinanceRobinhoodAccountTrackerComponent,
     ReportsFinanceRobinhoodDailyTrackerComponent,
     ReportsFinanceRobinhoodExecutedTradesComponent,

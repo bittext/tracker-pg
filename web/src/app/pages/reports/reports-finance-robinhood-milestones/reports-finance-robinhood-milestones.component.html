@@ -1,0 +1,134 @@
+<section class="ms" aria-labelledby="ms-heading">
+  <header class="ms__head">
+    <div>
+      <h2 id="ms-heading" class="ms__title">Individual account milestones <span class="muted">••••{{ suffix() }}</span></h2>
+      <p class="muted ms__lead">
+        Progress of the Individual brokerage account through each major mark — $20k, $50k, $100k and on. A milestone is
+        reached the first time an official 9:00 PM CT close (or a live capture) is at or above the line. Account value
+        includes any money you deposit, not just market gains.
+      </p>
+    </div>
+    <button mat-stroked-button type="button" (click)="load()" [disabled]="loading">
+      @if (loading) {
+        <mat-spinner diameter="18" />
+      } @else {
+        <mat-icon>refresh</mat-icon>
+      }
+      Refresh
+    </button>
+  </header>
+
+  @if (loading && !hasData()) {
+    <div class="ms__loading"><mat-spinner diameter="32" /></div>
+  } @else if (error) {
+    <p class="load-error" role="alert">{{ error }}</p>
+  } @else if (!hasData()) {
+    <p class="muted ms__empty">No Individual account captures yet. Milestones start once the Daily Tracker has a close.</p>
+  } @else {
+    <section class="ms__hero" aria-label="Where the account stands">
+      <article class="ms__kpi ms__kpi--now">
+        <span class="ms__kpi-label">Now</span>
+        <strong class="ms__kpi-value">{{ now()!.value | currency }}</strong>
+        <small class="muted">
+          {{ now()!.kind === 'CLOSE' ? 'Official close' : 'Live' }} · {{ now()!.date | date: 'mediumDate' }}
+        </small>
+      </article>
+      <article class="ms__kpi">
+        <span class="ms__kpi-label">Milestones reached</span>
+        <strong class="ms__kpi-value">{{ reachedCount() }}</strong>
+        <small class="muted">
+          @if (latestReached(); as lr) {
+            Latest: {{ lr.amount | currency: 'USD' : 'symbol' : '1.0-0' }} on {{ lr.reachedOn | date: 'mediumDate' }}
+          } @else {
+            First stop: $20,000
+          }
+        </small>
+      </article>
+      <article class="ms__kpi">
+        <span class="ms__kpi-label">Next milestone</span>
+        @if (nextCard(); as nx) {
+          <strong class="ms__kpi-value">{{ nx.amount | currency: 'USD' : 'symbol' : '1.0-0' }}</strong>
+          <small class="muted">{{ nx.remaining! | currency }} to go · {{ nx.progressPct! | number: '1.0-0' }}%</small>
+        } @else {
+          <strong class="ms__kpi-value">—</strong>
+          <small class="muted">Every milestone on the ladder is reached</small>
+        }
+      </article>
+      <article class="ms__kpi">
+        <span class="ms__kpi-label">Highest close</span>
+        @if (peak(); as pk) {
+          <strong class="ms__kpi-value">{{ pk.value | currency }}</strong>
+          <small class="muted">{{ pk.date | date: 'mediumDate' }}</small>
+        }
+      </article>
+    </section>
+
+    @if (chart(); as c) {
+      <section class="ms__chart-wrap" aria-label="Account value with milestone lines">
+        <svg class="ms__chart" [attr.viewBox]="'0 0 ' + c.width + ' ' + c.height" role="img" aria-label="Account value over time">
+          @for (l of c.lines; track l.label) {
+            <line class="ms__grid" [class.ms__grid--hit]="l.reached" x1="56" [attr.x2]="c.width - 12" [attr.y1]="l.y" [attr.y2]="l.y" />
+            <text class="ms__grid-label" x="52" [attr.y]="l.y + 3" text-anchor="end">{{ l.label }}</text>
+          }
+          <path class="ms__area" [attr.d]="c.area" />
+          <path class="ms__line" [attr.d]="c.path" />
+          @for (d of c.dots; track d.label) {
+            <circle class="ms__dot" [attr.cx]="d.x" [attr.cy]="d.y" r="5" />
+          }
+        </svg>
+      </section>
+    }
+
+    <h3 class="ms__section-title">The ladder</h3>
+    <ol class="ms__ladder">
+      @for (m of visibleCards(); track m.amount) {
+        <li class="ms__card" [class.ms__card--reached]="m.status === 'reached'" [class.ms__card--next]="m.status === 'next'">
+          <div class="ms__card-top">
+            <span class="ms__badge" aria-hidden="true">
+              @if (m.status === 'reached') {
+                <mat-icon>check</mat-icon>
+              } @else if (m.status === 'next') {
+                <mat-icon>flag</mat-icon>
+              } @else {
+                <mat-icon>lock</mat-icon>
+              }
+            </span>
+            <strong class="ms__amount">{{ m.amount | currency: 'USD' : 'symbol' : '1.0-0' }}</strong>
+            <span class="ms__status">
+              {{ m.status === 'reached' ? 'Reached' : m.status === 'next' ? 'Next up' : 'Ahead' }}
+            </span>
+          </div>
+
+          @if (m.status === 'reached') {
+            <p class="ms__when">
+              {{ m.reachedOn | date: 'EEEE, MMM d, y' }} · closed at {{ m.valueAtReach! | currency }}
+            </p>
+            <p class="muted ms__meta">
+              Day {{ m.daysFromStart }} of tracking
+              @if (m.daysFromPrevious != null) {
+                · {{ m.daysFromPrevious }} days after the previous milestone
+              }
+              @if (m.slippedCloses > 0) {
+                · {{ m.slippedCloses }} close{{ m.slippedCloses === 1 ? '' : 's' }} since then finished back under it
+              }
+            </p>
+          } @else if (m.status === 'next') {
+            <div class="ms__bar" role="progressbar" [attr.aria-valuenow]="m.progressPct" aria-valuemin="0" aria-valuemax="100">
+              <span class="ms__bar-fill" [style.width.%]="m.progressPct"></span>
+            </div>
+            <p class="ms__when">{{ m.remaining! | currency }} to go · {{ m.progressPct! | number: '1.0-0' }}% of the way from the last milestone</p>
+            <p class="muted ms__meta">
+              @if (m.etaDays != null) {
+                At the last 30 days' pace (deposits included): about {{ m.etaDays }} days.
+              } @else {
+                No upward pace over the last 30 days to project from.
+              }
+            </p>
+          } @else {
+            <p class="muted ms__meta">Unlocks after the milestone before it.</p>
+          }
+        </li>
+      }
+    </ol>
+  }
+</section>

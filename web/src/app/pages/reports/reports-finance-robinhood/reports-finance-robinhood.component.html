@@ -124,4 +124,11 @@
       }
     </div>
   </mat-tab>
+  <mat-tab label="Milestones">
+    <div class="rh-report-tab-panel">
+      @if (journalNav.analyticsTabIndex() === 14) {
+        <app-reports-finance-robinhood-milestones />
+      }
+    </div>
+  </mat-tab>
 </mat-tab-group>
