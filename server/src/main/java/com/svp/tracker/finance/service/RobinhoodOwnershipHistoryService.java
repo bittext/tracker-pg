@@ -157,7 +157,7 @@ public class RobinhoodOwnershipHistoryService {
                 "Own vs margin share split estimates margin loan as max(0, −cash) and attributes shares by loan ÷ equity market value.");
         notes.add("Margin used % is 100 × loan ÷ equity market value; the UI highlights values at 33% or higher.");
         if (points.isEmpty() && !overview) {
-            notes.add("No " + captureKind + " snapshots for account ••••" + accountSuffix + " in " + year + ".");
+            notes.add("No " + captureKind + " snapshots for " + RobinhoodRhDailyTrackerAccountPolicy.named(accountSuffix, "account") + " in " + year + ".");
         }
         if (!overview && !availableSymbols.contains(symbol) && !points.isEmpty()) {
             notes.add("Symbol " + symbol + " was not found in holdings for this account/year — series may be zeros.");
@@ -248,7 +248,7 @@ public class RobinhoodOwnershipHistoryService {
         if (contractKey.isEmpty()) {
             notes.add("Showing all owned contracts in this range. Calendar marks purchase and sell/close days.");
             if (availableContracts.isEmpty()) {
-                notes.add("No option holdings found for account ••••" + accountSuffix + " since " + from + ".");
+                notes.add("No option holdings found for " + RobinhoodRhDailyTrackerAccountPolicy.named(accountSuffix, "account") + " since " + from + ".");
             }
             BigDecimal latestQty = availableContracts.stream()
                     .filter(RobinhoodOwnershipContractDto::currentlyOpen)

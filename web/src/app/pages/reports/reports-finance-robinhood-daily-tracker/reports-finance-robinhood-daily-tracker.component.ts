@@ -58,6 +58,7 @@ import {
   RhDailyMoneyPicturePoint,
   RhDailySaleDay,
 } from './rh-daily-money-picture.models';
+import { RhAccountPipe } from '../../../util/robinhood-account.pipe';
 
 export type { RhDailyMoneyPicture, RhDailyMoneyPicturePoint, RhDailySaleDay };
 
@@ -201,7 +202,7 @@ export interface RhDailyFocusMetrics {
 @Component({
   selector: 'app-reports-finance-robinhood-daily-tracker',
   standalone: true,
-  imports: [
+  imports: [RhAccountPipe, 
     CommonModule,
     FormsModule,
     RouterLink,

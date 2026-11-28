@@ -101,7 +101,7 @@
       </section>
 
       <section>
-        <h3 class="slap__h">Cash notes (••••{{ data()!.accountSuffix }})</h3>
+        <h3 class="slap__h">Cash notes ({{ data()!.accountSuffix | rhAccount }})</h3>
         <div class="slap__cash-form">
           <mat-form-field appearance="outline">
             <mat-label>Date</mat-label>

@@ -148,10 +148,40 @@ final class RobinhoodRhDailyTrackerAccountPolicy {
             case "4123" -> "Managed a/c (...4123)";
             case "8696" -> "Ammu's a/c (...8696)";
             case "2835" -> "Roth IRA (...2835)";
+            case "0440" -> "Short Term a/c (...0440)";
             case "4190" -> "Individual a/c (...4190)";
             case "7581" -> "Agentic a/c (...7581)";
             default -> "Account (..." + s + ")";
         };
+    }
+
+    /** Account name for a known suffix, or null when the suffix is not one of the named books. */
+    static String accountName(String suffix) {
+        if (suffix == null) {
+            return null;
+        }
+        return switch (suffix.trim()) {
+            case "3370", "4190" -> "Individual";
+            case "3550", "7581" -> "Agentic";
+            case "4123" -> "Managed";
+            case "8696" -> "Ammu's";
+            case "2835" -> "Roth IRA";
+            case "0440" -> "Short Term";
+            default -> null;
+        };
+    }
+
+    /**
+     * Name plus masked number for screens and messages, such as {@code Roth IRA ••••2835}. A known account name
+     * wins over {@code fallbackName} (the role the account plays for this user).
+     */
+    static String named(String suffix, String fallbackName) {
+        String s = suffix == null ? "" : suffix.trim();
+        String name = accountName(s);
+        if (name == null) {
+            name = fallbackName == null || fallbackName.isBlank() ? "Account" : fallbackName;
+        }
+        return s.isEmpty() ? name : name + " ••••" + s;
     }
 
     /**

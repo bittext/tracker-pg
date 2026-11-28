@@ -350,11 +350,13 @@ public class RobinhoodCashIoService {
             role = "other";
             labelPrefix = "Account";
         }
-        return new RobinhoodCashIoAccountDto(suffix, labelPrefix + " ••••" + suffix, role);
+        return new RobinhoodCashIoAccountDto(
+                suffix, RobinhoodRhDailyTrackerAccountPolicy.named(suffix, labelPrefix), role);
     }
 
     private RobinhoodCashIoEntryDto toEntryDto(RobinhoodAccountCashIo row, Map<String, String> labels) {
-        String label = labels.getOrDefault(row.getAccountSuffix(), "Account ••••" + row.getAccountSuffix());
+        String label = labels.getOrDefault(
+                row.getAccountSuffix(), RobinhoodRhDailyTrackerAccountPolicy.named(row.getAccountSuffix(), "Account"));
         return new RobinhoodCashIoEntryDto(
                 row.getId(),
                 row.getAccountSuffix(),

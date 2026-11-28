@@ -1,3 +1,4 @@
+import { robinhoodAccountNamed } from '../../../util/robinhood-account-display';
 export interface CashIoAccountRef {
   suffix: string;
   label: string;
@@ -14,7 +15,7 @@ export interface CashIoMove {
 export type CashIoRoutePlan = { ok: true; moves: CashIoMove[] } | { ok: false; error: string };
 
 export function accountLabelFor(suffix: string, accounts: CashIoAccountRef[]): string {
-  return accounts.find((a) => a.suffix === suffix)?.label ?? `Account ••••${suffix}`;
+  return accounts.find((a) => a.suffix === suffix)?.label ?? robinhoodAccountNamed(suffix);
 }
 
 /**

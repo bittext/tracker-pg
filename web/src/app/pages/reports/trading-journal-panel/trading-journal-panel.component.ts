@@ -37,6 +37,7 @@ import {
   TradingJournalImageGalleryData,
 } from './trading-journal-image-gallery-dialog.component';
 import { SafeMarkdownPipe } from '../../../pipes/safe-markdown.pipe';
+import { RhAccountPipe } from '../../../util/robinhood-account.pipe';
 
 export interface TradingJournalCalCell {
   type: 'pad' | 'day';
@@ -54,7 +55,7 @@ export interface TradingJournalCalCell {
 @Component({
   selector: 'app-trading-journal-panel',
   standalone: true,
-  imports: [
+  imports: [RhAccountPipe, 
     CommonModule,
     NgTemplateOutlet,
     FormsModule,

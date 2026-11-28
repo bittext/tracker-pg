@@ -29,6 +29,7 @@ import {
 import { FinanceApiService } from '../../../services/finance-api.service';
 import { TradingJournalNavService } from '../../../services/trading-journal-nav.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
+import { RhAccountPipe } from '../../../util/robinhood-account.pipe';
 
 interface DeskLive {
   at: string;
@@ -53,7 +54,7 @@ interface BlotterRow {
 @Component({
   selector: 'app-robinhood-trading-panel',
   standalone: true,
-  imports: [
+  imports: [RhAccountPipe, 
     CommonModule,
     FormsModule,
     RouterLink,

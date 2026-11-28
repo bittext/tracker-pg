@@ -23,7 +23,7 @@
     <div class="rh-daily-ai__head">
       <h3 id="rh-daily-ai-heading" class="rh-daily-ai__title">AI Insights</h3>
       <p class="muted rh-daily-ai__disclaimer">
-        Habit and account-value coaching for ••••3370, ••••3550, and ••••8696 only — not realized P&amp;L or win
+        Habit and account-value coaching for Individual, Agentic, and Ammu's only — not realized P&amp;L or win
         rate. Other Daily Tracker accounts are excluded.
       </p>
     </div>
@@ -852,7 +852,7 @@
                     {{ margin.marginAccount ? 'Margin account' : 'Buying power' }}
                   </h4>
                   <p class="muted rh-daily__focus-margin-sub">
-                    Live from last Agentic sync · ••••{{ focusAccountSuffix }}
+                    Live from last Agentic sync · {{ focusAccountSuffix | rhAccount }}
                   </p>
                 </div>
                 <span
@@ -947,7 +947,7 @@
               <div class="rh-daily__focus-chart-title-block">
                 <h4 class="rh-daily__focus-chart-title">9 PM return vs S&amp;P</h4>
                 <p class="rh-daily__focus-chart-sub muted">
-                  ••••{{ focusAccountSuffix }} vs buy-and-hold from launch-day stake · dots shade by Δ vs prior 9
+                  {{ focusAccountSuffix | rhAccount }} vs buy-and-hold from launch-day stake · dots shade by Δ vs prior 9
                   PM
                 </p>
               </div>
@@ -991,7 +991,7 @@
                     viewBox="0 0 100 40"
                     preserveAspectRatio="none"
                     role="img"
-                    [attr.aria-label]="'Percent return chart for ••••' + focusAccountSuffix + ' vs S&P buy-and-hold'"
+                    [attr.aria-label]="'Percent return chart for ' + (focusAccountSuffix | rhAccount) + ' vs S&P buy-and-hold'"
                   >
                     <line x1="0" y1="4" x2="100" y2="4" class="rh-daily__focus-grid" />
                     <line x1="0" y1="20" x2="100" y2="20" class="rh-daily__focus-grid" />
@@ -1099,7 +1099,7 @@
               <div class="rh-daily__focus-chart-head">
                 <div class="rh-daily__focus-chart-title-block">
                   <p class="rh-daily__focus-chart-sub muted">
-                    Owned equity (total account value) for ••••{{ focusAccountSuffix }} since
+                    Owned equity (total account value) for {{ focusAccountSuffix | rhAccount }} since
                     {{ monkeyCapitalStartDate | date: 'mediumDate' }} · Growth Monkey above
                     {{ monkeySafetyUsd | currency: 'USD':'symbol':'1.0-0' }} · drown below
                     {{ monkeySurvivalUsd | currency: 'USD':'symbol':'1.0-0' }} ·
@@ -1343,7 +1343,7 @@
 
                     <table class="rh-daily__monkey-analysis-table">
                       <caption class="sr-only">
-                        Where the monkey sits for account ••••{{ focusAccountSuffix }}
+                        Where the monkey sits for account {{ focusAccountSuffix | rhAccount }}
                       </caption>
                       <thead>
                         <tr>
@@ -1748,8 +1748,8 @@
                       <div class="rh-daily__timeline-body">
                         <p class="muted rh-daily__timeline-hint">
                           Click any account total to open holdings. {{ priorPullHint(day) }}
-                          Highlighted cells had stock or option position changes vs the prior pull (••••4123 excluded).
-                          The progress rail and red alert markers focus on ••••{{ focusAccountSuffix }} only.
+                          Highlighted cells had stock or option position changes vs the prior pull (Managed excluded).
+                          The progress rail and red alert markers focus on {{ focusAccountSuffix | rhAccount }} only.
                           Capture strip: amber = pre-market 4–8 AM CT · blue = regular 8 AM–4 PM CT ·
                           violet = after-hours 4–7 PM CT.
                         </p>
@@ -1758,7 +1758,7 @@
                             <div
                               class="rh-daily__capture-strip"
                               role="img"
-                              [attr.aria-label]="'Capture-to-capture movement for account ••••' + focusAccountSuffix"
+                              [attr.aria-label]="'Capture-to-capture movement for ' + (focusAccountSuffix | rhAccount)"
                             >
                               <div class="rh-daily__move-chart rh-daily__move-chart--compact" [style.--bar-count]="moveBars.length">
                                 @for (bar of moveBars; track bar.key) {
@@ -1951,7 +1951,7 @@
                               <header class="rh-daily__book-head">
                                 <div>
                                   <h5 class="rh-daily__acct-label">{{ acct.label }}</h5>
-                                  <span class="rh-daily__acct-kind muted">{{ acct.accountKind }} · ••••{{ acct.accountSuffix }}</span>
+                                  <span class="rh-daily__acct-kind muted">{{ acct.accountSuffix | rhAccount }}</span>
                                 </div>
                                 <button
                                   type="button"
@@ -2173,7 +2173,7 @@
                               @for (tr of day.trades; track $index) {
                                 <tr>
                                   <td class="rh-daily__nowrap">{{ tr.executedAt | date: 'MMM d, h:mm a' }}</td>
-                                  <td>{{ tr.accountLabel ?? ('••••' + tr.accountSuffix) }}</td>
+                                  <td>{{ tr.accountLabel ?? (tr.accountSuffix | rhAccount) }}</td>
                                   <td>{{ tr.symbol }}</td>
                                   <td [class]="sideClass(tr.side)">{{ sideLabel(tr.side) }}</td>
                                   <td>{{ tr.orderType ?? '—' }}</td>

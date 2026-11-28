@@ -3,6 +3,7 @@ import { Component, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { RobinhoodExecutedTradeDto } from '../../../models/finance.models';
+import { RhAccountPipe } from '../../../util/robinhood-account.pipe';
 
 export interface RhPerfAccountLine {
   suffix: string;
@@ -28,7 +29,7 @@ export interface RhPerfDetailDialogData {
 @Component({
   selector: 'app-robinhood-performance-detail-dialog',
   standalone: true,
-  imports: [CommonModule, MatDialogModule, MatButtonModule, CurrencyPipe, DecimalPipe],
+  imports: [RhAccountPipe, CommonModule, MatDialogModule, MatButtonModule, CurrencyPipe, DecimalPipe],
   templateUrl: './robinhood-performance-detail-dialog.component.html',
   styleUrl: './robinhood-performance-detail-dialog.component.scss',
 })

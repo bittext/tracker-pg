@@ -157,14 +157,15 @@ public class RobinhoodCashIoYtdService {
                 .orElse(null);
 
         RobinhoodRhOwnedAccountsDto owned = accountTrackerConfigService.resolveOwnedAccounts(uid);
-        String label = "Account ••••" + suffix;
+        String role = "Account";
         if (Objects.equals(suffix, owned.individualSuffix())) {
-            label = "Individual ••••" + suffix;
+            role = "Individual";
         } else if (Objects.equals(suffix, owned.agenticSuffix())) {
-            label = "Agentic ••••" + suffix;
+            role = "Agentic";
         } else if (Objects.equals(suffix, owned.managedSuffix())) {
-            label = "Managed ••••" + suffix;
+            role = "Managed";
         }
+        String label = RobinhoodRhDailyTrackerAccountPolicy.named(suffix, role);
         return new RobinhoodCashIoYtdDto(
                 suffix,
                 label,

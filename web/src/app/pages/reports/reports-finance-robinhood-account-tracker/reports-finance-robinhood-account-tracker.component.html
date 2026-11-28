@@ -149,10 +149,17 @@
           @if (!monthRows().length) {
             <p class="muted">No monthly closes yet.</p>
           } @else {
+            @if (firstCloseDate(); as first) {
+              <p class="muted roth__hint">
+                Values are tracked from the first close on {{ first }}. Earlier months show deposits and withdrawals only.
+              </p>
+            }
             <table class="roth__table">
               <thead>
                 <tr>
                   <th>Month</th>
+                  <th class="roth__num">Added</th>
+                  <th class="roth__num">Taken out</th>
                   <th class="roth__num">End</th>
                   <th class="roth__num">Change</th>
                   <th class="roth__num">After cash</th>
@@ -162,6 +169,8 @@
                 @for (m of monthRows(); track m.label) {
                   <tr>
                     <th scope="row">{{ m.label }}</th>
+                    <td class="roth__num">{{ m.figure.added ? (m.figure.added | currency) : '—' }}</td>
+                    <td class="roth__num">{{ m.figure.removed ? (m.figure.removed | currency) : '—' }}</td>
                     <td class="roth__num">{{ m.figure.end != null ? (m.figure.end | currency) : '—' }}</td>
                     <td
                       class="roth__num"

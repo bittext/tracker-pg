@@ -236,11 +236,25 @@ export class ReportsFinanceRobinhoodAccountTrackerComponent implements OnInit {
     const out: { label: string; figure: RobinhoodRhPeriodAccountFigureDto; current: boolean }[] = [];
     for (const row of this.balances?.months ?? []) {
       const figure = this.figureFor(row);
-      if (figure && (figure.start != null || figure.end != null)) {
+      // A month stays in the list when only deposits / withdrawals are known, so history before the first
+      // captured close still shows what was added or taken out.
+      if (figure && (figure.start != null || figure.end != null || !!figure.added || !!figure.removed)) {
         out.push({ label: row.label.replace(/\s+\d{4}$/, ''), figure, current: row.currentPeriod });
       }
     }
     return out;
+  }
+
+  /** Date of the first official close saved for this account, or null when none exists yet. */
+  firstCloseDate(): string | null {
+    let first: string | null = null;
+    for (const day of this.daily?.days ?? []) {
+      const cell = day.accounts.find((a) => a.accountSuffix === this.activeSuffix());
+      if (cell && day.hasScheduledSnapshot && (first == null || day.snapshotDate < first)) {
+        first = day.snapshotDate;
+      }
+    }
+    return first;
   }
 
   /** Newest-first log of every close (plus the latest live capture) with what changed. */

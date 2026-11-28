@@ -96,7 +96,7 @@
           <tr>
             <td>{{ formatWhen(tr.executedAt) }}</td>
             <th scope="row">{{ tr.symbol }}</th>
-            <td class="muted">••••{{ tr.accountSuffix || '—' }}</td>
+            <td class="muted">{{ tr.accountSuffix ? (tr.accountSuffix | rhAccount) : '—' }}</td>
             <td class="rh-perf-detail__num">{{ tr.quantity != null ? (tr.quantity | number: '1.0-4') : '—' }}</td>
             <td class="rh-perf-detail__num">{{ tr.averagePrice != null ? (tr.averagePrice | currency) : '—' }}</td>
             <td

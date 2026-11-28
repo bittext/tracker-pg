@@ -287,7 +287,7 @@
             @if (flows.length) {
               <div class="tj__cash-flows" role="status">
                 <div class="tj__cash-flows-head">
-                  <h4>Cash moved (••••3370, ••••3550, ••••8696)</h4>
+                  <h4>Cash moved (Individual, Agentic, Ammu's)</h4>
                   <span class="tj__cash-flows-totals muted">
                     @if (wrapCashFlowTotals(d.wrap); as tot) {
                       @if (tot.deposited > 0) {
@@ -305,7 +305,7 @@
                 <ul class="tj__cash-flows-list">
                   @for (a of flows; track a.accountSuffix) {
                     <li>
-                      <span class="tj__cash-acct">••••{{ a.accountSuffix }}</span>
+                      <span class="tj__cash-acct">{{ a.accountSuffix | rhAccount }}</span>
                       @if ((a.periodAdded || 0) > 0) {
                         <span class="tj__cash-in">Deposited {{ a.periodAdded | currency }}</span>
                       }
@@ -332,7 +332,7 @@
                 <tbody>
                   @for (a of wrapAccounts(d.wrap); track a.accountSuffix) {
                     <tr>
-                      <td>••••{{ a.accountSuffix }}</td>
+                      <td>{{ a.accountSuffix | rhAccount }}</td>
                       <td class="tj__num">{{ a.totalAccountValue | currency }}</td>
                       <td class="tj__num">{{ a.totalChangeFromPrevious | currency }}</td>
                     </tr>
@@ -343,7 +343,7 @@
           }
 
           @if (wrapTrades(d.wrap).length) {
-            <h4 class="tj__sub">Trades since prior 9 PM CT (••••3370, ••••3550, ••••8696)</h4>
+            <h4 class="tj__sub">Trades since prior 9 PM CT (Individual, Agentic, Ammu's)</h4>
             <div class="tj__table-wrap">
               <table class="tj__table">
                 <thead>
@@ -374,11 +374,11 @@
 
           @if (dayHoldings().length) {
             <div class="tj__holdings">
-              <h4 class="tj__sub">Holdings at 9 PM CT (••••3370, ••••3550, ••••8696)</h4>
+              <h4 class="tj__sub">Holdings at 9 PM CT (Individual, Agentic, Ammu's)</h4>
               @for (group of dayHoldings(); track group.accountSuffix) {
                 <div class="tj__holdings-group">
                   <div class="tj__holdings-group-head">
-                    <strong>••••{{ group.accountSuffix }}</strong>
+                    <strong>{{ group.accountSuffix | rhAccount }}</strong>
                     @if (group.label) {
                       <span class="muted">{{ group.label }}</span>
                     }

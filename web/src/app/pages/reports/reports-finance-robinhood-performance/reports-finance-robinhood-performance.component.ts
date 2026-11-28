@@ -34,6 +34,7 @@ import {
   RhPerfDetailDialogData,
   RobinhoodPerformanceDetailDialogComponent,
 } from './robinhood-performance-detail-dialog.component';
+import { RhAccountPipe } from '../../../util/robinhood-account.pipe';
 
 interface LiveAccountRow {
   suffix: string;
@@ -59,7 +60,7 @@ interface SymbolPnlRow {
 @Component({
   selector: 'app-reports-finance-robinhood-performance',
   standalone: true,
-  imports: [
+  imports: [RhAccountPipe, 
     CommonModule,
     FormsModule,
     MatButtonModule,

@@ -353,7 +353,7 @@
                 <tr class="rh-perf__click" tabindex="0" (click)="openSymbolDetail(tr.symbol)" (keydown.enter)="openSymbolDetail(tr.symbol)">
                   <td>{{ formatTradeWhen(tr.executedAt) }}</td>
                   <th scope="row">{{ tr.symbol }}</th>
-                  <td class="muted">••••{{ tr.accountSuffix || '—' }}</td>
+                  <td class="muted">{{ tr.accountSuffix ? (tr.accountSuffix | rhAccount) : '—' }}</td>
                   <td
                     class="rh-perf__num"
                     [class.rh-perf__pnl--pos]="isGain(tr.realizedPnl)"

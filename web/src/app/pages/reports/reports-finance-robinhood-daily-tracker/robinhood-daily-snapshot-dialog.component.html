@@ -1,4 +1,4 @@
-<h2 mat-dialog-title>{{ detail?.label ?? ('Account ••••' + data.accountSuffix) }}</h2>
+<h2 mat-dialog-title>{{ detail?.label ?? (data.accountSuffix | rhAccount) }}</h2>
 <mat-dialog-content class="rh-snap-dialog">
   @if (loading) {
     <mat-spinner diameter="36" aria-label="Loading snapshot" />

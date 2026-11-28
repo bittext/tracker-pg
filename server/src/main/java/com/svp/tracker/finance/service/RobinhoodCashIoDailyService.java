@@ -252,7 +252,7 @@ public class RobinhoodCashIoDailyService {
         if (suffix == null || suffix.isBlank()) {
             return;
         }
-        labels.put(suffix, role + " ••••" + suffix);
+        labels.put(suffix, RobinhoodRhDailyTrackerAccountPolicy.named(suffix, role));
     }
 
     private RobinhoodCashIoDailyDto toDto(RobinhoodCashIoDaily row) {

@@ -88,7 +88,7 @@ public class RobinhoodRhDailyTrackerAlertService {
             String suffix = item.accountSuffix().trim();
             if (!allowed.contains(suffix)) {
                 throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST, "Account ••••" + suffix + " is not in your Daily Tracker");
+                        HttpStatus.BAD_REQUEST, RobinhoodRhDailyTrackerAccountPolicy.named(suffix, "Account") + " is not in your Daily Tracker");
             }
             validateAlertItem(item);
             RhDailyTrackerAccountAlert row = alertRepository
@@ -125,7 +125,7 @@ public class RobinhoodRhDailyTrackerAlertService {
                 .findFirst()
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.BAD_REQUEST, "Enable at least one account alert before testing"));
-        String subject = "Daily Tracker alert test: ••••" + firstEnabled.accountSuffix();
+        String subject = "Daily Tracker alert test: " + RobinhoodRhDailyTrackerAccountPolicy.named(firstEnabled.accountSuffix(), firstEnabled.label());
         String body = "This is a test Daily Tracker spike alert.\n\n"
                 + "Account: "
                 + firstEnabled.label()
@@ -403,26 +403,26 @@ public class RobinhoodRhDailyTrackerAlertService {
         if (!anyTrigger) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "Enable at least one trigger ($, %, or position change) for ••••" + item.accountSuffix());
+                    "Enable at least one trigger ($, %, or position change) for " + RobinhoodRhDailyTrackerAccountPolicy.named(item.accountSuffix(), "Account"));
         }
         if (item.valueDollarsEnabled()) {
             if (item.minValueChangeDollars() == null || item.minValueChangeDollars().signum() <= 0) {
                 throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST, "Min $ change must be positive for ••••" + item.accountSuffix());
+                        HttpStatus.BAD_REQUEST, "Min $ change must be positive for " + RobinhoodRhDailyTrackerAccountPolicy.named(item.accountSuffix(), "Account"));
             }
         }
         if (item.valuePercentEnabled()) {
             if (item.minValueChangePercent() == null || item.minValueChangePercent().signum() <= 0) {
                 throw new ResponseStatusException(
-                        HttpStatus.BAD_REQUEST, "Min % change must be positive for ••••" + item.accountSuffix());
+                        HttpStatus.BAD_REQUEST, "Min % change must be positive for " + RobinhoodRhDailyTrackerAccountPolicy.named(item.accountSuffix(), "Account"));
             }
         }
     }
 
     private String buildSubject(String suffix, BigDecimal deltaDollars, BigDecimal absDeltaPercent) {
         String direction = deltaDollars.signum() >= 0 ? "up" : "down";
-        StringBuilder sb = new StringBuilder("Daily Tracker alert: ••••");
-        sb.append(suffix).append(' ').append(direction).append(' ');
+        StringBuilder sb = new StringBuilder("Daily Tracker alert: ");
+        sb.append(RobinhoodRhDailyTrackerAccountPolicy.named(suffix, "Account")).append(' ').append(direction).append(' ');
         sb.append(formatMoney(deltaDollars.abs()));
         if (absDeltaPercent != null) {
             sb.append(" (").append(absDeltaPercent.setScale(2, RoundingMode.HALF_UP)).append("%)");

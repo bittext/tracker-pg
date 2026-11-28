@@ -18,6 +18,7 @@ import { RobinhoodCashIoRequestDto } from '../../../models/finance.models';
 import { MarketsJourneyApiService } from '../../../services/markets-journey-api.service';
 import { RobinhoodCashIoApiService } from '../../../services/robinhood-cash-io-api.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
+import { RhAccountPipe } from '../../../util/robinhood-account.pipe';
 
 interface PlotPt {
   x: number;
@@ -49,7 +50,7 @@ interface CashMarker {
 @Component({
   selector: 'app-markets-roadmap-slap-panel',
   standalone: true,
-  imports: [
+  imports: [RhAccountPipe, 
     CommonModule,
     FormsModule,
     MatButtonModule,

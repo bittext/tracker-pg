@@ -267,7 +267,7 @@
             @for (t of todayFills(); track (t.executedAt ?? '') + t.symbol + (t.accountSuffix ?? '')) {
               <tr>
                 <td>{{ formatWhen(t.executedAt) }}</td>
-                <td><code>••••{{ t.accountSuffix }}</code></td>
+                <td><code>{{ t.accountSuffix | rhAccount }}</code></td>
                 <td><strong>{{ t.symbol }}</strong></td>
                 <td>{{ t.side ?? '—' }}</td>
                 <td>{{ t.quantity ?? '—' }}</td>

@@ -17,6 +17,10 @@ export function robinhoodAccountDisplayLabel(suffix: string | null | undefined):
       return 'Individual a/c (...4190)';
     case '7581':
       return 'Agentic a/c (...7581)';
+    case '2835':
+      return 'Roth IRA (...2835)';
+    case '0440':
+      return 'Short Term a/c (...0440)';
     default:
       return `Account (...${s})`;
   }
@@ -36,7 +40,17 @@ export function robinhoodAccountParts(suffix: string | null | undefined): { name
       return { name: 'Managed', last4 };
     case '8696':
       return { name: 'Ammu', last4 };
+    case '2835':
+      return { name: 'Roth IRA', last4 };
+    case '0440':
+      return { name: 'Short Term', last4 };
     default:
       return { name: last4 ? 'Account' : 'Account', last4 };
   }
+}
+
+/** Name with the masked number, such as "Roth IRA ••••2835" (matches the labels the server sends). */
+export function robinhoodAccountNamed(suffix: string | null | undefined): string {
+  const { name, last4 } = robinhoodAccountParts(suffix);
+  return last4 ? `${name === 'Ammu' ? "Ammu's" : name} ••••${last4}` : name;
 }

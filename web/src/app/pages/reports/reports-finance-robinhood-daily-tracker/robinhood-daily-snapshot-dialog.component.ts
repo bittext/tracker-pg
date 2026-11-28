@@ -12,6 +12,7 @@ import {
   RobinhoodRhDayTapePointDto,
   RobinhoodRhHoldingDto,
 } from '../../../models/finance.models';
+import { RhAccountPipe } from '../../../util/robinhood-account.pipe';
 
 export interface RobinhoodDailySnapshotDialogData {
   snapshotId: number;
@@ -31,7 +32,7 @@ export const RH_SNAPSHOT_DIALOG_CONFIG: Pick<MatDialogConfig, 'width' | 'maxWidt
 @Component({
   selector: 'app-robinhood-daily-snapshot-dialog',
   standalone: true,
-  imports: [CommonModule, MatDialogModule, MatButtonModule, MatProgressSpinnerModule, CurrencyPipe, DatePipe, DecimalPipe],
+  imports: [RhAccountPipe, CommonModule, MatDialogModule, MatButtonModule, MatProgressSpinnerModule, CurrencyPipe, DatePipe, DecimalPipe],
   templateUrl: './robinhood-daily-snapshot-dialog.component.html',
   styleUrl: './robinhood-daily-snapshot-dialog.component.scss',
 })
