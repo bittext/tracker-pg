@@ -163,6 +163,15 @@ export const MARKETS_PRIMARY_NAV: NavEntry[] = [
     ariaLabel: 'Accounts — Individual, Roth IRA, Agentic, and Ammu per-account tracking',
   },
   {
+    id: 'statements',
+    label: 'Statements',
+    path: '/markets/statements',
+    icon: 'receipt_long',
+    shell: 'markets-primary',
+    exact: true,
+    ariaLabel: 'Statements — quarterly income, P&L and cash flow for the investment accounts',
+  },
+  {
     id: 'roadmap',
     label: 'Roadmap',
     path: '/markets/roadmap',

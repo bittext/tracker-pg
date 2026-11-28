@@ -1,0 +1,121 @@
+<app-page-header
+  eyebrow="Markets"
+  title="Statements"
+  subtitle="Quarterly income statement, profit and loss, and cash flow for the investment accounts."
+/>
+
+<div class="stm__toolbar">
+  <mat-form-field appearance="outline" class="stm__field" subscriptSizing="dynamic">
+    <mat-label>Year</mat-label>
+    <mat-select [ngModel]="year()" (ngModelChange)="year.set($event)" (selectionChange)="onYearChange()" name="stmYear">
+      @for (y of yearChoices; track y) {
+        <mat-option [value]="y">{{ y }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+  <mat-form-field appearance="outline" class="stm__field stm__field--wide" subscriptSizing="dynamic">
+    <mat-label>Account</mat-label>
+    <mat-select [ngModel]="account()" (ngModelChange)="account.set($event)" name="stmAccount">
+      <mat-option value="ALL">All tracked accounts</mat-option>
+      @for (a of data()?.accounts ?? []; track a.accountSuffix) {
+        <mat-option [value]="a.accountSuffix">{{ a.label }}</mat-option>
+      }
+    </mat-select>
+  </mat-form-field>
+  <button mat-stroked-button type="button" (click)="load()" [disabled]="loading()">
+    @if (loading()) {
+      <mat-spinner diameter="18" />
+    } @else {
+      <mat-icon>refresh</mat-icon>
+    }
+    Refresh
+  </button>
+</div>
+
+@if (error()) {
+  <p class="stm__error" role="alert">{{ error() }}</p>
+}
+
+@if (loading() && !data()) {
+  <div class="stm__loading"><mat-spinner diameter="30" /></div>
+} @else if (data(); as d) {
+  @if (!quarters().length) {
+    <p class="muted stm__empty">No quarters to report for {{ d.year }} yet.</p>
+  }
+  @for (q of quarters(); track q.key) {
+    <section class="stm__quarter" [attr.aria-label]="q.label + ' statements'">
+      <header class="stm__qhead">
+        <div>
+          <h2 class="stm__qtitle">
+            {{ q.label }}
+            @if (q.partial) {
+              <span class="stm__chip">in progress</span>
+            }
+          </h2>
+          <p class="muted stm__qsub">
+            {{ q.start | date: 'MMM d' }} – {{ q.end | date: 'MMM d, y' }}
+            @if (statement(q); as s) {
+              ·
+              @if (s.openingDate) {
+                measured from the {{ s.openingDate | date: 'MMM d' }} close
+              } @else {
+                no earlier close tracked
+              }
+              @if (s.closingDate) {
+                to the {{ s.closingDate | date: 'MMM d' }} close
+              }
+            }
+          </p>
+        </div>
+        <div class="stm__actions">
+          <button mat-stroked-button type="button" (click)="downloadCsv(q)" [disabled]="!sections(q).length">
+            <mat-icon>download</mat-icon> CSV
+          </button>
+          <button mat-stroked-button type="button" (click)="printPdf(q)" [disabled]="!sections(q).length">
+            <mat-icon>picture_as_pdf</mat-icon> PDF
+          </button>
+        </div>
+      </header>
+
+      @if (sections(q).length) {
+        <div class="stm__grid">
+          @for (section of sections(q); track section.title) {
+            <article class="stm__card">
+              <h3 class="stm__ctitle">{{ section.title }}</h3>
+              <table class="stm__table">
+                <tbody>
+                  @for (l of section.lines; track $index) {
+                    @if (l.kind === 'heading') {
+                      <tr class="stm__heading"><td colspan="2">{{ l.label }}</td></tr>
+                    } @else {
+                      <tr [class.stm__total]="l.kind === 'total'">
+                        <td>{{ l.label }}</td>
+                        <td class="stm__num" [class.stm__pos]="isGain(l)" [class.stm__neg]="isLoss(l)">
+                          @if (l.value == null) {
+                            <span class="muted stm__hint">{{ l.hint ?? '—' }}</span>
+                          } @else if (l.kind === 'pct') {
+                            {{ l.value | number: '1.2-2' }}%
+                          } @else {
+                            {{ l.value | currency }}
+                          }
+                        </td>
+                      </tr>
+                    }
+                  }
+                </tbody>
+              </table>
+            </article>
+          }
+        </div>
+      } @else {
+        <p class="muted stm__empty">Nothing recorded for this account in {{ q.label }}.</p>
+      }
+    </section>
+  }
+
+  <ul class="stm__notes muted">
+    @for (n of d.notes; track n) {
+      <li>{{ n }}</li>
+    }
+  </ul>
+}

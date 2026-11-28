@@ -2927,3 +2927,43 @@ export interface RobinhoodYtdCheckCloseDto {
   price: number | null;
   realized: number | null;
 }
+
+/** One account's (or the combined) figures for one quarter. Null means not known, not zero. */
+export interface RobinhoodStatementDto {
+  suffix: string;
+  label: string;
+  openingDate: string | null;
+  closingDate: string | null;
+  openingValue: number | null;
+  closingValue: number | null;
+  deposits: number;
+  withdrawals: number;
+  transfersIn: number;
+  transfersOut: number;
+  realized: number | null;
+  income: number;
+  marketChange: number | null;
+  unrealizedOther: number | null;
+  returnPct: number | null;
+  openingCash: number | null;
+  closingCash: number | null;
+  tradingCash: number | null;
+}
+
+export interface RobinhoodQuarterDto {
+  key: string;
+  label: string;
+  start: string;
+  end: string;
+  partial: boolean;
+  combined: RobinhoodStatementDto;
+  accounts: RobinhoodStatementDto[];
+}
+
+/** GET /api/finance/robinhood/quarterly-statements */
+export interface RobinhoodQuarterlyStatementsDto {
+  year: number;
+  accounts: RobinhoodRhPeriodAccountColumnDto[];
+  quarters: RobinhoodQuarterDto[];
+  notes: string[];
+}

@@ -1,0 +1,143 @@
+.stm__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.2rem 0 1rem;
+}
+
+.stm__field {
+  width: 7.5rem;
+}
+
+.stm__field--wide {
+  width: 15rem;
+}
+
+.stm__loading,
+.stm__empty {
+  padding: 1.5rem 0;
+}
+
+.stm__error {
+  color: #b91c1c;
+  font-size: 0.9rem;
+}
+
+.stm__quarter {
+  margin-bottom: 1.6rem;
+}
+
+.stm__qhead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.6rem 1rem;
+  margin-bottom: 0.6rem;
+}
+
+.stm__qtitle {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.stm__qsub {
+  margin: 0.15rem 0 0;
+  font-size: 0.84rem;
+}
+
+.stm__chip {
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  vertical-align: middle;
+  background: color-mix(in srgb, var(--mat-sys-primary, #1a5f4a) 12%, transparent);
+}
+
+.stm__actions {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.stm__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.stm__card {
+  min-width: 0;
+  padding: 0.8rem 0.95rem 0.6rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
+  border-radius: 12px;
+  background: var(--app-surface, #fff);
+}
+
+.stm__ctitle {
+  margin: 0 0 0.45rem;
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+
+.stm__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+
+  td {
+    padding: 0.32rem 0.1rem;
+    border-bottom: 1px solid var(--app-border, rgba(15, 23, 42, 0.08));
+  }
+}
+
+.stm__num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.stm__total td {
+  font-weight: 650;
+  border-top: 1px solid var(--app-border, rgba(15, 23, 42, 0.25));
+}
+
+.stm__heading td {
+  padding-top: 0.55rem;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--app-text-muted, #64748b);
+}
+
+.stm__hint {
+  font-size: 0.78rem;
+  font-weight: 400;
+}
+
+.stm__pos {
+  color: #047857;
+}
+
+.stm__neg {
+  color: #b91c1c;
+}
+
+.stm__notes {
+  margin: 0.4rem 0 1rem;
+  padding-left: 1.1rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  max-width: 60rem;
+}
+
+@media (max-width: 1100px) {
+  .stm__grid {
+    grid-template-columns: 1fr;
+  }
+}

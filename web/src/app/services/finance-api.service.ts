@@ -20,6 +20,7 @@ import {
   MarketOverviewDto,
   RobinhoodAccountStatusDto,
   RobinhoodAccountTrackerDto,
+  RobinhoodQuarterlyStatementsDto,
   RobinhoodRhAccountsTrackDto,
   RobinhoodRhDailyCaptureResultDto,
   RobinhoodRhDailyDayNoteResultDto,
@@ -181,6 +182,12 @@ export class FinanceApiService {
 
   robinhoodDailyTrackerPeriodBalances(year: number) {
     return this.http.get<RobinhoodRhPeriodBalancesDto>(`${this.root}/daily-tracker/period-balances`, {
+      params: { year: String(year) },
+    });
+  }
+
+  robinhoodQuarterlyStatements(year: number) {
+    return this.http.get<RobinhoodQuarterlyStatementsDto>(`${this.root}/quarterly-statements`, {
       params: { year: String(year) },
     });
   }

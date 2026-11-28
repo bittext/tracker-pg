@@ -14,6 +14,7 @@ const CACHEABLE_PATHS: RegExp[] = [
   /\/api\/finance\/robinhood\/executed-trades$/,
   /\/api\/finance\/robinhood\/daily-tracker$/,
   /\/api\/finance\/robinhood\/daily-tracker\/period-balances$/,
+  /\/api\/finance\/robinhood\/quarterly-statements$/,
   /\/api\/finance\/robinhood\/ownership-history$/,
   /\/api\/finance\/robinhood\/margin-watch$/,
   /\/api\/markets\/trading-journal$/,

@@ -18,6 +18,7 @@ import { LifePhotosComponent } from './pages/life-photos/life-photos.component';
 import { LifeWorkComponent } from './pages/life-work/life-work.component';
 import { ManagementComponent } from './pages/management/management.component';
 import { MarketsOverviewComponent } from './pages/markets/markets-overview/markets-overview.component';
+import { MarketsStatementsComponent } from './pages/markets/markets-statements/markets-statements.component';
 import { MarketsAccountsComponent } from './pages/markets/markets-accounts/markets-accounts.component';
 import { MarketsJourneyComponent } from './pages/markets/markets-journey/markets-journey.component';
 import { MarketsPredictComponent } from './pages/markets/markets-predict/markets-predict.component';
@@ -108,6 +109,7 @@ export const routes: Routes = [
       },
       { path: 'tracker', component: TrackerNotesComponent },
       { path: 'accounts', component: MarketsAccountsComponent },
+      { path: 'statements', component: MarketsStatementsComponent },
       { path: 'roadmap', component: MarketsJourneyComponent },
       { path: 'journey', redirectTo: 'roadmap', pathMatch: 'full' },
       {
