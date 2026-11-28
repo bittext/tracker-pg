@@ -253,6 +253,7 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
   loadList(after?: () => void): void {
     this.listLoading = true;
     const month = this.reportMonth === 0 ? null : this.reportMonth;
+    let afterRan = false;
     this.api.tradingJournalList(this.reportYear, month, this.searchQuery).subscribe({
       next: (res) => {
         this.entries = res.entries ?? [];
@@ -260,7 +261,11 @@ export class TradingJournalPanelComponent implements OnInit, OnDestroy {
         this.monthCloseDays = res.calendarDays ?? [];
         this.calendarCache.clear();
         this.listLoading = false;
-        after?.();
+        // A cached list may arrive before the live one; only open a day once.
+        if (!afterRan) {
+          afterRan = true;
+          after?.();
+        }
       },
       error: (err) => {
         this.listLoading = false;

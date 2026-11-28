@@ -154,8 +154,9 @@
 }
 
 .roth__scroll {
-  max-height: 32rem;
-  overflow: auto;
+  /* Full length: the page scrolls, not the table. Horizontal scroll only for narrow screens. */
+  overflow-x: auto;
+  overflow-y: visible;
 }
 
 .roth__table {

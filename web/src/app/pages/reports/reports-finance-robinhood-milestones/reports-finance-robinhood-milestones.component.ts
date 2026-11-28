@@ -3,9 +3,8 @@ import { Component, OnInit, inject } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { catchError, forkJoin, of } from 'rxjs';
 import { RobinhoodRhDailyTrackerReportDto } from '../../../models/finance.models';
-import { FinanceApiService } from '../../../services/finance-api.service';
+import { RobinhoodAccountDataService } from '../../../services/robinhood-account-data.service';
 
 /** First year the Daily Tracker has data for. */
 const TRACKER_FIRST_YEAR = 2026;
@@ -52,7 +51,7 @@ export interface MilestoneCard {
   styleUrl: './reports-finance-robinhood-milestones.component.scss',
 })
 export class ReportsFinanceRobinhoodMilestonesComponent implements OnInit {
-  private readonly financeApi = inject(FinanceApiService);
+  private readonly data = inject(RobinhoodAccountDataService);
 
   loading = false;
   error: string | null = null;
@@ -63,28 +62,54 @@ export class ReportsFinanceRobinhoodMilestonesComponent implements OnInit {
   private cardsCache: MilestoneCard[] = [];
 
   ngOnInit(): void {
+    // Show whatever is cached right away; the refresh below only replaces it when it is newer.
+    const cached = this.years()
+      .map((y) => this.data.dailyCached(y))
+      .filter((r): r is RobinhoodRhDailyTrackerReportDto => r != null);
+    if (cached.length) {
+      this.reports = cached;
+      this.rebuild();
+    }
     this.load();
   }
 
-  load(): void {
-    this.loading = !this.reports.length;
-    this.error = null;
+  private years(): number[] {
     const years: number[] = [];
     for (let y = TRACKER_FIRST_YEAR; y <= new Date().getFullYear(); y++) {
       years.push(y);
     }
-    forkJoin(
-      years.map((y) => this.financeApi.robinhoodDailyTracker(y, null).pipe(catchError(() => of(null)))),
-    ).subscribe((rows) => {
-      const ok = rows.filter((r): r is RobinhoodRhDailyTrackerReportDto => r != null);
-      this.loading = false;
-      if (!ok.length) {
-        this.error = this.reports.length ? null : 'Could not load the Individual account history.';
-        return;
+    return years;
+  }
+
+  load(): void {
+    this.loading = !this.hasData();
+    this.error = null;
+    const byYear = new Map<number, RobinhoodRhDailyTrackerReportDto>();
+    for (const r of this.reports) {
+      byYear.set(r.year, r);
+    }
+    const years = this.years();
+    let pending = years.length;
+    const done = (): void => {
+      pending -= 1;
+      if (pending === 0) {
+        this.loading = false;
+        if (!this.hasData()) {
+          this.error = 'Could not load the Individual account history.';
+        }
       }
-      this.reports = ok;
-      this.rebuild();
-    });
+    };
+    for (const year of years) {
+      this.data.refreshDaily(year).subscribe({
+        next: (report) => {
+          byYear.set(year, report);
+          this.reports = [...byYear.values()].sort((a, b) => a.year - b.year);
+          this.rebuild();
+        },
+        error: done,
+        complete: done,
+      });
+    }
   }
 
   suffix(): string {

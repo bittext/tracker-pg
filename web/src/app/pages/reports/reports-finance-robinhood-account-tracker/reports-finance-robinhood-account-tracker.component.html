@@ -10,7 +10,7 @@
     <div class="roth__toolbar">
       <mat-form-field appearance="outline" class="roth__year" subscriptSizing="dynamic">
         <mat-label>Year</mat-label>
-        <mat-select [(ngModel)]="reportYear" name="acctYear" (selectionChange)="load()">
+        <mat-select [(ngModel)]="reportYear" name="acctYear" (selectionChange)="onYearChange()">
           @for (y of yearChoices(); track y) {
             <mat-option [value]="y">{{ y }}</mat-option>
           }

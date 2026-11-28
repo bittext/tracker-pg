@@ -441,29 +441,34 @@ export class ReportsFinanceRobinhoodDailyTrackerComponent implements OnInit {
       this.extrasYear = null;
     }
     const months = this.normalizedReportMonths();
+    // A cached copy may arrive first and the live one after it; the second pass must behave like a quiet
+    // refresh so it does not collapse days or reset state the user touched in between.
+    let emissions = 0;
     this.financeApi.robinhoodDailyTracker(this.reportYear, months).subscribe({
       next: (t) => {
         if (seq !== this.loadGeneration) {
           return;
         }
+        emissions += 1;
+        const quiet = silent || emissions > 1;
         this.tracker = t;
         this.syncCalendarMonthFromTracker(t);
         const validDates = new Set(t.days.map((d) => d.snapshotDate));
-        if (!silent) {
+        if (!quiet) {
           this.expandedDays.clear();
         }
         this.mergeExpansionStateFromStorage(validDates);
         this.pruneExpansionState(validDates);
-        if (!silent) {
+        if (!quiet) {
           this.persistExpansionState();
         }
         this.syncNoteDrafts(t.days);
         this.loadJournalDates();
-        this.loadFocusMargin({ silent });
+        this.loadFocusMargin({ silent: quiet });
         this.loading = false;
         this.softRefreshing = false;
-        this.loadMoneyPictureExtras(seq, !silent);
-        if (!silent) {
+        this.loadMoneyPictureExtras(seq, !quiet);
+        if (!quiet) {
           this.syncRefreshHint(true);
         }
       },

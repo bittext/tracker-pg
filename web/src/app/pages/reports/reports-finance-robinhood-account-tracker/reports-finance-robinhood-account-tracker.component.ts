@@ -9,7 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { catchError, forkJoin, interval, of } from 'rxjs';
+import { catchError, interval, of } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import {
   RobinhoodRhDailySnapshotDetailDto,
@@ -19,7 +19,7 @@ import {
   RobinhoodRhPeriodBalanceRowDto,
   RobinhoodRhPeriodBalancesDto,
 } from '../../../models/finance.models';
-import { FinanceApiService } from '../../../services/finance-api.service';
+import { RobinhoodAccountDataService } from '../../../services/robinhood-account-data.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
 import {
   RH_SNAPSHOT_DIALOG_CONFIG,
@@ -69,7 +69,7 @@ interface AccountLatest {
   styleUrl: './reports-finance-robinhood-account-tracker.component.scss',
 })
 export class ReportsFinanceRobinhoodAccountTrackerComponent implements OnInit {
-  private readonly financeApi = inject(FinanceApiService);
+  private readonly data = inject(RobinhoodAccountDataService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly dialog = inject(MatDialog);
   private readonly destroyRef = inject(DestroyRef);
@@ -93,6 +93,8 @@ export class ReportsFinanceRobinhoodAccountTrackerComponent implements OnInit {
   detail: RobinhoodRhDailySnapshotDetailDto | null = null;
 
   ngOnInit(): void {
+    // Paint the last known numbers straight away, then refresh quietly behind them.
+    this.hydrateFromCache();
     this.load();
     interval(ReportsFinanceRobinhoodAccountTrackerComponent.AUTO_REFRESH_MS)
       .pipe(
@@ -111,30 +113,71 @@ export class ReportsFinanceRobinhoodAccountTrackerComponent implements OnInit {
     return years;
   }
 
+  onYearChange(): void {
+    this.daily = null;
+    this.balances = null;
+    this.detail = null;
+    this.hydrateFromCache();
+    this.load();
+  }
+
+  private hydrateFromCache(): void {
+    this.daily = this.data.dailyCached(this.reportYear);
+    this.balances = this.data.balancesCached(this.reportYear);
+    if (this.daily) {
+      this.showCachedDetail();
+    }
+  }
+
+  /** Daily report and balances load independently; each is applied as soon as it arrives. */
   load(opts?: { silent?: boolean }): void {
-    const silent = opts?.silent ?? false;
+    const year = this.reportYear;
+    const silent = (opts?.silent ?? false) || !!this.daily || !!this.balances;
     if (!silent) {
       this.loading = true;
       this.error = null;
     }
-    forkJoin({
-      daily: this.financeApi.robinhoodDailyTracker(this.reportYear, null),
-      balances: this.financeApi.robinhoodDailyTrackerPeriodBalances(this.reportYear),
-    }).subscribe({
-      next: ({ daily, balances }) => {
-        this.daily = daily;
-        this.balances = balances;
-        this.loading = false;
-        this.loadDetail();
-      },
-      error: (err) => {
-        this.loading = false;
-        const message = formatHttpErrorDetail(err) || `Could not load ${this.title}`;
-        if (!silent) {
-          this.error = message;
-          this.snackBar.open(message, 'Dismiss', { duration: 7000 });
+    const failures: string[] = [];
+    const settle = (): void => {
+      pending -= 1;
+      if (pending > 0 || year !== this.reportYear) {
+        return;
+      }
+      this.loading = false;
+      if (!failures.length) {
+        this.error = null;
+      } else if (!this.daily && !this.balances) {
+        this.error = failures[0];
+      }
+      if (failures.length && !silent) {
+        this.snackBar.open(failures[0], 'Dismiss', { duration: 7000 });
+      }
+    };
+    let pending = 2;
+    this.data.refreshDaily(year).subscribe({
+      next: (daily) => {
+        if (year === this.reportYear) {
+          this.daily = daily;
+          this.loadDetail();
         }
       },
+      error: (err) => {
+        failures.push(formatHttpErrorDetail(err) || `Could not load ${this.title}`);
+        settle();
+      },
+      complete: settle,
+    });
+    this.data.refreshBalances(year).subscribe({
+      next: (balances) => {
+        if (year === this.reportYear) {
+          this.balances = balances;
+        }
+      },
+      error: (err) => {
+        failures.push(formatHttpErrorDetail(err) || `Could not load ${this.title}`);
+        settle();
+      },
+      complete: settle,
     });
   }
 
@@ -288,16 +331,30 @@ export class ReportsFinanceRobinhoodAccountTrackerComponent implements OnInit {
     return row?.accounts.find((a) => a.accountSuffix === this.activeSuffix());
   }
 
+  private showCachedDetail(): void {
+    const id = this.latest()?.snapshotId ?? 0;
+    this.detail = id > 0 ? this.data.detailCached(id) : null;
+  }
+
   private loadDetail(): void {
     const id = this.latest()?.snapshotId ?? 0;
     if (id <= 0) {
       this.detail = null;
       return;
     }
-    this.financeApi
-      .robinhoodDailyTrackerSnapshot(id)
+    const cached = this.data.detailCached(id);
+    if (cached) {
+      this.detail = cached;
+      return;
+    }
+    this.data
+      .snapshotDetail(id)
       .pipe(catchError(() => of(null)))
-      .subscribe((row) => (this.detail = row));
+      .subscribe((row) => {
+        if (row && this.latest()?.snapshotId === id) {
+          this.detail = row;
+        }
+      });
   }
 
   private latest(): AccountLatest | null {

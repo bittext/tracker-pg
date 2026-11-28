@@ -78,55 +78,9 @@
       }
     </div>
   </mat-tab>
-  <mat-tab label="Individual">
-    <div class="rh-report-tab-panel">
-      @if (journalNav.analyticsTabIndex() === 10) {
-        <app-reports-finance-robinhood-account-tracker
-          title="Individual brokerage"
-          accountKind="INDIVIDUAL"
-          fallbackSuffix="3370"
-          blurb="The Individual brokerage account on its own: current value, what changed at each 9:00 PM CT close, and what it holds."
-        />
-      }
-    </div>
-  </mat-tab>
-  <mat-tab label="Roth IRA">
-    <div class="rh-report-tab-panel">
-      @if (journalNav.analyticsTabIndex() === 11) {
-        <app-reports-finance-robinhood-account-tracker
-          title="Roth IRA"
-          suffix="2835"
-          blurb="The Roth IRA on its own: current value, what changed at each 9:00 PM CT close, and what it holds."
-        />
-      }
-    </div>
-  </mat-tab>
-  <mat-tab label="Agentic">
-    <div class="rh-report-tab-panel">
-      @if (journalNav.analyticsTabIndex() === 12) {
-        <app-reports-finance-robinhood-account-tracker
-          title="Agentic account"
-          accountKind="AGENTIC"
-          fallbackSuffix="3550"
-          blurb="The Agentic account on its own: current value, what changed at each 9:00 PM CT close, and what it holds."
-        />
-      }
-    </div>
-  </mat-tab>
-  <mat-tab label="Ammu's">
-    <div class="rh-report-tab-panel">
-      @if (journalNav.analyticsTabIndex() === 13) {
-        <app-reports-finance-robinhood-account-tracker
-          title="Ammu's account"
-          suffix="8696"
-          blurb="Ammu's account on its own: current value, what changed at each 9:00 PM CT close, and what it holds."
-        />
-      }
-    </div>
-  </mat-tab>
   <mat-tab label="Milestones">
     <div class="rh-report-tab-panel">
-      @if (journalNav.analyticsTabIndex() === 14) {
+      @if (journalNav.analyticsTabIndex() === 10) {
         <app-reports-finance-robinhood-milestones />
       }
     </div>

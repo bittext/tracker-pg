@@ -154,6 +154,15 @@ export const MARKETS_PRIMARY_NAV: NavEntry[] = [
     exact: true,
   },
   {
+    id: 'accounts',
+    label: 'Accounts',
+    path: '/markets/accounts',
+    icon: 'account_balance',
+    shell: 'markets-primary',
+    exact: true,
+    ariaLabel: 'Accounts — Individual, Roth IRA, Agentic, and Ammu per-account tracking',
+  },
+  {
     id: 'roadmap',
     label: 'Roadmap',
     path: '/markets/roadmap',
