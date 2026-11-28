@@ -23,7 +23,7 @@ export interface RobinhoodDailySnapshotDialogData {
 
 /** Wide enough for holdings (8 cols) + cash-flow tables without clipping. */
 export const RH_SNAPSHOT_DIALOG_CONFIG: Pick<MatDialogConfig, 'width' | 'maxWidth' | 'maxHeight' | 'panelClass'> = {
-  width: 'min(98vw, max(1500px, 85vw))',
+  width: 'min(1500px, 98vw)',
   maxWidth: '98vw',
   maxHeight: '92vh',
   panelClass: 'rh-snap-dialog-panel',

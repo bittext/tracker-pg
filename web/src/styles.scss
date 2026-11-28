@@ -647,13 +647,24 @@ app-management .rep-cal-table-wrap table.mat-mdc-table {
   max-width: 100vw;
 }
 
+/* On very wide or zoomed-out windows the app content sits at the top left (it is capped at 1440px), so a
+   centred pop-up floats far away from it. Anchor the Robinhood pop-ups over the content instead. */
+@media (min-width: 1800px) {
+  .cdk-global-overlay-wrapper:has(.rh-snap-dialog-panel, .rh-perf-dialog-panel, .rh-day-dialog-panel, .mg-day-dialog-panel) {
+    justify-content: flex-start !important;
+    align-items: flex-start !important;
+    padding: 6rem 0 0 1.5rem;
+    box-sizing: border-box;
+  }
+}
+
 /* Reports → Robinhood Performance detail pop-up (account closes + realized sells). */
 .cdk-overlay-container .rh-perf-dialog-panel {
   max-width: 96vw !important;
 }
 
 .cdk-overlay-container .rh-perf-dialog-panel .mat-mdc-dialog-container {
-  width: min(96vw, max(1000px, 70vw));
+  width: min(1000px, 96vw);
   max-width: 96vw;
 }
 
@@ -668,7 +679,7 @@ app-management .rep-cal-table-wrap table.mat-mdc-table {
 }
 
 .cdk-overlay-container .rh-snap-dialog-panel .mat-mdc-dialog-container {
-  width: min(98vw, max(1500px, 85vw));
+  width: min(1500px, 98vw);
   max-width: 98vw;
 }
 
@@ -681,7 +692,7 @@ app-management .rep-cal-table-wrap table.mat-mdc-table {
 }
 
 .cdk-overlay-container .rh-day-dialog-panel .mat-mdc-dialog-container {
-  width: min(96vw, max(980px, 70vw));
+  width: min(980px, 96vw);
   max-width: 96vw;
 }
 
@@ -694,7 +705,7 @@ app-management .rep-cal-table-wrap table.mat-mdc-table {
 }
 
 .cdk-overlay-container .mg-day-dialog-panel .mat-mdc-dialog-container {
-  width: min(96vw, max(1100px, 70vw));
+  width: min(1100px, 96vw);
   max-width: 96vw;
 }
 

@@ -591,7 +591,7 @@ export class ReportsFinanceRobinhoodPerformanceComponent implements OnInit {
 
   private openDetail(data: RhPerfDetailDialogData): void {
     this.dialog.open(RobinhoodPerformanceDetailDialogComponent, {
-      width: 'min(96vw, max(1000px, 70vw))',
+      width: 'min(1000px, 96vw)',
       maxWidth: '96vw',
       maxHeight: '90vh',
       panelClass: 'rh-perf-dialog-panel',
