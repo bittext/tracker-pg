@@ -379,8 +379,8 @@ public class RobinhoodRhDailyTrackerService {
                         "Automatic daily capture is disabled — use Capture now or enable the scheduler in server config.");
             }
             notes.add(
-                    "pulickal-agentic Daily Tracker: ••••3550 (Agentic, tradable), ••••3370 (default individual), ••••4123 (managed), ••••8696 (Ammu’s Acc — linked, not agentic-tradable).");
-            notes.add("Excluded from Daily Tracker: ••••0440 (Short Term Idv), ••••2835 (Roth IRA).");
+                    "pulickal-agentic Daily Tracker: ••••3550 (Agentic, tradable), ••••3370 (default individual), ••••4123 (managed), ••••8696 (Ammu’s Acc — linked, not agentic-tradable), ••••2835 (Roth IRA).");
+            notes.add("Excluded from Daily Tracker: ••••0440 (Short Term Idv).");
             notes.add(
                     "Each day shows the scheduled 9 PM CT snapshot plus hourly pulls under Capture pulse.");
             notes.add("Period flows on scheduled rows are cash movements since the previous 9 PM CT snapshot.");

@@ -57,7 +57,7 @@ class RobinhoodAccountTrackerDailyTrackerSuffixTest {
                 RobinhoodRhDailyTrackerAccountPolicy.SPULICKAL_USERNAME, owned, "8696", NO_ADDITIONAL));
         assertFalse(RobinhoodRhDailyTrackerAccountPolicy.matches(
                 RobinhoodRhDailyTrackerAccountPolicy.SPULICKAL_USERNAME, owned, "0440", NO_ADDITIONAL));
-        assertFalse(RobinhoodRhDailyTrackerAccountPolicy.matches(
+        assertTrue(RobinhoodRhDailyTrackerAccountPolicy.matches(
                 RobinhoodRhDailyTrackerAccountPolicy.SPULICKAL_USERNAME, owned, "2835", NO_ADDITIONAL));
         assertFalse(RobinhoodRhDailyTrackerAccountPolicy.matches(
                 RobinhoodRhDailyTrackerAccountPolicy.SPULICKAL_USERNAME, owned, "4190", NO_ADDITIONAL));

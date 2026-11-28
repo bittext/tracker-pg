@@ -6,7 +6,7 @@ import java.util.Optional;
 /**
  * Maps Robinhood crypto (rhc) account numbers onto Daily Tracker brokerage suffixes so Crypto
  * Tracker can keep the same books: Individual ••••3370, Agentic ••••3550, Ammu ••••8696.
- * Short Term ••••0440 and Roth ••••2835 stay excluded.
+ * Short Term ••••0440 stays excluded.
  */
 final class RobinhoodRhCryptoAccountPolicy {
 

@@ -9,7 +9,7 @@ import java.util.Set;
  * Absolute Daily Tracker account scope per Robinhood Agentic MCP profile.
  *
  * <ul>
- *   <li>{@value #SPULICKAL_USERNAME} — pulickal-agentic: ••••3370, ••••3550, ••••4123, ••••8696 (never ••••0440 / ••••2835)
+ *   <li>{@value #SPULICKAL_USERNAME} — pulickal-agentic: ••••3370, ••••3550, ••••4123, ••••8696, ••••2835 (Roth IRA); never ••••0440
  *   <li>{@value #NISHA_USERNAME} — nisha-agentic: ••••4190 (default), ••••7581 (Agentic) only
  *   <li>Other users — disabled until {@code tracker.finance.rh-daily-tracker.additional-owner-suffixes} is set
  * </ul>
@@ -22,7 +22,7 @@ final class RobinhoodRhDailyTrackerAccountPolicy {
     static final String NISHA_USERNAME = "nisha";
 
     /** pulickal-agentic Daily Tracker allowlist (must also be present in that user's Agentic sync). */
-    static final Set<String> SPULICKAL_PROFILE_SUFFIXES = Set.of("3370", "3550", "4123", "8696");
+    static final Set<String> SPULICKAL_PROFILE_SUFFIXES = Set.of("3370", "3550", "4123", "8696", "2835");
 
     /** nisha-agentic Daily Tracker allowlist (must also be present in that user's Agentic sync). */
     static final Set<String> NISHA_PROFILE_SUFFIXES = Set.of("4190", "7581");
@@ -32,7 +32,7 @@ final class RobinhoodRhDailyTrackerAccountPolicy {
             Set.of("3370", "3550", "4123", "8696", "0440", "2835");
 
     /** Always hidden for spulickal Daily Tracker (still synced elsewhere). */
-    static final Set<String> SPULICKAL_EXCLUDED_SUFFIXES = Set.of("0440", "2835");
+    static final Set<String> SPULICKAL_EXCLUDED_SUFFIXES = Set.of("0440");
 
     /** Managed account — position-change highlighting is skipped in Daily Tracker timeline. */
     static final String POSITION_CHANGE_HIGHLIGHT_EXCLUDED_SUFFIX = "4123";
@@ -147,6 +147,7 @@ final class RobinhoodRhDailyTrackerAccountPolicy {
             case "3550" -> "Agentic a/c (...3550)";
             case "4123" -> "Managed a/c (...4123)";
             case "8696" -> "Ammu's a/c (...8696)";
+            case "2835" -> "Roth IRA (...2835)";
             case "4190" -> "Individual a/c (...4190)";
             case "7581" -> "Agentic a/c (...7581)";
             default -> "Account (..." + s + ")";

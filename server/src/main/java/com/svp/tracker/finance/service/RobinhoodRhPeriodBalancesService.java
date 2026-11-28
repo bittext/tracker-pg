@@ -47,7 +47,7 @@ public class RobinhoodRhPeriodBalancesService {
     private static final ZoneId CENTRAL = ZoneId.of("America/Chicago");
     private static final DateTimeFormatter SHORT_DAY = DateTimeFormatter.ofPattern("MMM d", Locale.US);
     private static final List<String> PREFERRED_SUFFIX_ORDER =
-            List.of("3370", "3550", "4123", "8696", "4190", "7581");
+            List.of("3370", "3550", "4123", "8696", "2835", "4190", "7581");
 
     private final CurrentUserService currentUser;
     private final RobinhoodRhDailySnapshotRepository snapshotRepository;

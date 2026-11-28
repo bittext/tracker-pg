@@ -228,7 +228,7 @@ public class RobinhoodAccountTrackerConfigService {
 
     /**
      * After Agentic sync, align tracked account suffixes with Robinhood roles (default, agentic, managed).
-     * spulickal: exclude ••••0440 and ••••2835 from Daily Tracker. nisha: keep all nisha-agentic accounts.
+     * spulickal: exclude ••••0440 from Daily Tracker. nisha: keep all nisha-agentic accounts.
      */
     @Transactional
     public void applyRolesFromSync(long ownerUserId, JsonNode syncResult) {

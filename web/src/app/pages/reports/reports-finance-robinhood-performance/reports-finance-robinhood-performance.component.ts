@@ -576,6 +576,9 @@ export class ReportsFinanceRobinhoodPerformanceComponent implements OnInit {
     if (lower.includes('agentic')) {
       return 'Agentic';
     }
+    if (lower.includes('roth')) {
+      return 'Roth IRA';
+    }
     return `••••${suffix}`;
   }
 
