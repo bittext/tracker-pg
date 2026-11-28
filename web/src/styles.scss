@@ -653,7 +653,7 @@ app-management .rep-cal-table-wrap table.mat-mdc-table {
 }
 
 .cdk-overlay-container .rh-perf-dialog-panel .mat-mdc-dialog-container {
-  width: min(1000px, 96vw);
+  width: min(96vw, max(1000px, 70vw));
   max-width: 96vw;
 }
 
@@ -668,7 +668,7 @@ app-management .rep-cal-table-wrap table.mat-mdc-table {
 }
 
 .cdk-overlay-container .rh-snap-dialog-panel .mat-mdc-dialog-container {
-  width: min(1500px, 98vw);
+  width: min(98vw, max(1500px, 85vw));
   max-width: 98vw;
 }
 
@@ -681,7 +681,7 @@ app-management .rep-cal-table-wrap table.mat-mdc-table {
 }
 
 .cdk-overlay-container .rh-day-dialog-panel .mat-mdc-dialog-container {
-  width: min(980px, 96vw);
+  width: min(96vw, max(980px, 70vw));
   max-width: 96vw;
 }
 
@@ -694,7 +694,7 @@ app-management .rep-cal-table-wrap table.mat-mdc-table {
 }
 
 .cdk-overlay-container .mg-day-dialog-panel .mat-mdc-dialog-container {
-  width: min(1100px, 96vw);
+  width: min(96vw, max(1100px, 70vw));
   max-width: 96vw;
 }
 

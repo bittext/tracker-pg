@@ -9,7 +9,7 @@ export interface MarginWatchDayDialogData {
 }
 
 export const MG_DAY_DIALOG_CONFIG: Pick<MatDialogConfig, 'width' | 'maxWidth' | 'maxHeight' | 'panelClass'> = {
-  width: 'min(1100px, 96vw)',
+  width: 'min(96vw, max(1100px, 70vw))',
   maxWidth: '96vw',
   maxHeight: '90vh',
   panelClass: 'mg-day-dialog-panel',
