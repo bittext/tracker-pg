@@ -50,6 +50,7 @@ import { MoneyPanelComponent } from './money-panel/money-panel.component';
 import { MoneyStandingPanelComponent } from './money-standing-panel/money-standing-panel.component';
 import { CreditPanelComponent } from './credit-panel/credit-panel.component';
 import { InsurancePanelComponent } from './insurance-panel/insurance-panel.component';
+import { MarketsTradeInterestComponent } from '../markets/markets-trade-interest/markets-trade-interest.component';
 
 type FinanceWorkspace = 'all' | 'money' | 'trading';
 type TradingSection = 'trade' | 'research' | 'history' | 'alerts' | 'all';
@@ -57,6 +58,7 @@ type TradingTabId =
   | 'robinhood'
   | 'cash-io'
   | 'selective-trades'
+  | 'interest'
   | 'watch'
   | 'financials'
   | 'news'
@@ -118,6 +120,7 @@ type FinanceCategory =
     MoneyStandingPanelComponent,
     CreditPanelComponent,
     InsurancePanelComponent,
+    MarketsTradeInterestComponent,
   ],
   templateUrl: './finance.component.html',
   styleUrl: './finance.component.scss',
@@ -175,7 +178,16 @@ export class FinanceComponent implements OnInit {
     ) {
       this.tradingSection = routeSection;
     }
-    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe(() => this.applyMoneyCategoryQueryParam());
+    this.route.queryParamMap.pipe(takeUntilDestroyed()).subscribe(() => {
+      this.applyMoneyCategoryQueryParam();
+      if (this.initialized) {
+        // Same-page links such as Desk → Interest only change the query string.
+        this.applyFinvizQueryParams();
+        if (this.isTradingWorkspace) {
+          this.onFinanceSubTabIndexChange(this.financeSubTabIndex);
+        }
+      }
+    });
   }
   /** Index within the visible trading tabs for the current section. */
   financeSubTabIndex = 0;
@@ -246,6 +258,8 @@ export class FinanceComponent implements OnInit {
     { value: 12, label: 'December' },
   ];
 
+  private initialized = false;
+
   ngOnInit(): void {
     const routeWorkspace = this.route.snapshot.data['workspace'] as FinanceWorkspace | undefined;
     if (routeWorkspace === 'money' || routeWorkspace === 'trading') {
@@ -269,6 +283,7 @@ export class FinanceComponent implements OnInit {
     if (this.isTradingWorkspace) {
       this.onFinanceSubTabIndexChange(this.financeSubTabIndex);
     }
+    this.initialized = true;
   }
 
   /** Deep-link: `/life/money?tab=standing|credit|loans|…` */
@@ -295,11 +310,11 @@ export class FinanceComponent implements OnInit {
     if (symbol) {
       this.finvizInitialSymbol = symbol;
     }
-    if (tab === 'finviz' && this.showTradingTab('finviz')) {
-      const idx = this.visibleTradingTabs.indexOf('finviz');
+    if ((tab === 'finviz' || tab === 'interest') && this.showTradingTab(tab)) {
+      const idx = this.visibleTradingTabs.indexOf(tab);
       if (idx >= 0) {
         this.financeSubTabIndex = idx;
-        this.activeTradingTabId = 'finviz';
+        this.activeTradingTabId = tab;
       }
     }
   }
@@ -315,7 +330,7 @@ export class FinanceComponent implements OnInit {
   get visibleTradingTabs(): TradingTabId[] {
     switch (this.tradingSection) {
       case 'trade':
-        return ['robinhood', 'cash-io', 'selective-trades'];
+        return ['robinhood', 'cash-io', 'selective-trades', 'interest'];
       case 'research':
         return [
           'watch',
@@ -338,6 +353,7 @@ export class FinanceComponent implements OnInit {
           'robinhood',
           'cash-io',
           'selective-trades',
+          'interest',
           'watch',
           'financials',
           'news',
@@ -385,7 +401,7 @@ export class FinanceComponent implements OnInit {
     if (this.isTradingWorkspace) {
       switch (this.tradingSection) {
         case 'trade':
-          return 'Live desk for Agentic review/place, cash inputs/outputs, and selective trade notes.';
+          return 'Live desk for Agentic review/place, cash inputs/outputs, selective trade notes, and stocks/options of interest.';
         case 'research':
           return 'Watch companies into earnings, plus news, crawler, screeners, predicts, options backtest, and then & now.';
         case 'history':

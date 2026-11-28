@@ -11,7 +11,7 @@
     <div class="rh-perf__toolbar">
       <mat-form-field appearance="outline" class="rh-perf__year" subscriptSizing="dynamic">
         <mat-label>Year</mat-label>
-        <mat-select [(ngModel)]="reportYear" name="rhPerfYear" (selectionChange)="load()">
+        <mat-select [(ngModel)]="reportYear" name="rhPerfYear" (selectionChange)="onYearChange()">
           @for (y of yearChoices(); track y) {
             <mat-option [value]="y">{{ y }}</mat-option>
           }

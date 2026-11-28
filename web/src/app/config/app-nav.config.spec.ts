@@ -19,10 +19,10 @@ describe('app-nav.config', () => {
     expect(labels.length).toBe(9);
   });
 
-  it('Markets primary nav has 9 unique labels', () => {
+  it('Markets primary nav has 8 unique labels', () => {
     const labels = MARKETS_PRIMARY_NAV.map((e) => e.label);
     expect(new Set(labels).size).toBe(labels.length);
-    expect(labels.length).toBe(9);
+    expect(labels.length).toBe(8);
   });
 
   it('Predict is kept out of the Markets primary nav and offered as a quiet link', () => {

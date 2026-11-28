@@ -1,0 +1,219 @@
+<section class="roth" aria-labelledby="acct-heading">
+  <header class="roth__head">
+    <div>
+      <h2 id="acct-heading" class="roth__title">{{ title }} <span class="muted">••••{{ activeSuffix() }}</span></h2>
+      <p class="muted roth__lead">
+        {{ blurb }} Deposits and withdrawals are split out so cash you add or take out is not mistaken for growth. Click a row for the full
+        detail of that capture.
+      </p>
+    </div>
+    <div class="roth__toolbar">
+      <mat-form-field appearance="outline" class="roth__year" subscriptSizing="dynamic">
+        <mat-label>Year</mat-label>
+        <mat-select [(ngModel)]="reportYear" name="acctYear" (selectionChange)="load()">
+          @for (y of yearChoices(); track y) {
+            <mat-option [value]="y">{{ y }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+      <button mat-stroked-button type="button" (click)="load()" [disabled]="loading">
+        @if (loading) {
+          <mat-spinner diameter="18" />
+        } @else {
+          <mat-icon>refresh</mat-icon>
+        }
+        Refresh
+      </button>
+    </div>
+  </header>
+
+  @if (loading && !daily) {
+    <div class="roth__loading"><mat-spinner diameter="32" /></div>
+  } @else if (error && !daily) {
+    <p class="load-error" role="alert">{{ error }}</p>
+  } @else if (!hasData() && !yearFigure()) {
+    <p class="muted roth__empty">
+      No {{ title }} captures yet. The account is included in the next Agentic sync and Daily Tracker capture (hourly, plus the
+      9:00 PM CT close). Use Capture now on the Performance tab to pull it immediately.
+    </p>
+  } @else {
+    <section class="roth__hero" aria-label="Account scoreboard">
+      <article class="roth__kpi roth__kpi--now">
+        <span class="roth__kpi-label">Now</span>
+        <strong class="roth__kpi-value">{{ now() != null ? (now()! | currency) : '—' }}</strong>
+        <small class="muted">{{ nowAtLabel() }}</small>
+        @if (detail) {
+          <dl class="roth__mix">
+            <div>
+              <dt>Invested</dt>
+              <dd>{{ detail.equityMarketValue | currency }}</dd>
+            </div>
+            <div>
+              <dt>Cash</dt>
+              <dd>{{ detail.cashBalance | currency }}</dd>
+            </div>
+          </dl>
+        }
+      </article>
+      <article class="roth__kpi">
+        <span class="roth__kpi-label">Since last close</span>
+        <strong
+          class="roth__kpi-value"
+          [class.roth__pos]="isGain(sinceLastClose())"
+          [class.roth__neg]="isLoss(sinceLastClose())"
+        >
+          {{ sinceLastClose() != null ? (sinceLastClose()! | currency) : '—' }}
+        </strong>
+        <small class="muted">Latest capture vs last 9:00 PM CT</small>
+      </article>
+      <article class="roth__kpi">
+        <span class="roth__kpi-label">Year {{ reportYear }}</span>
+        @if (yearFigure(); as y) {
+          <strong class="roth__kpi-value" [class.roth__pos]="isGain(y.change)" [class.roth__neg]="isLoss(y.change)">
+            {{ y.change != null ? (y.change | currency) : '—' }}
+            @if (pct(y.start, y.change); as p) {
+              <em>{{ p | number: '1.1-1' }}%</em>
+            }
+          </strong>
+          <small class="muted">
+            {{ y.start != null ? (y.start | currency) : '—' }} start · Added {{ y.added ?? 0 | currency }} · Taken out
+            {{ y.removed ?? 0 | currency }} · After cash
+            <span [class.roth__pos]="isGain(y.marketChange)" [class.roth__neg]="isLoss(y.marketChange)">
+              {{ y.marketChange != null ? (y.marketChange | currency) : '—' }}
+            </span>
+          </small>
+        } @else {
+          <strong class="roth__kpi-value">—</strong>
+          <small class="muted">Needs at least one 9:00 PM CT close</small>
+        }
+      </article>
+    </section>
+
+    <div class="roth__grid">
+      <section class="roth__section" aria-label="Change log">
+        <h3 class="roth__section-title">Change log</h3>
+        <p class="muted roth__hint">Every close, newest first. After cash removes deposits and withdrawals. Click a row for holdings, trades and cash moves.</p>
+        @if (!changeRows().length) {
+          <p class="muted">No closes recorded for {{ reportYear }} yet.</p>
+        } @else {
+          <div class="roth__scroll">
+            <table class="roth__table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th class="roth__num">Value</th>
+                  <th class="roth__num">Change</th>
+                  <th class="roth__num">Added</th>
+                  <th class="roth__num">Taken out</th>
+                  <th class="roth__num">After cash</th>
+                  <th class="roth__num">Trades</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (row of changeRows(); track row.at ?? row.date) {
+                  <tr class="roth__click" tabindex="0" (click)="openSnapshot(row)" (keydown.enter)="openSnapshot(row)">
+                    <th scope="row">
+                      {{ row.date }}
+                      @if (row.kind === 'LIVE') {
+                        <span class="roth__tag">live</span>
+                      }
+                      @if (row.positionsChanged) {
+                        <span class="roth__tag roth__tag--moves" title="Holdings changed vs the prior pull">moves</span>
+                      }
+                    </th>
+                    <td class="roth__num">{{ row.value | currency }}</td>
+                    <td class="roth__num" [class.roth__pos]="isGain(row.change)" [class.roth__neg]="isLoss(row.change)">
+                      {{ row.change != null ? (row.change | currency) : '—' }}
+                    </td>
+                    <td class="roth__num">{{ row.added ? (row.added | currency) : '—' }}</td>
+                    <td class="roth__num">{{ row.removed ? (row.removed | currency) : '—' }}</td>
+                    <td
+                      class="roth__num"
+                      [class.roth__pos]="isGain(row.afterCash)"
+                      [class.roth__neg]="isLoss(row.afterCash)"
+                    >
+                      {{ row.afterCash != null ? (row.afterCash | currency) : '—' }}
+                    </td>
+                    <td class="roth__num">{{ row.tradeCount || '—' }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </section>
+
+      <div class="roth__side">
+        <section class="roth__section" aria-label="Months">
+          <h3 class="roth__section-title">By month</h3>
+          @if (!monthRows().length) {
+            <p class="muted">No monthly closes yet.</p>
+          } @else {
+            <table class="roth__table">
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th class="roth__num">End</th>
+                  <th class="roth__num">Change</th>
+                  <th class="roth__num">After cash</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (m of monthRows(); track m.label) {
+                  <tr>
+                    <th scope="row">{{ m.label }}</th>
+                    <td class="roth__num">{{ m.figure.end != null ? (m.figure.end | currency) : '—' }}</td>
+                    <td
+                      class="roth__num"
+                      [class.roth__pos]="isGain(m.figure.change)"
+                      [class.roth__neg]="isLoss(m.figure.change)"
+                    >
+                      {{ m.figure.change != null ? (m.figure.change | currency) : '—' }}
+                    </td>
+                    <td
+                      class="roth__num"
+                      [class.roth__pos]="isGain(m.figure.marketChange)"
+                      [class.roth__neg]="isLoss(m.figure.marketChange)"
+                    >
+                      {{ m.figure.marketChange != null ? (m.figure.marketChange | currency) : '—' }}
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </section>
+
+        <section class="roth__section" aria-label="Holdings">
+          <h3 class="roth__section-title">Holdings</h3>
+          @if (!holdings().length) {
+            <p class="muted">No positions in the latest capture.</p>
+          } @else {
+            <table class="roth__table">
+              <thead>
+                <tr>
+                  <th>Symbol</th>
+                  <th class="roth__num">Qty</th>
+                  <th class="roth__num">Value</th>
+                  <th class="roth__num">Since prior</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (h of holdings(); track h.symbol + h.type) {
+                  <tr [class.roth__exited]="h.exited">
+                    <th scope="row">{{ h.symbol }}</th>
+                    <td class="roth__num">{{ h.quantity | number: '1.0-4' }}</td>
+                    <td class="roth__num">{{ h.value | currency }}</td>
+                    <td class="roth__num" [class.roth__pos]="isGain(h.change)" [class.roth__neg]="isLoss(h.change)">
+                      {{ h.change != null ? (h.change | currency) : '—' }}
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </section>
+      </div>
+    </div>
+  }
+</section>

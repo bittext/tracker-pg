@@ -35,7 +35,7 @@
         Capture now
       </button>
       <a mat-stroked-button routerLink="/markets/analytics" (click)="openAnalytics()">Analytics</a>
-      <a mat-stroked-button routerLink="/markets/interest">Interest</a>
+      <a mat-stroked-button routerLink="/markets/trade" [queryParams]="{ tab: 'interest' }">Interest</a>
     </div>
   </header>
 

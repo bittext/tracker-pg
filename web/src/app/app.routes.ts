@@ -23,7 +23,6 @@ import { MarketsPredictComponent } from './pages/markets/markets-predict/markets
 import { MarketsPredictFreshComponent } from './pages/markets/markets-predict-fresh/markets-predict-fresh.component';
 import { MarketsPredictBtcComponent } from './pages/markets/markets-predict-btc/markets-predict-btc.component';
 import { MarketsPredictStreaksComponent } from './pages/markets/markets-predict-streaks/markets-predict-streaks.component';
-import { MarketsTradeInterestComponent } from './pages/markets/markets-trade-interest/markets-trade-interest.component';
 import { TrackerNotesComponent } from './pages/tracker-notes/tracker-notes.component';
 import { ReportsComponent } from './pages/reports/reports.component';
 import { SettingsComponent } from './pages/settings/settings.component';
@@ -100,7 +99,7 @@ export const routes: Routes = [
         component: FinanceComponent,
         data: { workspace: 'trading', tradingSection: 'trade' },
       },
-      { path: 'interest', component: MarketsTradeInterestComponent },
+      { path: 'interest', redirectTo: 'trade?tab=interest', pathMatch: 'full' },
       {
         path: 'research',
         component: FinanceComponent,

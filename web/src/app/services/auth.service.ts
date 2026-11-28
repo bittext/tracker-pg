@@ -117,6 +117,19 @@ export class AuthService {
     this.authState$.next(true);
   }
 
+  /** Drops locally cached Performance data so it never outlives the signed-in user. */
+  private clearCachedFinanceData(): void {
+    try {
+      for (const key of Object.keys(localStorage)) {
+        if (key.startsWith('tracker.rh-perf-cache.')) {
+          localStorage.removeItem(key);
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
   logout(redirectToLogin = true): void {
     const token = this.token;
     const location = buildLoginLocationContext();
@@ -125,6 +138,7 @@ export class AuthService {
       localStorage.removeItem(USER_KEY);
       localStorage.removeItem(ROLE_KEY);
       localStorage.removeItem(MARKETS_KEY);
+      this.clearCachedFinanceData();
       this.authState$.next(false);
       if (redirectToLogin) {
         this.router.navigate(['/login']);

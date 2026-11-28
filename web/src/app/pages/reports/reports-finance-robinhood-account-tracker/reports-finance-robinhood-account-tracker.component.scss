@@ -1,0 +1,251 @@
+.roth {
+  padding: 0.15rem 0.1rem 1.4rem;
+}
+
+.roth__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.85rem 1.25rem;
+}
+
+.roth__title {
+  margin: 0 0 0.25rem;
+  font-size: 1.2rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+
+  .muted {
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+}
+
+.roth__lead {
+  margin: 0;
+  max-width: 42rem;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.roth__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.roth__year {
+  width: 7.5rem;
+}
+
+.roth__loading,
+.roth__empty {
+  padding: 1.75rem 0;
+}
+
+.roth__hero {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 0.95rem 0 1.2rem;
+}
+
+.roth__kpi {
+  min-width: 0;
+  padding: 0.8rem 0.9rem 0.85rem;
+  border: 1px solid var(--app-border, rgba(15, 23, 42, 0.12));
+  border-radius: 12px;
+  background: var(--app-surface, #fff);
+}
+
+.roth__kpi--now {
+  grid-column: span 2;
+  background: color-mix(in srgb, var(--mat-sys-primary, #1a5f4a) 7%, var(--app-surface, #fff));
+}
+
+.roth__kpi-label {
+  display: block;
+  margin-bottom: 0.28rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--app-text-muted, #64748b);
+}
+
+.roth__kpi-value {
+  display: block;
+  font-size: 1.2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+
+  em {
+    margin-left: 0.3rem;
+    font-style: normal;
+    font-size: 0.78rem;
+    font-weight: 650;
+    opacity: 0.8;
+  }
+}
+
+.roth__kpi small {
+  display: block;
+  margin-top: 0.28rem;
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.roth__mix {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin: 0.65rem 0 0;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+
+  dt {
+    margin: 0 0 0.08rem;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--app-text-muted, #64748b);
+  }
+
+  dd {
+    margin: 0;
+    font-size: 0.74rem;
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.roth__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.9fr);
+  gap: 1rem 1.25rem;
+}
+
+.roth__side {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+  min-width: 0;
+}
+
+.roth__section {
+  min-width: 0;
+}
+
+.roth__section-title {
+  margin: 0 0 0.2rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.roth__hint {
+  margin: 0 0 0.5rem;
+  font-size: 0.72rem;
+}
+
+.roth__scroll {
+  max-height: 32rem;
+  overflow: auto;
+}
+
+.roth__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+
+  th,
+  td {
+    padding: 0.42rem 0.35rem;
+    border-bottom: 1px solid var(--app-border, rgba(15, 23, 42, 0.1));
+    text-align: left;
+    vertical-align: middle;
+  }
+
+  thead th {
+    position: sticky;
+    top: 0;
+    background: var(--app-surface, #fff);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--app-text-muted, #64748b);
+  }
+
+  tbody th {
+    font-weight: 650;
+    white-space: nowrap;
+  }
+}
+
+.roth__num {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.roth__tag {
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--mat-sys-primary, #1a5f4a) 14%, transparent);
+}
+
+.roth__tag--moves {
+  background: color-mix(in srgb, #d97706 18%, transparent);
+}
+
+.roth__exited {
+  opacity: 0.6;
+}
+
+.roth__pos {
+  color: #047857;
+}
+
+.roth__neg {
+  color: #b91c1c;
+}
+
+@media (max-width: 1100px) {
+  .roth__hero {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .roth__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .roth__hero {
+    grid-template-columns: 1fr;
+  }
+
+  .roth__kpi--now {
+    grid-column: auto;
+  }
+}
+
+.roth__click {
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    background: color-mix(in srgb, var(--mat-sys-primary, #1a5f4a) 6%, transparent);
+  }
+}

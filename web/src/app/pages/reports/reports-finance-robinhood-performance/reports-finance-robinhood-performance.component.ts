@@ -9,8 +9,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { forkJoin, interval, of } from 'rxjs';
-import { catchError, filter, switchMap } from 'rxjs/operators';
+import { Observable, forkJoin, interval, of } from 'rxjs';
+import { catchError, filter, switchMap, tap } from 'rxjs/operators';
 import {
   RobinhoodExecutedTradeDto,
   RobinhoodExecutedTradesDto,
@@ -27,6 +27,7 @@ import {
   RobinhoodRhPeriodBalancesDto,
 } from '../../../models/finance.models';
 import { FinanceApiService } from '../../../services/finance-api.service';
+import { RobinhoodPerformanceCacheService } from '../../../services/robinhood-performance-cache.service';
 import { TradingJournalNavService } from '../../../services/trading-journal-nav.service';
 import { formatHttpErrorDetail } from '../../../util/http-error';
 import {
@@ -79,6 +80,7 @@ export class ReportsFinanceRobinhoodPerformanceComponent implements OnInit {
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly cache = inject(RobinhoodPerformanceCacheService);
   readonly journalNav = inject(TradingJournalNavService);
 
   private static readonly AUTO_REFRESH_MS = 25_000;
@@ -99,6 +101,8 @@ export class ReportsFinanceRobinhoodPerformanceComponent implements OnInit {
   private refreshPollReady = false;
 
   ngOnInit(): void {
+    // Paint the last known numbers straight away; load() then refreshes them in the background.
+    this.hydrateFromCache();
     this.load();
     this.startAutoRefresh();
     document.addEventListener('visibilitychange', this.onVisibilityChange);
@@ -116,8 +120,42 @@ export class ReportsFinanceRobinhoodPerformanceComponent implements OnInit {
     return years;
   }
 
+  /** Switching year: show that year's cached numbers (or a clean slate) instead of the previous year's. */
+  onYearChange(): void {
+    this.daily = null;
+    this.balances = null;
+    this.trades = null;
+    this.crypto = null;
+    this.snapshotDetails = [];
+    this.hydrateFromCache();
+    this.load();
+  }
+
+  private hydrateFromCache(): void {
+    const cached = this.cache.read(this.reportYear);
+    if (!cached) {
+      return;
+    }
+    this.daily = cached.daily;
+    this.balances = cached.balances;
+    this.trades = cached.trades;
+    this.crypto = cached.crypto;
+    if (this.daily) {
+      this.loadSnapshotDetails();
+    }
+  }
+
+  private hasContent(): boolean {
+    return !!(this.daily || this.balances);
+  }
+
+  /**
+   * Each section is requested on its own and applied the moment it arrives, so the page fills in
+   * progressively. With cached data on screen the refresh is silent (no spinner, no blanking).
+   */
   load(opts?: { silent?: boolean }): void {
-    const silent = opts?.silent ?? false;
+    const year = this.reportYear;
+    const silent = (opts?.silent ?? false) || this.hasContent();
     if (silent) {
       this.softRefreshing = true;
     } else {
@@ -125,34 +163,72 @@ export class ReportsFinanceRobinhoodPerformanceComponent implements OnInit {
       this.error = null;
     }
     const currentYear = new Date().getFullYear();
-    const months = this.reportYear === currentYear ? [new Date().getMonth() + 1] : null;
-    forkJoin({
-      daily: this.financeApi.robinhoodDailyTracker(this.reportYear, months),
-      balances: this.financeApi.robinhoodDailyTrackerPeriodBalances(this.reportYear),
-      trades: this.financeApi.robinhoodExecutedTrades(this.reportYear),
-      crypto: this.financeApi.robinhoodCryptoTracker(this.reportYear, months ?? undefined),
-    }).subscribe({
-      next: ({ daily, balances, trades, crypto }) => {
-        this.daily = daily;
-        this.balances = balances;
-        this.trades = trades;
-        this.crypto = crypto;
-        this.loading = false;
-        this.softRefreshing = false;
-        this.loadSnapshotDetails();
-        if (!silent) {
-          this.syncRefreshHint(true);
+    const months = year === currentYear ? [new Date().getMonth() + 1] : null;
+    const failures: string[] = [];
+    const guard = <T>(label: string, source: Observable<T>) =>
+      source.pipe(
+        catchError((err) => {
+          failures.push(formatHttpErrorDetail(err) || `Could not load ${label}`);
+          return of(null as T | null);
+        }),
+      );
+    const stale = () => year !== this.reportYear;
+
+    forkJoin([
+      guard('daily tracker', this.financeApi.robinhoodDailyTracker(year, months)).pipe(
+        tap((daily) => {
+          if (!daily || stale()) {
+            return;
+          }
+          this.daily = daily;
+          this.cache.write(year, { daily });
+          this.loadSnapshotDetails();
+        }),
+      ),
+      guard('balances', this.financeApi.robinhoodDailyTrackerPeriodBalances(year)).pipe(
+        tap((balances) => {
+          if (balances && !stale()) {
+            this.balances = balances;
+            this.cache.write(year, { balances });
+          }
+        }),
+      ),
+      guard('trades', this.financeApi.robinhoodExecutedTrades(year)).pipe(
+        tap((trades) => {
+          if (trades && !stale()) {
+            this.trades = trades;
+            this.cache.write(year, { trades });
+          }
+        }),
+      ),
+      guard('crypto', this.financeApi.robinhoodCryptoTracker(year, months ?? undefined)).pipe(
+        tap((crypto) => {
+          if (crypto && !stale()) {
+            this.crypto = crypto;
+            this.cache.write(year, { crypto });
+          }
+        }),
+      ),
+    ]).subscribe(() => {
+      if (stale()) {
+        return;
+      }
+      this.loading = false;
+      this.softRefreshing = false;
+      if (!failures.length) {
+        this.error = null;
+      } else {
+        const message = failures[0];
+        if (!this.hasContent()) {
+          this.error = message;
         }
-      },
-      error: (err) => {
-        this.loading = false;
-        this.softRefreshing = false;
-        const message = formatHttpErrorDetail(err) || 'Could not load Performance';
-        this.error = silent ? this.error : message;
         if (!silent) {
           this.snackBar.open(message, 'Dismiss', { duration: 7000 });
         }
-      },
+      }
+      if (!silent || !this.refreshPollReady) {
+        this.syncRefreshHint(true);
+      }
     });
   }
 

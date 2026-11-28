@@ -138,15 +138,6 @@ export const MARKETS_PRIMARY_NAV: NavEntry[] = [
     exact: true,
   },
   {
-    id: 'interest',
-    label: 'Interest',
-    path: '/markets/interest',
-    icon: 'flag',
-    shell: 'markets-primary',
-    exact: true,
-    ariaLabel: 'Stocks and options you plan to pursue',
-  },
-  {
     id: 'research',
     label: 'Research',
     path: '/markets/research',

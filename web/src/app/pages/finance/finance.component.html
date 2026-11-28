@@ -142,6 +142,16 @@
       </mat-tab>
       }
 
+      @if (showTradingTab('interest')) {
+      <mat-tab label="Interest">
+        <div class="finance-panel">
+          @if (tradingSubTabActive('interest')) {
+            <app-markets-trade-interest />
+          }
+        </div>
+      </mat-tab>
+      }
+
       @if (showTradingTab('watch')) {
       <mat-tab label="Watch">
         <div class="finance-panel">
