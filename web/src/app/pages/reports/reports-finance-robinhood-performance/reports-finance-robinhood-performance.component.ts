@@ -397,6 +397,32 @@ export class ReportsFinanceRobinhoodPerformanceComponent implements OnInit {
     });
   }
 
+  /** Account cards shown in full: Roth IRA takes the slot Managed used to hold, and Managed drops out. */
+  featuredAccountRows(): LiveAccountRow[] {
+    const all = this.accountRows();
+    const managedAt = all.findIndex((a) => this.isManaged(a));
+    const rest = all.filter((a) => !this.isManaged(a));
+    const rothAt = rest.findIndex((a) => this.isRoth(a));
+    if (rothAt >= 0 && managedAt >= 0) {
+      const [roth] = rest.splice(rothAt, 1);
+      rest.splice(Math.min(managedAt, rest.length), 0, roth);
+    }
+    return rest;
+  }
+
+  /** Managed stays on the page as a one-line note instead of a full card. */
+  managedAccountRow(): LiveAccountRow | null {
+    return this.accountRows().find((a) => this.isManaged(a)) ?? null;
+  }
+
+  private isManaged(acct: LiveAccountRow): boolean {
+    return acct.shortLabel === 'Managed';
+  }
+
+  private isRoth(acct: LiveAccountRow): boolean {
+    return acct.shortLabel === 'Roth IRA';
+  }
+
   monthRows(): RobinhoodRhPeriodBalanceRowDto[] {
     return (this.balances?.months ?? []).filter(
       (row) => row.combinedStart != null || row.combinedEnd != null || row.combinedChange != null,

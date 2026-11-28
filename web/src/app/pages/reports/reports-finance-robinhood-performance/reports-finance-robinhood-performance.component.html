@@ -164,7 +164,7 @@
         <p class="muted">No Daily Tracker accounts for this year.</p>
       } @else {
         <div class="rh-perf__accounts">
-          @for (acct of accountRows(); track acct.suffix) {
+          @for (acct of featuredAccountRows(); track acct.suffix) {
             <article class="rh-perf__account rh-perf__click" role="button" tabindex="0" (click)="openAccountDetail(acct)" (keydown.enter)="openAccountDetail(acct)">
               <header class="rh-perf__account-head">
                 <strong>{{ acct.shortLabel }}</strong>
@@ -213,6 +213,23 @@
             </article>
           }
         </div>
+        @if (managedAccountRow(); as mg) {
+          <p
+            class="rh-perf__managed muted rh-perf__click"
+            role="button"
+            tabindex="0"
+            (click)="openAccountDetail(mg)"
+            (keydown.enter)="openAccountDetail(mg)"
+          >
+            Managed ••••{{ mg.suffix }} · {{ mg.now != null ? (mg.now | currency) : '—' }}
+            @if (mg.yearChange != null) {
+              · Year
+              <span [class.rh-perf__pnl--pos]="isGain(mg.yearChange)" [class.rh-perf__pnl--neg]="isLoss(mg.yearChange)">
+                {{ mg.yearChange | currency }}
+              </span>
+            }
+          </p>
+        }
       }
     </section>
 
